@@ -1,1 +1,27 @@
-@import "tailwindcss";
+@import '@fontsource/dm-sans/400.css';
+@import '@fontsource/dm-sans/500.css';
+@import '@fontsource/dm-sans/600.css';
+@import '@fontsource/dm-sans/700.css';
+@import 'tailwindcss';
+
+@theme {
+    --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+    --color-herb: #708c69;
+    --color-marigold: #f4a258;
+    --color-brand: #013d5a;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: #ffffff;
+    color: #111827;
+}
+
+::selection {
+    background: var(--color-marigold);
+    color: #0b0b0b;
+}
+
+button {
+    cursor: pointer;
+}

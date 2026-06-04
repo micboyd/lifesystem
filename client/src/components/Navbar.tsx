@@ -2,48 +2,48 @@ import { Link, useLocation } from 'react-router-dom'
 
 const navLinks = [
     { label: 'Home', to: '/' },
-    { label: 'About', to: '/about' },
-    { label: 'Dashboard', to: '/dashboard' },
+    { label: 'Style Guide', to: '/styleguide' },
 ]
 
 export default function Navbar() {
     const { pathname } = useLocation()
 
     return (
-        <nav className="w-full bg-black text-white">
-            <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-                {/* Logo */}
-                <Link to="/" className="text-xl font-black tracking-tighter">
-                    LIFESYSTEM
-                </Link>
+        <div className="sticky top-0 z-40 border-b border-neutral-100 bg-white/95 backdrop-blur-sm">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6">
+                <nav className="flex h-14 items-center justify-between sm:h-16">
+                    {/* Brand */}
+                    <Link to="/" className="flex items-center gap-2.5 shrink-0">
+                        <span className="grid h-8 w-8 place-items-center rounded-lg bg-neutral-950 text-sm font-bold text-white">
+                            L
+                        </span>
+                        <span className="text-sm font-bold tracking-tight text-neutral-900">
+                            Lifesystem
+                        </span>
+                    </Link>
 
-                {/* Links */}
-                <ul className="hidden md:flex items-center gap-8">
-                    {navLinks.map(({ label, to }) => (
-                        <li key={to}>
-                            <Link
-                                to={to}
-                                className={[
-                                    'text-sm font-semibold tracking-tight transition-colors duration-150',
-                                    pathname === to
-                                        ? 'text-white'
-                                        : 'text-neutral-400 hover:text-white',
-                                ].join(' ')}
-                            >
-                                {label}
-                            </Link>
-                        </li>
-                    ))}
-                </ul>
-
-                {/* CTA */}
-                <Link
-                    to="/login"
-                    className="bg-white text-black text-sm font-semibold px-5 py-2 hover:bg-neutral-200 transition-colors duration-150"
-                >
-                    Sign in
-                </Link>
+                    {/* Links */}
+                    <div className="flex items-center gap-1">
+                        {navLinks.map(({ label, to }) => {
+                            const active = pathname === to
+                            return (
+                                <Link
+                                    key={to}
+                                    to={to}
+                                    className={[
+                                        'rounded-full px-4 py-2 text-sm font-semibold transition-all duration-150',
+                                        active
+                                            ? 'bg-neutral-950 text-white'
+                                            : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900',
+                                    ].join(' ')}
+                                >
+                                    {label}
+                                </Link>
+                            )
+                        })}
+                    </div>
+                </nav>
             </div>
-        </nav>
+        </div>
     )
 }
