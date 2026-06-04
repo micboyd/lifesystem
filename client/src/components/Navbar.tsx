@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import Container from './Container'
 
 const navLinks = [
     { label: 'Home', to: '/' },
@@ -10,12 +11,12 @@ export default function Navbar() {
 
     return (
         <div className="sticky top-0 z-40 border-b border-neutral-100 bg-white/95 backdrop-blur-sm">
-            <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <Container>
                 <nav className="flex h-14 items-center justify-between sm:h-16">
                     {/* Brand */}
                     <Link to="/" className="flex items-center gap-2.5 shrink-0">
-                        <span className="grid h-8 w-8 place-items-center rounded-lg bg-neutral-950 text-sm font-bold text-white">
-                            L
+                        <span className="grid h-8 w-8 place-items-center rounded-lg bg-neutral-950 text-sm text-white">
+                            <i className="fa-solid fa-layer-group" aria-hidden="true" />
                         </span>
                         <span className="text-sm font-bold tracking-tight text-neutral-900">
                             Lifesystem
@@ -43,7 +44,7 @@ export default function Navbar() {
                         })}
                     </div>
                 </nav>
-            </div>
+            </Container>
         </div>
     )
 }

@@ -7,6 +7,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: Variant
     size?: Size
     fullWidth?: boolean
+    /** Font Awesome class string, e.g. "fa-solid fa-arrow-right". */
+    icon?: string
+    iconPosition?: 'left' | 'right'
     children: ReactNode
 }
 
@@ -27,11 +30,15 @@ export default function Button({
     variant = 'primary',
     size = 'md',
     fullWidth = false,
+    icon,
+    iconPosition = 'left',
     children,
     className = '',
     disabled,
     ...props
 }: ButtonProps) {
+    const iconEl = icon ? <i className={icon} aria-hidden="true" /> : null
+
     return (
         <button
             className={[
@@ -46,7 +53,9 @@ export default function Button({
             disabled={disabled}
             {...props}
         >
+            {iconPosition === 'left' && iconEl}
             {children}
+            {iconPosition === 'right' && iconEl}
         </button>
     )
 }
