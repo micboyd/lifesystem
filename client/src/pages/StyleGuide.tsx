@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import Button from '../components/Button'
 import { Card, CardHeader, CardTitle, CardBody, CardFooter } from '../components/Card'
@@ -12,7 +12,22 @@ import Avatar from '../components/Avatar'
 import Spinner from '../components/Spinner'
 import Progress from '../components/Progress'
 import DatePicker from '../components/DatePicker'
+import TimePicker from '../components/TimePicker'
 import Container from '../components/Container'
+import Textarea from '../components/Textarea'
+import Select from '../components/Select'
+import RadioGroup from '../components/RadioGroup'
+import Slider from '../components/Slider'
+import Chip from '../components/Chip'
+import EmptyState from '../components/EmptyState'
+import Rating from '../components/Rating'
+import Breadcrumbs from '../components/Breadcrumbs'
+import Pagination from '../components/Pagination'
+import Accordion from '../components/Accordion'
+import Tooltip from '../components/Tooltip'
+import DropdownMenu from '../components/DropdownMenu'
+import Modal from '../components/Modal'
+import Drawer from '../components/Drawer'
 import CodeBlock from '../components/CodeBlock'
 
 interface SectionProps {
@@ -34,6 +49,88 @@ function Section({ title, description, preview, code }: SectionProps) {
             {/* Code snippet */}
             <CodeBlock code={code} />
         </section>
+    )
+}
+
+function ChipDemo() {
+    const [chips, setChips] = useState(['Design', 'Engineering', 'Marketing', 'Sales'])
+    return (
+        <div className="flex flex-wrap items-center gap-2">
+            {chips.map((c) => (
+                <Chip key={c} icon="fa-solid fa-tag" onRemove={() => setChips((x) => x.filter((y) => y !== c))}>
+                    {c}
+                </Chip>
+            ))}
+            {chips.length === 0 && (
+                <span className="text-sm text-neutral-400">All removed — refresh to reset.</span>
+            )}
+        </div>
+    )
+}
+
+function PaginationDemo() {
+    const [page, setPage] = useState(1)
+    return <Pagination page={page} pageCount={10} onChange={setPage} />
+}
+
+function ModalDemo() {
+    const [open, setOpen] = useState(false)
+    return (
+        <>
+            <Button onClick={() => setOpen(true)} icon="fa-solid fa-window-restore">
+                Open modal
+            </Button>
+            <Modal
+                open={open}
+                onClose={() => setOpen(false)}
+                title="Delete project"
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={() => setOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={() => setOpen(false)}>Delete</Button>
+                    </>
+                }
+            >
+                This action cannot be undone. This will permanently delete the project and all of
+                its data.
+            </Modal>
+        </>
+    )
+}
+
+function DrawerDemo() {
+    const [side, setSide] = useState<'left' | 'right' | null>(null)
+    return (
+        <>
+            <div className="flex flex-wrap gap-3">
+                <Button variant="secondary" onClick={() => setSide('left')} icon="fa-solid fa-arrow-right-from-bracket">
+                    Open left
+                </Button>
+                <Button variant="secondary" onClick={() => setSide('right')} icon="fa-solid fa-arrow-left-from-bracket">
+                    Open right
+                </Button>
+            </div>
+            <Drawer
+                open={side === 'left'}
+                onClose={() => setSide(null)}
+                side="left"
+                title="Filters"
+                footer={<Button onClick={() => setSide(null)}>Apply</Button>}
+            >
+                Drawer content slides in from the left. Put filters, details, or forms here.
+            </Drawer>
+            <Drawer
+                open={side === 'right'}
+                onClose={() => setSide(null)}
+                side="right"
+                title="Details"
+                footer={<Button onClick={() => setSide(null)}>Done</Button>}
+            >
+                Drawer content slides in from the right.
+            </Drawer>
+        </>
     )
 }
 
@@ -426,6 +523,374 @@ export default function StyleGuide() {
     disabledDates={(date) => date.getDay() === 0 || date.getDay() === 6}
     errorDates={['2026-06-07', '2026-06-08']}
 />`}
+                />
+
+                <Section
+                    title="Time Picker"
+                    description="Dropdown for picking a time, with scrollable hour/minute columns and a clear button. Supports 12- or 24-hour display, a configurable minute step, and min/max bounds. Value is a 24-hour 'HH:mm' string. Uncontrolled by default, or pass value/onChange."
+                    preview={
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                            <div>
+                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    24-hour
+                                </p>
+                                <TimePicker className="max-w-xs" />
+                            </div>
+                            <div>
+                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    12-hour (AM/PM)
+                                </p>
+                                <TimePicker use12Hour minuteStep={15} className="max-w-xs" />
+                            </div>
+                            <div>
+                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    Bounded (09:00–17:30)
+                                </p>
+                                <TimePicker
+                                    className="max-w-xs"
+                                    minTime="09:00"
+                                    maxTime="17:30"
+                                    minuteStep={30}
+                                />
+                                <p className="mt-1.5 text-xs text-neutral-400">
+                                    Times outside business hours are disabled.
+                                </p>
+                            </div>
+                        </div>
+                    }
+                    code={`<TimePicker />
+<TimePicker use12Hour minuteStep={15} />
+
+{/* Controlled — value is 24-hour "HH:mm" */}
+<TimePicker value={time} onChange={setTime} />
+
+{/* Bounds */}
+<TimePicker minTime="09:00" maxTime="17:30" minuteStep={30} />`}
+                />
+
+                <Section
+                    title="Select"
+                    description="Custom dropdown select (not the native element) matching the Input/DatePicker styling. Uncontrolled by default, or pass value/onChange."
+                    preview={
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:max-w-2xl">
+                            <Select
+                                label="Fruit"
+                                icon="fa-solid fa-apple-whole"
+                                options={[
+                                    { label: 'Apple', value: 'apple' },
+                                    { label: 'Banana', value: 'banana' },
+                                    { label: 'Cherry', value: 'cherry' },
+                                    { label: 'Durian (sold out)', value: 'durian', disabled: true },
+                                ]}
+                                defaultValue="banana"
+                            />
+                            <Select
+                                label="With placeholder"
+                                placeholder="Choose a plan…"
+                                options={[
+                                    { label: 'Free', value: 'free' },
+                                    { label: 'Pro', value: 'pro' },
+                                    { label: 'Enterprise', value: 'enterprise' },
+                                ]}
+                            />
+                        </div>
+                    }
+                    code={`<Select
+    label="Fruit"
+    icon="fa-solid fa-apple-whole"
+    options={[
+        { label: 'Apple', value: 'apple' },
+        { label: 'Banana', value: 'banana' },
+        { label: 'Durian (sold out)', value: 'durian', disabled: true },
+    ]}
+    defaultValue="banana"
+/>
+
+{/* Controlled */}
+<Select options={options} value={value} onChange={setValue} />`}
+                />
+
+                <Section
+                    title="Radio Group"
+                    description="Styled radio buttons matching the Checkbox. Vertical or horizontal."
+                    preview={
+                        <div className="flex flex-col gap-8">
+                            <RadioGroup
+                                defaultValue="medium"
+                                options={[
+                                    { label: 'Small', value: 'small' },
+                                    { label: 'Medium', value: 'medium' },
+                                    { label: 'Large', value: 'large' },
+                                    { label: 'X-Large (unavailable)', value: 'xl', disabled: true },
+                                ]}
+                            />
+                            <RadioGroup
+                                orientation="horizontal"
+                                defaultValue="card"
+                                options={[
+                                    { label: 'Card', value: 'card' },
+                                    { label: 'PayPal', value: 'paypal' },
+                                    { label: 'Bank transfer', value: 'bank' },
+                                ]}
+                            />
+                        </div>
+                    }
+                    code={`<RadioGroup
+    defaultValue="medium"
+    options={[
+        { label: 'Small', value: 'small' },
+        { label: 'Medium', value: 'medium' },
+        { label: 'Large', value: 'large' },
+    ]}
+/>
+
+<RadioGroup orientation="horizontal" options={options} value={value} onChange={setValue} />`}
+                />
+
+                <Section
+                    title="Slider"
+                    description="Range input with the neutral-950 accent. Optional label and value readout."
+                    preview={
+                        <div className="flex max-w-md flex-col gap-8">
+                            <Slider label="Volume" defaultValue={40} showValue />
+                            <Slider label="Brightness" min={0} max={10} step={1} defaultValue={7} showValue />
+                            <Slider defaultValue={60} disabled />
+                        </div>
+                    }
+                    code={`<Slider label="Volume" defaultValue={40} showValue />
+<Slider label="Brightness" min={0} max={10} step={1} defaultValue={7} showValue />
+<Slider defaultValue={60} disabled />
+
+{/* Controlled */}
+<Slider value={value} onChange={setValue} />`}
+                />
+
+                <Section
+                    title="Textarea"
+                    description="Multiline text field mirroring the Input chrome, with label, hint, and error states."
+                    preview={
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:max-w-2xl">
+                            <Textarea
+                                label="Bio"
+                                placeholder="Tell us about yourself…"
+                                hint="Max 200 characters."
+                            />
+                            <Textarea
+                                label="Feedback"
+                                placeholder="What went wrong?"
+                                error="This field is required."
+                            />
+                        </div>
+                    }
+                    code={`<Textarea label="Bio" placeholder="Tell us about yourself…" hint="Max 200 characters." />
+<Textarea label="Feedback" placeholder="What went wrong?" error="This field is required." />`}
+                />
+
+                <Section
+                    title="Chip / Tag"
+                    description="Compact, removable tags (distinct from Badge). Add onRemove for a dismiss button."
+                    preview={<ChipDemo />}
+                    code={`<Chip icon="fa-solid fa-tag">Design</Chip>
+
+{/* Removable */}
+<Chip onRemove={() => remove(item)}>Engineering</Chip>`}
+                />
+
+                <Section
+                    title="Rating"
+                    description="Star rating with hover preview. Interactive or read-only, in three sizes."
+                    preview={
+                        <div className="flex flex-col gap-4">
+                            <Rating defaultValue={3} />
+                            <Rating defaultValue={4} size="lg" />
+                            <Rating value={4} readOnly size="sm" />
+                        </div>
+                    }
+                    code={`<Rating defaultValue={3} />
+<Rating defaultValue={4} size="lg" />
+<Rating value={4} readOnly size="sm" />
+
+{/* Controlled */}
+<Rating value={value} onChange={setValue} />`}
+                />
+
+                <Section
+                    title="Empty State"
+                    description="Icon + title + message + optional action, for empty lists and zero-results."
+                    preview={
+                        <EmptyState
+                            icon="fa-regular fa-folder-open"
+                            title="No projects yet"
+                            description="Create your first project to get started — it only takes a minute."
+                            action={<Button icon="fa-solid fa-plus">New project</Button>}
+                        />
+                    }
+                    code={`<EmptyState
+    icon="fa-regular fa-folder-open"
+    title="No projects yet"
+    description="Create your first project to get started."
+    action={<Button icon="fa-solid fa-plus">New project</Button>}
+/>`}
+                />
+
+                <Section
+                    title="Breadcrumbs"
+                    description="Path navigation. Linked items use the router; the last item is the current page."
+                    preview={
+                        <Breadcrumbs
+                            items={[
+                                { label: 'Home', href: '/' },
+                                { label: 'Style Guide', href: '/styleguide' },
+                                { label: 'Breadcrumbs' },
+                            ]}
+                        />
+                    }
+                    code={`<Breadcrumbs
+    items={[
+        { label: 'Home', href: '/' },
+        { label: 'Style Guide', href: '/styleguide' },
+        { label: 'Breadcrumbs' },
+    ]}
+/>`}
+                />
+
+                <Section
+                    title="Pagination"
+                    description="Page controls with prev/next and ellipsis truncation. Controlled via page/onChange."
+                    preview={<PaginationDemo />}
+                    code={`const [page, setPage] = useState(1)
+
+<Pagination page={page} pageCount={10} onChange={setPage} />`}
+                />
+
+                <Section
+                    title="Accordion"
+                    description="Collapsible sections with a smooth height transition. Single-open by default, or allowMultiple."
+                    preview={
+                        <Accordion
+                            className="w-full bg-white"
+                            defaultOpen={0}
+                            items={[
+                                {
+                                    title: 'What is Lifesystem?',
+                                    content:
+                                        'A modern MERN starter with a clean, rounded component library built on Tailwind.',
+                                },
+                                {
+                                    title: 'Can I use these components elsewhere?',
+                                    content:
+                                        'Yes — every component is self-contained and copy-paste friendly from this style guide.',
+                                },
+                                {
+                                    title: 'Does it support dark mode?',
+                                    content:
+                                        'Not yet, but the neutral palette makes it straightforward to add later.',
+                                },
+                            ]}
+                        />
+                    }
+                    code={`<Accordion
+    defaultOpen={0}
+    items={[
+        { title: 'What is Lifesystem?', content: 'A modern MERN starter…' },
+        { title: 'Can I reuse these?', content: 'Yes — copy-paste friendly.' },
+    ]}
+/>
+
+{/* Allow several open at once */}
+<Accordion allowMultiple items={items} />`}
+                />
+
+                <Section
+                    title="Tooltip"
+                    description="Hover/focus hint that wraps any element. Four placements."
+                    preview={
+                        <div className="flex flex-wrap items-center gap-4">
+                            <Tooltip content="Top tooltip">
+                                <Button variant="secondary">Top</Button>
+                            </Tooltip>
+                            <Tooltip content="Bottom tooltip" placement="bottom">
+                                <Button variant="secondary">Bottom</Button>
+                            </Tooltip>
+                            <Tooltip content="Right tooltip" placement="right">
+                                <Button variant="secondary">Right</Button>
+                            </Tooltip>
+                            <Tooltip content="Copy to clipboard">
+                                <span className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 text-neutral-500">
+                                    <i className="fa-solid fa-copy" aria-hidden="true" />
+                                </span>
+                            </Tooltip>
+                        </div>
+                    }
+                    code={`<Tooltip content="Copy to clipboard">
+    <Button variant="secondary">Hover me</Button>
+</Tooltip>
+
+<Tooltip content="Bottom" placement="bottom">…</Tooltip>`}
+                />
+
+                <Section
+                    title="Dropdown Menu"
+                    description="Anchored action menu with icons, dividers, and danger items. Self-managed open state."
+                    preview={
+                        <DropdownMenu
+                            trigger={
+                                <Button variant="secondary" icon="fa-solid fa-ellipsis">
+                                    Actions
+                                </Button>
+                            }
+                            items={[
+                                { label: 'Edit', icon: 'fa-solid fa-pen' },
+                                { label: 'Duplicate', icon: 'fa-solid fa-copy' },
+                                { label: 'Share', icon: 'fa-solid fa-share' },
+                                'divider',
+                                { label: 'Delete', icon: 'fa-solid fa-trash', danger: true },
+                            ]}
+                        />
+                    }
+                    code={`<DropdownMenu
+    trigger={<Button variant="secondary" icon="fa-solid fa-ellipsis">Actions</Button>}
+    items={[
+        { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onEdit },
+        { label: 'Share', icon: 'fa-solid fa-share', href: '/share' },
+        'divider',
+        { label: 'Delete', icon: 'fa-solid fa-trash', danger: true, onClick: onDelete },
+    ]}
+/>`}
+                />
+
+                <Section
+                    title="Modal"
+                    description="Centered dialog rendered in a portal. Closes on Esc, backdrop click, or the × button. Optional title and footer."
+                    preview={<ModalDemo />}
+                    code={`const [open, setOpen] = useState(false)
+
+<Button onClick={() => setOpen(true)}>Open modal</Button>
+<Modal
+    open={open}
+    onClose={() => setOpen(false)}
+    title="Delete project"
+    footer={
+        <>
+            <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={confirmDelete}>Delete</Button>
+        </>
+    }
+>
+    This action cannot be undone.
+</Modal>`}
+                />
+
+                <Section
+                    title="Drawer"
+                    description="Side panel that slides in from the left or right. Shares the modal's portal, backdrop, Esc, and scroll-lock behavior."
+                    preview={<DrawerDemo />}
+                    code={`const [open, setOpen] = useState(false)
+
+<Button onClick={() => setOpen(true)}>Open drawer</Button>
+<Drawer open={open} onClose={() => setOpen(false)} side="right" title="Details">
+    Drawer content goes here.
+</Drawer>`}
                 />
             </Container>
         </main>

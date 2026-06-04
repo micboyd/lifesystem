@@ -1,17 +1,35 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import Container from '../components/Container'
+import DashboardHeader from '../components/dashboard/DashboardHeader'
+import DashboardDateNav from '../components/dashboard/DashboardDateNav'
+import WorkStatusBanner from '../components/dashboard/WorkStatusBanner'
+import TodayWidget from '../components/dashboard/TodayWidget'
+import HabitsWidget from '../components/dashboard/HabitsWidget'
+import TasksWidget from '../components/dashboard/TasksWidget'
+import { todayKey } from '../lib/calendar'
 
 export default function Home() {
+    const [date, setDate] = useState(todayKey())
+
     return (
-        <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center gap-6 bg-neutral-50 px-6 text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-neutral-950 sm:text-5xl">
-                Homepage
-            </h1>
-            <Link
-                to="/styleguide"
-                className="inline-flex items-center gap-2 rounded-full bg-neutral-950 px-6 py-3 text-sm font-semibold text-white transition-all duration-150 hover:bg-neutral-800"
-            >
-                View the style guide →
-            </Link>
-        </main>
+        <Container as="main" className="py-10">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+                <DashboardHeader />
+                <DashboardDateNav date={date} onChange={setDate} />
+            </div>
+
+            <div className="mt-8">
+                <WorkStatusBanner date={date} />
+            </div>
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                <TodayWidget date={date} />
+                <HabitsWidget date={date} />
+            </div>
+
+            <div className="mt-6">
+                <TasksWidget date={date} />
+            </div>
+        </Container>
     )
 }

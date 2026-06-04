@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "seed": "tsx src/scripts/seedUser.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint .",
