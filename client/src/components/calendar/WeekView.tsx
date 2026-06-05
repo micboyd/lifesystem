@@ -1,6 +1,7 @@
 import { PERIODS, WEEKDAYS_LONG, addDays, getWeekStart, parseDateKey, eventCoversSlot, isPartPast, todayKey } from '../../lib/calendar'
-import { EVENT_TYPE_COLORS, NA_EVENT_COLORS, DAY_STATUS_OPTIONS } from '../../types'
+import { DAY_STATUS_OPTIONS } from '../../types'
 import type { Event, DayStatus, Part } from '../../types'
+import EventStack from './EventStack'
 
 interface Props {
     focusDate: string
@@ -10,11 +11,12 @@ interface Props {
     onOpenDay: (date: string) => void
     onOpenPart: (date: string, part: Part) => void
     onEventClick: (event: Event) => void
+    onPickEvents: (events: Event[]) => void
 }
 
 const CELL_H = 'h-20'
 
-export default function WeekView({ focusDate, events, statuses, today, onOpenDay, onOpenPart, onEventClick }: Props) {
+export default function WeekView({ focusDate, events, statuses, today, onOpenDay, onOpenPart, onEventClick, onPickEvents }: Props) {
     const tk = todayKey()
     const weekStart = getWeekStart(focusDate)
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -69,20 +71,21 @@ export default function WeekView({ focusDate, events, statuses, today, onOpenDay
                                     const weekday = new Date(date + 'T00:00:00').getDay()
                                     const weekend = weekday === 0 || weekday === 6
                                     const past = isPartPast(date, period.key, today)
-                                    const event = events.find((e) => eventCoversSlot(e, date, period.key)) ?? null
-                                    const hasAllDay = !event && events.some((e) => e.allDay && date >= e.startDate && date <= e.endDate)
+                                    const slotEvents = events.filter((e) => eventCoversSlot(e, date, period.key))
                                     return (
                                         <td
                                             key={date}
                                             className={[
                                                 `${CELL_H} border-l border-neutral-100 p-0.5 align-top`,
-                                                past ? 'bg-red-100/60' : hasAllDay ? 'bg-neutral-100/70' : weekend ? 'bg-neutral-100/60' : '',
+                                                past ? 'bg-red-100/60' : weekend ? 'bg-neutral-100/60' : '',
                                             ].join(' ')}
                                         >
-                                            <WeekCell
-                                                event={event}
-                                                past={past}
-                                                onClick={event ? () => onEventClick(event) : () => onOpenPart(date, period.key)}
+                                            <EventStack
+                                                events={slotEvents}
+                                                disabled={past}
+                                                onEventClick={onEventClick}
+                                                onAdd={() => onOpenPart(date, period.key)}
+                                                onPick={onPickEvents}
                                             />
                                         </td>
                                     )
@@ -101,18 +104,19 @@ export default function WeekView({ focusDate, events, statuses, today, onOpenDay
                             {weekDays.map((date) => {
                                 const weekday = new Date(date + 'T00:00:00').getDay()
                                 const weekend = weekday === 0 || weekday === 6
-                                const event = events.find((e) => e.startPart === 'na' && date >= e.startDate && date <= e.endDate) ?? null
+                                const slotEvents = events.filter((e) => e.startPart === 'na' && date >= e.startDate && date <= e.endDate)
                                 const pastDay = date < tk
                                 return (
                                     <td
                                         key={date}
                                         className={[`${CELL_H} border-l border-neutral-100 p-0.5 align-top`, weekend ? 'bg-neutral-100/60' : ''].join(' ')}
                                     >
-                                        <WeekCell
-                                            event={event}
-                                            past={false}
-                                            disabled={pastDay && !event}
-                                            onClick={event ? () => onEventClick(event) : () => onOpenPart(date, 'na')}
+                                        <EventStack
+                                            events={slotEvents}
+                                            disabled={pastDay && slotEvents.length === 0}
+                                            onEventClick={onEventClick}
+                                            onAdd={() => onOpenPart(date, 'na')}
+                                            onPick={onPickEvents}
                                         />
                                     </td>
                                 )
@@ -166,44 +170,3 @@ export default function WeekView({ focusDate, events, statuses, today, onOpenDay
     )
 }
 
-function WeekCell({
-    event,
-    past,
-    disabled = false,
-    onClick,
-}: {
-    event: Event | null
-    past: boolean
-    disabled?: boolean
-    onClick: () => void
-}) {
-    if (!event) {
-        if (disabled || past) return <div className="h-full w-full" />
-        return (
-            <button
-                type="button"
-                onClick={onClick}
-                className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-500"
-            >
-                <i className="fa-solid fa-plus text-[10px] opacity-0 group-hover:opacity-100" />
-            </button>
-        )
-    }
-    const { bg, hover, text } = event.startPart === 'na' ? NA_EVENT_COLORS : EVENT_TYPE_COLORS[event.eventType]
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            title={event.title}
-            className={`flex h-full w-full flex-col justify-start overflow-hidden rounded-lg px-2 py-1.5 text-left transition-colors ${bg} ${hover}`}
-        >
-            {event.time && <span className={`text-[10px] font-medium tabular-nums ${text} opacity-70`}>{event.time}</span>}
-            <span className={`truncate text-xs font-semibold ${text}`}>{event.title}</span>
-            {event.recurrence && (
-                <span className={`text-[9px] font-medium ${text} opacity-60`}>
-                    <i className="fa-solid fa-repeat mr-1" />recurring
-                </span>
-            )}
-        </button>
-    )
-}

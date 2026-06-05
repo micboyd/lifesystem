@@ -30,7 +30,7 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
     return (
         <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
             {/* Weekday headers */}
-            <div className="grid grid-cols-7 border-b border-neutral-200 bg-neutral-50">
+            <div className="grid grid-cols-7 border-b border-neutral-200 bg-white">
                 {WEEKDAY_HEADERS.map((d) => (
                     <div key={d} className="py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-neutral-400">
                         {d}
@@ -45,7 +45,6 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
                     const isCurrentMonth = cellMonth === month
                     const isToday = date === tk
                     const isPast = date < tk
-                    const isWeekend = [0, 6].includes(new Date(date + 'T00:00:00').getDay())
                     const status = statuses.find((s) => s.startDate <= date && s.endDate >= date) ?? null
                     const dayNum = parseInt(date.slice(8))
 
@@ -69,7 +68,6 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
                                 'min-h-28 cursor-pointer p-1.5 transition-colors hover:bg-neutral-50',
                                 !isCurrentMonth ? 'bg-neutral-50/60' : '',
                                 isPast && isCurrentMonth ? 'bg-red-50/40' : '',
-                                isWeekend && isCurrentMonth && !isPast ? 'bg-neutral-50/40' : '',
                             ].join(' ')}
                         >
                             {/* Leave bar */}

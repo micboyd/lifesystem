@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import DatePicker, { type DateRange } from '../DatePicker'
+import Button from '../Button'
 import { listStatuses, createStatus, deleteStatus } from '../../services/dayStatus'
 import { DAY_STATUS_OPTIONS, type DayStatus, type DayStatusType } from '../../types'
 import { MONTHS } from '../../lib/calendar'
@@ -128,32 +129,18 @@ export default function DayStatusSection({ date }: Props) {
                     </div>
 
                     <div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={handleAdd}
-                            disabled={saving || !selectedStatus || !range.start || !range.end}
-                            className="rounded-full bg-neutral-950 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
-                        >
+                        <Button onClick={handleAdd} disabled={saving || !selectedStatus || !range.start || !range.end}>
                             {saving ? 'Saving…' : 'Save'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => { setAdding(false); setSelectedStatus(null); setRange({ start: date, end: date }) }}
-                            className="rounded-full px-4 py-2 text-sm font-semibold text-neutral-500 transition-colors hover:bg-neutral-100"
-                        >
+                        </Button>
+                        <Button variant="ghost" onClick={() => { setAdding(false); setSelectedStatus(null); setRange({ start: date, end: date }) }}>
                             Cancel
-                        </button>
+                        </Button>
                     </div>
                 </div>
             ) : (
-                <button
-                    type="button"
-                    onClick={() => setAdding(true)}
-                    className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                >
-                    <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                <Button variant="ghost" size="sm" icon="fa-solid fa-plus" onClick={() => setAdding(true)}>
                     Add leave or holiday
-                </button>
+                </Button>
             )}
         </div>
     )

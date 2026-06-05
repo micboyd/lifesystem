@@ -6,10 +6,11 @@ import mongoose from 'mongoose'
 import path from 'path'
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 
+// Defaults can be overridden with SEED_NAME / SEED_EMAIL / SEED_PASSWORD env vars.
 const TEST_USER = {
-    name: 'Test User',
-    email: 'test@example.com',
-    password: 'password123',
+    name: process.env.SEED_NAME ?? 'Test User',
+    email: process.env.SEED_EMAIL ?? 'test@example.com',
+    password: process.env.SEED_PASSWORD ?? 'password123',
 }
 
 async function seed() {

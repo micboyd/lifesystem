@@ -6,6 +6,7 @@ import WorkStatusBanner from '../components/dashboard/WorkStatusBanner'
 import TodayWidget from '../components/dashboard/TodayWidget'
 import HabitsWidget from '../components/dashboard/HabitsWidget'
 import TasksWidget from '../components/dashboard/TasksWidget'
+import TimeboxWidget from '../components/dashboard/TimeboxWidget'
 import { todayKey } from '../lib/calendar'
 
 export default function Home() {
@@ -27,7 +28,8 @@ export default function Home() {
                 <HabitsWidget date={date} />
             </div>
 
-            <div className="mt-6">
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                <TimeboxWidget date={date} />
                 <TasksWidget date={date} />
             </div>
         </Container>

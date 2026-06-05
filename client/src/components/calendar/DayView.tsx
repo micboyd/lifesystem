@@ -14,7 +14,8 @@ interface DayViewProps {
 
 export default function DayView({ date, initialOpenPart }: DayViewProps) {
     const [events, setEvents] = useState<Event[]>([])
-    const [loading, setLoading] = useState(true)
+    const [loadedDate, setLoadedDate] = useState<string | null>(null)
+    const loading = loadedDate !== date
     const [editing, setEditing] = useState<{ event: Event | null; part: Part | 'allday' } | null>(null)
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
@@ -23,7 +24,6 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
 
     useEffect(() => {
         let active = true
-        setLoading(true)
         load()
             .then((list) => {
                 if (!active) return
@@ -39,7 +39,7 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
                 }
             })
             .catch(() => active && setEvents([]))
-            .finally(() => active && setLoading(false))
+            .finally(() => { if (active) setLoadedDate(date) })
         return () => { active = false }
     }, [load, date, initialOpenPart])
 

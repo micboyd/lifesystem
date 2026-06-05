@@ -9,6 +9,8 @@ interface AuthContextValue {
     loading: boolean
     login: (credentials: LoginCredentials) => Promise<void>
     logout: () => void
+    /** Replace the cached user, e.g. after a profile update. */
+    updateUser: (user: User) => void
 }
 
 const TOKEN_KEY = 'token'
@@ -49,8 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null)
     }
 
+    function updateUser(next: User) {
+        setUser(next)
+    }
+
     return (
-        <AuthContext.Provider value={{ user, loading, login, logout }}>
+        <AuthContext.Provider value={{ user, loading, login, logout, updateUser }}>
             {children}
         </AuthContext.Provider>
     )

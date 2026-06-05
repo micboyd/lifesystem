@@ -1,7 +1,33 @@
+export interface UserSettings {
+    wakeTime?: string
+    bedTime?: string
+    workStart?: string
+    workEnd?: string
+    showTotals?: boolean
+}
+
+export interface TotalRow {
+    _id: string
+    name: string
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+export interface TotalValue {
+    _id: string
+    row: string
+    date: string
+    value: number
+    createdAt: string
+    updatedAt: string
+}
+
 export interface User {
     _id: string
     name: string
     email: string
+    settings?: UserSettings
     createdAt: string
 }
 
@@ -92,6 +118,16 @@ export interface DayStatus {
     startDate: string
     endDate: string
     status: DayStatusType
+}
+
+export interface Timebox {
+    _id: string
+    date: string
+    title: string
+    startTime: string
+    endTime: string
+    createdAt: string
+    updatedAt: string
 }
 
 export interface Task {

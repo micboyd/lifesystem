@@ -9,7 +9,8 @@ interface Props {
 
 export default function TasksDaySection({ date }: Props) {
     const [tasks, setTasks] = useState<Task[]>([])
-    const [loading, setLoading] = useState(true)
+    const [loadedDate, setLoadedDate] = useState<string | null>(null)
+    const loading = loadedDate !== date
     const [busy, setBusy] = useState<Set<string>>(new Set())
     const [newTitle, setNewTitle] = useState('')
     const [adding, setAdding] = useState(false)
@@ -17,11 +18,10 @@ export default function TasksDaySection({ date }: Props) {
 
     useEffect(() => {
         let active = true
-        setLoading(true)
         listTasks(date, date)
             .then((list) => active && setTasks(list))
             .catch(() => active && setTasks([]))
-            .finally(() => active && setLoading(false))
+            .finally(() => { if (active) setLoadedDate(date) })
         return () => { active = false }
     }, [date])
 

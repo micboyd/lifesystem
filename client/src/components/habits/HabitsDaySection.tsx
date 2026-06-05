@@ -12,7 +12,10 @@ interface Props {
 export default function HabitsDaySection({ date, compact = false }: Props) {
     const [habits, setHabits] = useState<HabitDef[]>([])
     const [logs, setLogs] = useState<HabitLog[]>([])
-    const [loading, setLoading] = useState(true)
+    // Derive loading from which date has finished loading — avoids a synchronous
+    // setState inside the fetch effect (which React 19 flags as cascading renders).
+    const [loadedDate, setLoadedDate] = useState<string | null>(null)
+    const loading = loadedDate !== date
     const [toggling, setToggling] = useState<Set<string>>(new Set())
     const [adding, setAdding] = useState(false)
     const [newName, setNewName] = useState('')
@@ -27,17 +30,16 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
 
     useEffect(() => {
         let active = true
-        setLoading(true)
         load()
             .then(({ defs, dayLogs }) => {
                 if (!active) return
                 setHabits(defs.filter((h) => h.active))
                 setLogs(dayLogs)
             })
-            .catch(() => active && setHabits([]))
-            .finally(() => active && setLoading(false))
+            .catch(() => { if (active) setHabits([]) })
+            .finally(() => { if (active) setLoadedDate(date) })
         return () => { active = false }
-    }, [load])
+    }, [load, date])
 
     useEffect(() => {
         if (adding) inputRef.current?.focus()

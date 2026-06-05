@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import Container from '../components/Container'
 import Spinner from '../components/Spinner'
+import Input from '../components/Input'
+import Button from '../components/Button'
 import { listHabits, createHabit, updateHabit, deleteHabit } from '../services/habits'
 import type { HabitDef } from '../types'
 
@@ -74,14 +76,9 @@ export default function Habits() {
                     </p>
                 </div>
                 {!adding && (
-                    <button
-                        type="button"
-                        onClick={() => setAdding(true)}
-                        className="inline-flex items-center gap-2 rounded-full bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-neutral-800"
-                    >
-                        <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                    <Button icon="fa-solid fa-plus" onClick={() => setAdding(true)}>
                         New habit
-                    </button>
+                    </Button>
                 )}
             </header>
 
@@ -90,39 +87,26 @@ export default function Habits() {
                 <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
                     <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-400">New habit</h2>
                     <div className="flex flex-col gap-3">
-                        <input
+                        <Input
                             autoFocus
-                            type="text"
                             placeholder="Name"
                             value={newName}
                             onChange={(e) => setNewName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                            className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200"
                         />
-                        <input
-                            type="text"
+                        <Input
                             placeholder="Description (optional)"
                             value={newDesc}
                             onChange={(e) => setNewDesc(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                            className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200"
                         />
                         <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={handleAdd}
-                                disabled={saving || !newName.trim()}
-                                className="rounded-full bg-neutral-950 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
-                            >
+                            <Button onClick={handleAdd} disabled={saving || !newName.trim()}>
                                 {saving ? 'Saving…' : 'Save'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setAdding(false); setNewName(''); setNewDesc('') }}
-                                className="rounded-full px-4 py-2 text-sm font-semibold text-neutral-500 transition-colors hover:bg-neutral-100"
-                            >
+                            </Button>
+                            <Button variant="ghost" onClick={() => { setAdding(false); setNewName(''); setNewDesc('') }}>
                                 Cancel
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -212,36 +196,23 @@ function HabitList({
                 <div key={habit._id} className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
                     {editing === habit._id ? (
                         <div className="flex flex-col gap-3">
-                            <input
+                            <Input
                                 autoFocus
-                                type="text"
                                 value={editName}
                                 onChange={(e) => onEditName(e.target.value)}
-                                className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-900 outline-none focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200"
                             />
-                            <input
-                                type="text"
+                            <Input
                                 placeholder="Description (optional)"
                                 value={editDesc}
                                 onChange={(e) => onEditDesc(e.target.value)}
-                                className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200"
                             />
                             <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => onSaveEdit(habit._id)}
-                                    disabled={saving || !editName.trim()}
-                                    className="rounded-full bg-neutral-950 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
-                                >
+                                <Button size="sm" onClick={() => onSaveEdit(habit._id)} disabled={saving || !editName.trim()}>
                                     Save
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={onCancelEdit}
-                                    className="rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100"
-                                >
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={onCancelEdit}>
                                     Cancel
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ) : (

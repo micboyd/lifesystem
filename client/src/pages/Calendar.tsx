@@ -6,11 +6,15 @@ import {
 } from '../lib/calendar'
 import { listEvents, updateEvent, deleteEvent, type EventInput } from '../services/events'
 import { listStatuses } from '../services/dayStatus'
-import { EVENT_TYPE_COLORS, NA_EVENT_COLORS, DAY_STATUS_OPTIONS } from '../types'
-import type { Event, Part, DayStatus } from '../types'
+import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from '../services/totals'
+import { useAuth } from '../context/AuthContext'
+import { DAY_STATUS_OPTIONS } from '../types'
+import type { Event, Part, DayStatus, TotalRow } from '../types'
 import Tabs from '../components/Tabs'
 import EventDetailModal from '../components/calendar/EventDetailModal'
 import EventEditor from '../components/calendar/EventEditor'
+import EventStack from '../components/calendar/EventStack'
+import EventPickerModal from '../components/calendar/EventPickerModal'
 import MonthView from '../components/calendar/MonthView'
 import WeekView from '../components/calendar/WeekView'
 
@@ -53,11 +57,15 @@ function getTitle(view: CalendarView, focusDate: string): string {
 export default function Calendar() {
     const today = new Date()
     const nav = useNavigate()
+    const { user } = useAuth()
     const [view, setView] = useState<CalendarView>('Year')
     const [focusDate, setFocusDate] = useState(todayKey())
     const [events, setEvents] = useState<Event[]>([])
     const [statuses, setStatuses] = useState<DayStatus[]>([])
+    const [rows, setRows] = useState<TotalRow[]>([])
+    const [values, setValues] = useState<Record<string, number>>({})
     const [detailEvent, setDetailEvent] = useState<Event | null>(null)
+    const [pickerEvents, setPickerEvents] = useState<Event[] | null>(null)
     const [editingEvent, setEditingEvent] = useState<Event | null>(null)
     const [editorOpen, setEditorOpen] = useState(false)
     const [saving, setSaving] = useState(false)
@@ -67,13 +75,64 @@ export default function Calendar() {
     const title = getTitle(view, focusDate)
     const { from, to } = getRange(view, focusDate)
 
+    // Totals are a Year-view-only feature gated behind a user setting.
+    const totalsOn = !!user?.settings?.showTotals && view === 'Year'
+
     const reload = useCallback(() => {
         Promise.all([listEvents(from, to), listStatuses(from, to)])
             .then(([evts, sts]) => { setEvents(evts); setStatuses(sts) })
             .catch(() => { setEvents([]); setStatuses([]) })
-    }, [from, to])
+
+        if (totalsOn) {
+            Promise.all([listRows(), listValues(from, to)])
+                .then(([rs, vs]) => {
+                    setRows(rs)
+                    setValues(Object.fromEntries(vs.map((v) => [`${v.row}:${v.date}`, v.value])))
+                })
+                .catch(() => { setRows([]); setValues({}) })
+        } else {
+            setRows([])
+            setValues({})
+        }
+    }, [from, to, totalsOn])
 
     useEffect(() => { reload() }, [reload])
+
+    // ── Totals handlers ──
+    async function handleSetValue(rowId: string, date: string, value: number | null) {
+        const key = `${rowId}:${date}`
+        setValues((prev) => {
+            const next = { ...prev }
+            if (value === null) delete next[key]
+            else next[key] = value
+            return next
+        })
+        try {
+            await setValue(rowId, date, value)
+        } catch {
+            reload()
+        }
+    }
+
+    async function handleAddRow(name: string) {
+        const row = await createRow(name)
+        setRows((prev) => [...prev, row])
+    }
+
+    async function handleRenameRow(id: string, name: string) {
+        const row = await updateRow(id, { name })
+        setRows((prev) => prev.map((r) => (r._id === id ? row : r)))
+    }
+
+    async function handleDeleteRow(id: string) {
+        setRows((prev) => prev.filter((r) => r._id !== id))
+        setValues((prev) => {
+            const next: Record<string, number> = {}
+            for (const [k, v] of Object.entries(prev)) if (!k.startsWith(`${id}:`)) next[k] = v
+            return next
+        })
+        await deleteRow(id)
+    }
 
     async function handleSave(input: EventInput) {
         if (!editingEvent) return
@@ -117,6 +176,7 @@ export default function Calendar() {
         onOpenDay: (date: string) => nav(`/day/${date}`),
         onOpenPart: (date: string, part: Part) => nav(`/day/${date}`, { state: { openPart: part } }),
         onEventClick: (event: Event) => setDetailEvent(event),
+        onPickEvents: (evts: Event[]) => setPickerEvents(evts),
     }
 
     // Year view: hide past months
@@ -190,9 +250,17 @@ export default function Calendar() {
                                     today={today}
                                     events={events}
                                     statuses={statuses}
+                                    totalsOn={totalsOn}
+                                    rows={rows}
+                                    values={values}
+                                    onSetValue={handleSetValue}
+                                    onAddRow={handleAddRow}
+                                    onRenameRow={handleRenameRow}
+                                    onDeleteRow={handleDeleteRow}
                                     onOpenDay={(date) => nav(`/day/${date}`)}
                                     onOpenPart={(date, part) => nav(`/day/${date}`, { state: { openPart: part } })}
                                     onEventClick={(event) => setDetailEvent(event)}
+                                    onPickEvents={(evts) => setPickerEvents(evts)}
                                 />
                             ))
                         )}
@@ -204,6 +272,11 @@ export default function Calendar() {
                 event={detailEvent}
                 onClose={() => setDetailEvent(null)}
                 onEdit={() => detailEvent && openEdit(detailEvent)}
+            />
+            <EventPickerModal
+                events={pickerEvents}
+                onClose={() => setPickerEvents(null)}
+                onSelect={(event) => { setPickerEvents(null); setDetailEvent(event) }}
             />
             <EventEditor
                 open={editorOpen}
@@ -227,17 +300,31 @@ interface MonthBlockProps {
     today: Date
     events: Event[]
     statuses: DayStatus[]
+    totalsOn: boolean
+    rows: TotalRow[]
+    values: Record<string, number>
+    onSetValue: (rowId: string, date: string, value: number | null) => void
+    onAddRow: (name: string) => void
+    onRenameRow: (id: string, name: string) => void
+    onDeleteRow: (id: string) => void
     onOpenDay: (date: string) => void
     onOpenPart: (date: string, part: Part) => void
     onEventClick: (event: Event) => void
+    onPickEvents: (events: Event[]) => void
 }
 
-function MonthBlock({ year, month, today, events, statuses, onOpenDay, onOpenPart, onEventClick }: MonthBlockProps) {
+function MonthBlock({
+    year, month, today, events, statuses,
+    totalsOn, rows, values, onSetValue, onAddRow, onRenameRow, onDeleteRow,
+    onOpenDay, onOpenPart, onEventClick, onPickEvents,
+}: MonthBlockProps) {
     const tk = todayKey()
     const total = daysInMonth(year, month)
     const dayNums = Array.from({ length: total }, (_, i) => i + 1)
     const isToday = (day: number) =>
         year === today.getFullYear() && month === today.getMonth() && day === today.getDate()
+
+    const colSpan = totalsOn ? dayNums.length + 2 : dayNums.length + 1
 
     return (
         <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
@@ -275,6 +362,11 @@ function MonthBlock({ year, month, today, events, statuses, onOpenDay, onOpenPar
                                     </th>
                                 )
                             })}
+                            {totalsOn && (
+                                <th className="w-16 bg-neutral-50 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    Total
+                                </th>
+                            )}
                         </tr>
                     </thead>
                     <tbody>
@@ -290,25 +382,27 @@ function MonthBlock({ year, month, today, events, statuses, onOpenDay, onOpenPar
                                     const weekday = new Date(year, month, day).getDay()
                                     const weekend = weekday === 0 || weekday === 6
                                     const key = dateKey(year, month, day)
-                                    const event = events.find((e) => eventCoversSlot(e, key, period.key)) ?? null
-                                    const hasAllDay = !event && events.some((e) => e.allDay && key >= e.startDate && key <= e.endDate)
+                                    const slotEvents = events.filter((e) => eventCoversSlot(e, key, period.key))
                                     const past = isPartPast(key, period.key, today)
                                     return (
                                         <td
                                             key={day}
                                             className={[
                                                 'h-12 border-l border-neutral-100 p-0.5 align-top',
-                                                past ? 'bg-red-100/70' : hasAllDay ? 'bg-neutral-100/70' : weekend ? 'bg-neutral-100/60' : '',
+                                                past ? 'bg-red-100/70' : weekend ? 'bg-neutral-100/60' : '',
                                             ].join(' ')}
                                         >
-                                            <PartCell
-                                                event={event}
-                                                onClick={event ? () => onEventClick(event) : () => onOpenPart(key, period.key)}
+                                            <EventStack
+                                                events={slotEvents}
                                                 disabled={past}
+                                                onEventClick={onEventClick}
+                                                onAdd={() => onOpenPart(key, period.key)}
+                                                onPick={onPickEvents}
                                             />
                                         </td>
                                     )
                                 })}
+                                {totalsOn && <td className="border-l border-neutral-200 bg-neutral-50/50" />}
                             </tr>
                         ))}
 
@@ -324,18 +418,21 @@ function MonthBlock({ year, month, today, events, statuses, onOpenDay, onOpenPar
                                 const weekday = new Date(year, month, day).getDay()
                                 const weekend = weekday === 0 || weekday === 6
                                 const key = dateKey(year, month, day)
-                                const event = events.find((e) => e.startPart === 'na' && key >= e.startDate && key <= e.endDate) ?? null
+                                const slotEvents = events.filter((e) => e.startPart === 'na' && key >= e.startDate && key <= e.endDate)
                                 const otherPast = key < tk
                                 return (
                                     <td key={day} className={['h-12 border-l border-neutral-100 p-0.5 align-top', weekend ? 'bg-neutral-100/60' : ''].join(' ')}>
-                                        <PartCell
-                                            event={event}
-                                            onClick={event ? () => onEventClick(event) : () => onOpenPart(key, 'na')}
+                                        <EventStack
+                                            events={slotEvents}
                                             disabled={otherPast}
+                                            onEventClick={onEventClick}
+                                            onAdd={() => onOpenPart(key, 'na')}
+                                            onPick={onPickEvents}
                                         />
                                     </td>
                                 )
                             })}
+                            {totalsOn && <td className="border-l border-neutral-200 bg-neutral-50/50" />}
                         </tr>
 
                         {/* Leave row */}
@@ -375,7 +472,37 @@ function MonthBlock({ year, month, today, events, statuses, onOpenDay, onOpenPar
                                     </td>
                                 )
                             })}
+                            {totalsOn && <td className="border-l border-neutral-200 bg-neutral-50/50" />}
                         </tr>
+
+                        {/* Totals rows */}
+                        {totalsOn && rows.map((row, i) => {
+                            const rowTotal = dayNums.reduce((sum, day) => sum + (values[`${row._id}:${dateKey(year, month, day)}`] ?? 0), 0)
+                            return (
+                                <TotalRowCells
+                                    key={row._id}
+                                    row={row}
+                                    first={i === 0}
+                                    year={year}
+                                    month={month}
+                                    dayNums={dayNums}
+                                    values={values}
+                                    rowTotal={rowTotal}
+                                    onSetValue={onSetValue}
+                                    onRename={onRenameRow}
+                                    onDelete={onDeleteRow}
+                                />
+                            )
+                        })}
+
+                        {/* Add-row */}
+                        {totalsOn && (
+                            <tr className="border-t border-neutral-100">
+                                <td colSpan={colSpan} className="sticky left-0 bg-neutral-50 px-3 py-2">
+                                    <AddTotalRow onAdd={onAddRow} />
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>
@@ -383,45 +510,150 @@ function MonthBlock({ year, month, today, events, statuses, onOpenDay, onOpenPar
     )
 }
 
-function EventCell({
-    event,
-    onClick,
-    disabled = false,
-}: {
-    event: Event | null
-    onClick: () => void
-    disabled?: boolean
-}) {
-    if (!event) {
-        if (disabled) return <div className="h-full w-full" />
-        return (
-            <button
-                type="button"
-                onClick={onClick}
-                className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-500"
-            >
-                <i className="fa-solid fa-plus text-[10px] opacity-0 transition-opacity group-hover:opacity-100" />
-            </button>
-        )
+
+// ─── Totals ───────────────────────────────────────────────────────────────────
+
+function roundNum(n: number) {
+    return Math.round(n * 100) / 100
+}
+
+interface TotalRowCellsProps {
+    row: TotalRow
+    first: boolean
+    year: number
+    month: number
+    dayNums: number[]
+    values: Record<string, number>
+    rowTotal: number
+    onSetValue: (rowId: string, date: string, value: number | null) => void
+    onRename: (id: string, name: string) => void
+    onDelete: (id: string) => void
+}
+
+function TotalRowCells({ row, first, year, month, dayNums, values, rowTotal, onSetValue, onRename, onDelete }: TotalRowCellsProps) {
+    const [editing, setEditing] = useState(false)
+    const [name, setName] = useState(row.name)
+    useEffect(() => { setName(row.name) }, [row.name])
+
+    function commitName() {
+        setEditing(false)
+        const n = name.trim()
+        if (n && n !== row.name) onRename(row._id, n)
+        else setName(row.name)
     }
-    const { bg, hover, text } = event.startPart === 'na' ? NA_EVENT_COLORS : EVENT_TYPE_COLORS[event.eventType]
-    return disabled ? (
-        <div title={event.title} className={`flex h-full w-full items-center gap-1 overflow-hidden rounded-lg px-1.5 opacity-50 ${bg} ${text}`}>
-            <span className="truncate text-[11px] font-semibold leading-tight">{event.title}</span>
-        </div>
-    ) : (
-        <button
-            type="button"
-            onClick={onClick}
-            title={event.title}
-            className={`flex h-full w-full items-center gap-1 overflow-hidden rounded-lg px-1.5 text-left transition-colors ${bg} ${hover} ${text}`}
-        >
-            <span className="truncate text-[11px] font-semibold leading-tight">{event.title}</span>
-            {event.recurrence && <i className="fa-solid fa-repeat shrink-0 text-[8px] opacity-60" />}
-        </button>
+
+    return (
+        <tr className={first ? 'border-t border-neutral-200' : 'border-t border-neutral-100'}>
+            <th scope="row" className="sticky left-0 z-10 bg-neutral-50 px-3 py-1 text-left align-middle">
+                {editing ? (
+                    <input
+                        autoFocus
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        onBlur={commitName}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                            if (e.key === 'Escape') { setName(row.name); setEditing(false) }
+                        }}
+                        className="w-full rounded-md border border-neutral-200 px-2 py-1 text-sm outline-none focus:border-neutral-400"
+                    />
+                ) : (
+                    <div className="group flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => setEditing(true)}
+                            title="Rename"
+                            className="flex-1 truncate text-left text-sm font-semibold text-neutral-700 hover:text-neutral-900"
+                        >
+                            {row.name}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onDelete(row._id)}
+                            aria-label="Delete row"
+                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 opacity-0 transition-all hover:bg-neutral-200 hover:text-neutral-600 group-hover:opacity-100"
+                        >
+                            <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
+                        </button>
+                    </div>
+                )}
+            </th>
+            {dayNums.map((day) => {
+                const key = dateKey(year, month, day)
+                const weekday = new Date(year, month, day).getDay()
+                const weekend = weekday === 0 || weekday === 6
+                return (
+                    <td key={day} className={['border-l border-neutral-100 p-0.5 align-middle', weekend ? 'bg-neutral-100/70' : 'bg-neutral-50'].join(' ')}>
+                        <TotalCell
+                            value={values[`${row._id}:${key}`]}
+                            onCommit={(v) => onSetValue(row._id, key, v)}
+                        />
+                    </td>
+                )
+            })}
+            <td className="border-l border-neutral-200 bg-neutral-50/50 px-2 text-center text-xs font-bold tabular-nums text-neutral-700">
+                {rowTotal ? roundNum(rowTotal) : ''}
+            </td>
+        </tr>
     )
 }
 
-function PartCell({ event, onClick, disabled = false }: { event: Event | null; onClick: () => void; disabled?: boolean }) {
-    return <EventCell event={event} onClick={onClick} disabled={disabled} />
+function TotalCell({ value, onCommit }: { value: number | undefined; onCommit: (v: number | null) => void }) {
+    const [text, setText] = useState(value === undefined ? '' : String(value))
+    useEffect(() => { setText(value === undefined ? '' : String(value)) }, [value])
+
+    function commit() {
+        const trimmed = text.trim()
+        if (trimmed === '') {
+            if (value !== undefined) onCommit(null)
+            return
+        }
+        const n = Number(trimmed)
+        if (Number.isNaN(n)) { setText(value === undefined ? '' : String(value)); return }
+        if (n !== value) onCommit(n)
+    }
+
+    return (
+        <input
+            type="number"
+            inputMode="decimal"
+            step="any"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            className="h-9 w-full rounded-md border border-transparent bg-transparent px-1 text-center text-xs tabular-nums text-neutral-800 outline-none hover:border-neutral-200 focus:border-neutral-400 focus:bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        />
+    )
+}
+
+function AddTotalRow({ onAdd }: { onAdd: (name: string) => void }) {
+    const [name, setName] = useState('')
+    function submit() {
+        const n = name.trim()
+        if (!n) return
+        onAdd(n)
+        setName('')
+    }
+    return (
+        <div className="flex items-center gap-2">
+            <i className="fa-solid fa-plus text-xs text-neutral-300" aria-hidden="true" />
+            <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+                placeholder="Add a totals row…"
+                className="w-56 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400"
+            />
+            {name.trim() && (
+                <button
+                    type="button"
+                    onClick={submit}
+                    className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-neutral-800"
+                >
+                    Add
+                </button>
+            )}
+        </div>
+    )
 }

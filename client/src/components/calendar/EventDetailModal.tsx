@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useOverlayBehavior } from '../useOverlay'
+import Button from '../Button'
 import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, NA_EVENT_COLORS, RECURRENCE_LABELS } from '../../types'
 import { MONTHS, WEEKDAYS_LONG } from '../../lib/calendar'
 import type { Event } from '../../types'
@@ -103,21 +104,12 @@ export default function EventDetailModal({ event, onClose, onEdit }: Props) {
 
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-3 border-t border-neutral-100 px-6 py-4">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-full px-4 py-2 text-sm font-semibold text-neutral-500 transition-colors hover:bg-neutral-100"
-                    >
+                    <Button variant="ghost" size="sm" onClick={onClose}>
                         Close
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onEdit}
-                        className="inline-flex items-center gap-2 rounded-full bg-neutral-950 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-neutral-800"
-                    >
-                        <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
+                    </Button>
+                    <Button size="sm" icon="fa-solid fa-pen" onClick={onEdit}>
                         Edit
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>,
