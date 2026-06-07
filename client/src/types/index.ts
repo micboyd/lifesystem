@@ -157,6 +157,32 @@ export interface HabitLog {
     completed: boolean
 }
 
+export interface FinanceGroup {
+    _id: string
+    name: string
+    type: 'income' | 'expense'
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+export interface FinanceRow {
+    _id: string
+    group: string
+    name: string
+    recurringAmount?: number
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+export interface FinanceEntry {
+    _id: string
+    row: string
+    month: string
+    amount: number
+}
+
 export interface LoginCredentials {
     email: string
     password: string

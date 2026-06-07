@@ -8,6 +8,7 @@ const navLinks = [
     { label: 'Calendar', to: '/calendar' },
     { label: 'Timebox', to: '/timebox' },
     { label: 'Habits', to: '/habits' },
+    { label: 'Finances', to: '/finances' },
     { label: 'Style Guide', to: '/styleguide' },
     { label: 'Profile', to: '/profile' },
 ]
