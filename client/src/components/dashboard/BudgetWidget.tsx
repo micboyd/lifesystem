@@ -3,22 +3,10 @@ import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
 import Spinner from '../Spinner'
 import { listRows, listEntries, listBudgetSpends, setBudgetSpend } from '../../services/finances'
+import { computeBudgetDay, monthOf, dayNumOf } from '../../lib/budget'
 import type { FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function monthOf(date: string): string {
-    return date.slice(0, 7)
-}
-
-function dayNumOf(date: string): number {
-    return Number(date.split('-')[2])
-}
-
-function daysInMonth(ym: string): number {
-    const [y, m] = ym.split('-').map(Number)
-    return new Date(y, m, 0).getDate()
-}
 
 function fmt(n: number): string {
     return n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -35,21 +23,9 @@ interface BudgetColProps {
 }
 
 function BudgetCol({ row, entry, rowSpends, date, onLogSpend }: BudgetColProps) {
-    const month = monthOf(date)
     const dayNum = dayNumOf(date)
-    const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
-    const totalDays = daysInMonth(month)
-
-    const straightDailyRate = totalDays > 0 ? monthlyAmount / totalDays : 0
-    const totalSpentBefore = rowSpends
-        .filter((s) => s.date < date)
-        .reduce((sum, s) => sum + s.amount, 0)
-    const carry = (dayNum - 1) * straightDailyRate - totalSpentBefore
-    const todaysAllowance = straightDailyRate + carry
-    const spentToday = rowSpends.filter((s) => s.date === date).reduce((sum, s) => sum + s.amount, 0)
-    const remaining = todaysAllowance - spentToday
-    const totalSpentMonth = rowSpends.reduce((sum, s) => sum + s.amount, 0)
-    const monthlyRemaining = monthlyAmount - totalSpentMonth
+    const { monthlyAmount, straightDailyRate, carry, spentToday, remaining, monthlyRemaining } =
+        computeBudgetDay(row, entry, rowSpends, date)
 
     const [draft, setDraft] = useState('')
     const [saving, setSaving] = useState(false)
