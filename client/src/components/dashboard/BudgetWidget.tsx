@@ -129,7 +129,14 @@ function BudgetCol({ row, entry, rowSpends, date, onLogSpend }: BudgetColProps) 
 
 // ── Main widget ───────────────────────────────────────────────────────────────
 
-export default function BudgetWidget({ date }: { date: string }) {
+export default function BudgetWidget({
+    date,
+    onSpendChange,
+}: {
+    date: string
+    /** Fired after a spend is logged or cleared, so siblings can refresh. */
+    onSpendChange?: () => void
+}) {
     const [loading, setLoading] = useState(true)
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
@@ -159,6 +166,7 @@ export default function BudgetWidget({ date }: { date: string }) {
             const without = prev.filter((s) => !(s.row === rowId && s.date === date))
             return result ? [...without, result] : without
         })
+        onSpendChange?.()
     }
 
     const budgetedRows = rows.filter((r) => r.budgeted)

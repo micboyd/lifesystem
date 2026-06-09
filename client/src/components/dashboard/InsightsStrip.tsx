@@ -141,7 +141,14 @@ const PLACEHOLDERS: Insight[] = [
     { label: 'Budget left today', value: '…', icon: 'fa-solid fa-wallet' },
 ]
 
-export default function InsightsStrip({ date }: { date: string }) {
+export default function InsightsStrip({
+    date,
+    refreshKey = 0,
+}: {
+    date: string
+    /** Change this to force a silent refetch (e.g. after a spend is logged elsewhere). */
+    refreshKey?: number
+}) {
     const { user } = useAuth()
     const [insights, setInsights] = useState<Insight[]>(PLACEHOLDERS)
     const [loadedKey, setLoadedKey] = useState<string | null>(null)
@@ -177,7 +184,9 @@ export default function InsightsStrip({ date }: { date: string }) {
             .catch(() => active && setInsights(PLACEHOLDERS.map((p) => ({ ...p, value: '—' }))))
             .finally(() => { if (active) setLoadedKey(key) })
         return () => { active = false }
-    }, [key, date, month, wake, bed])
+        // refreshKey forces a silent refetch; loadedKey already matches `key`,
+        // so the strip updates in place without flashing placeholders.
+    }, [key, refreshKey, date, month, wake, bed])
 
     const cards = loading ? PLACEHOLDERS : insights
 
