@@ -119,6 +119,19 @@ export default function EventDetailModal({ event, onClose, onEdit }: Props) {
                         </DetailRow>
                     )}
 
+                    {/* Budget */}
+                    {event.budget != null && (
+                        <DetailRow icon="fa-solid fa-sterling-sign">
+                            £{event.budget.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {event.budgetRow && event.budgetRowName && (
+                                <span className="ml-1.5 inline-flex items-center gap-1 text-neutral-400">
+                                    <i className="fa-solid fa-link text-[10px]" aria-hidden="true" />
+                                    {event.budgetRowName}
+                                </span>
+                            )}
+                        </DetailRow>
+                    )}
+
                     {/* Notes */}
                     {event.notes && (
                         <DetailRow icon="fa-regular fa-note-sticky">

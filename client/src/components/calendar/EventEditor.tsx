@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
+import Select from '../Select'
 import Textarea from '../Textarea'
 import DatePicker, { type DateRange } from '../DatePicker'
 import Switch from '../Switch'
@@ -17,8 +18,12 @@ import {
     type EventType,
     type Part,
     type RecurrenceFrequency,
+    type FinanceRow,
+    type FinanceGroup,
+    type FinanceEntry,
 } from '../../types'
 import type { EventInput } from '../../services/events'
+import { listRows as listFinanceRows, listGroups, listEntries } from '../../services/finances'
 
 interface EventEditorProps {
     open: boolean
@@ -216,6 +221,12 @@ export default function EventEditor({
     const [endDate,             setEndDate]             = useState('')
     const [endPart,             setEndPart]             = useState<Part>('morning')
     const [time,                setTime]                = useState<string | null>(null)
+    const [budgetMode,          setBudgetMode]          = useState<'manual' | 'linked'>('manual')
+    const [budget,              setBudget]              = useState('')
+    const [budgetRow,           setBudgetRow]           = useState('')
+    const [financeRows,         setFinanceRows]         = useState<FinanceRow[]>([])
+    const [financeGroups,       setFinanceGroups]       = useState<FinanceGroup[]>([])
+    const [linkedEntries,       setLinkedEntries]       = useState<FinanceEntry[]>([])
     const [notes,               setNotes]               = useState('')
     const [error,               setError]               = useState('')
     const [recurring,           setRecurring]           = useState(false)
@@ -238,6 +249,10 @@ export default function EventEditor({
         setEndDate(event?.endDate ?? defaultSlot?.date ?? '')
         setEndPart(event?.endPart ?? (event?.startPart ?? defaultSlot?.part ?? 'morning'))
         setTime(event?.time ?? null)
+        setBudgetMode(event?.budgetRow ? 'linked' : 'manual')
+        // When linked, event.budget is the resolved finance amount, not a manual entry.
+        setBudget(!event?.budgetRow && event?.budget != null ? String(event.budget) : '')
+        setBudgetRow(event?.budgetRow ?? '')
         setNotes(event?.notes ?? '')
         setError('')
         const rec = event?.recurrence
@@ -245,6 +260,21 @@ export default function EventEditor({
         setRecurrenceFrequency(rec?.frequency ?? 'weekly')
         setRecurrenceEndsOn(rec?.endsOn ?? '')
     }, [open, event, defaultSlot])
+
+    // Finance rows + groups for the "link to finances" picker.
+    useEffect(() => {
+        if (!open) return
+        Promise.all([listFinanceRows(), listGroups()])
+            .then(([rows, groups]) => { setFinanceRows(rows); setFinanceGroups(groups) })
+            .catch(() => { setFinanceRows([]); setFinanceGroups([]) })
+    }, [open])
+
+    // Month-scoped entry overrides, used to preview the linked row's amount.
+    const startMonth = startDate ? startDate.slice(0, 7) : ''
+    useEffect(() => {
+        if (!open || budgetMode !== 'linked' || !startMonth) { setLinkedEntries([]); return }
+        listEntries(startMonth).then(setLinkedEntries).catch(() => setLinkedEntries([]))
+    }, [open, budgetMode, startMonth])
 
     function handleTimeOfDayChange(newStart: Part, newEnd: Part) {
         setStartPart(newStart)
@@ -280,6 +310,19 @@ export default function EventEditor({
             }
         }
 
+        let budgetValue: number | undefined
+        let budgetRowValue: string | undefined
+        if (budgetMode === 'linked') {
+            budgetRowValue = budgetRow || undefined
+        } else {
+            const trimmedBudget = budget.trim()
+            if (trimmedBudget) {
+                const n = Number(trimmedBudget)
+                if (Number.isNaN(n) || n < 0) { setError('Budget must be a positive amount.'); return }
+                budgetValue = n
+            }
+        }
+
         onSave({
             title: title.trim(),
             notes: notes.trim() || undefined,
@@ -294,6 +337,8 @@ export default function EventEditor({
             recurrence: recurring
                 ? { frequency: recurrenceFrequency, endsOn: recurrenceEndsOn || undefined }
                 : undefined,
+            budget: budgetValue,
+            budgetRow: budgetRowValue,
         })
     }
 
@@ -303,6 +348,30 @@ export default function EventEditor({
             ? 'bg-neutral-950 text-white'
             : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900',
     ].join(' ')
+
+    // ── Linked-budget derived values ──
+    const groupName = (id: string) => financeGroups.find((g) => g._id === id)?.name ?? ''
+
+    // Rows relevant to the event's month: recurring rows + non-recurring rows scoped to this month.
+    const availableRows = financeRows.filter((r) => {
+        if (r.recurring === false) {
+            const rowMonth = r.month ?? r.createdAt.substring(0, 7)
+            return rowMonth === startMonth
+        }
+        return true
+    })
+    const selectedRow = financeRows.find((r) => r._id === budgetRow) ?? null
+    // Keep an out-of-month selection visible so an existing link isn't silently dropped.
+    const rowOptions = (selectedRow && !availableRows.some((r) => r._id === selectedRow._id)
+        ? [selectedRow, ...availableRows]
+        : availableRows
+    ).map((r) => ({ value: r._id, label: `${groupName(r.group)} · ${r.name}` }))
+
+    const resolvedAmount = selectedRow
+        ? (linkedEntries.find((e) => e.row === selectedRow._id)?.amount ?? selectedRow.recurringAmount ?? 0)
+        : undefined
+
+    const fmtMoney = (n: number) => n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
     return (
         <Drawer
@@ -497,6 +566,61 @@ export default function EventEditor({
                                     placeholder="No end date"
                                 />
                             </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Budget */}
+                <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Budget</label>
+                    <div className="flex rounded-xl border border-neutral-200 bg-neutral-50 p-1 gap-1">
+                        {(['manual', 'linked'] as const).map((m) => (
+                            <button
+                                key={m}
+                                type="button"
+                                onClick={() => { setBudgetMode(m); setError('') }}
+                                className={[
+                                    'flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors',
+                                    budgetMode === m ? 'bg-neutral-950 text-white' : 'text-neutral-500 hover:text-neutral-900',
+                                ].join(' ')}
+                            >
+                                {m === 'manual' ? 'Manual amount' : 'From finances'}
+                            </button>
+                        ))}
+                    </div>
+
+                    {budgetMode === 'manual' ? (
+                        <Input
+                            type="number"
+                            inputMode="decimal"
+                            step="any"
+                            min="0"
+                            placeholder="Optional"
+                            icon="fa-solid fa-sterling-sign"
+                            value={budget}
+                            onChange={(e) => { setBudget(e.target.value); setError('') }}
+                            hint="How much you expect to spend on this event."
+                        />
+                    ) : rowOptions.length === 0 ? (
+                        <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-2.5 text-xs text-neutral-400">
+                            No finance rows for {startMonth || 'this month'}. Add one on the Finances page first.
+                        </p>
+                    ) : (
+                        <>
+                            <Select
+                                icon="fa-solid fa-link"
+                                placeholder="Choose a finance row"
+                                options={rowOptions}
+                                value={budgetRow}
+                                onChange={(v) => { setBudgetRow(v); setError('') }}
+                            />
+                            {selectedRow && (
+                                <p className="flex items-center gap-1.5 text-xs text-neutral-500">
+                                    <i className="fa-solid fa-sterling-sign text-[10px] text-neutral-400" aria-hidden="true" />
+                                    Pulls <span className="font-semibold text-neutral-700">£{fmtMoney(resolvedAmount ?? 0)}</span>
+                                    {' '}from <span className="font-semibold text-neutral-700">{selectedRow.name}</span> for {startMonth}.
+                                </p>
+                            )}
                         </>
                     )}
                 </div>

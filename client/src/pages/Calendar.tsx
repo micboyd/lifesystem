@@ -75,6 +75,11 @@ export default function Calendar() {
     const title = getTitle(view, focusDate)
     const { from, to } = getRange(view, focusDate)
 
+    // Total budget needed for events in the visible range. Recurring events are
+    // already expanded into per-occurrence instances, so each counts once.
+    const budgetTotal = events.reduce((sum, e) => sum + (e.budget ?? 0), 0)
+    const budgetPeriod = view === 'Week' ? 'this week' : view === 'Month' ? 'this month' : 'this year'
+
     // Totals are a Year-view-only feature gated behind a user setting.
     const totalsOn = !!user?.settings?.showTotals && view === 'Year'
 
@@ -221,7 +226,19 @@ export default function Calendar() {
                         )}
                     </div>
 
-                    <Tabs tabs={VIEWS} value={view} onChange={(v) => setView(v as CalendarView)} />
+                    <div className="flex items-center gap-3">
+                        {view !== 'Year' && budgetTotal > 0 && (
+                            <span
+                                title={`Budget needed for events ${budgetPeriod}`}
+                                className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700"
+                            >
+                                <i className="fa-solid fa-sterling-sign text-xs" aria-hidden="true" />
+                                {budgetTotal.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                <span className="font-medium text-emerald-600/70">event budget</span>
+                            </span>
+                        )}
+                        <Tabs tabs={VIEWS} value={view} onChange={(v) => setView(v as CalendarView)} />
+                    </div>
                 </div>
             </div>
 
@@ -326,12 +343,29 @@ function MonthBlock({
 
     const colSpan = totalsOn ? dayNums.length + 2 : dayNums.length + 1
 
+    // Budget needed for events starting in this month (recurring events are
+    // already expanded into per-occurrence instances).
+    const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`
+    const monthBudget = events
+        .filter((e) => e.startDate.startsWith(monthPrefix))
+        .reduce((sum, e) => sum + (e.budget ?? 0), 0)
+
     return (
         <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-            <div className="border-b border-neutral-100 px-4 py-3">
+            <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3">
                 <h2 className="text-base font-bold tracking-tight text-neutral-950">
                     {MONTHS[month]} <span className="font-semibold text-neutral-400">{year}</span>
                 </h2>
+                {monthBudget > 0 && (
+                    <span
+                        title="Budget needed for events this month"
+                        className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700"
+                    >
+                        <i className="fa-solid fa-sterling-sign text-xs" aria-hidden="true" />
+                        {monthBudget.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <span className="font-medium text-emerald-600/70">event budget</span>
+                    </span>
+                )}
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full min-w-[64rem] table-fixed border-collapse">

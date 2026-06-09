@@ -1,9 +1,12 @@
 import { Response } from 'express'
+import { isValidObjectId } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import Event, {
     DATE_PATTERN, TIME_PATTERN, PARTS, EVENT_TYPES, RECURRENCE_FREQUENCIES,
     Part, EventType, RecurrenceFrequency, IEvent, IRecurrence,
 } from '../models/Event'
+import FinanceRow from '../models/FinanceRow'
+import FinanceEntry from '../models/FinanceEntry'
 
 function isValidDate(value: unknown): value is string {
     return typeof value === 'string' && DATE_PATTERN.test(value)
@@ -94,6 +97,8 @@ interface EventFields {
     endDate: string
     endPart: Part
     recurrence?: IRecurrence
+    budget?: number
+    budgetRow?: string
 }
 
 function parseBody(body: Record<string, unknown>): EventFields | string {
@@ -132,6 +137,16 @@ function parseBody(body: Record<string, unknown>): EventFields | string {
         if (isValidDate(rec.endsOn)) recurrence.endsOn = rec.endsOn
     }
 
+    // Budget — either a manual amount or a link to a finance row (mutually exclusive).
+    let budgetRow: string | undefined
+    if (typeof body.budgetRow === 'string' && body.budgetRow.trim()) {
+        budgetRow = body.budgetRow.trim()
+    }
+    let budget: number | undefined
+    if (!budgetRow && typeof body.budget === 'number' && Number.isFinite(body.budget) && body.budget >= 0) {
+        budget = body.budget
+    }
+
     return {
         title,
         notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : undefined,
@@ -140,6 +155,53 @@ function parseBody(body: Record<string, unknown>): EventFields | string {
         startDate: body.startDate as string, startPart,
         endDate: body.endDate as string, endPart,
         recurrence,
+        budget,
+        budgetRow,
+    }
+}
+
+/** Confirms a linked finance row exists and belongs to the user. */
+async function budgetRowOwnedByUser(userId: string, budgetRow?: string): Promise<boolean> {
+    if (!budgetRow) return true
+    if (!isValidObjectId(budgetRow)) return false
+    const row = await FinanceRow.findOne({ _id: budgetRow, user: userId }).select('_id')
+    return !!row
+}
+
+interface ResolvableEvent {
+    startDate: string
+    budget?: number
+    budgetRow?: unknown
+    budgetRowName?: string
+}
+
+/**
+ * For events linked to a finance row, pull the budget amount from that row for
+ * the event's start month (entry override, else the row's recurring amount).
+ * Mutates the passed objects in place. Linked rows that no longer exist are
+ * cleared so stale links don't surface a phantom budget.
+ */
+async function resolveLinkedBudgets(userId: string, events: ResolvableEvent[]): Promise<void> {
+    const linked = events.filter((e) => e.budgetRow)
+    if (linked.length === 0) return
+
+    const rowIds = [...new Set(linked.map((e) => String(e.budgetRow)))]
+    const months = [...new Set(linked.map((e) => e.startDate.slice(0, 7)))]
+
+    const [rows, entries] = await Promise.all([
+        FinanceRow.find({ user: userId, _id: { $in: rowIds } }),
+        FinanceEntry.find({ user: userId, row: { $in: rowIds }, month: { $in: months } }),
+    ])
+    const rowMap = new Map(rows.map((r) => [String(r._id), r]))
+    const entryMap = new Map(entries.map((en) => [`${String(en.row)}:${en.month}`, en.amount]))
+
+    for (const e of linked) {
+        const row = rowMap.get(String(e.budgetRow))
+        if (!row) { e.budgetRow = undefined; continue }
+        const month = e.startDate.slice(0, 7)
+        const amount = entryMap.get(`${String(e.budgetRow)}:${month}`)
+        e.budget = amount !== undefined ? amount : (row.recurringAmount ?? 0)
+        e.budgetRowName = row.name
     }
 }
 
@@ -195,15 +257,15 @@ export async function listEvents(req: AuthRequest, res: Response) {
 
         const instances = recurring.flatMap((e) => expandOccurrences(e, from as string, to as string))
 
-        return res.json({
-            message: 'OK',
-            data: [...regular.map((e) => e.toObject()), ...instances].sort((a, b) =>
-                a.startDate < b.startDate ? -1 : 1
-            ),
-        })
+        const data = [...regular.map((e) => e.toObject()), ...instances].sort((a, b) =>
+            a.startDate < b.startDate ? -1 : 1
+        )
+        await resolveLinkedBudgets(req.userId!, data)
+        return res.json({ message: 'OK', data })
     }
 
-    const events = await Event.find({ user: req.userId }).sort({ startDate: 1 })
+    const events = (await Event.find({ user: req.userId }).sort({ startDate: 1 })).map((e) => e.toObject())
+    await resolveLinkedBudgets(req.userId!, events)
     res.json({ message: 'OK', data: events })
 }
 
@@ -214,8 +276,13 @@ export async function createEvent(req: AuthRequest, res: Response) {
     if (await hasConflict(req.userId!, fields)) {
         res.status(409).json({ message: 'Another event already occupies one of those slots' }); return
     }
+    if (!(await budgetRowOwnedByUser(req.userId!, fields.budgetRow))) {
+        res.status(400).json({ message: 'Linked finance row not found' }); return
+    }
     const event = await Event.create({ user: req.userId, ...fields })
-    res.status(201).json({ message: 'Created', data: event })
+    const data = event.toObject()
+    await resolveLinkedBudgets(req.userId!, [data])
+    res.status(201).json({ message: 'Created', data })
 }
 
 /** PUT /api/events/:id */
@@ -224,6 +291,9 @@ export async function updateEvent(req: AuthRequest, res: Response) {
     if (typeof fields === 'string') { res.status(400).json({ message: fields }); return }
     if (await hasConflict(req.userId!, fields, req.params.id)) {
         res.status(409).json({ message: 'Another event already occupies one of those slots' }); return
+    }
+    if (!(await budgetRowOwnedByUser(req.userId!, fields.budgetRow))) {
+        res.status(400).json({ message: 'Linked finance row not found' }); return
     }
     // Build $set (required fields always present) and $unset (clear optional
     // fields that were removed so stale values don't persist).
@@ -250,6 +320,12 @@ export async function updateEvent(req: AuthRequest, res: Response) {
     if (fields.recurrence !== undefined) $set.recurrence = fields.recurrence
     else                                 $unset.recurrence = 1
 
+    if (fields.budget     !== undefined) $set.budget     = fields.budget
+    else                                 $unset.budget    = 1
+
+    if (fields.budgetRow  !== undefined) $set.budgetRow  = fields.budgetRow
+    else                                 $unset.budgetRow = 1
+
     const updateOp: Record<string, unknown> = { $set }
     if (Object.keys($unset).length > 0) updateOp.$unset = $unset
 
@@ -259,7 +335,9 @@ export async function updateEvent(req: AuthRequest, res: Response) {
         { new: true }
     )
     if (!event) { res.status(404).json({ message: 'Event not found' }); return }
-    res.json({ message: 'Saved', data: event })
+    const data = event.toObject()
+    await resolveLinkedBudgets(req.userId!, [data])
+    res.json({ message: 'Saved', data })
 }
 
 /** DELETE /api/events/:id */
