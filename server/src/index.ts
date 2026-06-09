@@ -2,6 +2,7 @@ import dotenv from 'dotenv'
 import path from 'path'
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 import express from 'express'
+import cors from 'cors'
 import { connectDB } from './config/db'
 import DayStatus from './models/DayStatus'
 import userRoutes from './routes/userRoutes'
@@ -16,6 +17,12 @@ import financeRoutes from './routes/financeRoutes'
 const app = express()
 const PORT = process.env.PORT ?? 5000
 
+// Allow requests from the Netlify client (and localhost in dev)
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173')
+    .split(',')
+    .map((o) => o.trim())
+
+app.use(cors({ origin: allowedOrigins, credentials: true }))
 app.use(express.json())
 
 app.use('/api/users', userRoutes)

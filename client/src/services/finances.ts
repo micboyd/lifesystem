@@ -8,7 +8,7 @@ export async function listGroups(): Promise<FinanceGroup[]> {
     return res.data.data
 }
 
-export async function createGroup(name: string, type: 'income' | 'expense'): Promise<FinanceGroup> {
+export async function createGroup(name: string, type: 'income' | 'expense' | 'savings'): Promise<FinanceGroup> {
     const res = await api.post<ApiResponse<FinanceGroup>>('/finances/groups', { name, type })
     return res.data.data
 }
