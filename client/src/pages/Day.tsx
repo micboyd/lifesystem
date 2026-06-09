@@ -1,5 +1,6 @@
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import Container from '../components/Container'
+import Button from '../components/Button'
 import DayView from '../components/calendar/DayView'
 import HabitsDaySection from '../components/habits/HabitsDaySection'
 import TasksDaySection from '../components/tasks/TasksDaySection'
@@ -22,14 +23,15 @@ export default function Day() {
 
     return (
         <Container as="main" className="py-10 max-w-2xl">
-            <button
-                type="button"
+            <Button
+                variant="ghost"
+                size="sm"
+                icon="fa-solid fa-arrow-left"
                 onClick={() => navigate(-1)}
-                className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-neutral-500 transition-colors hover:text-neutral-900"
+                className="mb-6"
             >
-                <i className="fa-solid fa-arrow-left text-xs" aria-hidden="true" />
                 Back
-            </button>
+            </Button>
 
             <header className="mb-8">
                 {isToday && (

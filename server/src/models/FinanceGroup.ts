@@ -3,8 +3,10 @@ import { Schema, model, Document, Types } from 'mongoose'
 export interface IFinanceGroup extends Document {
     user: Types.ObjectId
     name: string
-    type: 'income' | 'expense'
+    type: 'income' | 'expense' | 'savings'
     order: number
+    currentBalance?: number
+    annualInterestRate?: number
     createdAt: Date
     updatedAt: Date
 }
@@ -13,8 +15,10 @@ const financeGroupSchema = new Schema<IFinanceGroup>(
     {
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         name: { type: String, required: true, trim: true },
-        type: { type: String, enum: ['income', 'expense'], required: true },
+        type: { type: String, enum: ['income', 'expense', 'savings'], required: true },
         order: { type: Number, default: 0 },
+        currentBalance: { type: Number, default: 0 },
+        annualInterestRate: { type: Number, default: 0 },
     },
     { timestamps: true }
 )

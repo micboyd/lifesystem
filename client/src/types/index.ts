@@ -160,8 +160,10 @@ export interface HabitLog {
 export interface FinanceGroup {
     _id: string
     name: string
-    type: 'income' | 'expense'
+    type: 'income' | 'expense' | 'savings'
     order: number
+    currentBalance?: number
+    annualInterestRate?: number
     createdAt: string
     updatedAt: string
 }
@@ -172,6 +174,10 @@ export interface FinanceRow {
     name: string
     recurringAmount?: number
     order: number
+    recurring?: boolean
+    month?: string          // YYYY-MM — set for non-recurring rows, absent for recurring
+    budgeted?: boolean
+    budgetType?: 'daily' | null
     createdAt: string
     updatedAt: string
 }
@@ -181,6 +187,29 @@ export interface FinanceEntry {
     row: string
     month: string
     amount: number
+}
+
+export interface BudgetSpend {
+    _id: string
+    row: string
+    date: string
+    amount: number
+}
+
+export interface BudgetExclusion {
+    _id: string
+    date: string
+}
+
+export interface FinanceSubItem {
+    _id: string
+    row: string
+    month?: string   // absent for non-recurring rows
+    name: string
+    amount: number
+    order: number
+    createdAt: string
+    updatedAt: string
 }
 
 export interface LoginCredentials {

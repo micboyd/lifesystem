@@ -53,6 +53,9 @@ function formatDisplay(time: ParsedTime, use12Hour: boolean): string {
     return `${hour12}:${String(time.minute).padStart(2, '0')} ${period}`
 }
 
+// Common times shown in the quick-select grid (24h internally)
+const QUICK_TIMES: ParsedTime[] = [8, 9, 10, 12, 13, 14, 17, 18, 20].map((h) => ({ hour: h, minute: 0 }))
+
 export default function TimePicker({
     value,
     defaultValue,
@@ -73,33 +76,23 @@ export default function TimePicker({
     const current = isControlled ? parseTime(value) : internal
 
     const [open, setOpen] = useState(false)
-    const containerRef = useRef<HTMLDivElement>(null)
-    const hourColRef = useRef<HTMLDivElement>(null)
-    const minuteColRef = useRef<HTMLDivElement>(null)
-
-    const step = Math.min(Math.max(Math.floor(minuteStep) || 5, 1), 60)
-    const minM = useMemo(() => {
-        const t = parseTime(minTime)
-        return t ? toMinutes(t) : null
-    }, [minTime])
-    const maxM = useMemo(() => {
-        const t = parseTime(maxTime)
-        return t ? toMinutes(t) : null
-    }, [maxTime])
-
-    const hours = useMemo(
-        () => (use12Hour ? Array.from({ length: 12 }, (_, i) => i + 1) : Array.from({ length: 24 }, (_, i) => i)),
-        [use12Hour],
-    )
-    const minutes = useMemo(
-        () => Array.from({ length: Math.ceil(60 / step) }, (_, i) => i * step),
-        [step],
-    )
-
-    // For 12-hour mode we need an AM/PM toggle; default to the current value's period or AM.
     const [period, setPeriod] = useState<'AM' | 'PM'>(current && current.hour >= 12 ? 'PM' : 'AM')
 
-    // Keep the period in sync when a controlled value changes underneath us.
+    // Inline draft editing for the spinner digits
+    const [hourDraft, setHourDraft] = useState<string | null>(null)
+    const [minuteDraft, setMinuteDraft] = useState<string | null>(null)
+
+    const containerRef = useRef<HTMLDivElement>(null)
+    const hourInputRef = useRef<HTMLInputElement>(null)
+    const minuteInputRef = useRef<HTMLInputElement>(null)
+
+    const step = Math.min(Math.max(Math.floor(minuteStep) || 5, 1), 60)
+
+    const minM = useMemo(() => { const t = parseTime(minTime); return t ? toMinutes(t) : null }, [minTime])
+    const maxM = useMemo(() => { const t = parseTime(maxTime); return t ? toMinutes(t) : null }, [maxTime])
+    const minutes = useMemo(() => Array.from({ length: Math.ceil(60 / step) }, (_, i) => i * step), [step])
+
+    // Sync period when controlled value changes
     const valueKey = isControlled ? (value ?? '') : ''
     const [lastValueKey, setLastValueKey] = useState(valueKey)
     if (isControlled && valueKey !== lastValueKey) {
@@ -107,11 +100,11 @@ export default function TimePicker({
         setLastValueKey(valueKey)
     }
 
-    // Close on outside click.
+    // Close on outside click
     useEffect(() => {
         if (!open) return
-        function handle(event: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        function handle(e: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
                 setOpen(false)
             }
         }
@@ -119,16 +112,9 @@ export default function TimePicker({
         return () => document.removeEventListener('mousedown', handle)
     }, [open])
 
-    // Scroll the selected hour/minute into view when opening.
-    useEffect(() => {
-        if (!open) return
-        const scrollSelected = (col: HTMLDivElement | null) => {
-            const selected = col?.querySelector<HTMLElement>('[data-selected="true"]')
-            selected?.scrollIntoView({ block: 'center' })
-        }
-        scrollSelected(hourColRef.current)
-        scrollSelected(minuteColRef.current)
-    }, [open])
+    // Focus hour input when it mounts
+    useEffect(() => { if (hourDraft !== null) hourInputRef.current?.focus() }, [hourDraft])
+    useEffect(() => { if (minuteDraft !== null) minuteInputRef.current?.focus() }, [minuteDraft])
 
     function isDisabled(time: ParsedTime): boolean {
         const m = toMinutes(time)
@@ -137,42 +123,89 @@ export default function TimePicker({
         return false
     }
 
-    function displayHour(hour24: number): number {
-        if (!use12Hour) return hour24
-        return hour24 % 12 === 0 ? 12 : hour24 % 12
-    }
-
     function commit(time: ParsedTime) {
         if (isDisabled(time)) return
         if (!isControlled) setInternal(time)
         onChange?.(toISO(time))
     }
 
-    function selectHour(displayValue: number) {
-        let hour24 = displayValue
+    // Derived display hour (1-12 for 12h, 0-23 for 24h)
+    const displayHour = current
+        ? use12Hour ? (current.hour % 12 === 0 ? 12 : current.hour % 12) : current.hour
+        : null
+
+    // ── Hour controls ──────────────────────────────────────────────────────────
+
+    function incrementHour() {
         if (use12Hour) {
-            hour24 = period === 'PM' ? (displayValue % 12) + 12 : displayValue % 12
+            const dh = displayHour ?? 11
+            const next = dh === 12 ? 1 : dh + 1
+            commit({ hour: period === 'PM' ? (next % 12) + 12 : next % 12, minute: current?.minute ?? 0 })
+        } else {
+            commit({ hour: ((current?.hour ?? -1) + 1) % 24, minute: current?.minute ?? 0 })
         }
-        commit({ hour: hour24, minute: current?.minute ?? 0 })
     }
 
-    function selectMinute(minute: number) {
-        const hour = current?.hour ?? (use12Hour ? (period === 'PM' ? 12 : 0) : 0)
-        commit({ hour, minute })
+    function decrementHour() {
+        if (use12Hour) {
+            const dh = displayHour ?? 2
+            const next = dh === 1 ? 12 : dh - 1
+            commit({ hour: period === 'PM' ? (next % 12) + 12 : next % 12, minute: current?.minute ?? 0 })
+        } else {
+            commit({ hour: ((current?.hour ?? 0) - 1 + 24) % 24, minute: current?.minute ?? 0 })
+        }
     }
+
+    function commitHourDraft() {
+        if (hourDraft === null) return
+        const n = parseInt(hourDraft, 10)
+        let hour24: number
+        if (use12Hour) {
+            if (isNaN(n) || n < 1 || n > 12) { setHourDraft(null); return }
+            hour24 = period === 'PM' ? (n % 12) + 12 : n % 12
+        } else {
+            if (isNaN(n) || n < 0 || n > 23) { setHourDraft(null); return }
+            hour24 = n
+        }
+        commit({ hour: hour24, minute: current?.minute ?? 0 })
+        setHourDraft(null)
+    }
+
+    // ── Minute controls ────────────────────────────────────────────────────────
+
+    function incrementMinute() {
+        const curMin = current?.minute ?? -1
+        const next = minutes.find((m) => m > curMin) ?? minutes[0]
+        commit({ hour: current?.hour ?? 0, minute: next })
+    }
+
+    function decrementMinute() {
+        const curMin = current?.minute ?? step + 1
+        const prev = [...minutes].reverse().find((m) => m < curMin) ?? minutes[minutes.length - 1]
+        commit({ hour: current?.hour ?? 0, minute: prev })
+    }
+
+    function commitMinuteDraft() {
+        if (minuteDraft === null) return
+        const n = parseInt(minuteDraft, 10)
+        if (isNaN(n) || n < 0 || n > 59) { setMinuteDraft(null); return }
+        const snapped = Math.min(Math.round(n / step) * step, 59)
+        commit({ hour: current?.hour ?? 0, minute: snapped })
+        setMinuteDraft(null)
+    }
+
+    // ── Period / quick / now ───────────────────────────────────────────────────
 
     function selectPeriod(next: 'AM' | 'PM') {
         setPeriod(next)
         if (!current) return
-        const base = current.hour % 12
-        const hour24 = next === 'PM' ? base + 12 : base
-        commit({ hour: hour24, minute: current.minute })
+        commit({ hour: next === 'PM' ? (current.hour % 12) + 12 : current.hour % 12, minute: current.minute })
     }
 
-    function clearValue(event: ReactMouseEvent) {
-        event.stopPropagation()
-        if (!isControlled) setInternal(null)
-        onChange?.(null)
+    function selectQuickTime(t: ParsedTime) {
+        if (isDisabled(t)) return
+        setPeriod(t.hour >= 12 ? 'PM' : 'AM')
+        commit(t)
     }
 
     function selectNow() {
@@ -180,46 +213,51 @@ export default function TimePicker({
         const rounded = Math.round(now.getMinutes() / step) * step
         const minute = rounded >= 60 ? 0 : rounded
         const hour = rounded >= 60 ? (now.getHours() + 1) % 24 : now.getHours()
-        const time = { hour, minute }
-        if (isDisabled(time)) return
+        const t = { hour, minute }
+        if (isDisabled(t)) return
         setPeriod(hour >= 12 ? 'PM' : 'AM')
-        commit(time)
+        commit(t)
+    }
+
+    function clearValue(e: ReactMouseEvent) {
+        e.stopPropagation()
+        if (!isControlled) setInternal(null)
+        onChange?.(null)
+    }
+
+    function formatQuickLabel(t: ParsedTime): string {
+        if (!use12Hour) return toISO(t)
+        const p = t.hour < 12 ? 'AM' : 'PM'
+        const h = t.hour % 12 === 0 ? 12 : t.hour % 12
+        return t.minute === 0 ? `${h} ${p}` : `${h}:${String(t.minute).padStart(2, '0')} ${p}`
     }
 
     const hasValue = !!current
-    const currentDisplayHour = current ? displayHour(current.hour) : null
+    const quickTimes = QUICK_TIMES.filter((t) => !isDisabled(t))
 
     const triggerClasses = [
         'group flex w-full items-center gap-3 rounded-xl border bg-neutral-50 py-2.5 pl-4 pr-3 text-sm outline-none transition-all duration-150',
-        open
-            ? 'border-neutral-400 bg-white ring-2 ring-neutral-200'
-            : 'border-neutral-200 hover:border-neutral-300 hover:bg-white',
+        open ? 'border-neutral-400 bg-white ring-2 ring-neutral-200' : 'border-neutral-200 hover:border-neutral-300 hover:bg-white',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
     ].join(' ')
 
-    const colItemClass = (selected: boolean, itemDisabled: boolean) =>
-        [
-            'w-full rounded-lg px-3 py-1.5 text-center text-sm tabular-nums transition-colors duration-100',
-            itemDisabled
-                ? 'cursor-not-allowed font-normal text-neutral-300 line-through'
-                : selected
-                  ? 'bg-neutral-950 font-semibold text-white'
-                  : 'font-medium text-neutral-700 hover:bg-neutral-100',
-        ].join(' ')
+    const spinnerBtn = 'grid h-7 w-7 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 active:bg-neutral-200'
+
+    const digitDisplay = 'h-12 w-14 rounded-xl border border-neutral-100 text-center text-2xl font-bold tabular-nums text-neutral-900 transition-colors hover:border-neutral-300 hover:bg-neutral-50'
+    const digitInput   = 'h-12 w-14 rounded-xl border border-neutral-950 bg-white text-center text-2xl font-bold tabular-nums text-neutral-900 focus:outline-none'
 
     return (
         <div ref={containerRef} className={`relative ${className}`}>
-            {/* Trigger */}
+
+            {/* ── Trigger ── */}
             <button
                 type="button"
                 onClick={() => !disabled && setOpen((o) => !o)}
                 disabled={disabled}
                 className={triggerClasses}
             >
-                <i className="fa-regular fa-clock shrink-0 text-sm text-neutral-400" aria-hidden="true" />
-                <span
-                    className={`flex-1 text-left ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-400'}`}
-                >
+                <i className="fa-solid fa-clock shrink-0 text-sm text-neutral-400" aria-hidden="true" />
+                <span className={`flex-1 text-left whitespace-nowrap ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-400'}`}>
                     {hasValue ? formatDisplay(current!, use12Hour) : placeholder}
                 </span>
                 {hasValue && !disabled ? (
@@ -227,7 +265,7 @@ export default function TimePicker({
                         onClick={clearValue}
                         role="button"
                         aria-label="Clear"
-                        className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors duration-150 hover:bg-neutral-200 hover:text-neutral-600"
+                        className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-200 hover:text-neutral-600"
                     >
                         <i className="fa-solid fa-xmark text-[10px]" aria-hidden="true" />
                     </span>
@@ -239,97 +277,100 @@ export default function TimePicker({
                 )}
             </button>
 
-            {/* Dropdown */}
+            {/* ── Dropdown ── */}
             {open && (
                 <div
-                    className={`absolute top-full z-50 mt-2 w-56 rounded-2xl border border-neutral-100 bg-white p-3 shadow-xl ${
-                        align === 'right' ? 'right-0' : 'left-0'
-                    }`}
+                    className={[
+                        'absolute top-full z-50 mt-2 rounded-2xl border border-neutral-100 bg-white shadow-xl',
+                        align === 'right' ? 'right-0' : 'left-0',
+                        use12Hour ? 'w-72' : 'w-60',
+                    ].join(' ')}
                 >
-                    <div className="flex gap-2">
+                    {/* Spinner */}
+                    <div className="flex items-center justify-center gap-2 px-5 pt-4 pb-3">
+
                         {/* Hours */}
-                        <div className="flex-1">
-                            <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                                Hour
-                            </p>
-                            <div
-                                ref={hourColRef}
-                                className="max-h-48 space-y-0.5 overflow-y-auto pr-1"
-                            >
-                                {hours.map((h) => {
-                                    const hour24 = use12Hour
-                                        ? period === 'PM'
-                                            ? (h % 12) + 12
-                                            : h % 12
-                                        : h
-                                    const itemDisabled = isDisabled({
-                                        hour: hour24,
-                                        minute: current?.minute ?? 0,
-                                    })
-                                    const selected = currentDisplayHour === h
-                                    return (
-                                        <button
-                                            key={h}
-                                            type="button"
-                                            data-selected={selected}
-                                            disabled={itemDisabled}
-                                            onClick={() => selectHour(h)}
-                                            className={colItemClass(selected, itemDisabled)}
-                                        >
-                                            {use12Hour ? h : String(h).padStart(2, '0')}
-                                        </button>
-                                    )
-                                })}
-                            </div>
+                        <div className="flex flex-col items-center gap-1">
+                            <button type="button" onClick={incrementHour} className={spinnerBtn}>
+                                <i className="fa-solid fa-chevron-up text-xs" aria-hidden="true" />
+                            </button>
+                            {hourDraft !== null ? (
+                                <input
+                                    ref={hourInputRef}
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={hourDraft}
+                                    onChange={(e) => setHourDraft(e.target.value)}
+                                    onBlur={commitHourDraft}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') commitHourDraft()
+                                        if (e.key === 'Escape') setHourDraft(null)
+                                    }}
+                                    className={digitInput}
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setHourDraft(displayHour !== null ? String(displayHour) : '')}
+                                    className={digitDisplay}
+                                >
+                                    {displayHour !== null ? String(displayHour).padStart(2, '0') : '--'}
+                                </button>
+                            )}
+                            <button type="button" onClick={decrementHour} className={spinnerBtn}>
+                                <i className="fa-solid fa-chevron-down text-xs" aria-hidden="true" />
+                            </button>
                         </div>
+
+                        {/* Separator */}
+                        <span className="mb-0.5 text-2xl font-bold text-neutral-200 select-none">:</span>
 
                         {/* Minutes */}
-                        <div className="flex-1">
-                            <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                                Min
-                            </p>
-                            <div
-                                ref={minuteColRef}
-                                className="max-h-48 space-y-0.5 overflow-y-auto pr-1"
-                            >
-                                {minutes.map((m) => {
-                                    const itemDisabled = isDisabled({
-                                        hour: current?.hour ?? (use12Hour ? (period === 'PM' ? 12 : 0) : 0),
-                                        minute: m,
-                                    })
-                                    const selected = current?.minute === m
-                                    return (
-                                        <button
-                                            key={m}
-                                            type="button"
-                                            data-selected={selected}
-                                            disabled={itemDisabled}
-                                            onClick={() => selectMinute(m)}
-                                            className={colItemClass(selected, itemDisabled)}
-                                        >
-                                            {String(m).padStart(2, '0')}
-                                        </button>
-                                    )
-                                })}
-                            </div>
+                        <div className="flex flex-col items-center gap-1">
+                            <button type="button" onClick={incrementMinute} className={spinnerBtn}>
+                                <i className="fa-solid fa-chevron-up text-xs" aria-hidden="true" />
+                            </button>
+                            {minuteDraft !== null ? (
+                                <input
+                                    ref={minuteInputRef}
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={minuteDraft}
+                                    onChange={(e) => setMinuteDraft(e.target.value)}
+                                    onBlur={commitMinuteDraft}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') commitMinuteDraft()
+                                        if (e.key === 'Escape') setMinuteDraft(null)
+                                    }}
+                                    className={digitInput}
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setMinuteDraft(current !== null ? String(current.minute) : '')}
+                                    className={digitDisplay}
+                                >
+                                    {current !== null ? String(current.minute).padStart(2, '0') : '--'}
+                                </button>
+                            )}
+                            <button type="button" onClick={decrementMinute} className={spinnerBtn}>
+                                <i className="fa-solid fa-chevron-down text-xs" aria-hidden="true" />
+                            </button>
                         </div>
 
-                        {/* AM/PM */}
+                        {/* AM / PM */}
                         {use12Hour && (
-                            <div className="flex flex-col gap-0.5">
-                                <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                                    &nbsp;
-                                </p>
+                            <div className="flex flex-col gap-1 ml-2">
                                 {(['AM', 'PM'] as const).map((p) => (
                                     <button
                                         key={p}
                                         type="button"
                                         onClick={() => selectPeriod(p)}
                                         className={[
-                                            'rounded-lg px-3 py-1.5 text-center text-sm transition-colors duration-100',
+                                            'rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
                                             period === p
-                                                ? 'bg-neutral-950 font-semibold text-white'
-                                                : 'font-medium text-neutral-700 hover:bg-neutral-100',
+                                                ? 'bg-neutral-950 text-white'
+                                                : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900',
                                         ].join(' ')}
                                     >
                                         {p}
@@ -339,20 +380,49 @@ export default function TimePicker({
                         )}
                     </div>
 
+                    {/* Quick select */}
+                    {quickTimes.length > 0 && (
+                        <div className="border-t border-neutral-100 px-3 py-2.5">
+                            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+                                Quick select
+                            </p>
+                            <div className="grid grid-cols-3 gap-1">
+                                {quickTimes.map((t) => {
+                                    const selected = current?.hour === t.hour && current?.minute === t.minute
+                                    return (
+                                        <button
+                                            key={`${t.hour}:${t.minute}`}
+                                            type="button"
+                                            onClick={() => selectQuickTime(t)}
+                                            className={[
+                                                'rounded-lg py-1.5 text-xs font-medium transition-colors',
+                                                selected
+                                                    ? 'bg-neutral-950 font-semibold text-white'
+                                                    : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
+                                            ].join(' ')}
+                                        >
+                                            {formatQuickLabel(t)}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Footer */}
-                    <div className="mt-2 flex items-center justify-between border-t border-neutral-100 pt-2">
+                    <div className="flex items-center justify-between border-t border-neutral-100 px-3 py-2">
                         <button
                             type="button"
                             onClick={selectNow}
-                            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
+                            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
-                            <i className="fa-regular fa-clock" aria-hidden="true" />
+                            <i className="fa-solid fa-clock text-[10px]" aria-hidden="true" />
                             Now
                         </button>
                         <button
                             type="button"
                             onClick={() => setOpen(false)}
-                            className="rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
+                            className="rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             Done
                         </button>

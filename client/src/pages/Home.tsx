@@ -7,6 +7,7 @@ import TodayWidget from '../components/dashboard/TodayWidget'
 import HabitsWidget from '../components/dashboard/HabitsWidget'
 import TasksWidget from '../components/dashboard/TasksWidget'
 import TimeboxWidget from '../components/dashboard/TimeboxWidget'
+import BudgetWidget from '../components/dashboard/BudgetWidget'
 import { todayKey } from '../lib/calendar'
 
 export default function Home() {
@@ -26,6 +27,10 @@ export default function Home() {
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
                 <TodayWidget date={date} />
                 <HabitsWidget date={date} />
+            </div>
+
+            <div className="mt-6">
+                <BudgetWidget date={date} />
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">

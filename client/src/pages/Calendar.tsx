@@ -345,7 +345,7 @@ function MonthBlock({
                                 const weekend = weekday === 0 || weekday === 6
                                 const todayCol = isToday(day)
                                 return (
-                                    <th key={day} className={['w-12 px-1 py-2 text-center', weekend ? 'bg-neutral-100' : ''].join(' ')}>
+                                    <th key={day} className={['w-12 px-1 py-2 text-center', weekend ? 'bg-neutral-100' : '', todayCol ? 'border-r border-neutral-400' : ''].join(' ')}>
                                         <button
                                             type="button"
                                             onClick={() => onOpenDay(dateKey(year, month, day))}
@@ -388,7 +388,8 @@ function MonthBlock({
                                         <td
                                             key={day}
                                             className={[
-                                                'h-12 border-l border-neutral-100 p-0.5 align-top',
+                                                'h-12 p-0.5 align-top',
+                                                isToday(day) ? 'border-r border-neutral-400' : 'border-l border-neutral-100',
                                                 past ? 'bg-red-100/70' : weekend ? 'bg-neutral-100/60' : '',
                                             ].join(' ')}
                                         >
@@ -421,7 +422,7 @@ function MonthBlock({
                                 const slotEvents = events.filter((e) => e.startPart === 'na' && key >= e.startDate && key <= e.endDate)
                                 const otherPast = key < tk
                                 return (
-                                    <td key={day} className={['h-12 border-l border-neutral-100 p-0.5 align-top', weekend ? 'bg-neutral-100/60' : ''].join(' ')}>
+                                    <td key={day} className={['h-12 p-0.5 align-top', isToday(day) ? 'border-r border-neutral-400' : 'border-l border-neutral-100', weekend ? 'bg-neutral-100/60' : ''].join(' ')}>
                                         <EventStack
                                             events={slotEvents}
                                             disabled={otherPast}
@@ -450,7 +451,7 @@ function MonthBlock({
                                 const status = statuses.find((s) => s.startDate <= key && s.endDate >= key) ?? null
                                 const colors = status ? DAY_STATUS_OPTIONS.find((o) => o.value === status.status) : null
                                 return (
-                                    <td key={day} className={['h-12 border-l border-neutral-100 p-0.5 align-top', weekend ? 'bg-neutral-100/60' : ''].join(' ')}>
+                                    <td key={day} className={['h-12 p-0.5 align-top', isToday(day) ? 'border-r border-neutral-400' : 'border-l border-neutral-100', weekend ? 'bg-neutral-100/60' : ''].join(' ')}>
                                         {status && colors ? (
                                             <button
                                                 type="button"
@@ -534,6 +535,8 @@ function TotalRowCells({ row, first, year, month, dayNums, values, rowTotal, onS
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(row.name)
     useEffect(() => { setName(row.name) }, [row.name])
+    const tk = todayKey()
+    const isToday = (day: number) => dateKey(year, month, day) === tk
 
     function commitName() {
         setEditing(false)
@@ -583,7 +586,7 @@ function TotalRowCells({ row, first, year, month, dayNums, values, rowTotal, onS
                 const weekday = new Date(year, month, day).getDay()
                 const weekend = weekday === 0 || weekday === 6
                 return (
-                    <td key={day} className={['border-l border-neutral-100 p-0.5 align-middle', weekend ? 'bg-neutral-100/70' : 'bg-neutral-50'].join(' ')}>
+                    <td key={day} className={[isToday(day) ? 'border-r border-neutral-400' : 'border-l border-neutral-100', 'p-0.5 align-middle', weekend ? 'bg-neutral-100/70' : 'bg-neutral-50'].join(' ')}>
                         <TotalCell
                             value={values[`${row._id}:${key}`]}
                             onCommit={(v) => onSetValue(row._id, key, v)}

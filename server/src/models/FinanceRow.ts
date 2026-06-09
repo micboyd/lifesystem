@@ -6,6 +6,10 @@ export interface IFinanceRow extends Document {
     name: string
     recurringAmount?: number
     order: number
+    recurring: boolean
+    month?: string          // YYYY-MM — set for non-recurring rows, absent for recurring
+    budgeted: boolean
+    budgetType?: 'daily' | null
     createdAt: Date
     updatedAt: Date
 }
@@ -17,6 +21,10 @@ const financeRowSchema = new Schema<IFinanceRow>(
         name: { type: String, required: true, trim: true },
         recurringAmount: { type: Number },
         order: { type: Number, default: 0 },
+        recurring: { type: Boolean, default: true },
+        month: { type: String, default: null },
+        budgeted: { type: Boolean, default: false },
+        budgetType: { type: String, enum: ['daily'], default: null },
     },
     { timestamps: true }
 )

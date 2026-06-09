@@ -20,7 +20,7 @@ export default function DashboardDateNav({ date, onChange }: Props) {
                 <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
             </button>
 
-            <div className="w-44">
+            <div className="w-auto">
                 <DatePicker
                     value={date}
                     onChange={(v: DatePickerValue) => { if (typeof v === 'string' && v) onChange(v) }}

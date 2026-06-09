@@ -387,7 +387,7 @@ export default function DatePicker({
             <button type="button" onClick={toggle} disabled={disabled} className={triggerClasses}>
                 <i className="fa-regular fa-calendar shrink-0 text-sm text-neutral-400" aria-hidden="true" />
                 <span
-                    className={`flex-1 text-left ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-400'}`}
+                    className={`flex-1 text-left whitespace-nowrap ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-400'}`}
                 >
                     {hasValue ? triggerLabel : placeholder}
                 </span>

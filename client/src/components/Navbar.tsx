@@ -6,10 +6,9 @@ import Container from './Container'
 const navLinks = [
     { label: 'Home', to: '/' },
     { label: 'Calendar', to: '/calendar' },
+    { label: 'Finances', to: '/finances' },
     { label: 'Timebox', to: '/timebox' },
     { label: 'Habits', to: '/habits' },
-    { label: 'Finances', to: '/finances' },
-    { label: 'Style Guide', to: '/styleguide' },
     { label: 'Profile', to: '/profile' },
 ]
 

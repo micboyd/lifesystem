@@ -70,13 +70,14 @@ export default function DayStatusSection({ date }: Props) {
                                 {formatRange(record.startDate, record.endDate)}
                             </p>
                         </div>
-                        <button
-                            type="button"
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleDelete(record._id)}
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-full transition-colors hover:bg-black/10"
+                            className="!px-2 !py-1 shrink-0 hover:!bg-black/10"
                         >
                             <i className={`fa-solid fa-xmark text-xs ${opt.text}`} aria-hidden="true" />
-                        </button>
+                        </Button>
                     </div>
                 )
             })}
