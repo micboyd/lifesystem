@@ -19,6 +19,13 @@ interface Insight {
     icon: string
     trend?: string
     trendVariant?: 'success' | 'warning' | 'danger'
+    sub?: string
+    subVariant?: 'success' | 'danger' | 'neutral'
+}
+
+/** Money with two decimals, e.g. 12.5 → "£12.50". */
+function money(n: number): string {
+    return `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 // ── Per-metric calculations ─────────────────────────────────────────────────────
@@ -93,26 +100,35 @@ function budgetInsight(
         return (entry?.amount ?? r.recurringAmount ?? 0) > 0
     })
     if (withAmounts.length === 0) {
-        return { label: 'Budget left today', value: '—', icon: 'fa-solid fa-wallet' }
+        return { label: 'Daily allowance left', value: '—', icon: 'fa-solid fa-wallet' }
     }
 
-    const remaining = withAmounts.reduce((sum, row) => {
-        const entry = entries.find((e) => e.row === row._id)
-        const rowSpends = spends.filter((s) => s.row === row._id)
-        return sum + computeBudgetDay(row, entry, rowSpends, date).remaining
-    }, 0)
+    // Sum today's allowance-left and the running carry across all daily budgets.
+    const { remaining, carry } = withAmounts.reduce(
+        (acc, row) => {
+            const entry = entries.find((e) => e.row === row._id)
+            const rowSpends = spends.filter((s) => s.row === row._id)
+            const day = computeBudgetDay(row, entry, rowSpends, date)
+            return { remaining: acc.remaining + day.remaining, carry: acc.carry + day.carry }
+        },
+        { remaining: 0, carry: 0 }
+    )
 
-    const over = remaining < 0
-    const abs = Math.abs(remaining).toLocaleString('en-GB', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    })
+    // Round to the nearest penny so a tiny float residue doesn't read as a deficit.
+    const roundedCarry = Math.round(carry * 100) / 100
+    const sub =
+        roundedCarry > 0
+            ? `${money(roundedCarry)} carried over`
+            : roundedCarry < 0
+              ? `${money(Math.abs(roundedCarry))} overspent`
+              : undefined
+
     return {
-        label: over ? 'Over budget today' : 'Budget left today',
-        value: `£${abs}`,
+        label: 'Daily allowance left',
+        value: remaining >= 0 ? money(remaining) : `-${money(Math.abs(remaining))}`,
         icon: 'fa-solid fa-wallet',
-        trend: over ? 'over' : 'on track',
-        trendVariant: over ? 'danger' : 'success',
+        sub,
+        subVariant: roundedCarry >= 0 ? 'success' : 'danger',
     }
 }
 
@@ -175,6 +191,8 @@ export default function InsightsStrip({ date }: { date: string }) {
                     icon={c.icon}
                     trend={c.trend}
                     trendVariant={c.trendVariant}
+                    sub={c.sub}
+                    subVariant={c.subVariant}
                 />
             ))}
         </div>
