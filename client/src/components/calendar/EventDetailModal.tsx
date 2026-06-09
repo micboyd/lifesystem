@@ -18,6 +18,19 @@ const PART_LABELS: Record<string, string> = {
     na: 'N/A',
 }
 
+function daysUntilLabel(dateStr: string): string {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const target = new Date(y, m - 1, d)
+    const diff = Math.round((target.getTime() - today.getTime()) / 86_400_000)
+    if (diff === 0)  return 'Today'
+    if (diff === 1)  return 'Tomorrow'
+    if (diff === -1) return 'Yesterday'
+    if (diff > 0)    return `In ${diff} days`
+    return `${Math.abs(diff)} days ago`
+}
+
 function formatDate(date: string) {
     const [y, m, d] = date.split('-').map(Number)
     return `${WEEKDAYS_LONG[new Date(y, m - 1, d).getDay()]} ${d} ${MONTHS[m - 1]} ${y}`
@@ -50,9 +63,14 @@ export default function EventDetailModal({ event, onClose, onEdit }: Props) {
                 {/* Colour header strip */}
                 <div className={`px-6 py-5 ${colors.bg}`}>
                     <div className="mb-2 flex items-start justify-between gap-3">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${colors.bg} ${colors.text} border border-current/20`}>
-                            {isNa ? 'N/A' : EVENT_TYPE_LABELS[event.eventType]}
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${colors.bg} ${colors.text} border border-current/20`}>
+                                {isNa ? 'N/A' : EVENT_TYPE_LABELS[event.eventType]}
+                            </span>
+                            <span className={`text-xs font-semibold ${colors.text} opacity-60`}>
+                                {daysUntilLabel(event.startDate)}
+                            </span>
+                        </div>
                         <button
                             type="button"
                             onClick={onClose}
@@ -81,6 +99,13 @@ export default function EventDetailModal({ event, onClose, onEdit }: Props) {
                             : formatDate(event.startDate)
                         }
                     </DetailRow>
+
+                    {/* Location */}
+                    {event.location && (
+                        <DetailRow icon="fa-solid fa-location-dot">
+                            {event.location}
+                        </DetailRow>
+                    )}
 
                     {/* Part range */}
                     <DetailRow icon="fa-regular fa-clock">

@@ -83,6 +83,7 @@ export interface Event {
     _id: string
     title: string
     notes?: string
+    location?: string
     eventType: EventType
     allDay: boolean
     /** Optional informational time, "HH:MM". */
@@ -120,10 +121,35 @@ export interface DayStatus {
     status: DayStatusType
 }
 
+export const TIMEBOX_CATEGORIES = ['work', 'personal', 'health', 'learning', 'social'] as const
+export type TimeboxCategory = (typeof TIMEBOX_CATEGORIES)[number]
+
+export const TIMEBOX_CATEGORY_LABELS: Record<TimeboxCategory, string> = {
+    work:     'Work',
+    personal: 'Personal',
+    health:   'Health',
+    learning: 'Learning',
+    social:   'Social',
+}
+
+export const TIMEBOX_CATEGORY_COLORS: Record<TimeboxCategory, { bg: string; border: string; text: string; sub: string }> = {
+    work:     { bg: 'bg-blue-100',    border: 'border-blue-200',    text: 'text-blue-900',    sub: 'text-blue-500'    },
+    personal: { bg: 'bg-violet-100',  border: 'border-violet-200',  text: 'text-violet-900',  sub: 'text-violet-500'  },
+    health:   { bg: 'bg-emerald-100', border: 'border-emerald-200', text: 'text-emerald-900', sub: 'text-emerald-500' },
+    learning: { bg: 'bg-amber-100',   border: 'border-amber-200',   text: 'text-amber-900',   sub: 'text-amber-500'   },
+    social:   { bg: 'bg-pink-100',    border: 'border-pink-200',    text: 'text-pink-900',    sub: 'text-pink-500'    },
+}
+
+/** Used for blocks with no category set. */
+export const TIMEBOX_DEFAULT_COLORS = {
+    bg: 'bg-neutral-100', border: 'border-neutral-200', text: 'text-neutral-700', sub: 'text-neutral-400',
+}
+
 export interface Timebox {
     _id: string
     date: string
     title: string
+    category?: TimeboxCategory
     startTime: string
     endTime: string
     createdAt: string

@@ -21,6 +21,7 @@ export interface IEvent extends Document {
     user: Types.ObjectId
     title: string
     notes?: string
+    location?: string
     eventType: EventType
     allDay: boolean
     time?: string
@@ -46,6 +47,7 @@ const eventSchema = new Schema<IEvent>(
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         title: { type: String, required: true, trim: true },
         notes: { type: String, trim: true },
+        location: { type: String, trim: true },
         eventType: { type: String, required: true, enum: EVENT_TYPES, default: 'general' },
         allDay: { type: Boolean, default: false },
         time: { type: String, match: TIME_PATTERN },

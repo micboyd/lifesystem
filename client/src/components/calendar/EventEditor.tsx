@@ -31,14 +31,171 @@ interface EventEditorProps {
     onDelete: () => void
 }
 
-const REAL_PARTS: Part[] = ['morning', 'afternoon', 'evening']
+// ── Days-until helper ─────────────────────────────────────────────────────────
 
-const PART_LABELS: Record<Part, string> = {
+function daysUntilLabel(dateStr: string): string {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const target = new Date(y, m - 1, d)
+    const diff = Math.round((target.getTime() - today.getTime()) / 86_400_000)
+    if (diff === 0)  return 'Today'
+    if (diff === 1)  return 'Tomorrow'
+    if (diff === -1) return 'Yesterday'
+    if (diff > 0)    return `In ${diff} days`
+    return `${Math.abs(diff)} days ago`
+}
+
+const REAL_PARTS: Part[] = ['morning', 'afternoon', 'evening']
+const PART_LABELS: Record<string, string> = {
     morning: 'Morning',
     afternoon: 'Afternoon',
     evening: 'Evening',
-    na: 'N/A',
 }
+
+// ── Range-selectable part bar (single-day) ────────────────────────────────────
+//
+// Click an unselected segment → selects it (start = end = that part)
+// Click outside the current selection → extends the range to include it
+// Click the start or end of a multi-segment range → shrinks by one
+// Click the only selected segment → deselects everything (→ "No fixed time")
+// Click the middle of a 3-segment range → resets to just that part
+// "All day" chip → selects all three (shortcut)
+// "No fixed time" chip → clears selection
+
+function TimeOfDayPicker({
+    startPart,
+    endPart,
+    onChange,
+}: {
+    startPart: Part
+    endPart: Part
+    onChange: (start: Part, end: Part) => void
+}) {
+    const isNa     = startPart === 'na'
+    const isAllDay = !isNa && startPart === 'morning' && endPart === 'evening'
+
+    const startIdx = isNa ? -1 : REAL_PARTS.indexOf(startPart)
+    const endIdx   = isNa ? -1 : REAL_PARTS.indexOf(endPart)
+
+    const isSegSelected = (p: Part) => {
+        if (isNa) return false
+        const i = REAL_PARTS.indexOf(p)
+        return i >= startIdx && i <= endIdx
+    }
+
+    function handleSegClick(part: Part) {
+        const i = REAL_PARTS.indexOf(part)
+
+        if (isNa) {
+            onChange(part, part)
+            return
+        }
+        if (i < startIdx) {
+            // Expand start backward
+            onChange(part, endPart)
+        } else if (i > endIdx) {
+            // Expand end forward
+            onChange(startPart, part)
+        } else if (startIdx === endIdx) {
+            // Only one selected — deselect → no fixed time
+            onChange('na', 'na')
+        } else if (i === startIdx) {
+            // Shrink from start
+            onChange(REAL_PARTS[startIdx + 1], endPart)
+        } else if (i === endIdx) {
+            // Shrink from end
+            onChange(startPart, REAL_PARTS[endIdx - 1])
+        } else {
+            // Middle of 3-segment range — reset to single
+            onChange(part, part)
+        }
+    }
+
+    const chipCls = (active: boolean) =>
+        [
+            'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+            active
+                ? 'bg-neutral-950 text-white'
+                : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900',
+        ].join(' ')
+
+    return (
+        <div className="flex flex-col gap-2">
+            {/* Segment range bar */}
+            <div className="flex overflow-hidden rounded-xl border border-neutral-200">
+                {REAL_PARTS.map((part, i) => {
+                    const sel     = isSegSelected(part)
+                    const prevSel = i > 0 && isSegSelected(REAL_PARTS[i - 1])
+                    return (
+                        <button
+                            key={part}
+                            type="button"
+                            onClick={() => handleSegClick(part)}
+                            className={[
+                                'flex-1 py-2.5 text-xs font-semibold transition-colors',
+                                i > 0
+                                    ? `border-l ${sel && prevSel ? 'border-neutral-700' : 'border-neutral-200'}`
+                                    : '',
+                                sel
+                                    ? 'bg-neutral-950 text-white'
+                                    : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900',
+                            ]
+                                .filter(Boolean)
+                                .join(' ')}
+                        >
+                            {PART_LABELS[part]}
+                        </button>
+                    )
+                })}
+            </div>
+
+            {/* Special-mode chips */}
+            <div className="flex gap-1.5">
+                <button
+                    type="button"
+                    onClick={() => onChange(isAllDay ? 'morning' : 'morning', isAllDay ? 'morning' : 'evening')}
+                    className={chipCls(isAllDay)}
+                >
+                    All day
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onChange(isNa ? 'morning' : 'na', isNa ? 'morning' : 'na')}
+                    className={chipCls(isNa)}
+                >
+                    No fixed time
+                </button>
+            </div>
+        </div>
+    )
+}
+
+// ── Part segment (multi-day start/end) ────────────────────────────────────────
+
+function PartSegment({ value, onChange }: { value: Part; onChange: (p: Part) => void }) {
+    return (
+        <div className="flex flex-1 gap-1.5">
+            {REAL_PARTS.map((part) => (
+                <button
+                    key={part}
+                    type="button"
+                    onClick={() => onChange(part)}
+                    className={[
+                        'flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                        value === part
+                            ? 'bg-neutral-950 text-white'
+                            : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900',
+                    ].join(' ')}
+                >
+                    {PART_LABELS[part]}
+                </button>
+            ))}
+        </div>
+    )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function EventEditor({
     open,
@@ -50,31 +207,30 @@ export default function EventEditor({
     onSave,
     onDelete,
 }: EventEditorProps) {
-    const [title, setTitle] = useState('')
-    const [eventType, setEventType] = useState<EventType>('general')
-    const [allDay, setAllDay] = useState(false)
-    const [multiDay, setMultiDay] = useState(false)
-    const [startDate, setStartDate] = useState('')
-    const [startPart, setStartPart] = useState<Part>('morning')
-    const [endDate, setEndDate] = useState('')
-    const [endPart, setEndPart] = useState<Part>('morning')
-    const [time, setTime] = useState<string | null>(null)
-    const [notes, setNotes] = useState('')
-    const [error, setError] = useState('')
-    const [advanced, setAdvanced] = useState(false)
-    const [recurring, setRecurring] = useState(false)
+    const [title,               setTitle]               = useState('')
+    const [location,            setLocation]            = useState('')
+    const [eventType,           setEventType]           = useState<EventType>('general')
+    const [multiDay,            setMultiDay]            = useState(false)
+    const [startDate,           setStartDate]           = useState('')
+    const [startPart,           setStartPart]           = useState<Part>('morning')
+    const [endDate,             setEndDate]             = useState('')
+    const [endPart,             setEndPart]             = useState<Part>('morning')
+    const [time,                setTime]                = useState<string | null>(null)
+    const [notes,               setNotes]               = useState('')
+    const [error,               setError]               = useState('')
+    const [recurring,           setRecurring]           = useState(false)
     const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('weekly')
-    const [recurrenceEndsOn, setRecurrenceEndsOn] = useState('')
+    const [recurrenceEndsOn,    setRecurrenceEndsOn]    = useState('')
 
-    const isNa = startPart === 'na'
+    // Derived — no separate allDay state needed
+    const isNa     = startPart === 'na'
     const isAllDay = !isNa && startPart === 'morning' && endPart === 'evening'
 
     useEffect(() => {
         if (!open) return
         setTitle(event?.title ?? '')
+        setLocation(event?.location ?? '')
         setEventType(event?.eventType ?? 'general')
-        const ad = event?.allDay ?? false
-        setAllDay(ad)
         const md = event ? event.startDate !== event.endDate : false
         setMultiDay(md)
         setStartDate(event?.startDate ?? defaultSlot?.date ?? '')
@@ -88,45 +244,18 @@ export default function EventEditor({
         setRecurring(!!rec)
         setRecurrenceFrequency(rec?.frequency ?? 'weekly')
         setRecurrenceEndsOn(rec?.endsOn ?? '')
-        setAdvanced(!!rec)
     }, [open, event, defaultSlot])
 
-    /** Single-day range change — also drives the allDay flag. */
-    function handleRangeChange(newStart: Part, newEnd: Part) {
+    function handleTimeOfDayChange(newStart: Part, newEnd: Part) {
         setStartPart(newStart)
         setEndPart(newEnd)
-        const ad = newStart === 'morning' && newEnd === 'evening'
-        setAllDay(ad)
-    }
-
-    function handleNaToggle() {
-        if (isNa) {
-            setStartPart('morning')
-            setEndPart('morning')
-            setAllDay(false)
-        } else {
-            setStartPart('na')
-            setEndPart('na')
-            setAllDay(false)
-        }
     }
 
     function handleMultiDayChange(on: boolean) {
         setMultiDay(on)
-        if (on) {
-            // N/A events can be multi-day — preserve the na part
-            if (startPart !== 'na') setAllDay(false)
-        } else {
+        if (!on) {
             setEndDate(startDate)
             setEndPart(startPart)
-        }
-    }
-
-    function handleMultiDayAllDayChange(on: boolean) {
-        setAllDay(on)
-        if (on) {
-            setStartPart('morning')
-            setEndPart('evening')
         }
     }
 
@@ -138,13 +267,13 @@ export default function EventEditor({
 
     function handleSave() {
         if (!title.trim()) { setError('Give the event a title.'); return }
-        if (!startDate) { setError('Select a start date.'); return }
+        if (!startDate)    { setError('Select a start date.'); return }
 
-        const finalEnd = multiDay ? endDate || startDate : startDate
-        const finalStartPart: Part = allDay ? 'morning' : startPart
-        const finalEndPart: Part = allDay ? 'evening' : endPart
+        const finalEnd       = multiDay ? endDate || startDate : startDate
+        const finalStartPart = startPart
+        const finalEndPart   = endPart
 
-        if (!isNa && !allDay) {
+        if (!isNa) {
             if (slotOrdinal(startDate, finalStartPart) > slotOrdinal(finalEnd, finalEndPart)) {
                 setError("The event can't end before it starts.")
                 return
@@ -154,8 +283,9 @@ export default function EventEditor({
         onSave({
             title: title.trim(),
             notes: notes.trim() || undefined,
+            location: location.trim() || undefined,
             eventType,
-            allDay,
+            allDay: isAllDay,
             time: time || undefined,
             startDate,
             startPart: finalStartPart,
@@ -167,6 +297,13 @@ export default function EventEditor({
         })
     }
 
+    const chipBtn = (active: boolean) => [
+        'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+        active
+            ? 'bg-neutral-950 text-white'
+            : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900',
+    ].join(' ')
+
     return (
         <Drawer
             open={open}
@@ -174,6 +311,7 @@ export default function EventEditor({
             side="right"
             size="lg"
             title={event ? 'Edit event' : 'New event'}
+            badge={startDate ? daysUntilLabel(startDate) : undefined}
             footer={
                 <>
                     {event && (
@@ -197,7 +335,8 @@ export default function EventEditor({
                 </>
             }
         >
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-6">
+
                 {/* Title */}
                 <Input
                     label="Title"
@@ -208,12 +347,21 @@ export default function EventEditor({
                     autoFocus
                 />
 
-                {/* Event type */}
+                {/* Location */}
+                <Input
+                    label="Location"
+                    placeholder="Optional"
+                    icon="fa-solid fa-location-dot"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                />
+
+                {/* Type */}
                 <div className="flex flex-col gap-2">
                     <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Type</label>
                     <div className="grid grid-cols-3 gap-2">
                         {EVENT_TYPES.map((t) => {
-                            const c = EVENT_TYPE_COLORS[t]
+                            const c        = EVENT_TYPE_COLORS[t]
                             const selected = eventType === t
                             return (
                                 <button
@@ -234,153 +382,122 @@ export default function EventEditor({
                     </div>
                 </div>
 
-                {/* When */}
+                {/* Date */}
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">When</label>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Date</label>
                         <Switch checked={multiDay} onChange={handleMultiDayChange} label="Multi-day" />
                     </div>
-
-                    {/* ── Single-day ── */}
-                    {!multiDay && (
-                        <>
-                            <DatePicker
-                                value={startDate}
-                                onChange={(v) => typeof v === 'string' && v && handleStartDateChange(v)}
-                            />
-                            {/* Part range selector */}
-                            <PartRangeSelector
-                                startPart={startPart}
-                                endPart={endPart}
-                                isNa={isNa}
-                                isAllDay={isAllDay}
-                                onChange={handleRangeChange}
-                                onNaToggle={handleNaToggle}
-                            />
-                            {/* Time — only for timed single-day events */}
-                            {!isAllDay && !isNa && (
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                        Time <span className="normal-case font-normal text-neutral-300">(informational)</span>
-                                    </label>
-                                    <TimePicker value={time} onChange={setTime} placeholder="Optional time" />
-                                </div>
-                            )}
-                        </>
+                    {!multiDay ? (
+                        <DatePicker
+                            value={startDate}
+                            onChange={(v) => typeof v === 'string' && v && handleStartDateChange(v)}
+                        />
+                    ) : (
+                        <DatePicker
+                            mode="range"
+                            value={startDate && endDate ? { start: startDate, end: endDate } : null}
+                            onChange={(v) => {
+                                if (v && typeof v === 'object' && 'start' in v) {
+                                    const r = v as DateRange
+                                    if (r.start) handleStartDateChange(r.start)
+                                    if (r.end) setEndDate(r.end)
+                                }
+                            }}
+                        />
                     )}
+                </div>
 
-                    {/* ── Multi-day ── */}
-                    {multiDay && (
+                {/* When in the day */}
+                <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">When</label>
+
+                    {!multiDay ? (
+                        /* Single-day: range-selectable segment bar + special chips */
+                        <TimeOfDayPicker
+                            startPart={startPart}
+                            endPart={endPart}
+                            onChange={handleTimeOfDayChange}
+                        />
+                    ) : (
+                        /* Multi-day: all-day / no-fixed-time toggles + optional start/end parts */
                         <div className="flex flex-col gap-3">
-                            {/* N/A toggle — available in multi-day too */}
-                            <button
-                                type="button"
-                                onClick={handleNaToggle}
-                                className={[
-                                    'w-full rounded-xl border px-3 py-2 text-xs font-semibold transition-colors',
-                                    isNa
-                                        ? 'bg-neutral-950 border-transparent text-white'
-                                        : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-700',
-                                ].join(' ')}
-                            >
-                                N/A — informational only
-                            </button>
-
-                            {/* All day only relevant when not N/A */}
-                            {!isNa && (
-                                <Switch checked={allDay} onChange={handleMultiDayAllDayChange} label="All day" />
-                            )}
-
-                            {/* Date range picker */}
-                            <DatePicker
-                                mode="range"
-                                value={startDate && endDate ? { start: startDate, end: endDate } : null}
-                                onChange={(v) => {
-                                    if (v && typeof v === 'object' && 'start' in v) {
-                                        const r = v as DateRange
-                                        if (r.start) handleStartDateChange(r.start)
-                                        if (r.end) setEndDate(r.end)
-                                    }
-                                }}
-                            />
-
-                            {/* Start part */}
-                            {!allDay && !isNa && (
-                                <div className="flex flex-col gap-1.5">
-                                    <span className="text-xs font-medium text-neutral-400">Start part</span>
-                                    <PartSegment value={startPart} onChange={setStartPart} />
-                                </div>
-                            )}
-
-                            {/* End part */}
-                            {!allDay && !isNa && (
-                                <div className="flex flex-col gap-1.5">
-                                    <span className="text-xs font-medium text-neutral-400">End part</span>
-                                    <PartSegment value={endPart} onChange={setEndPart} />
+                            <div className="flex gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => { setStartPart(isAllDay ? 'morning' : 'morning'); setEndPart(isAllDay ? 'morning' : 'evening') }}
+                                    className={chipBtn(isAllDay)}
+                                >
+                                    All day
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setStartPart(isNa ? 'morning' : 'na'); setEndPart(isNa ? 'morning' : 'na') }}
+                                    className={chipBtn(isNa)}
+                                >
+                                    No fixed time
+                                </button>
+                            </div>
+                            {!isAllDay && !isNa && (
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center gap-3">
+                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-400">Starts</span>
+                                        <PartSegment value={startPart} onChange={setStartPart} />
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-400">Ends</span>
+                                        <PartSegment value={endPart} onChange={setEndPart} />
+                                    </div>
                                 </div>
                             )}
                         </div>
                     )}
                 </div>
 
-                {/* Advanced */}
-                <div className="rounded-xl border border-neutral-200">
-                    <button
-                        type="button"
-                        onClick={() => setAdvanced((v) => !v)}
-                        className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-neutral-600 transition-colors hover:bg-neutral-50"
-                    >
-                        <span className="flex items-center gap-2">
-                            <i className="fa-solid fa-sliders text-xs text-neutral-400" aria-hidden="true" />
-                            Advanced
-                        </span>
-                        <i className={`fa-solid fa-chevron-down text-[10px] text-neutral-400 transition-transform duration-200 ${advanced ? 'rotate-180' : ''}`} aria-hidden="true" />
-                    </button>
+                {/* Optional time — single-day, not all-day, not na */}
+                {!multiDay && !isAllDay && !isNa && (
+                    <div className="flex flex-col gap-2">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Time <span className="normal-case font-normal text-neutral-300">(optional)</span>
+                        </label>
+                        <TimePicker value={time} onChange={setTime} placeholder="Add a time" />
+                    </div>
+                )}
 
-                    {advanced && (
-                        <div className="flex flex-col gap-4 border-t border-neutral-100 px-4 py-4">
-                            {/* Recurring toggle */}
-                            <Switch checked={recurring} onChange={setRecurring} label="Recurring" />
-
-                            {recurring && (
-                                <>
-                                    {/* Frequency */}
-                                    <div className="flex flex-col gap-1.5">
-                                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Frequency</span>
-                                        <div className="flex rounded-xl border border-neutral-200 bg-neutral-50 p-1 gap-1">
-                                            {RECURRENCE_FREQUENCIES.map((f) => (
-                                                <button
-                                                    key={f}
-                                                    type="button"
-                                                    onClick={() => setRecurrenceFrequency(f)}
-                                                    className={[
-                                                        'flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors',
-                                                        recurrenceFrequency === f
-                                                            ? 'bg-neutral-950 text-white'
-                                                            : 'text-neutral-500 hover:text-neutral-900',
-                                                    ].join(' ')}
-                                                >
-                                                    {RECURRENCE_LABELS[f]}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Optional end date */}
-                                    <div className="flex flex-col gap-1.5">
-                                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                            Ends on <span className="normal-case font-normal text-neutral-300">(optional)</span>
-                                        </span>
-                                        <DatePicker
-                                            value={recurrenceEndsOn || null}
-                                            minDate={endDate || startDate || undefined}
-                                            onChange={(v) => setRecurrenceEndsOn(typeof v === 'string' && v ? v : '')}
-                                            placeholder="No end date"
-                                        />
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                {/* Repeats */}
+                <div className="flex flex-col gap-3">
+                    <Switch checked={recurring} onChange={setRecurring} label="Repeats" />
+                    {recurring && (
+                        <>
+                            <div className="flex rounded-xl border border-neutral-200 bg-neutral-50 p-1 gap-1">
+                                {RECURRENCE_FREQUENCIES.map((f) => (
+                                    <button
+                                        key={f}
+                                        type="button"
+                                        onClick={() => setRecurrenceFrequency(f)}
+                                        className={[
+                                            'flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors',
+                                            recurrenceFrequency === f
+                                                ? 'bg-neutral-950 text-white'
+                                                : 'text-neutral-500 hover:text-neutral-900',
+                                        ].join(' ')}
+                                    >
+                                        {RECURRENCE_LABELS[f]}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    Ends on <span className="normal-case font-normal text-neutral-300">(optional)</span>
+                                </span>
+                                <DatePicker
+                                    value={recurrenceEndsOn || null}
+                                    minDate={endDate || startDate || undefined}
+                                    onChange={(v) => setRecurrenceEndsOn(typeof v === 'string' && v ? v : '')}
+                                    placeholder="No end date"
+                                />
+                            </div>
+                        </>
                     )}
                 </div>
 
@@ -392,123 +509,8 @@ export default function EventEditor({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                 />
+
             </div>
         </Drawer>
-    )
-}
-
-/** Single-day part range selector: selects a contiguous range of Morning/Afternoon/Evening.
- *  Selecting all three = All Day. N/A is a separate exclusive option. */
-function PartRangeSelector({
-    startPart,
-    endPart,
-    isNa,
-    isAllDay,
-    onChange,
-    onNaToggle,
-}: {
-    startPart: Part
-    endPart: Part
-    isNa: boolean
-    isAllDay: boolean
-    onChange: (start: Part, end: Part) => void
-    onNaToggle: () => void
-}) {
-    const startIdx = REAL_PARTS.indexOf(startPart)
-    const endIdx = REAL_PARTS.indexOf(endPart)
-
-    function inRange(part: Part) {
-        if (isNa) return false
-        const i = REAL_PARTS.indexOf(part)
-        return i >= startIdx && i <= endIdx
-    }
-
-    function handleClick(part: Part) {
-        const idx = REAL_PARTS.indexOf(part)
-
-        if (isNa) {
-            // Coming from N/A — start fresh on this part
-            onChange(part, part)
-            return
-        }
-
-        if (inRange(part)) {
-            // Shrink the range
-            if (startIdx === endIdx) return // Already single, can't shrink further
-            if (idx === startIdx) {
-                onChange(REAL_PARTS[startIdx + 1] as Part, endPart)
-            } else if (idx === endIdx) {
-                onChange(startPart, REAL_PARTS[endIdx - 1] as Part)
-            }
-            // Clicking the middle of a 3-part range: do nothing
-        } else {
-            // Extend if adjacent, otherwise reset to single
-            if (idx === startIdx - 1) onChange(part, endPart)       // extend left
-            else if (idx === endIdx + 1) onChange(startPart, part)   // extend right
-            else onChange(part, part)                                 // reset
-        }
-    }
-
-    return (
-        <div className="flex flex-col gap-2">
-            {/* Range pills */}
-            <div className="flex rounded-xl border border-neutral-200 bg-neutral-50 p-1 gap-1">
-                {REAL_PARTS.map((part) => {
-                    const selected = inRange(part)
-                    return (
-                        <button
-                            key={part}
-                            type="button"
-                            onClick={() => handleClick(part)}
-                            className={[
-                                'flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors',
-                                selected
-                                    ? 'bg-neutral-950 text-white'
-                                    : 'text-neutral-500 hover:text-neutral-900',
-                            ].join(' ')}
-                        >
-                            {selected && isAllDay && part === 'afternoon' ? 'All day' : PART_LABELS[part]}
-                        </button>
-                    )
-                })}
-            </div>
-
-            {/* N/A option */}
-            <button
-                type="button"
-                onClick={onNaToggle}
-                className={[
-                    'w-full rounded-xl border px-3 py-2 text-xs font-semibold transition-colors',
-                    isNa
-                        ? 'bg-neutral-950 border-transparent text-white'
-                        : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-700',
-                ].join(' ')}
-            >
-                N/A — informational only
-            </button>
-        </div>
-    )
-}
-
-/** Simple single-part selector for multi-day start/end (no N/A, no range). */
-function PartSegment({ value, onChange }: { value: Part; onChange: (p: Part) => void }) {
-    return (
-        <div className="flex rounded-xl border border-neutral-200 bg-neutral-50 p-1 gap-1">
-            {REAL_PARTS.map((part) => (
-                <button
-                    key={part}
-                    type="button"
-                    onClick={() => onChange(part)}
-                    className={[
-                        'flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors',
-                        value === part
-                            ? 'bg-neutral-950 text-white'
-                            : 'text-neutral-500 hover:text-neutral-900',
-                    ].join(' ')}
-                >
-                    {PART_LABELS[part]}
-                </button>
-            ))}
-        </div>
     )
 }

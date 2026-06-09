@@ -1,8 +1,9 @@
 import api from './api'
-import type { ApiResponse, Timebox } from '../types'
+import type { ApiResponse, Timebox, TimeboxCategory } from '../types'
 
 export interface TimeboxInput {
     title: string
+    category?: TimeboxCategory
     startTime: string
     endTime: string
 }

@@ -85,6 +85,7 @@ function expandOccurrences(event: IEvent, from: string, to: string) {
 interface EventFields {
     title: string
     notes?: string
+    location?: string
     eventType: EventType
     allDay: boolean
     time?: string
@@ -134,6 +135,7 @@ function parseBody(body: Record<string, unknown>): EventFields | string {
     return {
         title,
         notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : undefined,
+        location: typeof body.location === 'string' && body.location.trim() ? body.location.trim() : undefined,
         eventType, allDay, time,
         startDate: body.startDate as string, startPart,
         endDate: body.endDate as string, endPart,
@@ -223,9 +225,37 @@ export async function updateEvent(req: AuthRequest, res: Response) {
     if (await hasConflict(req.userId!, fields, req.params.id)) {
         res.status(409).json({ message: 'Another event already occupies one of those slots' }); return
     }
+    // Build $set (required fields always present) and $unset (clear optional
+    // fields that were removed so stale values don't persist).
+    const $set: Record<string, unknown> = {
+        title:     fields.title,
+        eventType: fields.eventType,
+        allDay:    fields.allDay,
+        startDate: fields.startDate,
+        startPart: fields.startPart,
+        endDate:   fields.endDate,
+        endPart:   fields.endPart,
+    }
+    const $unset: Record<string, 1> = {}
+
+    if (fields.notes      !== undefined) $set.notes      = fields.notes
+    else                                 $unset.notes     = 1
+
+    if (fields.location   !== undefined) $set.location   = fields.location
+    else                                 $unset.location  = 1
+
+    if (fields.time       !== undefined) $set.time       = fields.time
+    else                                 $unset.time      = 1
+
+    if (fields.recurrence !== undefined) $set.recurrence = fields.recurrence
+    else                                 $unset.recurrence = 1
+
+    const updateOp: Record<string, unknown> = { $set }
+    if (Object.keys($unset).length > 0) updateOp.$unset = $unset
+
     const event = await Event.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },
-        { $set: fields, ...(fields.recurrence === undefined ? { $unset: { recurrence: 1 } } : {}) },
+        updateOp,
         { new: true }
     )
     if (!event) { res.status(404).json({ message: 'Event not found' }); return }

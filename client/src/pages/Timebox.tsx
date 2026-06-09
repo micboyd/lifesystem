@@ -10,6 +10,7 @@ import TimeboxEditor from '../components/timebox/TimeboxEditor'
 import { listTimeboxes, createTimebox, updateTimebox, deleteTimebox, type TimeboxInput } from '../services/timeboxes'
 import { todayKey, formatDateLong } from '../lib/calendar'
 import { timeToMinutes, minutesToTime, formatDuration, DEFAULT_WAKE, DEFAULT_BED } from '../lib/time'
+import { TIMEBOX_CATEGORY_COLORS, TIMEBOX_DEFAULT_COLORS } from '../types'
 import type { Timebox } from '../types'
 
 const PX_PER_MIN = 1 // 60px per hour
@@ -39,6 +40,22 @@ export default function Timebox() {
 
     const workStart = s.workStart
     const workEnd = s.workEnd
+
+    // ── Current-time indicator ────────────────────────────────────────────────
+    const [nowMin, setNowMin] = useState(() => {
+        const n = new Date()
+        return n.getHours() * 60 + n.getMinutes()
+    })
+    useEffect(() => {
+        const tick = () => {
+            const n = new Date()
+            setNowMin(n.getHours() * 60 + n.getMinutes())
+        }
+        const id = setInterval(tick, 60_000)
+        return () => clearInterval(id)
+    }, [])
+    const showNow = date === todayKey() && nowMin >= wakeMin && nowMin <= bedMin
+    const nowTop  = (nowMin - wakeMin) * PX_PER_MIN
 
     useEffect(() => {
         let active = true
@@ -196,23 +213,35 @@ export default function Timebox() {
                                 <div key={m} className="absolute inset-x-0 border-t border-neutral-100" style={{ top: (m - wakeMin) * PX_PER_MIN }} />
                             ))}
 
+                            {/* Now indicator */}
+                            {showNow && (
+                                <div
+                                    className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
+                                    style={{ top: nowTop }}
+                                >
+                                    <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
+                                    <div className="h-px flex-1 bg-rose-400/50" />
+                                </div>
+                            )}
+
                             {/* Items */}
                             {items.map((item) => {
-                                const top = (timeToMinutes(item.startTime) - wakeMin) * PX_PER_MIN
+                                const top    = (timeToMinutes(item.startTime) - wakeMin) * PX_PER_MIN
                                 const height = Math.max(22, (timeToMinutes(item.endTime) - timeToMinutes(item.startTime)) * PX_PER_MIN)
-                                const dur = formatDuration(timeToMinutes(item.endTime) - timeToMinutes(item.startTime))
+                                const dur    = formatDuration(timeToMinutes(item.endTime) - timeToMinutes(item.startTime))
                                 const compact = height < 44
+                                const c = item.category ? TIMEBOX_CATEGORY_COLORS[item.category] : TIMEBOX_DEFAULT_COLORS
                                 return (
                                     <button
                                         key={item._id}
                                         type="button"
                                         onClick={(e) => { e.stopPropagation(); openEdit(item) }}
-                                        className="absolute left-1.5 right-1.5 flex flex-col items-center justify-center overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1 text-center text-white transition-colors hover:bg-neutral-800"
+                                        className={`absolute left-1.5 right-1.5 flex flex-col items-center justify-center overflow-hidden rounded-lg border px-2 py-1 text-center transition-opacity hover:opacity-75 ${c.bg} ${c.border}`}
                                         style={{ top, height }}
                                     >
                                         <div className={`w-full ${compact ? 'flex items-center justify-center gap-2' : ''}`}>
-                                            <span className="block truncate text-xs font-semibold leading-tight">{item.title}</span>
-                                            <span className={`${compact ? '' : 'mt-0.5 block'} truncate text-[10px] font-medium text-white/60`}>
+                                            <span className={`block truncate text-xs font-semibold leading-tight ${c.text}`}>{item.title}</span>
+                                            <span className={`${compact ? '' : 'mt-0.5 block'} truncate text-[10px] font-medium ${c.sub}`}>
                                                 {item.startTime} – {item.endTime} · {dur}
                                             </span>
                                         </div>

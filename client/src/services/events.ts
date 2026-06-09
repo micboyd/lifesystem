@@ -4,6 +4,7 @@ import type { ApiResponse, Event, EventType, Part, Recurrence } from '../types'
 export interface EventInput {
     title: string
     notes?: string
+    location?: string
     eventType: EventType
     allDay: boolean
     time?: string

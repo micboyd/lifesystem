@@ -3,10 +3,14 @@ import { Schema, model, Document, Types } from 'mongoose'
 export const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
+export const TIMEBOX_CATEGORIES = ['work', 'personal', 'health', 'learning', 'social'] as const
+export type TimeboxCategory = (typeof TIMEBOX_CATEGORIES)[number]
+
 export interface ITimebox extends Document {
     user: Types.ObjectId
     date: string
     title: string
+    category?: TimeboxCategory
     startTime: string
     endTime: string
     createdAt: Date
@@ -18,6 +22,7 @@ const timeboxSchema = new Schema<ITimebox>(
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         date: { type: String, required: true, match: DATE_PATTERN },
         title: { type: String, required: true, trim: true },
+        category: { type: String, enum: TIMEBOX_CATEGORIES },
         startTime: { type: String, required: true, match: TIME_PATTERN },
         endTime: { type: String, required: true, match: TIME_PATTERN },
     },
