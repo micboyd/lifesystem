@@ -17,10 +17,10 @@ import financeRoutes from './routes/financeRoutes'
 const app = express()
 const PORT = process.env.PORT ?? 5000
 
-// Allow requests from the Netlify client (and localhost in dev)
-const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173')
-    .split(',')
-    .map((o) => o.trim())
+const allowedOrigins = [
+    'http://localhost:5173',
+    'https://mb-lifesystem.netlify.app',
+]
 
 app.use(cors({ origin: allowedOrigins, credentials: true }))
 app.use(express.json())
