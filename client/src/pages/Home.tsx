@@ -3,6 +3,7 @@ import Container from '../components/Container'
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import WorkStatusBanner from '../components/dashboard/WorkStatusBanner'
+import InsightsStrip from '../components/dashboard/InsightsStrip'
 import TodayWidget from '../components/dashboard/TodayWidget'
 import HabitsWidget from '../components/dashboard/HabitsWidget'
 import TasksWidget from '../components/dashboard/TasksWidget'
@@ -22,6 +23,10 @@ export default function Home() {
 
             <div className="mt-8">
                 <WorkStatusBanner date={date} />
+            </div>
+
+            <div className="mt-6">
+                <InsightsStrip date={date} />
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">

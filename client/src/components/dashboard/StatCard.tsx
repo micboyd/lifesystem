@@ -9,6 +9,15 @@ interface StatCardProps {
     /** Optional trend shown as a badge, e.g. "+12%". */
     trend?: string
     trendVariant?: 'success' | 'warning' | 'danger'
+    /** Optional secondary line below the label, e.g. a carry-over figure. */
+    sub?: string
+    subVariant?: 'success' | 'danger' | 'neutral'
+}
+
+const SUB_COLORS: Record<NonNullable<StatCardProps['subVariant']>, string> = {
+    success: 'text-emerald-600',
+    danger: 'text-red-500',
+    neutral: 'text-neutral-400',
 }
 
 export default function StatCard({
@@ -17,6 +26,8 @@ export default function StatCard({
     icon,
     trend,
     trendVariant = 'success',
+    sub,
+    subVariant = 'neutral',
 }: StatCardProps) {
     return (
         <Card className="p-5">
@@ -30,6 +41,7 @@ export default function StatCard({
                 {value}
             </p>
             <p className="mt-0.5 text-sm text-neutral-400">{label}</p>
+            {sub && <p className={`mt-1 text-xs font-semibold tabular-nums ${SUB_COLORS[subVariant]}`}>{sub}</p>}
         </Card>
     )
 }

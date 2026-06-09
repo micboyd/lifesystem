@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Spinner from '../Spinner'
 import { listHabits, listLogs, checkHabit, uncheckHabit, createHabit } from '../../services/habits'
+import { useInvalidate } from '../../context/DataSyncContext'
 import type { HabitDef, HabitLog } from '../../types'
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function HabitsDaySection({ date, compact = false }: Props) {
+    const invalidate = useInvalidate()
     const [habits, setHabits] = useState<HabitDef[]>([])
     const [logs, setLogs] = useState<HabitLog[]>([])
     // Derive loading from which date has finished loading — avoids a synchronous
@@ -60,6 +62,7 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                 const log = await checkHabit(habit._id, date)
                 setLogs((prev) => [...prev.filter((l) => l.habit !== habit._id), log])
             }
+            invalidate('habits')
         } finally {
             setToggling((s) => { const n = new Set(s); n.delete(habit._id); return n })
         }
@@ -71,6 +74,7 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
         try {
             const habit = await createHabit(newName.trim(), newDesc.trim() || undefined)
             setHabits((prev) => [...prev, habit])
+            invalidate('habits')
             setNewName('')
             setNewDesc('')
             setAdding(false)
