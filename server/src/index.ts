@@ -1,6 +1,5 @@
 import dotenv from 'dotenv'
 import path from 'path'
-import { fileURLToPath } from 'url'
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 import express from 'express'
 import { connectDB } from './config/db'
@@ -17,10 +16,6 @@ import financeRoutes from './routes/financeRoutes'
 const app = express()
 const PORT = process.env.PORT ?? 5000
 
-// In production (Heroku) serve the compiled React client
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const clientDist = path.resolve(__dirname, '../../client/dist')
-
 app.use(express.json())
 
 app.use('/api/users', userRoutes)
@@ -35,14 +30,6 @@ app.use('/api/finances', financeRoutes)
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })
 })
-
-// Serve React app for all non-API routes in production
-if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(clientDist))
-    app.get('*', (_req, res) => {
-        res.sendFile(path.join(clientDist, 'index.html'))
-    })
-}
 
 connectDB().then(async () => {
     // One-time migration: drop the old unique { user, date } index from DayStatus
