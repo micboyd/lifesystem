@@ -2,7 +2,9 @@ import dotenv from 'dotenv'
 import path from 'path'
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 import express from 'express'
+import 'express-async-errors' // routes async rejections to the error middleware below
 import cors from 'cors'
+import type { NextFunction, Request, Response } from 'express'
 import { connectDB } from './config/db'
 import DayStatus from './models/DayStatus'
 import userRoutes from './routes/userRoutes'
@@ -13,6 +15,15 @@ import taskRoutes from './routes/taskRoutes'
 import timeboxRoutes from './routes/timeboxRoutes'
 import totalsRoutes from './routes/totalsRoutes'
 import financeRoutes from './routes/financeRoutes'
+
+// Fail fast at boot if required secrets are missing, rather than 500ing on
+// the first request that needs them.
+const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'] as const
+const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key])
+if (missingEnv.length > 0) {
+    console.error(`Missing required environment variables: ${missingEnv.join(', ')}`)
+    process.exit(1)
+}
 
 const app = express()
 const PORT = process.env.PORT ?? 5000
@@ -38,6 +49,16 @@ app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })
 })
 
+// Terminal error handler. Thanks to express-async-errors, rejected promises in
+// async route handlers reach here too, so a thrown DB error returns a 500
+// instead of leaving the request hanging.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    console.error(err)
+    if (res.headersSent) return
+    res.status(500).json({ message: 'Something went wrong' })
+})
+
 connectDB().then(async () => {
     // One-time migration: drop the old unique { user, date } index from DayStatus
     // (replaced by startDate/endDate in the new schema).
@@ -49,4 +70,7 @@ connectDB().then(async () => {
     }
 
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+}).catch((err) => {
+    console.error('Failed to connect to the database:', err)
+    process.exit(1)
 })
