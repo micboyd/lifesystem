@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
 import Spinner from '../Spinner'
 import { listRows, listEntries, listBudgetSpends, setBudgetSpend } from '../../services/finances'
 import { computeBudgetDay, monthOf, dayNumOf } from '../../lib/budget'
+import { useInvalidate } from '../../context/DataSyncContext'
 import type { FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ function BudgetCol({ row, entry, rowSpends, date, onLogSpend }: BudgetColProps) 
     const [saving, setSaving] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
 
-    async function handleLog(e: React.FormEvent) {
+    async function handleLog(e: FormEvent) {
         e.preventDefault()
         const n = parseFloat(draft.trim())
         if (Number.isNaN(n)) return
@@ -129,24 +130,20 @@ function BudgetCol({ row, entry, rowSpends, date, onLogSpend }: BudgetColProps) 
 
 // ── Main widget ───────────────────────────────────────────────────────────────
 
-export default function BudgetWidget({
-    date,
-    onSpendChange,
-}: {
-    date: string
-    /** Fired after a spend is logged or cleared, so siblings can refresh. */
-    onSpendChange?: () => void
-}) {
-    const [loading, setLoading] = useState(true)
+export default function BudgetWidget({ date }: { date: string }) {
+    const invalidate = useInvalidate()
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
+    // Derive loading from which month finished loading — avoids a synchronous
+    // setState inside the fetch effect (flagged as cascading renders).
+    const [loadedMonth, setLoadedMonth] = useState<string | null>(null)
 
     const month = monthOf(date)
+    const loading = loadedMonth !== month
 
     useEffect(() => {
         let active = true
-        setLoading(true)
         Promise.all([
             listRows(),
             listEntries(month),
@@ -156,7 +153,7 @@ export default function BudgetWidget({
             setRows(r)
             setEntries(e)
             setSpends(s)
-        }).finally(() => active && setLoading(false))
+        }).finally(() => { if (active) setLoadedMonth(month) })
         return () => { active = false }
     }, [month])
 
@@ -166,7 +163,7 @@ export default function BudgetWidget({
             const without = prev.filter((s) => !(s.row === rowId && s.date === date))
             return result ? [...without, result] : without
         })
-        onSpendChange?.()
+        invalidate('budget')
     }
 
     const budgetedRows = rows.filter((r) => r.budgeted)
@@ -209,7 +206,7 @@ export default function BudgetWidget({
                 <p className="py-4 text-sm text-neutral-400">
                     You have {budgetedRows.length} budget{budgetedRows.length !== 1 ? 's' : ''} but none have daily tracking on.{' '}
                     <Link to="/finances/budgets" className="font-semibold text-neutral-600 underline underline-offset-2">
-                        Enable "Daily spend" on a card.
+                        Enable &quot;Daily spend&quot; on a card.
                     </Link>
                 </p>
             ) : !hasAmounts ? (

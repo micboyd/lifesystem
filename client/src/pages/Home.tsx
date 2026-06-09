@@ -13,8 +13,6 @@ import { todayKey } from '../lib/calendar'
 
 export default function Home() {
     const [date, setDate] = useState(todayKey())
-    // Bumped when a spend is logged in the Budget widget so the insights strip refetches.
-    const [budgetVersion, setBudgetVersion] = useState(0)
 
     return (
         <Container as="main" className="py-10">
@@ -28,7 +26,7 @@ export default function Home() {
             </div>
 
             <div className="mt-6">
-                <InsightsStrip date={date} refreshKey={budgetVersion} />
+                <InsightsStrip date={date} />
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -37,7 +35,7 @@ export default function Home() {
             </div>
 
             <div className="mt-6">
-                <BudgetWidget date={date} onSpendChange={() => setBudgetVersion((v) => v + 1)} />
+                <BudgetWidget date={date} />
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">

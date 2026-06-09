@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import StatCard from './StatCard'
 import { useAuth } from '../../context/AuthContext'
+import { useDataVersion } from '../../context/DataSyncContext'
 import { listHabits, listLogs } from '../../services/habits'
 import { listTasks } from '../../services/tasks'
 import { listTimeboxes } from '../../services/timeboxes'
@@ -141,15 +142,10 @@ const PLACEHOLDERS: Insight[] = [
     { label: 'Budget left today', value: '…', icon: 'fa-solid fa-wallet' },
 ]
 
-export default function InsightsStrip({
-    date,
-    refreshKey = 0,
-}: {
-    date: string
-    /** Change this to force a silent refetch (e.g. after a spend is logged elsewhere). */
-    refreshKey?: number
-}) {
+export default function InsightsStrip({ date }: { date: string }) {
     const { user } = useAuth()
+    // Refetch whenever any of these data topics change elsewhere in the app.
+    const dataVersion = useDataVersion('habits', 'tasks', 'timeboxes', 'budget')
     const [insights, setInsights] = useState<Insight[]>(PLACEHOLDERS)
     const [loadedKey, setLoadedKey] = useState<string | null>(null)
 
@@ -184,9 +180,10 @@ export default function InsightsStrip({
             .catch(() => active && setInsights(PLACEHOLDERS.map((p) => ({ ...p, value: '—' }))))
             .finally(() => { if (active) setLoadedKey(key) })
         return () => { active = false }
-        // refreshKey forces a silent refetch; loadedKey already matches `key`,
-        // so the strip updates in place without flashing placeholders.
-    }, [key, refreshKey, date, month, wake, bed])
+        // dataVersion forces a silent refetch when a topic changes elsewhere;
+        // loadedKey already matches `key`, so the strip updates in place without
+        // flashing placeholders.
+    }, [key, dataVersion, date, month, wake, bed])
 
     const cards = loading ? PLACEHOLDERS : insights
 

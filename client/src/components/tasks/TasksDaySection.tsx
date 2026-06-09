@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Spinner from '../Spinner'
 import { listTasks, createTask, updateTask, deleteTask } from '../../services/tasks'
+import { useInvalidate } from '../../context/DataSyncContext'
 import type { Task } from '../../types'
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function TasksDaySection({ date }: Props) {
+    const invalidate = useInvalidate()
     const [tasks, setTasks] = useState<Task[]>([])
     const [loadedDate, setLoadedDate] = useState<string | null>(null)
     const loading = loadedDate !== date
@@ -40,6 +42,7 @@ export default function TasksDaySection({ date }: Props) {
         setTasks((prev) => prev.map((t) => (t._id === task._id ? { ...t, completed: !t.completed } : t)))
         try {
             await updateTask(task._id, { completed: !task.completed })
+            invalidate('tasks')
         } catch {
             setTasks((prev) => prev.map((t) => (t._id === task._id ? { ...t, completed: task.completed } : t)))
         } finally {
@@ -54,6 +57,7 @@ export default function TasksDaySection({ date }: Props) {
         try {
             const task = await createTask(date, title)
             setTasks((prev) => [...prev, task])
+            invalidate('tasks')
             setNewTitle('')
             inputRef.current?.focus()
         } finally {
@@ -63,7 +67,10 @@ export default function TasksDaySection({ date }: Props) {
 
     async function remove(id: string) {
         setTasks((prev) => prev.filter((t) => t._id !== id))
-        try { await deleteTask(id) } catch { /* refetch could go here */ }
+        try {
+            await deleteTask(id)
+            invalidate('tasks')
+        } catch { /* refetch could go here */ }
     }
 
     const done = tasks.filter((t) => t.completed).length
