@@ -29,7 +29,7 @@ export default function Home() {
                 <InsightsStrip date={date} />
             </div>
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
                 <TodayWidget date={date} />
                 <HabitsWidget date={date} />
             </div>
@@ -38,7 +38,7 @@ export default function Home() {
                 <BudgetWidget date={date} />
             </div>
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
                 <TimeboxWidget date={date} />
                 <TasksWidget date={date} />
             </div>

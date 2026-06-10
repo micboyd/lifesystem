@@ -101,70 +101,87 @@ function AmountCell({ value, placeholder, onSave }: AmountCellProps) {
 // ── Add row inline form ───────────────────────────────────────────────────────
 
 interface AddRowFormProps {
-    onSave: (name: string, recurringAmount?: number, recurring?: boolean) => Promise<void>
+    month: string
+    onSave: (name: string, amount: number | undefined, recurring: boolean) => Promise<void>
     onCancel: () => void
 }
 
-function AddRowForm({ onSave, onCancel }: AddRowFormProps) {
+function AddRowForm({ month, onSave, onCancel }: AddRowFormProps) {
     const [name, setName] = useState('')
     const [isRecurring, setIsRecurring] = useState(true)
-    const [recurringAmount, setRecurringAmount] = useState('')
+    const [amount, setAmount] = useState('')
     const [saving, setSaving] = useState(false)
 
     async function handleSave() {
         if (!name.trim()) return
         setSaving(true)
         try {
-            const r = isRecurring && recurringAmount.trim() !== '' ? parseFloat(recurringAmount) : undefined
-            await onSave(name.trim(), r && !Number.isNaN(r) ? r : undefined, isRecurring)
+            const n = amount.trim() !== '' ? parseFloat(amount) : undefined
+            await onSave(name.trim(), n !== undefined && !Number.isNaN(n) ? n : undefined, isRecurring)
         } finally {
             setSaving(false)
         }
     }
 
+    const monthLabel = formatMonth(month)
+
     return (
         <tr className="bg-neutral-50">
-            <td className="py-1.5 pl-4 pr-2">
-                <Input
-                    autoFocus
-                    className="!py-1.5 !text-xs"
-                    placeholder="Row name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                />
-            </td>
-            <td className="py-1.5 px-2">
-                {isRecurring ? (
-                    <Input
-                        className="!py-1.5 !text-xs"
-                        type="number"
-                        step="0.01"
-                        placeholder="Amount (optional)"
-                        value={recurringAmount}
-                        onChange={(e) => setRecurringAmount(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                    />
-                ) : (
-                    <span className="text-xs text-neutral-400">One-time</span>
-                )}
-            </td>
-            <td className="py-1.5 pr-4" colSpan={2}>
-                <div className="flex items-center justify-between gap-3">
-                    <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-neutral-600 select-none">
-                        <input
-                            type="checkbox"
-                            checked={isRecurring}
-                            onChange={(e) => setIsRecurring(e.target.checked)}
-                            className="h-3.5 w-3.5 rounded accent-neutral-950"
+            <td colSpan={4} className="px-4 py-4">
+                <div className="flex flex-col gap-3">
+                    {/* Type toggle */}
+                    <div className="flex w-fit gap-1 rounded-lg border border-neutral-200 bg-white p-1">
+                        {([['recurring', 'Recurring'], ['onetime', 'One-time']] as const).map(([key, label]) => {
+                            const active = (key === 'recurring') === isRecurring
+                            return (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => setIsRecurring(key === 'recurring')}
+                                    className={[
+                                        'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+                                        active ? 'bg-neutral-950 text-white' : 'text-neutral-500 hover:text-neutral-900',
+                                    ].join(' ')}
+                                >
+                                    {label}
+                                </button>
+                            )
+                        })}
+                    </div>
+
+                    {/* Name + amount */}
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                        <Input
+                            autoFocus
+                            className="!py-1.5 !text-xs sm:flex-1"
+                            placeholder="Row name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
                         />
-                        Recurring
-                    </label>
-                    <div className="flex gap-1">
-                        <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
-                            {saving ? 'Saving…' : 'Add'}
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
+                        <Input
+                            className="!py-1.5 !text-xs sm:w-48"
+                            type="number"
+                            step="0.01"
+                            placeholder={isRecurring ? 'Monthly amount' : `Amount for ${monthLabel}`}
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                        />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs text-neutral-400">
+                            {isRecurring
+                                ? 'Applied every month — you can override the amount per month.'
+                                : `Only counts in ${monthLabel}.`}
+                        </p>
+                        <div className="flex shrink-0 gap-1">
+                            <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
+                                {saving ? 'Saving…' : 'Add'}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
+                        </div>
                     </div>
                 </div>
             </td>
@@ -198,7 +215,7 @@ export default function Finances() {
     const [addingRowFor, setAddingRowFor] = useState<string | null>(null)
     const [editingRow, setEditingRow] = useState<string | null>(null)
     const [editRowName, setEditRowName] = useState('')
-    const [editRowRecurring, setEditRowRecurring] = useState('')
+    const [editRowAmount, setEditRowAmount] = useState('')
 
     useEffect(() => {
         let active = true
@@ -297,21 +314,41 @@ export default function Finances() {
         })
     }
 
-    async function handleAddRow(groupId: string, name: string, recurringAmount?: number, recurring?: boolean) {
-        // Non-recurring rows are scoped to the currently viewed month
-        const rowMonth = recurring === false ? month : undefined
-        const r = await createRow(groupId, name, recurringAmount, recurring, rowMonth)
-        setRows((prev) => [...prev, r])
+    async function handleAddRow(groupId: string, name: string, amount: number | undefined, recurring: boolean) {
+        if (recurring === false) {
+            // One-time rows are scoped to the viewed month; their value lives in the month entry.
+            const r = await createRow(groupId, name, undefined, false, month)
+            setRows((prev) => [...prev, r])
+            if (amount !== undefined) {
+                const entry = await setEntry(r._id, month, amount)
+                setEntries((prev) => (entry ? [...prev.filter((e) => e.row !== r._id), entry] : prev))
+            }
+        } else {
+            const r = await createRow(groupId, name, amount, true)
+            setRows((prev) => [...prev, r])
+        }
         setAddingRowFor(null)
     }
 
     async function handleSaveRowEdit(id: string) {
-        const fields: Parameters<typeof updateRow>[1] = {}
-        if (editRowName.trim()) fields.name = editRowName.trim()
-        const r = editRowRecurring.trim()
-        fields.recurringAmount = r !== '' && !Number.isNaN(parseFloat(r)) ? parseFloat(r) : null
-        const updated = await updateRow(id, fields)
-        setRows((prev) => prev.map((x) => (x._id === id ? updated : x)))
+        const row = rows.find((x) => x._id === id)
+        const trimmed = editRowAmount.trim()
+        const parsed = trimmed !== '' && !Number.isNaN(parseFloat(trimmed)) ? parseFloat(trimmed) : null
+
+        if (row && row.recurring === false) {
+            // One-time row: the amount is the month entry; the name is the only row field to update.
+            if (editRowName.trim() && editRowName.trim() !== row.name) {
+                const updated = await updateRow(id, { name: editRowName.trim() })
+                setRows((prev) => prev.map((x) => (x._id === id ? updated : x)))
+            }
+            await handleSetEntry(id, parsed)
+        } else {
+            const fields: Parameters<typeof updateRow>[1] = {}
+            if (editRowName.trim()) fields.name = editRowName.trim()
+            fields.recurringAmount = parsed
+            const updated = await updateRow(id, fields)
+            setRows((prev) => prev.map((x) => (x._id === id ? updated : x)))
+        }
         setEditingRow(null)
     }
 
@@ -538,9 +575,10 @@ export default function Finances() {
                                                                     className="!py-1.5 !text-xs"
                                                                     type="number"
                                                                     step="0.01"
-                                                                    placeholder="Recurring"
-                                                                    value={editRowRecurring}
-                                                                    onChange={(e) => setEditRowRecurring(e.target.value)}
+                                                                    placeholder={row.recurring === false ? 'Amount' : 'Monthly amount'}
+                                                                    value={editRowAmount}
+                                                                    onChange={(e) => setEditRowAmount(e.target.value)}
+                                                                    onKeyDown={(e) => e.key === 'Enter' && handleSaveRowEdit(row._id)}
                                                                 />
                                                             </td>
                                                             <td className="py-1.5 pr-4 text-right" colSpan={2}>
@@ -554,7 +592,7 @@ export default function Finances() {
                                                         <>
                                                             <td className="py-2 pl-4 pr-2 text-sm text-neutral-800">{row.name}</td>
                                                             <td className="py-2 px-2 text-right text-sm font-mono text-neutral-400">
-                                                                {row.recurringAmount !== undefined ? fmt(row.recurringAmount) : '—'}
+                                                                {row.recurring !== false && row.recurringAmount !== undefined ? fmt(row.recurringAmount) : '—'}
                                                             </td>
                                                             <td className="py-1 pr-2 w-32">
                                                                 <AmountCell
@@ -591,7 +629,8 @@ export default function Finances() {
                                                                         onClick={() => {
                                                                             setEditingRow(row._id)
                                                                             setEditRowName(row.name)
-                                                                            setEditRowRecurring(row.recurringAmount !== undefined ? String(row.recurringAmount) : '')
+                                                                            const current = row.recurring === false ? (amt ?? row.recurringAmount) : row.recurringAmount
+                                                                            setEditRowAmount(current !== undefined ? String(current) : '')
                                                                         }}
                                                                         className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                                                     >
@@ -616,7 +655,8 @@ export default function Finances() {
 
                                         {addingRowFor === group._id && (
                                             <AddRowForm
-                                                onSave={(name, rec, recurring) => handleAddRow(group._id, name, rec, recurring)}
+                                                month={month}
+                                                onSave={(name, amount, recurring) => handleAddRow(group._id, name, amount, recurring)}
                                                 onCancel={() => setAddingRowFor(null)}
                                             />
                                         )}

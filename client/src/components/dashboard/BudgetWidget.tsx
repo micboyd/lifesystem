@@ -47,7 +47,7 @@ function BudgetCol({ row, entry, rowSpends, date, onLogSpend }: BudgetColProps) 
     }
 
     return (
-        <div className="flex flex-1 flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
+        <div className="flex flex-1 basis-64 flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
             <p className="text-sm font-bold text-neutral-800 truncate">{row.name}</p>
 
             {/* Dark allowance block — fixed daily rate is the target */}
@@ -217,7 +217,7 @@ export default function BudgetWidget({ date }: { date: string }) {
                     </Link>
                 </p>
             ) : (
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                     {dailyRows.map((row) => (
                         <BudgetCol
                             key={row._id}
