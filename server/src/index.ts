@@ -3,6 +3,7 @@ import 'express-async-errors' // routes async rejections to the error middleware
 import type { NextFunction, Request, Response } from 'express'
 
 import DayStatus from './models/DayStatus'
+import BudgetSpend from './models/BudgetSpend'
 import { connectDB } from './config/db'
 import cors from 'cors'
 import dayStatusRoutes from './routes/dayStatusRoutes'
@@ -72,6 +73,16 @@ connectDB()
             console.log('DayStatus: dropped stale date index')
         } catch {
             // Index already gone — nothing to do.
+        }
+
+        // One-time migration: the daily-spend log moved from one amount per
+        // row/day to many transactions, so the old UNIQUE { user, row, date }
+        // index must go — otherwise a second transaction on the same day fails.
+        try {
+            await BudgetSpend.collection.dropIndex('user_1_row_1_date_1')
+            console.log('BudgetSpend: dropped stale unique index')
+        } catch {
+            // Already dropped or never existed.
         }
 
         app.listen(PORT, () => console.log(`Server running on port ${PORT}`))

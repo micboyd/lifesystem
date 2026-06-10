@@ -303,6 +303,7 @@ export interface BudgetSpend {
     row: string
     date: string
     amount: number
+    note?: string
 }
 
 export interface BudgetExclusion {

@@ -160,7 +160,7 @@ export default function StyleGuide() {
             <section className="border-b border-neutral-100 pt-12 pb-10">
                 <Container>
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                        Lifesystem — Design System
+                        AdminLife — Design System
                     </p>
                     <h1 className="mb-3 text-4xl font-bold tracking-tight text-neutral-950 sm:text-5xl">
                         Style Guide
@@ -793,7 +793,7 @@ export default function StyleGuide() {
                             defaultOpen={0}
                             items={[
                                 {
-                                    title: 'What is Lifesystem?',
+                                    title: 'What is AdminLife?',
                                     content:
                                         'A modern MERN starter with a clean, rounded component library built on Tailwind.',
                                 },
@@ -813,7 +813,7 @@ export default function StyleGuide() {
                     code={`<Accordion
     defaultOpen={0}
     items={[
-        { title: 'What is Lifesystem?', content: 'A modern MERN starter…' },
+        { title: 'What is AdminLife?', content: 'A modern MERN starter…' },
         { title: 'Can I reuse these?', content: 'Yes — copy-paste friendly.' },
     ]}
 />

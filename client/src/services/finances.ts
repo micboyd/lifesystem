@@ -146,16 +146,34 @@ export async function listBudgetSpends(
     return res.data.data
 }
 
-export async function setBudgetSpend(
+/** Log a single transaction against a row on a date. */
+export async function createBudgetSpend(
     rowId: string,
     date: string,
-    amount: number | null
-): Promise<BudgetSpend | null> {
-    const res = await api.put<ApiResponse<BudgetSpend | null>>(
-        `/finances/budget-spends/${rowId}/${date}`,
-        { amount }
-    )
+    amount: number,
+    note?: string
+): Promise<BudgetSpend> {
+    const res = await api.post<ApiResponse<BudgetSpend>>('/finances/budget-spends', {
+        row: rowId,
+        date,
+        amount,
+        ...(note && { note }),
+    })
     return res.data.data
+}
+
+/** Edit an existing transaction's amount and/or note. */
+export async function updateBudgetSpend(
+    id: string,
+    fields: { amount?: number; note?: string | null }
+): Promise<BudgetSpend> {
+    const res = await api.put<ApiResponse<BudgetSpend>>(`/finances/budget-spends/${id}`, fields)
+    return res.data.data
+}
+
+/** Remove a transaction. */
+export async function deleteBudgetSpend(id: string): Promise<void> {
+    await api.delete(`/finances/budget-spends/${id}`)
 }
 
 // ── Budget day exclusions ─────────────────────────────────────────────────────

@@ -6,13 +6,14 @@ import {
     listGroups,
     listRows,
     setBudgetExclusion,
-    setBudgetSpend,
+    createBudgetSpend,
+    deleteBudgetSpend,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
 import { computeBudgetDay, daysInMonth, activeDaysInMonth } from '../lib/budget'
 import { formatAmount } from '../lib/money'
 import { useToast } from '../context/ToastContext'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 
 import Button from '../components/Button'
 import Input from '../components/Input'
@@ -266,11 +267,9 @@ interface DayModalProps {
     excluded: boolean
     excludedDates: Set<string>
     onClose: () => void
-    onSave: (
-        date: string,
-        updates: { rowId: string; amount: number | null }[],
-        excluded: boolean
-    ) => Promise<void>
+    onAddSpend: (rowId: string, amount: number, note?: string) => Promise<void>
+    onDeleteSpend: (id: string) => Promise<void>
+    onSetExcluded: (excluded: boolean) => Promise<void>
 }
 
 function DayModal({
@@ -278,21 +277,23 @@ function DayModal({
     dailyRows,
     entries,
     spends,
-    excluded: initialExcluded,
+    excluded,
     excludedDates,
     onClose,
-    onSave,
+    onAddSpend,
+    onDeleteSpend,
+    onSetExcluded,
 }: DayModalProps) {
-    const [isExcluded, setIsExcluded] = useState(initialExcluded)
-    const [drafts, setDrafts] = useState<Record<string, string>>(() => {
-        const init: Record<string, string> = {}
-        dailyRows.forEach((row) => {
-            const existing = spends.find((s) => s.row === row._id && s.date === date)
-            init[row._id] = existing ? String(existing.amount) : ''
-        })
-        return init
-    })
+    const [panel, setPanel] = useState<'log' | 'list'>('log')
+    const [rowId, setRowId] = useState<string>(dailyRows[0]?._id ?? '')
+    const [amount, setAmount] = useState('')
+    const [note, setNote] = useState('')
     const [saving, setSaving] = useState(false)
+
+    // Only this day's transactions, limited to the budgets currently in view.
+    const rowIds = new Set(dailyRows.map((r) => r._id))
+    const dayTx = spends.filter((s) => s.date === date && rowIds.has(s.row))
+    const spentToday = dayTx.reduce((sum, t) => sum + t.amount, 0)
 
     const monthlyTotal = dailyRows.reduce((sum, row) => {
         const entry = entries.find((e) => e.row === row._id)
@@ -301,25 +302,19 @@ function DayModal({
     // Target uses active (non-excluded) days so it matches the calendar grid.
     const activeDays = activeDaysInMonth(date.slice(0, 7), excludedDates)
     const dailyRate = activeDays > 0 ? monthlyTotal / activeDays : 0
+    const overTarget = !excluded && spentToday > dailyRate
 
-    const totalDraft = Object.values(drafts).reduce((sum, v) => {
-        const n = parseFloat(v)
-        return sum + (Number.isNaN(n) ? 0 : n)
-    }, 0)
-    const overTarget = !isExcluded && totalDraft > dailyRate
+    const rowName = (id: string) => dailyRows.find((r) => r._id === id)?.name ?? '—'
 
-    async function handleSave() {
+    async function handleAdd(e: FormEvent) {
+        e.preventDefault()
+        const n = parseFloat(amount.trim())
+        if (Number.isNaN(n) || n < 0 || !rowId) return
         setSaving(true)
         try {
-            const updates = dailyRows.map((row) => {
-                const v = drafts[row._id].trim()
-                const n = parseFloat(v)
-                return { rowId: row._id, amount: v === '' || Number.isNaN(n) ? null : n }
-            })
-            await onSave(date, updates, isExcluded)
-            onClose()
-        } catch {
-            // onSave already surfaced the error; keep the modal open so nothing is lost.
+            await onAddSpend(rowId, n, note.trim() || undefined)
+            setAmount('')
+            setNote('')
         } finally {
             setSaving(false)
         }
@@ -332,112 +327,190 @@ function DayModal({
             size="sm"
             title={formatDayLabel(date)}
             footer={
-                <>
-                    <Button variant="ghost" onClick={onClose}>
-                        Cancel
-                    </Button>
-                    <Button onClick={handleSave} disabled={saving}>
-                        {saving ? 'Saving…' : 'Save'}
-                    </Button>
-                </>
+                <Button variant="ghost" onClick={onClose}>
+                    Done
+                </Button>
             }
         >
-            <div className="flex flex-col gap-4">
-                {/* Exclude toggle */}
-                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3 transition-colors hover:bg-neutral-50">
-                    <input
-                        type="checkbox"
-                        checked={isExcluded}
-                        onChange={(e) => setIsExcluded(e.target.checked)}
-                        className="h-4 w-4 rounded accent-neutral-950"
-                    />
-                    <div>
-                        <p className="text-sm font-semibold text-neutral-800">
-                            Exclude from budget
-                        </p>
-                        <p className="text-xs text-neutral-400">
-                            Work trip, holiday, or other exception — budget redistributes across
-                            remaining days
-                        </p>
-                    </div>
-                </label>
+            {panel === 'list' ? (
+                // ── Transactions view ──
+                <div className="flex flex-col gap-4">
+                    <button
+                        type="button"
+                        onClick={() => setPanel('log')}
+                        className="flex items-center gap-1.5 self-start text-sm font-semibold text-neutral-500 transition-colors hover:text-neutral-900"
+                    >
+                        <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
+                        Back
+                    </button>
 
-                {/* Spend inputs (greyed when excluded) */}
-                <div className={isExcluded ? 'pointer-events-none opacity-40' : ''}>
-                    {dailyRows.length > 1 && (
-                        <div className="mb-3 rounded-xl bg-neutral-50 px-4 py-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                Daily target (all budgets)
-                            </p>
-                            <p className="mt-0.5 text-lg font-bold font-mono text-neutral-900">
-                                £{fmt(dailyRate)}
-                            </p>
-                        </div>
-                    )}
-
-                    <div className="flex flex-col gap-3">
-                        {dailyRows.map((row) => {
-                            const entry = entries.find((e) => e.row === row._id)
-                            const rowSpends = spends.filter((s) => s.row === row._id)
-                            const { straightDailyRate } = computeBudgetDay(
-                                row,
-                                entry,
-                                rowSpends,
-                                date,
-                                excludedDates
-                            )
-                            return (
-                                <div key={row._id} className="flex flex-col gap-1">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <label className="text-xs font-semibold text-neutral-600">
-                                            {row.name}
-                                        </label>
-                                        <span className="font-mono text-xs text-neutral-400">
-                                            target £{fmt(straightDailyRate)}
-                                        </span>
+                    {dayTx.length === 0 ? (
+                        <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-8 text-center text-sm text-neutral-400">
+                            No transactions logged for this day.
+                        </p>
+                    ) : (
+                        <ul className="flex flex-col gap-2">
+                            {dayTx.map((t) => (
+                                <li
+                                    key={t._id}
+                                    className="group/tx flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-4 py-2.5"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-neutral-800">
+                                            {t.note || rowName(t.row)}
+                                        </p>
+                                        {t.note && dailyRows.length > 1 && (
+                                            <p className="truncate text-xs text-neutral-400">{rowName(t.row)}</p>
+                                        )}
                                     </div>
-                                    <Input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        placeholder="0.00"
-                                        value={drafts[row._id]}
-                                        onChange={(e) =>
-                                            setDrafts((prev) => ({
-                                                ...prev,
-                                                [row._id]: e.target.value,
-                                            }))
-                                        }
-                                    />
-                                </div>
-                            )
-                        })}
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <span className="font-mono text-sm text-neutral-700">£{fmt(t.amount)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteSpend(t._id)}
+                                            aria-label="Delete transaction"
+                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                        >
+                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
+                    <div className="flex items-center justify-between border-t border-neutral-100 pt-3">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Total spent
+                        </span>
+                        <span className="font-mono text-sm font-bold text-neutral-900">£{fmt(spentToday)}</span>
+                    </div>
+                </div>
+            ) : (
+                // ── Log view ──
+                <div className="flex flex-col gap-4">
+                    {/* Exclude toggle */}
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3 transition-colors hover:bg-neutral-50">
+                        <input
+                            type="checkbox"
+                            checked={excluded}
+                            onChange={(e) => onSetExcluded(e.target.checked)}
+                            className="h-4 w-4 rounded accent-neutral-950"
+                        />
+                        <div>
+                            <p className="text-sm font-semibold text-neutral-800">Exclude from budget</p>
+                            <p className="text-xs text-neutral-400">
+                                Work trip, holiday, or other exception — budget redistributes across
+                                remaining days
+                            </p>
+                        </div>
+                    </label>
+
+                    <div className={excluded ? 'pointer-events-none opacity-40' : ''}>
+                        {/* Target + spent summary */}
+                        <div className="mb-3 flex items-stretch gap-3">
+                            <div className="flex-1 rounded-xl bg-neutral-50 px-4 py-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    Daily target{dailyRows.length > 1 ? ' (all)' : ''}
+                                </p>
+                                <p className="mt-0.5 text-lg font-bold font-mono text-neutral-900">£{fmt(dailyRate)}</p>
+                            </div>
+                            <div className="flex-1 rounded-xl bg-neutral-50 px-4 py-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    Spent
+                                </p>
+                                <p
+                                    className={`mt-0.5 text-lg font-bold font-mono ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}
+                                >
+                                    £{fmt(spentToday)}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Add a transaction */}
+                        <form onSubmit={handleAdd} className="flex flex-col gap-2">
+                            {dailyRows.length > 1 && (
+                                <Select
+                                    options={dailyRows.map((r) => ({ label: r.name, value: r._id }))}
+                                    value={rowId}
+                                    onChange={setRowId}
+                                />
+                            )}
+                            <div className="flex gap-2">
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="Amount"
+                                    icon="fa-solid fa-sterling-sign"
+                                    className="w-32"
+                                    value={amount}
+                                    onChange={(e) => setAmount(e.target.value)}
+                                />
+                                <Input
+                                    placeholder="Note (optional)"
+                                    className="flex-1"
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                />
+                            </div>
+                            <Button type="submit" disabled={saving || amount.trim() === ''} className="self-start">
+                                {saving ? 'Adding…' : 'Add transaction'}
+                            </Button>
+                        </form>
+
+                        {/* Per-budget targets */}
+                        {dailyRows.length > 1 && (
+                            <div className="mt-4 flex flex-col gap-1.5 border-t border-neutral-100 pt-3">
+                                {dailyRows.map((row) => {
+                                    const entry = entries.find((e) => e.row === row._id)
+                                    const rowSpends = spends.filter((s) => s.row === row._id)
+                                    const { straightDailyRate } = computeBudgetDay(
+                                        row,
+                                        entry,
+                                        rowSpends,
+                                        date,
+                                        excludedDates
+                                    )
+                                    const rowSpent = dayTx
+                                        .filter((t) => t.row === row._id)
+                                        .reduce((s, t) => s + t.amount, 0)
+                                    return (
+                                        <div key={row._id} className="flex items-center justify-between gap-2 text-xs">
+                                            <span className="font-semibold text-neutral-600">{row.name}</span>
+                                            <span className="font-mono text-neutral-400">
+                                                £{fmt(rowSpent)} / £{fmt(straightDailyRate)}
+                                            </span>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+
+                        {overTarget && (
+                            <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm font-semibold text-amber-700">
+                                <i className="fa-solid fa-triangle-exclamation text-xs" aria-hidden="true" />
+                                Over daily target by £{fmt(spentToday - dailyRate)}
+                            </div>
+                        )}
                     </div>
 
-                    {dailyRows.length > 1 && (
-                        <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3">
-                            <span className="text-xs font-semibold text-neutral-400">
-                                Total spend
-                            </span>
-                            <span
-                                className={`text-sm font-bold font-mono ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}
-                            >
-                                £{fmt(totalDraft)}
-                            </span>
-                        </div>
-                    )}
-
-                    {overTarget && (
-                        <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm font-semibold text-amber-700">
-                            <i
-                                className="fa-solid fa-triangle-exclamation text-xs"
-                                aria-hidden="true"
-                            />
-                            Over daily target by £{fmt(totalDraft - dailyRate)}
-                        </div>
-                    )}
+                    {/* View transactions */}
+                    <button
+                        type="button"
+                        onClick={() => setPanel('list')}
+                        className="flex items-center justify-between rounded-xl border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+                    >
+                        <span>
+                            View transactions
+                            {dayTx.length > 0 && (
+                                <span className="ml-1.5 text-neutral-400">({dayTx.length})</span>
+                            )}
+                        </span>
+                        <i className="fa-solid fa-chevron-right text-xs text-neutral-400" aria-hidden="true" />
+                    </button>
                 </div>
-            </div>
+            )}
         </Modal>
     )
 }
@@ -480,38 +553,34 @@ export default function BudgetCalendar() {
         }
     }, [month])
 
-    async function handleSaveDay(
-        date: string,
-        updates: { rowId: string; amount: number | null }[],
-        excluded: boolean
-    ) {
+    async function handleAddSpend(rowId: string, amount: number, note?: string) {
+        if (!selectedDate) return
         try {
-            // Save spend updates
-            const results = await Promise.all(
-                updates.map(({ rowId, amount }) => setBudgetSpend(rowId, date, amount))
-            )
-            setSpends((prev) => {
-                let next = [...prev]
-                updates.forEach(({ rowId }, i) => {
-                    next = next.filter((s) => !(s.row === rowId && s.date === date))
-                    const result = results[i]
-                    if (result) next.push(result)
-                })
-                return next
-            })
-
-            // Save exclusion
-            const wasExcluded = exclusions.some((x) => x.date === date)
-            if (excluded !== wasExcluded) {
-                const result = await setBudgetExclusion(date, excluded)
-                setExclusions((prev) => {
-                    const without = prev.filter((x) => x.date !== date)
-                    return result ? [...without, result] : without
-                })
-            }
+            const result = await createBudgetSpend(rowId, selectedDate, amount, note)
+            setSpends((prev) => [...prev, result])
         } catch {
-            toast.error('Couldn’t save this day. Please try again.')
-            throw new Error('save failed') // keep the modal open
+            toast.error('Couldn’t log that transaction.')
+        }
+    }
+
+    async function handleDeleteSpend(id: string) {
+        try {
+            await deleteBudgetSpend(id)
+            setSpends((prev) => prev.filter((s) => s._id !== id))
+        } catch {
+            toast.error('Couldn’t delete that transaction.')
+        }
+    }
+
+    async function handleSetExcluded(date: string, excluded: boolean) {
+        try {
+            const result = await setBudgetExclusion(date, excluded)
+            setExclusions((prev) => {
+                const without = prev.filter((x) => x.date !== date)
+                return result ? [...without, result] : without
+            })
+        } catch {
+            toast.error('Couldn’t update this day.')
         }
     }
 
@@ -686,7 +755,9 @@ export default function BudgetCalendar() {
                     excluded={excludedDates.has(selectedDate)}
                     excludedDates={excludedDates}
                     onClose={() => setSelectedDate(null)}
-                    onSave={handleSaveDay}
+                    onAddSpend={handleAddSpend}
+                    onDeleteSpend={handleDeleteSpend}
+                    onSetExcluded={(ex) => handleSetExcluded(selectedDate, ex)}
                 />
             )}
         </>

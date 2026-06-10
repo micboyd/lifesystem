@@ -23,9 +23,19 @@ export async function listBudgetSpends(req: AuthRequest, res: Response) {
     res.json({ message: 'OK', data: spends })
 }
 
-export async function setBudgetSpend(req: AuthRequest, res: Response) {
-    const { rowId, date } = req.params
-    if (!DATE_RE.test(date)) {
+function parseAmount(raw: unknown): number | null {
+    const num = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN
+    return Number.isNaN(num) || num < 0 ? null : num
+}
+
+function parseNote(raw: unknown): string | undefined {
+    return typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, 200) : undefined
+}
+
+/** POST /budget-spends — log a single transaction against a row on a date. */
+export async function createBudgetSpend(req: AuthRequest, res: Response) {
+    const { row: rowId, date } = req.body
+    if (typeof date !== 'string' || !DATE_RE.test(date)) {
         res.status(400).json({ message: 'date must be YYYY-MM-DD' })
         return
     }
@@ -36,19 +46,56 @@ export async function setBudgetSpend(req: AuthRequest, res: Response) {
         return
     }
 
-    const raw = req.body.amount
-    const num = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN
-
-    if (raw === null || raw === undefined || raw === '' || Number.isNaN(num)) {
-        await BudgetSpend.deleteOne({ user: req.userId, row: rowId, date })
-        res.json({ message: 'Cleared', data: null })
+    const amount = parseAmount(req.body.amount)
+    if (amount === null) {
+        res.status(400).json({ message: 'amount must be a number ≥ 0' })
         return
     }
 
+    const spend = await BudgetSpend.create({
+        user: req.userId,
+        row: rowId,
+        date,
+        amount,
+        note: parseNote(req.body.note),
+    })
+    res.status(201).json({ message: 'Created', data: spend })
+}
+
+/** PUT /budget-spends/:id — edit a transaction's amount and/or note. */
+export async function updateBudgetSpend(req: AuthRequest, res: Response) {
+    const fields: Record<string, unknown> = {}
+
+    if (req.body.amount !== undefined) {
+        const amount = parseAmount(req.body.amount)
+        if (amount === null) {
+            res.status(400).json({ message: 'amount must be a number ≥ 0' })
+            return
+        }
+        fields.amount = amount
+    }
+    if (req.body.note !== undefined) {
+        fields.note = parseNote(req.body.note) ?? null
+    }
+
     const spend = await BudgetSpend.findOneAndUpdate(
-        { user: req.userId, row: rowId, date },
-        { $set: { amount: num } },
-        { upsert: true, new: true }
+        { _id: req.params.id, user: req.userId },
+        { $set: fields },
+        { new: true }
     )
+    if (!spend) {
+        res.status(404).json({ message: 'Transaction not found' })
+        return
+    }
     res.json({ message: 'Saved', data: spend })
+}
+
+/** DELETE /budget-spends/:id — remove a transaction. */
+export async function deleteBudgetSpend(req: AuthRequest, res: Response) {
+    const spend = await BudgetSpend.findOneAndDelete({ _id: req.params.id, user: req.userId })
+    if (!spend) {
+        res.status(404).json({ message: 'Transaction not found' })
+        return
+    }
+    res.json({ message: 'Deleted', data: null })
 }

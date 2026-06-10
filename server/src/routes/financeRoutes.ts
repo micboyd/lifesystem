@@ -11,7 +11,12 @@ import {
     listEntries,
     setEntry,
 } from '../controllers/financeController'
-import { listBudgetSpends, setBudgetSpend } from '../controllers/budgetSpendController'
+import {
+    listBudgetSpends,
+    createBudgetSpend,
+    updateBudgetSpend,
+    deleteBudgetSpend,
+} from '../controllers/budgetSpendController'
 import { listBudgetExclusions, setBudgetExclusion } from '../controllers/budgetExclusionController'
 import {
     listSubItems,
@@ -40,9 +45,11 @@ router.delete('/rows/:id', deleteRow)
 router.get('/entries', listEntries)
 router.put('/entries/:rowId/:month', setEntry)
 
-// Budget daily spends
+// Budget daily spends (transactions — many per row per day)
 router.get('/budget-spends', listBudgetSpends)
-router.put('/budget-spends/:rowId/:date', setBudgetSpend)
+router.post('/budget-spends', createBudgetSpend)
+router.put('/budget-spends/:id', updateBudgetSpend)
+router.delete('/budget-spends/:id', deleteBudgetSpend)
 
 // Budget day exclusions
 router.get('/budget-exclusions', listBudgetExclusions)

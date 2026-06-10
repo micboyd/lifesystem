@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
 import Spinner from '../Spinner'
@@ -7,14 +7,11 @@ import {
     listRows,
     listEntries,
     listBudgetSpends,
-    setBudgetSpend,
     listBudgetExclusions,
 } from '../../services/finances'
 import { computeBudgetDay, monthOf, dayNumOf } from '../../lib/budget'
 import { rowVisibleInMonth } from '../../lib/finance'
 import { formatAmount } from '../../lib/money'
-import { useInvalidate } from '../../context/DataSyncContext'
-import { useToast } from '../../context/ToastContext'
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -29,31 +26,12 @@ interface BudgetColProps {
     rowSpends: BudgetSpend[]
     date: string
     excludedDates: Set<string>
-    onLogSpend: (rowId: string, amount: number | null) => void
 }
 
-function BudgetCol({ row, entry, rowSpends, date, excludedDates, onLogSpend }: BudgetColProps) {
+function BudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProps) {
     const dayNum = dayNumOf(date)
     const { monthlyAmount, straightDailyRate, carry, spentToday, remaining, monthlyRemaining } =
         computeBudgetDay(row, entry, rowSpends, date, excludedDates)
-
-    const [draft, setDraft] = useState('')
-    const [saving, setSaving] = useState(false)
-    const inputRef = useRef<HTMLInputElement>(null)
-
-    async function handleLog(e: FormEvent) {
-        e.preventDefault()
-        const n = parseFloat(draft.trim())
-        if (Number.isNaN(n)) return
-        setSaving(true)
-        try {
-            await onLogSpend(row._id, n)
-            setDraft('')
-            inputRef.current?.focus()
-        } finally {
-            setSaving(false)
-        }
-    }
 
     return (
         <div className="flex flex-1 basis-64 flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
@@ -134,27 +112,6 @@ function BudgetCol({ row, entry, rowSpends, date, excludedDates, onLogSpend }: B
                         : `Over target — using £${fmt(spentToday - straightDailyRate)} carry`}
                 </div>
             )}
-
-            {/* Quick log */}
-            <form onSubmit={handleLog} className="flex gap-1.5">
-                <input
-                    ref={inputRef}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="Log spend…"
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm font-mono placeholder:text-neutral-300 focus:border-neutral-950 focus:outline-none"
-                />
-                <button
-                    type="submit"
-                    disabled={saving || draft.trim() === ''}
-                    className="rounded-lg bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-neutral-800 disabled:opacity-40"
-                >
-                    {saving ? '…' : 'Log'}
-                </button>
-            </form>
         </div>
     )
 }
@@ -162,8 +119,6 @@ function BudgetCol({ row, entry, rowSpends, date, excludedDates, onLogSpend }: B
 // ── Main widget ───────────────────────────────────────────────────────────────
 
 export default function BudgetWidget({ date }: { date: string }) {
-    const invalidate = useInvalidate()
-    const toast = useToast()
     const [groups, setGroups] = useState<FinanceGroup[]>([])
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
@@ -200,19 +155,6 @@ export default function BudgetWidget({ date }: { date: string }) {
             active = false
         }
     }, [month])
-
-    async function handleLogSpend(rowId: string, amount: number | null) {
-        try {
-            const result = await setBudgetSpend(rowId, date, amount)
-            setSpends((prev) => {
-                const without = prev.filter((s) => !(s.row === rowId && s.date === date))
-                return result ? [...without, result] : without
-            })
-            invalidate('budget')
-        } catch {
-            toast.error('Couldn’t log that spend.')
-        }
-    }
 
     // Only rows whose lifecycle (and their group's) covers this month.
     const visibleBudgeted = rows.filter(
@@ -296,7 +238,6 @@ export default function BudgetWidget({ date }: { date: string }) {
                             rowSpends={spends.filter((s) => s.row === row._id)}
                             date={date}
                             excludedDates={excludedDates}
-                            onLogSpend={handleLogSpend}
                         />
                     ))}
                 </div>

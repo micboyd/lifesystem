@@ -40,7 +40,7 @@ export default function Navbar() {
                                 <i className="fa-solid fa-layer-group" aria-hidden="true" />
                             </span>
                             <span className="text-sm font-bold tracking-tight text-neutral-900">
-                                Lifesystem
+                                AdminLife
                             </span>
                         </Link>
 
@@ -101,7 +101,7 @@ export default function Navbar() {
                                     <i className="fa-solid fa-layer-group" aria-hidden="true" />
                                 </span>
                                 <span className="text-sm font-bold tracking-tight text-neutral-900">
-                                    Lifesystem
+                                    AdminLife
                                 </span>
                             </Link>
                             <button

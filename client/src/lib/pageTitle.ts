@@ -1,5 +1,5 @@
 /** Brand shown before every page name in the document title. */
-export const BRAND = 'adminlife'
+export const BRAND = 'AdminLife'
 
 /**
  * Map a router pathname to its human page name. Order matters: more specific
@@ -23,7 +23,7 @@ export function pageNameForPath(pathname: string): string | null {
     return null
 }
 
-/** "adminlife - Calendar", or just "adminlife" for unknown/landing paths. */
+/** "AdminLife - Calendar", or just "AdminLife" for unknown/landing paths. */
 export function documentTitleForPath(pathname: string): string {
     const name = pageNameForPath(pathname)
     return name ? `${BRAND} - ${name}` : BRAND

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import {
@@ -7,7 +7,7 @@ import {
     listEntries,
     updateRow,
     listBudgetSpends,
-    setBudgetSpend,
+    createBudgetSpend,
     listBudgetExclusions,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
@@ -32,65 +32,57 @@ const fmt = formatAmount
 // ── Spend input ───────────────────────────────────────────────────────────────
 
 interface SpendInputProps {
-    value: number | undefined
-    onSave: (v: number | null) => void
+    spentToday: number
+    hasLogged: boolean
+    onAdd: (amount: number) => Promise<void>
 }
 
-function SpendInput({ value, onSave }: SpendInputProps) {
-    const [editing, setEditing] = useState(false)
+function SpendInput({ spentToday, hasLogged, onAdd }: SpendInputProps) {
     const [draft, setDraft] = useState('')
-    const inputRef = useRef<HTMLInputElement>(null)
+    const [saving, setSaving] = useState(false)
 
-    function start() {
-        setDraft(value !== undefined ? String(value) : '')
-        setEditing(true)
-        setTimeout(() => inputRef.current?.select(), 0)
-    }
-
-    function commit() {
-        const t = draft.trim()
-        if (t === '') {
-            onSave(null)
-        } else {
-            const n = parseFloat(t)
-            if (!Number.isNaN(n)) onSave(n)
+    async function submit(e: FormEvent) {
+        e.preventDefault()
+        const n = parseFloat(draft.trim())
+        if (Number.isNaN(n) || n < 0) return
+        setSaving(true)
+        try {
+            await onAdd(n)
+            setDraft('')
+        } finally {
+            setSaving(false)
         }
-        setEditing(false)
-    }
-
-    if (editing) {
-        return (
-            <input
-                ref={inputRef}
-                autoFocus
-                type="number"
-                step="0.01"
-                min="0"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={commit}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') commit()
-                    if (e.key === 'Escape') setEditing(false)
-                }}
-                className="w-full rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-right text-sm font-mono focus:border-neutral-950 focus:outline-none"
-            />
-        )
     }
 
     return (
-        <button
-            type="button"
-            onClick={start}
-            className="flex w-full items-center justify-between rounded-lg bg-neutral-50 px-3 py-1.5 text-sm font-mono transition-colors hover:bg-neutral-100"
-        >
-            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                Spent today
-            </span>
-            <span className={value !== undefined ? 'text-neutral-800' : 'text-neutral-300'}>
-                {value !== undefined ? `£${fmt(value)}` : 'tap to log'}
-            </span>
-        </button>
+        <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    Spent today
+                </span>
+                <span className={`text-sm font-mono ${hasLogged ? 'text-neutral-800' : 'text-neutral-300'}`}>
+                    {hasLogged ? `£${fmt(spentToday)}` : '—'}
+                </span>
+            </div>
+            <form onSubmit={submit} className="flex gap-1.5">
+                <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Log a transaction…"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm font-mono placeholder:text-neutral-300 focus:border-neutral-950 focus:outline-none"
+                />
+                <button
+                    type="submit"
+                    disabled={saving || draft.trim() === ''}
+                    className="rounded-lg bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-neutral-800 disabled:opacity-40"
+                >
+                    {saving ? '…' : 'Log'}
+                </button>
+            </form>
+        </div>
     )
 }
 
@@ -103,7 +95,7 @@ interface BudgetCardProps {
     spends: BudgetSpend[]
     excludedDates: Set<string>
     onToggleDailySpend: (row: FinanceRow) => void
-    onLogSpend: (rowId: string, amount: number | null) => void
+    onLogSpend: (rowId: string, amount: number) => Promise<void>
 }
 
 function BudgetCard({
@@ -230,10 +222,11 @@ function BudgetCard({
                         </div>
                     )}
 
-                    {/* Spend logger */}
+                    {/* Spend logger — each entry is a transaction */}
                     <SpendInput
-                        value={hasLoggedToday ? spentToday : undefined}
-                        onSave={(v) => onLogSpend(row._id, v)}
+                        spentToday={spentToday}
+                        hasLogged={hasLoggedToday}
+                        onAdd={(amount) => onLogSpend(row._id, amount)}
                     />
                 </>
             )}
@@ -305,14 +298,11 @@ export default function Budgets() {
         }
     }
 
-    async function handleLogSpend(rowId: string, amount: number | null) {
+    async function handleLogSpend(rowId: string, amount: number) {
         const today = todayKey()
         try {
-            const result = await setBudgetSpend(rowId, today, amount)
-            setSpends((prev) => {
-                const without = prev.filter((s) => !(s.row === rowId && s.date === today))
-                return result ? [...without, result] : without
-            })
+            const result = await createBudgetSpend(rowId, today, amount)
+            setSpends((prev) => [...prev, result])
         } catch {
             toast.error('Couldn’t log that spend.')
         }
