@@ -1,5 +1,4 @@
-import { createPortal } from 'react-dom'
-import { useOverlayBehavior } from '../useOverlay'
+import Modal from '../Modal'
 import Button from '../Button'
 import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, NA_EVENT_COLORS, RECURRENCE_LABELS } from '../../types'
 import { MONTHS, WEEKDAYS_LONG } from '../../lib/calendar'
@@ -44,114 +43,96 @@ function partRange(event: Event): string {
 }
 
 export default function EventDetailModal({ event, onClose, onEdit }: Props) {
-    useOverlayBehavior(!!event, onClose)
     if (!event) return null
 
     const isNa = event.startPart === 'na'
     const colors = isNa ? NA_EVENT_COLORS : EVENT_TYPE_COLORS[event.eventType]
     const isMultiDay = event.startDate !== event.endDate
 
-    return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-neutral-900/60" onClick={onClose} aria-hidden="true" />
-
-            <div
-                role="dialog"
-                aria-modal="true"
-                className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl"
-            >
-                {/* Colour header strip */}
-                <div className={`px-6 py-5 ${colors.bg}`}>
-                    <div className="mb-2 flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${colors.bg} ${colors.text} border border-current/20`}>
-                                {isNa ? 'N/A' : EVENT_TYPE_LABELS[event.eventType]}
-                            </span>
-                            <span className={`text-xs font-semibold ${colors.text} opacity-60`}>
-                                {daysUntilLabel(event.startDate)}
-                            </span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            aria-label="Close"
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-black/10"
-                        >
-                            <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
-                        </button>
-                    </div>
-                    <h2 className={`text-xl font-bold tracking-tight ${colors.text}`}>{event.title}</h2>
-                    {event.recurrence && (
-                        <p className={`mt-1 flex items-center gap-1.5 text-xs font-semibold ${colors.text} opacity-70`}>
-                            <i className="fa-solid fa-repeat text-[10px]" aria-hidden="true" />
-                            Repeats {RECURRENCE_LABELS[event.recurrence.frequency].toLowerCase()}
-                            {event.recurrence.endsOn ? ` · ends ${event.recurrence.endsOn}` : ''}
-                        </p>
-                    )}
-                </div>
-
-                {/* Details */}
-                <div className="flex flex-col gap-3 px-6 py-5">
-                    {/* Date(s) */}
-                    <DetailRow icon="fa-regular fa-calendar">
-                        {isMultiDay
-                            ? <>{formatDate(event.startDate)}<span className="mx-1 text-neutral-400">→</span>{formatDate(event.endDate)}</>
-                            : formatDate(event.startDate)
-                        }
-                    </DetailRow>
-
-                    {/* Location */}
-                    {event.location && (
-                        <DetailRow icon="fa-solid fa-location-dot">
-                            {event.location}
-                        </DetailRow>
-                    )}
-
-                    {/* Part range */}
-                    <DetailRow icon="fa-regular fa-clock">
-                        {partRange(event)}
-                    </DetailRow>
-
-                    {/* Informational time */}
-                    {event.time && (
-                        <DetailRow icon="fa-solid fa-stopwatch">
-                            {event.time}
-                        </DetailRow>
-                    )}
-
-                    {/* Budget */}
-                    {event.budget != null && (
-                        <DetailRow icon="fa-solid fa-sterling-sign">
-                            £{event.budget.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            {event.budgetRow && event.budgetRowName && (
-                                <span className="ml-1.5 inline-flex items-center gap-1 text-neutral-400">
-                                    <i className="fa-solid fa-link text-[10px]" aria-hidden="true" />
-                                    {event.budgetRowName}
-                                </span>
-                            )}
-                        </DetailRow>
-                    )}
-
-                    {/* Notes */}
-                    {event.notes && (
-                        <DetailRow icon="fa-regular fa-note-sticky">
-                            <span className="text-neutral-600">{event.notes}</span>
-                        </DetailRow>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-end gap-3 border-t border-neutral-100 px-6 py-4">
+    return (
+        <Modal
+            open
+            onClose={onClose}
+            size="sm"
+            footer={
+                <>
                     <Button variant="ghost" size="sm" onClick={onClose}>
                         Close
                     </Button>
                     <Button size="sm" icon="fa-solid fa-pen" onClick={onEdit}>
                         Edit
                     </Button>
-                </div>
+                </>
+            }
+        >
+            {/* Title block */}
+            <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${colors.bg} ${colors.text}`}>
+                    {isNa ? 'N/A' : EVENT_TYPE_LABELS[event.eventType]}
+                </span>
+                <span className="text-xs font-medium text-neutral-400">
+                    {daysUntilLabel(event.startDate)}
+                </span>
             </div>
-        </div>,
-        document.body
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-neutral-950">{event.title}</h2>
+            {event.recurrence && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-neutral-400">
+                    <i className="fa-solid fa-repeat text-[10px]" aria-hidden="true" />
+                    Repeats {RECURRENCE_LABELS[event.recurrence.frequency].toLowerCase()}
+                    {event.recurrence.endsOn ? ` · ends ${event.recurrence.endsOn}` : ''}
+                </p>
+            )}
+
+            {/* Details */}
+            <div className="mt-5 flex flex-col gap-3.5">
+                {/* Date(s) */}
+                <DetailRow icon="fa-regular fa-calendar">
+                    {isMultiDay
+                        ? <>{formatDate(event.startDate)}<span className="mx-1 text-neutral-300">→</span>{formatDate(event.endDate)}</>
+                        : formatDate(event.startDate)
+                    }
+                </DetailRow>
+
+                {/* Part range */}
+                <DetailRow icon="fa-regular fa-clock">
+                    {partRange(event)}
+                </DetailRow>
+
+                {/* Informational time */}
+                {event.time && (
+                    <DetailRow icon="fa-solid fa-stopwatch">
+                        {event.time}
+                    </DetailRow>
+                )}
+
+                {/* Location */}
+                {event.location && (
+                    <DetailRow icon="fa-solid fa-location-dot">
+                        {event.location}
+                    </DetailRow>
+                )}
+
+                {/* Budget */}
+                {event.budget != null && (
+                    <DetailRow icon="fa-solid fa-wallet">
+                        £{event.budget.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {event.budgetRow && event.budgetRowName && (
+                            <span className="ml-1.5 inline-flex items-center gap-1 text-neutral-400">
+                                <i className="fa-solid fa-link text-[10px]" aria-hidden="true" />
+                                {event.budgetRowName}
+                            </span>
+                        )}
+                    </DetailRow>
+                )}
+
+                {/* Notes */}
+                {event.notes && (
+                    <div className="rounded-2xl bg-neutral-50 px-4 py-3">
+                        <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">{event.notes}</p>
+                    </div>
+                )}
+            </div>
+        </Modal>
     )
 }
 

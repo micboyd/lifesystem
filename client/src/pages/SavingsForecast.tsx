@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import { listGroups, listRows, listEntries, updateGroup } from '../services/finances'
+import { groupVisibleInMonth, rowVisibleInMonth } from '../lib/finance'
 import type { FinanceGroup, FinanceRow, FinanceEntry } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -193,11 +194,12 @@ export default function SavingsForecast() {
         setGroups((prev) => prev.map((g) => (g._id === id ? updated : g)))
     }
 
-    const savingsGroups = groups.filter((g) => g.type === 'savings')
+    // Only savings groups active this month forecast forward.
+    const savingsGroups = groups.filter((g) => g.type === 'savings' && groupVisibleInMonth(g, month))
 
     // Monthly contribution per group (entry override or recurring)
     function monthlyContribution(group: FinanceGroup): number {
-        const groupRows = rows.filter((r) => r.group === group._id)
+        const groupRows = rows.filter((r) => r.group === group._id && rowVisibleInMonth(r, month, group))
         return groupRows.reduce((sum, row) => {
             const entry = entries.find((e) => e.row === row._id)
             return sum + (entry?.amount ?? row.recurringAmount ?? 0)

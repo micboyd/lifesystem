@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import { listRows, listGroups, listEntries, updateRow, listBudgetSpends, setBudgetSpend } from '../services/finances'
+import { rowVisibleInMonth } from '../lib/finance'
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -267,7 +268,9 @@ export default function Budgets() {
         return <div className="grid place-items-center py-16"><Spinner /></div>
     }
 
-    const budgetedRows = rows.filter((r) => r.budgeted)
+    const budgetedRows = rows.filter((r) =>
+        r.budgeted && rowVisibleInMonth(r, month, groups.find((g) => g._id === r.group))
+    )
 
     return (
         <>

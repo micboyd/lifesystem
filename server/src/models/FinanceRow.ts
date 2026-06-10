@@ -8,6 +8,9 @@ export interface IFinanceRow extends Document {
     order: number
     recurring: boolean
     month?: string          // YYYY-MM — set for non-recurring rows, absent for recurring
+    startMonth?: string | null   // YYYY-MM inclusive; null = active since forever (recurring rows)
+    endMonth?: string | null     // YYYY-MM inclusive; null = open-ended
+    skipMonths: string[]         // months explicitly hidden ("this month only" deletes)
     budgeted: boolean
     budgetType?: 'daily' | null
     createdAt: Date
@@ -23,6 +26,9 @@ const financeRowSchema = new Schema<IFinanceRow>(
         order: { type: Number, default: 0 },
         recurring: { type: Boolean, default: true },
         month: { type: String, default: null },
+        startMonth: { type: String, default: null },
+        endMonth: { type: String, default: null },
+        skipMonths: { type: [String], default: [] },
         budgeted: { type: Boolean, default: false },
         budgetType: { type: String, enum: ['daily'], default: null },
     },

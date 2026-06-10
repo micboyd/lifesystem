@@ -1,12 +1,14 @@
-import type { BudgetExclusion, BudgetSpend, FinanceEntry, FinanceRow } from '../types'
+import type { BudgetExclusion, BudgetSpend, FinanceEntry, FinanceGroup, FinanceRow } from '../types'
 import {
     listBudgetExclusions,
     listBudgetSpends,
     listEntries,
+    listGroups,
     listRows,
     setBudgetExclusion,
     setBudgetSpend,
 } from '../services/finances'
+import { rowVisibleInMonth } from '../lib/finance'
 import { useEffect, useState } from 'react'
 
 import Button from '../components/Button'
@@ -353,6 +355,7 @@ function DayModal({ date, dailyRows, entries, spends, excluded: initialExcluded,
 export default function BudgetCalendar() {
     const [month, setMonth] = useState(currentMonth)
     const [loading, setLoading] = useState(true)
+    const [groups, setGroups] = useState<FinanceGroup[]>([])
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
@@ -362,10 +365,10 @@ export default function BudgetCalendar() {
     useEffect(() => {
         let active = true
         setLoading(true)
-        Promise.all([listRows(), listEntries(month), listBudgetSpends({ month }), listBudgetExclusions(month)])
-            .then(([r, e, s, x]) => {
+        Promise.all([listGroups(), listRows(), listEntries(month), listBudgetSpends({ month }), listBudgetExclusions(month)])
+            .then(([g, r, e, s, x]) => {
                 if (!active) return
-                setRows(r); setEntries(e); setSpends(s); setExclusions(x)
+                setGroups(g); setRows(r); setEntries(e); setSpends(s); setExclusions(x)
             })
             .finally(() => active && setLoading(false))
         return () => { active = false }
@@ -402,7 +405,10 @@ export default function BudgetCalendar() {
     }
 
     const today = todayKey()
-    const dailyRows = rows.filter((r) => r.budgeted && r.budgetType === 'daily')
+    const dailyRows = rows.filter((r) =>
+        r.budgeted && r.budgetType === 'daily' &&
+        rowVisibleInMonth(r, month, groups.find((g) => g._id === r.group))
+    )
     const excludedDates = new Set(exclusions.map((x) => x.date))
     const dayData = buildDayData(month, dailyRows, entries, spends, excludedDates)
     const offset = startOffset(month)

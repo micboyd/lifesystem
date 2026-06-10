@@ -7,19 +7,16 @@ import {
     listGroups, createGroup, updateGroup, deleteGroup,
     listRows, createRow, updateRow, deleteRow,
     listEntries, setEntry,
+    type AddScope,
 } from '../services/finances'
+import { addMonths, rowVisibleInMonth, groupVisibleInMonth, type DeleteMode } from '../lib/finance'
+import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
 import type { FinanceGroup, FinanceRow, FinanceEntry } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function currentMonth(): string {
     const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-function addMonths(ym: string, delta: number): string {
-    const [y, m] = ym.split('-').map(Number)
-    const d = new Date(y, m - 1 + delta, 1)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
@@ -207,7 +204,13 @@ export default function Finances() {
     const [addingGroup, setAddingGroup] = useState(false)
     const [newGroupName, setNewGroupName] = useState('')
     const [newGroupType, setNewGroupType] = useState<'income' | 'expense' | 'savings'>('expense')
+    const [newGroupScope, setNewGroupScope] = useState<AddScope>('all')
     const [savingGroup, setSavingGroup] = useState(false)
+
+    // Delete confirmation / scope dialog
+    const [pendingDelete, setPendingDelete] = useState<
+        { kind: 'group' | 'row'; id: string; name: string; scoped: boolean } | null
+    >(null)
 
     // Editing
     const [editingGroup, setEditingGroup] = useState<string | null>(null)
@@ -246,17 +249,10 @@ export default function Finances() {
         return e !== undefined ? e : (row.recurringAmount ?? 0)
     }
 
-    // Non-recurring rows are scoped to their own month — hide them in all other months
+    // Rows shown in the viewed month, honouring each row's month-scope lifecycle.
+    // (Group visibility is handled separately when listing the groups themselves.)
     function visibleRows(groupId: string): FinanceRow[] {
-        return rows.filter((r) => {
-            if (r.group !== groupId) return false
-            if (r.recurring === false) {
-                // Fall back to createdAt for rows created before this feature
-                const rowMonth = r.month ?? r.createdAt.substring(0, 7)
-                return rowMonth === month
-            }
-            return true
-        })
+        return rows.filter((r) => r.group === groupId && rowVisibleInMonth(r, month))
     }
 
     function groupTotal(groupId: string): number {
@@ -283,7 +279,7 @@ export default function Finances() {
         if (!newGroupName.trim()) return
         setSavingGroup(true)
         try {
-            const g = await createGroup(newGroupName.trim(), newGroupType)
+            const g = await createGroup(newGroupName.trim(), newGroupType, newGroupScope, month)
             setGroups((prev) => [...prev, g])
             // Savings groups auto-create a row on the server — re-fetch so it appears
             if (g.type === 'savings') {
@@ -291,6 +287,7 @@ export default function Finances() {
                 setRows(updatedRows)
             }
             setNewGroupName('')
+            setNewGroupScope('all')
             setAddingGroup(false)
         } finally {
             setSavingGroup(false)
@@ -304,8 +301,13 @@ export default function Finances() {
         setEditingGroup(null)
     }
 
-    async function handleDeleteGroup(id: string) {
-        await deleteGroup(id)
+    async function handleDeleteGroup(id: string, mode: DeleteMode) {
+        const updated = await deleteGroup(id, mode, month)
+        if (updated) {
+            // Soft delete — keep the group (now scoped out of the viewed month).
+            setGroups((prev) => prev.map((g) => (g._id === id ? updated : g)))
+            return
+        }
         setGroups((prev) => prev.filter((g) => g._id !== id))
         setRows((prev) => prev.filter((r) => r.group !== id))
         setEntries((prev) => {
@@ -324,7 +326,8 @@ export default function Finances() {
                 setEntries((prev) => (entry ? [...prev.filter((e) => e.row !== r._id), entry] : prev))
             }
         } else {
-            const r = await createRow(groupId, name, amount, true)
+            // Recurring rows apply from the viewed month onward (not retroactively).
+            const r = await createRow(groupId, name, amount, true, undefined, month)
             setRows((prev) => [...prev, r])
         }
         setAddingRowFor(null)
@@ -352,10 +355,24 @@ export default function Finances() {
         setEditingRow(null)
     }
 
-    async function handleDeleteRow(id: string) {
-        await deleteRow(id)
+    async function handleDeleteRow(id: string, mode: DeleteMode) {
+        const updated = await deleteRow(id, mode, month)
+        if (updated) {
+            // Soft delete — keep the row (now scoped out of the viewed month).
+            setRows((prev) => prev.map((r) => (r._id === id ? updated : r)))
+            return
+        }
         setRows((prev) => prev.filter((r) => r._id !== id))
         setEntries((prev) => prev.filter((e) => e.row !== id))
+    }
+
+    // Resolve the delete dialog's choice to the right handler.
+    async function handleConfirmDelete(mode: DeleteMode) {
+        const target = pendingDelete
+        setPendingDelete(null)
+        if (!target) return
+        if (target.kind === 'group') await handleDeleteGroup(target.id, mode)
+        else await handleDeleteRow(target.id, mode)
     }
 
     async function handleToggleBudget(rowId: string, budgeted: boolean) {
@@ -375,9 +392,11 @@ export default function Finances() {
         return <div className="grid place-items-center py-16"><Spinner /></div>
     }
 
-    const incomeGroups = groups.filter((g) => g.type === 'income')
-    const expenseGroups = groups.filter((g) => g.type === 'expense')
-    const savingsGroups = groups.filter((g) => g.type === 'savings')
+    // Only groups active in the viewed month are shown (month-scope lifecycle).
+    const monthGroups = groups.filter((g) => groupVisibleInMonth(g, month))
+    const incomeGroups = monthGroups.filter((g) => g.type === 'income')
+    const expenseGroups = monthGroups.filter((g) => g.type === 'expense')
+    const savingsGroups = monthGroups.filter((g) => g.type === 'savings')
 
     return (
         <>
@@ -458,11 +477,32 @@ export default function Finances() {
                                 )
                             })}
                         </div>
+
+                        {/* Month scope */}
+                        <div className="flex w-fit gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1">
+                            {([['all', `All months (from ${formatMonth(month)})`], ['month', `Just ${formatMonth(month)}`]] as const).map(([key, label]) => {
+                                const active = newGroupScope === key
+                                return (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => setNewGroupScope(key)}
+                                        className={[
+                                            'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+                                            active ? 'bg-neutral-950 text-white' : 'text-neutral-500 hover:text-neutral-900',
+                                        ].join(' ')}
+                                    >
+                                        {label}
+                                    </button>
+                                )
+                            })}
+                        </div>
+
                         <div className="flex gap-2">
                             <Button onClick={handleAddGroup} disabled={savingGroup || !newGroupName.trim()}>
                                 {savingGroup ? 'Saving…' : 'Save'}
                             </Button>
-                            <Button variant="ghost" onClick={() => { setAddingGroup(false); setNewGroupName('') }}>
+                            <Button variant="ghost" onClick={() => { setAddingGroup(false); setNewGroupName(''); setNewGroupScope('all') }}>
                                 Cancel
                             </Button>
                         </div>
@@ -471,9 +511,13 @@ export default function Finances() {
             )}
 
             {/* Groups */}
-            {groups.length === 0 && !addingGroup ? (
+            {monthGroups.length === 0 && !addingGroup ? (
                 <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-12 text-center">
-                    <p className="text-sm text-neutral-400">No groups yet. Add one to get started.</p>
+                    <p className="text-sm text-neutral-400">
+                        {groups.length === 0
+                            ? 'No groups yet. Add one to get started.'
+                            : `No groups in ${formatMonth(month)}. Add one or switch months.`}
+                    </p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-6">
@@ -535,7 +579,7 @@ export default function Finances() {
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleDeleteGroup(group._id)}
+                                                    onClick={() => setPendingDelete({ kind: 'group', id: group._id, name: group.name, scoped: true })}
                                                     className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-100 hover:text-red-500"
                                                 >
                                                     <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
@@ -639,7 +683,7 @@ export default function Finances() {
                                                                     {!isSavings && (
                                                                         <button
                                                                             type="button"
-                                                                            onClick={() => handleDeleteRow(row._id)}
+                                                                            onClick={() => setPendingDelete({ kind: 'row', id: row._id, name: row.name, scoped: row.recurring !== false })}
                                                                             className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
                                                                         >
                                                                             <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
@@ -687,7 +731,7 @@ export default function Finances() {
                     })}
 
                     {/* Net summary */}
-                    {groups.length > 0 && (
+                    {monthGroups.length > 0 && (
                         <div className="rounded-2xl border border-neutral-200 bg-neutral-950 p-5 text-white shadow-sm">
                             <div className="flex items-center justify-between">
                                 <span className="text-sm font-semibold uppercase tracking-wide text-neutral-400">Summary</span>
@@ -720,6 +764,17 @@ export default function Finances() {
                         </div>
                     )}
                 </div>
+            )}
+
+            {pendingDelete && (
+                <DeleteScopeDialog
+                    kind={pendingDelete.kind}
+                    name={pendingDelete.name}
+                    monthLabel={formatMonth(month)}
+                    scoped={pendingDelete.scoped}
+                    onClose={() => setPendingDelete(null)}
+                    onConfirm={handleConfirmDelete}
+                />
             )}
         </>
     )

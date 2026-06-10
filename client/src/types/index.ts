@@ -196,6 +196,9 @@ export interface FinanceGroup {
     order: number
     currentBalance?: number
     annualInterestRate?: number
+    startMonth?: string | null   // YYYY-MM inclusive; null/absent = active since forever
+    endMonth?: string | null     // YYYY-MM inclusive; null/absent = open-ended
+    skipMonths?: string[]        // months explicitly hidden ("this month only" deletes)
     createdAt: string
     updatedAt: string
 }
@@ -208,6 +211,9 @@ export interface FinanceRow {
     order: number
     recurring?: boolean
     month?: string          // YYYY-MM — set for non-recurring rows, absent for recurring
+    startMonth?: string | null   // YYYY-MM inclusive; null/absent = active since forever
+    endMonth?: string | null     // YYYY-MM inclusive; null/absent = open-ended
+    skipMonths?: string[]        // months explicitly hidden ("this month only" deletes)
     budgeted?: boolean
     budgetType?: 'daily' | null
     createdAt: string

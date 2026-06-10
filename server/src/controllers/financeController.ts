@@ -8,6 +8,19 @@ function isValidMonth(v: unknown): v is string {
     return typeof v === 'string' && MONTH_PATTERN.test(v)
 }
 
+/** Shift a "YYYY-MM" string by a number of months. */
+function addMonths(ym: string, delta: number): string {
+    const [y, m] = ym.split('-').map(Number)
+    const d = new Date(y, m - 1 + delta, 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+type DeleteMode = 'all' | 'onward' | 'month'
+
+function deleteMode(v: unknown): DeleteMode {
+    return v === 'onward' || v === 'month' ? v : 'all'
+}
+
 // ── Groups ────────────────────────────────────────────────────────────────────
 
 export async function listGroups(req: AuthRequest, res: Response) {
@@ -25,7 +38,9 @@ export async function createGroup(req: AuthRequest, res: Response) {
     }
     const last = await FinanceGroup.findOne({ user: req.userId }).sort({ order: -1 })
     const order = last ? last.order + 1 : 0
-    const group = await FinanceGroup.create({ user: req.userId, name, type, order })
+    const startMonth = isValidMonth(req.body.startMonth) ? req.body.startMonth : null
+    const endMonth = isValidMonth(req.body.endMonth) ? req.body.endMonth : null
+    const group = await FinanceGroup.create({ user: req.userId, name, type, order, startMonth, endMonth })
 
     // Savings groups get exactly one auto-created row
     if (type === 'savings') {
@@ -44,6 +59,8 @@ export async function updateGroup(req: AuthRequest, res: Response) {
     if (req.body.currentBalance === null) fields.currentBalance = 0
     if (typeof req.body.annualInterestRate === 'number') fields.annualInterestRate = req.body.annualInterestRate
     if (req.body.annualInterestRate === null) fields.annualInterestRate = 0
+    if (isValidMonth(req.body.startMonth) || req.body.startMonth === null) fields.startMonth = req.body.startMonth ?? null
+    if (isValidMonth(req.body.endMonth) || req.body.endMonth === null) fields.endMonth = req.body.endMonth ?? null
 
     const group = await FinanceGroup.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },
@@ -55,13 +72,45 @@ export async function updateGroup(req: AuthRequest, res: Response) {
 }
 
 export async function deleteGroup(req: AuthRequest, res: Response) {
+    const mode = deleteMode(req.query.mode)
+    const month = req.query.month
+
+    // Soft scopes keep the group (and its rows/history); just adjust its visibility window.
+    if (mode !== 'all' && isValidMonth(month)) {
+        const existing = await FinanceGroup.findOne({ _id: req.params.id, user: req.userId })
+        if (!existing) { res.status(404).json({ message: 'Group not found' }); return }
+
+        if (mode === 'month') {
+            const updated = await FinanceGroup.findByIdAndUpdate(
+                existing._id,
+                { $addToSet: { skipMonths: month } },
+                { new: true }
+            )
+            res.json({ message: 'Hidden for month', data: updated })
+            return
+        }
+
+        // mode === 'onward': end the group the month before the viewed one.
+        const newEnd = addMonths(month, -1)
+        // If that leaves no active months at all, fall through to a hard delete.
+        if (!existing.startMonth || existing.startMonth <= newEnd) {
+            const updated = await FinanceGroup.findByIdAndUpdate(
+                existing._id,
+                { $set: { endMonth: newEnd } },
+                { new: true }
+            )
+            res.json({ message: 'Ended', data: updated })
+            return
+        }
+    }
+
     const group = await FinanceGroup.findOneAndDelete({ _id: req.params.id, user: req.userId })
     if (!group) { res.status(404).json({ message: 'Group not found' }); return }
     const rows = await FinanceRow.find({ user: req.userId, group: req.params.id })
     const rowIds = rows.map((r) => r._id)
     await FinanceEntry.deleteMany({ user: req.userId, row: { $in: rowIds } })
     await FinanceRow.deleteMany({ user: req.userId, group: req.params.id })
-    res.json({ message: 'Deleted' })
+    res.json({ message: 'Deleted', data: null })
 }
 
 // ── Rows ──────────────────────────────────────────────────────────────────────
@@ -93,7 +142,9 @@ export async function createRow(req: AuthRequest, res: Response) {
     const recurring = req.body.recurring === false ? false : true
     // Non-recurring rows are scoped to a specific month
     const month = !recurring && isValidMonth(req.body.month) ? req.body.month : null
-    const row = await FinanceRow.create({ user: req.userId, group: groupId, name, recurringAmount, recurring, month, order })
+    // Recurring rows can start from a given month ("all months from here on")
+    const startMonth = recurring && isValidMonth(req.body.startMonth) ? req.body.startMonth : null
+    const row = await FinanceRow.create({ user: req.userId, group: groupId, name, recurringAmount, recurring, month, startMonth, order })
     res.status(201).json({ message: 'Created', data: row })
 }
 
@@ -107,6 +158,8 @@ export async function updateRow(req: AuthRequest, res: Response) {
     if (typeof req.body.budgeted === 'boolean') fields.budgeted = req.body.budgeted
     if (req.body.budgetType === 'daily') fields.budgetType = 'daily'
     if (req.body.budgetType === null) fields.budgetType = null
+    if (isValidMonth(req.body.startMonth) || req.body.startMonth === null) fields.startMonth = req.body.startMonth ?? null
+    if (isValidMonth(req.body.endMonth) || req.body.endMonth === null) fields.endMonth = req.body.endMonth ?? null
 
     const row = await FinanceRow.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },
@@ -118,10 +171,43 @@ export async function updateRow(req: AuthRequest, res: Response) {
 }
 
 export async function deleteRow(req: AuthRequest, res: Response) {
+    const mode = deleteMode(req.query.mode)
+    const month = req.query.month
+
+    // Soft scopes only apply to recurring rows (one-time rows live in a single month).
+    if (mode !== 'all' && isValidMonth(month)) {
+        const existing = await FinanceRow.findOne({ _id: req.params.id, user: req.userId })
+        if (!existing) { res.status(404).json({ message: 'Row not found' }); return }
+
+        if (existing.recurring !== false) {
+            if (mode === 'month') {
+                const updated = await FinanceRow.findByIdAndUpdate(
+                    existing._id,
+                    { $addToSet: { skipMonths: month } },
+                    { new: true }
+                )
+                res.json({ message: 'Hidden for month', data: updated })
+                return
+            }
+
+            // mode === 'onward'
+            const newEnd = addMonths(month, -1)
+            if (!existing.startMonth || existing.startMonth <= newEnd) {
+                const updated = await FinanceRow.findByIdAndUpdate(
+                    existing._id,
+                    { $set: { endMonth: newEnd } },
+                    { new: true }
+                )
+                res.json({ message: 'Ended', data: updated })
+                return
+            }
+        }
+    }
+
     const row = await FinanceRow.findOneAndDelete({ _id: req.params.id, user: req.userId })
     if (!row) { res.status(404).json({ message: 'Row not found' }); return }
     await FinanceEntry.deleteMany({ user: req.userId, row: req.params.id })
-    res.json({ message: 'Deleted' })
+    res.json({ message: 'Deleted', data: null })
 }
 
 // ── Entries ───────────────────────────────────────────────────────────────────

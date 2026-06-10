@@ -42,7 +42,7 @@ export default function Modal({
             <div
                 role="dialog"
                 aria-modal="true"
-                className={`relative z-10 flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-xl ${sizeClasses[size]} ${className}`}
+                className={`relative z-10 flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl bg-white ${sizeClasses[size]} ${className}`}
             >
                 {title ? (
                     <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-6 py-4">

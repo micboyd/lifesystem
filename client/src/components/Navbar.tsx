@@ -86,7 +86,7 @@ export default function Navbar() {
 
                     {/* Panel */}
                     <div
-                        className={`absolute inset-y-0 left-0 flex w-72 flex-col bg-white shadow-xl transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}
+                        className={`absolute inset-y-0 left-0 flex w-72 flex-col bg-white transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}
                     >
                         {/* Drawer header */}
                         <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">

@@ -5,11 +5,12 @@ import { useDataVersion } from '../../context/DataSyncContext'
 import { listHabits, listLogs } from '../../services/habits'
 import { listTasks } from '../../services/tasks'
 import { listTimeboxes } from '../../services/timeboxes'
-import { listRows, listEntries, listBudgetSpends } from '../../services/finances'
+import { listGroups, listRows, listEntries, listBudgetSpends } from '../../services/finances'
 import { computeBudgetDay, monthOf } from '../../lib/budget'
+import { rowVisibleInMonth } from '../../lib/finance'
 import { addDays } from '../../lib/calendar'
 import { timeToMinutes, formatDuration, DEFAULT_WAKE, DEFAULT_BED } from '../../lib/time'
-import type { HabitDef, HabitLog, Task, Timebox, FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
+import type { HabitDef, HabitLog, Task, Timebox, FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
 
 /** How far back to look when computing the habit streak. */
 const STREAK_WINDOW = 30
@@ -90,12 +91,17 @@ function timeboxInsight(boxes: Timebox[], wake: string, bed: string): Insight {
 }
 
 function budgetInsight(
+    groups: FinanceGroup[],
     rows: FinanceRow[],
     entries: FinanceEntry[],
     spends: BudgetSpend[],
     date: string
 ): Insight {
-    const dailyRows = rows.filter((r) => r.budgeted && r.budgetType === 'daily')
+    const month = monthOf(date)
+    const dailyRows = rows.filter((r) =>
+        r.budgeted && r.budgetType === 'daily' &&
+        rowVisibleInMonth(r, month, groups.find((g) => g._id === r.group))
+    )
     const withAmounts = dailyRows.filter((r) => {
         const entry = entries.find((e) => e.row === r._id)
         return (entry?.amount ?? r.recurringAmount ?? 0) > 0
@@ -164,17 +170,18 @@ export default function InsightsStrip({ date }: { date: string }) {
             listLogs(addDays(date, -STREAK_WINDOW), date),
             listTasks(date, date),
             listTimeboxes(date, date),
+            listGroups(),
             listRows(),
             listEntries(month),
             listBudgetSpends({ month }),
         ])
-            .then(([habits, logs, tasks, boxes, rows, entries, spends]) => {
+            .then(([habits, logs, tasks, boxes, groups, rows, entries, spends]) => {
                 if (!active) return
                 setInsights([
                     habitInsight(habits, logs, date),
                     taskInsight(tasks),
                     timeboxInsight(boxes, wake, bed),
-                    budgetInsight(rows, entries, spends, date),
+                    budgetInsight(groups, rows, entries, spends, date),
                 ])
             })
             .catch(() => active && setInsights(PLACEHOLDERS.map((p) => ({ ...p, value: '—' }))))

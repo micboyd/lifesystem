@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
 import Spinner from '../Spinner'
-import { listRows, listEntries, listBudgetSpends, setBudgetSpend } from '../../services/finances'
+import { listGroups, listRows, listEntries, listBudgetSpends, setBudgetSpend } from '../../services/finances'
 import { computeBudgetDay, monthOf, dayNumOf } from '../../lib/budget'
+import { rowVisibleInMonth } from '../../lib/finance'
 import { useInvalidate } from '../../context/DataSyncContext'
-import type { FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
+import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ function BudgetCol({ row, entry, rowSpends, date, onLogSpend }: BudgetColProps) 
 
 export default function BudgetWidget({ date }: { date: string }) {
     const invalidate = useInvalidate()
+    const [groups, setGroups] = useState<FinanceGroup[]>([])
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
@@ -145,11 +147,13 @@ export default function BudgetWidget({ date }: { date: string }) {
     useEffect(() => {
         let active = true
         Promise.all([
+            listGroups(),
             listRows(),
             listEntries(month),
             listBudgetSpends({ month }),
-        ]).then(([r, e, s]) => {
+        ]).then(([g, r, e, s]) => {
             if (!active) return
+            setGroups(g)
             setRows(r)
             setEntries(e)
             setSpends(s)
@@ -166,7 +170,11 @@ export default function BudgetWidget({ date }: { date: string }) {
         invalidate('budget')
     }
 
-    const budgetedRows = rows.filter((r) => r.budgeted)
+    // Only rows whose lifecycle (and their group's) covers this month.
+    const visibleBudgeted = rows.filter((r) =>
+        r.budgeted && rowVisibleInMonth(r, month, groups.find((g) => g._id === r.group))
+    )
+    const budgetedRows = visibleBudgeted
     const dailyRows = budgetedRows.filter((r) => r.budgetType === 'daily')
     const hasAmounts = dailyRows.some((r) => {
         const entry = entries.find((e) => e.row === r._id)

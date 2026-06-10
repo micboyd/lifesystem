@@ -54,7 +54,7 @@ export default function Drawer({
                 role="dialog"
                 aria-modal="true"
                 className={[
-                    'absolute inset-y-0 flex w-full flex-col bg-white shadow-xl transition-transform duration-300 ease-out',
+                    'absolute inset-y-0 flex w-full flex-col bg-white transition-transform duration-300 ease-out',
                     side === 'right' ? 'right-0' : 'left-0',
                     sizeClasses[size],
                     open ? 'translate-x-0' : hiddenTransform,

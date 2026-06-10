@@ -1,5 +1,9 @@
 import api from './api'
 import type { ApiResponse, FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend, BudgetExclusion, FinanceSubItem } from '../types'
+import type { DeleteMode } from '../lib/finance'
+
+/** Add-scope for new groups/rows: visible from this month on, or this month only. */
+export type AddScope = 'all' | 'month'
 
 // ── Groups ────────────────────────────────────────────────────────────────────
 
@@ -8,8 +12,15 @@ export async function listGroups(): Promise<FinanceGroup[]> {
     return res.data.data
 }
 
-export async function createGroup(name: string, type: 'income' | 'expense' | 'savings'): Promise<FinanceGroup> {
-    const res = await api.post<ApiResponse<FinanceGroup>>('/finances/groups', { name, type })
+export async function createGroup(
+    name: string,
+    type: 'income' | 'expense' | 'savings',
+    scope: AddScope = 'all',
+    month?: string,
+): Promise<FinanceGroup> {
+    // "all" = from the viewed month onward; "month" = that single month only.
+    const lifecycle = month ? { startMonth: month, endMonth: scope === 'month' ? month : null } : {}
+    const res = await api.post<ApiResponse<FinanceGroup>>('/finances/groups', { name, type, ...lifecycle })
     return res.data.data
 }
 
@@ -21,8 +32,14 @@ export async function updateGroup(
     return res.data.data
 }
 
-export async function deleteGroup(id: string): Promise<void> {
-    await api.delete(`/finances/groups/${id}`)
+/**
+ * Delete a group. `mode` controls scope: 'all' removes it everywhere (and its
+ * rows/entries), 'onward' ends it before `month`, 'month' hides just `month`.
+ * Soft modes return the updated group; 'all' returns null.
+ */
+export async function deleteGroup(id: string, mode: DeleteMode = 'all', month?: string): Promise<FinanceGroup | null> {
+    const res = await api.delete<ApiResponse<FinanceGroup | null>>(`/finances/groups/${id}`, { params: { mode, ...(month && { month }) } })
+    return res.data.data ?? null
 }
 
 // ── Rows ──────────────────────────────────────────────────────────────────────
@@ -38,8 +55,13 @@ export async function createRow(
     recurringAmount?: number,
     recurring?: boolean,
     month?: string,
+    startMonth?: string,
 ): Promise<FinanceRow> {
-    const res = await api.post<ApiResponse<FinanceRow>>('/finances/rows', { group, name, recurringAmount, recurring, ...(month && { month }) })
+    const res = await api.post<ApiResponse<FinanceRow>>('/finances/rows', {
+        group, name, recurringAmount, recurring,
+        ...(month && { month }),
+        ...(startMonth && { startMonth }),
+    })
     return res.data.data
 }
 
@@ -51,8 +73,14 @@ export async function updateRow(
     return res.data.data
 }
 
-export async function deleteRow(id: string): Promise<void> {
-    await api.delete(`/finances/rows/${id}`)
+/**
+ * Delete a row. `mode` mirrors {@link deleteGroup}; soft modes only apply to
+ * recurring rows (one-time rows live in a single month and are removed outright).
+ * Soft modes return the updated row; 'all' returns null.
+ */
+export async function deleteRow(id: string, mode: DeleteMode = 'all', month?: string): Promise<FinanceRow | null> {
+    const res = await api.delete<ApiResponse<FinanceRow | null>>(`/finances/rows/${id}`, { params: { mode, ...(month && { month }) } })
+    return res.data.data ?? null
 }
 
 // ── Entries ───────────────────────────────────────────────────────────────────
