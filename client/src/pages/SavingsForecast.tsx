@@ -295,6 +295,11 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
         .map((g) => ({ group: g, total: months.reduce((s, m) => s + plannedForMonth(g, m), 0) }))
         .filter((x) => x.total !== 0)
     const grandTotal = perGroup.reduce((s, x) => s + x.total, 0)
+
+    const perMonth = months.map((m) => ({
+        month: m,
+        total: savingsGroups.reduce((s, g) => s + plannedForMonth(g, m), 0),
+    }))
     const monthCount = months.length
     const monthlyAvg = monthCount > 0 ? grandTotal / monthCount : 0
     const invalid = from > to
@@ -357,6 +362,29 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
                                         </span>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+
+                        {perMonth.length > 1 && (
+                            <div>
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    Monthly breakdown
+                                </p>
+                                <div className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200 overflow-hidden">
+                                    {perMonth.map(({ month, total }) => (
+                                        <div
+                                            key={month}
+                                            className="flex items-center justify-between px-4 py-2.5"
+                                        >
+                                            <span className="text-sm text-neutral-600">
+                                                {new Date(month + '-02').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                                            </span>
+                                            <span className={`text-sm font-mono font-semibold tabular-nums ${total === 0 ? 'text-neutral-400' : 'text-neutral-900'}`}>
+                                                £{fmt(total)}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
