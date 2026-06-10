@@ -28,10 +28,14 @@ function Chip({
     const base = `flex w-full items-center gap-1 overflow-hidden rounded-md px-1.5 text-left ${bg} ${text} ${mini ? 'min-h-0 flex-1' : 'h-full'}`
     const title = (
         <>
-            <span className={`truncate font-semibold leading-tight ${mini ? 'text-[10px]' : 'text-[11px]'}`}>
+            <span
+                className={`truncate font-semibold leading-tight ${mini ? 'text-[10px]' : 'text-[11px]'}`}
+            >
                 {event.title}
             </span>
-            {event.recurrence && <i className="fa-solid fa-repeat shrink-0 text-[8px] opacity-60" />}
+            {event.recurrence && (
+                <i className="fa-solid fa-repeat shrink-0 text-[8px] opacity-60" />
+            )}
         </>
     )
     if (disabled) {
@@ -45,7 +49,10 @@ function Chip({
         <button
             type="button"
             title={event.title}
-            onClick={(e) => { e.stopPropagation(); onClick() }}
+            onClick={(e) => {
+                e.stopPropagation()
+                onClick()
+            }}
             className={`${base} ${hover} transition-colors`}
         >
             {title}
@@ -60,7 +67,13 @@ function Chip({
  * - 2 events: two stacked half-height chips (both titles visible).
  * - 3+ events: the first chip plus a "+N more" that opens a picker.
  */
-export default function EventStack({ events, disabled = false, onEventClick, onAdd, onPick }: EventStackProps) {
+export default function EventStack({
+    events,
+    disabled = false,
+    onEventClick,
+    onAdd,
+    onPick,
+}: EventStackProps) {
     if (events.length === 0) {
         if (disabled) return <div className="h-full w-full" />
         return (
@@ -75,7 +88,9 @@ export default function EventStack({ events, disabled = false, onEventClick, onA
     }
 
     if (events.length === 1) {
-        return <Chip event={events[0]} disabled={disabled} onClick={() => onEventClick(events[0])} />
+        return (
+            <Chip event={events[0]} disabled={disabled} onClick={() => onEventClick(events[0])} />
+        )
     }
 
     const overflow = events.length > 2
@@ -83,11 +98,19 @@ export default function EventStack({ events, disabled = false, onEventClick, onA
         <div className="flex h-full w-full flex-col gap-px">
             {overflow ? (
                 <>
-                    <Chip event={events[0]} mini disabled={disabled} onClick={() => onEventClick(events[0])} />
+                    <Chip
+                        event={events[0]}
+                        mini
+                        disabled={disabled}
+                        onClick={() => onEventClick(events[0])}
+                    />
                     <button
                         type="button"
                         disabled={disabled}
-                        onClick={(e) => { e.stopPropagation(); onPick(events) }}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onPick(events)
+                        }}
                         className="flex min-h-0 flex-1 items-center justify-center rounded-md bg-neutral-200 text-[10px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-300 disabled:opacity-50"
                     >
                         +{events.length - 1} more
@@ -95,7 +118,13 @@ export default function EventStack({ events, disabled = false, onEventClick, onA
                 </>
             ) : (
                 events.map((e) => (
-                    <Chip key={e._id} event={e} mini disabled={disabled} onClick={() => onEventClick(e)} />
+                    <Chip
+                        key={e._id}
+                        event={e}
+                        mini
+                        disabled={disabled}
+                        onClick={() => onEventClick(e)}
+                    />
                 ))
             )}
         </div>

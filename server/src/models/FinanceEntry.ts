@@ -19,7 +19,10 @@ const financeEntrySchema = new Schema<IFinanceEntry>(
         month: {
             type: String,
             required: true,
-            validate: { validator: (v: string) => MONTH_PATTERN.test(v), message: 'month must be YYYY-MM' },
+            validate: {
+                validator: (v: string) => MONTH_PATTERN.test(v),
+                message: 'month must be YYYY-MM',
+            },
         },
         amount: { type: Number, required: true },
     },

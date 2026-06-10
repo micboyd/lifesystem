@@ -49,10 +49,28 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
 }
 
 /** Tailwind classes for each event type. Keys are bare classes — no dynamic construction. */
-export const EVENT_TYPE_COLORS: Record<EventType, { bg: string; hover: string; text: string; light: string }> = {
-    trip: { bg: 'bg-blue-100', hover: 'hover:bg-blue-200', text: 'text-blue-700', light: 'bg-blue-50' },
-    social: { bg: 'bg-amber-100', hover: 'hover:bg-amber-200', text: 'text-amber-700', light: 'bg-amber-50' },
-    general: { bg: 'bg-neutral-100', hover: 'hover:bg-neutral-200', text: 'text-neutral-600', light: 'bg-neutral-50' },
+export const EVENT_TYPE_COLORS: Record<
+    EventType,
+    { bg: string; hover: string; text: string; light: string }
+> = {
+    trip: {
+        bg: 'bg-blue-100',
+        hover: 'hover:bg-blue-200',
+        text: 'text-blue-700',
+        light: 'bg-blue-50',
+    },
+    social: {
+        bg: 'bg-amber-100',
+        hover: 'hover:bg-amber-200',
+        text: 'text-amber-700',
+        light: 'bg-amber-50',
+    },
+    general: {
+        bg: 'bg-neutral-100',
+        hover: 'hover:bg-neutral-200',
+        text: 'text-neutral-600',
+        light: 'bg-neutral-50',
+    },
 }
 
 /** Default pastel colour for N/A (Other) events. */
@@ -103,7 +121,11 @@ export interface Event {
     updatedAt: string
 }
 
-export const DAY_STATUSES = ['annual_leave_pending', 'annual_leave_approved', 'bank_holiday'] as const
+export const DAY_STATUSES = [
+    'annual_leave_pending',
+    'annual_leave_approved',
+    'bank_holiday',
+] as const
 export type DayStatusType = (typeof DAY_STATUSES)[number]
 
 export interface DayStatusOption {
@@ -115,9 +137,27 @@ export interface DayStatusOption {
 }
 
 export const DAY_STATUS_OPTIONS: DayStatusOption[] = [
-    { value: 'annual_leave_pending', label: 'Annual Leave (Pending)', bg: 'bg-orange-100', text: 'text-orange-700', hover: 'hover:bg-orange-200' },
-    { value: 'annual_leave_approved', label: 'Annual Leave (Approved)', bg: 'bg-green-100', text: 'text-green-700', hover: 'hover:bg-green-200' },
-    { value: 'bank_holiday', label: 'Bank Holiday', bg: 'bg-green-100', text: 'text-green-700', hover: 'hover:bg-green-200' },
+    {
+        value: 'annual_leave_pending',
+        label: 'Annual Leave (Pending)',
+        bg: 'bg-orange-100',
+        text: 'text-orange-700',
+        hover: 'hover:bg-orange-200',
+    },
+    {
+        value: 'annual_leave_approved',
+        label: 'Annual Leave (Approved)',
+        bg: 'bg-green-100',
+        text: 'text-green-700',
+        hover: 'hover:bg-green-200',
+    },
+    {
+        value: 'bank_holiday',
+        label: 'Bank Holiday',
+        bg: 'bg-green-100',
+        text: 'text-green-700',
+        hover: 'hover:bg-green-200',
+    },
 ]
 
 export interface DayStatus {
@@ -131,24 +171,55 @@ export const TIMEBOX_CATEGORIES = ['work', 'personal', 'health', 'learning', 'so
 export type TimeboxCategory = (typeof TIMEBOX_CATEGORIES)[number]
 
 export const TIMEBOX_CATEGORY_LABELS: Record<TimeboxCategory, string> = {
-    work:     'Work',
+    work: 'Work',
     personal: 'Personal',
-    health:   'Health',
+    health: 'Health',
     learning: 'Learning',
-    social:   'Social',
+    social: 'Social',
 }
 
-export const TIMEBOX_CATEGORY_COLORS: Record<TimeboxCategory, { bg: string; border: string; text: string; sub: string }> = {
-    work:     { bg: 'bg-blue-100',    border: 'border-blue-200',    text: 'text-blue-900',    sub: 'text-blue-500'    },
-    personal: { bg: 'bg-violet-100',  border: 'border-violet-200',  text: 'text-violet-900',  sub: 'text-violet-500'  },
-    health:   { bg: 'bg-emerald-100', border: 'border-emerald-200', text: 'text-emerald-900', sub: 'text-emerald-500' },
-    learning: { bg: 'bg-amber-100',   border: 'border-amber-200',   text: 'text-amber-900',   sub: 'text-amber-500'   },
-    social:   { bg: 'bg-pink-100',    border: 'border-pink-200',    text: 'text-pink-900',    sub: 'text-pink-500'    },
+export const TIMEBOX_CATEGORY_COLORS: Record<
+    TimeboxCategory,
+    { bg: string; border: string; text: string; sub: string }
+> = {
+    work: {
+        bg: 'bg-blue-100',
+        border: 'border-blue-200',
+        text: 'text-blue-900',
+        sub: 'text-blue-500',
+    },
+    personal: {
+        bg: 'bg-violet-100',
+        border: 'border-violet-200',
+        text: 'text-violet-900',
+        sub: 'text-violet-500',
+    },
+    health: {
+        bg: 'bg-emerald-100',
+        border: 'border-emerald-200',
+        text: 'text-emerald-900',
+        sub: 'text-emerald-500',
+    },
+    learning: {
+        bg: 'bg-amber-100',
+        border: 'border-amber-200',
+        text: 'text-amber-900',
+        sub: 'text-amber-500',
+    },
+    social: {
+        bg: 'bg-pink-100',
+        border: 'border-pink-200',
+        text: 'text-pink-900',
+        sub: 'text-pink-500',
+    },
 }
 
 /** Used for blocks with no category set. */
 export const TIMEBOX_DEFAULT_COLORS = {
-    bg: 'bg-neutral-100', border: 'border-neutral-200', text: 'text-neutral-700', sub: 'text-neutral-400',
+    bg: 'bg-neutral-100',
+    border: 'border-neutral-200',
+    text: 'text-neutral-700',
+    sub: 'text-neutral-400',
 }
 
 export interface Timebox {
@@ -196,9 +267,9 @@ export interface FinanceGroup {
     order: number
     currentBalance?: number
     annualInterestRate?: number
-    startMonth?: string | null   // YYYY-MM inclusive; null/absent = active since forever
-    endMonth?: string | null     // YYYY-MM inclusive; null/absent = open-ended
-    skipMonths?: string[]        // months explicitly hidden ("this month only" deletes)
+    startMonth?: string | null // YYYY-MM inclusive; null/absent = active since forever
+    endMonth?: string | null // YYYY-MM inclusive; null/absent = open-ended
+    skipMonths?: string[] // months explicitly hidden ("this month only" deletes)
     createdAt: string
     updatedAt: string
 }
@@ -210,10 +281,10 @@ export interface FinanceRow {
     recurringAmount?: number
     order: number
     recurring?: boolean
-    month?: string          // YYYY-MM — set for non-recurring rows, absent for recurring
-    startMonth?: string | null   // YYYY-MM inclusive; null/absent = active since forever
-    endMonth?: string | null     // YYYY-MM inclusive; null/absent = open-ended
-    skipMonths?: string[]        // months explicitly hidden ("this month only" deletes)
+    month?: string // YYYY-MM — set for non-recurring rows, absent for recurring
+    startMonth?: string | null // YYYY-MM inclusive; null/absent = active since forever
+    endMonth?: string | null // YYYY-MM inclusive; null/absent = open-ended
+    skipMonths?: string[] // months explicitly hidden ("this month only" deletes)
     budgeted?: boolean
     budgetType?: 'daily' | null
     createdAt: string
@@ -242,7 +313,7 @@ export interface BudgetExclusion {
 export interface FinanceSubItem {
     _id: string
     row: string
-    month?: string   // absent for non-recurring rows
+    month?: string // absent for non-recurring rows
     name: string
     amount: number
     order: number

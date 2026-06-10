@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import EventEditor from './EventEditor'
 import Spinner from '../Spinner'
-import { PERIODS, eventCoversSlot, eventCoversAllDay, isPartPast, todayKey } from '../../lib/calendar'
-import { listEvents, createEvent, updateEvent, deleteEvent, type EventInput } from '../../services/events'
+import {
+    PERIODS,
+    eventCoversSlot,
+    eventCoversAllDay,
+    isPartPast,
+    todayKey,
+} from '../../lib/calendar'
+import {
+    listEvents,
+    createEvent,
+    updateEvent,
+    deleteEvent,
+    type EventInput,
+} from '../../services/events'
 import { EVENT_TYPE_COLORS, NA_EVENT_COLORS } from '../../types'
 import type { Event, Part } from '../../types'
 
@@ -16,7 +28,9 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
     const [events, setEvents] = useState<Event[]>([])
     const [loadedDate, setLoadedDate] = useState<string | null>(null)
     const loading = loadedDate !== date
-    const [editing, setEditing] = useState<{ event: Event | null; part: Part | 'allday' } | null>(null)
+    const [editing, setEditing] = useState<{ event: Event | null; part: Part | 'allday' } | null>(
+        null
+    )
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
 
@@ -33,19 +47,33 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
                     const part = initialOpenPart as Part
                     const existing =
                         part === 'na'
-                            ? list.find((e) => e.startPart === 'na' && date >= e.startDate && date <= e.endDate) ?? null
-                            : list.find((e) => eventCoversSlot(e, date, part)) ?? null
+                            ? (list.find(
+                                  (e) =>
+                                      e.startPart === 'na' &&
+                                      date >= e.startDate &&
+                                      date <= e.endDate
+                              ) ?? null)
+                            : (list.find((e) => eventCoversSlot(e, date, part)) ?? null)
                     setEditing({ event: existing, part })
                 }
             })
             .catch(() => active && setEvents([]))
-            .finally(() => { if (active) setLoadedDate(date) })
-        return () => { active = false }
+            .finally(() => {
+                if (active) setLoadedDate(date)
+            })
+        return () => {
+            active = false
+        }
     }, [load, date, initialOpenPart])
 
     function findEventForPart(list: Event[], part: Part | 'allday'): Event | null {
         if (part === 'allday') return list.find((e) => eventCoversAllDay(e, date)) ?? null
-        if (part === 'na') return list.find((e) => e.startPart === 'na' && date >= e.startDate && date <= e.endDate) ?? null
+        if (part === 'na')
+            return (
+                list.find(
+                    (e) => e.startPart === 'na' && date >= e.startDate && date <= e.endDate
+                ) ?? null
+            )
         return list.find((e) => eventCoversSlot(e, date, part)) ?? null
     }
 
@@ -94,13 +122,20 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
     const allDayEvents = events.filter((e) => eventCoversAllDay(e, date))
 
     const defaultSlotPart: Part =
-        editing?.part === 'allday' || editing?.part === undefined ? 'morning' : editing.part as Part
+        editing?.part === 'allday' || editing?.part === undefined
+            ? 'morning'
+            : (editing.part as Part)
     const defaultAllDay = editing?.part === 'allday'
 
     return (
         <div className="flex flex-col gap-3">
             {/* All day / N/A events */}
-            <AllDaySection events={allDayEvents} date={date} onAdd={() => openSlot('allday')} isPastDay={date < todayKey()} />
+            <AllDaySection
+                events={allDayEvents}
+                date={date}
+                onAdd={() => openSlot('allday')}
+                isPastDay={date < todayKey()}
+            />
 
             {/* Period rows */}
             {PERIODS.map((period) => (
@@ -124,7 +159,10 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
                 }}
                 saving={saving}
                 conflict={conflict}
-                onClose={() => { setEditing(null); setConflict(false) }}
+                onClose={() => {
+                    setEditing(null)
+                    setConflict(false)
+                }}
                 onSave={handleSave}
                 onDelete={handleDelete}
             />
@@ -186,7 +224,11 @@ function AllDayChip({ event, date, onClick }: { event: Event; date: string; onCl
             <span className="truncate">{event.title}</span>
             {isMultiDay && (
                 <span className="ml-auto shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">
-                    {event.startDate === date ? 'starts' : event.endDate === date ? 'ends' : 'continues'}
+                    {event.startDate === date
+                        ? 'starts'
+                        : event.endDate === date
+                          ? 'ends'
+                          : 'continues'}
                 </span>
             )}
         </button>
@@ -204,7 +246,11 @@ interface PartRowProps {
 
 function PartRow({ label, icon, event, date, past = false, onClick }: PartRowProps) {
     const isMultiDay = event ? event.startDate !== event.endDate : false
-    const colors = event ? (event.startPart === 'na' ? NA_EVENT_COLORS : EVENT_TYPE_COLORS[event.eventType]) : null
+    const colors = event
+        ? event.startPart === 'na'
+            ? NA_EVENT_COLORS
+            : EVENT_TYPE_COLORS[event.eventType]
+        : null
 
     const Tag = past ? 'div' : 'button'
     return (
@@ -217,19 +263,25 @@ function PartRow({ label, icon, event, date, past = false, onClick }: PartRowPro
                     : 'border-neutral-200 bg-white transition-colors hover:border-neutral-300 hover:bg-neutral-50',
             ].join(' ')}
         >
-            <span className={[
-                'mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl',
-                past ? 'bg-red-200/60 text-red-400' : 'bg-neutral-100 text-neutral-500',
-            ].join(' ')}>
+            <span
+                className={[
+                    'mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl',
+                    past ? 'bg-red-200/60 text-red-400' : 'bg-neutral-100 text-neutral-500',
+                ].join(' ')}
+            >
                 <i className={icon} aria-hidden="true" />
             </span>
 
             <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{label}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    {label}
+                </p>
                 {event ? (
                     <>
                         <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-neutral-900">
-                            <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${colors?.bg}`} />
+                            <span
+                                className={`inline-block h-2 w-2 shrink-0 rounded-full ${colors?.bg}`}
+                            />
                             <span className="truncate">{event.title}</span>
                             {event.time && (
                                 <span className="shrink-0 font-medium tabular-nums text-neutral-400">
@@ -238,12 +290,18 @@ function PartRow({ label, icon, event, date, past = false, onClick }: PartRowPro
                             )}
                             {isMultiDay && (
                                 <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-                                    {event.startDate === date ? 'starts' : event.endDate === date ? 'ends' : 'continues'}
+                                    {event.startDate === date
+                                        ? 'starts'
+                                        : event.endDate === date
+                                          ? 'ends'
+                                          : 'continues'}
                                 </span>
                             )}
                         </p>
                         {event.notes && (
-                            <p className="mt-0.5 line-clamp-2 text-sm text-neutral-500">{event.notes}</p>
+                            <p className="mt-0.5 line-clamp-2 text-sm text-neutral-500">
+                                {event.notes}
+                            </p>
                         )}
                     </>
                 ) : (
@@ -254,7 +312,12 @@ function PartRow({ label, icon, event, date, past = false, onClick }: PartRowPro
                 )}
             </div>
 
-            {!past && <i className="fa-solid fa-chevron-right mt-1 text-xs text-neutral-300 transition-colors group-hover:text-neutral-500" aria-hidden="true" />}
+            {!past && (
+                <i
+                    className="fa-solid fa-chevron-right mt-1 text-xs text-neutral-300 transition-colors group-hover:text-neutral-500"
+                    aria-hidden="true"
+                />
+            )}
         </Tag>
     )
 }

@@ -10,7 +10,9 @@ import Alert from '../components/Alert'
 import SettingsCard from '../components/profile/SettingsCard'
 
 function errorMessage(err: unknown, fallback: string): string {
-    return (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback
+    return (
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback
+    )
 }
 
 export default function Profile() {
@@ -21,16 +23,23 @@ export default function Profile() {
     const [name, setName] = useState(user?.name ?? '')
     const [email, setEmail] = useState(user?.email ?? '')
     const [savingDetails, setSavingDetails] = useState(false)
-    const [detailsMsg, setDetailsMsg] = useState<{ type: 'success' | 'danger'; text: string } | null>(null)
+    const [detailsMsg, setDetailsMsg] = useState<{
+        type: 'success' | 'danger'
+        text: string
+    } | null>(null)
 
     // ── Password form ──
     const [currentPassword, setCurrentPassword] = useState('')
     const [newPassword, setNewPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [savingPassword, setSavingPassword] = useState(false)
-    const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'danger'; text: string } | null>(null)
+    const [passwordMsg, setPasswordMsg] = useState<{
+        type: 'success' | 'danger'
+        text: string
+    } | null>(null)
 
-    const detailsChanged = name.trim() !== (user?.name ?? '') || email.trim() !== (user?.email ?? '')
+    const detailsChanged =
+        name.trim() !== (user?.name ?? '') || email.trim() !== (user?.email ?? '')
 
     async function handleDetails(e: FormEvent) {
         e.preventDefault()
@@ -62,7 +71,10 @@ export default function Profile() {
             setNewPassword('')
             setConfirmPassword('')
         } catch (err) {
-            setPasswordMsg({ type: 'danger', text: errorMessage(err, 'Could not update password.') })
+            setPasswordMsg({
+                type: 'danger',
+                text: errorMessage(err, 'Could not update password.'),
+            })
         } finally {
             setSavingPassword(false)
         }
@@ -80,7 +92,11 @@ export default function Profile() {
                     <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Profile</h1>
                     <p className="mt-1 text-sm text-neutral-500">Manage your account details</p>
                 </div>
-                <Button variant="secondary" icon="fa-solid fa-arrow-right-from-bracket" onClick={handleLogout}>
+                <Button
+                    variant="secondary"
+                    icon="fa-solid fa-arrow-right-from-bracket"
+                    onClick={handleLogout}
+                >
                     Log out
                 </Button>
             </header>
@@ -93,7 +109,9 @@ export default function Profile() {
                     </CardHeader>
                     <CardBody>
                         <form onSubmit={handleDetails} className="flex flex-col gap-4">
-                            {detailsMsg && <Alert variant={detailsMsg.type}>{detailsMsg.text}</Alert>}
+                            {detailsMsg && (
+                                <Alert variant={detailsMsg.type}>{detailsMsg.text}</Alert>
+                            )}
                             <Input
                                 label="Name"
                                 value={name}
@@ -110,7 +128,15 @@ export default function Profile() {
                                 placeholder="you@example.com"
                             />
                             <div>
-                                <Button type="submit" disabled={savingDetails || !detailsChanged || !name.trim() || !email.trim()}>
+                                <Button
+                                    type="submit"
+                                    disabled={
+                                        savingDetails ||
+                                        !detailsChanged ||
+                                        !name.trim() ||
+                                        !email.trim()
+                                    }
+                                >
                                     {savingDetails ? 'Saving…' : 'Save changes'}
                                 </Button>
                             </div>
@@ -128,7 +154,9 @@ export default function Profile() {
                     </CardHeader>
                     <CardBody>
                         <form onSubmit={handlePassword} className="flex flex-col gap-4">
-                            {passwordMsg && <Alert variant={passwordMsg.type}>{passwordMsg.text}</Alert>}
+                            {passwordMsg && (
+                                <Alert variant={passwordMsg.type}>{passwordMsg.text}</Alert>
+                            )}
                             <Input
                                 label="Current password"
                                 type="password"
@@ -157,7 +185,12 @@ export default function Profile() {
                             <div>
                                 <Button
                                     type="submit"
-                                    disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
+                                    disabled={
+                                        savingPassword ||
+                                        !currentPassword ||
+                                        !newPassword ||
+                                        !confirmPassword
+                                    }
                                 >
                                     {savingPassword ? 'Updating…' : 'Update password'}
                                 </Button>

@@ -1,5 +1,12 @@
 import { Router } from 'express'
-import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from '../controllers/totalsController'
+import {
+    listRows,
+    createRow,
+    updateRow,
+    deleteRow,
+    listValues,
+    setValue,
+} from '../controllers/totalsController'
 import { requireAuth } from '../middleware/auth'
 
 const router = Router()

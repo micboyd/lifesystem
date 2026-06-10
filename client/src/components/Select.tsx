@@ -120,7 +120,10 @@ export default function Select({
                                 >
                                     {option.label}
                                     {isSelected && (
-                                        <i className="fa-solid fa-check text-xs" aria-hidden="true" />
+                                        <i
+                                            className="fa-solid fa-check text-xs"
+                                            aria-hidden="true"
+                                        />
                                     )}
                                 </button>
                             )

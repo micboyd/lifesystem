@@ -44,10 +44,10 @@ function daysUntilLabel(dateStr: string): string {
     const [y, m, d] = dateStr.split('-').map(Number)
     const target = new Date(y, m - 1, d)
     const diff = Math.round((target.getTime() - today.getTime()) / 86_400_000)
-    if (diff === 0)  return 'Today'
-    if (diff === 1)  return 'Tomorrow'
+    if (diff === 0) return 'Today'
+    if (diff === 1) return 'Tomorrow'
     if (diff === -1) return 'Yesterday'
-    if (diff > 0)    return `In ${diff} days`
+    if (diff > 0) return `In ${diff} days`
     return `${Math.abs(diff)} days ago`
 }
 
@@ -77,11 +77,11 @@ function TimeOfDayPicker({
     endPart: Part
     onChange: (start: Part, end: Part) => void
 }) {
-    const isNa     = startPart === 'na'
+    const isNa = startPart === 'na'
     const isAllDay = !isNa && startPart === 'morning' && endPart === 'evening'
 
     const startIdx = isNa ? -1 : REAL_PARTS.indexOf(startPart)
-    const endIdx   = isNa ? -1 : REAL_PARTS.indexOf(endPart)
+    const endIdx = isNa ? -1 : REAL_PARTS.indexOf(endPart)
 
     const isSegSelected = (p: Part) => {
         if (isNa) return false
@@ -130,7 +130,7 @@ function TimeOfDayPicker({
             {/* Segment range bar */}
             <div className="flex overflow-hidden rounded-xl border border-neutral-200">
                 {REAL_PARTS.map((part, i) => {
-                    const sel     = isSegSelected(part)
+                    const sel = isSegSelected(part)
                     const prevSel = i > 0 && isSegSelected(REAL_PARTS[i - 1])
                     return (
                         <button
@@ -159,7 +159,9 @@ function TimeOfDayPicker({
             <div className="flex gap-1.5">
                 <button
                     type="button"
-                    onClick={() => onChange(isAllDay ? 'morning' : 'morning', isAllDay ? 'morning' : 'evening')}
+                    onClick={() =>
+                        onChange(isAllDay ? 'morning' : 'morning', isAllDay ? 'morning' : 'evening')
+                    }
                     className={chipCls(isAllDay)}
                 >
                     All day
@@ -212,29 +214,29 @@ export default function EventEditor({
     onSave,
     onDelete,
 }: EventEditorProps) {
-    const [title,               setTitle]               = useState('')
-    const [location,            setLocation]            = useState('')
-    const [eventType,           setEventType]           = useState<EventType>('general')
-    const [multiDay,            setMultiDay]            = useState(false)
-    const [startDate,           setStartDate]           = useState('')
-    const [startPart,           setStartPart]           = useState<Part>('morning')
-    const [endDate,             setEndDate]             = useState('')
-    const [endPart,             setEndPart]             = useState<Part>('morning')
-    const [time,                setTime]                = useState<string | null>(null)
-    const [budgetMode,          setBudgetMode]          = useState<'manual' | 'linked'>('manual')
-    const [budget,              setBudget]              = useState('')
-    const [budgetRow,           setBudgetRow]           = useState('')
-    const [financeRows,         setFinanceRows]         = useState<FinanceRow[]>([])
-    const [financeGroups,       setFinanceGroups]       = useState<FinanceGroup[]>([])
-    const [linkedEntries,       setLinkedEntries]       = useState<FinanceEntry[]>([])
-    const [notes,               setNotes]               = useState('')
-    const [error,               setError]               = useState('')
-    const [recurring,           setRecurring]           = useState(false)
+    const [title, setTitle] = useState('')
+    const [location, setLocation] = useState('')
+    const [eventType, setEventType] = useState<EventType>('general')
+    const [multiDay, setMultiDay] = useState(false)
+    const [startDate, setStartDate] = useState('')
+    const [startPart, setStartPart] = useState<Part>('morning')
+    const [endDate, setEndDate] = useState('')
+    const [endPart, setEndPart] = useState<Part>('morning')
+    const [time, setTime] = useState<string | null>(null)
+    const [budgetMode, setBudgetMode] = useState<'manual' | 'linked'>('manual')
+    const [budget, setBudget] = useState('')
+    const [budgetRow, setBudgetRow] = useState('')
+    const [financeRows, setFinanceRows] = useState<FinanceRow[]>([])
+    const [financeGroups, setFinanceGroups] = useState<FinanceGroup[]>([])
+    const [linkedEntries, setLinkedEntries] = useState<FinanceEntry[]>([])
+    const [notes, setNotes] = useState('')
+    const [error, setError] = useState('')
+    const [recurring, setRecurring] = useState(false)
     const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('weekly')
-    const [recurrenceEndsOn,    setRecurrenceEndsOn]    = useState('')
+    const [recurrenceEndsOn, setRecurrenceEndsOn] = useState('')
 
     // Derived — no separate allDay state needed
-    const isNa     = startPart === 'na'
+    const isNa = startPart === 'na'
     const isAllDay = !isNa && startPart === 'morning' && endPart === 'evening'
 
     useEffect(() => {
@@ -247,7 +249,7 @@ export default function EventEditor({
         setStartDate(event?.startDate ?? defaultSlot?.date ?? '')
         setStartPart(event?.startPart ?? defaultSlot?.part ?? 'morning')
         setEndDate(event?.endDate ?? defaultSlot?.date ?? '')
-        setEndPart(event?.endPart ?? (event?.startPart ?? defaultSlot?.part ?? 'morning'))
+        setEndPart(event?.endPart ?? event?.startPart ?? defaultSlot?.part ?? 'morning')
         setTime(event?.time ?? null)
         setBudgetMode(event?.budgetRow ? 'linked' : 'manual')
         // When linked, event.budget is the resolved finance amount, not a manual entry.
@@ -265,15 +267,26 @@ export default function EventEditor({
     useEffect(() => {
         if (!open) return
         Promise.all([listFinanceRows(), listGroups()])
-            .then(([rows, groups]) => { setFinanceRows(rows); setFinanceGroups(groups) })
-            .catch(() => { setFinanceRows([]); setFinanceGroups([]) })
+            .then(([rows, groups]) => {
+                setFinanceRows(rows)
+                setFinanceGroups(groups)
+            })
+            .catch(() => {
+                setFinanceRows([])
+                setFinanceGroups([])
+            })
     }, [open])
 
     // Month-scoped entry overrides, used to preview the linked row's amount.
     const startMonth = startDate ? startDate.slice(0, 7) : ''
     useEffect(() => {
-        if (!open || budgetMode !== 'linked' || !startMonth) { setLinkedEntries([]); return }
-        listEntries(startMonth).then(setLinkedEntries).catch(() => setLinkedEntries([]))
+        if (!open || budgetMode !== 'linked' || !startMonth) {
+            setLinkedEntries([])
+            return
+        }
+        listEntries(startMonth)
+            .then(setLinkedEntries)
+            .catch(() => setLinkedEntries([]))
     }, [open, budgetMode, startMonth])
 
     function handleTimeOfDayChange(newStart: Part, newEnd: Part) {
@@ -296,12 +309,18 @@ export default function EventEditor({
     }
 
     function handleSave() {
-        if (!title.trim()) { setError('Give the event a title.'); return }
-        if (!startDate)    { setError('Select a start date.'); return }
+        if (!title.trim()) {
+            setError('Give the event a title.')
+            return
+        }
+        if (!startDate) {
+            setError('Select a start date.')
+            return
+        }
 
-        const finalEnd       = multiDay ? endDate || startDate : startDate
+        const finalEnd = multiDay ? endDate || startDate : startDate
         const finalStartPart = startPart
-        const finalEndPart   = endPart
+        const finalEndPart = endPart
 
         if (!isNa) {
             if (slotOrdinal(startDate, finalStartPart) > slotOrdinal(finalEnd, finalEndPart)) {
@@ -318,7 +337,10 @@ export default function EventEditor({
             const trimmedBudget = budget.trim()
             if (trimmedBudget) {
                 const n = Number(trimmedBudget)
-                if (Number.isNaN(n) || n < 0) { setError('Budget must be a positive amount.'); return }
+                if (Number.isNaN(n) || n < 0) {
+                    setError('Budget must be a positive amount.')
+                    return
+                }
                 budgetValue = n
             }
         }
@@ -342,12 +364,13 @@ export default function EventEditor({
         })
     }
 
-    const chipBtn = (active: boolean) => [
-        'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-        active
-            ? 'bg-neutral-950 text-white'
-            : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900',
-    ].join(' ')
+    const chipBtn = (active: boolean) =>
+        [
+            'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+            active
+                ? 'bg-neutral-950 text-white'
+                : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900',
+        ].join(' ')
 
     // ── Linked-budget derived values ──
     const groupName = (id: string) => financeGroups.find((g) => g._id === id)?.name ?? ''
@@ -362,16 +385,20 @@ export default function EventEditor({
     })
     const selectedRow = financeRows.find((r) => r._id === budgetRow) ?? null
     // Keep an out-of-month selection visible so an existing link isn't silently dropped.
-    const rowOptions = (selectedRow && !availableRows.some((r) => r._id === selectedRow._id)
-        ? [selectedRow, ...availableRows]
-        : availableRows
+    const rowOptions = (
+        selectedRow && !availableRows.some((r) => r._id === selectedRow._id)
+            ? [selectedRow, ...availableRows]
+            : availableRows
     ).map((r) => ({ value: r._id, label: `${groupName(r.group)} · ${r.name}` }))
 
     const resolvedAmount = selectedRow
-        ? (linkedEntries.find((e) => e.row === selectedRow._id)?.amount ?? selectedRow.recurringAmount ?? 0)
+        ? (linkedEntries.find((e) => e.row === selectedRow._id)?.amount ??
+          selectedRow.recurringAmount ??
+          0)
         : undefined
 
-    const fmtMoney = (n: number) => n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const fmtMoney = (n: number) =>
+        n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
     return (
         <Drawer
@@ -398,21 +425,31 @@ export default function EventEditor({
                     <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
                         Cancel
                     </Button>
-                    <Button size="sm" icon="fa-solid fa-check" onClick={handleSave} disabled={saving}>
+                    <Button
+                        size="sm"
+                        icon="fa-solid fa-check"
+                        onClick={handleSave}
+                        disabled={saving}
+                    >
                         {saving ? 'Saving…' : 'Save'}
                     </Button>
                 </>
             }
         >
             <div className="flex flex-col gap-6">
-
                 {/* Title */}
                 <Input
                     label="Title"
                     placeholder="What's happening?"
                     value={title}
-                    onChange={(e) => { setTitle(e.target.value); setError('') }}
-                    error={error || (conflict ? 'That slot is already taken — adjust the dates or parts.' : '')}
+                    onChange={(e) => {
+                        setTitle(e.target.value)
+                        setError('')
+                    }}
+                    error={
+                        error ||
+                        (conflict ? 'That slot is already taken — adjust the dates or parts.' : '')
+                    }
                     autoFocus
                 />
 
@@ -427,10 +464,12 @@ export default function EventEditor({
 
                 {/* Type */}
                 <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Type</label>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        Type
+                    </label>
                     <div className="grid grid-cols-3 gap-2">
                         {EVENT_TYPES.map((t) => {
-                            const c        = EVENT_TYPE_COLORS[t]
+                            const c = EVENT_TYPE_COLORS[t]
                             const selected = eventType === t
                             return (
                                 <button
@@ -454,8 +493,14 @@ export default function EventEditor({
                 {/* Date */}
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Date</label>
-                        <Switch checked={multiDay} onChange={handleMultiDayChange} label="Multi-day" />
+                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Date
+                        </label>
+                        <Switch
+                            checked={multiDay}
+                            onChange={handleMultiDayChange}
+                            label="Multi-day"
+                        />
                     </div>
                     {!multiDay ? (
                         <DatePicker
@@ -479,7 +524,9 @@ export default function EventEditor({
 
                 {/* When in the day */}
                 <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">When</label>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        When
+                    </label>
 
                     {!multiDay ? (
                         /* Single-day: range-selectable segment bar + special chips */
@@ -494,14 +541,20 @@ export default function EventEditor({
                             <div className="flex gap-1.5">
                                 <button
                                     type="button"
-                                    onClick={() => { setStartPart(isAllDay ? 'morning' : 'morning'); setEndPart(isAllDay ? 'morning' : 'evening') }}
+                                    onClick={() => {
+                                        setStartPart(isAllDay ? 'morning' : 'morning')
+                                        setEndPart(isAllDay ? 'morning' : 'evening')
+                                    }}
                                     className={chipBtn(isAllDay)}
                                 >
                                     All day
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => { setStartPart(isNa ? 'morning' : 'na'); setEndPart(isNa ? 'morning' : 'na') }}
+                                    onClick={() => {
+                                        setStartPart(isNa ? 'morning' : 'na')
+                                        setEndPart(isNa ? 'morning' : 'na')
+                                    }}
                                     className={chipBtn(isNa)}
                                 >
                                     No fixed time
@@ -510,11 +563,15 @@ export default function EventEditor({
                             {!isAllDay && !isNa && (
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-3">
-                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-400">Starts</span>
+                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-400">
+                                            Starts
+                                        </span>
                                         <PartSegment value={startPart} onChange={setStartPart} />
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-400">Ends</span>
+                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-400">
+                                            Ends
+                                        </span>
                                         <PartSegment value={endPart} onChange={setEndPart} />
                                     </div>
                                 </div>
@@ -527,7 +584,10 @@ export default function EventEditor({
                 {!multiDay && !isAllDay && !isNa && (
                     <div className="flex flex-col gap-2">
                         <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                            Time <span className="normal-case font-normal text-neutral-300">(optional)</span>
+                            Time{' '}
+                            <span className="normal-case font-normal text-neutral-300">
+                                (optional)
+                            </span>
                         </label>
                         <TimePicker value={time} onChange={setTime} placeholder="Add a time" />
                     </div>
@@ -557,12 +617,17 @@ export default function EventEditor({
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                    Ends on <span className="normal-case font-normal text-neutral-300">(optional)</span>
+                                    Ends on{' '}
+                                    <span className="normal-case font-normal text-neutral-300">
+                                        (optional)
+                                    </span>
                                 </span>
                                 <DatePicker
                                     value={recurrenceEndsOn || null}
                                     minDate={endDate || startDate || undefined}
-                                    onChange={(v) => setRecurrenceEndsOn(typeof v === 'string' && v ? v : '')}
+                                    onChange={(v) =>
+                                        setRecurrenceEndsOn(typeof v === 'string' && v ? v : '')
+                                    }
                                     placeholder="No end date"
                                 />
                             </div>
@@ -572,16 +637,23 @@ export default function EventEditor({
 
                 {/* Budget */}
                 <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Budget</label>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        Budget
+                    </label>
                     <div className="flex rounded-xl border border-neutral-200 bg-neutral-50 p-1 gap-1">
                         {(['manual', 'linked'] as const).map((m) => (
                             <button
                                 key={m}
                                 type="button"
-                                onClick={() => { setBudgetMode(m); setError('') }}
+                                onClick={() => {
+                                    setBudgetMode(m)
+                                    setError('')
+                                }}
                                 className={[
                                     'flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors',
-                                    budgetMode === m ? 'bg-neutral-950 text-white' : 'text-neutral-500 hover:text-neutral-900',
+                                    budgetMode === m
+                                        ? 'bg-neutral-950 text-white'
+                                        : 'text-neutral-500 hover:text-neutral-900',
                                 ].join(' ')}
                             >
                                 {m === 'manual' ? 'Manual amount' : 'From finances'}
@@ -598,12 +670,16 @@ export default function EventEditor({
                             placeholder="Optional"
                             icon="fa-solid fa-sterling-sign"
                             value={budget}
-                            onChange={(e) => { setBudget(e.target.value); setError('') }}
+                            onChange={(e) => {
+                                setBudget(e.target.value)
+                                setError('')
+                            }}
                             hint="How much you expect to spend on this event."
                         />
                     ) : rowOptions.length === 0 ? (
                         <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-2.5 text-xs text-neutral-400">
-                            No finance rows for {startMonth || 'this month'}. Add one on the Finances page first.
+                            No finance rows for {startMonth || 'this month'}. Add one on the
+                            Finances page first.
                         </p>
                     ) : (
                         <>
@@ -612,13 +688,26 @@ export default function EventEditor({
                                 placeholder="Choose a finance row"
                                 options={rowOptions}
                                 value={budgetRow}
-                                onChange={(v) => { setBudgetRow(v); setError('') }}
+                                onChange={(v) => {
+                                    setBudgetRow(v)
+                                    setError('')
+                                }}
                             />
                             {selectedRow && (
                                 <p className="flex items-center gap-1.5 text-xs text-neutral-500">
-                                    <i className="fa-solid fa-sterling-sign text-[10px] text-neutral-400" aria-hidden="true" />
-                                    Pulls <span className="font-semibold text-neutral-700">£{fmtMoney(resolvedAmount ?? 0)}</span>
-                                    {' '}from <span className="font-semibold text-neutral-700">{selectedRow.name}</span> for {startMonth}.
+                                    <i
+                                        className="fa-solid fa-sterling-sign text-[10px] text-neutral-400"
+                                        aria-hidden="true"
+                                    />
+                                    Pulls{' '}
+                                    <span className="font-semibold text-neutral-700">
+                                        £{fmtMoney(resolvedAmount ?? 0)}
+                                    </span>{' '}
+                                    from{' '}
+                                    <span className="font-semibold text-neutral-700">
+                                        {selectedRow.name}
+                                    </span>{' '}
+                                    for {startMonth}.
                                 </p>
                             )}
                         </>
@@ -633,7 +722,6 @@ export default function EventEditor({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                 />
-
             </div>
         </Drawer>
     )

@@ -34,7 +34,7 @@ const PORT = process.env.PORT ?? 5000
 const allowedOrigins = [
     'http://localhost:5173',
     'https://mb-lifesystem.netlify.app',
-    'https://adminlife.co'
+    'https://adminlife.co',
 ]
 
 app.use(cors({ origin: allowedOrigins, credentials: true }))
@@ -63,18 +63,20 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     res.status(500).json({ message: 'Something went wrong' })
 })
 
-connectDB().then(async () => {
-    // One-time migration: drop the old unique { user, date } index from DayStatus
-    // (replaced by startDate/endDate in the new schema).
-    try {
-        await DayStatus.collection.dropIndex('user_1_date_1')
-        console.log('DayStatus: dropped stale date index')
-    } catch {
-        // Index already gone — nothing to do.
-    }
+connectDB()
+    .then(async () => {
+        // One-time migration: drop the old unique { user, date } index from DayStatus
+        // (replaced by startDate/endDate in the new schema).
+        try {
+            await DayStatus.collection.dropIndex('user_1_date_1')
+            console.log('DayStatus: dropped stale date index')
+        } catch {
+            // Index already gone — nothing to do.
+        }
 
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
-}).catch((err) => {
-    console.error('Failed to connect to the database:', err)
-    process.exit(1)
-})
+        app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+    })
+    .catch((err) => {
+        console.error('Failed to connect to the database:', err)
+        process.exit(1)
+    })

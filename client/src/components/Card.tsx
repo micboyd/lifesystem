@@ -28,9 +28,7 @@ export function CardTitle({ children, className = '' }: CardProps) {
 }
 
 export function CardBody({ children, className = '' }: CardProps) {
-    return (
-        <div className={`text-sm leading-relaxed text-neutral-500 ${className}`}>{children}</div>
-    )
+    return <div className={`text-sm leading-relaxed text-neutral-500 ${className}`}>{children}</div>
 }
 
 export function CardFooter({ children, className = '' }: CardProps) {

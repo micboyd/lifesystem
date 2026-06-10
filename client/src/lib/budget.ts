@@ -16,10 +16,39 @@ export function daysInMonth(ym: string): number {
     return new Date(y, m, 0).getDate()
 }
 
+/** "YYYY-MM" + day number → "YYYY-MM-DD". */
+function dateKey(month: string, day: number): string {
+    return `${month}-${String(day).padStart(2, '0')}`
+}
+
+/**
+ * Days in `month` that aren't excluded. Excluded days (work trips, holidays)
+ * carry no allowance, so the monthly amount is spread across the remaining days.
+ */
+export function activeDaysInMonth(month: string, excluded: Set<string>): number {
+    const total = daysInMonth(month)
+    let n = 0
+    for (let d = 1; d <= total; d++) {
+        if (!excluded.has(dateKey(month, d))) n++
+    }
+    return n
+}
+
+/** Count of non-excluded days strictly before `date` within its month. */
+function activeDaysBefore(date: string, excluded: Set<string>): number {
+    const month = monthOf(date)
+    const dayNum = dayNumOf(date)
+    let n = 0
+    for (let d = 1; d < dayNum; d++) {
+        if (!excluded.has(dateKey(month, d))) n++
+    }
+    return n
+}
+
 export interface BudgetDay {
     /** Budget amount for the month (entry override, else the recurring amount). */
     monthlyAmount: number
-    /** monthlyAmount spread evenly across the month. */
+    /** monthlyAmount spread evenly across the month's active (non-excluded) days. */
     straightDailyRate: number
     /** Unspent (positive) or overspent (negative) running balance carried into today. */
     carry: number
@@ -33,32 +62,54 @@ export interface BudgetDay {
 
 /**
  * Daily-budget maths for a single row on a given date. The "straight daily rate"
- * is the monthly amount divided evenly across the month; any under/overspend on
- * earlier days carries forward so today's allowance self-corrects.
+ * is the monthly amount divided evenly across the month's active days; any
+ * under/overspend on earlier active days carries forward so today's allowance
+ * self-corrects. Excluded days carry no allowance and their spend is left out of
+ * the running totals, so the figure stays identical to the Daily Log calendar.
  *
- * Single source of truth shared by the Budget widget and the dashboard insights.
+ * Single source of truth for every budget surface (Budgets, Daily Log, the
+ * dashboard widget, and the insights strip). Pass the month's excluded dates so
+ * all surfaces agree; omit them and it behaves as a plain even split.
  */
 export function computeBudgetDay(
     row: FinanceRow,
     entry: FinanceEntry | undefined,
     rowSpends: BudgetSpend[],
-    date: string
+    date: string,
+    excluded: Set<string> = new Set()
 ): BudgetDay {
     const month = monthOf(date)
-    const dayNum = dayNumOf(date)
     const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
-    const totalDays = daysInMonth(month)
+    const totalActiveDays = activeDaysInMonth(month, excluded)
+    const straightDailyRate = totalActiveDays > 0 ? monthlyAmount / totalActiveDays : 0
 
-    const straightDailyRate = totalDays > 0 ? monthlyAmount / totalDays : 0
-    const totalSpentBefore = rowSpends
-        .filter((s) => s.date < date)
+    const spentToday = rowSpends
+        .filter((s) => s.date === date)
         .reduce((sum, s) => sum + s.amount, 0)
-    const carry = (dayNum - 1) * straightDailyRate - totalSpentBefore
-    const todaysAllowance = straightDailyRate + carry
-    const spentToday = rowSpends.filter((s) => s.date === date).reduce((sum, s) => sum + s.amount, 0)
-    const remaining = todaysAllowance - spentToday
-    const totalSpentMonth = rowSpends.reduce((sum, s) => sum + s.amount, 0)
+    // Spend on excluded days sits outside the budget, so it never counts against it.
+    const totalSpentMonth = rowSpends
+        .filter((s) => !excluded.has(s.date))
+        .reduce((sum, s) => sum + s.amount, 0)
     const monthlyRemaining = monthlyAmount - totalSpentMonth
+
+    // Excluded days have no allowance of their own.
+    if (excluded.has(date)) {
+        return {
+            monthlyAmount,
+            straightDailyRate: 0,
+            carry: 0,
+            spentToday,
+            remaining: 0,
+            monthlyRemaining,
+        }
+    }
+
+    const totalSpentBefore = rowSpends
+        .filter((s) => s.date < date && !excluded.has(s.date))
+        .reduce((sum, s) => sum + s.amount, 0)
+    const carry = activeDaysBefore(date, excluded) * straightDailyRate - totalSpentBefore
+    const todaysAllowance = straightDailyRate + carry
+    const remaining = todaysAllowance - spentToday
 
     return { monthlyAmount, straightDailyRate, carry, spentToday, remaining, monthlyRemaining }
 }

@@ -30,13 +30,22 @@ interface Props {
 }
 
 export default function TimeboxEditor({
-    open, item, defaults, minTime, maxTime, saving, conflict = false, onClose, onSave, onDelete,
+    open,
+    item,
+    defaults,
+    minTime,
+    maxTime,
+    saving,
+    conflict = false,
+    onClose,
+    onSave,
+    onDelete,
 }: Props) {
-    const [title,     setTitle]     = useState('')
-    const [category,  setCategory]  = useState<TimeboxCategory | undefined>(undefined)
+    const [title, setTitle] = useState('')
+    const [category, setCategory] = useState<TimeboxCategory | undefined>(undefined)
     const [startTime, setStartTime] = useState<string | null>(null)
-    const [endTime,   setEndTime]   = useState<string | null>(null)
-    const [error,     setError]     = useState('')
+    const [endTime, setEndTime] = useState<string | null>(null)
+    const [error, setError] = useState('')
 
     useEffect(() => {
         if (!open) return
@@ -53,10 +62,17 @@ export default function TimeboxEditor({
             : null
 
     function handleSave() {
-        if (!title.trim())           { setError('Give the block a title.');         return }
-        if (!startTime || !endTime)  { setError('Set a start and end time.');       return }
+        if (!title.trim()) {
+            setError('Give the block a title.')
+            return
+        }
+        if (!startTime || !endTime) {
+            setError('Set a start and end time.')
+            return
+        }
         if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
-            setError('End time must be after start.'); return
+            setError('End time must be after start.')
+            return
         }
         onSave({ title: title.trim(), category, startTime, endTime })
     }
@@ -72,15 +88,25 @@ export default function TimeboxEditor({
                 <>
                     {item && (
                         <Button
-                            variant="ghost" size="sm" icon="fa-solid fa-trash-can"
-                            onClick={onDelete} disabled={saving}
+                            variant="ghost"
+                            size="sm"
+                            icon="fa-solid fa-trash-can"
+                            onClick={onDelete}
+                            disabled={saving}
                             className="mr-auto text-red-500 hover:bg-red-50 hover:text-red-600"
                         >
                             Remove
                         </Button>
                     )}
-                    <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
-                    <Button size="sm" icon="fa-solid fa-check" onClick={handleSave} disabled={saving}>
+                    <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
+                        Cancel
+                    </Button>
+                    <Button
+                        size="sm"
+                        icon="fa-solid fa-check"
+                        onClick={handleSave}
+                        disabled={saving}
+                    >
                         {saving ? 'Saving…' : 'Save'}
                     </Button>
                 </>
@@ -91,7 +117,10 @@ export default function TimeboxEditor({
                     label="Title"
                     placeholder="What are you doing?"
                     value={title}
-                    onChange={(e) => { setTitle(e.target.value); setError('') }}
+                    onChange={(e) => {
+                        setTitle(e.target.value)
+                        setError('')
+                    }}
                     error={error}
                     autoFocus
                 />
@@ -99,7 +128,8 @@ export default function TimeboxEditor({
                 {/* Category */}
                 <div className="flex flex-col gap-2">
                     <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                        Category <span className="normal-case font-normal text-neutral-300">(optional)</span>
+                        Category{' '}
+                        <span className="normal-case font-normal text-neutral-300">(optional)</span>
                     </label>
                     <div className="flex flex-wrap gap-1.5">
                         {TIMEBOX_CATEGORIES.map((cat) => {
@@ -127,18 +157,37 @@ export default function TimeboxEditor({
                 {/* Times */}
                 <div className="grid grid-cols-2 gap-3">
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Start</span>
-                        <TimePicker value={startTime} onChange={setStartTime} minuteStep={5} minTime={minTime} maxTime={maxTime} />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Start
+                        </span>
+                        <TimePicker
+                            value={startTime}
+                            onChange={setStartTime}
+                            minuteStep={5}
+                            minTime={minTime}
+                            maxTime={maxTime}
+                        />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">End</span>
-                        <TimePicker value={endTime} onChange={setEndTime} minuteStep={5} minTime={startTime ?? minTime} maxTime={maxTime} />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            End
+                        </span>
+                        <TimePicker
+                            value={endTime}
+                            onChange={setEndTime}
+                            minuteStep={5}
+                            minTime={startTime ?? minTime}
+                            maxTime={maxTime}
+                        />
                     </div>
                 </div>
 
                 {duration && (
                     <p className="text-sm font-medium text-neutral-500">
-                        <i className="fa-regular fa-clock mr-1.5 text-neutral-400" aria-hidden="true" />
+                        <i
+                            className="fa-regular fa-clock mr-1.5 text-neutral-400"
+                            aria-hidden="true"
+                        />
                         Duration: <span className="font-semibold text-neutral-700">{duration}</span>
                     </p>
                 )}

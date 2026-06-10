@@ -1,5 +1,10 @@
 import { Router } from 'express'
-import { listTimeboxes, createTimebox, updateTimebox, deleteTimebox } from '../controllers/timeboxController'
+import {
+    listTimeboxes,
+    createTimebox,
+    updateTimebox,
+    deleteTimebox,
+} from '../controllers/timeboxController'
 import { requireAuth } from '../middleware/auth'
 
 const router = Router()

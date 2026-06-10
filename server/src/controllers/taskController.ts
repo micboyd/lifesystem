@@ -46,7 +46,8 @@ export async function createTask(req: AuthRequest, res: Response) {
 /** PUT /api/tasks/:id — update title, completed flag, or order. */
 export async function updateTask(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
-    if (typeof req.body.title === 'string' && req.body.title.trim()) fields.title = req.body.title.trim()
+    if (typeof req.body.title === 'string' && req.body.title.trim())
+        fields.title = req.body.title.trim()
     if (typeof req.body.completed === 'boolean') fields.completed = req.body.completed
     if (typeof req.body.order === 'number') fields.order = req.body.order
 

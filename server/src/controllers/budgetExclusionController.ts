@@ -11,7 +11,10 @@ export async function listBudgetExclusions(req: AuthRequest, res: Response) {
         res.status(400).json({ message: 'month (YYYY-MM) required' })
         return
     }
-    const exclusions = await BudgetExclusion.find({ user: req.userId, date: { $regex: `^${month}` } })
+    const exclusions = await BudgetExclusion.find({
+        user: req.userId,
+        date: { $regex: `^${month}` },
+    })
     res.json({ message: 'OK', data: exclusions })
 }
 

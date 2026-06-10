@@ -23,14 +23,19 @@ export default function TasksDaySection({ date }: Props) {
         listTasks(date, date)
             .then((list) => active && setTasks(list))
             .catch(() => active && setTasks([]))
-            .finally(() => { if (active) setLoadedDate(date) })
-        return () => { active = false }
+            .finally(() => {
+                if (active) setLoadedDate(date)
+            })
+        return () => {
+            active = false
+        }
     }, [date])
 
     function mark(id: string, on: boolean) {
         setBusy((s) => {
             const n = new Set(s)
-            if (on) n.add(id); else n.delete(id)
+            if (on) n.add(id)
+            else n.delete(id)
             return n
         })
     }
@@ -39,12 +44,16 @@ export default function TasksDaySection({ date }: Props) {
         if (busy.has(task._id)) return
         mark(task._id, true)
         // Optimistic
-        setTasks((prev) => prev.map((t) => (t._id === task._id ? { ...t, completed: !t.completed } : t)))
+        setTasks((prev) =>
+            prev.map((t) => (t._id === task._id ? { ...t, completed: !t.completed } : t))
+        )
         try {
             await updateTask(task._id, { completed: !task.completed })
             invalidate('tasks')
         } catch {
-            setTasks((prev) => prev.map((t) => (t._id === task._id ? { ...t, completed: task.completed } : t)))
+            setTasks((prev) =>
+                prev.map((t) => (t._id === task._id ? { ...t, completed: task.completed } : t))
+            )
         } finally {
             mark(task._id, false)
         }
@@ -70,20 +79,29 @@ export default function TasksDaySection({ date }: Props) {
         try {
             await deleteTask(id)
             invalidate('tasks')
-        } catch { /* refetch could go here */ }
+        } catch {
+            /* refetch could go here */
+        }
     }
 
     const done = tasks.filter((t) => t.completed).length
     const total = tasks.length
 
-    if (loading) return <div className="grid place-items-center py-6"><Spinner /></div>
+    if (loading)
+        return (
+            <div className="grid place-items-center py-6">
+                <Spinner />
+            </div>
+        )
 
     return (
         <div className="flex flex-col gap-1">
             {/* Progress */}
             {total > 0 && (
                 <div className="mb-1 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-neutral-400">{done}/{total} done</span>
+                    <span className="text-xs font-semibold text-neutral-400">
+                        {done}/{total} done
+                    </span>
                     <div className="h-1.5 w-32 overflow-hidden rounded-full bg-neutral-100">
                         <div
                             className="h-full rounded-full bg-neutral-800 transition-all duration-300"
@@ -105,17 +123,26 @@ export default function TasksDaySection({ date }: Props) {
                         disabled={busy.has(task._id)}
                         className={[
                             'grid h-5 w-5 shrink-0 place-items-center rounded-md border-2 transition-colors',
-                            task.completed ? 'border-neutral-800 bg-neutral-800' : 'border-neutral-300 hover:border-neutral-500',
+                            task.completed
+                                ? 'border-neutral-800 bg-neutral-800'
+                                : 'border-neutral-300 hover:border-neutral-500',
                         ].join(' ')}
                         aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
                     >
-                        {task.completed && <i className="fa-solid fa-check text-[9px] text-white" aria-hidden="true" />}
+                        {task.completed && (
+                            <i
+                                className="fa-solid fa-check text-[9px] text-white"
+                                aria-hidden="true"
+                            />
+                        )}
                     </button>
 
-                    <span className={[
-                        'flex-1 truncate text-sm font-medium',
-                        task.completed ? 'text-neutral-400 line-through' : 'text-neutral-800',
-                    ].join(' ')}>
+                    <span
+                        className={[
+                            'flex-1 truncate text-sm font-medium',
+                            task.completed ? 'text-neutral-400 line-through' : 'text-neutral-800',
+                        ].join(' ')}
+                    >
                         {task.title}
                     </span>
 
@@ -138,7 +165,9 @@ export default function TasksDaySection({ date }: Props) {
                     type="text"
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAdd()
+                    }}
                     placeholder="Add a task…"
                     className="flex-1 bg-transparent text-sm text-neutral-900 placeholder:text-neutral-400 outline-none"
                 />

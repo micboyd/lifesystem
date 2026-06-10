@@ -80,6 +80,6 @@ export default function Modal({
                 )}
             </div>
         </div>,
-        document.body,
+        document.body
     )
 }

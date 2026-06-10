@@ -1,5 +1,10 @@
 import { Router } from 'express'
-import { listStatuses, createStatus, updateStatus, deleteStatus } from '../controllers/dayStatusController'
+import {
+    listStatuses,
+    createStatus,
+    updateStatus,
+    deleteStatus,
+} from '../controllers/dayStatusController'
 import { requireAuth } from '../middleware/auth'
 
 const router = Router()

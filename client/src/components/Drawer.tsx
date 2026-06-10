@@ -63,7 +63,9 @@ export default function Drawer({
             >
                 <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-5 py-4">
                     <div className="flex items-center gap-2 min-w-0">
-                        <h2 className="text-base font-bold tracking-tight text-neutral-900 truncate">{title}</h2>
+                        <h2 className="text-base font-bold tracking-tight text-neutral-900 truncate">
+                            {title}
+                        </h2>
                         {badge && (
                             <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-500">
                                 {badge}
@@ -91,6 +93,6 @@ export default function Drawer({
                 )}
             </div>
         </div>,
-        document.body,
+        document.body
     )
 }

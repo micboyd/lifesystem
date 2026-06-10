@@ -5,13 +5,16 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { DataSyncProvider } from './context/DataSyncContext'
+import { ToastProvider } from './context/ToastContext'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
         <BrowserRouter>
             <AuthProvider>
                 <DataSyncProvider>
-                    <App />
+                    <ToastProvider>
+                        <App />
+                    </ToastProvider>
                 </DataSyncProvider>
             </AuthProvider>
         </BrowserRouter>

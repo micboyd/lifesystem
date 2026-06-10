@@ -38,9 +38,15 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                 setHabits(defs.filter((h) => h.active))
                 setLogs(dayLogs)
             })
-            .catch(() => { if (active) setHabits([]) })
-            .finally(() => { if (active) setLoadedDate(date) })
-        return () => { active = false }
+            .catch(() => {
+                if (active) setHabits([])
+            })
+            .finally(() => {
+                if (active) setLoadedDate(date)
+            })
+        return () => {
+            active = false
+        }
     }, [load, date])
 
     useEffect(() => {
@@ -64,7 +70,11 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
             }
             invalidate('habits')
         } finally {
-            setToggling((s) => { const n = new Set(s); n.delete(habit._id); return n })
+            setToggling((s) => {
+                const n = new Set(s)
+                n.delete(habit._id)
+                return n
+            })
         }
     }
 
@@ -86,7 +96,12 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
     const done = habits.filter((h) => isCompleted(h._id)).length
     const total = habits.length
 
-    if (loading) return <div className="grid place-items-center py-6"><Spinner /></div>
+    if (loading)
+        return (
+            <div className="grid place-items-center py-6">
+                <Spinner />
+            </div>
+        )
 
     return (
         <div className="flex flex-col gap-1">
@@ -133,19 +148,28 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                                 ].join(' ')}
                             >
                                 {completed && (
-                                    <i className="fa-solid fa-check text-[9px] text-white" aria-hidden="true" />
+                                    <i
+                                        className="fa-solid fa-check text-[9px] text-white"
+                                        aria-hidden="true"
+                                    />
                                 )}
                             </span>
 
                             <div className="min-w-0 flex-1">
-                                <p className={[
-                                    'truncate text-sm font-semibold',
-                                    completed ? 'text-neutral-400 line-through' : 'text-neutral-800',
-                                ].join(' ')}>
+                                <p
+                                    className={[
+                                        'truncate text-sm font-semibold',
+                                        completed
+                                            ? 'text-neutral-400 line-through'
+                                            : 'text-neutral-800',
+                                    ].join(' ')}
+                                >
                                     {habit.name}
                                 </p>
                                 {habit.description && !compact && (
-                                    <p className="truncate text-xs text-neutral-400">{habit.description}</p>
+                                    <p className="truncate text-xs text-neutral-400">
+                                        {habit.description}
+                                    </p>
                                 )}
                             </div>
                         </button>
@@ -154,8 +178,8 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
             )}
 
             {/* Add new habit inline form */}
-            {!compact && (
-                adding ? (
+            {!compact &&
+                (adding ? (
                     <div className="mt-1 flex flex-col gap-2 rounded-xl border border-neutral-200 p-3">
                         <input
                             ref={inputRef}
@@ -163,7 +187,10 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                             placeholder="Habit name"
                             value={newName}
                             onChange={(e) => setNewName(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false) }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleAdd()
+                                if (e.key === 'Escape') setAdding(false)
+                            }}
                             className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200"
                         />
                         <input
@@ -171,7 +198,10 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                             placeholder="Description (optional)"
                             value={newDesc}
                             onChange={(e) => setNewDesc(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false) }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleAdd()
+                                if (e.key === 'Escape') setAdding(false)
+                            }}
                             className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200"
                         />
                         <div className="flex items-center gap-2">
@@ -185,7 +215,11 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => { setAdding(false); setNewName(''); setNewDesc('') }}
+                                onClick={() => {
+                                    setAdding(false)
+                                    setNewName('')
+                                    setNewDesc('')
+                                }}
                                 className="rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100"
                             >
                                 Cancel
@@ -201,8 +235,7 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                         <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
                         Add habit
                     </button>
-                )
-            )}
+                ))}
         </div>
     )
 }

@@ -33,7 +33,9 @@ export default function Accordion({
     }
 
     return (
-        <div className={`divide-y divide-neutral-100 rounded-2xl border border-neutral-100 ${className}`}>
+        <div
+            className={`divide-y divide-neutral-100 rounded-2xl border border-neutral-100 ${className}`}
+        >
             {items.map((item, i) => {
                 const isOpen = openIndexes.includes(i)
                 return (

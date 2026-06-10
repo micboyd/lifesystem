@@ -10,7 +10,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     { label, error, hint, icon, className = '', id, ...props },
-    ref,
+    ref
 ) {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
 

@@ -9,11 +9,15 @@ import {
     setBudgetSpend,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
+import { computeBudgetDay, daysInMonth, activeDaysInMonth } from '../lib/budget'
+import { formatAmount } from '../lib/money'
+import { useToast } from '../context/ToastContext'
 import { useEffect, useState } from 'react'
 
 import Button from '../components/Button'
 import Input from '../components/Input'
 import Modal from '../components/Modal'
+import Select from '../components/Select'
 import Spinner from '../components/Spinner'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -41,12 +45,11 @@ function formatMonthLabel(ym: string): string {
 
 function formatDayLabel(date: string): string {
     const [y, m, d] = date.split('-').map(Number)
-    return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
-}
-
-function daysInMonth(ym: string): number {
-    const [y, m] = ym.split('-').map(Number)
-    return new Date(y, m, 0).getDate()
+    return new Date(y, m - 1, d).toLocaleDateString('en-GB', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+    })
 }
 
 function dateKey(ym: string, day: number): string {
@@ -59,9 +62,7 @@ function startOffset(ym: string): number {
     return (dow + 6) % 7
 }
 
-function fmt(n: number): string {
-    return n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
+const fmt = formatAmount
 
 // ── Per-day data ──────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ interface DayData {
     date: string
     excluded: boolean
     spent: number
-    dailyRate: number      // 0 for excluded days
+    dailyRate: number // 0 for excluded days
     carry: number
     effectiveAllowance: number
 }
@@ -79,39 +80,39 @@ function buildDayData(
     dailyRows: FinanceRow[],
     entries: FinanceEntry[],
     spends: BudgetSpend[],
-    excludedDates: Set<string>,
+    excludedDates: Set<string>
 ): DayData[] {
     const total = daysInMonth(month)
-    const monthlyTotal = dailyRows.reduce((sum, row) => {
-        const entry = entries.find((e) => e.row === row._id)
-        return sum + (entry?.amount ?? row.recurringAmount ?? 0)
-    }, 0)
-
-    // Active days = non-excluded days in the month
-    let activeDays = 0
-    for (let d = 1; d <= total; d++) {
-        if (!excludedDates.has(dateKey(month, d))) activeDays++
-    }
-    const dailyRate = activeDays > 0 ? monthlyTotal / activeDays : 0
-
     const days: DayData[] = []
-    let cumulativeSpent = 0       // sum of spends on active days so far
-    let activeDaysBefore = 0      // count of active days before current day
 
+    // The pooled daily rate/carry is the sum of each row's figure from the shared
+    // budget engine — so this calendar, the Budgets cards, the dashboard widget and
+    // the insights strip can never drift apart.
     for (let d = 1; d <= total; d++) {
         const date = dateKey(month, d)
         const excluded = excludedDates.has(date)
-        const spent = spends.filter((s) => s.date === date).reduce((s, x) => s + x.amount, 0)
 
-        if (excluded) {
-            days.push({ date, excluded: true, spent: 0, dailyRate: 0, carry: 0, effectiveAllowance: 0 })
-        } else {
-            const carry = activeDaysBefore * dailyRate - cumulativeSpent
-            const effectiveAllowance = dailyRate + carry
-            days.push({ date, excluded: false, spent, dailyRate, carry, effectiveAllowance })
-            cumulativeSpent += spent
-            activeDaysBefore++
+        let dailyRate = 0
+        let carry = 0
+        for (const row of dailyRows) {
+            const entry = entries.find((e) => e.row === row._id)
+            const rowSpends = spends.filter((s) => s.row === row._id)
+            const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates)
+            dailyRate += bd.straightDailyRate
+            carry += bd.carry
         }
+
+        const spent = excluded
+            ? 0
+            : spends.filter((s) => s.date === date).reduce((s, x) => s + x.amount, 0)
+        days.push({
+            date,
+            excluded,
+            spent,
+            dailyRate,
+            carry,
+            effectiveAllowance: dailyRate + carry,
+        })
     }
     return days
 }
@@ -143,7 +144,11 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
         else if (hasSpend) bg = 'bg-emerald-50'
     }
 
-    const remainingColor = overBudget ? 'text-red-500' : overTarget ? 'text-amber-600' : 'text-emerald-600'
+    const remainingColor = overBudget
+        ? 'text-red-500'
+        : overTarget
+          ? 'text-amber-600'
+          : 'text-emerald-600'
 
     return (
         <button
@@ -158,10 +163,18 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
         >
             {/* Day number + excluded badge */}
             <div className="flex items-center justify-between gap-1">
-                <span className={[
-                    'text-sm font-bold leading-none',
-                    isToday ? 'text-neutral-950' : isFuture ? 'text-neutral-300' : data.excluded ? 'text-neutral-400' : 'text-neutral-600',
-                ].join(' ')}>
+                <span
+                    className={[
+                        'text-sm font-bold leading-none',
+                        isToday
+                            ? 'text-neutral-950'
+                            : isFuture
+                              ? 'text-neutral-300'
+                              : data.excluded
+                                ? 'text-neutral-400'
+                                : 'text-neutral-600',
+                    ].join(' ')}
+                >
                     {dayNum}
                 </span>
                 {data.excluded && (
@@ -174,26 +187,40 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
             {/* Daily rate (hidden for excluded) */}
             {!data.excluded && (
                 <div className="flex items-baseline gap-1">
-                    <span className={`text-lg font-bold font-mono tabular-nums ${isFuture ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                    <span
+                        className={`text-lg font-bold font-mono tabular-nums ${isFuture ? 'text-neutral-300' : 'text-neutral-700'}`}
+                    >
                         £{fmt(data.dailyRate)}
                     </span>
-                    <span className={`text-xs ${isFuture ? 'text-neutral-200' : 'text-neutral-400'}`}>/day</span>
+                    <span
+                        className={`text-xs ${isFuture ? 'text-neutral-200' : 'text-neutral-400'}`}
+                    >
+                        /day
+                    </span>
                 </div>
             )}
 
             {/* Carry */}
             {!data.excluded && data.carry !== 0 && (
-                <span className={[
-                    'text-xs font-semibold leading-none',
-                    isFuture ? 'text-neutral-300' : data.carry > 0 ? 'text-emerald-500' : 'text-red-400',
-                ].join(' ')}>
+                <span
+                    className={[
+                        'text-xs font-semibold leading-none',
+                        isFuture
+                            ? 'text-neutral-300'
+                            : data.carry > 0
+                              ? 'text-emerald-500'
+                              : 'text-red-400',
+                    ].join(' ')}
+                >
                     {data.carry > 0 ? '+' : '-'}£{fmt(Math.abs(data.carry))} carry
                 </span>
             )}
 
             {/* Divider */}
             {!data.excluded && (
-                <div className={`border-t mt-auto ${isFuture ? 'border-neutral-100' : 'border-neutral-200'}`} />
+                <div
+                    className={`border-t mt-auto ${isFuture ? 'border-neutral-100' : 'border-neutral-200'}`}
+                />
             )}
 
             {/* Spent / left */}
@@ -201,14 +228,18 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                 <>
                     <div className="flex items-baseline justify-between gap-1">
                         <span className="text-xs text-neutral-400">spent</span>
-                        <span className={`text-sm font-semibold font-mono tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}>
+                        <span
+                            className={`text-sm font-semibold font-mono tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}
+                        >
                             {hasSpend ? `£${fmt(data.spent)}` : '—'}
                         </span>
                     </div>
                     {hasSpend && (
                         <div className="flex items-baseline justify-between gap-1">
                             <span className="text-xs text-neutral-400">left</span>
-                            <span className={`text-sm font-semibold font-mono tabular-nums ${remainingColor}`}>
+                            <span
+                                className={`text-sm font-semibold font-mono tabular-nums ${remainingColor}`}
+                            >
                                 {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
                             </span>
                         </div>
@@ -220,9 +251,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
             )}
 
             {/* Excluded state filler */}
-            {data.excluded && (
-                <p className="mt-auto text-xs text-neutral-400">Outside budget</p>
-            )}
+            {data.excluded && <p className="mt-auto text-xs text-neutral-400">Outside budget</p>}
         </button>
     )
 }
@@ -235,11 +264,25 @@ interface DayModalProps {
     entries: FinanceEntry[]
     spends: BudgetSpend[]
     excluded: boolean
+    excludedDates: Set<string>
     onClose: () => void
-    onSave: (date: string, updates: { rowId: string; amount: number | null }[], excluded: boolean) => Promise<void>
+    onSave: (
+        date: string,
+        updates: { rowId: string; amount: number | null }[],
+        excluded: boolean
+    ) => Promise<void>
 }
 
-function DayModal({ date, dailyRows, entries, spends, excluded: initialExcluded, onClose, onSave }: DayModalProps) {
+function DayModal({
+    date,
+    dailyRows,
+    entries,
+    spends,
+    excluded: initialExcluded,
+    excludedDates,
+    onClose,
+    onSave,
+}: DayModalProps) {
     const [isExcluded, setIsExcluded] = useState(initialExcluded)
     const [drafts, setDrafts] = useState<Record<string, string>>(() => {
         const init: Record<string, string> = {}
@@ -255,11 +298,13 @@ function DayModal({ date, dailyRows, entries, spends, excluded: initialExcluded,
         const entry = entries.find((e) => e.row === row._id)
         return sum + (entry?.amount ?? row.recurringAmount ?? 0)
     }, 0)
-    const totalDays = daysInMonth(date.slice(0, 7))
-    const dailyRate = totalDays > 0 ? monthlyTotal / totalDays : 0
+    // Target uses active (non-excluded) days so it matches the calendar grid.
+    const activeDays = activeDaysInMonth(date.slice(0, 7), excludedDates)
+    const dailyRate = activeDays > 0 ? monthlyTotal / activeDays : 0
 
     const totalDraft = Object.values(drafts).reduce((sum, v) => {
-        const n = parseFloat(v); return sum + (Number.isNaN(n) ? 0 : n)
+        const n = parseFloat(v)
+        return sum + (Number.isNaN(n) ? 0 : n)
     }, 0)
     const overTarget = !isExcluded && totalDraft > dailyRate
 
@@ -273,6 +318,8 @@ function DayModal({ date, dailyRows, entries, spends, excluded: initialExcluded,
             })
             await onSave(date, updates, isExcluded)
             onClose()
+        } catch {
+            // onSave already surfaced the error; keep the modal open so nothing is lost.
         } finally {
             setSaving(false)
         }
@@ -286,8 +333,12 @@ function DayModal({ date, dailyRows, entries, spends, excluded: initialExcluded,
             title={formatDayLabel(date)}
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+                    <Button variant="ghost" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleSave} disabled={saving}>
+                        {saving ? 'Saving…' : 'Save'}
+                    </Button>
                 </>
             }
         >
@@ -301,38 +352,76 @@ function DayModal({ date, dailyRows, entries, spends, excluded: initialExcluded,
                         className="h-4 w-4 rounded accent-neutral-950"
                     />
                     <div>
-                        <p className="text-sm font-semibold text-neutral-800">Exclude from budget</p>
-                        <p className="text-xs text-neutral-400">Work trip, holiday, or other exception — budget redistributes across remaining days</p>
+                        <p className="text-sm font-semibold text-neutral-800">
+                            Exclude from budget
+                        </p>
+                        <p className="text-xs text-neutral-400">
+                            Work trip, holiday, or other exception — budget redistributes across
+                            remaining days
+                        </p>
                     </div>
                 </label>
 
                 {/* Spend inputs (greyed when excluded) */}
                 <div className={isExcluded ? 'pointer-events-none opacity-40' : ''}>
-                    <div className="mb-3 rounded-xl bg-neutral-50 px-4 py-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Daily target</p>
-                        <p className="mt-0.5 text-lg font-bold font-mono text-neutral-900">£{fmt(dailyRate)}</p>
-                    </div>
+                    {dailyRows.length > 1 && (
+                        <div className="mb-3 rounded-xl bg-neutral-50 px-4 py-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                Daily target (all budgets)
+                            </p>
+                            <p className="mt-0.5 text-lg font-bold font-mono text-neutral-900">
+                                £{fmt(dailyRate)}
+                            </p>
+                        </div>
+                    )}
 
                     <div className="flex flex-col gap-3">
-                        {dailyRows.map((row) => (
-                            <div key={row._id} className="flex flex-col gap-1">
-                                <label className="text-xs font-semibold text-neutral-600">{row.name}</label>
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    placeholder="0.00"
-                                    value={drafts[row._id]}
-                                    onChange={(e) => setDrafts((prev) => ({ ...prev, [row._id]: e.target.value }))}
-                                />
-                            </div>
-                        ))}
+                        {dailyRows.map((row) => {
+                            const entry = entries.find((e) => e.row === row._id)
+                            const rowSpends = spends.filter((s) => s.row === row._id)
+                            const { straightDailyRate } = computeBudgetDay(
+                                row,
+                                entry,
+                                rowSpends,
+                                date,
+                                excludedDates
+                            )
+                            return (
+                                <div key={row._id} className="flex flex-col gap-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <label className="text-xs font-semibold text-neutral-600">
+                                            {row.name}
+                                        </label>
+                                        <span className="font-mono text-xs text-neutral-400">
+                                            target £{fmt(straightDailyRate)}
+                                        </span>
+                                    </div>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="0.00"
+                                        value={drafts[row._id]}
+                                        onChange={(e) =>
+                                            setDrafts((prev) => ({
+                                                ...prev,
+                                                [row._id]: e.target.value,
+                                            }))
+                                        }
+                                    />
+                                </div>
+                            )
+                        })}
                     </div>
 
                     {dailyRows.length > 1 && (
                         <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3">
-                            <span className="text-xs font-semibold text-neutral-400">Total spend</span>
-                            <span className={`text-sm font-bold font-mono ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}>
+                            <span className="text-xs font-semibold text-neutral-400">
+                                Total spend
+                            </span>
+                            <span
+                                className={`text-sm font-bold font-mono ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}
+                            >
                                 £{fmt(totalDraft)}
                             </span>
                         </div>
@@ -340,7 +429,10 @@ function DayModal({ date, dailyRows, entries, spends, excluded: initialExcluded,
 
                     {overTarget && (
                         <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm font-semibold text-amber-700">
-                            <i className="fa-solid fa-triangle-exclamation text-xs" aria-hidden="true" />
+                            <i
+                                className="fa-solid fa-triangle-exclamation text-xs"
+                                aria-hidden="true"
+                            />
                             Over daily target by £{fmt(totalDraft - dailyRate)}
                         </div>
                     )}
@@ -361,54 +453,92 @@ export default function BudgetCalendar() {
     const [spends, setSpends] = useState<BudgetSpend[]>([])
     const [exclusions, setExclusions] = useState<BudgetExclusion[]>([])
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
+    const [selectedRowId, setSelectedRowId] = useState<string>('all')
+    const toast = useToast()
 
     useEffect(() => {
         let active = true
         setLoading(true)
-        Promise.all([listGroups(), listRows(), listEntries(month), listBudgetSpends({ month }), listBudgetExclusions(month)])
+        Promise.all([
+            listGroups(),
+            listRows(),
+            listEntries(month),
+            listBudgetSpends({ month }),
+            listBudgetExclusions(month),
+        ])
             .then(([g, r, e, s, x]) => {
                 if (!active) return
-                setGroups(g); setRows(r); setEntries(e); setSpends(s); setExclusions(x)
+                setGroups(g)
+                setRows(r)
+                setEntries(e)
+                setSpends(s)
+                setExclusions(x)
             })
             .finally(() => active && setLoading(false))
-        return () => { active = false }
+        return () => {
+            active = false
+        }
     }, [month])
 
     async function handleSaveDay(
         date: string,
         updates: { rowId: string; amount: number | null }[],
-        excluded: boolean,
+        excluded: boolean
     ) {
-        // Save spend updates
-        const results = await Promise.all(
-            updates.map(({ rowId, amount }) => setBudgetSpend(rowId, date, amount))
-        )
-        setSpends((prev) => {
-            let next = [...prev]
-            updates.forEach(({ rowId }, i) => {
-                next = next.filter((s) => !(s.row === rowId && s.date === date))
-                const result = results[i]
-                if (result) next.push(result)
+        try {
+            // Save spend updates
+            const results = await Promise.all(
+                updates.map(({ rowId, amount }) => setBudgetSpend(rowId, date, amount))
+            )
+            setSpends((prev) => {
+                let next = [...prev]
+                updates.forEach(({ rowId }, i) => {
+                    next = next.filter((s) => !(s.row === rowId && s.date === date))
+                    const result = results[i]
+                    if (result) next.push(result)
+                })
+                return next
             })
-            return next
-        })
 
-        // Save exclusion
-        const wasExcluded = exclusions.some((x) => x.date === date)
-        if (excluded !== wasExcluded) {
-            const result = await setBudgetExclusion(date, excluded)
-            setExclusions((prev) => {
-                const without = prev.filter((x) => x.date !== date)
-                return result ? [...without, result] : without
-            })
+            // Save exclusion
+            const wasExcluded = exclusions.some((x) => x.date === date)
+            if (excluded !== wasExcluded) {
+                const result = await setBudgetExclusion(date, excluded)
+                setExclusions((prev) => {
+                    const without = prev.filter((x) => x.date !== date)
+                    return result ? [...without, result] : without
+                })
+            }
+        } catch {
+            toast.error('Couldn’t save this day. Please try again.')
+            throw new Error('save failed') // keep the modal open
         }
     }
 
     const today = todayKey()
-    const dailyRows = rows.filter((r) =>
-        r.budgeted && r.budgetType === 'daily' &&
-        rowVisibleInMonth(r, month, groups.find((g) => g._id === r.group))
+    // Every daily-tracked budget active this month — drives the filter dropdown.
+    const allDailyRows = rows.filter(
+        (r) =>
+            r.budgeted &&
+            r.budgetType === 'daily' &&
+            rowVisibleInMonth(
+                r,
+                month,
+                groups.find((g) => g._id === r.group)
+            )
     )
+    // Fall back to "all" if the chosen budget isn't available this month.
+    const activeRowId =
+        selectedRowId !== 'all' && allDailyRows.some((r) => r._id === selectedRowId)
+            ? selectedRowId
+            : 'all'
+    // The calendar, stats, and day modal all reflect the current selection.
+    const dailyRows =
+        activeRowId === 'all' ? allDailyRows : allDailyRows.filter((r) => r._id === activeRowId)
+    const budgetOptions = [
+        { label: 'All budgets', value: 'all' },
+        ...allDailyRows.map((r) => ({ label: r.name, value: r._id })),
+    ]
     const excludedDates = new Set(exclusions.map((x) => x.date))
     const dayData = buildDayData(month, dailyRows, entries, spends, excludedDates)
     const offset = startOffset(month)
@@ -455,22 +585,30 @@ export default function BudgetCalendar() {
                     <div className="flex items-center gap-3">
                         <div className="rounded-xl bg-white border border-neutral-200 px-4 py-2">
                             <span className="text-xs text-neutral-400">Spent </span>
-                            <span className={`text-sm font-bold font-mono ${totalSpent > totalTarget ? 'text-red-600' : 'text-neutral-900'}`}>
+                            <span
+                                className={`text-sm font-bold font-mono ${totalSpent > totalTarget ? 'text-red-600' : 'text-neutral-900'}`}
+                            >
                                 £{fmt(totalSpent)}
                             </span>
                         </div>
                         <div className="rounded-xl bg-white border border-neutral-200 px-4 py-2">
                             <span className="text-xs text-neutral-400">Target </span>
-                            <span className="text-sm font-bold font-mono text-neutral-900">£{fmt(totalTarget)}</span>
+                            <span className="text-sm font-bold font-mono text-neutral-900">
+                                £{fmt(totalTarget)}
+                            </span>
                         </div>
                         <div className="rounded-xl bg-white border border-neutral-200 px-4 py-2">
                             <span className="text-xs text-neutral-400">Logged </span>
-                            <span className="text-sm font-bold font-mono text-neutral-900">{daysLogged}/{pastDays.length}</span>
+                            <span className="text-sm font-bold font-mono text-neutral-900">
+                                {daysLogged}/{pastDays.length}
+                            </span>
                         </div>
                         {excludedCount > 0 && (
                             <div className="rounded-xl bg-neutral-100 border border-neutral-200 px-4 py-2">
                                 <span className="text-xs text-neutral-400">Excluded </span>
-                                <span className="text-sm font-bold font-mono text-neutral-500">{excludedCount}</span>
+                                <span className="text-sm font-bold font-mono text-neutral-500">
+                                    {excludedCount}
+                                </span>
                             </div>
                         )}
                     </div>
@@ -478,8 +616,10 @@ export default function BudgetCalendar() {
             </div>
 
             {loading ? (
-                <div className="grid place-items-center py-20"><Spinner /></div>
-            ) : dailyRows.length === 0 ? (
+                <div className="grid place-items-center py-20">
+                    <Spinner />
+                </div>
+            ) : allDailyRows.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-12 text-center">
                     <p className="text-sm text-neutral-400">
                         No daily budgets set up. Enable `Daily spend` on a card in the Budgets tab.
@@ -487,13 +627,29 @@ export default function BudgetCalendar() {
                 </div>
             ) : (
                 <>
+                    {allDailyRows.length > 1 && (
+                        <div className="mb-4 w-full sm:max-w-xs">
+                            <Select
+                                icon="fa-solid fa-filter"
+                                options={budgetOptions}
+                                value={activeRowId}
+                                onChange={setSelectedRowId}
+                            />
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-7 gap-2">
                         {WEEKDAYS.map((wd) => (
-                            <div key={wd} className="pb-2 text-center text-xs font-bold uppercase tracking-wide text-neutral-400">
+                            <div
+                                key={wd}
+                                className="pb-2 text-center text-xs font-bold uppercase tracking-wide text-neutral-400"
+                            >
                                 {wd}
                             </div>
                         ))}
-                        {Array.from({ length: offset }).map((_, i) => <div key={`pad-${i}`} />)}
+                        {Array.from({ length: offset }).map((_, i) => (
+                            <div key={`pad-${i}`} />
+                        ))}
                         {dayData.map((data) => (
                             <DayCell
                                 key={data.date}
@@ -528,6 +684,7 @@ export default function BudgetCalendar() {
                     entries={entries}
                     spends={spends}
                     excluded={excludedDates.has(selectedDate)}
+                    excludedDates={excludedDates}
                     onClose={() => setSelectedDate(null)}
                     onSave={handleSaveDay}
                 />

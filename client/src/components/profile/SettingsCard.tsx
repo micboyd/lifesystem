@@ -9,7 +9,9 @@ import Alert from '../Alert'
 import type { UserSettings } from '../../types'
 
 function errorMessage(err: unknown, fallback: string): string {
-    return (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback
+    return (
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback
+    )
 }
 
 export default function SettingsCard() {
@@ -59,13 +61,16 @@ export default function SettingsCard() {
                         <p className="mb-3 text-sm font-semibold text-neutral-700">Your day</p>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field label="Wake up">
-                                <TimePicker value={wakeTime} onChange={setWakeTime} placeholder="Set time" />
+                                <TimePicker
+                                    value={wakeTime}
+                                    onChange={setWakeTime}
+                                    placeholder="Set time"
+                                />
                             </Field>
                             <Field label="Bed time">
                                 <TimePicker
                                     value={bedTime}
                                     onChange={setBedTime}
-                                   
                                     minTime={wakeTime ?? undefined}
                                     placeholder="Set time"
                                 />
@@ -76,13 +81,14 @@ export default function SettingsCard() {
                     {/* Working hours — within the day */}
                     <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
                         <p className="mb-1 text-sm font-semibold text-neutral-700">Working hours</p>
-                        <p className="mb-3 text-xs text-neutral-400">Sits within your wake and bed times.</p>
+                        <p className="mb-3 text-xs text-neutral-400">
+                            Sits within your wake and bed times.
+                        </p>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field label="Start">
                                 <TimePicker
                                     value={workStart}
                                     onChange={setWorkStart}
-                                   
                                     minTime={wakeTime ?? undefined}
                                     maxTime={workEnd ?? bedTime ?? undefined}
                                     placeholder="Set time"
@@ -92,7 +98,6 @@ export default function SettingsCard() {
                                 <TimePicker
                                     value={workEnd}
                                     onChange={setWorkEnd}
-                                   
                                     minTime={workStart ?? wakeTime ?? undefined}
                                     maxTime={bedTime ?? undefined}
                                     placeholder="Set time"
@@ -126,7 +131,9 @@ export default function SettingsCard() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{label}</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                {label}
+            </span>
             {children}
         </div>
     )

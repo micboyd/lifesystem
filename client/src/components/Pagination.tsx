@@ -23,7 +23,11 @@ function buildPages(page: number, pageCount: number, siblingCount: number): Page
 
     const pages: PageItem[] = [1]
     if (showLeftEllipsis) pages.push('ellipsis')
-    for (let p = showLeftEllipsis ? left : 2; p <= (showRightEllipsis ? right : pageCount - 1); p++) {
+    for (
+        let p = showLeftEllipsis ? left : 2;
+        p <= (showRightEllipsis ? right : pageCount - 1);
+        p++
+    ) {
         pages.push(p)
     }
     if (showRightEllipsis) pages.push('ellipsis')
@@ -85,7 +89,7 @@ export default function Pagination({
                     >
                         {p}
                     </button>
-                ),
+                )
             )}
 
             <button

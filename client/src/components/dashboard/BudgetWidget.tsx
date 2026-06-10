@@ -2,17 +2,24 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
 import Spinner from '../Spinner'
-import { listGroups, listRows, listEntries, listBudgetSpends, setBudgetSpend } from '../../services/finances'
+import {
+    listGroups,
+    listRows,
+    listEntries,
+    listBudgetSpends,
+    setBudgetSpend,
+    listBudgetExclusions,
+} from '../../services/finances'
 import { computeBudgetDay, monthOf, dayNumOf } from '../../lib/budget'
 import { rowVisibleInMonth } from '../../lib/finance'
+import { formatAmount } from '../../lib/money'
 import { useInvalidate } from '../../context/DataSyncContext'
+import { useToast } from '../../context/ToastContext'
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmt(n: number): string {
-    return n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
+const fmt = formatAmount
 
 // ── Per-budget column ─────────────────────────────────────────────────────────
 
@@ -21,13 +28,14 @@ interface BudgetColProps {
     entry: FinanceEntry | undefined
     rowSpends: BudgetSpend[]
     date: string
+    excludedDates: Set<string>
     onLogSpend: (rowId: string, amount: number | null) => void
 }
 
-function BudgetCol({ row, entry, rowSpends, date, onLogSpend }: BudgetColProps) {
+function BudgetCol({ row, entry, rowSpends, date, excludedDates, onLogSpend }: BudgetColProps) {
     const dayNum = dayNumOf(date)
     const { monthlyAmount, straightDailyRate, carry, spentToday, remaining, monthlyRemaining } =
-        computeBudgetDay(row, entry, rowSpends, date)
+        computeBudgetDay(row, entry, rowSpends, date, excludedDates)
 
     const [draft, setDraft] = useState('')
     const [saving, setSaving] = useState(false)
@@ -53,10 +61,16 @@ function BudgetCol({ row, entry, rowSpends, date, onLogSpend }: BudgetColProps) 
 
             {/* Dark allowance block — fixed daily rate is the target */}
             <div className="rounded-xl bg-neutral-950 px-3 py-2.5 text-white">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Daily target</p>
-                <p className="mt-0.5 text-xl font-bold font-mono tabular-nums">£{fmt(straightDailyRate)}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Daily target
+                </p>
+                <p className="mt-0.5 text-xl font-bold font-mono tabular-nums">
+                    £{fmt(straightDailyRate)}
+                </p>
                 {dayNum > 1 && (
-                    <p className={`mt-1 text-[11px] font-semibold ${carry >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <p
+                        className={`mt-1 text-[11px] font-semibold ${carry >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                    >
                         {carry >= 0 ? `+£${fmt(carry)} carry` : `-£${fmt(Math.abs(carry))} deficit`}
                     </p>
                 )}
@@ -64,41 +78,57 @@ function BudgetCol({ row, entry, rowSpends, date, onLogSpend }: BudgetColProps) 
 
             {/* Monthly remaining */}
             {monthlyAmount > 0 && (
-                <p className={[
-                    'text-xs font-semibold',
-                    monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400',
-                ].join(' ')}>
-                    £{fmt(Math.abs(monthlyRemaining))} {monthlyRemaining < 0 ? 'over monthly budget' : 'left this month'}
+                <p
+                    className={[
+                        'text-xs font-semibold',
+                        monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400',
+                    ].join(' ')}
+                >
+                    £{fmt(Math.abs(monthlyRemaining))}{' '}
+                    {monthlyRemaining < 0 ? 'over monthly budget' : 'left this month'}
                 </p>
             )}
 
             {/* Spent / Remaining */}
             <div className="grid grid-cols-2 gap-2">
                 <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Spent</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                        Spent
+                    </p>
                     <p className="mt-0.5 text-base font-bold font-mono tabular-nums text-neutral-700">
                         £{fmt(spentToday)}
                     </p>
                 </div>
                 <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Remaining</p>
-                    <p className={[
-                        'mt-0.5 text-base font-bold font-mono tabular-nums',
-                        remaining >= 0 ? 'text-emerald-600' : 'text-red-500',
-                    ].join(' ')}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                        Remaining
+                    </p>
+                    <p
+                        className={[
+                            'mt-0.5 text-base font-bold font-mono tabular-nums',
+                            remaining >= 0 ? 'text-emerald-600' : 'text-red-500',
+                        ].join(' ')}
+                    >
                         £{fmt(Math.abs(remaining))}
-                        {remaining < 0 && <span className="ml-0.5 text-[10px] font-normal">over</span>}
+                        {remaining < 0 && (
+                            <span className="ml-0.5 text-[10px] font-normal">over</span>
+                        )}
                     </p>
                 </div>
             </div>
 
             {/* Over daily target warning */}
             {spentToday > straightDailyRate && (
-                <div className={[
-                    'flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold',
-                    remaining < 0 ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-700',
-                ].join(' ')}>
-                    <i className="fa-solid fa-triangle-exclamation text-[10px]" aria-hidden="true" />
+                <div
+                    className={[
+                        'flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold',
+                        remaining < 0 ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-700',
+                    ].join(' ')}
+                >
+                    <i
+                        className="fa-solid fa-triangle-exclamation text-[10px]"
+                        aria-hidden="true"
+                    />
                     {remaining < 0
                         ? `Over budget by £${fmt(Math.abs(remaining))}`
                         : `Over target — using £${fmt(spentToday - straightDailyRate)} carry`}
@@ -133,10 +163,12 @@ function BudgetCol({ row, entry, rowSpends, date, onLogSpend }: BudgetColProps) 
 
 export default function BudgetWidget({ date }: { date: string }) {
     const invalidate = useInvalidate()
+    const toast = useToast()
     const [groups, setGroups] = useState<FinanceGroup[]>([])
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
+    const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
     // Derive loading from which month finished loading — avoids a synchronous
     // setState inside the fetch effect (flagged as cascading renders).
     const [loadedMonth, setLoadedMonth] = useState<string | null>(null)
@@ -151,28 +183,46 @@ export default function BudgetWidget({ date }: { date: string }) {
             listRows(),
             listEntries(month),
             listBudgetSpends({ month }),
-        ]).then(([g, r, e, s]) => {
-            if (!active) return
-            setGroups(g)
-            setRows(r)
-            setEntries(e)
-            setSpends(s)
-        }).finally(() => { if (active) setLoadedMonth(month) })
-        return () => { active = false }
+            listBudgetExclusions(month),
+        ])
+            .then(([g, r, e, s, x]) => {
+                if (!active) return
+                setGroups(g)
+                setRows(r)
+                setEntries(e)
+                setSpends(s)
+                setExcludedDates(new Set(x.map((d) => d.date)))
+            })
+            .finally(() => {
+                if (active) setLoadedMonth(month)
+            })
+        return () => {
+            active = false
+        }
     }, [month])
 
     async function handleLogSpend(rowId: string, amount: number | null) {
-        const result = await setBudgetSpend(rowId, date, amount)
-        setSpends((prev) => {
-            const without = prev.filter((s) => !(s.row === rowId && s.date === date))
-            return result ? [...without, result] : without
-        })
-        invalidate('budget')
+        try {
+            const result = await setBudgetSpend(rowId, date, amount)
+            setSpends((prev) => {
+                const without = prev.filter((s) => !(s.row === rowId && s.date === date))
+                return result ? [...without, result] : without
+            })
+            invalidate('budget')
+        } catch {
+            toast.error('Couldn’t log that spend.')
+        }
     }
 
     // Only rows whose lifecycle (and their group's) covers this month.
-    const visibleBudgeted = rows.filter((r) =>
-        r.budgeted && rowVisibleInMonth(r, month, groups.find((g) => g._id === r.group))
+    const visibleBudgeted = rows.filter(
+        (r) =>
+            r.budgeted &&
+            rowVisibleInMonth(
+                r,
+                month,
+                groups.find((g) => g._id === r.group)
+            )
     )
     const budgetedRows = visibleBudgeted
     const dailyRows = budgetedRows.filter((r) => r.budgetType === 'daily')
@@ -202,25 +252,37 @@ export default function BudgetWidget({ date }: { date: string }) {
             </CardHeader>
 
             {loading ? (
-                <div className="grid place-items-center py-6"><Spinner /></div>
+                <div className="grid place-items-center py-6">
+                    <Spinner />
+                </div>
             ) : budgetedRows.length === 0 ? (
                 <p className="py-4 text-sm text-neutral-400">
                     No budgets yet.{' '}
-                    <Link to="/finances/budgets" className="font-semibold text-neutral-600 underline underline-offset-2">
+                    <Link
+                        to="/finances/budgets"
+                        className="font-semibold text-neutral-600 underline underline-offset-2"
+                    >
                         Add some on the Budgets tab.
                     </Link>
                 </p>
             ) : dailyRows.length === 0 ? (
                 <p className="py-4 text-sm text-neutral-400">
-                    You have {budgetedRows.length} budget{budgetedRows.length !== 1 ? 's' : ''} but none have daily tracking on.{' '}
-                    <Link to="/finances/budgets" className="font-semibold text-neutral-600 underline underline-offset-2">
+                    You have {budgetedRows.length} budget{budgetedRows.length !== 1 ? 's' : ''} but
+                    none have daily tracking on.{' '}
+                    <Link
+                        to="/finances/budgets"
+                        className="font-semibold text-neutral-600 underline underline-offset-2"
+                    >
                         Enable &quot;Daily spend&quot; on a card.
                     </Link>
                 </p>
             ) : !hasAmounts ? (
                 <p className="py-4 text-sm text-neutral-400">
                     No amounts set on your daily budgets yet.{' '}
-                    <Link to="/finances/budgets" className="font-semibold text-neutral-600 underline underline-offset-2">
+                    <Link
+                        to="/finances/budgets"
+                        className="font-semibold text-neutral-600 underline underline-offset-2"
+                    >
                         Set amounts on the Monthly tab.
                     </Link>
                 </p>
@@ -233,6 +295,7 @@ export default function BudgetWidget({ date }: { date: string }) {
                             entry={entries.find((e) => e.row === row._id)}
                             rowSpends={spends.filter((s) => s.row === row._id)}
                             date={date}
+                            excludedDates={excludedDates}
                             onLogSpend={handleLogSpend}
                         />
                     ))}

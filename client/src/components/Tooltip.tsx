@@ -16,7 +16,12 @@ const placementClasses: Record<Placement, string> = {
     right: 'left-full top-1/2 ml-2 -translate-y-1/2',
 }
 
-export default function Tooltip({ content, children, placement = 'top', className = '' }: TooltipProps) {
+export default function Tooltip({
+    content,
+    children,
+    placement = 'top',
+    className = '',
+}: TooltipProps) {
     const [show, setShow] = useState(false)
 
     return (

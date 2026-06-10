@@ -14,9 +14,9 @@ export interface IFinanceSubItem extends Document {
 const financeSubItemSchema = new Schema<IFinanceSubItem>(
     {
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-        row:  { type: Schema.Types.ObjectId, ref: 'FinanceRow', required: true },
-        month: { type: String, match: /^\d{4}-\d{2}$/ },  // optional: omitted for non-recurring rows
-        name:  { type: String, required: true, trim: true },
+        row: { type: Schema.Types.ObjectId, ref: 'FinanceRow', required: true },
+        month: { type: String, match: /^\d{4}-\d{2}$/ }, // optional: omitted for non-recurring rows
+        name: { type: String, required: true, trim: true },
         amount: { type: Number, required: true },
         order: { type: Number, default: 0 },
     },

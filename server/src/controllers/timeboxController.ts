@@ -1,6 +1,11 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
-import Timebox, { DATE_PATTERN, TIME_PATTERN, TIMEBOX_CATEGORIES, type TimeboxCategory } from '../models/Timebox'
+import Timebox, {
+    DATE_PATTERN,
+    TIME_PATTERN,
+    TIMEBOX_CATEGORIES,
+    type TimeboxCategory,
+} from '../models/Timebox'
 
 function isValidDate(v: unknown): v is string {
     return typeof v === 'string' && DATE_PATTERN.test(v)
@@ -35,11 +40,14 @@ interface TimeboxFields {
 function validateBody(body: Record<string, unknown>): string | TimeboxFields {
     const title = typeof body.title === 'string' ? body.title.trim() : ''
     if (!title) return 'title is required'
-    if (!isValidTime(body.startTime) || !isValidTime(body.endTime)) return 'startTime and endTime must be HH:MM'
+    if (!isValidTime(body.startTime) || !isValidTime(body.endTime))
+        return 'startTime and endTime must be HH:MM'
     if (body.endTime <= body.startTime) return 'endTime must be after startTime'
-    const category = typeof body.category === 'string' && (TIMEBOX_CATEGORIES as readonly string[]).includes(body.category)
-        ? body.category as TimeboxCategory
-        : undefined
+    const category =
+        typeof body.category === 'string' &&
+        (TIMEBOX_CATEGORIES as readonly string[]).includes(body.category)
+            ? (body.category as TimeboxCategory)
+            : undefined
     return { title, category, startTime: body.startTime as string, endTime: body.endTime as string }
 }
 
@@ -93,14 +101,16 @@ export async function updateTimebox(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Timebox not found' })
         return
     }
-    if (await hasOverlap(req.userId, existing.date, fields.startTime, fields.endTime, req.params.id)) {
+    if (
+        await hasOverlap(req.userId, existing.date, fields.startTime, fields.endTime, req.params.id)
+    ) {
         res.status(409).json({ message: 'That time overlaps another block' })
         return
     }
-    existing.title     = fields.title
+    existing.title = fields.title
     existing.startTime = fields.startTime
-    existing.endTime   = fields.endTime
-    existing.category  = fields.category  // undefined removes the field
+    existing.endTime = fields.endTime
+    existing.category = fields.category // undefined removes the field
     await existing.save()
     res.json({ message: 'Saved', data: existing })
 }

@@ -24,13 +24,18 @@ export default function EventPickerModal({ events, onClose, onSelect }: Props) {
                         >
                             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${colors.bg}`} />
                             <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm font-semibold text-neutral-900">{event.title}</span>
+                                <span className="block truncate text-sm font-semibold text-neutral-900">
+                                    {event.title}
+                                </span>
                                 <span className="text-xs text-neutral-400">
                                     {isNa ? 'Other' : EVENT_TYPE_LABELS[event.eventType]}
                                     {event.recurrence && ' · recurring'}
                                 </span>
                             </span>
-                            <i className="fa-solid fa-chevron-right text-xs text-neutral-300" aria-hidden="true" />
+                            <i
+                                className="fa-solid fa-chevron-right text-xs text-neutral-300"
+                                aria-hidden="true"
+                            />
                         </button>
                     )
                 })}

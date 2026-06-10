@@ -1,6 +1,10 @@
 import { Schema, model, Document, Types } from 'mongoose'
 
-export const DAY_STATUSES = ['annual_leave_pending', 'annual_leave_approved', 'bank_holiday'] as const
+export const DAY_STATUSES = [
+    'annual_leave_pending',
+    'annual_leave_approved',
+    'bank_holiday',
+] as const
 export type DayStatusType = (typeof DAY_STATUSES)[number]
 
 export const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/

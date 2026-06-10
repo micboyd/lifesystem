@@ -1,12 +1,24 @@
 import { Router } from 'express'
 import {
-    listGroups, createGroup, updateGroup, deleteGroup,
-    listRows, createRow, updateRow, deleteRow,
-    listEntries, setEntry,
+    listGroups,
+    createGroup,
+    updateGroup,
+    deleteGroup,
+    listRows,
+    createRow,
+    updateRow,
+    deleteRow,
+    listEntries,
+    setEntry,
 } from '../controllers/financeController'
 import { listBudgetSpends, setBudgetSpend } from '../controllers/budgetSpendController'
 import { listBudgetExclusions, setBudgetExclusion } from '../controllers/budgetExclusionController'
-import { listSubItems, createSubItem, updateSubItem, deleteSubItem } from '../controllers/financeSubItemController'
+import {
+    listSubItems,
+    createSubItem,
+    updateSubItem,
+    deleteSubItem,
+} from '../controllers/financeSubItemController'
 import { requireAuth } from '../middleware/auth'
 
 const router = Router()

@@ -34,7 +34,8 @@ export async function getMe(req: AuthRequest, res: Response) {
 /** PUT /api/users/me — update the signed-in user's name and/or email. */
 export async function updateMe(req: AuthRequest, res: Response) {
     const update: Record<string, string> = {}
-    if (typeof req.body.name === 'string' && req.body.name.trim()) update.name = req.body.name.trim()
+    if (typeof req.body.name === 'string' && req.body.name.trim())
+        update.name = req.body.name.trim()
     if (typeof req.body.email === 'string' && req.body.email.trim()) {
         const email = req.body.email.trim().toLowerCase()
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -49,7 +50,11 @@ export async function updateMe(req: AuthRequest, res: Response) {
     }
 
     try {
-        const user = await User.findByIdAndUpdate(req.userId, { $set: update }, { new: true }).select('-password')
+        const user = await User.findByIdAndUpdate(
+            req.userId,
+            { $set: update },
+            { new: true }
+        ).select('-password')
         if (!user) {
             res.status(404).json({ message: 'User not found' })
             return
@@ -96,7 +101,10 @@ export async function updateSettings(req: AuthRequest, res: Response) {
 
     const user = await User.findByIdAndUpdate(
         req.userId,
-        { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) },
+        {
+            ...(Object.keys(set).length ? { $set: set } : {}),
+            ...(Object.keys(unset).length ? { $unset: unset } : {}),
+        },
         { new: true }
     ).select('-password')
 
@@ -119,7 +127,12 @@ export async function changePassword(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'User not found' })
         return
     }
-    if (!(await bcrypt.compare(typeof currentPassword === 'string' ? currentPassword : '', user.password))) {
+    if (
+        !(await bcrypt.compare(
+            typeof currentPassword === 'string' ? currentPassword : '',
+            user.password
+        ))
+    ) {
         res.status(401).json({ message: 'Current password is incorrect' })
         return
     }

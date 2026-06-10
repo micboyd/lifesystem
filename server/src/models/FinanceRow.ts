@@ -7,10 +7,10 @@ export interface IFinanceRow extends Document {
     recurringAmount?: number
     order: number
     recurring: boolean
-    month?: string          // YYYY-MM — set for non-recurring rows, absent for recurring
-    startMonth?: string | null   // YYYY-MM inclusive; null = active since forever (recurring rows)
-    endMonth?: string | null     // YYYY-MM inclusive; null = open-ended
-    skipMonths: string[]         // months explicitly hidden ("this month only" deletes)
+    month?: string // YYYY-MM — set for non-recurring rows, absent for recurring
+    startMonth?: string | null // YYYY-MM inclusive; null = active since forever (recurring rows)
+    endMonth?: string | null // YYYY-MM inclusive; null = open-ended
+    skipMonths: string[] // months explicitly hidden ("this month only" deletes)
     budgeted: boolean
     budgetType?: 'daily' | null
     createdAt: Date

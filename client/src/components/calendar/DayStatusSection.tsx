@@ -30,7 +30,9 @@ export default function DayStatusSection({ date }: Props) {
         listStatuses(date, date)
             .then((list) => active && setRecords(list))
             .finally(() => active && setLoading(false))
-        return () => { active = false }
+        return () => {
+            active = false
+        }
     }, [date])
 
     async function handleAdd() {
@@ -76,7 +78,10 @@ export default function DayStatusSection({ date }: Props) {
                             onClick={() => handleDelete(record._id)}
                             className="!px-2 !py-1 shrink-0 hover:!bg-black/10"
                         >
-                            <i className={`fa-solid fa-xmark text-xs ${opt.text}`} aria-hidden="true" />
+                            <i
+                                className={`fa-solid fa-xmark text-xs ${opt.text}`}
+                                aria-hidden="true"
+                            />
                         </Button>
                     </div>
                 )
@@ -101,13 +106,23 @@ export default function DayStatusSection({ date }: Props) {
                                             : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50',
                                     ].join(' ')}
                                 >
-                                    <span className={[
-                                        'grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 transition-colors',
-                                        selected ? `border-transparent ${opt.bg}` : 'border-neutral-300',
-                                    ].join(' ')}>
-                                        {selected && <span className={`h-2 w-2 rounded-full ${opt.bg.replace('-100', '-500')}`} />}
+                                    <span
+                                        className={[
+                                            'grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 transition-colors',
+                                            selected
+                                                ? `border-transparent ${opt.bg}`
+                                                : 'border-neutral-300',
+                                        ].join(' ')}
+                                    >
+                                        {selected && (
+                                            <span
+                                                className={`h-2 w-2 rounded-full ${opt.bg.replace('-100', '-500')}`}
+                                            />
+                                        )}
                                     </span>
-                                    <span className={`text-sm font-semibold ${selected ? opt.text : 'text-neutral-700'}`}>
+                                    <span
+                                        className={`text-sm font-semibold ${selected ? opt.text : 'text-neutral-700'}`}
+                                    >
                                         {opt.label}
                                     </span>
                                 </button>
@@ -117,7 +132,9 @@ export default function DayStatusSection({ date }: Props) {
 
                     {/* Date range */}
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Date range</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Date range
+                        </span>
                         <DatePicker
                             mode="range"
                             value={range}
@@ -130,16 +147,31 @@ export default function DayStatusSection({ date }: Props) {
                     </div>
 
                     <div className="flex gap-2">
-                        <Button onClick={handleAdd} disabled={saving || !selectedStatus || !range.start || !range.end}>
+                        <Button
+                            onClick={handleAdd}
+                            disabled={saving || !selectedStatus || !range.start || !range.end}
+                        >
                             {saving ? 'Saving…' : 'Save'}
                         </Button>
-                        <Button variant="ghost" onClick={() => { setAdding(false); setSelectedStatus(null); setRange({ start: date, end: date }) }}>
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                setAdding(false)
+                                setSelectedStatus(null)
+                                setRange({ start: date, end: date })
+                            }}
+                        >
                             Cancel
                         </Button>
                     </div>
                 </div>
             ) : (
-                <Button variant="ghost" size="sm" icon="fa-solid fa-plus" onClick={() => setAdding(true)}>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    icon="fa-solid fa-plus"
+                    onClick={() => setAdding(true)}
+                >
                     Add leave or holiday
                 </Button>
             )}

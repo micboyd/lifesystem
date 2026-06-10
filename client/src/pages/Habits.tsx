@@ -22,7 +22,9 @@ export default function Habits() {
         listHabits()
             .then((h) => active && setHabits(h))
             .finally(() => active && setLoading(false))
-        return () => { active = false }
+        return () => {
+            active = false
+        }
     }, [])
 
     async function handleAdd() {
@@ -85,7 +87,9 @@ export default function Habits() {
             {/* Add form */}
             {adding && (
                 <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-                    <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-400">New habit</h2>
+                    <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-400">
+                        New habit
+                    </h2>
                     <div className="flex flex-col gap-3">
                         <Input
                             autoFocus
@@ -104,7 +108,14 @@ export default function Habits() {
                             <Button onClick={handleAdd} disabled={saving || !newName.trim()}>
                                 {saving ? 'Saving…' : 'Save'}
                             </Button>
-                            <Button variant="ghost" onClick={() => { setAdding(false); setNewName(''); setNewDesc('') }}>
+                            <Button
+                                variant="ghost"
+                                onClick={() => {
+                                    setAdding(false)
+                                    setNewName('')
+                                    setNewDesc('')
+                                }}
+                            >
                                 Cancel
                             </Button>
                         </div>
@@ -113,7 +124,9 @@ export default function Habits() {
             )}
 
             {loading ? (
-                <div className="grid place-items-center py-16"><Spinner /></div>
+                <div className="grid place-items-center py-16">
+                    <Spinner />
+                </div>
             ) : (
                 <>
                     {/* Active habits */}
@@ -123,7 +136,11 @@ export default function Habits() {
                         editName={editName}
                         editDesc={editDesc}
                         saving={saving}
-                        onEdit={(h) => { setEditing(h._id); setEditName(h.name); setEditDesc(h.description ?? '') }}
+                        onEdit={(h) => {
+                            setEditing(h._id)
+                            setEditName(h.name)
+                            setEditDesc(h.description ?? '')
+                        }}
                         onSaveEdit={handleSaveEdit}
                         onCancelEdit={() => setEditing(null)}
                         onEditName={setEditName}
@@ -145,7 +162,11 @@ export default function Habits() {
                                 editName={editName}
                                 editDesc={editDesc}
                                 saving={saving}
-                                onEdit={(h) => { setEditing(h._id); setEditName(h.name); setEditDesc(h.description ?? '') }}
+                                onEdit={(h) => {
+                                    setEditing(h._id)
+                                    setEditName(h.name)
+                                    setEditDesc(h.description ?? '')
+                                }}
                                 onSaveEdit={handleSaveEdit}
                                 onCancelEdit={() => setEditing(null)}
                                 onEditName={setEditName}
@@ -179,9 +200,19 @@ interface HabitListProps {
 }
 
 function HabitList({
-    habits, editing, editName, editDesc, saving,
-    onEdit, onSaveEdit, onCancelEdit, onEditName, onEditDesc,
-    onToggleActive, onDelete, emptyMessage,
+    habits,
+    editing,
+    editName,
+    editDesc,
+    saving,
+    onEdit,
+    onSaveEdit,
+    onCancelEdit,
+    onEditName,
+    onEditDesc,
+    onToggleActive,
+    onDelete,
+    emptyMessage,
 }: HabitListProps) {
     if (habits.length === 0 && emptyMessage) {
         return (
@@ -193,7 +224,10 @@ function HabitList({
     return (
         <div className="flex flex-col gap-2">
             {habits.map((habit) => (
-                <div key={habit._id} className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <div
+                    key={habit._id}
+                    className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm"
+                >
                     {editing === habit._id ? (
                         <div className="flex flex-col gap-3">
                             <Input
@@ -207,7 +241,11 @@ function HabitList({
                                 onChange={(e) => onEditDesc(e.target.value)}
                             />
                             <div className="flex gap-2">
-                                <Button size="sm" onClick={() => onSaveEdit(habit._id)} disabled={saving || !editName.trim()}>
+                                <Button
+                                    size="sm"
+                                    onClick={() => onSaveEdit(habit._id)}
+                                    disabled={saving || !editName.trim()}
+                                >
                                     Save
                                 </Button>
                                 <Button size="sm" variant="ghost" onClick={onCancelEdit}>
@@ -220,7 +258,9 @@ function HabitList({
                             <div className="min-w-0 flex-1">
                                 <p className="font-semibold text-neutral-900">{habit.name}</p>
                                 {habit.description && (
-                                    <p className="mt-0.5 text-sm text-neutral-500">{habit.description}</p>
+                                    <p className="mt-0.5 text-sm text-neutral-500">
+                                        {habit.description}
+                                    </p>
                                 )}
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
@@ -237,14 +277,20 @@ function HabitList({
                                     title={habit.active ? 'Archive' : 'Restore'}
                                     className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                 >
-                                    <i className={`fa-solid ${habit.active ? 'fa-box-archive' : 'fa-arrow-rotate-left'} text-xs`} aria-hidden="true" />
+                                    <i
+                                        className={`fa-solid ${habit.active ? 'fa-box-archive' : 'fa-arrow-rotate-left'} text-xs`}
+                                        aria-hidden="true"
+                                    />
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => onDelete(habit._id)}
                                     className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
                                 >
-                                    <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                    <i
+                                        className="fa-solid fa-trash-can text-xs"
+                                        aria-hidden="true"
+                                    />
                                 </button>
                             </div>
                         </div>

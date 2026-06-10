@@ -1,8 +1,20 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-    MONTHS, WEEKDAYS, PERIODS, daysInMonth, dateKey, eventCoversSlot, isPartPast, todayKey,
-    addDays, addMonths, getWeekStart, formatMonthYear, formatWeekRange, parseDateKey,
+    MONTHS,
+    WEEKDAYS,
+    PERIODS,
+    daysInMonth,
+    dateKey,
+    eventCoversSlot,
+    isPartPast,
+    todayKey,
+    addDays,
+    addMonths,
+    getWeekStart,
+    formatMonthYear,
+    formatWeekRange,
+    parseDateKey,
 } from '../lib/calendar'
 import { listEvents, updateEvent, deleteEvent, type EventInput } from '../services/events'
 import { listStatuses } from '../services/dayStatus'
@@ -78,15 +90,22 @@ export default function Calendar() {
     // Total budget needed for events in the visible range. Recurring events are
     // already expanded into per-occurrence instances, so each counts once.
     const budgetTotal = events.reduce((sum, e) => sum + (e.budget ?? 0), 0)
-    const budgetPeriod = view === 'Week' ? 'this week' : view === 'Month' ? 'this month' : 'this year'
+    const budgetPeriod =
+        view === 'Week' ? 'this week' : view === 'Month' ? 'this month' : 'this year'
 
     // Totals are a Year-view-only feature gated behind a user setting.
     const totalsOn = !!user?.settings?.showTotals && view === 'Year'
 
     const reload = useCallback(() => {
         Promise.all([listEvents(from, to), listStatuses(from, to)])
-            .then(([evts, sts]) => { setEvents(evts); setStatuses(sts) })
-            .catch(() => { setEvents([]); setStatuses([]) })
+            .then(([evts, sts]) => {
+                setEvents(evts)
+                setStatuses(sts)
+            })
+            .catch(() => {
+                setEvents([])
+                setStatuses([])
+            })
 
         if (totalsOn) {
             Promise.all([listRows(), listValues(from, to)])
@@ -94,14 +113,19 @@ export default function Calendar() {
                     setRows(rs)
                     setValues(Object.fromEntries(vs.map((v) => [`${v.row}:${v.date}`, v.value])))
                 })
-                .catch(() => { setRows([]); setValues({}) })
+                .catch(() => {
+                    setRows([])
+                    setValues({})
+                })
         } else {
             setRows([])
             setValues({})
         }
     }, [from, to, totalsOn])
 
-    useEffect(() => { reload() }, [reload])
+    useEffect(() => {
+        reload()
+    }, [reload])
 
     // ── Totals handlers ──
     async function handleSetValue(rowId: string, date: string, value: number | null) {
@@ -149,7 +173,8 @@ export default function Calendar() {
             setEditorOpen(false)
             setEditingEvent(null)
         } catch (err: unknown) {
-            if ((err as { response?: { status?: number } })?.response?.status === 409) setConflict(true)
+            if ((err as { response?: { status?: number } })?.response?.status === 409)
+                setConflict(true)
         } finally {
             setSaving(false)
         }
@@ -163,7 +188,9 @@ export default function Calendar() {
             reload()
             setEditorOpen(false)
             setEditingEvent(null)
-        } finally { setSaving(false) }
+        } finally {
+            setSaving(false)
+        }
     }
 
     function openEdit(event: Event) {
@@ -179,14 +206,16 @@ export default function Calendar() {
         statuses,
         today,
         onOpenDay: (date: string) => nav(`/day/${date}`),
-        onOpenPart: (date: string, part: Part) => nav(`/day/${date}`, { state: { openPart: part } }),
+        onOpenPart: (date: string, part: Part) =>
+            nav(`/day/${date}`, { state: { openPart: part } }),
         onEventClick: (event: Event) => setDetailEvent(event),
         onPickEvents: (evts: Event[]) => setPickerEvents(evts),
     }
 
     // Year view: hide past months
     const yearNum = parseInt(focusDate.slice(0, 4))
-    const firstMonth = yearNum > today.getFullYear() ? 0 : yearNum === today.getFullYear() ? today.getMonth() : 12
+    const firstMonth =
+        yearNum > today.getFullYear() ? 0 : yearNum === today.getFullYear() ? today.getMonth() : 12
     const visibleMonths = MONTHS.map((_, m) => m).filter((m) => m >= firstMonth)
 
     return (
@@ -232,31 +261,41 @@ export default function Calendar() {
                                 title={`Budget needed for events ${budgetPeriod}`}
                                 className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700"
                             >
-                                <i className="fa-solid fa-sterling-sign text-xs" aria-hidden="true" />
-                                {budgetTotal.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                <span className="font-medium text-emerald-600/70">event budget</span>
+                                <i
+                                    className="fa-solid fa-sterling-sign text-xs"
+                                    aria-hidden="true"
+                                />
+                                {budgetTotal.toLocaleString('en-GB', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                })}
+                                <span className="font-medium text-emerald-600/70">
+                                    event budget
+                                </span>
                             </span>
                         )}
-                        <Tabs tabs={VIEWS} value={view} onChange={(v) => setView(v as CalendarView)} />
+                        <Tabs
+                            tabs={VIEWS}
+                            value={view}
+                            onChange={(v) => setView(v as CalendarView)}
+                        />
                     </div>
                 </div>
             </div>
 
             {/* Views */}
             <div className="p-4 sm:p-6">
-                {view === 'Week' && (
-                    <WeekView {...sharedProps} />
-                )}
+                {view === 'Week' && <WeekView {...sharedProps} />}
 
-                {view === 'Month' && (
-                    <MonthView {...sharedProps} />
-                )}
+                {view === 'Month' && <MonthView {...sharedProps} />}
 
                 {view === 'Year' && (
                     <div className="flex flex-col gap-6">
                         {visibleMonths.length === 0 ? (
                             <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-10 text-center">
-                                <p className="text-sm text-neutral-500">No upcoming months in {yearNum}.</p>
+                                <p className="text-sm text-neutral-500">
+                                    No upcoming months in {yearNum}.
+                                </p>
                             </div>
                         ) : (
                             visibleMonths.map((month) => (
@@ -275,7 +314,9 @@ export default function Calendar() {
                                     onRenameRow={handleRenameRow}
                                     onDeleteRow={handleDeleteRow}
                                     onOpenDay={(date) => nav(`/day/${date}`)}
-                                    onOpenPart={(date, part) => nav(`/day/${date}`, { state: { openPart: part } })}
+                                    onOpenPart={(date, part) =>
+                                        nav(`/day/${date}`, { state: { openPart: part } })
+                                    }
                                     onEventClick={(event) => setDetailEvent(event)}
                                     onPickEvents={(evts) => setPickerEvents(evts)}
                                 />
@@ -293,15 +334,26 @@ export default function Calendar() {
             <EventPickerModal
                 events={pickerEvents}
                 onClose={() => setPickerEvents(null)}
-                onSelect={(event) => { setPickerEvents(null); setDetailEvent(event) }}
+                onSelect={(event) => {
+                    setPickerEvents(null)
+                    setDetailEvent(event)
+                }}
             />
             <EventEditor
                 open={editorOpen}
                 event={editingEvent}
-                defaultSlot={editingEvent ? { date: editingEvent.startDate, part: editingEvent.startPart } : null}
+                defaultSlot={
+                    editingEvent
+                        ? { date: editingEvent.startDate, part: editingEvent.startPart }
+                        : null
+                }
                 saving={saving}
                 conflict={conflict}
-                onClose={() => { setEditorOpen(false); setEditingEvent(null); setConflict(false) }}
+                onClose={() => {
+                    setEditorOpen(false)
+                    setEditingEvent(null)
+                    setConflict(false)
+                }}
                 onSave={handleSave}
                 onDelete={handleDelete}
             />
@@ -331,9 +383,22 @@ interface MonthBlockProps {
 }
 
 function MonthBlock({
-    year, month, today, events, statuses,
-    totalsOn, rows, values, onSetValue, onAddRow, onRenameRow, onDeleteRow,
-    onOpenDay, onOpenPart, onEventClick, onPickEvents,
+    year,
+    month,
+    today,
+    events,
+    statuses,
+    totalsOn,
+    rows,
+    values,
+    onSetValue,
+    onAddRow,
+    onRenameRow,
+    onDeleteRow,
+    onOpenDay,
+    onOpenPart,
+    onEventClick,
+    onPickEvents,
 }: MonthBlockProps) {
     const tk = todayKey()
     const total = daysInMonth(year, month)
@@ -362,7 +427,10 @@ function MonthBlock({
                         className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700"
                     >
                         <i className="fa-solid fa-sterling-sign text-xs" aria-hidden="true" />
-                        {monthBudget.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {monthBudget.toLocaleString('en-GB', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                        })}
                         <span className="font-medium text-emerald-600/70">event budget</span>
                     </span>
                 )}
@@ -379,17 +447,33 @@ function MonthBlock({
                                 const weekend = weekday === 0 || weekday === 6
                                 const todayCol = isToday(day)
                                 return (
-                                    <th key={day} className={['w-12 px-1 py-2 text-center', weekend ? 'bg-neutral-100' : '', todayCol ? 'border-r border-neutral-400' : ''].join(' ')}>
+                                    <th
+                                        key={day}
+                                        className={[
+                                            'w-12 px-1 py-2 text-center',
+                                            weekend ? 'bg-neutral-100' : '',
+                                            todayCol ? 'border-r border-neutral-400' : '',
+                                        ].join(' ')}
+                                    >
                                         <button
                                             type="button"
                                             onClick={() => onOpenDay(dateKey(year, month, day))}
                                             className={[
                                                 'mx-auto flex h-9 w-9 flex-col items-center justify-center rounded-lg transition-colors',
-                                                todayCol ? 'bg-neutral-950 text-white hover:bg-neutral-800' : 'text-neutral-700 hover:bg-neutral-100',
+                                                todayCol
+                                                    ? 'bg-neutral-950 text-white hover:bg-neutral-800'
+                                                    : 'text-neutral-700 hover:bg-neutral-100',
                                             ].join(' ')}
                                         >
-                                            <span className="text-sm font-semibold leading-none tabular-nums">{day}</span>
-                                            <span className={['mt-0.5 text-[10px] leading-none', todayCol ? 'text-white/70' : 'text-neutral-400'].join(' ')}>
+                                            <span className="text-sm font-semibold leading-none tabular-nums">
+                                                {day}
+                                            </span>
+                                            <span
+                                                className={[
+                                                    'mt-0.5 text-[10px] leading-none',
+                                                    todayCol ? 'text-white/70' : 'text-neutral-400',
+                                                ].join(' ')}
+                                            >
                                                 {WEEKDAYS[weekday]}
                                             </span>
                                         </button>
@@ -406,9 +490,15 @@ function MonthBlock({
                     <tbody>
                         {PERIODS.map((period) => (
                             <tr key={period.key} className="border-b border-neutral-100">
-                                <th scope="row" className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle">
+                                <th
+                                    scope="row"
+                                    className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
+                                >
                                     <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
-                                        <i className={`${period.icon} w-4 text-center text-neutral-400`} aria-hidden="true" />
+                                        <i
+                                            className={`${period.icon} w-4 text-center text-neutral-400`}
+                                            aria-hidden="true"
+                                        />
                                         {period.label}
                                     </span>
                                 </th>
@@ -416,15 +506,23 @@ function MonthBlock({
                                     const weekday = new Date(year, month, day).getDay()
                                     const weekend = weekday === 0 || weekday === 6
                                     const key = dateKey(year, month, day)
-                                    const slotEvents = events.filter((e) => eventCoversSlot(e, key, period.key))
+                                    const slotEvents = events.filter((e) =>
+                                        eventCoversSlot(e, key, period.key)
+                                    )
                                     const past = isPartPast(key, period.key, today)
                                     return (
                                         <td
                                             key={day}
                                             className={[
                                                 'h-12 p-0.5 align-top',
-                                                isToday(day) ? 'border-r border-neutral-400' : 'border-l border-neutral-100',
-                                                past ? 'bg-red-100/70' : weekend ? 'bg-neutral-100/60' : '',
+                                                isToday(day)
+                                                    ? 'border-r border-neutral-400'
+                                                    : 'border-l border-neutral-100',
+                                                past
+                                                    ? 'bg-red-100/70'
+                                                    : weekend
+                                                      ? 'bg-neutral-100/60'
+                                                      : '',
                                             ].join(' ')}
                                         >
                                             <EventStack
@@ -437,15 +535,23 @@ function MonthBlock({
                                         </td>
                                     )
                                 })}
-                                {totalsOn && <td className="border-l border-neutral-200 bg-neutral-50/50" />}
+                                {totalsOn && (
+                                    <td className="border-l border-neutral-200 bg-neutral-50/50" />
+                                )}
                             </tr>
                         ))}
 
                         {/* Other row */}
                         <tr className="border-t border-neutral-200">
-                            <th scope="row" className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle">
+                            <th
+                                scope="row"
+                                className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
+                            >
                                 <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
-                                    <i className="fa-solid fa-ellipsis w-4 text-center text-neutral-400" aria-hidden="true" />
+                                    <i
+                                        className="fa-solid fa-ellipsis w-4 text-center text-neutral-400"
+                                        aria-hidden="true"
+                                    />
                                     Other
                                 </span>
                             </th>
@@ -453,10 +559,24 @@ function MonthBlock({
                                 const weekday = new Date(year, month, day).getDay()
                                 const weekend = weekday === 0 || weekday === 6
                                 const key = dateKey(year, month, day)
-                                const slotEvents = events.filter((e) => e.startPart === 'na' && key >= e.startDate && key <= e.endDate)
+                                const slotEvents = events.filter(
+                                    (e) =>
+                                        e.startPart === 'na' &&
+                                        key >= e.startDate &&
+                                        key <= e.endDate
+                                )
                                 const otherPast = key < tk
                                 return (
-                                    <td key={day} className={['h-12 p-0.5 align-top', isToday(day) ? 'border-r border-neutral-400' : 'border-l border-neutral-100', weekend ? 'bg-neutral-100/60' : ''].join(' ')}>
+                                    <td
+                                        key={day}
+                                        className={[
+                                            'h-12 p-0.5 align-top',
+                                            isToday(day)
+                                                ? 'border-r border-neutral-400'
+                                                : 'border-l border-neutral-100',
+                                            weekend ? 'bg-neutral-100/60' : '',
+                                        ].join(' ')}
+                                    >
                                         <EventStack
                                             events={slotEvents}
                                             disabled={otherPast}
@@ -467,14 +587,22 @@ function MonthBlock({
                                     </td>
                                 )
                             })}
-                            {totalsOn && <td className="border-l border-neutral-200 bg-neutral-50/50" />}
+                            {totalsOn && (
+                                <td className="border-l border-neutral-200 bg-neutral-50/50" />
+                            )}
                         </tr>
 
                         {/* Leave row */}
                         <tr className="border-t border-neutral-200">
-                            <th scope="row" className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle">
+                            <th
+                                scope="row"
+                                className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
+                            >
                                 <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
-                                    <i className="fa-solid fa-umbrella-beach w-4 text-center text-neutral-400" aria-hidden="true" />
+                                    <i
+                                        className="fa-solid fa-umbrella-beach w-4 text-center text-neutral-400"
+                                        aria-hidden="true"
+                                    />
                                     Leave
                                 </span>
                             </th>
@@ -482,10 +610,23 @@ function MonthBlock({
                                 const weekday = new Date(year, month, day).getDay()
                                 const weekend = weekday === 0 || weekday === 6
                                 const key = dateKey(year, month, day)
-                                const status = statuses.find((s) => s.startDate <= key && s.endDate >= key) ?? null
-                                const colors = status ? DAY_STATUS_OPTIONS.find((o) => o.value === status.status) : null
+                                const status =
+                                    statuses.find((s) => s.startDate <= key && s.endDate >= key) ??
+                                    null
+                                const colors = status
+                                    ? DAY_STATUS_OPTIONS.find((o) => o.value === status.status)
+                                    : null
                                 return (
-                                    <td key={day} className={['h-12 p-0.5 align-top', isToday(day) ? 'border-r border-neutral-400' : 'border-l border-neutral-100', weekend ? 'bg-neutral-100/60' : ''].join(' ')}>
+                                    <td
+                                        key={day}
+                                        className={[
+                                            'h-12 p-0.5 align-top',
+                                            isToday(day)
+                                                ? 'border-r border-neutral-400'
+                                                : 'border-l border-neutral-100',
+                                            weekend ? 'bg-neutral-100/60' : '',
+                                        ].join(' ')}
+                                    >
                                         {status && colors ? (
                                             <button
                                                 type="button"
@@ -493,7 +634,9 @@ function MonthBlock({
                                                 title={colors.label}
                                                 className={`flex h-full w-full items-center overflow-hidden rounded-lg px-1.5 text-left transition-colors ${colors.bg} ${colors.hover} ${colors.text}`}
                                             >
-                                                <span className="truncate text-[11px] font-semibold leading-tight">{colors.label}</span>
+                                                <span className="truncate text-[11px] font-semibold leading-tight">
+                                                    {colors.label}
+                                                </span>
                                             </button>
                                         ) : (
                                             <button
@@ -507,33 +650,44 @@ function MonthBlock({
                                     </td>
                                 )
                             })}
-                            {totalsOn && <td className="border-l border-neutral-200 bg-neutral-50/50" />}
+                            {totalsOn && (
+                                <td className="border-l border-neutral-200 bg-neutral-50/50" />
+                            )}
                         </tr>
 
                         {/* Totals rows */}
-                        {totalsOn && rows.map((row, i) => {
-                            const rowTotal = dayNums.reduce((sum, day) => sum + (values[`${row._id}:${dateKey(year, month, day)}`] ?? 0), 0)
-                            return (
-                                <TotalRowCells
-                                    key={row._id}
-                                    row={row}
-                                    first={i === 0}
-                                    year={year}
-                                    month={month}
-                                    dayNums={dayNums}
-                                    values={values}
-                                    rowTotal={rowTotal}
-                                    onSetValue={onSetValue}
-                                    onRename={onRenameRow}
-                                    onDelete={onDeleteRow}
-                                />
-                            )
-                        })}
+                        {totalsOn &&
+                            rows.map((row, i) => {
+                                const rowTotal = dayNums.reduce(
+                                    (sum, day) =>
+                                        sum +
+                                        (values[`${row._id}:${dateKey(year, month, day)}`] ?? 0),
+                                    0
+                                )
+                                return (
+                                    <TotalRowCells
+                                        key={row._id}
+                                        row={row}
+                                        first={i === 0}
+                                        year={year}
+                                        month={month}
+                                        dayNums={dayNums}
+                                        values={values}
+                                        rowTotal={rowTotal}
+                                        onSetValue={onSetValue}
+                                        onRename={onRenameRow}
+                                        onDelete={onDeleteRow}
+                                    />
+                                )
+                            })}
 
                         {/* Add-row */}
                         {totalsOn && (
                             <tr className="border-t border-neutral-100">
-                                <td colSpan={colSpan} className="sticky left-0 bg-neutral-50 px-3 py-2">
+                                <td
+                                    colSpan={colSpan}
+                                    className="sticky left-0 bg-neutral-50 px-3 py-2"
+                                >
                                     <AddTotalRow onAdd={onAddRow} />
                                 </td>
                             </tr>
@@ -544,7 +698,6 @@ function MonthBlock({
         </section>
     )
 }
-
 
 // ─── Totals ───────────────────────────────────────────────────────────────────
 
@@ -565,10 +718,23 @@ interface TotalRowCellsProps {
     onDelete: (id: string) => void
 }
 
-function TotalRowCells({ row, first, year, month, dayNums, values, rowTotal, onSetValue, onRename, onDelete }: TotalRowCellsProps) {
+function TotalRowCells({
+    row,
+    first,
+    year,
+    month,
+    dayNums,
+    values,
+    rowTotal,
+    onSetValue,
+    onRename,
+    onDelete,
+}: TotalRowCellsProps) {
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(row.name)
-    useEffect(() => { setName(row.name) }, [row.name])
+    useEffect(() => {
+        setName(row.name)
+    }, [row.name])
     const tk = todayKey()
     const isToday = (day: number) => dateKey(year, month, day) === tk
 
@@ -581,7 +747,10 @@ function TotalRowCells({ row, first, year, month, dayNums, values, rowTotal, onS
 
     return (
         <tr className={first ? 'border-t border-neutral-200' : 'border-t border-neutral-100'}>
-            <th scope="row" className="sticky left-0 z-10 bg-neutral-50 px-3 py-1 text-left align-middle">
+            <th
+                scope="row"
+                className="sticky left-0 z-10 bg-neutral-50 px-3 py-1 text-left align-middle"
+            >
                 {editing ? (
                     <input
                         autoFocus
@@ -590,7 +759,10 @@ function TotalRowCells({ row, first, year, month, dayNums, values, rowTotal, onS
                         onBlur={commitName}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                            if (e.key === 'Escape') { setName(row.name); setEditing(false) }
+                            if (e.key === 'Escape') {
+                                setName(row.name)
+                                setEditing(false)
+                            }
                         }}
                         className="w-full rounded-md border border-neutral-200 px-2 py-1 text-sm outline-none focus:border-neutral-400"
                     />
@@ -620,7 +792,16 @@ function TotalRowCells({ row, first, year, month, dayNums, values, rowTotal, onS
                 const weekday = new Date(year, month, day).getDay()
                 const weekend = weekday === 0 || weekday === 6
                 return (
-                    <td key={day} className={[isToday(day) ? 'border-r border-neutral-400' : 'border-l border-neutral-100', 'p-0.5 align-middle', weekend ? 'bg-neutral-100/70' : 'bg-neutral-50'].join(' ')}>
+                    <td
+                        key={day}
+                        className={[
+                            isToday(day)
+                                ? 'border-r border-neutral-400'
+                                : 'border-l border-neutral-100',
+                            'p-0.5 align-middle',
+                            weekend ? 'bg-neutral-100/70' : 'bg-neutral-50',
+                        ].join(' ')}
+                    >
                         <TotalCell
                             value={values[`${row._id}:${key}`]}
                             onCommit={(v) => onSetValue(row._id, key, v)}
@@ -635,9 +816,17 @@ function TotalRowCells({ row, first, year, month, dayNums, values, rowTotal, onS
     )
 }
 
-function TotalCell({ value, onCommit }: { value: number | undefined; onCommit: (v: number | null) => void }) {
+function TotalCell({
+    value,
+    onCommit,
+}: {
+    value: number | undefined
+    onCommit: (v: number | null) => void
+}) {
     const [text, setText] = useState(value === undefined ? '' : String(value))
-    useEffect(() => { setText(value === undefined ? '' : String(value)) }, [value])
+    useEffect(() => {
+        setText(value === undefined ? '' : String(value))
+    }, [value])
 
     function commit() {
         const trimmed = text.trim()
@@ -646,7 +835,10 @@ function TotalCell({ value, onCommit }: { value: number | undefined; onCommit: (
             return
         }
         const n = Number(trimmed)
-        if (Number.isNaN(n)) { setText(value === undefined ? '' : String(value)); return }
+        if (Number.isNaN(n)) {
+            setText(value === undefined ? '' : String(value))
+            return
+        }
         if (n !== value) onCommit(n)
     }
 
@@ -658,7 +850,9 @@ function TotalCell({ value, onCommit }: { value: number | undefined; onCommit: (
             value={text}
             onChange={(e) => setText(e.target.value)}
             onBlur={commit}
-            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+            }}
             className="h-9 w-full rounded-md border border-transparent bg-transparent px-1 text-center text-xs tabular-nums text-neutral-800 outline-none hover:border-neutral-200 focus:border-neutral-400 focus:bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         />
     )
@@ -678,7 +872,9 @@ function AddTotalRow({ onAdd }: { onAdd: (name: string) => void }) {
             <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') submit()
+                }}
                 placeholder="Add a totals row…"
                 className="w-56 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400"
             />

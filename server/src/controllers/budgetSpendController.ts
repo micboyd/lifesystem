@@ -31,7 +31,10 @@ export async function setBudgetSpend(req: AuthRequest, res: Response) {
     }
 
     const row = await FinanceRow.findOne({ _id: rowId, user: req.userId })
-    if (!row) { res.status(404).json({ message: 'Row not found' }); return }
+    if (!row) {
+        res.status(404).json({ message: 'Row not found' })
+        return
+    }
 
     const raw = req.body.amount
     const num = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN

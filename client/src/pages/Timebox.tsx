@@ -7,9 +7,21 @@ import Button from '../components/Button'
 import Spinner from '../components/Spinner'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import TimeboxEditor from '../components/timebox/TimeboxEditor'
-import { listTimeboxes, createTimebox, updateTimebox, deleteTimebox, type TimeboxInput } from '../services/timeboxes'
+import {
+    listTimeboxes,
+    createTimebox,
+    updateTimebox,
+    deleteTimebox,
+    type TimeboxInput,
+} from '../services/timeboxes'
 import { todayKey, formatDateLong } from '../lib/calendar'
-import { timeToMinutes, minutesToTime, formatDuration, DEFAULT_WAKE, DEFAULT_BED } from '../lib/time'
+import {
+    timeToMinutes,
+    minutesToTime,
+    formatDuration,
+    DEFAULT_WAKE,
+    DEFAULT_BED,
+} from '../lib/time'
 import { TIMEBOX_CATEGORY_COLORS, TIMEBOX_DEFAULT_COLORS } from '../types'
 import type { Timebox } from '../types'
 
@@ -33,7 +45,10 @@ export default function Timebox() {
     const s = user?.settings ?? {}
     let wake = s.wakeTime ?? DEFAULT_WAKE
     let bed = s.bedTime ?? DEFAULT_BED
-    if (timeToMinutes(bed) <= timeToMinutes(wake)) { wake = DEFAULT_WAKE; bed = DEFAULT_BED }
+    if (timeToMinutes(bed) <= timeToMinutes(wake)) {
+        wake = DEFAULT_WAKE
+        bed = DEFAULT_BED
+    }
     const wakeMin = timeToMinutes(wake)
     const bedMin = timeToMinutes(bed)
     const totalHeight = (bedMin - wakeMin) * PX_PER_MIN
@@ -55,15 +70,19 @@ export default function Timebox() {
         return () => clearInterval(id)
     }, [])
     const showNow = date === todayKey() && nowMin >= wakeMin && nowMin <= bedMin
-    const nowTop  = (nowMin - wakeMin) * PX_PER_MIN
+    const nowTop = (nowMin - wakeMin) * PX_PER_MIN
 
     useEffect(() => {
         let active = true
         listTimeboxes(date, date)
             .then((list) => active && setItems(list))
             .catch(() => active && setItems([]))
-            .finally(() => { if (active) setLoadedDate(date) })
-        return () => { active = false }
+            .finally(() => {
+                if (active) setLoadedDate(date)
+            })
+        return () => {
+            active = false
+        }
     }, [date])
 
     const hourLines = useMemo(() => {
@@ -78,7 +97,10 @@ export default function Timebox() {
 
     function openNew(startMin: number) {
         const start = Math.max(wakeMin, Math.min(bedMin - 30, Math.round(startMin / 15) * 15))
-        setDefaults({ startTime: minutesToTime(start), endTime: minutesToTime(Math.min(bedMin, start + 60)) })
+        setDefaults({
+            startTime: minutesToTime(start),
+            endTime: minutesToTime(Math.min(bedMin, start + 60)),
+        })
         setEditing(null)
         setConflict(false)
         setEditorOpen(true)
@@ -106,7 +128,8 @@ export default function Timebox() {
             setEditorOpen(false)
             setEditing(null)
         } catch (err: unknown) {
-            if ((err as { response?: { status?: number } })?.response?.status === 409) setConflict(true)
+            if ((err as { response?: { status?: number } })?.response?.status === 409)
+                setConflict(true)
         } finally {
             setSaving(false)
         }
@@ -125,7 +148,10 @@ export default function Timebox() {
         }
     }
 
-    const plannedMin = items.reduce((sum, i) => sum + (timeToMinutes(i.endTime) - timeToMinutes(i.startTime)), 0)
+    const plannedMin = items.reduce(
+        (sum, i) => sum + (timeToMinutes(i.endTime) - timeToMinutes(i.startTime)),
+        0
+    )
     const dayMin = bedMin - wakeMin
 
     return (
@@ -133,7 +159,9 @@ export default function Timebox() {
             <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Timebox</h1>
-                    <p className="mt-1 text-sm text-neutral-500">{formatDateLong(date)} · plan your day</p>
+                    <p className="mt-1 text-sm text-neutral-500">
+                        {formatDateLong(date)} · plan your day
+                    </p>
                 </div>
                 <DashboardDateNav date={date} onChange={setDate} />
             </header>
@@ -146,7 +174,10 @@ export default function Timebox() {
                         {wake} – {bed}
                     </Badge>
                     {workStart && workEnd && (
-                        <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+                        <Badge
+                            variant="outline"
+                            className="border-blue-200 bg-blue-50 text-blue-700"
+                        >
                             <i className="fa-solid fa-briefcase text-blue-400" aria-hidden="true" />
                             Work {workStart} – {workEnd}
                         </Badge>
@@ -166,13 +197,18 @@ export default function Timebox() {
                         </Badge>
                     )}
                 </div>
-                <Button icon="fa-solid fa-plus" onClick={() => openNew(workStart ? timeToMinutes(workStart) : wakeMin + 120)}>
+                <Button
+                    icon="fa-solid fa-plus"
+                    onClick={() => openNew(workStart ? timeToMinutes(workStart) : wakeMin + 120)}
+                >
                     Add block
                 </Button>
             </div>
 
             {loading ? (
-                <div className="grid place-items-center py-20"><Spinner /></div>
+                <div className="grid place-items-center py-20">
+                    <Spinner />
+                </div>
             ) : (
                 <div>
                     <div className="relative flex">
@@ -196,21 +232,32 @@ export default function Timebox() {
                             style={{ height: totalHeight }}
                         >
                             {/* Working hours band */}
-                            {workStart && workEnd && timeToMinutes(workEnd) > timeToMinutes(workStart) && (
-                                <div
-                                    className="absolute inset-x-0 bg-blue-50"
-                                    style={{
-                                        top: (timeToMinutes(workStart) - wakeMin) * PX_PER_MIN,
-                                        height: (timeToMinutes(workEnd) - timeToMinutes(workStart)) * PX_PER_MIN,
-                                    }}
-                                >
-                                    <span className="absolute right-2 top-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">Working hours</span>
-                                </div>
-                            )}
+                            {workStart &&
+                                workEnd &&
+                                timeToMinutes(workEnd) > timeToMinutes(workStart) && (
+                                    <div
+                                        className="absolute inset-x-0 bg-blue-50"
+                                        style={{
+                                            top: (timeToMinutes(workStart) - wakeMin) * PX_PER_MIN,
+                                            height:
+                                                (timeToMinutes(workEnd) -
+                                                    timeToMinutes(workStart)) *
+                                                PX_PER_MIN,
+                                        }}
+                                    >
+                                        <span className="absolute right-2 top-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
+                                            Working hours
+                                        </span>
+                                    </div>
+                                )}
 
                             {/* Hour gridlines */}
                             {hourLines.map((m) => (
-                                <div key={m} className="absolute inset-x-0 border-t border-neutral-100" style={{ top: (m - wakeMin) * PX_PER_MIN }} />
+                                <div
+                                    key={m}
+                                    className="absolute inset-x-0 border-t border-neutral-100"
+                                    style={{ top: (m - wakeMin) * PX_PER_MIN }}
+                                />
                             ))}
 
                             {/* Now indicator */}
@@ -226,22 +273,41 @@ export default function Timebox() {
 
                             {/* Items */}
                             {items.map((item) => {
-                                const top    = (timeToMinutes(item.startTime) - wakeMin) * PX_PER_MIN
-                                const height = Math.max(22, (timeToMinutes(item.endTime) - timeToMinutes(item.startTime)) * PX_PER_MIN)
-                                const dur    = formatDuration(timeToMinutes(item.endTime) - timeToMinutes(item.startTime))
+                                const top = (timeToMinutes(item.startTime) - wakeMin) * PX_PER_MIN
+                                const height = Math.max(
+                                    22,
+                                    (timeToMinutes(item.endTime) - timeToMinutes(item.startTime)) *
+                                        PX_PER_MIN
+                                )
+                                const dur = formatDuration(
+                                    timeToMinutes(item.endTime) - timeToMinutes(item.startTime)
+                                )
                                 const compact = height < 44
-                                const c = item.category ? TIMEBOX_CATEGORY_COLORS[item.category] : TIMEBOX_DEFAULT_COLORS
+                                const c = item.category
+                                    ? TIMEBOX_CATEGORY_COLORS[item.category]
+                                    : TIMEBOX_DEFAULT_COLORS
                                 return (
                                     <button
                                         key={item._id}
                                         type="button"
-                                        onClick={(e) => { e.stopPropagation(); openEdit(item) }}
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            openEdit(item)
+                                        }}
                                         className={`absolute left-1.5 right-1.5 flex flex-col items-center justify-center overflow-hidden rounded-lg border px-2 py-1 text-center transition-opacity hover:opacity-75 ${c.bg} ${c.border}`}
                                         style={{ top, height }}
                                     >
-                                        <div className={`w-full ${compact ? 'flex items-center justify-center gap-2' : ''}`}>
-                                            <span className={`block truncate text-xs font-semibold leading-tight ${c.text}`}>{item.title}</span>
-                                            <span className={`${compact ? '' : 'mt-0.5 block'} truncate text-[10px] font-medium ${c.sub}`}>
+                                        <div
+                                            className={`w-full ${compact ? 'flex items-center justify-center gap-2' : ''}`}
+                                        >
+                                            <span
+                                                className={`block truncate text-xs font-semibold leading-tight ${c.text}`}
+                                            >
+                                                {item.title}
+                                            </span>
+                                            <span
+                                                className={`${compact ? '' : 'mt-0.5 block'} truncate text-[10px] font-medium ${c.sub}`}
+                                            >
                                                 {item.startTime} – {item.endTime} · {dur}
                                             </span>
                                         </div>
@@ -252,7 +318,9 @@ export default function Timebox() {
                     </div>
 
                     {items.length === 0 && (
-                        <p className="mt-3 text-center text-xs text-neutral-300">Click anywhere on the timeline to add a block</p>
+                        <p className="mt-3 text-center text-xs text-neutral-300">
+                            Click anywhere on the timeline to add a block
+                        </p>
                     )}
                 </div>
             )}
@@ -265,7 +333,11 @@ export default function Timebox() {
                 maxTime={bed}
                 saving={saving}
                 conflict={conflict}
-                onClose={() => { setEditorOpen(false); setEditing(null); setConflict(false) }}
+                onClose={() => {
+                    setEditorOpen(false)
+                    setEditing(null)
+                    setConflict(false)
+                }}
                 onSave={handleSave}
                 onDelete={handleDelete}
             />

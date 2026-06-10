@@ -2,10 +2,10 @@
 name: verification-workflow
 description: User tests the running app themselves; don't drive the browser preview to verify
 metadata:
-  type: feedback
+    type: feedback
 ---
 
-The user verifies running behavior themselves and will report back. Do not launch/drive the browser preview (preview_* tools) to manually test features after a change.
+The user verifies running behavior themselves and will report back. Do not launch/drive the browser preview (preview\_\* tools) to manually test features after a change.
 
 **Why:** The user prefers to do interactive testing; agent-driven browser automation in this project was flaky (bfcache, HMR reloads mid-interaction) and wasted effort.
 

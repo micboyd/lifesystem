@@ -11,7 +11,10 @@ export async function createRow(name: string): Promise<TotalRow> {
     return res.data.data
 }
 
-export async function updateRow(id: string, fields: { name?: string; order?: number }): Promise<TotalRow> {
+export async function updateRow(
+    id: string,
+    fields: { name?: string; order?: number }
+): Promise<TotalRow> {
     const res = await api.put<ApiResponse<TotalRow>>(`/totals/${id}`, fields)
     return res.data.data
 }
@@ -26,7 +29,13 @@ export async function listValues(from: string, to: string): Promise<TotalValue[]
 }
 
 /** Upsert a value for a row/day. Pass null to clear it. */
-export async function setValue(rowId: string, date: string, value: number | null): Promise<TotalValue | null> {
-    const res = await api.put<ApiResponse<TotalValue | null>>(`/totals/${rowId}/values/${date}`, { value })
+export async function setValue(
+    rowId: string,
+    date: string,
+    value: number | null
+): Promise<TotalValue | null> {
+    const res = await api.put<ApiResponse<TotalValue | null>>(`/totals/${rowId}/values/${date}`, {
+        value,
+    })
     return res.data.data
 }

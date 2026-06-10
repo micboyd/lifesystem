@@ -17,12 +17,16 @@ export default function Navbar() {
     const [open, setOpen] = useState(false)
 
     // Close drawer on route change
-    useEffect(() => { setOpen(false) }, [pathname])
+    useEffect(() => {
+        setOpen(false)
+    }, [pathname])
 
     // Lock body scroll while drawer is open
     useEffect(() => {
         document.body.style.overflow = open ? 'hidden' : ''
-        return () => { document.body.style.overflow = '' }
+        return () => {
+            document.body.style.overflow = ''
+        }
     }, [open])
 
     return (
@@ -76,7 +80,9 @@ export default function Navbar() {
 
             {/* Mobile drawer */}
             {createPortal(
-                <div className={`fixed inset-0 z-50 lg:hidden ${open ? '' : 'pointer-events-none'}`}>
+                <div
+                    className={`fixed inset-0 z-50 lg:hidden ${open ? '' : 'pointer-events-none'}`}
+                >
                     {/* Backdrop */}
                     <div
                         onClick={() => setOpen(false)}

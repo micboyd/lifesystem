@@ -1,4 +1,6 @@
-import { Routes, Route, Outlet } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Routes, Route, Outlet, useLocation } from 'react-router-dom'
+import { documentTitleForPath } from './lib/pageTitle'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 import Home from './pages/Home'
@@ -28,6 +30,13 @@ function AppLayout() {
 }
 
 export default function App() {
+    const { pathname } = useLocation()
+
+    // Keep the browser tab title in sync with the active route.
+    useEffect(() => {
+        document.title = documentTitleForPath(pathname)
+    }, [pathname])
+
     return (
         <Routes>
             {/* Standalone, full-screen, no chrome. */}

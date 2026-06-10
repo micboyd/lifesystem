@@ -44,7 +44,9 @@ export default function Alert({
             {iconClass && <i className={`${iconClass} mt-0.5 text-sm`} aria-hidden="true" />}
             <div className="min-w-0 flex-1">
                 {title && <p className="text-sm font-semibold tracking-tight">{title}</p>}
-                {children && <div className={`text-sm ${title ? 'mt-0.5 opacity-80' : ''}`}>{children}</div>}
+                {children && (
+                    <div className={`text-sm ${title ? 'mt-0.5 opacity-80' : ''}`}>{children}</div>
+                )}
             </div>
             {onClose && (
                 <button

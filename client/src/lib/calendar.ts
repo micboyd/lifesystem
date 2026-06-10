@@ -1,12 +1,30 @@
 import type { Event, Part } from '../types'
 
 export const MONTHS = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
 ]
 
 export const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-export const WEEKDAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+export const WEEKDAYS_LONG = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+]
 
 export const PERIODS: { key: Part; label: string; icon: string }[] = [
     { key: 'morning', label: 'Morning', icon: 'fa-solid fa-sun' },
@@ -56,7 +74,10 @@ export function eventCoversSlot(event: Event, date: string, part: Part): boolean
     if (event.startPart === 'na') return false
     if (event.allDay) return date >= event.startDate && date <= event.endDate
     const o = slotOrdinal(date, part)
-    return slotOrdinal(event.startDate, event.startPart) <= o && o <= slotOrdinal(event.endDate, event.endPart)
+    return (
+        slotOrdinal(event.startDate, event.startPart) <= o &&
+        o <= slotOrdinal(event.endDate, event.endPart)
+    )
 }
 
 /** True if the event should appear in the all-day row for the given date. */
@@ -76,9 +97,9 @@ export function isPartPast(date: string, part: Part, now: Date): boolean {
     if (date > today) return false
     // Today — check wall-clock time against part start times
     const mins = now.getHours() * 60 + now.getMinutes()
-    if (part === 'morning') return mins >= 12 * 60   // past noon
+    if (part === 'morning') return mins >= 12 * 60 // past noon
     if (part === 'afternoon') return mins >= 18 * 60 // past 6 pm
-    return false                                      // evening: goes red at midnight when the date rolls over to tomorrow
+    return false // evening: goes red at midnight when the date rolls over to tomorrow
 }
 
 /** Add n days to a YYYY-MM-DD string. */

@@ -5,12 +5,28 @@ import { useDataVersion } from '../../context/DataSyncContext'
 import { listHabits, listLogs } from '../../services/habits'
 import { listTasks } from '../../services/tasks'
 import { listTimeboxes } from '../../services/timeboxes'
-import { listGroups, listRows, listEntries, listBudgetSpends } from '../../services/finances'
+import {
+    listGroups,
+    listRows,
+    listEntries,
+    listBudgetSpends,
+    listBudgetExclusions,
+} from '../../services/finances'
 import { computeBudgetDay, monthOf } from '../../lib/budget'
 import { rowVisibleInMonth } from '../../lib/finance'
 import { addDays } from '../../lib/calendar'
+import { formatMoney } from '../../lib/money'
 import { timeToMinutes, formatDuration, DEFAULT_WAKE, DEFAULT_BED } from '../../lib/time'
-import type { HabitDef, HabitLog, Task, Timebox, FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
+import type {
+    HabitDef,
+    HabitLog,
+    Task,
+    Timebox,
+    FinanceGroup,
+    FinanceRow,
+    FinanceEntry,
+    BudgetSpend,
+} from '../../types'
 
 /** How far back to look when computing the habit streak. */
 const STREAK_WINDOW = 30
@@ -25,10 +41,8 @@ interface Insight {
     subVariant?: 'success' | 'danger' | 'neutral'
 }
 
-/** Money with two decimals, e.g. 12.5 → "£12.50". */
-function money(n: number): string {
-    return `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
+/** Money with the sign outside the symbol, e.g. -12.5 → "-£12.50". */
+const money = formatMoney
 
 // ── Per-metric calculations ─────────────────────────────────────────────────────
 
@@ -95,12 +109,19 @@ function budgetInsight(
     rows: FinanceRow[],
     entries: FinanceEntry[],
     spends: BudgetSpend[],
+    excludedDates: Set<string>,
     date: string
 ): Insight {
     const month = monthOf(date)
-    const dailyRows = rows.filter((r) =>
-        r.budgeted && r.budgetType === 'daily' &&
-        rowVisibleInMonth(r, month, groups.find((g) => g._id === r.group))
+    const dailyRows = rows.filter(
+        (r) =>
+            r.budgeted &&
+            r.budgetType === 'daily' &&
+            rowVisibleInMonth(
+                r,
+                month,
+                groups.find((g) => g._id === r.group)
+            )
     )
     const withAmounts = dailyRows.filter((r) => {
         const entry = entries.find((e) => e.row === r._id)
@@ -115,7 +136,7 @@ function budgetInsight(
         (acc, row) => {
             const entry = entries.find((e) => e.row === row._id)
             const rowSpends = spends.filter((s) => s.row === row._id)
-            const day = computeBudgetDay(row, entry, rowSpends, date)
+            const day = computeBudgetDay(row, entry, rowSpends, date, excludedDates)
             return { remaining: acc.remaining + day.remaining, carry: acc.carry + day.carry }
         },
         { remaining: 0, carry: 0 }
@@ -132,7 +153,7 @@ function budgetInsight(
 
     return {
         label: 'Daily allowance left',
-        value: remaining >= 0 ? money(remaining) : `-${money(Math.abs(remaining))}`,
+        value: money(remaining),
         icon: 'fa-solid fa-wallet',
         sub,
         subVariant: roundedCarry >= 0 ? 'success' : 'danger',
@@ -174,19 +195,25 @@ export default function InsightsStrip({ date }: { date: string }) {
             listRows(),
             listEntries(month),
             listBudgetSpends({ month }),
+            listBudgetExclusions(month),
         ])
-            .then(([habits, logs, tasks, boxes, groups, rows, entries, spends]) => {
+            .then(([habits, logs, tasks, boxes, groups, rows, entries, spends, exclusions]) => {
                 if (!active) return
+                const excludedDates = new Set(exclusions.map((d) => d.date))
                 setInsights([
                     habitInsight(habits, logs, date),
                     taskInsight(tasks),
                     timeboxInsight(boxes, wake, bed),
-                    budgetInsight(groups, rows, entries, spends, date),
+                    budgetInsight(groups, rows, entries, spends, excludedDates, date),
                 ])
             })
             .catch(() => active && setInsights(PLACEHOLDERS.map((p) => ({ ...p, value: '—' }))))
-            .finally(() => { if (active) setLoadedKey(key) })
-        return () => { active = false }
+            .finally(() => {
+                if (active) setLoadedKey(key)
+            })
+        return () => {
+            active = false
+        }
         // dataVersion forces a silent refetch when a topic changes elsewhere;
         // loadedKey already matches `key`, so the strip updates in place without
         // flashing placeholders.

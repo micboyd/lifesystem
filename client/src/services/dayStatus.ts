@@ -6,13 +6,30 @@ export async function listStatuses(from: string, to: string): Promise<DayStatus[
     return res.data.data
 }
 
-export async function createStatus(startDate: string, endDate: string, status: DayStatusType): Promise<DayStatus> {
-    const res = await api.post<ApiResponse<DayStatus>>('/day-status', { startDate, endDate, status })
+export async function createStatus(
+    startDate: string,
+    endDate: string,
+    status: DayStatusType
+): Promise<DayStatus> {
+    const res = await api.post<ApiResponse<DayStatus>>('/day-status', {
+        startDate,
+        endDate,
+        status,
+    })
     return res.data.data
 }
 
-export async function updateStatus(id: string, startDate: string, endDate: string, status: DayStatusType): Promise<DayStatus> {
-    const res = await api.put<ApiResponse<DayStatus>>(`/day-status/${id}`, { startDate, endDate, status })
+export async function updateStatus(
+    id: string,
+    startDate: string,
+    endDate: string,
+    status: DayStatusType
+): Promise<DayStatus> {
+    const res = await api.put<ApiResponse<DayStatus>>(`/day-status/${id}`, {
+        startDate,
+        endDate,
+        status,
+    })
     return res.data.data
 }
 

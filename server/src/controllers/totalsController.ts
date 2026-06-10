@@ -31,7 +31,8 @@ export async function createRow(req: AuthRequest, res: Response) {
 /** PUT /api/totals/:id — rename or reorder a row. */
 export async function updateRow(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
-    if (typeof req.body.name === 'string' && req.body.name.trim()) fields.name = req.body.name.trim()
+    if (typeof req.body.name === 'string' && req.body.name.trim())
+        fields.name = req.body.name.trim()
     if (typeof req.body.order === 'number') fields.order = req.body.order
 
     const row = await TotalRow.findOneAndUpdate(
@@ -90,7 +91,12 @@ export async function setValue(req: AuthRequest, res: Response) {
     }
 
     const raw = req.body.value
-    const num = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN
+    const num =
+        typeof raw === 'number'
+            ? raw
+            : typeof raw === 'string' && raw.trim() !== ''
+              ? Number(raw)
+              : NaN
 
     // Empty / invalid → clear the value for that day.
     if (raw === null || raw === undefined || raw === '' || Number.isNaN(num)) {

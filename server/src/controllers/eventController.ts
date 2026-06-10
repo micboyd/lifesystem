@@ -2,8 +2,16 @@ import { Response } from 'express'
 import { isValidObjectId } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import Event, {
-    DATE_PATTERN, TIME_PATTERN, PARTS, EVENT_TYPES, RECURRENCE_FREQUENCIES,
-    Part, EventType, RecurrenceFrequency, IEvent, IRecurrence,
+    DATE_PATTERN,
+    TIME_PATTERN,
+    PARTS,
+    EVENT_TYPES,
+    RECURRENCE_FREQUENCIES,
+    Part,
+    EventType,
+    RecurrenceFrequency,
+    IEvent,
+    IRecurrence,
 } from '../models/Event'
 import FinanceRow from '../models/FinanceRow'
 import FinanceEntry from '../models/FinanceEntry'
@@ -21,7 +29,9 @@ function isEventType(value: unknown): value is EventType {
 }
 
 function isFrequency(value: unknown): value is RecurrenceFrequency {
-    return typeof value === 'string' && (RECURRENCE_FREQUENCIES as readonly string[]).includes(value)
+    return (
+        typeof value === 'string' && (RECURRENCE_FREQUENCIES as readonly string[]).includes(value)
+    )
 }
 
 /** Epoch days × 4 slots/day + part index. */
@@ -35,11 +45,21 @@ function addInterval(date: string, frequency: RecurrenceFrequency, n: number): s
     const [y, m, d] = date.split('-').map(Number)
     let dt: Date
     switch (frequency) {
-        case 'daily':     dt = new Date(Date.UTC(y, m - 1, d + n)); break
-        case 'weekly':    dt = new Date(Date.UTC(y, m - 1, d + n * 7)); break
-        case 'biweekly':  dt = new Date(Date.UTC(y, m - 1, d + n * 14)); break
-        case 'monthly':   dt = new Date(Date.UTC(y, m - 1 + n, d)); break
-        case 'yearly':    dt = new Date(Date.UTC(y + n, m - 1, d)); break
+        case 'daily':
+            dt = new Date(Date.UTC(y, m - 1, d + n))
+            break
+        case 'weekly':
+            dt = new Date(Date.UTC(y, m - 1, d + n * 7))
+            break
+        case 'biweekly':
+            dt = new Date(Date.UTC(y, m - 1, d + n * 14))
+            break
+        case 'monthly':
+            dt = new Date(Date.UTC(y, m - 1 + n, d))
+            break
+        case 'yearly':
+            dt = new Date(Date.UTC(y + n, m - 1, d))
+            break
     }
     return dt.toISOString().slice(0, 10)
 }
@@ -52,11 +72,16 @@ function startingN(eventStart: string, frequency: RecurrenceFrequency, from: str
     const diffDays = (Date.parse(from) - Date.parse(eventStart)) / 86_400_000
     if (diffDays <= 0) return 0
     switch (frequency) {
-        case 'daily':    return Math.max(0, Math.floor(diffDays) - 1)
-        case 'weekly':   return Math.max(0, Math.floor(diffDays / 7) - 1)
-        case 'biweekly': return Math.max(0, Math.floor(diffDays / 14) - 1)
-        case 'monthly':  return Math.max(0, Math.floor(diffDays / 30.44) - 1)
-        case 'yearly':   return Math.max(0, Math.floor(diffDays / 365.25) - 1)
+        case 'daily':
+            return Math.max(0, Math.floor(diffDays) - 1)
+        case 'weekly':
+            return Math.max(0, Math.floor(diffDays / 7) - 1)
+        case 'biweekly':
+            return Math.max(0, Math.floor(diffDays / 14) - 1)
+        case 'monthly':
+            return Math.max(0, Math.floor(diffDays / 30.44) - 1)
+        case 'yearly':
+            return Math.max(0, Math.floor(diffDays / 365.25) - 1)
     }
 }
 
@@ -66,7 +91,7 @@ function expandOccurrences(event: IEvent, from: string, to: string) {
     const { frequency, endsOn } = event.recurrence
     const effectiveTo = endsOn && endsOn < to ? endsOn : to
     const base = event.toObject()
-    const results: typeof base[] = []
+    const results: (typeof base)[] = []
     const MAX = 500
 
     let n = startingN(event.startDate, frequency, from)
@@ -104,12 +129,14 @@ interface EventFields {
 function parseBody(body: Record<string, unknown>): EventFields | string {
     const title = typeof body.title === 'string' ? body.title.trim() : ''
     if (!title) return 'title is required'
-    if (!isValidDate(body.startDate) || !isValidDate(body.endDate)) return 'startDate and endDate must be YYYY-MM-DD'
+    if (!isValidDate(body.startDate) || !isValidDate(body.endDate))
+        return 'startDate and endDate must be YYYY-MM-DD'
     if (body.startDate > body.endDate) return 'startDate cannot be after endDate'
 
     const allDay = body.allDay === true
     const eventType: EventType = isEventType(body.eventType) ? body.eventType : 'general'
-    const time = typeof body.time === 'string' && TIME_PATTERN.test(body.time) ? body.time : undefined
+    const time =
+        typeof body.time === 'string' && TIME_PATTERN.test(body.time) ? body.time : undefined
 
     let startPart: Part
     let endPart: Part
@@ -123,7 +150,10 @@ function parseBody(body: Record<string, unknown>): EventFields | string {
         startPart = body.startPart
         endPart = startPart === 'na' ? 'na' : body.endPart
         if (startPart !== 'na') {
-            if (slotOrdinal(body.startDate as string, startPart) > slotOrdinal(body.endDate as string, endPart)) {
+            if (
+                slotOrdinal(body.startDate as string, startPart) >
+                slotOrdinal(body.endDate as string, endPart)
+            ) {
                 return 'the end of an event cannot be before its start'
             }
         }
@@ -143,17 +173,29 @@ function parseBody(body: Record<string, unknown>): EventFields | string {
         budgetRow = body.budgetRow.trim()
     }
     let budget: number | undefined
-    if (!budgetRow && typeof body.budget === 'number' && Number.isFinite(body.budget) && body.budget >= 0) {
+    if (
+        !budgetRow &&
+        typeof body.budget === 'number' &&
+        Number.isFinite(body.budget) &&
+        body.budget >= 0
+    ) {
         budget = body.budget
     }
 
     return {
         title,
         notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : undefined,
-        location: typeof body.location === 'string' && body.location.trim() ? body.location.trim() : undefined,
-        eventType, allDay, time,
-        startDate: body.startDate as string, startPart,
-        endDate: body.endDate as string, endPart,
+        location:
+            typeof body.location === 'string' && body.location.trim()
+                ? body.location.trim()
+                : undefined,
+        eventType,
+        allDay,
+        time,
+        startDate: body.startDate as string,
+        startPart,
+        endDate: body.endDate as string,
+        endPart,
         recurrence,
         budget,
         budgetRow,
@@ -197,7 +239,10 @@ async function resolveLinkedBudgets(userId: string, events: ResolvableEvent[]): 
 
     for (const e of linked) {
         const row = rowMap.get(String(e.budgetRow))
-        if (!row) { e.budgetRow = undefined; continue }
+        if (!row) {
+            e.budgetRow = undefined
+            continue
+        }
         const month = e.startDate.slice(0, 7)
         const amount = entryMap.get(`${String(e.budgetRow)}:${month}`)
         e.budget = amount !== undefined ? amount : (row.recurringAmount ?? 0)
@@ -255,7 +300,9 @@ export async function listEvents(req: AuthRequest, res: Response) {
             recurrence: { $exists: true },
         })
 
-        const instances = recurring.flatMap((e) => expandOccurrences(e, from as string, to as string))
+        const instances = recurring.flatMap((e) =>
+            expandOccurrences(e, from as string, to as string)
+        )
 
         const data = [...regular.map((e) => e.toObject()), ...instances].sort((a, b) =>
             a.startDate < b.startDate ? -1 : 1
@@ -264,7 +311,9 @@ export async function listEvents(req: AuthRequest, res: Response) {
         return res.json({ message: 'OK', data })
     }
 
-    const events = (await Event.find({ user: req.userId }).sort({ startDate: 1 })).map((e) => e.toObject())
+    const events = (await Event.find({ user: req.userId }).sort({ startDate: 1 })).map((e) =>
+        e.toObject()
+    )
     await resolveLinkedBudgets(req.userId!, events)
     res.json({ message: 'OK', data: events })
 }
@@ -272,12 +321,17 @@ export async function listEvents(req: AuthRequest, res: Response) {
 /** POST /api/events */
 export async function createEvent(req: AuthRequest, res: Response) {
     const fields = parseBody(req.body ?? {})
-    if (typeof fields === 'string') { res.status(400).json({ message: fields }); return }
+    if (typeof fields === 'string') {
+        res.status(400).json({ message: fields })
+        return
+    }
     if (await hasConflict(req.userId!, fields)) {
-        res.status(409).json({ message: 'Another event already occupies one of those slots' }); return
+        res.status(409).json({ message: 'Another event already occupies one of those slots' })
+        return
     }
     if (!(await budgetRowOwnedByUser(req.userId!, fields.budgetRow))) {
-        res.status(400).json({ message: 'Linked finance row not found' }); return
+        res.status(400).json({ message: 'Linked finance row not found' })
+        return
     }
     const event = await Event.create({ user: req.userId, ...fields })
     const data = event.toObject()
@@ -288,53 +342,59 @@ export async function createEvent(req: AuthRequest, res: Response) {
 /** PUT /api/events/:id */
 export async function updateEvent(req: AuthRequest, res: Response) {
     const fields = parseBody(req.body ?? {})
-    if (typeof fields === 'string') { res.status(400).json({ message: fields }); return }
+    if (typeof fields === 'string') {
+        res.status(400).json({ message: fields })
+        return
+    }
     if (await hasConflict(req.userId!, fields, req.params.id)) {
-        res.status(409).json({ message: 'Another event already occupies one of those slots' }); return
+        res.status(409).json({ message: 'Another event already occupies one of those slots' })
+        return
     }
     if (!(await budgetRowOwnedByUser(req.userId!, fields.budgetRow))) {
-        res.status(400).json({ message: 'Linked finance row not found' }); return
+        res.status(400).json({ message: 'Linked finance row not found' })
+        return
     }
     // Build $set (required fields always present) and $unset (clear optional
     // fields that were removed so stale values don't persist).
     const $set: Record<string, unknown> = {
-        title:     fields.title,
+        title: fields.title,
         eventType: fields.eventType,
-        allDay:    fields.allDay,
+        allDay: fields.allDay,
         startDate: fields.startDate,
         startPart: fields.startPart,
-        endDate:   fields.endDate,
-        endPart:   fields.endPart,
+        endDate: fields.endDate,
+        endPart: fields.endPart,
     }
     const $unset: Record<string, 1> = {}
 
-    if (fields.notes      !== undefined) $set.notes      = fields.notes
-    else                                 $unset.notes     = 1
+    if (fields.notes !== undefined) $set.notes = fields.notes
+    else $unset.notes = 1
 
-    if (fields.location   !== undefined) $set.location   = fields.location
-    else                                 $unset.location  = 1
+    if (fields.location !== undefined) $set.location = fields.location
+    else $unset.location = 1
 
-    if (fields.time       !== undefined) $set.time       = fields.time
-    else                                 $unset.time      = 1
+    if (fields.time !== undefined) $set.time = fields.time
+    else $unset.time = 1
 
     if (fields.recurrence !== undefined) $set.recurrence = fields.recurrence
-    else                                 $unset.recurrence = 1
+    else $unset.recurrence = 1
 
-    if (fields.budget     !== undefined) $set.budget     = fields.budget
-    else                                 $unset.budget    = 1
+    if (fields.budget !== undefined) $set.budget = fields.budget
+    else $unset.budget = 1
 
-    if (fields.budgetRow  !== undefined) $set.budgetRow  = fields.budgetRow
-    else                                 $unset.budgetRow = 1
+    if (fields.budgetRow !== undefined) $set.budgetRow = fields.budgetRow
+    else $unset.budgetRow = 1
 
     const updateOp: Record<string, unknown> = { $set }
     if (Object.keys($unset).length > 0) updateOp.$unset = $unset
 
-    const event = await Event.findOneAndUpdate(
-        { _id: req.params.id, user: req.userId },
-        updateOp,
-        { new: true }
-    )
-    if (!event) { res.status(404).json({ message: 'Event not found' }); return }
+    const event = await Event.findOneAndUpdate({ _id: req.params.id, user: req.userId }, updateOp, {
+        new: true,
+    })
+    if (!event) {
+        res.status(404).json({ message: 'Event not found' })
+        return
+    }
     const data = event.toObject()
     await resolveLinkedBudgets(req.userId!, [data])
     res.json({ message: 'Saved', data })
@@ -343,6 +403,9 @@ export async function updateEvent(req: AuthRequest, res: Response) {
 /** DELETE /api/events/:id */
 export async function deleteEvent(req: AuthRequest, res: Response) {
     const event = await Event.findOneAndDelete({ _id: req.params.id, user: req.userId })
-    if (!event) { res.status(404).json({ message: 'Event not found' }); return }
+    if (!event) {
+        res.status(404).json({ message: 'Event not found' })
+        return
+    }
     res.json({ message: 'Deleted', data: event })
 }

@@ -32,7 +32,10 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
             {/* Weekday headers */}
             <div className="grid grid-cols-7 border-b border-neutral-200 bg-white">
                 {WEEKDAY_HEADERS.map((d) => (
-                    <div key={d} className="py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <div
+                        key={d}
+                        className="py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-neutral-400"
+                    >
                         {d}
                     </div>
                 ))}
@@ -45,7 +48,8 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
                     const isCurrentMonth = cellMonth === month
                     const isToday = date === tk
                     const isPast = date < tk
-                    const status = statuses.find((s) => s.startDate <= date && s.endDate >= date) ?? null
+                    const status =
+                        statuses.find((s) => s.startDate <= date && s.endDate >= date) ?? null
                     const dayNum = parseInt(date.slice(8))
 
                     // All events touching this date (deduped by _id)
@@ -71,17 +75,30 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
                             ].join(' ')}
                         >
                             {/* Leave bar */}
-                            {status && (() => {
-                                const opt = DAY_STATUS_OPTIONS.find((o) => o.value === status.status)!
-                                return <div className={`mb-1 h-1 w-full rounded-full ${opt.bg.replace('-100', '-400')}`} />
-                            })()}
+                            {status &&
+                                (() => {
+                                    const opt = DAY_STATUS_OPTIONS.find(
+                                        (o) => o.value === status.status
+                                    )!
+                                    return (
+                                        <div
+                                            className={`mb-1 h-1 w-full rounded-full ${opt.bg.replace('-100', '-400')}`}
+                                        />
+                                    )
+                                })()}
 
                             {/* Day number */}
                             <div className="mb-1 flex justify-end">
-                                <span className={[
-                                    'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold',
-                                    isToday ? 'bg-neutral-950 text-white' : isCurrentMonth ? 'text-neutral-700' : 'text-neutral-300',
-                                ].join(' ')}>
+                                <span
+                                    className={[
+                                        'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold',
+                                        isToday
+                                            ? 'bg-neutral-950 text-white'
+                                            : isCurrentMonth
+                                              ? 'text-neutral-700'
+                                              : 'text-neutral-300',
+                                    ].join(' ')}
+                                >
                                     {dayNum}
                                 </span>
                             </div>
@@ -89,15 +106,23 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
                             {/* Event chips */}
                             <div className="flex flex-col gap-0.5">
                                 {visible.map((e) => {
-                                    const colors = e.startPart === 'na' ? NA_EVENT_COLORS : EVENT_TYPE_COLORS[e.eventType]
+                                    const colors =
+                                        e.startPart === 'na'
+                                            ? NA_EVENT_COLORS
+                                            : EVENT_TYPE_COLORS[e.eventType]
                                     return (
                                         <button
                                             key={e._id + date}
                                             type="button"
-                                            onClick={(ev) => { ev.stopPropagation(); onEventClick(e) }}
+                                            onClick={(ev) => {
+                                                ev.stopPropagation()
+                                                onEventClick(e)
+                                            }}
                                             className={`flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[11px] font-semibold transition-colors ${colors.bg} ${colors.text} ${colors.hover}`}
                                         >
-                                            {e.recurrence && <i className="fa-solid fa-repeat text-[8px] shrink-0 opacity-60" />}
+                                            {e.recurrence && (
+                                                <i className="fa-solid fa-repeat text-[8px] shrink-0 opacity-60" />
+                                            )}
                                             <span className="truncate">{e.title}</span>
                                         </button>
                                     )

@@ -2,7 +2,15 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
 import Spinner from '../Spinner'
-import { PERIODS, WEEKDAYS_LONG, todayKey, formatDateLong, parseDateKey, eventCoversSlot, eventCoversAllDay } from '../../lib/calendar'
+import {
+    PERIODS,
+    WEEKDAYS_LONG,
+    todayKey,
+    formatDateLong,
+    parseDateKey,
+    eventCoversSlot,
+    eventCoversAllDay,
+} from '../../lib/calendar'
 import { listEvents } from '../../services/events'
 import { EVENT_TYPE_COLORS, EVENT_TYPE_LABELS } from '../../types'
 import type { Event, Part } from '../../types'
@@ -20,7 +28,9 @@ export default function TodayWidget({ date = todayKey() }: { date?: string }) {
             .then((list) => active && setEvents(list))
             .catch(() => active && setEvents([]))
             .finally(() => active && setLoading(false))
-        return () => { active = false }
+        return () => {
+            active = false
+        }
     }, [date])
 
     const allDayEvents = events.filter((e) => eventCoversAllDay(e, date))
@@ -54,7 +64,8 @@ export default function TodayWidget({ date = todayKey() }: { date?: string }) {
 
                     {/* Part rows */}
                     {PERIODS.map((period) => {
-                        const event = events.find((e) => eventCoversSlot(e, date, period.key as Part)) ?? null
+                        const event =
+                            events.find((e) => eventCoversSlot(e, date, period.key as Part)) ?? null
                         return (
                             <PartRow
                                 key={period.key}
@@ -85,13 +96,20 @@ function AllDayRow({ event, date }: { event: Event; date: string }) {
     const isMultiDay = event.startDate !== event.endDate
     return (
         <div className={`flex items-center gap-3 rounded-xl px-3 py-2 ${colors.bg}`}>
-            <i className="fa-regular fa-calendar w-4 shrink-0 text-center text-sm opacity-60" aria-hidden="true" />
+            <i
+                className="fa-regular fa-calendar w-4 shrink-0 text-center text-sm opacity-60"
+                aria-hidden="true"
+            />
             <div className="min-w-0 flex-1">
                 <p className={`truncate text-sm font-semibold ${colors.text}`}>{event.title}</p>
             </div>
             <span className={`shrink-0 text-xs font-medium opacity-60 ${colors.text}`}>
                 {isMultiDay
-                    ? event.startDate === date ? 'starts' : event.endDate === date ? 'ends' : 'all day'
+                    ? event.startDate === date
+                        ? 'starts'
+                        : event.endDate === date
+                          ? 'ends'
+                          : 'all day'
                     : 'all day'}
             </span>
         </div>
@@ -103,18 +121,27 @@ function PartRow({ label, icon, event }: { label: string; icon: string; event: E
 
     return (
         <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-neutral-50">
-            <i className={`${icon} w-4 shrink-0 text-center text-sm text-neutral-300`} aria-hidden="true" />
+            <i
+                className={`${icon} w-4 shrink-0 text-center text-sm text-neutral-300`}
+                aria-hidden="true"
+            />
             <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-400">
                 {label}
             </span>
             {event ? (
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                     <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${colors?.bg}`} />
-                    <span className="truncate text-sm font-semibold text-neutral-800">{event.title}</span>
+                    <span className="truncate text-sm font-semibold text-neutral-800">
+                        {event.title}
+                    </span>
                     {event.time && (
-                        <span className="ml-auto shrink-0 tabular-nums text-xs text-neutral-400">{event.time}</span>
+                        <span className="ml-auto shrink-0 tabular-nums text-xs text-neutral-400">
+                            {event.time}
+                        </span>
                     )}
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${colors?.bg} ${colors?.text}`}>
+                    <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${colors?.bg} ${colors?.text}`}
+                    >
                         {EVENT_TYPE_LABELS[event.eventType]}
                     </span>
                 </div>

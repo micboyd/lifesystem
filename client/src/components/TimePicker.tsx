@@ -54,7 +54,10 @@ function formatDisplay(time: ParsedTime, use12Hour: boolean): string {
 }
 
 // Common times shown in the quick-select grid (24h internally)
-const QUICK_TIMES: ParsedTime[] = [8, 9, 10, 12, 13, 14, 17, 18, 20].map((h) => ({ hour: h, minute: 0 }))
+const QUICK_TIMES: ParsedTime[] = [8, 9, 10, 12, 13, 14, 17, 18, 20].map((h) => ({
+    hour: h,
+    minute: 0,
+}))
 
 export default function TimePicker({
     value,
@@ -71,7 +74,7 @@ export default function TimePicker({
 }: TimePickerProps) {
     const isControlled = value !== undefined
     const [internal, setInternal] = useState<ParsedTime | null>(() =>
-        parseTime(isControlled ? value : (defaultValue ?? null)),
+        parseTime(isControlled ? value : (defaultValue ?? null))
     )
     const current = isControlled ? parseTime(value) : internal
 
@@ -88,9 +91,18 @@ export default function TimePicker({
 
     const step = Math.min(Math.max(Math.floor(minuteStep) || 5, 1), 60)
 
-    const minM = useMemo(() => { const t = parseTime(minTime); return t ? toMinutes(t) : null }, [minTime])
-    const maxM = useMemo(() => { const t = parseTime(maxTime); return t ? toMinutes(t) : null }, [maxTime])
-    const minutes = useMemo(() => Array.from({ length: Math.ceil(60 / step) }, (_, i) => i * step), [step])
+    const minM = useMemo(() => {
+        const t = parseTime(minTime)
+        return t ? toMinutes(t) : null
+    }, [minTime])
+    const maxM = useMemo(() => {
+        const t = parseTime(maxTime)
+        return t ? toMinutes(t) : null
+    }, [maxTime])
+    const minutes = useMemo(
+        () => Array.from({ length: Math.ceil(60 / step) }, (_, i) => i * step),
+        [step]
+    )
 
     // Sync period when controlled value changes
     const valueKey = isControlled ? (value ?? '') : ''
@@ -113,8 +125,12 @@ export default function TimePicker({
     }, [open])
 
     // Focus hour input when it mounts
-    useEffect(() => { if (hourDraft !== null) hourInputRef.current?.focus() }, [hourDraft])
-    useEffect(() => { if (minuteDraft !== null) minuteInputRef.current?.focus() }, [minuteDraft])
+    useEffect(() => {
+        if (hourDraft !== null) hourInputRef.current?.focus()
+    }, [hourDraft])
+    useEffect(() => {
+        if (minuteDraft !== null) minuteInputRef.current?.focus()
+    }, [minuteDraft])
 
     function isDisabled(time: ParsedTime): boolean {
         const m = toMinutes(time)
@@ -131,7 +147,11 @@ export default function TimePicker({
 
     // Derived display hour (1-12 for 12h, 0-23 for 24h)
     const displayHour = current
-        ? use12Hour ? (current.hour % 12 === 0 ? 12 : current.hour % 12) : current.hour
+        ? use12Hour
+            ? current.hour % 12 === 0
+                ? 12
+                : current.hour % 12
+            : current.hour
         : null
 
     // ── Hour controls ──────────────────────────────────────────────────────────
@@ -140,7 +160,10 @@ export default function TimePicker({
         if (use12Hour) {
             const dh = displayHour ?? 11
             const next = dh === 12 ? 1 : dh + 1
-            commit({ hour: period === 'PM' ? (next % 12) + 12 : next % 12, minute: current?.minute ?? 0 })
+            commit({
+                hour: period === 'PM' ? (next % 12) + 12 : next % 12,
+                minute: current?.minute ?? 0,
+            })
         } else {
             commit({ hour: ((current?.hour ?? -1) + 1) % 24, minute: current?.minute ?? 0 })
         }
@@ -150,7 +173,10 @@ export default function TimePicker({
         if (use12Hour) {
             const dh = displayHour ?? 2
             const next = dh === 1 ? 12 : dh - 1
-            commit({ hour: period === 'PM' ? (next % 12) + 12 : next % 12, minute: current?.minute ?? 0 })
+            commit({
+                hour: period === 'PM' ? (next % 12) + 12 : next % 12,
+                minute: current?.minute ?? 0,
+            })
         } else {
             commit({ hour: ((current?.hour ?? 0) - 1 + 24) % 24, minute: current?.minute ?? 0 })
         }
@@ -161,10 +187,16 @@ export default function TimePicker({
         const n = parseInt(hourDraft, 10)
         let hour24: number
         if (use12Hour) {
-            if (isNaN(n) || n < 1 || n > 12) { setHourDraft(null); return }
+            if (isNaN(n) || n < 1 || n > 12) {
+                setHourDraft(null)
+                return
+            }
             hour24 = period === 'PM' ? (n % 12) + 12 : n % 12
         } else {
-            if (isNaN(n) || n < 0 || n > 23) { setHourDraft(null); return }
+            if (isNaN(n) || n < 0 || n > 23) {
+                setHourDraft(null)
+                return
+            }
             hour24 = n
         }
         commit({ hour: hour24, minute: current?.minute ?? 0 })
@@ -188,7 +220,10 @@ export default function TimePicker({
     function commitMinuteDraft() {
         if (minuteDraft === null) return
         const n = parseInt(minuteDraft, 10)
-        if (isNaN(n) || n < 0 || n > 59) { setMinuteDraft(null); return }
+        if (isNaN(n) || n < 0 || n > 59) {
+            setMinuteDraft(null)
+            return
+        }
         const snapped = Math.min(Math.round(n / step) * step, 59)
         commit({ hour: current?.hour ?? 0, minute: snapped })
         setMinuteDraft(null)
@@ -199,7 +234,10 @@ export default function TimePicker({
     function selectPeriod(next: 'AM' | 'PM') {
         setPeriod(next)
         if (!current) return
-        commit({ hour: next === 'PM' ? (current.hour % 12) + 12 : current.hour % 12, minute: current.minute })
+        commit({
+            hour: next === 'PM' ? (current.hour % 12) + 12 : current.hour % 12,
+            minute: current.minute,
+        })
     }
 
     function selectQuickTime(t: ParsedTime) {
@@ -237,18 +275,22 @@ export default function TimePicker({
 
     const triggerClasses = [
         'group flex w-full items-center gap-3 rounded-xl border bg-neutral-50 py-2.5 pl-4 pr-3 text-sm outline-none transition-all duration-150',
-        open ? 'border-neutral-400 bg-white ring-2 ring-neutral-200' : 'border-neutral-200 hover:border-neutral-300 hover:bg-white',
+        open
+            ? 'border-neutral-400 bg-white ring-2 ring-neutral-200'
+            : 'border-neutral-200 hover:border-neutral-300 hover:bg-white',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
     ].join(' ')
 
-    const spinnerBtn = 'grid h-7 w-7 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 active:bg-neutral-200'
+    const spinnerBtn =
+        'grid h-7 w-7 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 active:bg-neutral-200'
 
-    const digitDisplay = 'h-12 w-14 rounded-xl border border-neutral-100 text-center text-2xl font-bold tabular-nums text-neutral-900 transition-colors hover:border-neutral-300 hover:bg-neutral-50'
-    const digitInput   = 'h-12 w-14 rounded-xl border border-neutral-950 bg-white text-center text-2xl font-bold tabular-nums text-neutral-900 focus:outline-none'
+    const digitDisplay =
+        'h-12 w-14 rounded-xl border border-neutral-100 text-center text-2xl font-bold tabular-nums text-neutral-900 transition-colors hover:border-neutral-300 hover:bg-neutral-50'
+    const digitInput =
+        'h-12 w-14 rounded-xl border border-neutral-950 bg-white text-center text-2xl font-bold tabular-nums text-neutral-900 focus:outline-none'
 
     return (
         <div ref={containerRef} className={`relative ${className}`}>
-
             {/* ── Trigger ── */}
             <button
                 type="button"
@@ -256,8 +298,13 @@ export default function TimePicker({
                 disabled={disabled}
                 className={triggerClasses}
             >
-                <i className="fa-solid fa-clock shrink-0 text-sm text-neutral-400" aria-hidden="true" />
-                <span className={`flex-1 text-left whitespace-nowrap ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-400'}`}>
+                <i
+                    className="fa-solid fa-clock shrink-0 text-sm text-neutral-400"
+                    aria-hidden="true"
+                />
+                <span
+                    className={`flex-1 text-left whitespace-nowrap ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-400'}`}
+                >
                     {hasValue ? formatDisplay(current!, use12Hour) : placeholder}
                 </span>
                 {hasValue && !disabled ? (
@@ -288,7 +335,6 @@ export default function TimePicker({
                 >
                     {/* Spinner */}
                     <div className="flex items-center justify-center gap-2 px-5 pt-4 pb-3">
-
                         {/* Hours */}
                         <div className="flex flex-col items-center gap-1">
                             <button type="button" onClick={incrementHour} className={spinnerBtn}>
@@ -311,19 +357,30 @@ export default function TimePicker({
                             ) : (
                                 <button
                                     type="button"
-                                    onClick={() => setHourDraft(displayHour !== null ? String(displayHour) : '')}
+                                    onClick={() =>
+                                        setHourDraft(
+                                            displayHour !== null ? String(displayHour) : ''
+                                        )
+                                    }
                                     className={digitDisplay}
                                 >
-                                    {displayHour !== null ? String(displayHour).padStart(2, '0') : '--'}
+                                    {displayHour !== null
+                                        ? String(displayHour).padStart(2, '0')
+                                        : '--'}
                                 </button>
                             )}
                             <button type="button" onClick={decrementHour} className={spinnerBtn}>
-                                <i className="fa-solid fa-chevron-down text-xs" aria-hidden="true" />
+                                <i
+                                    className="fa-solid fa-chevron-down text-xs"
+                                    aria-hidden="true"
+                                />
                             </button>
                         </div>
 
                         {/* Separator */}
-                        <span className="mb-0.5 text-2xl font-bold text-neutral-200 select-none">:</span>
+                        <span className="mb-0.5 text-2xl font-bold text-neutral-200 select-none">
+                            :
+                        </span>
 
                         {/* Minutes */}
                         <div className="flex flex-col items-center gap-1">
@@ -347,14 +404,23 @@ export default function TimePicker({
                             ) : (
                                 <button
                                     type="button"
-                                    onClick={() => setMinuteDraft(current !== null ? String(current.minute) : '')}
+                                    onClick={() =>
+                                        setMinuteDraft(
+                                            current !== null ? String(current.minute) : ''
+                                        )
+                                    }
                                     className={digitDisplay}
                                 >
-                                    {current !== null ? String(current.minute).padStart(2, '0') : '--'}
+                                    {current !== null
+                                        ? String(current.minute).padStart(2, '0')
+                                        : '--'}
                                 </button>
                             )}
                             <button type="button" onClick={decrementMinute} className={spinnerBtn}>
-                                <i className="fa-solid fa-chevron-down text-xs" aria-hidden="true" />
+                                <i
+                                    className="fa-solid fa-chevron-down text-xs"
+                                    aria-hidden="true"
+                                />
                             </button>
                         </div>
 
@@ -388,7 +454,8 @@ export default function TimePicker({
                             </p>
                             <div className="grid grid-cols-3 gap-1">
                                 {quickTimes.map((t) => {
-                                    const selected = current?.hour === t.hour && current?.minute === t.minute
+                                    const selected =
+                                        current?.hour === t.hour && current?.minute === t.minute
                                     return (
                                         <button
                                             key={`${t.hour}:${t.minute}`}

@@ -7,9 +7,9 @@ export interface IFinanceGroup extends Document {
     order: number
     currentBalance?: number
     annualInterestRate?: number
-    startMonth?: string | null   // YYYY-MM inclusive; null = active since forever
-    endMonth?: string | null     // YYYY-MM inclusive; null = open-ended
-    skipMonths: string[]         // months explicitly hidden ("this month only" deletes)
+    startMonth?: string | null // YYYY-MM inclusive; null = active since forever
+    endMonth?: string | null // YYYY-MM inclusive; null = open-ended
+    skipMonths: string[] // months explicitly hidden ("this month only" deletes)
     createdAt: Date
     updatedAt: Date
 }

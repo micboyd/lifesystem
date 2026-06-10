@@ -1,5 +1,12 @@
 import { Router } from 'express'
-import { register, login, getMe, updateMe, updateSettings, changePassword } from '../controllers/userController'
+import {
+    register,
+    login,
+    getMe,
+    updateMe,
+    updateSettings,
+    changePassword,
+} from '../controllers/userController'
 import { requireAuth } from '../middleware/auth'
 
 const router = Router()

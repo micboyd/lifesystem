@@ -79,7 +79,7 @@ function normalizeMatcher(matcher?: DateMatcher): (date: Date) => boolean {
 
 function parseValue(
     mode: 'single' | 'range',
-    value: DatePickerValue,
+    value: DatePickerValue
 ): { single: Date | null; start: Date | null; end: Date | null } {
     if (mode === 'range') {
         const v = (value as DateRange | null) ?? null
@@ -126,13 +126,13 @@ export default function DatePicker({
 
     const [open, setOpen] = useState(false)
     const [viewDate, setViewDate] = useState(() =>
-        startOfMonth(initial.single ?? initial.start ?? new Date()),
+        startOfMonth(initial.single ?? initial.start ?? new Date())
     )
     const [selectedDate, setSelectedDate] = useState<Date | null>(initial.single)
     const [rangeStart, setRangeStart] = useState<Date | null>(initial.start)
     const [rangeEnd, setRangeEnd] = useState<Date | null>(initial.end)
     const [rangeSelecting, setRangeSelecting] = useState<'start' | 'end'>(
-        initial.start && !initial.end ? 'end' : 'start',
+        initial.start && !initial.end ? 'end' : 'start'
     )
     const [hoverDate, setHoverDate] = useState<Date | null>(null)
     const [view, setView] = useState<CalendarView>('days')
@@ -194,9 +194,7 @@ export default function DatePicker({
     const rangeHint = (() => {
         if (!isRange) return ''
         if (rangeSelecting === 'start') return 'Select start date'
-        return rangeStart
-            ? `From ${formatShort(rangeStart)} — select end date`
-            : 'Select end date'
+        return rangeStart ? `From ${formatShort(rangeStart)} — select end date` : 'Select end date'
     })()
 
     // Visual range bounds, accounting for hover preview and reversed selection.
@@ -323,14 +321,21 @@ export default function DatePicker({
         if (status === 'error')
             return base + 'cursor-not-allowed bg-red-50 font-medium text-red-500 line-through'
         if (status === 'disabled')
-            return base + 'cursor-not-allowed font-normal text-neutral-300 line-through decoration-neutral-200'
+            return (
+                base +
+                'cursor-not-allowed font-normal text-neutral-300 line-through decoration-neutral-200'
+            )
 
         if (!isRange) {
             if (selectedDate && sameDay(day.date, selectedDate))
                 return base + 'bg-neutral-950 font-bold text-white'
             if (day.isToday)
-                return base + 'border-2 border-neutral-950 font-bold text-neutral-900 hover:bg-neutral-100'
-            if (day.isCurrentMonth) return base + 'font-medium text-neutral-700 hover:bg-neutral-100'
+                return (
+                    base +
+                    'border-2 border-neutral-950 font-bold text-neutral-900 hover:bg-neutral-100'
+                )
+            if (day.isCurrentMonth)
+                return base + 'font-medium text-neutral-700 hover:bg-neutral-100'
             return base + 'font-normal text-neutral-300 hover:bg-neutral-50'
         }
 
@@ -340,7 +345,9 @@ export default function DatePicker({
 
         if (start || end) return base + 'bg-neutral-950 font-bold text-white'
         if (day.isToday && !inRange)
-            return base + 'border-2 border-neutral-950 font-bold text-neutral-900 hover:bg-neutral-200'
+            return (
+                base + 'border-2 border-neutral-950 font-bold text-neutral-900 hover:bg-neutral-200'
+            )
         if (inRange)
             return (
                 base +
@@ -353,8 +360,7 @@ export default function DatePicker({
     }
 
     const today = new Date()
-    const yearPageStart =
-        Math.floor(viewDate.getFullYear() / YEARS_PER_PAGE) * YEARS_PER_PAGE
+    const yearPageStart = Math.floor(viewDate.getFullYear() / YEARS_PER_PAGE) * YEARS_PER_PAGE
     const yearPage = Array.from({ length: YEARS_PER_PAGE }, (_, i) => yearPageStart + i)
     const headerLabel =
         view === 'days'
@@ -385,7 +391,10 @@ export default function DatePicker({
         <div ref={containerRef} className={`relative ${className}`}>
             {/* Trigger */}
             <button type="button" onClick={toggle} disabled={disabled} className={triggerClasses}>
-                <i className="fa-regular fa-calendar shrink-0 text-sm text-neutral-400" aria-hidden="true" />
+                <i
+                    className="fa-regular fa-calendar shrink-0 text-sm text-neutral-400"
+                    aria-hidden="true"
+                />
                 <span
                     className={`flex-1 text-left whitespace-nowrap ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-400'}`}
                 >
@@ -513,7 +522,7 @@ export default function DatePicker({
                                     className={gridCellClass(
                                         i === viewDate.getMonth(),
                                         i === today.getMonth() &&
-                                            viewDate.getFullYear() === today.getFullYear(),
+                                            viewDate.getFullYear() === today.getFullYear()
                                     )}
                                 >
                                     {label}
@@ -532,7 +541,7 @@ export default function DatePicker({
                                     onClick={() => selectYear(yr)}
                                     className={gridCellClass(
                                         yr === viewDate.getFullYear(),
-                                        yr === today.getFullYear(),
+                                        yr === today.getFullYear()
                                     )}
                                 >
                                     {yr}

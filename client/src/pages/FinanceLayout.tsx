@@ -19,11 +19,13 @@ export default function FinanceLayout() {
     const { pathname } = useLocation()
     const navigate = useNavigate()
 
-    const active: FinanceTab =
-        pathname.startsWith('/finances/daily-log') ? 'Daily Log' :
-        pathname.startsWith('/finances/budgets') ? 'Budgets' :
-        pathname.startsWith('/finances/forecast') ? 'Forecast' :
-        'Monthly'
+    const active: FinanceTab = pathname.startsWith('/finances/daily-log')
+        ? 'Daily Log'
+        : pathname.startsWith('/finances/budgets')
+          ? 'Budgets'
+          : pathname.startsWith('/finances/forecast')
+            ? 'Forecast'
+            : 'Monthly'
 
     if (FULL_WIDTH_TABS.includes(active)) {
         return (

@@ -23,7 +23,9 @@ export default function DashboardDateNav({ date, onChange }: Props) {
             <div className="w-auto">
                 <DatePicker
                     value={date}
-                    onChange={(v: DatePickerValue) => { if (typeof v === 'string' && v) onChange(v) }}
+                    onChange={(v: DatePickerValue) => {
+                        if (typeof v === 'string' && v) onChange(v)
+                    }}
                 />
             </div>
 

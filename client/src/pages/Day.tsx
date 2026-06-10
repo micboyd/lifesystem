@@ -35,7 +35,9 @@ export default function Day() {
 
             <header className="mb-8">
                 {isToday && (
-                    <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Today</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+                        Today
+                    </p>
                 )}
                 <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950">
                     {formatDateLong(date)}
@@ -44,25 +46,33 @@ export default function Day() {
 
             {/* Events */}
             <section className="mb-8">
-                <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">Events</h2>
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">
+                    Events
+                </h2>
                 <DayView date={date} initialOpenPart={openPart} />
             </section>
 
             {/* Tasks */}
             <section className="mb-8">
-                <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">Tasks</h2>
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">
+                    Tasks
+                </h2>
                 <TasksDaySection date={date} />
             </section>
 
             {/* Habits */}
             <section className="mb-8">
-                <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">Habits</h2>
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">
+                    Habits
+                </h2>
                 <HabitsDaySection date={date} />
             </section>
 
             {/* Leave / Holiday status */}
             <section>
-                <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">Leave & Holidays</h2>
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">
+                    Leave & Holidays
+                </h2>
                 <DayStatusSection date={date} />
             </section>
         </Container>

@@ -57,7 +57,11 @@ function ChipDemo() {
     return (
         <div className="flex flex-wrap items-center gap-2">
             {chips.map((c) => (
-                <Chip key={c} icon="fa-solid fa-tag" onRemove={() => setChips((x) => x.filter((y) => y !== c))}>
+                <Chip
+                    key={c}
+                    icon="fa-solid fa-tag"
+                    onRemove={() => setChips((x) => x.filter((y) => y !== c))}
+                >
                     {c}
                 </Chip>
             ))}
@@ -105,10 +109,18 @@ function DrawerDemo() {
     return (
         <>
             <div className="flex flex-wrap gap-3">
-                <Button variant="secondary" onClick={() => setSide('left')} icon="fa-solid fa-arrow-right-from-bracket">
+                <Button
+                    variant="secondary"
+                    onClick={() => setSide('left')}
+                    icon="fa-solid fa-arrow-right-from-bracket"
+                >
                     Open left
                 </Button>
-                <Button variant="secondary" onClick={() => setSide('right')} icon="fa-solid fa-arrow-left-from-bracket">
+                <Button
+                    variant="secondary"
+                    onClick={() => setSide('right')}
+                    icon="fa-solid fa-arrow-left-from-bracket"
+                >
                     Open right
                 </Button>
             </div>
@@ -220,7 +232,11 @@ export default function StyleGuide() {
                             </div>
                             <div className="flex flex-wrap items-center gap-4">
                                 <Button icon="fa-solid fa-plus">New item</Button>
-                                <Button variant="secondary" icon="fa-solid fa-arrow-right" iconPosition="right">
+                                <Button
+                                    variant="secondary"
+                                    icon="fa-solid fa-arrow-right"
+                                    iconPosition="right"
+                                >
                                     Continue
                                 </Button>
                                 <Button variant="ghost" icon="fa-solid fa-trash">
@@ -304,7 +320,8 @@ export default function StyleGuide() {
                                     </div>
                                 </CardHeader>
                                 <CardBody>
-                                    JWT-based auth with bcrypt password hashing baked in from day one.
+                                    JWT-based auth with bcrypt password hashing baked in from day
+                                    one.
                                 </CardBody>
                                 <CardFooter>
                                     <Button
@@ -324,7 +341,8 @@ export default function StyleGuide() {
                                     </div>
                                 </CardHeader>
                                 <CardBody>
-                                    Tailwind v4 with a clean component library. Dark mode coming soon.
+                                    Tailwind v4 with a clean component library. Dark mode coming
+                                    soon.
                                 </CardBody>
                                 <CardFooter>
                                     <Button
@@ -433,11 +451,7 @@ export default function StyleGuide() {
                             <Avatar name="Ada Lovelace" size="sm" />
                             <Avatar name="Grace Hopper" />
                             <Avatar name="Alan Turing" size="lg" />
-                            <Avatar
-                                size="lg"
-                                name="Photo"
-                                src="https://i.pravatar.cc/120?img=12"
-                            />
+                            <Avatar size="lg" name="Photo" src="https://i.pravatar.cc/120?img=12" />
                         </div>
                     }
                     code={`<Avatar name="Ada Lovelace" size="sm" />
@@ -653,7 +667,14 @@ export default function StyleGuide() {
                     preview={
                         <div className="flex max-w-md flex-col gap-8">
                             <Slider label="Volume" defaultValue={40} showValue />
-                            <Slider label="Brightness" min={0} max={10} step={1} defaultValue={7} showValue />
+                            <Slider
+                                label="Brightness"
+                                min={0}
+                                max={10}
+                                step={1}
+                                defaultValue={7}
+                                showValue
+                            />
                             <Slider defaultValue={60} disabled />
                         </div>
                     }
