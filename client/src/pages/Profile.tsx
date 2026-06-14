@@ -101,103 +101,104 @@ export default function Profile() {
                 </Button>
             </header>
 
-            <div className="grid max-w-2xl gap-6">
-                {/* Details */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Details</CardTitle>
-                    </CardHeader>
-                    <CardBody>
-                        <form onSubmit={handleDetails} className="flex flex-col gap-4">
-                            {detailsMsg && (
-                                <Alert variant={detailsMsg.type}>{detailsMsg.text}</Alert>
-                            )}
-                            <Input
-                                label="Name"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                icon="fa-solid fa-user"
-                                placeholder="Your name"
-                            />
-                            <Input
-                                label="Email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                icon="fa-solid fa-envelope"
-                                placeholder="you@example.com"
-                            />
-                            <div>
-                                <Button
-                                    type="submit"
-                                    disabled={
-                                        savingDetails ||
-                                        !detailsChanged ||
-                                        !name.trim() ||
-                                        !email.trim()
-                                    }
-                                >
-                                    {savingDetails ? 'Saving…' : 'Save changes'}
-                                </Button>
-                            </div>
-                        </form>
-                    </CardBody>
-                </Card>
+            <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+                {/* Left column: Details + Password */}
+                <div className="flex flex-col gap-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Details</CardTitle>
+                        </CardHeader>
+                        <CardBody>
+                            <form onSubmit={handleDetails} className="flex flex-col gap-4">
+                                {detailsMsg && (
+                                    <Alert variant={detailsMsg.type}>{detailsMsg.text}</Alert>
+                                )}
+                                <Input
+                                    label="Name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    icon="fa-solid fa-user"
+                                    placeholder="Your name"
+                                />
+                                <Input
+                                    label="Email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    icon="fa-solid fa-envelope"
+                                    placeholder="you@example.com"
+                                />
+                                <div>
+                                    <Button
+                                        type="submit"
+                                        disabled={
+                                            savingDetails ||
+                                            !detailsChanged ||
+                                            !name.trim() ||
+                                            !email.trim()
+                                        }
+                                    >
+                                        {savingDetails ? 'Saving…' : 'Save changes'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </CardBody>
+                    </Card>
 
-                {/* General settings */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Password</CardTitle>
+                        </CardHeader>
+                        <CardBody>
+                            <form onSubmit={handlePassword} className="flex flex-col gap-4">
+                                {passwordMsg && (
+                                    <Alert variant={passwordMsg.type}>{passwordMsg.text}</Alert>
+                                )}
+                                <Input
+                                    label="Current password"
+                                    type="password"
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    icon="fa-solid fa-lock"
+                                    autoComplete="current-password"
+                                />
+                                <Input
+                                    label="New password"
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    icon="fa-solid fa-lock"
+                                    hint="At least 6 characters"
+                                    autoComplete="new-password"
+                                />
+                                <Input
+                                    label="Confirm new password"
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    icon="fa-solid fa-lock"
+                                    autoComplete="new-password"
+                                />
+                                <div>
+                                    <Button
+                                        type="submit"
+                                        disabled={
+                                            savingPassword ||
+                                            !currentPassword ||
+                                            !newPassword ||
+                                            !confirmPassword
+                                        }
+                                    >
+                                        {savingPassword ? 'Updating…' : 'Update password'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </CardBody>
+                    </Card>
+                </div>
+
+                {/* Right column: Settings */}
                 <SettingsCard />
-
-                {/* Password */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Password</CardTitle>
-                    </CardHeader>
-                    <CardBody>
-                        <form onSubmit={handlePassword} className="flex flex-col gap-4">
-                            {passwordMsg && (
-                                <Alert variant={passwordMsg.type}>{passwordMsg.text}</Alert>
-                            )}
-                            <Input
-                                label="Current password"
-                                type="password"
-                                value={currentPassword}
-                                onChange={(e) => setCurrentPassword(e.target.value)}
-                                icon="fa-solid fa-lock"
-                                autoComplete="current-password"
-                            />
-                            <Input
-                                label="New password"
-                                type="password"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                icon="fa-solid fa-lock"
-                                hint="At least 6 characters"
-                                autoComplete="new-password"
-                            />
-                            <Input
-                                label="Confirm new password"
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                icon="fa-solid fa-lock"
-                                autoComplete="new-password"
-                            />
-                            <div>
-                                <Button
-                                    type="submit"
-                                    disabled={
-                                        savingPassword ||
-                                        !currentPassword ||
-                                        !newPassword ||
-                                        !confirmPassword
-                                    }
-                                >
-                                    {savingPassword ? 'Updating…' : 'Update password'}
-                                </Button>
-                            </div>
-                        </form>
-                    </CardBody>
-                </Card>
             </div>
         </Container>
     )

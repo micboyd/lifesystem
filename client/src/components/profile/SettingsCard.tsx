@@ -23,6 +23,7 @@ export default function SettingsCard() {
     const [workStart, setWorkStart] = useState<string | null>(s.workStart ?? null)
     const [workEnd, setWorkEnd] = useState<string | null>(s.workEnd ?? null)
     const [showTotals, setShowTotals] = useState<boolean>(s.showTotals ?? false)
+    const [workDays, setWorkDays] = useState<number[]>(s.workDays ?? [1, 2, 3, 4, 5])
     const [saving, setSaving] = useState(false)
     const [msg, setMsg] = useState<{ type: 'success' | 'danger'; text: string } | null>(null)
 
@@ -36,6 +37,7 @@ export default function SettingsCard() {
                 workStart: workStart ?? '',
                 workEnd: workEnd ?? '',
                 showTotals,
+                workDays,
             }
             const updated = await updateSettings(payload)
             updateUser(updated)
@@ -103,6 +105,35 @@ export default function SettingsCard() {
                                     placeholder="Set time"
                                 />
                             </Field>
+                        </div>
+                        <div className="mt-4">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">Working days</p>
+                            <div className="flex gap-1.5">
+                                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, i) => {
+                                    const day = i === 6 ? 0 : i + 1
+                                    const active = workDays.includes(day)
+                                    return (
+                                        <button
+                                            key={day}
+                                            type="button"
+                                            onClick={() =>
+                                                setWorkDays(
+                                                    active
+                                                        ? workDays.filter((d) => d !== day)
+                                                        : [...workDays, day].sort()
+                                                )
+                                            }
+                                            className={`flex h-8 w-9 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
+                                                active
+                                                    ? 'bg-neutral-900 text-white'
+                                                    : 'bg-white text-neutral-400 ring-1 ring-neutral-200 hover:ring-neutral-300'
+                                            }`}
+                                        >
+                                            {label}
+                                        </button>
+                                    )
+                                })}
+                            </div>
                         </div>
                     </div>
 

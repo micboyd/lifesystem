@@ -87,9 +87,11 @@ export default function Calendar() {
     const title = getTitle(view, focusDate)
     const { from, to } = getRange(view, focusDate)
 
-    // Total budget needed for events in the visible range. Recurring events are
-    // already expanded into per-occurrence instances, so each counts once.
-    const budgetTotal = events.reduce((sum, e) => sum + (e.budget ?? 0), 0)
+    // Total budget needed for upcoming events (today onwards) in the visible range.
+    // Recurring events are already expanded into per-occurrence instances, so each counts once.
+    const budgetTotal = events
+        .filter((e) => e.startDate >= todayKey())
+        .reduce((sum, e) => sum + (e.budget ?? 0), 0)
     const budgetPeriod =
         view === 'Week' ? 'this week' : view === 'Month' ? 'this month' : 'this year'
 
@@ -143,13 +145,18 @@ export default function Calendar() {
         }
     }
 
-    async function handleAddRow(name: string) {
-        const row = await createRow(name)
+    async function handleAddRow(name: string, granularity: 'daily' | 'weekly' = 'daily') {
+        const row = await createRow(name, granularity)
         setRows((prev) => [...prev, row])
     }
 
     async function handleRenameRow(id: string, name: string) {
         const row = await updateRow(id, { name })
+        setRows((prev) => prev.map((r) => (r._id === id ? row : r)))
+    }
+
+    async function handleChangeGranularity(id: string, granularity: 'daily' | 'weekly') {
+        const row = await updateRow(id, { granularity })
         setRows((prev) => prev.map((r) => (r._id === id ? row : r)))
     }
 
@@ -313,6 +320,7 @@ export default function Calendar() {
                                     onAddRow={handleAddRow}
                                     onRenameRow={handleRenameRow}
                                     onDeleteRow={handleDeleteRow}
+                                    onChangeGranularity={handleChangeGranularity}
                                     onOpenDay={(date) => nav(`/day/${date}`)}
                                     onOpenPart={(date, part) =>
                                         nav(`/day/${date}`, { state: { openPart: part } })
@@ -361,6 +369,28 @@ export default function Calendar() {
     )
 }
 
+// ─── Weekly grouping helper ───────────────────────────────────────────────────
+
+function weekGroupsForMonth(
+    year: number,
+    month: number,
+    dayNums: number[]
+): { anchor: string; days: number[] }[] {
+    const groups: { anchor: string; days: number[] }[] = []
+    for (const day of dayNums) {
+        const d = new Date(year, month, day)
+        // ISO Monday anchor: subtract day-of-week offset (Mon=0 … Sun=6)
+        const dow = d.getDay() === 0 ? 6 : d.getDay() - 1
+        const monday = new Date(d)
+        monday.setDate(d.getDate() - dow)
+        const anchor = dateKey(monday.getFullYear(), monday.getMonth(), monday.getDate())
+        const last = groups[groups.length - 1]
+        if (last?.anchor === anchor) last.days.push(day)
+        else groups.push({ anchor, days: [day] })
+    }
+    return groups
+}
+
 // ─── Year view: MonthBlock ────────────────────────────────────────────────────
 
 interface MonthBlockProps {
@@ -373,9 +403,10 @@ interface MonthBlockProps {
     rows: TotalRow[]
     values: Record<string, number>
     onSetValue: (rowId: string, date: string, value: number | null) => void
-    onAddRow: (name: string) => void
+    onAddRow: (name: string, granularity: 'daily' | 'weekly') => void
     onRenameRow: (id: string, name: string) => void
     onDeleteRow: (id: string) => void
+    onChangeGranularity: (id: string, granularity: 'daily' | 'weekly') => void
     onOpenDay: (date: string) => void
     onOpenPart: (date: string, part: Part) => void
     onEventClick: (event: Event) => void
@@ -395,6 +426,7 @@ function MonthBlock({
     onAddRow,
     onRenameRow,
     onDeleteRow,
+    onChangeGranularity,
     onOpenDay,
     onOpenPart,
     onEventClick,
@@ -411,8 +443,9 @@ function MonthBlock({
     // Budget needed for events starting in this month (recurring events are
     // already expanded into per-occurrence instances).
     const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`
+    const todayStr = todayKey()
     const monthBudget = events
-        .filter((e) => e.startDate.startsWith(monthPrefix))
+        .filter((e) => e.startDate.startsWith(monthPrefix) && e.startDate >= todayStr)
         .reduce((sum, e) => sum + (e.budget ?? 0), 0)
 
     return (
@@ -658,12 +691,23 @@ function MonthBlock({
                         {/* Totals rows */}
                         {totalsOn &&
                             rows.map((row, i) => {
-                                const rowTotal = dayNums.reduce(
-                                    (sum, day) =>
-                                        sum +
-                                        (values[`${row._id}:${dateKey(year, month, day)}`] ?? 0),
-                                    0
-                                )
+                                const weekly = row.granularity === 'weekly'
+                                const wGroups = weekly
+                                    ? weekGroupsForMonth(year, month, dayNums)
+                                    : null
+                                const rowTotal = weekly
+                                    ? (wGroups ?? []).reduce(
+                                          (sum, g) => sum + (values[`${row._id}:${g.anchor}`] ?? 0),
+                                          0
+                                      )
+                                    : dayNums.reduce(
+                                          (sum, day) =>
+                                              sum +
+                                              (values[
+                                                  `${row._id}:${dateKey(year, month, day)}`
+                                              ] ?? 0),
+                                          0
+                                      )
                                 return (
                                     <TotalRowCells
                                         key={row._id}
@@ -672,11 +716,13 @@ function MonthBlock({
                                         year={year}
                                         month={month}
                                         dayNums={dayNums}
+                                        weekGroups={wGroups}
                                         values={values}
                                         rowTotal={rowTotal}
                                         onSetValue={onSetValue}
                                         onRename={onRenameRow}
                                         onDelete={onDeleteRow}
+                                        onChangeGranularity={onChangeGranularity}
                                     />
                                 )
                             })}
@@ -711,11 +757,13 @@ interface TotalRowCellsProps {
     year: number
     month: number
     dayNums: number[]
+    weekGroups: { anchor: string; days: number[] }[] | null
     values: Record<string, number>
     rowTotal: number
     onSetValue: (rowId: string, date: string, value: number | null) => void
     onRename: (id: string, name: string) => void
     onDelete: (id: string) => void
+    onChangeGranularity: (id: string, granularity: 'daily' | 'weekly') => void
 }
 
 function TotalRowCells({
@@ -724,11 +772,13 @@ function TotalRowCells({
     year,
     month,
     dayNums,
+    weekGroups,
     values,
     rowTotal,
     onSetValue,
     onRename,
     onDelete,
+    onChangeGranularity,
 }: TotalRowCellsProps) {
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(row.name)
@@ -737,6 +787,7 @@ function TotalRowCells({
     }, [row.name])
     const tk = todayKey()
     const isToday = (day: number) => dateKey(year, month, day) === tk
+    const weekly = row.granularity === 'weekly'
 
     function commitName() {
         setEditing(false)
@@ -778,6 +829,16 @@ function TotalRowCells({
                         </button>
                         <button
                             type="button"
+                            onClick={() =>
+                                onChangeGranularity(row._id, weekly ? 'daily' : 'weekly')
+                            }
+                            title={weekly ? 'Switch to daily' : 'Switch to weekly'}
+                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold opacity-0 transition-all group-hover:opacity-100 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600"
+                        >
+                            {weekly ? 'W' : 'D'}
+                        </button>
+                        <button
+                            type="button"
                             onClick={() => onDelete(row._id)}
                             aria-label="Delete row"
                             className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 opacity-0 transition-all hover:bg-neutral-200 hover:text-neutral-600 group-hover:opacity-100"
@@ -787,28 +848,55 @@ function TotalRowCells({
                     </div>
                 )}
             </th>
-            {dayNums.map((day) => {
-                const key = dateKey(year, month, day)
-                const weekday = new Date(year, month, day).getDay()
-                const weekend = weekday === 0 || weekday === 6
-                return (
-                    <td
-                        key={day}
-                        className={[
-                            isToday(day)
-                                ? 'border-r border-neutral-400'
-                                : 'border-l border-neutral-100',
-                            'p-0.5 align-middle',
-                            weekend ? 'bg-neutral-100/70' : 'bg-neutral-50',
-                        ].join(' ')}
-                    >
-                        <TotalCell
-                            value={values[`${row._id}:${key}`]}
-                            onCommit={(v) => onSetValue(row._id, key, v)}
-                        />
-                    </td>
-                )
-            })}
+            {weekly && weekGroups
+                ? weekGroups.map((g) => {
+                      const containsToday = g.days.some((d) => isToday(d))
+                      const weekend =
+                          g.days.every((d) => {
+                              const wd = new Date(year, month, d).getDay()
+                              return wd === 0 || wd === 6
+                          })
+                      return (
+                          <td
+                              key={g.anchor}
+                              colSpan={g.days.length}
+                              className={[
+                                  containsToday
+                                      ? 'border-r border-neutral-400'
+                                      : 'border-l border-neutral-100',
+                                  'p-0.5 align-middle',
+                                  weekend ? 'bg-neutral-100/70' : 'bg-neutral-50',
+                              ].join(' ')}
+                          >
+                              <TotalCell
+                                  value={values[`${row._id}:${g.anchor}`]}
+                                  onCommit={(v) => onSetValue(row._id, g.anchor, v)}
+                              />
+                          </td>
+                      )
+                  })
+                : dayNums.map((day) => {
+                      const key = dateKey(year, month, day)
+                      const weekday = new Date(year, month, day).getDay()
+                      const weekend = weekday === 0 || weekday === 6
+                      return (
+                          <td
+                              key={day}
+                              className={[
+                                  isToday(day)
+                                      ? 'border-r border-neutral-400'
+                                      : 'border-l border-neutral-100',
+                                  'p-0.5 align-middle',
+                                  weekend ? 'bg-neutral-100/70' : 'bg-neutral-50',
+                              ].join(' ')}
+                          >
+                              <TotalCell
+                                  value={values[`${row._id}:${key}`]}
+                                  onCommit={(v) => onSetValue(row._id, key, v)}
+                              />
+                          </td>
+                      )
+                  })}
             <td className="border-l border-neutral-200 bg-neutral-50/50 px-2 text-center text-xs font-bold tabular-nums text-neutral-700">
                 {rowTotal ? roundNum(rowTotal) : ''}
             </td>
@@ -858,12 +946,16 @@ function TotalCell({
     )
 }
 
-function AddTotalRow({ onAdd }: { onAdd: (name: string) => void }) {
+function AddTotalRow({
+    onAdd,
+}: {
+    onAdd: (name: string, granularity: 'daily' | 'weekly') => void
+}) {
     const [name, setName] = useState('')
     function submit() {
         const n = name.trim()
         if (!n) return
-        onAdd(n)
+        onAdd(n, 'daily')
         setName('')
     }
     return (
@@ -875,7 +967,7 @@ function AddTotalRow({ onAdd }: { onAdd: (name: string) => void }) {
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') submit()
                 }}
-                placeholder="Add a totals row…"
+                placeholder="Add a log row…"
                 className="w-56 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400"
             />
             {name.trim() && (

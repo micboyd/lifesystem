@@ -8,6 +8,7 @@ export interface IUserSettings {
     workStart?: string
     workEnd?: string
     showTotals?: boolean
+    workDays?: number[]
 }
 
 export interface IUser extends Document {
@@ -25,6 +26,7 @@ const settingsSchema = new Schema<IUserSettings>(
         workStart: { type: String, match: TIME_PATTERN },
         workEnd: { type: String, match: TIME_PATTERN },
         showTotals: { type: Boolean, default: false },
+        workDays: { type: [Number], default: undefined },
     },
     { _id: false }
 )

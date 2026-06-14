@@ -8,8 +8,8 @@ dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 
 // Defaults can be overridden with SEED_NAME / SEED_EMAIL / SEED_PASSWORD env vars.
 const TEST_USER = {
-    name: process.env.SEED_NAME ?? 'Test User',
-    email: process.env.SEED_EMAIL ?? 'test@example.com',
+    name: process.env.SEED_NAME ?? 'Katy McDonald',
+    email: process.env.SEED_EMAIL ?? 'katy-mcdonald@sky.com',
     password: process.env.SEED_PASSWORD ?? 'password123',
 }
 

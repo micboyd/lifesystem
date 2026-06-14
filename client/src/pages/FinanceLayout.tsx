@@ -2,17 +2,17 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Container from '../components/Container'
 import Tabs from '../components/Tabs'
 
-const TABS = ['Monthly', 'Budgets', 'Daily Log', 'Forecast'] as const
+const TABS = ['Monthly', 'Budgets', 'Logs', 'Forecast'] as const
 type FinanceTab = (typeof TABS)[number]
 
 const PATHS: Record<FinanceTab, string> = {
     Monthly: '/finances',
     Budgets: '/finances/budgets',
-    'Daily Log': '/finances/daily-log',
+    Logs: '/finances/daily-log',
     Forecast: '/finances/forecast',
 }
 
-const FULL_WIDTH_TABS: FinanceTab[] = ['Daily Log']
+const FULL_WIDTH_TABS: FinanceTab[] = ['Logs']
 
 /** Shared shell for the finance section: section tabs above the active screen. */
 export default function FinanceLayout() {
@@ -20,7 +20,7 @@ export default function FinanceLayout() {
     const navigate = useNavigate()
 
     const active: FinanceTab = pathname.startsWith('/finances/daily-log')
-        ? 'Daily Log'
+        ? 'Logs'
         : pathname.startsWith('/finances/budgets')
           ? 'Budgets'
           : pathname.startsWith('/finances/forecast')

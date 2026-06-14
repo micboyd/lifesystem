@@ -99,6 +99,13 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         set['settings.showTotals'] = req.body.showTotals
     }
 
+    // Array settings
+    if (Array.isArray(req.body.workDays)) {
+        set['settings.workDays'] = req.body.workDays.filter(
+            (d: unknown) => typeof d === 'number' && d >= 0 && d <= 6
+        )
+    }
+
     const user = await User.findByIdAndUpdate(
         req.userId,
         {

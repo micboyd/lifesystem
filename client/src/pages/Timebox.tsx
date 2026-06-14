@@ -55,6 +55,8 @@ export default function Timebox() {
 
     const workStart = s.workStart
     const workEnd = s.workEnd
+    const workDays = s.workDays ?? [1, 2, 3, 4, 5]
+    const isWorkingDay = workDays.includes(new Date(`${date}T12:00:00`).getDay())
 
     // ── Current-time indicator ────────────────────────────────────────────────
     const [nowMin, setNowMin] = useState(() => {
@@ -173,7 +175,7 @@ export default function Timebox() {
                         <i className="fa-regular fa-clock text-neutral-400" aria-hidden="true" />
                         {wake} – {bed}
                     </Badge>
-                    {workStart && workEnd && (
+                    {isWorkingDay && workStart && workEnd && (
                         <Badge
                             variant="outline"
                             className="border-blue-200 bg-blue-50 text-blue-700"
@@ -232,7 +234,8 @@ export default function Timebox() {
                             style={{ height: totalHeight }}
                         >
                             {/* Working hours band */}
-                            {workStart &&
+                            {isWorkingDay &&
+                                workStart &&
                                 workEnd &&
                                 timeToMinutes(workEnd) > timeToMinutes(workStart) && (
                                     <div

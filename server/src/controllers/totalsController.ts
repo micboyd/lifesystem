@@ -22,9 +22,10 @@ export async function createRow(req: AuthRequest, res: Response) {
         res.status(400).json({ message: 'name is required' })
         return
     }
+    const granularity = req.body.granularity === 'weekly' ? 'weekly' : 'daily'
     const last = await TotalRow.findOne({ user: req.userId }).sort({ order: -1 })
     const order = last ? last.order + 1 : 0
-    const row = await TotalRow.create({ user: req.userId, name, order })
+    const row = await TotalRow.create({ user: req.userId, name, order, granularity })
     res.status(201).json({ message: 'Created', data: row })
 }
 
@@ -34,6 +35,8 @@ export async function updateRow(req: AuthRequest, res: Response) {
     if (typeof req.body.name === 'string' && req.body.name.trim())
         fields.name = req.body.name.trim()
     if (typeof req.body.order === 'number') fields.order = req.body.order
+    if (req.body.granularity === 'daily' || req.body.granularity === 'weekly')
+        fields.granularity = req.body.granularity
 
     const row = await TotalRow.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },

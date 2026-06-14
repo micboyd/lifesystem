@@ -4,12 +4,14 @@ export interface UserSettings {
     workStart?: string
     workEnd?: string
     showTotals?: boolean
+    workDays?: number[]
 }
 
 export interface TotalRow {
     _id: string
     name: string
     order: number
+    granularity: 'daily' | 'weekly'
     createdAt: string
     updatedAt: string
 }

@@ -6,14 +6,17 @@ export async function listRows(): Promise<TotalRow[]> {
     return res.data.data
 }
 
-export async function createRow(name: string): Promise<TotalRow> {
-    const res = await api.post<ApiResponse<TotalRow>>('/totals', { name })
+export async function createRow(
+    name: string,
+    granularity: 'daily' | 'weekly' = 'daily'
+): Promise<TotalRow> {
+    const res = await api.post<ApiResponse<TotalRow>>('/totals', { name, granularity })
     return res.data.data
 }
 
 export async function updateRow(
     id: string,
-    fields: { name?: string; order?: number }
+    fields: { name?: string; order?: number; granularity?: 'daily' | 'weekly' }
 ): Promise<TotalRow> {
     const res = await api.put<ApiResponse<TotalRow>>(`/totals/${id}`, fields)
     return res.data.data
