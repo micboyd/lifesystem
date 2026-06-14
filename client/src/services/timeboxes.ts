@@ -1,11 +1,12 @@
 import api from './api'
-import type { ApiResponse, Timebox, TimeboxCategory } from '../types'
+import type { ApiResponse, Timebox, TimeboxCategory, RecurrenceFreq } from '../types'
 
 export interface TimeboxInput {
     title: string
     category?: TimeboxCategory
     startTime: string
     endTime: string
+    recurrence?: { freq: RecurrenceFreq; days?: number[] }
 }
 
 export async function listTimeboxes(from: string, to: string): Promise<Timebox[]> {
@@ -23,6 +24,10 @@ export async function updateTimebox(id: string, input: TimeboxInput): Promise<Ti
     return res.data.data
 }
 
-export async function deleteTimebox(id: string): Promise<void> {
-    await api.delete(`/timeboxes/${id}`)
+export async function deleteTimebox(
+    id: string,
+    scope: 'all' | 'this' = 'all',
+    date?: string
+): Promise<void> {
+    await api.delete(`/timeboxes/${id}`, { data: { scope, date } })
 }

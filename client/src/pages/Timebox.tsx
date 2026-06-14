@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import Container from '../components/Container'
 import Badge from '../components/Badge'
 import Button from '../components/Button'
+import Modal from '../components/Modal'
 import Spinner from '../components/Spinner'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import TimeboxEditor from '../components/timebox/TimeboxEditor'
@@ -25,7 +26,7 @@ import {
 import { TIMEBOX_CATEGORY_COLORS, TIMEBOX_DEFAULT_COLORS } from '../types'
 import type { Timebox } from '../types'
 
-const PX_PER_MIN = 1 // 60px per hour
+const PX_PER_MIN = 2.5 // 150px per hour
 
 export default function Timebox() {
     const { user } = useAuth()
@@ -40,6 +41,7 @@ export default function Timebox() {
     const [defaults, setDefaults] = useState({ startTime: '09:00', endTime: '10:00' })
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
+    const [deleteScope, setDeleteScope] = useState<'prompt' | null>(null)
 
     // Bounds from settings (fallback to sensible defaults)
     const s = user?.settings ?? {}
@@ -137,14 +139,25 @@ export default function Timebox() {
         }
     }
 
-    async function handleDelete() {
+    function handleDelete() {
+        if (!editing) return
+        const isRecurring = editing.recurrence != null || editing.isRecurringInstance
+        if (isRecurring) {
+            setDeleteScope('prompt')
+        } else {
+            doDelete('all')
+        }
+    }
+
+    async function doDelete(scope: 'all' | 'this') {
         if (!editing) return
         setSaving(true)
         try {
-            await deleteTimebox(editing._id)
+            await deleteTimebox(editing._id, scope, scope === 'this' ? date : undefined)
             await reload()
             setEditorOpen(false)
             setEditing(null)
+            setDeleteScope(null)
         } finally {
             setSaving(false)
         }
@@ -306,6 +319,9 @@ export default function Timebox() {
                                             <span
                                                 className={`block truncate text-xs font-semibold leading-tight ${c.text}`}
                                             >
+                                                {(item.recurrence || item.isRecurringInstance) && (
+                                                    <i className="fa-solid fa-rotate mr-1 text-[9px] opacity-60" aria-hidden="true" />
+                                                )}
                                                 {item.title}
                                             </span>
                                             <span
@@ -344,6 +360,40 @@ export default function Timebox() {
                 onSave={handleSave}
                 onDelete={handleDelete}
             />
+
+            {deleteScope === 'prompt' && editing && (
+                <Modal
+                    open
+                    onClose={() => setDeleteScope(null)}
+                    title="Remove recurring block"
+                    size="sm"
+                    footer={
+                        <Button variant="ghost" onClick={() => setDeleteScope(null)} disabled={saving}>
+                            Cancel
+                        </Button>
+                    }
+                >
+                    <div className="flex flex-col gap-3">
+                        <p className="text-sm text-neutral-600">
+                            This block repeats. What would you like to remove?
+                        </p>
+                        <Button
+                            variant="secondary"
+                            onClick={() => doDelete('this')}
+                            disabled={saving}
+                        >
+                            Just today
+                        </Button>
+                        <Button
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            onClick={() => doDelete('all')}
+                            disabled={saving}
+                        >
+                            All occurrences
+                        </Button>
+                    </div>
+                </Modal>
+            )}
         </Container>
     )
 }

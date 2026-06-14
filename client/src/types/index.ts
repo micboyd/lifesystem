@@ -224,6 +224,8 @@ export const TIMEBOX_DEFAULT_COLORS = {
     sub: 'text-neutral-400',
 }
 
+export type RecurrenceFreq = 'daily' | 'weekly' | 'weekdays' | 'custom'
+
 export interface Timebox {
     _id: string
     date: string
@@ -231,6 +233,8 @@ export interface Timebox {
     category?: TimeboxCategory
     startTime: string
     endTime: string
+    recurrence?: { freq: RecurrenceFreq; days?: number[] }
+    isRecurringInstance?: boolean
     createdAt: string
     updatedAt: string
 }

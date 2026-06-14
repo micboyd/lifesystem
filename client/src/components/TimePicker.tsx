@@ -182,9 +182,9 @@ export default function TimePicker({
         }
     }
 
-    function commitHourDraft() {
-        if (hourDraft === null) return
-        const n = parseInt(hourDraft, 10)
+    function commitHourDraft(draft = hourDraft) {
+        if (draft === null) return
+        const n = parseInt(draft, 10)
         let hour24: number
         if (use12Hour) {
             if (isNaN(n) || n < 1 || n > 12) {
@@ -203,6 +203,25 @@ export default function TimePicker({
         setHourDraft(null)
     }
 
+    function handleHourChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const val = e.target.value.replace(/\D/g, '').slice(0, 2)
+        setHourDraft(val)
+        const n = parseInt(val, 10)
+        const maxHour = use12Hour ? 12 : 23
+        const minHour = use12Hour ? 1 : 0
+        if (val.length === 2 && !isNaN(n) && n >= minHour && n <= maxHour) {
+            // Auto-commit and advance to minutes
+            const hour24 = use12Hour
+                ? period === 'PM'
+                    ? (n % 12) + 12
+                    : n % 12
+                : n
+            commit({ hour: hour24, minute: current?.minute ?? 0 })
+            setHourDraft(null)
+            setMinuteDraft(current !== null ? String(current.minute) : '0')
+        }
+    }
+
     // ── Minute controls ────────────────────────────────────────────────────────
 
     function incrementMinute() {
@@ -217,9 +236,9 @@ export default function TimePicker({
         commit({ hour: current?.hour ?? 0, minute: prev })
     }
 
-    function commitMinuteDraft() {
-        if (minuteDraft === null) return
-        const n = parseInt(minuteDraft, 10)
+    function commitMinuteDraft(draft = minuteDraft) {
+        if (draft === null) return
+        const n = parseInt(draft, 10)
         if (isNaN(n) || n < 0 || n > 59) {
             setMinuteDraft(null)
             return
@@ -227,6 +246,17 @@ export default function TimePicker({
         const snapped = Math.min(Math.round(n / step) * step, 59)
         commit({ hour: current?.hour ?? 0, minute: snapped })
         setMinuteDraft(null)
+    }
+
+    function handleMinuteChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const val = e.target.value.replace(/\D/g, '').slice(0, 2)
+        setMinuteDraft(val)
+        const n = parseInt(val, 10)
+        if (val.length === 2 && !isNaN(n) && n >= 0 && n <= 59) {
+            const snapped = Math.min(Math.round(n / step) * step, 59)
+            commit({ hour: current?.hour ?? 0, minute: snapped })
+            setMinuteDraft(null)
+        }
     }
 
     // ── Period / quick / now ───────────────────────────────────────────────────
@@ -346,11 +376,16 @@ export default function TimePicker({
                                     type="text"
                                     inputMode="numeric"
                                     value={hourDraft}
-                                    onChange={(e) => setHourDraft(e.target.value)}
-                                    onBlur={commitHourDraft}
+                                    onChange={handleHourChange}
+                                    onBlur={() => commitHourDraft(hourDraft)}
                                     onKeyDown={(e) => {
-                                        if (e.key === 'Enter') commitHourDraft()
+                                        if (e.key === 'Enter') { commitHourDraft(hourDraft) }
                                         if (e.key === 'Escape') setHourDraft(null)
+                                        if (e.key === 'Tab') {
+                                            e.preventDefault()
+                                            commitHourDraft(hourDraft)
+                                            setMinuteDraft(current !== null ? String(current.minute) : '0')
+                                        }
                                     }}
                                     className={digitInput}
                                 />
@@ -393,10 +428,10 @@ export default function TimePicker({
                                     type="text"
                                     inputMode="numeric"
                                     value={minuteDraft}
-                                    onChange={(e) => setMinuteDraft(e.target.value)}
-                                    onBlur={commitMinuteDraft}
+                                    onChange={handleMinuteChange}
+                                    onBlur={() => commitMinuteDraft(minuteDraft)}
                                     onKeyDown={(e) => {
-                                        if (e.key === 'Enter') commitMinuteDraft()
+                                        if (e.key === 'Enter') commitMinuteDraft(minuteDraft)
                                         if (e.key === 'Escape') setMinuteDraft(null)
                                     }}
                                     className={digitInput}
