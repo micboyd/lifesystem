@@ -30,17 +30,17 @@ export default function Home() {
             </div>
 
             <div className="mt-6 grid gap-6 md:grid-cols-2">
+                <TimeboxWidget date={date} />
                 <TodayWidget date={date} />
+            </div>
+
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
                 <HabitsWidget date={date} />
+                <TasksWidget date={date} />
             </div>
 
             <div className="mt-6">
                 <BudgetWidget date={date} />
-            </div>
-
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
-                <TimeboxWidget date={date} />
-                <TasksWidget date={date} />
             </div>
         </Container>
     )

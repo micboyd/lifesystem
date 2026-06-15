@@ -25,6 +25,8 @@ export default function TimeboxWidget({ date = todayKey() }: { date?: string }) 
         }
     }, [date])
 
+    if (!loading && items.length === 0) return null
+
     return (
         <Card>
             <CardHeader className="flex items-center justify-between gap-4">
@@ -42,8 +44,6 @@ export default function TimeboxWidget({ date = todayKey() }: { date?: string }) 
                 <div className="grid place-items-center py-6">
                     <Spinner />
                 </div>
-            ) : items.length === 0 ? (
-                <p className="py-6 text-center text-sm text-neutral-400">No blocks planned yet.</p>
             ) : (
                 <ul className="flex flex-col">
                     {items.map((item, i) => {
