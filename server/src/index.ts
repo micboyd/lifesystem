@@ -17,6 +17,7 @@ import taskRoutes from './routes/taskRoutes'
 import timeboxRoutes from './routes/timeboxRoutes'
 import totalsRoutes from './routes/totalsRoutes'
 import userRoutes from './routes/userRoutes'
+import courseRoutes from './routes/courseRoutes'
 
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 
@@ -49,6 +50,7 @@ app.use('/api/tasks', taskRoutes)
 app.use('/api/timeboxes', timeboxRoutes)
 app.use('/api/totals', totalsRoutes)
 app.use('/api/finances', financeRoutes)
+app.use('/api/courses', courseRoutes)
 
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })

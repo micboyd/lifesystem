@@ -15,6 +15,7 @@ import BudgetCalendar from './pages/BudgetCalendar'
 import SavingsForecast from './pages/SavingsForecast'
 import FinanceBreakdown from './pages/FinanceBreakdown'
 import Login from './pages/Login'
+import Study from './pages/Study'
 import Profile from './pages/Profile'
 import StyleGuide from './pages/StyleGuide'
 import NotFound from './pages/NotFound'
@@ -62,6 +63,7 @@ export default function App() {
                     <Route path="daily-log" element={<BudgetCalendar />} />
                     <Route path="forecast" element={<SavingsForecast />} />
                 </Route>
+                <Route path="/study" element={<Study />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/styleguide" element={<StyleGuide />} />
                 <Route path="*" element={<NotFound />} />

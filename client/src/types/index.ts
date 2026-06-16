@@ -338,6 +338,17 @@ export interface FinanceSubItem {
     updatedAt: string
 }
 
+export interface Course {
+    _id: string
+    title: string
+    hours: number
+    category: string
+    url?: string
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
 export interface LoginCredentials {
     email: string
     password: string
