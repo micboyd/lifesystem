@@ -40,6 +40,22 @@ function slotOrdinal(date: string, part: Part) {
     return (Date.UTC(y, m - 1, d) / 86_400_000) * 4 + PARTS.indexOf(part)
 }
 
+/** Last weekday (Mon–Fri) of the given month. `monthIndex` may overflow (Date.UTC normalizes it). */
+function lastWeekdayOfMonth(year: number, monthIndex: number): string {
+    // Day 0 of the next month is the last day of this month.
+    let dt = new Date(Date.UTC(year, monthIndex + 1, 0))
+    const dow = dt.getUTCDay()
+    if (dow === 6) dt = new Date(dt.getTime() - 86_400_000) // Sat → Fri
+    else if (dow === 0) dt = new Date(dt.getTime() - 2 * 86_400_000) // Sun → Fri
+    return dt.toISOString().slice(0, 10)
+}
+
+/** Add `days` to a YYYY-MM-DD string. */
+function addDays(date: string, days: number): string {
+    const [y, m, d] = date.split('-').map(Number)
+    return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
+}
+
 /** Add n intervals of `frequency` to a YYYY-MM-DD string. */
 function addInterval(date: string, frequency: RecurrenceFrequency, n: number): string {
     const [y, m, d] = date.split('-').map(Number)
@@ -60,6 +76,9 @@ function addInterval(date: string, frequency: RecurrenceFrequency, n: number): s
         case 'yearly':
             dt = new Date(Date.UTC(y + n, m - 1, d))
             break
+        case 'lastWeekday':
+            // The nth occurrence is the last weekday of the month n months on.
+            return lastWeekdayOfMonth(y, m - 1 + n)
     }
     return dt.toISOString().slice(0, 10)
 }
@@ -79,6 +98,7 @@ function startingN(eventStart: string, frequency: RecurrenceFrequency, from: str
         case 'biweekly':
             return Math.max(0, Math.floor(diffDays / 14) - 1)
         case 'monthly':
+        case 'lastWeekday':
             return Math.max(0, Math.floor(diffDays / 30.44) - 1)
         case 'yearly':
             return Math.max(0, Math.floor(diffDays / 365.25) - 1)
@@ -97,13 +117,26 @@ function expandOccurrences(event: IEvent, from: string, to: string) {
 
     let n = startingN(event.startDate, frequency, from)
     let safety = 0
+    // For computed-date frequencies (lastWeekday) the end can't be derived by
+    // shifting the master's endDate by a fixed interval, so carry its duration.
+    const durationDays = Math.round(
+        (Date.parse(event.endDate) - Date.parse(event.startDate)) / 86_400_000
+    )
 
     while (safety++ < MAX) {
         const occStart = addInterval(event.startDate, frequency, n)
         if (occStart > effectiveTo) break
-        const occEnd = addInterval(event.endDate, frequency, n)
-        // Overlaps [from, to] and isn't an excepted ("this event only" deleted) occurrence?
-        if (occEnd >= from && occStart <= to && !exdates.has(occStart)) {
+        const occEnd =
+            frequency === 'lastWeekday'
+                ? addDays(occStart, durationDays)
+                : addInterval(event.endDate, frequency, n)
+        // Within the series, overlaps [from, to], and not an excepted ("this event only") occurrence?
+        if (
+            occStart >= event.startDate &&
+            occEnd >= from &&
+            occStart <= to &&
+            !exdates.has(occStart)
+        ) {
             results.push({ ...base, startDate: occStart, endDate: occEnd })
         }
         n++

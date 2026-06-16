@@ -6,7 +6,14 @@ export type Part = (typeof PARTS)[number]
 export const EVENT_TYPES = ['trip', 'social', 'general'] as const
 export type EventType = (typeof EVENT_TYPES)[number]
 
-export const RECURRENCE_FREQUENCIES = ['daily', 'weekly', 'biweekly', 'monthly', 'yearly'] as const
+export const RECURRENCE_FREQUENCIES = [
+    'daily',
+    'weekly',
+    'biweekly',
+    'monthly',
+    'yearly',
+    'lastWeekday',
+] as const
 export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number]
 
 export const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/

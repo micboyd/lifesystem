@@ -83,7 +83,14 @@ export const NA_EVENT_COLORS = {
     light: 'bg-purple-50',
 }
 
-export const RECURRENCE_FREQUENCIES = ['daily', 'weekly', 'biweekly', 'monthly', 'yearly'] as const
+export const RECURRENCE_FREQUENCIES = [
+    'daily',
+    'weekly',
+    'biweekly',
+    'monthly',
+    'yearly',
+    'lastWeekday',
+] as const
 export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number]
 
 export const RECURRENCE_LABELS: Record<RecurrenceFrequency, string> = {
@@ -92,6 +99,7 @@ export const RECURRENCE_LABELS: Record<RecurrenceFrequency, string> = {
     biweekly: 'Bi-weekly',
     monthly: 'Monthly',
     yearly: 'Yearly',
+    lastWeekday: 'Last working day',
 }
 
 export interface Recurrence {

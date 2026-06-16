@@ -598,14 +598,14 @@ export default function EventEditor({
                     <Switch checked={recurring} onChange={setRecurring} label="Repeats" />
                     {recurring && (
                         <>
-                            <div className="flex rounded-xl border border-neutral-200 bg-neutral-50 p-1 gap-1">
+                            <div className="grid grid-cols-3 gap-1 rounded-xl border border-neutral-200 bg-neutral-50 p-1">
                                 {RECURRENCE_FREQUENCIES.map((f) => (
                                     <button
                                         key={f}
                                         type="button"
                                         onClick={() => setRecurrenceFrequency(f)}
                                         className={[
-                                            'flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors',
+                                            'rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors',
                                             recurrenceFrequency === f
                                                 ? 'bg-neutral-950 text-white'
                                                 : 'text-neutral-500 hover:text-neutral-900',
@@ -615,6 +615,15 @@ export default function EventEditor({
                                     </button>
                                 ))}
                             </div>
+                            {recurrenceFrequency === 'lastWeekday' && (
+                                <p className="flex items-center gap-1.5 text-xs text-neutral-400">
+                                    <i
+                                        className="fa-solid fa-circle-info text-[10px]"
+                                        aria-hidden="true"
+                                    />
+                                    Repeats on the last working day (Mon–Fri) of each month.
+                                </p>
+                            )}
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                     Ends on{' '}
