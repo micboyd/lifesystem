@@ -32,6 +32,10 @@ export async function updateEvent(id: string, input: EventInput): Promise<Event>
     return res.data.data
 }
 
-export async function deleteEvent(id: string): Promise<void> {
-    await api.delete<ApiResponse<Event>>(`/events/${id}`)
+/**
+ * Deletes an event. Pass `date` (YYYY-MM-DD) to remove only that one occurrence
+ * of a recurring series; omit it to delete the event / whole series.
+ */
+export async function deleteEvent(id: string, date?: string): Promise<void> {
+    await api.delete<ApiResponse<Event>>(`/events/${id}`, date ? { params: { date } } : undefined)
 }

@@ -91,6 +91,7 @@ function expandOccurrences(event: IEvent, from: string, to: string) {
     const { frequency, endsOn } = event.recurrence
     const effectiveTo = endsOn && endsOn < to ? endsOn : to
     const base = event.toObject()
+    const exdates = new Set(event.exdates ?? [])
     const results: (typeof base)[] = []
     const MAX = 500
 
@@ -101,8 +102,8 @@ function expandOccurrences(event: IEvent, from: string, to: string) {
         const occStart = addInterval(event.startDate, frequency, n)
         if (occStart > effectiveTo) break
         const occEnd = addInterval(event.endDate, frequency, n)
-        // Overlaps [from, to]?
-        if (occEnd >= from && occStart <= to) {
+        // Overlaps [from, to] and isn't an excepted ("this event only" deleted) occurrence?
+        if (occEnd >= from && occStart <= to && !exdates.has(occStart)) {
             results.push({ ...base, startDate: occStart, endDate: occEnd })
         }
         n++
@@ -400,8 +401,33 @@ export async function updateEvent(req: AuthRequest, res: Response) {
     res.json({ message: 'Saved', data })
 }
 
-/** DELETE /api/events/:id */
+/**
+ * DELETE /api/events/:id
+ * Without a `date` query param, deletes the event (and, for recurring events,
+ * the whole series). With `?date=YYYY-MM-DD`, removes only that one occurrence
+ * of a recurring series by recording it as an exception date.
+ */
 export async function deleteEvent(req: AuthRequest, res: Response) {
+    const { date } = req.query
+
+    if (date !== undefined) {
+        if (!isValidDate(date)) {
+            res.status(400).json({ message: 'date must be YYYY-MM-DD' })
+            return
+        }
+        const event = await Event.findOneAndUpdate(
+            { _id: req.params.id, user: req.userId, recurrence: { $exists: true } },
+            { $addToSet: { exdates: date } },
+            { new: true }
+        )
+        if (!event) {
+            res.status(404).json({ message: 'Recurring event not found' })
+            return
+        }
+        res.json({ message: 'Occurrence removed', data: event.toObject() })
+        return
+    }
+
     const event = await Event.findOneAndDelete({ _id: req.params.id, user: req.userId })
     if (!event) {
         res.status(404).json({ message: 'Event not found' })

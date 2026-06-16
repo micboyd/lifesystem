@@ -27,6 +27,9 @@ import EventDetailModal from '../components/calendar/EventDetailModal'
 import EventEditor from '../components/calendar/EventEditor'
 import EventStack from '../components/calendar/EventStack'
 import EventPickerModal from '../components/calendar/EventPickerModal'
+import DeleteRecurringEventDialog, {
+    type DeleteScope,
+} from '../components/calendar/DeleteRecurringEventDialog'
 import MonthView from '../components/calendar/MonthView'
 import WeekView from '../components/calendar/WeekView'
 
@@ -79,6 +82,7 @@ export default function Calendar() {
     const [detailEvent, setDetailEvent] = useState<Event | null>(null)
     const [pickerEvents, setPickerEvents] = useState<Event[] | null>(null)
     const [editingEvent, setEditingEvent] = useState<Event | null>(null)
+    const [scopeEvent, setScopeEvent] = useState<Event | null>(null)
     const [editorOpen, setEditorOpen] = useState(false)
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
@@ -187,17 +191,29 @@ export default function Calendar() {
         }
     }
 
-    async function handleDelete() {
-        if (!editingEvent) return
+    async function removeEvent(event: Event, scope: DeleteScope) {
         setSaving(true)
         try {
-            await deleteEvent(editingEvent._id)
+            // 'instance' records the occurrence's date as an exception; 'series'
+            // (and any non-recurring event) deletes the master document outright.
+            await deleteEvent(event._id, scope === 'instance' ? event.startDate : undefined)
             reload()
             setEditorOpen(false)
             setEditingEvent(null)
+            setScopeEvent(null)
         } finally {
             setSaving(false)
         }
+    }
+
+    async function handleDelete() {
+        if (!editingEvent) return
+        // Recurring events offer a this-one / whole-series choice; others delete directly.
+        if (editingEvent.recurrence) {
+            setScopeEvent(editingEvent)
+            return
+        }
+        await removeEvent(editingEvent, 'series')
     }
 
     function openEdit(event: Event) {
@@ -365,6 +381,14 @@ export default function Calendar() {
                 onSave={handleSave}
                 onDelete={handleDelete}
             />
+            {scopeEvent && (
+                <DeleteRecurringEventDialog
+                    title={scopeEvent.title}
+                    occurrenceDate={scopeEvent.startDate}
+                    onClose={() => setScopeEvent(null)}
+                    onConfirm={(scope) => removeEvent(scopeEvent, scope)}
+                />
+            )}
         </main>
     )
 }

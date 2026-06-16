@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import EventEditor from './EventEditor'
+import DeleteRecurringEventDialog, { type DeleteScope } from './DeleteRecurringEventDialog'
 import Spinner from '../Spinner'
 import {
     PERIODS,
@@ -31,6 +32,7 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
     const [editing, setEditing] = useState<{ event: Event | null; part: Part | 'allday' } | null>(
         null
     )
+    const [scopeEvent, setScopeEvent] = useState<Event | null>(null)
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
 
@@ -99,16 +101,28 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
         }
     }
 
-    async function handleDelete() {
-        if (!editing?.event) return
+    async function removeEvent(event: Event, scope: DeleteScope) {
         setSaving(true)
         try {
-            await deleteEvent(editing.event._id)
+            // 'instance' records the occurrence's date as an exception; 'series'
+            // (and any non-recurring event) deletes the master document outright.
+            await deleteEvent(event._id, scope === 'instance' ? event.startDate : undefined)
             setEvents(await load())
             setEditing(null)
+            setScopeEvent(null)
         } finally {
             setSaving(false)
         }
+    }
+
+    async function handleDelete() {
+        if (!editing?.event) return
+        // Recurring events offer a this-one / whole-series choice; others delete directly.
+        if (editing.event.recurrence) {
+            setScopeEvent(editing.event)
+            return
+        }
+        await removeEvent(editing.event, 'series')
     }
 
     if (loading) {
@@ -166,6 +180,14 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
                 onSave={handleSave}
                 onDelete={handleDelete}
             />
+            {scopeEvent && (
+                <DeleteRecurringEventDialog
+                    title={scopeEvent.title}
+                    occurrenceDate={scopeEvent.startDate}
+                    onClose={() => setScopeEvent(null)}
+                    onConfirm={(scope) => removeEvent(scopeEvent, scope)}
+                />
+            )}
         </div>
     )
 }
