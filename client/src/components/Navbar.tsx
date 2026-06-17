@@ -9,6 +9,7 @@ const navLinks = [
     { label: 'Finances', to: '/finances' },
     { label: 'Timebox', to: '/timebox' },
     { label: 'Habits', to: '/habits' },
+    { label: 'Study', to: '/study' },
     { label: 'Profile', to: '/profile' },
 ]
 

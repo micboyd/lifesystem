@@ -5,6 +5,19 @@ export interface UserSettings {
     workEnd?: string
     showTotals?: boolean
     workDays?: number[]
+    /** Id of the totals row whose hours feed the Study section. */
+    studyRowId?: string
+}
+
+export interface Course {
+    _id: string
+    name: string
+    requiredHours: number
+    completedHours: number
+    order: number
+    notes?: string
+    createdAt: string
+    updatedAt: string
 }
 
 export interface TotalRow {

@@ -99,6 +99,13 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         set['settings.showTotals'] = req.body.showTotals
     }
 
+    // Study source row: a string id, or null/'' to clear.
+    if (req.body.studyRowId === null || req.body.studyRowId === '') {
+        unset['settings.studyRowId'] = 1
+    } else if (typeof req.body.studyRowId === 'string') {
+        set['settings.studyRowId'] = req.body.studyRowId
+    }
+
     // Array settings
     if (Array.isArray(req.body.workDays)) {
         set['settings.workDays'] = req.body.workDays.filter(

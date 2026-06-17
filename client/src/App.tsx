@@ -8,6 +8,7 @@ import Calendar from './pages/Calendar'
 import Day from './pages/Day'
 import Timebox from './pages/Timebox'
 import Habits from './pages/Habits'
+import Study from './pages/Study'
 import FinanceLayout from './pages/FinanceLayout'
 import Finances from './pages/Finances'
 import Budgets from './pages/Budgets'
@@ -55,6 +56,7 @@ export default function App() {
                 <Route path="/day/:date" element={<Day />} />
                 <Route path="/timebox" element={<Timebox />} />
                 <Route path="/habits" element={<Habits />} />
+                <Route path="/study" element={<Study />} />
                 <Route path="/finances/breakdown/:rowId" element={<FinanceBreakdown />} />
                 <Route path="/finances" element={<FinanceLayout />}>
                     <Route index element={<Finances />} />

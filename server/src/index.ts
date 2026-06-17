@@ -6,6 +6,7 @@ import DayStatus from './models/DayStatus'
 import BudgetSpend from './models/BudgetSpend'
 import { connectDB } from './config/db'
 import cors from 'cors'
+import courseRoutes from './routes/courseRoutes'
 import dayStatusRoutes from './routes/dayStatusRoutes'
 import dotenv from 'dotenv'
 import eventRoutes from './routes/eventRoutes'
@@ -48,6 +49,7 @@ app.use('/api/day-status', dayStatusRoutes)
 app.use('/api/tasks', taskRoutes)
 app.use('/api/timeboxes', timeboxRoutes)
 app.use('/api/totals', totalsRoutes)
+app.use('/api/courses', courseRoutes)
 app.use('/api/finances', financeRoutes)
 
 app.get('/api/health', (_req, res) => {

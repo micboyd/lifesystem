@@ -13,6 +13,7 @@ export function pageNameForPath(pathname: string): string | null {
     if (pathname.startsWith('/day/')) return 'Day'
     if (pathname === '/timebox') return 'Timebox'
     if (pathname === '/habits') return 'Habits'
+    if (pathname === '/study') return 'Study'
     if (pathname.startsWith('/finances/breakdown')) return 'Breakdown'
     if (pathname.startsWith('/finances/budgets')) return 'Budgets'
     if (pathname.startsWith('/finances/daily-log')) return 'Daily Log'

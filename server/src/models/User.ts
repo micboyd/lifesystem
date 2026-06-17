@@ -9,6 +9,8 @@ export interface IUserSettings {
     workEnd?: string
     showTotals?: boolean
     workDays?: number[]
+    /** Id of the totals row whose hours feed the Study section. */
+    studyRowId?: string
 }
 
 export interface IUser extends Document {
@@ -27,6 +29,7 @@ const settingsSchema = new Schema<IUserSettings>(
         workEnd: { type: String, match: TIME_PATTERN },
         showTotals: { type: Boolean, default: false },
         workDays: { type: [Number], default: undefined },
+        studyRowId: { type: String },
     },
     { _id: false }
 )
