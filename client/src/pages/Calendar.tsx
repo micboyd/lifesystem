@@ -354,6 +354,11 @@ export default function Calendar() {
                 event={detailEvent}
                 onClose={() => setDetailEvent(null)}
                 onEdit={() => detailEvent && openEdit(detailEvent)}
+                onDeleteOccurrence={async (event) => {
+                    await deleteEvent(event._id, event.startDate)
+                    setDetailEvent(null)
+                    reload()
+                }}
             />
             <EventPickerModal
                 events={pickerEvents}

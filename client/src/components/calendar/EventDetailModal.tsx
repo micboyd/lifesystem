@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Modal from '../Modal'
 import Button from '../Button'
 import {
@@ -13,6 +14,7 @@ interface Props {
     event: Event | null
     onClose: () => void
     onEdit: () => void
+    onDeleteOccurrence?: (event: Event) => Promise<void>
 }
 
 const PART_LABELS: Record<string, string> = {
@@ -55,8 +57,19 @@ function partRange(event: Event): string {
     return `${PART_LABELS[event.startPart]} → ${PART_LABELS[event.endPart]}`
 }
 
-export default function EventDetailModal({ event, onClose, onEdit }: Props) {
+export default function EventDetailModal({ event, onClose, onEdit, onDeleteOccurrence }: Props) {
+    const [deletingOccurrence, setDeletingOccurrence] = useState(false)
     if (!event) return null
+
+    async function handleDeleteOccurrence() {
+        if (!onDeleteOccurrence) return
+        setDeletingOccurrence(true)
+        try {
+            await onDeleteOccurrence(event!)
+        } finally {
+            setDeletingOccurrence(false)
+        }
+    }
 
     const isNa = event.startPart === 'na'
     const colors = isNa ? NA_EVENT_COLORS : EVENT_TYPE_COLORS[event.eventType]
@@ -72,6 +85,17 @@ export default function EventDetailModal({ event, onClose, onEdit }: Props) {
                     <Button variant="ghost" size="sm" onClick={onClose}>
                         Close
                     </Button>
+                    {event.recurrence && onDeleteOccurrence && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleDeleteOccurrence}
+                            disabled={deletingOccurrence}
+                            className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                        >
+                            Remove this occurrence
+                        </Button>
+                    )}
                     <Button size="sm" icon="fa-solid fa-pen" onClick={onEdit}>
                         Edit
                     </Button>

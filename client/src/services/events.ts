@@ -39,3 +39,4 @@ export async function updateEvent(id: string, input: EventInput): Promise<Event>
 export async function deleteEvent(id: string, date?: string): Promise<void> {
     await api.delete<ApiResponse<Event>>(`/events/${id}`, date ? { params: { date } } : undefined)
 }
+
