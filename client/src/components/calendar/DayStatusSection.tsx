@@ -7,6 +7,8 @@ import { MONTHS } from '../../lib/calendar'
 
 interface Props {
     date: string
+    /** Start with the add form open (used when launched from the calendar). */
+    defaultAdding?: boolean
 }
 
 function formatRange(startDate: string, endDate: string) {
@@ -17,10 +19,10 @@ function formatRange(startDate: string, endDate: string) {
     return startDate === endDate ? fmt(startDate) : `${fmt(startDate)} → ${fmt(endDate)}`
 }
 
-export default function DayStatusSection({ date }: Props) {
+export default function DayStatusSection({ date, defaultAdding = false }: Props) {
     const [records, setRecords] = useState<DayStatus[]>([])
     const [loading, setLoading] = useState(true)
-    const [adding, setAdding] = useState(false)
+    const [adding, setAdding] = useState(defaultAdding)
     const [saving, setSaving] = useState(false)
     const [range, setRange] = useState<DateRange>({ start: date, end: date })
     const [selectedStatus, setSelectedStatus] = useState<DayStatusType | null>(null)

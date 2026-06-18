@@ -32,6 +32,8 @@ import DeleteRecurringEventDialog, {
 } from '../components/calendar/DeleteRecurringEventDialog'
 import MonthView from '../components/calendar/MonthView'
 import WeekView from '../components/calendar/WeekView'
+import Drawer from '../components/Drawer'
+import DayStatusSection from '../components/calendar/DayStatusSection'
 
 type CalendarView = 'Week' | 'Month' | 'Year'
 const VIEWS: CalendarView[] = ['Year', 'Month', 'Week']
@@ -86,6 +88,8 @@ export default function Calendar() {
     const [editorOpen, setEditorOpen] = useState(false)
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
+    // Day whose leave/holiday is being edited in the drawer (Year-view Leave row).
+    const [leaveDate, setLeaveDate] = useState<string | null>(null)
 
     // ── Totals cell selection + in-app copy buffer ──
     const [selection, setSelection] = useState<CellSel | null>(null)
@@ -501,6 +505,7 @@ export default function Calendar() {
                                     onOpenPart={(date, part) =>
                                         nav(`/day/${date}`, { state: { openPart: part } })
                                     }
+                                    onLeaveClick={(date) => setLeaveDate(date)}
                                     onEventClick={(event) => setDetailEvent(event)}
                                     onPickEvents={(evts) => setPickerEvents(evts)}
                                 />
@@ -554,6 +559,20 @@ export default function Calendar() {
                     onConfirm={(scope) => removeEvent(scopeEvent, scope)}
                 />
             )}
+
+            {/* Leave / holiday editor — opened from the Year-view Leave row. */}
+            <Drawer
+                open={!!leaveDate}
+                onClose={() => {
+                    setLeaveDate(null)
+                    reload()
+                }}
+                title="Leave & Holidays"
+            >
+                {leaveDate && (
+                    <DayStatusSection key={leaveDate} date={leaveDate} defaultAdding />
+                )}
+            </Drawer>
         </main>
     )
 }
@@ -629,6 +648,7 @@ interface MonthBlockProps {
     onChangeGranularity: (id: string, granularity: 'daily' | 'weekly') => void
     onOpenDay: (date: string) => void
     onOpenPart: (date: string, part: Part) => void
+    onLeaveClick: (date: string) => void
     onEventClick: (event: Event) => void
     onPickEvents: (events: Event[]) => void
 }
@@ -653,6 +673,7 @@ function MonthBlock({
     onChangeGranularity,
     onOpenDay,
     onOpenPart,
+    onLeaveClick,
     onEventClick,
     onPickEvents,
 }: MonthBlockProps) {
@@ -889,7 +910,7 @@ function MonthBlock({
                                         {status && colors ? (
                                             <button
                                                 type="button"
-                                                onClick={() => onOpenDay(key)}
+                                                onClick={() => onLeaveClick(key)}
                                                 title={colors.label}
                                                 className={`flex h-full w-full items-center overflow-hidden rounded-lg px-1.5 text-left transition-colors ${colors.bg} ${colors.hover} ${colors.text}`}
                                             >
@@ -900,7 +921,7 @@ function MonthBlock({
                                         ) : (
                                             <button
                                                 type="button"
-                                                onClick={() => onOpenDay(key)}
+                                                onClick={() => onLeaveClick(key)}
                                                 className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100"
                                             >
                                                 <i className="fa-solid fa-plus text-[10px] opacity-0 group-hover:opacity-100" />
