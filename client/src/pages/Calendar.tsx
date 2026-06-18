@@ -272,6 +272,20 @@ export default function Calendar() {
         return () => window.removeEventListener('mouseup', up)
     }, [])
 
+    // Clicking anywhere outside the totals cells clears the selection. Only
+    // listens while a selection exists; the mousedown that creates one happens
+    // before this re-attaches, so it never clears itself.
+    useEffect(() => {
+        if (!selection) return
+        function onDown(e: MouseEvent) {
+            const target = e.target as HTMLElement | null
+            if (target?.closest('[data-totals-cell]')) return
+            setSelection(null)
+        }
+        document.addEventListener('mousedown', onDown)
+        return () => document.removeEventListener('mousedown', onDown)
+    }, [selection])
+
     // A stale selection from another month/year is meaningless after navigating.
     useEffect(() => {
         setSelection(null)
@@ -1094,6 +1108,7 @@ function TotalRowCells({
                           <td
                               key={g.anchor}
                               colSpan={g.days.length}
+                              data-totals-cell
                               onMouseDown={() => onCellDown(month, rowIndex, anchorDay)}
                               onMouseEnter={() => onCellEnter(month, rowIndex, anchorDay)}
                               className={[
@@ -1123,6 +1138,7 @@ function TotalRowCells({
                       return (
                           <td
                               key={day}
+                              data-totals-cell
                               onMouseDown={() => onCellDown(month, rowIndex, day - 1)}
                               onMouseEnter={() => onCellEnter(month, rowIndex, day - 1)}
                               className={[
