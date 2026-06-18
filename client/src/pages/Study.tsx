@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Container from '../components/Container'
 import Spinner from '../components/Spinner'
 import Select from '../components/Select'
@@ -38,6 +38,9 @@ export default function Study() {
     const [values, setValues] = useState<TotalValue[]>([])
     const [courses, setCourses] = useState<Course[]>([])
     const [studyRowId, setStudyRowId] = useState(user?.settings?.studyRowId ?? '')
+    // Drag-to-reorder: the item being dragged and the row it's hovering over.
+    const [dragIndex, setDragIndex] = useState<number | null>(null)
+    const [overIndex, setOverIndex] = useState<number | null>(null)
 
     useEffect(() => {
         const { from, to } = bankRange()
@@ -100,20 +103,21 @@ export default function Study() {
         await deleteCourse(id)
     }
 
-    // Swap a course with its neighbour to change queue priority.
-    async function handleMove(index: number, dir: -1 | 1) {
-        const target = index + dir
-        if (target < 0 || target >= courses.length) return
-        const a = courses[index]
-        const b = courses[target]
+    // Move a course to a new position in the queue (drag and drop), then persist
+    // the sequential order of every item whose position changed.
+    async function handleReorder(from: number, to: number) {
+        if (from === to || from < 0 || to < 0 || from >= courses.length || to >= courses.length)
+            return
         const reordered = [...courses]
-        reordered[index] = b
-        reordered[target] = a
-        setCourses(reordered)
-        await Promise.all([
-            updateCourse(a._id, { order: b.order }),
-            updateCourse(b._id, { order: a.order }),
-        ]).catch(() => listCourses().then(setCourses))
+        const [moved] = reordered.splice(from, 1)
+        reordered.splice(to, 0, moved)
+        const withOrder = reordered.map((c, i) => ({ ...c, order: i }))
+        const prevById = new Map(courses.map((c) => [c._id, c.order]))
+        setCourses(withOrder)
+        const changed = withOrder.filter((c) => prevById.get(c._id) !== c.order)
+        await Promise.all(changed.map((c) => updateCourse(c._id, { order: c.order }))).catch(() =>
+            listCourses().then(setCourses)
+        )
     }
 
     const rowOptions = rows.map((r) => ({ label: r.name, value: r._id }))
@@ -190,12 +194,22 @@ export default function Study() {
                                 <CourseRow
                                     key={p.course._id}
                                     projection={p}
-                                    isFirst={i === 0}
-                                    isLast={i === projection.courses.length - 1}
                                     hasSource={!!studyRowId}
+                                    isDragging={dragIndex === i}
+                                    isDragOver={dragIndex !== null && overIndex === i && dragIndex !== i}
                                     onSave={handleSaveCourse}
                                     onDelete={handleDeleteCourse}
-                                    onMove={(dir) => handleMove(i, dir)}
+                                    onDragStart={() => setDragIndex(i)}
+                                    onDragOver={() => setOverIndex(i)}
+                                    onDrop={() => {
+                                        if (dragIndex !== null) handleReorder(dragIndex, i)
+                                        setDragIndex(null)
+                                        setOverIndex(null)
+                                    }}
+                                    onDragEnd={() => {
+                                        setDragIndex(null)
+                                        setOverIndex(null)
+                                    }}
                                 />
                             ))}
                         </div>
@@ -270,28 +284,37 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 interface CourseRowProps {
     projection: CourseProjection
-    isFirst: boolean
-    isLast: boolean
     hasSource: boolean
+    isDragging: boolean
+    isDragOver: boolean
     onSave: (
         id: string,
         fields: Partial<Pick<Course, 'name' | 'category' | 'requiredHours' | 'completedHours' | 'notes'>>
     ) => Promise<void>
     onDelete: (id: string) => void
-    onMove: (dir: -1 | 1) => void
+    onDragStart: () => void
+    onDragOver: () => void
+    onDrop: () => void
+    onDragEnd: () => void
 }
 
 function CourseRow({
     projection,
-    isFirst,
-    isLast,
     hasSource,
+    isDragging,
+    isDragOver,
     onSave,
     onDelete,
-    onMove,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
 }: CourseRowProps) {
     const { course } = projection
     const isBlock = course.kind === 'block'
+    // The row is only draggable once a drag is initiated from the grip handle,
+    // so clicks/selection elsewhere in the row behave normally.
+    const dragReady = useRef(false)
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(course.name ?? '')
     const [category, setCategory] = useState(course.category ?? '')
@@ -307,6 +330,14 @@ function CourseRow({
         setCompleted(String(course.completedHours ?? ''))
         setNotes(course.notes ?? '')
     }, [course.name, course.category, course.requiredHours, course.completedHours, course.notes])
+
+    // Disarm the handle on any plain click release. A real drag ends with
+    // 'dragend' (no trailing 'mouseup'), so this only fires when no drag started.
+    useEffect(() => {
+        const disarm = () => (dragReady.current = false)
+        window.addEventListener('mouseup', disarm)
+        return () => window.removeEventListener('mouseup', disarm)
+    }, [])
 
     async function save() {
         const req = Number(required)
@@ -388,29 +419,48 @@ function CourseRow({
     }
 
     return (
-        <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+        <div
+            draggable
+            onDragStart={(e) => {
+                if (!dragReady.current) {
+                    e.preventDefault()
+                    return
+                }
+                e.dataTransfer.effectAllowed = 'move'
+                onDragStart()
+            }}
+            onDragOver={(e) => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+                onDragOver()
+            }}
+            onDrop={(e) => {
+                e.preventDefault()
+                onDrop()
+            }}
+            onDragEnd={() => {
+                dragReady.current = false
+                onDragEnd()
+            }}
+            className={[
+                'rounded-2xl border bg-white p-4 shadow-sm transition-shadow',
+                isDragging ? 'border-neutral-300 opacity-40' : 'border-neutral-200',
+                isDragOver ? 'ring-2 ring-neutral-300' : '',
+            ]
+                .filter(Boolean)
+                .join(' ')}
+        >
             <div className="flex items-start gap-3">
-                {/* Reorder */}
-                <div className="flex flex-col">
-                    <button
-                        type="button"
-                        onClick={() => onMove(-1)}
-                        disabled={isFirst}
-                        aria-label="Move up"
-                        className="grid h-5 w-5 place-items-center rounded text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent"
-                    >
-                        <i className="fa-solid fa-chevron-up text-[10px]" aria-hidden="true" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onMove(1)}
-                        disabled={isLast}
-                        aria-label="Move down"
-                        className="grid h-5 w-5 place-items-center rounded text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 disabled:hover:bg-transparent"
-                    >
-                        <i className="fa-solid fa-chevron-down text-[10px]" aria-hidden="true" />
-                    </button>
-                </div>
+                {/* Drag handle */}
+                <button
+                    type="button"
+                    aria-label="Drag to reorder"
+                    onMouseDown={() => (dragReady.current = true)}
+                    onTouchStart={() => (dragReady.current = true)}
+                    className="grid h-8 w-5 shrink-0 cursor-grab touch-none place-items-center rounded text-neutral-300 transition-colors hover:text-neutral-500 active:cursor-grabbing"
+                >
+                    <i className="fa-solid fa-grip-vertical text-xs" aria-hidden="true" />
+                </button>
 
                 {/* Details */}
                 <div className="min-w-0 flex-1">
