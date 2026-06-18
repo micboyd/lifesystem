@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     MONTHS,
@@ -86,6 +86,17 @@ export default function Calendar() {
     const [editorOpen, setEditorOpen] = useState(false)
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
+
+    // ── Totals cell selection + in-app copy buffer ──
+    const [selection, setSelection] = useState<CellSel | null>(null)
+    const [clipboard, setClipboard] = useState<(number | null)[][] | null>(null)
+    const [dragging, setDragging] = useState(false)
+    const dragAnchor = useRef<{ month: number; r: number; d: number } | null>(null)
+    // Always-current handle to the value setter, so the copy/paste callbacks
+    // don't need it in their dependency lists.
+    const onSetValueRef = useRef<(rowId: string, date: string, value: number | null) => void>(
+        () => {}
+    )
 
     const isToday = focusDate === todayKey()
     const title = getTitle(view, focusDate)
@@ -223,6 +234,130 @@ export default function Calendar() {
         setConflict(false)
     }
 
+    // ── Totals cell selection ──
+    // Begin a selection (single cell) and record the drag anchor.
+    const startCell = useCallback((month: number, r: number, d: number) => {
+        dragAnchor.current = { month, r, d }
+        setSelection({ month, rowStart: r, rowEnd: r, dayStart: d, dayEnd: d })
+    }, [])
+
+    // Extend the selection while the mouse is held; clears native text selection.
+    const extendCell = useCallback((month: number, r: number, d: number) => {
+        const a = dragAnchor.current
+        if (!a || a.month !== month) return
+        setDragging(true)
+        window.getSelection()?.removeAllRanges()
+        ;(document.activeElement as HTMLElement | null)?.blur?.()
+        setSelection({
+            month,
+            rowStart: Math.min(a.r, r),
+            rowEnd: Math.max(a.r, r),
+            dayStart: Math.min(a.d, d),
+            dayEnd: Math.max(a.d, d),
+        })
+    }, [])
+
+    // Keep the value-setter ref pointing at the latest closure.
+    useEffect(() => {
+        onSetValueRef.current = handleSetValue
+    })
+
+    // End any drag on mouse release anywhere.
+    useEffect(() => {
+        function up() {
+            dragAnchor.current = null
+            setDragging(false)
+        }
+        window.addEventListener('mouseup', up)
+        return () => window.removeEventListener('mouseup', up)
+    }, [])
+
+    // A stale selection from another month/year is meaningless after navigating.
+    useEffect(() => {
+        setSelection(null)
+    }, [focusDate, view])
+
+    const copySelection = useCallback(() => {
+        if (!selection) return
+        const year = parseInt(focusDate.slice(0, 4))
+        const { month, rowStart, rowEnd, dayStart, dayEnd } = selection
+        const block: (number | null)[][] = []
+        for (let r = rowStart; r <= rowEnd; r++) {
+            const row = rows[r]
+            if (!row) continue
+            const line: (number | null)[] = []
+            for (let d = dayStart; d <= dayEnd; d++) {
+                line.push(values[`${row._id}:${cellDate(row, year, month, d)}`] ?? null)
+            }
+            block.push(line)
+        }
+        if (block.length) setClipboard(block)
+    }, [selection, rows, values, focusDate])
+
+    const pasteSelection = useCallback(() => {
+        if (!selection || !clipboard) return
+        const year = parseInt(focusDate.slice(0, 4))
+        const { month, rowStart, dayStart } = selection
+        const monthDays = daysInMonth(year, month)
+        clipboard.forEach((line, i) => {
+            const row = rows[rowStart + i]
+            if (!row) return
+            line.forEach((val, j) => {
+                const dayIndex = dayStart + j
+                if (dayIndex >= monthDays) return
+                onSetValueRef.current(row._id, cellDate(row, year, month, dayIndex), val)
+            })
+        })
+        // Move the selection to cover the pasted block.
+        const rowsPasted = clipboard.length
+        const colsPasted = clipboard[0]?.length ?? 0
+        setSelection({
+            month,
+            rowStart,
+            rowEnd: Math.min(rowStart + rowsPasted - 1, rows.length - 1),
+            dayStart,
+            dayEnd: Math.min(dayStart + colsPasted - 1, monthDays - 1),
+        })
+    }, [selection, clipboard, rows, focusDate])
+
+    const clearSelectionValues = useCallback(() => {
+        if (!selection) return
+        const year = parseInt(focusDate.slice(0, 4))
+        const { month, rowStart, rowEnd, dayStart, dayEnd } = selection
+        const monthDays = daysInMonth(year, month)
+        for (let r = rowStart; r <= rowEnd; r++) {
+            const row = rows[r]
+            if (!row) continue
+            for (let d = dayStart; d <= Math.min(dayEnd, monthDays - 1); d++) {
+                onSetValueRef.current(row._id, cellDate(row, year, month, d), null)
+            }
+        }
+    }, [selection, rows, focusDate])
+
+    useEffect(() => {
+        if (!totalsOn) return
+        function onKey(e: KeyboardEvent) {
+            if (!selection) return
+            const mod = e.ctrlKey || e.metaKey
+            const tag = (document.activeElement?.tagName ?? '').toUpperCase()
+            const inInput = tag === 'INPUT' || tag === 'TEXTAREA'
+            if (mod && (e.key === 'c' || e.key === 'C')) {
+                e.preventDefault()
+                copySelection()
+            } else if (mod && (e.key === 'v' || e.key === 'V')) {
+                e.preventDefault()
+                pasteSelection()
+            } else if (e.key === 'Escape') {
+                setSelection(null)
+            } else if ((e.key === 'Delete' || e.key === 'Backspace') && !inInput) {
+                e.preventDefault()
+                clearSelectionValues()
+            }
+        }
+        document.addEventListener('keydown', onKey)
+        return () => document.removeEventListener('keydown', onKey)
+    }, [totalsOn, selection, copySelection, pasteSelection, clearSelectionValues])
+
     const sharedProps = {
         focusDate,
         events,
@@ -332,6 +467,10 @@ export default function Calendar() {
                                     totalsOn={totalsOn}
                                     rows={rows}
                                     values={values}
+                                    sel={selection?.month === month ? selection : null}
+                                    dragging={dragging}
+                                    onCellDown={startCell}
+                                    onCellEnter={extendCell}
                                     onSetValue={handleSetValue}
                                     onAddRow={handleAddRow}
                                     onRenameRow={handleRenameRow}
@@ -420,6 +559,33 @@ function weekGroupsForMonth(
     return groups
 }
 
+// ─── Totals cell selection ─────────────────────────────────────────────────────
+
+/** A rectangular block of totals cells within one month, in row/day index space. */
+interface CellSel {
+    month: number
+    rowStart: number
+    rowEnd: number
+    dayStart: number
+    dayEnd: number
+}
+
+/** ISO-Monday week anchor for a 1-based day, mirroring weekGroupsForMonth. */
+function weekAnchorFor(year: number, month: number, day: number): string {
+    const d = new Date(year, month, day)
+    const dow = d.getDay() === 0 ? 6 : d.getDay() - 1
+    const monday = new Date(d)
+    monday.setDate(d.getDate() - dow)
+    return dateKey(monday.getFullYear(), monday.getMonth(), monday.getDate())
+}
+
+/** The value key date for a row at a 0-based day index (week anchor when weekly). */
+function cellDate(row: TotalRow, year: number, month: number, dayIndex: number): string {
+    return row.granularity === 'weekly'
+        ? weekAnchorFor(year, month, dayIndex + 1)
+        : dateKey(year, month, dayIndex + 1)
+}
+
 // ─── Year view: MonthBlock ────────────────────────────────────────────────────
 
 interface MonthBlockProps {
@@ -431,6 +597,10 @@ interface MonthBlockProps {
     totalsOn: boolean
     rows: TotalRow[]
     values: Record<string, number>
+    sel: CellSel | null
+    dragging: boolean
+    onCellDown: (month: number, r: number, d: number) => void
+    onCellEnter: (month: number, r: number, d: number) => void
     onSetValue: (rowId: string, date: string, value: number | null) => void
     onAddRow: (name: string, granularity: 'daily' | 'weekly') => void
     onRenameRow: (id: string, name: string) => void
@@ -451,6 +621,10 @@ function MonthBlock({
     totalsOn,
     rows,
     values,
+    sel,
+    dragging,
+    onCellDown,
+    onCellEnter,
     onSetValue,
     onAddRow,
     onRenameRow,
@@ -498,7 +672,9 @@ function MonthBlock({
                 )}
             </div>
             <div className="overflow-x-auto">
-                <table className="w-full min-w-[64rem] table-fixed border-collapse">
+                <table
+                    className={`w-full min-w-[64rem] table-fixed border-collapse ${dragging ? 'select-none' : ''}`}
+                >
                     <thead>
                         <tr className="border-b border-neutral-200">
                             <th className="sticky left-0 z-10 w-28 bg-neutral-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
@@ -741,6 +917,7 @@ function MonthBlock({
                                     <TotalRowCells
                                         key={row._id}
                                         row={row}
+                                        rowIndex={i}
                                         first={i === 0}
                                         year={year}
                                         month={month}
@@ -748,6 +925,9 @@ function MonthBlock({
                                         weekGroups={wGroups}
                                         values={values}
                                         rowTotal={rowTotal}
+                                        sel={sel}
+                                        onCellDown={onCellDown}
+                                        onCellEnter={onCellEnter}
                                         onSetValue={onSetValue}
                                         onRename={onRenameRow}
                                         onDelete={onDeleteRow}
@@ -782,6 +962,7 @@ function roundNum(n: number) {
 
 interface TotalRowCellsProps {
     row: TotalRow
+    rowIndex: number
     first: boolean
     year: number
     month: number
@@ -789,14 +970,21 @@ interface TotalRowCellsProps {
     weekGroups: { anchor: string; days: number[] }[] | null
     values: Record<string, number>
     rowTotal: number
+    sel: CellSel | null
+    onCellDown: (month: number, r: number, d: number) => void
+    onCellEnter: (month: number, r: number, d: number) => void
     onSetValue: (rowId: string, date: string, value: number | null) => void
     onRename: (id: string, name: string) => void
     onDelete: (id: string) => void
     onChangeGranularity: (id: string, granularity: 'daily' | 'weekly') => void
 }
 
+/** Tailwind classes for a selected cell — overrides weekend/weekday backgrounds. */
+const SEL_CLASS = 'bg-sky-200/70 ring-1 ring-inset ring-sky-400'
+
 function TotalRowCells({
     row,
+    rowIndex,
     first,
     year,
     month,
@@ -804,11 +992,19 @@ function TotalRowCells({
     weekGroups,
     values,
     rowTotal,
+    sel,
+    onCellDown,
+    onCellEnter,
     onSetValue,
     onRename,
     onDelete,
     onChangeGranularity,
 }: TotalRowCellsProps) {
+    // Is this row within the active selection's row span?
+    const inRowRange = !!sel && rowIndex >= sel.rowStart && rowIndex <= sel.rowEnd
+    // 0-based day index selected? (week cells: any of their days selected.)
+    const daySelected = (dayIndex: number) =>
+        inRowRange && dayIndex >= sel!.dayStart && dayIndex <= sel!.dayEnd
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(row.name)
     useEffect(() => {
@@ -885,16 +1081,24 @@ function TotalRowCells({
                               const wd = new Date(year, month, d).getDay()
                               return wd === 0 || wd === 6
                           })
+                      const anchorDay = g.days[0] - 1
+                      const selected = g.days.some((d) => daySelected(d - 1))
                       return (
                           <td
                               key={g.anchor}
                               colSpan={g.days.length}
+                              onMouseDown={() => onCellDown(month, rowIndex, anchorDay)}
+                              onMouseEnter={() => onCellEnter(month, rowIndex, anchorDay)}
                               className={[
                                   containsToday
                                       ? 'border-r border-neutral-400'
                                       : 'border-l border-neutral-100',
-                                  'p-0.5 align-middle',
-                                  weekend ? 'bg-neutral-100/70' : 'bg-neutral-50',
+                                  'cursor-cell p-0.5 align-middle',
+                                  selected
+                                      ? SEL_CLASS
+                                      : weekend
+                                        ? 'bg-neutral-100/70'
+                                        : 'bg-neutral-50',
                               ].join(' ')}
                           >
                               <TotalCell
@@ -908,15 +1112,22 @@ function TotalRowCells({
                       const key = dateKey(year, month, day)
                       const weekday = new Date(year, month, day).getDay()
                       const weekend = weekday === 0 || weekday === 6
+                      const selected = daySelected(day - 1)
                       return (
                           <td
                               key={day}
+                              onMouseDown={() => onCellDown(month, rowIndex, day - 1)}
+                              onMouseEnter={() => onCellEnter(month, rowIndex, day - 1)}
                               className={[
                                   isToday(day)
                                       ? 'border-r border-neutral-400'
                                       : 'border-l border-neutral-100',
-                                  'p-0.5 align-middle',
-                                  weekend ? 'bg-neutral-100/70' : 'bg-neutral-50',
+                                  'cursor-cell p-0.5 align-middle',
+                                  selected
+                                      ? SEL_CLASS
+                                      : weekend
+                                        ? 'bg-neutral-100/70'
+                                        : 'bg-neutral-50',
                               ].join(' ')}
                           >
                               <TotalCell
