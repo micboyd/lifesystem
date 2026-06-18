@@ -6,6 +6,12 @@ function round(n: number): number {
     return Math.round(n * 100) / 100
 }
 
+/** Coerce a possibly-missing/invalid value to a finite number (0 otherwise). */
+function num(n: unknown): number {
+    const v = Number(n)
+    return Number.isFinite(v) ? v : 0
+}
+
 export interface MonthBankEntry {
     /** YYYY-MM */
     month: string
@@ -19,7 +25,7 @@ export function bankByMonth(values: TotalValue[]): MonthBankEntry[] {
     const byMonth = new Map<string, number>()
     for (const v of values) {
         const month = v.date.slice(0, 7)
-        byMonth.set(month, (byMonth.get(month) ?? 0) + v.value)
+        byMonth.set(month, (byMonth.get(month) ?? 0) + num(v.value))
     }
     return [...byMonth.entries()]
         .filter(([, hours]) => hours !== 0)
@@ -78,7 +84,7 @@ export function projectCourses(
 ): StudyProjection {
     // Logged pool: shared past hours, allocated to courses in priority order.
     let loggedPool = round(
-        values.filter((v) => v.date < from).reduce((s, v) => s + v.value, 0)
+        values.filter((v) => v.date < from).reduce((s, v) => s + num(v.value), 0)
     )
     const loggedHours = loggedPool
 
@@ -89,7 +95,7 @@ export function projectCourses(
     const timeline: { date: string; cum: number }[] = []
     let cum = 0
     for (const e of entries) {
-        cum += e.value
+        cum += num(e.value)
         timeline.push({ date: e.date, cum })
     }
     const availableHours = round(cum)
@@ -103,14 +109,15 @@ export function projectCourses(
 
     let prefix = 0 // future hours consumed by prior courses
     const projected = courses.map<CourseProjection>((course) => {
-        const offset = Math.max(course.completedHours, 0)
+        const required = Math.max(num(course.requiredHours), 0)
+        const offset = Math.max(num(course.completedHours), 0)
         // Net still needed after this course's own head-start offset.
-        const netNeeded = Math.max(course.requiredHours - offset, 0)
+        const netNeeded = Math.max(required - offset, 0)
         // Draw shared logged hours into this course, in priority order.
         const loggedApplied = Math.min(loggedPool, netNeeded)
         loggedPool = round(loggedPool - loggedApplied)
-        const completedHours = round(Math.min(offset + loggedApplied, course.requiredHours))
-        const remainingHours = round(Math.max(course.requiredHours - completedHours, 0))
+        const completedHours = round(Math.min(offset + loggedApplied, required))
+        const remainingHours = round(Math.max(required - completedHours, 0))
 
         if (remainingHours === 0) {
             return {

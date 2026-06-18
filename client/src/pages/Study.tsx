@@ -25,7 +25,9 @@ function bankRange(): { from: string; to: string } {
 }
 
 function fmtHours(n: number): string {
-    return `${Number.isInteger(n) ? n : n.toFixed(2)}h`
+    const v = Number(n)
+    if (!Number.isFinite(v)) return '0h'
+    return `${Number.isInteger(v) ? v : v.toFixed(2)}h`
 }
 
 export default function Study() {
@@ -286,15 +288,15 @@ function CourseRow({
 }: CourseRowProps) {
     const { course } = projection
     const [editing, setEditing] = useState(false)
-    const [name, setName] = useState(course.name)
-    const [required, setRequired] = useState(String(course.requiredHours))
-    const [completed, setCompleted] = useState(String(course.completedHours))
+    const [name, setName] = useState(course.name ?? '')
+    const [required, setRequired] = useState(String(course.requiredHours ?? ''))
+    const [completed, setCompleted] = useState(String(course.completedHours ?? ''))
     const [saving, setSaving] = useState(false)
 
     useEffect(() => {
-        setName(course.name)
-        setRequired(String(course.requiredHours))
-        setCompleted(String(course.completedHours))
+        setName(course.name ?? '')
+        setRequired(String(course.requiredHours ?? ''))
+        setCompleted(String(course.completedHours ?? ''))
     }, [course.name, course.requiredHours, course.completedHours])
 
     async function save() {
@@ -388,7 +390,9 @@ function CourseRow({
                 {/* Details */}
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-neutral-900">{course.name}</p>
+                        <p className="font-semibold text-neutral-900">
+                            {course.name ?? 'Untitled course'}
+                        </p>
                         <StatusBadge projection={projection} hasSource={hasSource} />
                     </div>
                     <p className="mt-0.5 text-sm text-neutral-500">
