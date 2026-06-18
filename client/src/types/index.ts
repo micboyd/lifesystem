@@ -9,9 +9,15 @@ export interface UserSettings {
     studyRowId?: string
 }
 
+export type CourseKind = 'course' | 'block'
+
 export interface Course {
     _id: string
     name: string
+    /** 'course' for formal courses; 'block' for ad-hoc manual study blocks. */
+    kind: CourseKind
+    /** Free-text label describing a block (e.g. "Reading", "Revision"). */
+    category?: string
     requiredHours: number
     completedHours: number
     order: number

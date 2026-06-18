@@ -28,6 +28,9 @@ export async function createCourse(req: AuthRequest, res: Response) {
     }
     const completedHours = toHours(req.body.completedHours) ?? 0
     const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() || undefined : undefined
+    const kind = req.body.kind === 'block' ? 'block' : 'course'
+    const category =
+        typeof req.body.category === 'string' ? req.body.category.trim() || undefined : undefined
 
     const last = await Course.findOne({ user: req.userId }).sort({ order: -1 })
     const order = last ? last.order + 1 : 0
@@ -35,6 +38,8 @@ export async function createCourse(req: AuthRequest, res: Response) {
     const course = await Course.create({
         user: req.userId,
         name,
+        kind,
+        category,
         requiredHours,
         completedHours,
         order,
@@ -47,6 +52,8 @@ export async function createCourse(req: AuthRequest, res: Response) {
 export async function updateCourse(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
     if (typeof req.body.name === 'string' && req.body.name.trim()) fields.name = req.body.name.trim()
+    if (req.body.kind === 'course' || req.body.kind === 'block') fields.kind = req.body.kind
+    if (typeof req.body.category === 'string') fields.category = req.body.category.trim() || undefined
     const requiredHours = toHours(req.body.requiredHours)
     if (requiredHours !== undefined) fields.requiredHours = requiredHours
     const completedHours = toHours(req.body.completedHours)

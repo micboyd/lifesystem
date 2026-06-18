@@ -1,8 +1,14 @@
 import { Schema, model, Document, Types } from 'mongoose'
 
+export type CourseKind = 'course' | 'block'
+
 export interface ICourse extends Document {
     user: Types.ObjectId
     name: string
+    /** 'course' for formal courses; 'block' for ad-hoc manual study blocks. */
+    kind: CourseKind
+    /** Free-text label describing a block (e.g. "Reading", "Revision"). */
+    category?: string
     /** Total study hours the course requires to finish. */
     requiredHours: number
     /** Hours already completed; subtracted from requiredHours when projecting. */
@@ -18,6 +24,8 @@ const courseSchema = new Schema<ICourse>(
     {
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         name: { type: String, required: true, trim: true },
+        kind: { type: String, enum: ['course', 'block'], default: 'course' },
+        category: { type: String, trim: true },
         requiredHours: { type: Number, required: true, min: 0 },
         completedHours: { type: Number, default: 0, min: 0 },
         order: { type: Number, default: 0 },

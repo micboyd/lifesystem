@@ -8,6 +8,8 @@ export async function listCourses(): Promise<Course[]> {
 
 export async function createCourse(fields: {
     name: string
+    kind?: Course['kind']
+    category?: string
     requiredHours: number
     completedHours?: number
     notes?: string
@@ -18,7 +20,12 @@ export async function createCourse(fields: {
 
 export async function updateCourse(
     id: string,
-    fields: Partial<Pick<Course, 'name' | 'requiredHours' | 'completedHours' | 'order' | 'notes'>>
+    fields: Partial<
+        Pick<
+            Course,
+            'name' | 'kind' | 'category' | 'requiredHours' | 'completedHours' | 'order' | 'notes'
+        >
+    >
 ): Promise<Course> {
     const res = await api.put<ApiResponse<Course>>(`/courses/${id}`, fields)
     return res.data.data

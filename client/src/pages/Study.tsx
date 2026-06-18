@@ -4,6 +4,7 @@ import Spinner from '../components/Spinner'
 import Select from '../components/Select'
 import Button from '../components/Button'
 import Input from '../components/Input'
+import Textarea from '../components/Textarea'
 import Badge from '../components/Badge'
 import { useAuth } from '../context/AuthContext'
 import { listRows, listValues } from '../services/totals'
@@ -76,8 +77,11 @@ export default function Study() {
 
     async function handleAddCourse(fields: {
         name: string
+        kind: Course['kind']
+        category?: string
         requiredHours: number
         completedHours: number
+        notes?: string
     }) {
         const course = await createCourse(fields)
         setCourses((prev) => [...prev, course])
@@ -85,7 +89,7 @@ export default function Study() {
 
     async function handleSaveCourse(
         id: string,
-        fields: Partial<Pick<Course, 'name' | 'requiredHours' | 'completedHours' | 'notes'>>
+        fields: Partial<Pick<Course, 'name' | 'category' | 'requiredHours' | 'completedHours' | 'notes'>>
     ) {
         const updated = await updateCourse(id, fields)
         setCourses((prev) => prev.map((c) => (c._id === id ? updated : c)))
@@ -271,7 +275,7 @@ interface CourseRowProps {
     hasSource: boolean
     onSave: (
         id: string,
-        fields: Partial<Pick<Course, 'name' | 'requiredHours' | 'completedHours' | 'notes'>>
+        fields: Partial<Pick<Course, 'name' | 'category' | 'requiredHours' | 'completedHours' | 'notes'>>
     ) => Promise<void>
     onDelete: (id: string) => void
     onMove: (dir: -1 | 1) => void
@@ -287,17 +291,22 @@ function CourseRow({
     onMove,
 }: CourseRowProps) {
     const { course } = projection
+    const isBlock = course.kind === 'block'
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(course.name ?? '')
+    const [category, setCategory] = useState(course.category ?? '')
     const [required, setRequired] = useState(String(course.requiredHours ?? ''))
     const [completed, setCompleted] = useState(String(course.completedHours ?? ''))
+    const [notes, setNotes] = useState(course.notes ?? '')
     const [saving, setSaving] = useState(false)
 
     useEffect(() => {
         setName(course.name ?? '')
+        setCategory(course.category ?? '')
         setRequired(String(course.requiredHours ?? ''))
         setCompleted(String(course.completedHours ?? ''))
-    }, [course.name, course.requiredHours, course.completedHours])
+        setNotes(course.notes ?? '')
+    }, [course.name, course.category, course.requiredHours, course.completedHours, course.notes])
 
     async function save() {
         const req = Number(required)
@@ -307,8 +316,10 @@ function CourseRow({
         try {
             await onSave(course._id, {
                 name: name.trim(),
+                category: isBlock ? category.trim() : undefined,
                 requiredHours: req,
                 completedHours: Number.isFinite(done) && done >= 0 ? done : 0,
+                notes: notes.trim(),
             })
             setEditing(false)
         } finally {
@@ -322,10 +333,18 @@ function CourseRow({
                 <div className="flex flex-col gap-3">
                     <Input
                         autoFocus
-                        placeholder="Course name"
+                        placeholder={isBlock ? 'What are you studying?' : 'Course name'}
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                     />
+                    {isBlock && (
+                        <Input
+                            label="Type (optional)"
+                            placeholder="Reading, revision, project…"
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                        />
+                    )}
                     <div className="flex gap-3">
                         <Input
                             label="Required hours"
@@ -345,6 +364,12 @@ function CourseRow({
                             onChange={(e) => setCompleted(e.target.value)}
                         />
                     </div>
+                    <Textarea
+                        label="Notes (optional)"
+                        rows={2}
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                    />
                     <div className="flex gap-2">
                         <Button
                             size="sm"
@@ -391,8 +416,11 @@ function CourseRow({
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-neutral-900">
-                            {course.name ?? 'Untitled course'}
+                            {course.name ?? (isBlock ? 'Untitled block' : 'Untitled course')}
                         </p>
+                        {isBlock && (
+                            <Badge variant="outline">{course.category?.trim() || 'Block'}</Badge>
+                        )}
                         <StatusBadge projection={projection} hasSource={hasSource} />
                     </div>
                     <p className="mt-0.5 text-sm text-neutral-500">
@@ -400,6 +428,9 @@ function CourseRow({
                         {projection.completedHours > 0 &&
                             ` · ${fmtHours(projection.completedHours)} done · ${fmtHours(projection.remainingHours)} to go`}
                     </p>
+                    {course.notes && (
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-400">{course.notes}</p>
+                    )}
                     {hasSource && <ProjectionLine projection={projection} />}
                 </div>
 
@@ -472,22 +503,37 @@ function ProjectionLine({ projection }: { projection: CourseProjection }) {
 function AddCourseForm({
     onAdd,
 }: {
-    onAdd: (fields: { name: string; requiredHours: number; completedHours: number }) => Promise<void>
+    onAdd: (fields: {
+        name: string
+        kind: Course['kind']
+        category?: string
+        requiredHours: number
+        completedHours: number
+        notes?: string
+    }) => Promise<void>
 }) {
-    const [open, setOpen] = useState(false)
+    // null = collapsed; otherwise the kind being added.
+    const [kind, setKind] = useState<Course['kind'] | null>(null)
     const [name, setName] = useState('')
+    const [category, setCategory] = useState('')
     const [required, setRequired] = useState('')
     const [completed, setCompleted] = useState('')
+    const [notes, setNotes] = useState('')
     const [saving, setSaving] = useState(false)
+
+    const isBlock = kind === 'block'
 
     function reset() {
         setName('')
+        setCategory('')
         setRequired('')
         setCompleted('')
-        setOpen(false)
+        setNotes('')
+        setKind(null)
     }
 
     async function submit() {
+        if (!kind) return
         const req = Number(required)
         if (!name.trim() || !Number.isFinite(req) || req < 0) return
         const done = Number(completed)
@@ -495,8 +541,11 @@ function AddCourseForm({
         try {
             await onAdd({
                 name: name.trim(),
+                kind,
+                category: isBlock ? category.trim() || undefined : undefined,
                 requiredHours: req,
                 completedHours: Number.isFinite(done) && done >= 0 ? done : 0,
+                notes: notes.trim() || undefined,
             })
             reset()
         } finally {
@@ -504,11 +553,16 @@ function AddCourseForm({
         }
     }
 
-    if (!open) {
+    if (!kind) {
         return (
-            <Button variant="secondary" icon="fa-solid fa-plus" onClick={() => setOpen(true)}>
-                Add course
-            </Button>
+            <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" icon="fa-solid fa-plus" onClick={() => setKind('course')}>
+                    Add course
+                </Button>
+                <Button variant="secondary" icon="fa-solid fa-plus" onClick={() => setKind('block')}>
+                    Add study block
+                </Button>
+            </div>
         )
     }
 
@@ -516,11 +570,19 @@ function AddCourseForm({
         <div className="flex flex-col gap-3">
             <Input
                 autoFocus
-                placeholder="Course name"
+                placeholder={isBlock ? 'What are you studying?' : 'Course name'}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submit()}
             />
+            {isBlock && (
+                <Input
+                    label="Type (optional)"
+                    placeholder="Reading, revision, project…"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                />
+            )}
             <div className="flex gap-3">
                 <Input
                     label="Required hours"
@@ -542,9 +604,16 @@ function AddCourseForm({
                     onChange={(e) => setCompleted(e.target.value)}
                 />
             </div>
+            <Textarea
+                label="Notes (optional)"
+                rows={2}
+                placeholder={isBlock ? 'What is this block for?' : undefined}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+            />
             <div className="flex gap-2">
                 <Button onClick={submit} disabled={saving || !name.trim() || required === ''}>
-                    {saving ? 'Saving…' : 'Save'}
+                    {saving ? 'Saving…' : isBlock ? 'Add block' : 'Save'}
                 </Button>
                 <Button variant="ghost" onClick={reset}>
                     Cancel
