@@ -6,6 +6,7 @@ import Button from '../components/Button'
 import Input from '../components/Input'
 import Textarea from '../components/Textarea'
 import Badge from '../components/Badge'
+import Progress from '../components/Progress'
 import { useAuth } from '../context/AuthContext'
 import { listRows, listValues } from '../services/totals'
 import { updateSettings } from '../services/users'
@@ -312,6 +313,13 @@ function CourseRow({
 }: CourseRowProps) {
     const { course } = projection
     const isBlock = course.kind === 'block'
+    const required = Math.max(course.requiredHours ?? 0, 0)
+    const pct =
+        required > 0
+            ? Math.round((projection.completedHours / required) * 100)
+            : projection.status === 'completed'
+              ? 100
+              : 0
     // The row is only draggable once a drag is initiated from the grip handle,
     // so clicks/selection elsewhere in the row behave normally.
     const dragReady = useRef(false)
@@ -464,44 +472,75 @@ function CourseRow({
 
                 {/* Details */}
                 <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-neutral-900">
-                            {course.name ?? (isBlock ? 'Untitled block' : 'Untitled course')}
-                        </p>
-                        {isBlock && (
-                            <Badge variant="outline">{course.category?.trim() || 'Block'}</Badge>
-                        )}
-                        <StatusBadge projection={projection} hasSource={hasSource} />
-                    </div>
-                    <p className="mt-0.5 text-sm text-neutral-500">
-                        {fmtHours(course.requiredHours)} required
-                        {projection.completedHours > 0 &&
-                            ` · ${fmtHours(projection.completedHours)} done · ${fmtHours(projection.remainingHours)} to go`}
-                    </p>
-                    {course.notes && (
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-400">{course.notes}</p>
-                    )}
-                    {hasSource && <ProjectionLine projection={projection} />}
-                </div>
+                    <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <p className="truncate font-semibold text-neutral-900">
+                                {course.name ?? (isBlock ? 'Untitled block' : 'Untitled course')}
+                            </p>
+                            {isBlock && (
+                                <Badge variant="outline">{course.category?.trim() || 'Block'}</Badge>
+                            )}
+                            <StatusBadge projection={projection} hasSource={hasSource} />
+                        </div>
 
-                {/* Actions */}
-                <div className="flex shrink-0 items-center gap-1">
-                    <button
-                        type="button"
-                        onClick={() => setEditing(true)}
-                        aria-label="Edit course"
-                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                    >
-                        <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onDelete(course._id)}
-                        aria-label="Delete course"
-                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                    >
-                        <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                    </button>
+                        {/* Actions */}
+                        <div className="-mr-1 -mt-1 flex shrink-0 items-center gap-1">
+                            <button
+                                type="button"
+                                onClick={() => setEditing(true)}
+                                aria-label="Edit course"
+                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                            >
+                                <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onDelete(course._id)}
+                                aria-label="Delete course"
+                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                            >
+                                <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Progress */}
+                    <div className="mt-3 flex items-center gap-3">
+                        <Progress
+                            value={pct}
+                            variant={projection.status === 'completed' ? 'success' : 'default'}
+                            className="flex-1"
+                        />
+                        <span className="w-9 shrink-0 text-right text-xs font-semibold tabular-nums text-neutral-500">
+                            {pct}%
+                        </span>
+                    </div>
+
+                    {/* Hours + finish */}
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs">
+                        <span className="text-neutral-500">
+                            <span className="font-semibold tabular-nums text-neutral-700">
+                                {fmtHours(projection.completedHours)}
+                            </span>{' '}
+                            of {fmtHours(required)}
+                            {projection.remainingHours > 0 && (
+                                <>
+                                    {' · '}
+                                    <span className="font-semibold tabular-nums text-neutral-700">
+                                        {fmtHours(projection.remainingHours)}
+                                    </span>{' '}
+                                    to go
+                                </>
+                            )}
+                        </span>
+                        <FinishChip projection={projection} hasSource={hasSource} />
+                    </div>
+
+                    {course.notes && (
+                        <p className="mt-2 whitespace-pre-wrap border-t border-neutral-100 pt-2 text-sm text-neutral-400">
+                            {course.notes}
+                        </p>
+                    )}
                 </div>
             </div>
         </div>
@@ -521,30 +560,38 @@ function StatusBadge({
     return <Badge variant="outline">Scheduled</Badge>
 }
 
-function ProjectionLine({ projection }: { projection: CourseProjection }) {
-    if (projection.status === 'completed') return null
+/** Compact pill summarising when a course will finish (or why it won't). */
+function FinishChip({
+    projection,
+    hasSource,
+}: {
+    projection: CourseProjection
+    hasSource: boolean
+}) {
+    if (!hasSource || projection.status === 'completed') return null
     if (projection.status === 'insufficient') {
         return (
-            <p className="mt-1 text-sm font-medium text-amber-700">
-                <i className="fa-solid fa-triangle-exclamation mr-1.5 text-xs" aria-hidden="true" />
-                {fmtHours(projection.shortByHours)} short — log more study hours to finish.
-            </p>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-700">
+                <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" />
+                {fmtHours(projection.shortByHours)} short
+            </span>
         )
     }
     if (!projection.finishDate) {
-        return <p className="mt-1 text-sm text-neutral-400">No study hours scheduled yet.</p>
+        return <span className="text-neutral-400">Not scheduled yet</span>
     }
     return (
-        <p className="mt-1 text-sm font-medium text-neutral-700">
-            <i className="fa-solid fa-flag-checkered mr-1.5 text-xs text-neutral-400" aria-hidden="true" />
+        <span
+            className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 font-medium text-neutral-700"
+            title={
+                projection.startDate
+                    ? `Starts ${formatDateLong(projection.startDate)}`
+                    : undefined
+            }
+        >
+            <i className="fa-solid fa-flag-checkered text-neutral-400" aria-hidden="true" />
             Finishes {formatDateLong(projection.finishDate)}
-            {projection.startDate && (
-                <span className="text-neutral-400">
-                    {' '}
-                    · starts {formatDateLong(projection.startDate)}
-                </span>
-            )}
-        </p>
+        </span>
     )
 }
 
