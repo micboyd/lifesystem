@@ -297,26 +297,33 @@ export default function Calendar() {
     const pasteSelection = useCallback(() => {
         if (!selection || !clipboard) return
         const year = parseInt(focusDate.slice(0, 4))
-        const { month, rowStart, dayStart } = selection
+        const { month, rowStart, rowEnd, dayStart, dayEnd } = selection
         const monthDays = daysInMonth(year, month)
-        clipboard.forEach((line, i) => {
+        const clipRows = clipboard.length
+        const clipCols = clipboard[0]?.length ?? 0
+        if (!clipRows || !clipCols) return
+        // Fill the larger of the copied block and the target selection, tiling
+        // the block when the selection is bigger (Excel-style fill). A 1×1
+        // selection just stamps the whole block at that anchor.
+        const outRows = Math.max(rowEnd - rowStart + 1, clipRows)
+        const outCols = Math.max(dayEnd - dayStart + 1, clipCols)
+        for (let i = 0; i < outRows; i++) {
             const row = rows[rowStart + i]
-            if (!row) return
-            line.forEach((val, j) => {
+            if (!row) continue
+            for (let j = 0; j < outCols; j++) {
                 const dayIndex = dayStart + j
-                if (dayIndex >= monthDays) return
+                if (dayIndex >= monthDays) continue
+                const val = clipboard[i % clipRows][j % clipCols]
                 onSetValueRef.current(row._id, cellDate(row, year, month, dayIndex), val)
-            })
-        })
-        // Move the selection to cover the pasted block.
-        const rowsPasted = clipboard.length
-        const colsPasted = clipboard[0]?.length ?? 0
+            }
+        }
+        // Move the selection to cover the filled block.
         setSelection({
             month,
             rowStart,
-            rowEnd: Math.min(rowStart + rowsPasted - 1, rows.length - 1),
+            rowEnd: Math.min(rowStart + outRows - 1, rows.length - 1),
             dayStart,
-            dayEnd: Math.min(dayStart + colsPasted - 1, monthDays - 1),
+            dayEnd: Math.min(dayStart + outCols - 1, monthDays - 1),
         })
     }, [selection, clipboard, rows, focusDate])
 
@@ -1151,12 +1158,16 @@ function TotalCell({
     value: number | undefined
     onCommit: (v: number | null) => void
 }) {
+    // Idle cells show a plain value so a single click only selects (via the
+    // parent cell's handlers); double-click swaps in an editable input.
+    const [editing, setEditing] = useState(false)
     const [text, setText] = useState(value === undefined ? '' : String(value))
     useEffect(() => {
-        setText(value === undefined ? '' : String(value))
-    }, [value])
+        if (!editing) setText(value === undefined ? '' : String(value))
+    }, [value, editing])
 
     function commit() {
+        setEditing(false)
         const trimmed = text.trim()
         if (trimmed === '') {
             if (value !== undefined) onCommit(null)
@@ -1170,18 +1181,35 @@ function TotalCell({
         if (n !== value) onCommit(n)
     }
 
+    if (!editing) {
+        return (
+            <div
+                onDoubleClick={() => setEditing(true)}
+                className="flex h-9 w-full items-center justify-center rounded-md px-1 text-center text-xs tabular-nums text-neutral-800 transition-colors hover:bg-black/[0.03]"
+            >
+                {value === undefined ? '' : value}
+            </div>
+        )
+    }
+
     return (
         <input
             type="number"
             inputMode="decimal"
             step="any"
+            autoFocus
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onFocus={(e) => e.target.select()}
             onBlur={commit}
             onKeyDown={(e) => {
                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                if (e.key === 'Escape') {
+                    setText(value === undefined ? '' : String(value))
+                    setEditing(false)
+                }
             }}
-            className="h-9 w-full rounded-md border border-transparent bg-transparent px-1 text-center text-xs tabular-nums text-neutral-800 outline-none hover:border-neutral-200 focus:border-neutral-400 focus:bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="h-9 w-full rounded-md border border-neutral-400 bg-white px-1 text-center text-xs tabular-nums text-neutral-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         />
     )
 }
