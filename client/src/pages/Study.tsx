@@ -326,7 +326,7 @@ function CourseRow({
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(course.name ?? '')
     const [category, setCategory] = useState(course.category ?? '')
-    const [required, setRequired] = useState(String(course.requiredHours ?? ''))
+    const [requiredInput, setRequired] = useState(String(course.requiredHours ?? ''))
     const [completed, setCompleted] = useState(String(course.completedHours ?? ''))
     const [notes, setNotes] = useState(course.notes ?? '')
     const [saving, setSaving] = useState(false)
@@ -348,7 +348,7 @@ function CourseRow({
     }, [])
 
     async function save() {
-        const req = Number(required)
+        const req = Number(requiredInput)
         const done = Number(completed)
         if (!name.trim() || !Number.isFinite(req) || req < 0) return
         setSaving(true)
@@ -390,7 +390,7 @@ function CourseRow({
                             type="number"
                             min={0}
                             step="any"
-                            value={required}
+                            value={requiredInput}
                             onChange={(e) => setRequired(e.target.value)}
                         />
                         <Input
