@@ -204,7 +204,8 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
             type="button"
             onClick={onClick}
             className={[
-                'flex flex-col gap-2 rounded-xl border p-3 min-h-[170px] text-left w-full transition-colors',
+                'flex flex-col rounded-xl border text-left w-full transition-colors',
+                'p-1.5 lg:p-3 min-h-[44px] lg:min-h-[170px] gap-1 lg:gap-2',
                 isToday ? 'border-neutral-950' : 'border-neutral-200',
                 bg,
                 'hover:border-neutral-400',
@@ -214,7 +215,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
             <div className="flex items-center justify-between gap-1">
                 <span
                     className={[
-                        'text-sm font-bold leading-none',
+                        'text-xs lg:text-sm font-bold leading-none',
                         isToday
                             ? 'text-neutral-950'
                             : isFuture
@@ -227,80 +228,78 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                     {dayNum}
                 </span>
                 {data.excluded && (
-                    <span className="rounded-full bg-neutral-200 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-neutral-500">
+                    <span className="hidden lg:inline-block rounded-full bg-neutral-200 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-neutral-500">
                         excl.
                     </span>
                 )}
             </div>
 
-            {/* Daily rate (hidden for excluded) */}
+            {/* Detail content — hidden on mobile, shown on sm+ */}
             {!data.excluded && (
-                <div className="flex items-baseline gap-1">
-                    <span
-                        className={`text-lg font-bold font-mono tabular-nums ${isFuture ? 'text-neutral-300' : 'text-neutral-700'}`}
-                    >
-                        £{fmt(data.dailyRate)}
-                    </span>
-                    <span
-                        className={`text-xs ${isFuture ? 'text-neutral-200' : 'text-neutral-400'}`}
-                    >
-                        /day
-                    </span>
+                <div className="hidden lg:flex flex-col gap-2 flex-1">
+                    <div className="flex items-baseline gap-1">
+                        <span
+                            className={`text-lg font-bold font-mono tabular-nums ${isFuture ? 'text-neutral-300' : 'text-neutral-700'}`}
+                        >
+                            £{fmt(data.dailyRate)}
+                        </span>
+                        <span
+                            className={`text-xs ${isFuture ? 'text-neutral-200' : 'text-neutral-400'}`}
+                        >
+                            /day
+                        </span>
+                    </div>
+
+                    {data.carry !== 0 && (
+                        <span
+                            className={[
+                                'text-xs font-semibold leading-none',
+                                isFuture
+                                    ? 'text-neutral-300'
+                                    : data.carry > 0
+                                      ? 'text-emerald-500'
+                                      : 'text-red-400',
+                            ].join(' ')}
+                        >
+                            {data.carry > 0 ? '+' : '-'}£{fmt(Math.abs(data.carry))} carry
+                        </span>
+                    )}
+
+                    <div
+                        className={`border-t mt-auto ${isFuture ? 'border-neutral-100' : 'border-neutral-200'}`}
+                    />
+
+                    {!isFuture && (
+                        <>
+                            <div className="flex items-baseline justify-between gap-1">
+                                <span className="text-xs text-neutral-400">spent</span>
+                                <span
+                                    className={`text-sm font-semibold font-mono tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}
+                                >
+                                    {hasSpend ? `£${fmt(data.spent)}` : '—'}
+                                </span>
+                            </div>
+                            {hasSpend && (
+                                <div className="flex items-baseline justify-between gap-1">
+                                    <span className="text-xs text-neutral-400">left</span>
+                                    <span
+                                        className={`text-sm font-semibold font-mono tabular-nums ${remainingColor}`}
+                                    >
+                                        {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
+                                    </span>
+                                </div>
+                            )}
+                            {isPast && !hasSpend && (
+                                <span className="text-xs text-neutral-300">not logged</span>
+                            )}
+                        </>
+                    )}
                 </div>
             )}
 
-            {/* Carry */}
-            {!data.excluded && data.carry !== 0 && (
-                <span
-                    className={[
-                        'text-xs font-semibold leading-none',
-                        isFuture
-                            ? 'text-neutral-300'
-                            : data.carry > 0
-                              ? 'text-emerald-500'
-                              : 'text-red-400',
-                    ].join(' ')}
-                >
-                    {data.carry > 0 ? '+' : '-'}£{fmt(Math.abs(data.carry))} carry
-                </span>
+            {data.excluded && (
+                <p className="hidden lg:block mt-auto text-xs text-neutral-400">Outside budget</p>
             )}
-
-            {/* Divider */}
-            {!data.excluded && (
-                <div
-                    className={`border-t mt-auto ${isFuture ? 'border-neutral-100' : 'border-neutral-200'}`}
-                />
-            )}
-
-            {/* Spent / left */}
-            {!data.excluded && !isFuture && (
-                <>
-                    <div className="flex items-baseline justify-between gap-1">
-                        <span className="text-xs text-neutral-400">spent</span>
-                        <span
-                            className={`text-sm font-semibold font-mono tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}
-                        >
-                            {hasSpend ? `£${fmt(data.spent)}` : '—'}
-                        </span>
-                    </div>
-                    {hasSpend && (
-                        <div className="flex items-baseline justify-between gap-1">
-                            <span className="text-xs text-neutral-400">left</span>
-                            <span
-                                className={`text-sm font-semibold font-mono tabular-nums ${remainingColor}`}
-                            >
-                                {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
-                            </span>
-                        </div>
-                    )}
-                    {isPast && !hasSpend && (
-                        <span className="text-xs text-neutral-300">not logged</span>
-                    )}
-                </>
-            )}
-
-            {/* Excluded state filler */}
-            {data.excluded && <p className="mt-auto text-xs text-neutral-400">Outside budget</p>}
         </button>
     )
 }
@@ -1068,7 +1067,7 @@ export default function BudgetCalendar() {
                 </div>
 
                 {pastDays.length > 0 && !loading && (
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
                         <div className="rounded-xl bg-white border border-neutral-200 px-4 py-2">
                             <span className="text-xs text-neutral-400">Spent </span>
                             <span
@@ -1147,9 +1146,9 @@ export default function BudgetCalendar() {
                             {WEEKDAYS.map((wd) => (
                                 <div
                                     key={wd}
-                                    className="pb-2 text-center text-xs font-bold uppercase tracking-wide text-neutral-400"
+                                    className="pb-1 lg:pb-2 text-center text-[9px] lg:text-xs font-bold uppercase tracking-wide text-neutral-400"
                                 >
-                                    {wd}
+                                    {wd.slice(0, 1)}<span className="hidden lg:inline">{wd.slice(1)}</span>
                                 </div>
                             ))}
                             {Array.from({ length: offset }).map((_, i) => (

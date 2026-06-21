@@ -513,7 +513,7 @@ export default function SavingsForecast() {
     return (
         <>
             <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-neutral-950">
+                <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">
                     Savings Forecast
                 </h1>
                 <p className="mt-1 text-sm text-neutral-500">
@@ -534,12 +534,13 @@ export default function SavingsForecast() {
                 />
             ) : (
                 <div className="flex flex-col gap-8">
-                    <Tabs
-                        tabs={['Projection', 'Savings to date']}
-                        value={view}
-                        onChange={(t) => setView(t as typeof view)}
-                        className="self-start"
-                    />
+                    <div className="overflow-x-auto">
+                        <Tabs
+                            tabs={['Projection', 'Savings to date']}
+                            value={view}
+                            onChange={(t) => setView(t as typeof view)}
+                        />
+                    </div>
 
                     {view === 'Savings to date' ? (
                         <LiveSavingsSection groups={groups} rows={rows} />
@@ -593,7 +594,7 @@ export default function SavingsForecast() {
                             </section>
 
                             {/* Summary stats */}
-                            <section className="grid grid-cols-3 gap-4 rounded-2xl border border-neutral-200 bg-white p-5">
+                            <section className="grid grid-cols-2 gap-4 rounded-2xl border border-neutral-200 bg-white p-5 sm:grid-cols-3">
                                 <div>
                                     <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                         Starting balance
@@ -655,8 +656,8 @@ export default function SavingsForecast() {
                                         monthly amount.
                                     </p>
                                 )}
-                                <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
-                                    <table className="w-full">
+                                <div className="overflow-x-auto overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+                                    <table className="w-full min-w-[380px]">
                                         <thead>
                                             <tr className="border-b border-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                                 <th className="py-3 pl-5 pr-3 text-left">Year</th>

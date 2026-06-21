@@ -491,7 +491,7 @@ export default function Finances() {
             {/* Header */}
             <header className="mb-8 flex items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Finances</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">Finances</h1>
                     <p className="mt-1 text-sm text-neutral-500">Monthly income and expenses.</p>
                 </div>
                 {!addingGroup && (
@@ -574,7 +574,7 @@ export default function Finances() {
                         </div>
 
                         {/* Month scope */}
-                        <div className="flex w-fit gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1">
+                        <div className="flex flex-wrap gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1">
                             {(
                                 [
                                     ['all', `All months (from ${formatMonth(month)})`],
@@ -745,7 +745,8 @@ export default function Finances() {
                                 </div>
 
                                 {/* Rows table */}
-                                <table className="w-full table-fixed">
+                                <div className="overflow-x-auto">
+                                <table className="w-full min-w-[420px] table-fixed">
                                     <thead>
                                         <tr className="border-b border-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                             <th className="py-2 pl-4 pr-2 text-left w-[40%]">
@@ -853,7 +854,7 @@ export default function Finances() {
                                                                 />
                                                             </td>
                                                             <td className="py-2 pr-3 text-right">
-                                                                <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover/row:opacity-100">
+                                                                <div className="flex justify-end gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/row:opacity-100">
                                                                     <button
                                                                         type="button"
                                                                         onClick={() =>
@@ -986,6 +987,7 @@ export default function Finances() {
                                         </tr>
                                     </tfoot>
                                 </table>
+                                </div>
                             </div>
                         )
                     })}
@@ -999,7 +1001,7 @@ export default function Finances() {
                                 </span>
                             </div>
                             <div
-                                className={`mt-4 grid gap-4 ${savingsGroups.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}
+                                className={`mt-4 grid gap-4 ${savingsGroups.length > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}
                             >
                                 <div>
                                     <p className="text-xs text-neutral-500">Total Income</p>

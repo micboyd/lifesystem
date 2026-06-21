@@ -123,8 +123,8 @@ function BudgetCard({
         <div className="flex flex-col gap-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
             {/* Header */}
             <div className="flex items-start justify-between gap-2">
-                <div>
-                    <p className="text-base font-bold text-neutral-900">{row.name}</p>
+                <div className="min-w-0">
+                    <p className="truncate text-base font-bold text-neutral-900">{row.name}</p>
                     <span
                         className={[
                             'mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide',
@@ -160,7 +160,7 @@ function BudgetCard({
                 <>
                     {/* Rolling allowance panel */}
                     <div className="rounded-xl bg-neutral-950 px-4 py-3 text-white">
-                        <div className="flex items-baseline justify-between gap-2">
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                     Today's allowance
@@ -191,7 +191,7 @@ function BudgetCard({
                         {dayNum > 1 && (
                             <p
                                 className={[
-                                    'mt-2 text-xs',
+                                    'mt-2 break-words text-xs',
                                     carry >= 0 ? 'text-emerald-400' : 'text-red-400',
                                 ].join(' ')}
                             >
@@ -329,7 +329,7 @@ export default function Budgets() {
     return (
         <>
             <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Budgets</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">Budgets</h1>
                 <p className="mt-1 text-sm text-neutral-500">
                     Spending targets derived from your monthly figures.
                 </p>
