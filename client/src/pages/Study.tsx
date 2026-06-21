@@ -86,6 +86,7 @@ export default function Study() {
         requiredHours: number
         completedHours: number
         notes?: string
+        link?: string
     }) {
         const course = await createCourse(fields)
         setCourses((prev) => [...prev, course])
@@ -93,7 +94,7 @@ export default function Study() {
 
     async function handleSaveCourse(
         id: string,
-        fields: Partial<Pick<Course, 'name' | 'category' | 'requiredHours' | 'completedHours' | 'notes'>>
+        fields: Partial<Pick<Course, 'name' | 'category' | 'requiredHours' | 'completedHours' | 'notes' | 'link'>>
     ) {
         const updated = await updateCourse(id, fields)
         setCourses((prev) => prev.map((c) => (c._id === id ? updated : c)))
@@ -290,7 +291,7 @@ interface CourseRowProps {
     isDragOver: boolean
     onSave: (
         id: string,
-        fields: Partial<Pick<Course, 'name' | 'category' | 'requiredHours' | 'completedHours' | 'notes'>>
+        fields: Partial<Pick<Course, 'name' | 'category' | 'requiredHours' | 'completedHours' | 'notes' | 'link'>>
     ) => Promise<void>
     onDelete: (id: string) => void
     onDragStart: () => void
@@ -329,6 +330,7 @@ function CourseRow({
     const [requiredInput, setRequired] = useState(String(course.requiredHours ?? ''))
     const [completed, setCompleted] = useState(String(course.completedHours ?? ''))
     const [notes, setNotes] = useState(course.notes ?? '')
+    const [link, setLink] = useState(course.link ?? '')
     const [saving, setSaving] = useState(false)
 
     useEffect(() => {
@@ -337,7 +339,8 @@ function CourseRow({
         setRequired(String(course.requiredHours ?? ''))
         setCompleted(String(course.completedHours ?? ''))
         setNotes(course.notes ?? '')
-    }, [course.name, course.category, course.requiredHours, course.completedHours, course.notes])
+        setLink(course.link ?? '')
+    }, [course.name, course.category, course.requiredHours, course.completedHours, course.notes, course.link])
 
     // Disarm the handle on any plain click release. A real drag ends with
     // 'dragend' (no trailing 'mouseup'), so this only fires when no drag started.
@@ -359,6 +362,7 @@ function CourseRow({
                 requiredHours: req,
                 completedHours: Number.isFinite(done) && done >= 0 ? done : 0,
                 notes: notes.trim(),
+                link: !isBlock ? link.trim() : undefined,
             })
             setEditing(false)
         } finally {
@@ -409,6 +413,15 @@ function CourseRow({
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                     />
+                    {!isBlock && (
+                        <Input
+                            label="Link (optional)"
+                            placeholder="https://…"
+                            type="url"
+                            value={link}
+                            onChange={(e) => setLink(e.target.value)}
+                        />
+                    )}
                     <div className="flex gap-2">
                         <Button
                             size="sm"
@@ -536,10 +549,25 @@ function CourseRow({
                         <FinishChip projection={projection} hasSource={hasSource} />
                     </div>
 
-                    {course.notes && (
-                        <p className="mt-2 whitespace-pre-wrap border-t border-neutral-100 pt-2 text-sm text-neutral-400">
-                            {course.notes}
-                        </p>
+                    {(course.notes || course.link) && (
+                        <div className="mt-2 flex flex-col gap-1.5 border-t border-neutral-100 pt-2">
+                            {course.notes && (
+                                <p className="whitespace-pre-wrap text-sm text-neutral-400">
+                                    {course.notes}
+                                </p>
+                            )}
+                            {course.link && (
+                                <a
+                                    href={course.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
+                                >
+                                    <i className="fa-solid fa-arrow-up-right-from-square text-xs" aria-hidden="true" />
+                                    {course.link}
+                                </a>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>
@@ -607,6 +635,7 @@ function AddCourseForm({
         requiredHours: number
         completedHours: number
         notes?: string
+        link?: string
     }) => Promise<void>
 }) {
     // null = collapsed; otherwise the kind being added.
@@ -616,6 +645,7 @@ function AddCourseForm({
     const [required, setRequired] = useState('')
     const [completed, setCompleted] = useState('')
     const [notes, setNotes] = useState('')
+    const [link, setLink] = useState('')
     const [saving, setSaving] = useState(false)
 
     const isBlock = kind === 'block'
@@ -626,6 +656,7 @@ function AddCourseForm({
         setRequired('')
         setCompleted('')
         setNotes('')
+        setLink('')
         setKind(null)
     }
 
@@ -643,6 +674,7 @@ function AddCourseForm({
                 requiredHours: req,
                 completedHours: Number.isFinite(done) && done >= 0 ? done : 0,
                 notes: notes.trim() || undefined,
+                link: !isBlock ? link.trim() || undefined : undefined,
             })
             reset()
         } finally {
@@ -708,6 +740,15 @@ function AddCourseForm({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
             />
+            {!isBlock && (
+                <Input
+                    label="Link (optional)"
+                    placeholder="https://…"
+                    type="url"
+                    value={link}
+                    onChange={(e) => setLink(e.target.value)}
+                />
+            )}
             <div className="flex gap-2">
                 <Button onClick={submit} disabled={saving || !name.trim() || required === ''}>
                     {saving ? 'Saving…' : isBlock ? 'Add block' : 'Save'}

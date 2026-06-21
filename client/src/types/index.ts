@@ -22,6 +22,7 @@ export interface Course {
     completedHours: number
     order: number
     notes?: string
+    link?: string
     createdAt: string
     updatedAt: string
 }

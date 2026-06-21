@@ -28,6 +28,7 @@ export async function createCourse(req: AuthRequest, res: Response) {
     }
     const completedHours = toHours(req.body.completedHours) ?? 0
     const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() || undefined : undefined
+    const link = typeof req.body.link === 'string' ? req.body.link.trim() || undefined : undefined
     const kind = req.body.kind === 'block' ? 'block' : 'course'
     const category =
         typeof req.body.category === 'string' ? req.body.category.trim() || undefined : undefined
@@ -44,6 +45,7 @@ export async function createCourse(req: AuthRequest, res: Response) {
         completedHours,
         order,
         notes,
+        link,
     })
     res.status(201).json({ message: 'Created', data: course })
 }
@@ -60,6 +62,7 @@ export async function updateCourse(req: AuthRequest, res: Response) {
     if (completedHours !== undefined) fields.completedHours = completedHours
     if (typeof req.body.order === 'number') fields.order = req.body.order
     if (typeof req.body.notes === 'string') fields.notes = req.body.notes.trim() || undefined
+    if (typeof req.body.link === 'string') fields.link = req.body.link.trim() || undefined
 
     const course = await Course.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },

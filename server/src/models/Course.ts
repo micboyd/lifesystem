@@ -16,6 +16,7 @@ export interface ICourse extends Document {
     /** Priority position in the sequential study queue (lower = sooner). */
     order: number
     notes?: string
+    link?: string
     createdAt: Date
     updatedAt: Date
 }
@@ -30,6 +31,7 @@ const courseSchema = new Schema<ICourse>(
         completedHours: { type: Number, default: 0, min: 0 },
         order: { type: Number, default: 0 },
         notes: { type: String, trim: true },
+        link: { type: String, trim: true },
     },
     { timestamps: true }
 )
