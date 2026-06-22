@@ -44,9 +44,11 @@ interface AmountCellProps {
     value: number | undefined
     placeholder?: number
     onSave: (v: number | null) => void
+    /** Render as a large hero number (Monthly list rows) rather than a compact cell. */
+    large?: boolean
 }
 
-function AmountCell({ value, placeholder, onSave }: AmountCellProps) {
+function AmountCell({ value, placeholder, onSave, large = false }: AmountCellProps) {
     const [editing, setEditing] = useState(false)
     const [draft, setDraft] = useState('')
     const inputRef = useRef<HTMLInputElement>(null)
@@ -88,7 +90,10 @@ function AmountCell({ value, placeholder, onSave }: AmountCellProps) {
                     if (e.key === 'Enter') commit()
                     if (e.key === 'Escape') setEditing(false)
                 }}
-                className="w-full rounded-lg border border-neutral-300 bg-white px-2 py-1 text-right text-sm font-mono focus:border-neutral-950 focus:outline-none"
+                className={[
+                    'w-full rounded-lg border border-neutral-300 bg-white px-2 text-right font-mono tabular-nums focus:border-neutral-950 focus:outline-none',
+                    large ? 'py-1 text-sm font-semibold' : 'py-1 text-sm',
+                ].join(' ')}
             />
         )
     }
@@ -101,12 +106,17 @@ function AmountCell({ value, placeholder, onSave }: AmountCellProps) {
             type="button"
             onClick={startEdit}
             className={[
-                'w-full rounded-lg px-2 py-1 text-right text-sm font-mono transition-colors hover:bg-neutral-100',
-                isPlaceholder ? 'text-neutral-300' : 'text-neutral-800',
+                'w-full rounded-lg px-2 text-right font-mono tabular-nums transition-colors hover:bg-neutral-100',
+                large ? 'py-1 text-sm font-semibold' : 'py-1 text-sm',
+                isPlaceholder
+                    ? large
+                        ? 'text-neutral-400'
+                        : 'text-neutral-300'
+                    : 'text-neutral-900',
             ].join(' ')}
         >
             {display !== undefined ? (
-                formatAmount(display)
+                `£${formatAmount(display)}`
             ) : (
                 <span className="text-neutral-200">—</span>
             )}
@@ -175,9 +185,9 @@ function PotCard({
     }
 
     return (
-        <div className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50">
+        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 transition-shadow hover:shadow-sm">
             {/* Pot header */}
-            <div className="flex items-center justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-2.5">
+            <div className="flex items-center justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3">
                 {renamingPot ? (
                     <div className="flex flex-1 items-center gap-2">
                         <Input
@@ -197,7 +207,7 @@ function PotCard({
                             <span className="text-sm font-semibold text-neutral-700">{pot.name}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                            <span className={`mr-1 text-xs font-semibold font-mono ${totalCls}`}>
+                            <span className={`mr-1 text-xs font-semibold font-mono tabular-nums ${totalCls}`}>
                                 {formatMoney(total)}
                             </span>
                             <button
@@ -219,97 +229,128 @@ function PotCard({
                 )}
             </div>
 
-            {/* Pot rows */}
-            <div className="overflow-x-auto">
-                <table className="w-full min-w-[420px] table-fixed">
-                    <tbody className="divide-y divide-neutral-100">
-                        {rows.map((row) => {
-                            const amt = entries.find((e) => e.row === row._id)?.amount
+            {/* Pot rows — list presentation */}
+            <div>
+                <div className="flex flex-col divide-y divide-neutral-200/70">
+                    {rows.map((row) => {
+                        const amt = entries.find((e) => e.row === row._id)?.amount
+                        const rowVal = effectiveAmount(row)
+                        const pct = total !== 0 ? Math.min(100, Math.abs(rowVal / total) * 100) : 0
+                        const barCls = totalCls.includes('emerald')
+                            ? 'bg-emerald-400'
+                            : totalCls.includes('blue')
+                              ? 'bg-blue-400'
+                              : 'bg-red-300'
+
+                        if (editingRowId === row._id) {
                             return (
-                                <tr key={row._id} className="group/row bg-neutral-50">
-                                    {editingRowId === row._id ? (
-                                        <>
-                                            <td className="py-1.5 pl-4 pr-2">
-                                                <Input autoFocus className="!py-1.5 !text-xs" value={draftName}
-                                                    onChange={(e) => setDraftName(e.target.value)} />
-                                            </td>
-                                            <td className="py-1.5 px-2">
-                                                <Input className="!py-1.5 !text-xs" type="number" step="0.01"
-                                                    placeholder={row.recurring === false ? 'Amount' : 'Monthly amount'}
-                                                    value={draftAmount}
-                                                    onChange={(e) => setDraftAmount(e.target.value)}
-                                                    onKeyDown={(e) => e.key === 'Enter' && commitEditRow(row._id)}
-                                                />
-                                            </td>
-                                            <td className="py-1.5 pr-4 text-right" colSpan={2}>
-                                                <div className="flex justify-end gap-1">
-                                                    <Button size="sm" onClick={() => commitEditRow(row._id)} disabled={savingRow}>Save</Button>
-                                                    <Button size="sm" variant="ghost" onClick={() => setEditingRowId(null)}>Cancel</Button>
-                                                </div>
-                                            </td>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <td className="py-2 pl-4 pr-2 text-sm text-neutral-800 w-[40%]">{row.name}</td>
-                                            <td className="py-2 px-2 text-right text-sm font-mono text-neutral-400 w-[22%]">
-                                                {row.recurring !== false && row.recurringAmount !== undefined
-                                                    ? formatAmount(row.recurringAmount) : '—'}
-                                            </td>
-                                            <td className="py-1 pr-2 w-[22%]">
-                                                <AmountCell value={amt} placeholder={row.recurringAmount}
-                                                    onSave={(v) => onSetEntry(row._id, v)} />
-                                            </td>
-                                            <td className="py-2 pr-3 text-right w-[16%]">
-                                                <div className="flex justify-end gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/row:opacity-100">
-                                                    <button type="button" onClick={() => onNavigate(row._id)} title="View breakdown"
-                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
-                                                        <i className="fa-solid fa-chart-pie text-xs" aria-hidden="true" />
-                                                    </button>
-                                                    <button type="button" onClick={() => onToggleBudget(row._id, !row.budgeted)}
-                                                        title={row.budgeted ? 'Remove from Budgets' : 'Add to Budgets'}
-                                                        className={['grid h-7 w-7 place-items-center rounded-full transition-colors',
-                                                            row.budgeted ? 'text-neutral-900 hover:bg-neutral-100' : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500'].join(' ')}>
-                                                        <i className="fa-solid fa-bookmark text-xs" aria-hidden="true" />
-                                                    </button>
-                                                    <button type="button" onClick={() => startEditRow(row)}
-                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
-                                                        <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
-                                                    </button>
-                                                    {!isSavings && (
-                                                        <button type="button" onClick={() => onDeleteRow(row._id)}
-                                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500">
-                                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </>
-                                    )}
-                                </tr>
+                                <div
+                                    key={row._id}
+                                    className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center"
+                                >
+                                    <Input
+                                        autoFocus
+                                        className="!py-1.5 !text-sm sm:flex-1"
+                                        value={draftName}
+                                        onChange={(e) => setDraftName(e.target.value)}
+                                    />
+                                    <Input
+                                        className="!py-1.5 !text-sm sm:w-40"
+                                        type="number"
+                                        step="0.01"
+                                        placeholder={row.recurring === false ? 'Amount' : 'Monthly amount'}
+                                        value={draftAmount}
+                                        onChange={(e) => setDraftAmount(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && commitEditRow(row._id)}
+                                    />
+                                    <div className="flex gap-1">
+                                        <Button size="sm" onClick={() => commitEditRow(row._id)} disabled={savingRow}>Save</Button>
+                                        <Button size="sm" variant="ghost" onClick={() => setEditingRowId(null)}>Cancel</Button>
+                                    </div>
+                                </div>
                             )
-                        })}
-                        {isAddingRow && (
-                            <AddRowForm month={month} onSave={onSaveAddRow} onCancel={onCancelAddRow} />
-                        )}
-                    </tbody>
-                    <tfoot>
-                        <tr className="border-t border-neutral-200 bg-neutral-50">
-                            <td className="py-2 pl-4 pr-2" colSpan={2}>
-                                {!isSavings && !isAddingRow && (
-                                    <button type="button" onClick={onStartAddRow}
-                                        className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:text-neutral-700">
-                                        <i className="fa-solid fa-plus" aria-hidden="true" />
-                                        Add row
+                        }
+
+                        return (
+                            <div
+                                key={row._id}
+                                className="group/row flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/70"
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="truncate text-sm font-semibold text-neutral-900">{row.name}</span>
+                                        {row.budgeted && (
+                                            <i className="fa-solid fa-bookmark text-[10px] text-neutral-300" title="In Budgets" aria-hidden="true" />
+                                        )}
+                                        {row.recurring === false && (
+                                            <span className="rounded-full bg-neutral-200/70 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neutral-500">
+                                                one-time
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                        <div className="h-1 w-full max-w-[120px] overflow-hidden rounded-full bg-neutral-200/70">
+                                            <div className={`h-full rounded-full ${barCls}`} style={{ width: `${pct}%` }} />
+                                        </div>
+                                        {row.recurring !== false && row.recurringAmount !== undefined && (
+                                            <span className="shrink-0 font-mono text-[11px] tabular-nums text-neutral-400">
+                                                £{formatAmount(row.recurringAmount)}/mo
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex shrink-0 items-center justify-end">
+                                <div className="w-28 text-right">
+                                    <AmountCell large value={amt} placeholder={row.recurringAmount} onSave={(v) => onSetEntry(row._id, v)} />
+                                </div>
+
+                                <div className="flex items-center gap-0.5 overflow-hidden max-w-[160px] opacity-100 transition-all duration-200 sm:max-w-0 sm:opacity-0 sm:group-hover/row:max-w-[160px] sm:group-hover/row:opacity-100">
+                                    <button type="button" onClick={() => onNavigate(row._id)} title="View breakdown"
+                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
+                                        <i className="fa-solid fa-chart-pie text-xs" aria-hidden="true" />
                                     </button>
-                                )}
-                            </td>
-                            <td className={`py-2 pr-4 text-right text-sm font-bold font-mono ${totalCls}`}>
-                                {formatMoney(total)}
-                            </td>
-                            <td />
-                        </tr>
-                    </tfoot>
-                </table>
+                                    <button type="button" onClick={() => onToggleBudget(row._id, !row.budgeted)}
+                                        title={row.budgeted ? 'Remove from Budgets' : 'Add to Budgets'}
+                                        className={['grid h-7 w-7 place-items-center rounded-full transition-colors',
+                                            row.budgeted ? 'text-neutral-900 hover:bg-neutral-100' : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500'].join(' ')}>
+                                        <i className="fa-solid fa-bookmark text-xs" aria-hidden="true" />
+                                    </button>
+                                    <button type="button" onClick={() => startEditRow(row)}
+                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
+                                        <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
+                                    </button>
+                                    {!isSavings && (
+                                        <button type="button" onClick={() => onDeleteRow(row._id)}
+                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500">
+                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                        </button>
+                                    )}
+                                </div>
+                                </div>
+                            </div>
+                        )
+                    })}
+                    {isAddingRow && (
+                        <AddRowForm month={month} onSave={onSaveAddRow} onCancel={onCancelAddRow} />
+                    )}
+                </div>
+
+                <div className="flex items-center justify-between gap-3 border-t border-neutral-200 px-4 py-3">
+                    {!isSavings && !isAddingRow ? (
+                        <Button size="sm" variant="secondary" icon="fa-solid fa-plus" onClick={onStartAddRow}>
+                            Add row
+                        </Button>
+                    ) : (
+                        <span />
+                    )}
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300">Total</span>
+                        <span className={`pr-2 font-mono text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
+                            {formatMoney(total)}
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
     )
@@ -331,11 +372,15 @@ function AddPotInline({ groupId, onAdd }: { groupId: string; onAdd: (groupId: st
 
     if (!open) {
         return (
-            <button type="button" onClick={() => setOpen(true)}
-                className="flex items-center gap-1.5 self-start text-xs font-semibold text-neutral-400 transition-colors hover:text-neutral-700">
-                <i className="fa-solid fa-layer-group text-[10px]" aria-hidden="true" />
+            <Button
+                size="sm"
+                variant="secondary"
+                icon="fa-solid fa-layer-group"
+                onClick={() => setOpen(true)}
+                className="self-start"
+            >
                 Add pot
-            </button>
+            </Button>
         )
     }
 
@@ -389,81 +434,71 @@ function AddRowForm({ month, onSave, onCancel }: AddRowFormProps) {
     const monthLabel = formatMonth(month)
 
     return (
-        <tr className="bg-neutral-50">
-            <td colSpan={4} className="px-4 py-4">
-                <div className="flex flex-col gap-3">
-                    {/* Type toggle */}
-                    <div className="flex w-fit gap-1 rounded-lg border border-neutral-200 bg-white p-1">
-                        {(
-                            [
-                                ['recurring', 'Recurring'],
-                                ['onetime', 'One-time'],
-                            ] as const
-                        ).map(([key, label]) => {
-                            const active = (key === 'recurring') === isRecurring
-                            return (
-                                <button
-                                    key={key}
-                                    type="button"
-                                    onClick={() => setIsRecurring(key === 'recurring')}
-                                    className={[
-                                        'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
-                                        active
-                                            ? 'bg-neutral-950 text-white'
-                                            : 'text-neutral-500 hover:text-neutral-900',
-                                    ].join(' ')}
-                                >
-                                    {label}
-                                </button>
-                            )
-                        })}
-                    </div>
+        <div className="flex flex-col gap-3 bg-neutral-50 px-5 py-4">
+            {/* Type toggle */}
+            <div className="flex w-fit gap-1 rounded-lg border border-neutral-200 bg-white p-1">
+                {(
+                    [
+                        ['recurring', 'Recurring'],
+                        ['onetime', 'One-time'],
+                    ] as const
+                ).map(([key, label]) => {
+                    const active = (key === 'recurring') === isRecurring
+                    return (
+                        <button
+                            key={key}
+                            type="button"
+                            onClick={() => setIsRecurring(key === 'recurring')}
+                            className={[
+                                'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+                                active
+                                    ? 'bg-neutral-950 text-white'
+                                    : 'text-neutral-500 hover:text-neutral-900',
+                            ].join(' ')}
+                        >
+                            {label}
+                        </button>
+                    )
+                })}
+            </div>
 
-                    {/* Name + amount */}
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                        <Input
-                            autoFocus
-                            className="!py-1.5 !text-xs sm:flex-1"
-                            placeholder="Row name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                        />
-                        <Input
-                            className="!py-1.5 !text-xs sm:w-48"
-                            type="number"
-                            step="0.01"
-                            placeholder={
-                                isRecurring ? 'Monthly amount' : `Amount for ${monthLabel}`
-                            }
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                        />
-                    </div>
+            {/* Name + amount */}
+            <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                    autoFocus
+                    className="!py-1.5 !text-xs sm:flex-1"
+                    placeholder="Row name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                />
+                <Input
+                    className="!py-1.5 !text-xs sm:w-48"
+                    type="number"
+                    step="0.01"
+                    placeholder={isRecurring ? 'Monthly amount' : `Amount for ${monthLabel}`}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                />
+            </div>
 
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="text-xs text-neutral-400">
-                            {isRecurring
-                                ? 'Applied every month — you can override the amount per month.'
-                                : `Only counts in ${monthLabel}.`}
-                        </p>
-                        <div className="flex shrink-0 gap-1">
-                            <Button
-                                size="sm"
-                                onClick={handleSave}
-                                disabled={saving || !name.trim()}
-                            >
-                                {saving ? 'Saving…' : 'Add'}
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={onCancel}>
-                                Cancel
-                            </Button>
-                        </div>
-                    </div>
+            <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-neutral-400">
+                    {isRecurring
+                        ? 'Applied every month — you can override the amount per month.'
+                        : `Only counts in ${monthLabel}.`}
+                </p>
+                <div className="flex shrink-0 gap-1">
+                    <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
+                        {saving ? 'Saving…' : 'Add'}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={onCancel}>
+                        Cancel
+                    </Button>
                 </div>
-            </td>
-        </tr>
+            </div>
+        </div>
     )
 }
 
@@ -957,11 +992,11 @@ export default function Finances() {
                         return (
                             <div
                                 key={group._id}
-                                className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm"
+                                className="overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md"
                             >
                                 {/* Group header */}
                                 <div
-                                    className={`flex items-center justify-between px-4 py-3 ${headerBg}`}
+                                    className={`group/gh flex items-center justify-between px-5 py-4 ${headerBg}`}
                                 >
                                     {editingGroup === group._id ? (
                                         <div className="flex flex-1 items-center gap-2">
@@ -992,306 +1027,336 @@ export default function Finances() {
                                         </div>
                                     ) : (
                                         <>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex min-w-0 flex-col gap-1.5">
                                                 <span
-                                                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide ${badgeCls}`}
+                                                    className={`w-fit rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeCls}`}
                                                 >
                                                     {group.type}
                                                 </span>
-                                                <span className="font-bold text-neutral-900">
+                                                <span className="truncate text-sm font-bold tracking-tight text-neutral-900">
                                                     {group.name}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-1">
+                                                <div className="flex items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/gh:opacity-100">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setEditingGroup(group._id)
+                                                            setEditGroupName(group.name)
+                                                        }}
+                                                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-neutral-700"
+                                                    >
+                                                        <i
+                                                            className="fa-solid fa-pen text-xs"
+                                                            aria-hidden="true"
+                                                        />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setPendingDelete({
+                                                                kind: 'group',
+                                                                id: group._id,
+                                                                name: group.name,
+                                                                scoped: true,
+                                                            })
+                                                        }
+                                                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-100 hover:text-red-500"
+                                                    >
+                                                        <i
+                                                            className="fa-solid fa-trash-can text-xs"
+                                                            aria-hidden="true"
+                                                        />
+                                                    </button>
+                                                </div>
                                                 <span
-                                                    className={`mr-2 text-sm font-semibold font-mono ${totalCls}`}
+                                                    className={`ml-1 pr-2 text-lg font-bold font-mono tabular-nums tracking-tight ${totalCls}`}
                                                 >
                                                     {formatMoney(total)}
                                                 </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setEditingGroup(group._id)
-                                                        setEditGroupName(group.name)
-                                                    }}
-                                                    className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-neutral-700"
-                                                >
-                                                    <i
-                                                        className="fa-solid fa-pen text-xs"
-                                                        aria-hidden="true"
-                                                    />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setPendingDelete({
-                                                            kind: 'group',
-                                                            id: group._id,
-                                                            name: group.name,
-                                                            scoped: true,
-                                                        })
-                                                    }
-                                                    className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-100 hover:text-red-500"
-                                                >
-                                                    <i
-                                                        className="fa-solid fa-trash-can text-xs"
-                                                        aria-hidden="true"
-                                                    />
-                                                </button>
                                             </div>
                                         </>
                                     )}
                                 </div>
 
-                                {/* Rows table */}
-                                <div className="overflow-x-auto">
-                                <table className="w-full min-w-[420px] table-fixed">
-                                    <thead>
-                                        <tr className="border-b border-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                            <th className="py-2 pl-4 pr-2 text-left w-[40%]">
-                                                Name
-                                            </th>
-                                            <th className="py-2 px-2 text-right w-[22%]">
-                                                Recurring
-                                            </th>
-                                            <th className="py-2 pr-4 text-right w-[22%]">
-                                                {formatMonth(month)}
-                                            </th>
-                                            <th className="py-2 pr-4 w-[16%]" />
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-neutral-100">
+                                {/* Rows — list presentation */}
+                                <div>
+                                    <div className="flex flex-col divide-y divide-neutral-100 border-b border-neutral-100">
                                         {groupRows.map((row) => {
                                             const amt = entryAmount(row._id)
-                                            return (
-                                                <tr key={row._id} className="group/row">
-                                                    {editingRow === row._id ? (
-                                                        <>
-                                                            <td className="py-1.5 pl-4 pr-2">
-                                                                <Input
-                                                                    autoFocus
-                                                                    className="!py-1.5 !text-xs"
-                                                                    value={editRowName}
-                                                                    onChange={(e) =>
-                                                                        setEditRowName(
-                                                                            e.target.value
-                                                                        )
-                                                                    }
-                                                                />
-                                                            </td>
-                                                            <td className="py-1.5 px-2">
-                                                                <Input
-                                                                    className="!py-1.5 !text-xs"
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    placeholder={
-                                                                        row.recurring === false
-                                                                            ? 'Amount'
-                                                                            : 'Monthly amount'
-                                                                    }
-                                                                    value={editRowAmount}
-                                                                    onChange={(e) =>
-                                                                        setEditRowAmount(
-                                                                            e.target.value
-                                                                        )
-                                                                    }
-                                                                    onKeyDown={(e) =>
-                                                                        e.key === 'Enter' &&
-                                                                        handleSaveRowEdit(row._id)
-                                                                    }
-                                                                />
-                                                            </td>
-                                                            <td
-                                                                className="py-1.5 pr-4 text-right"
-                                                                colSpan={2}
+                                            const rowVal = effectiveAmount(row)
+                                            const pct =
+                                                total !== 0
+                                                    ? Math.min(100, Math.abs(rowVal / total) * 100)
+                                                    : 0
+                                            const barCls = isIncome
+                                                ? 'bg-emerald-400'
+                                                : isSavings
+                                                  ? 'bg-blue-400'
+                                                  : 'bg-red-300'
+
+                                            if (editingRow === row._id) {
+                                                return (
+                                                    <div
+                                                        key={row._id}
+                                                        className="flex flex-col gap-2 bg-neutral-50 px-5 py-3 sm:flex-row sm:items-center"
+                                                    >
+                                                        <Input
+                                                            autoFocus
+                                                            className="!py-1.5 !text-sm sm:flex-1"
+                                                            value={editRowName}
+                                                            onChange={(e) =>
+                                                                setEditRowName(e.target.value)
+                                                            }
+                                                        />
+                                                        <Input
+                                                            className="!py-1.5 !text-sm sm:w-40"
+                                                            type="number"
+                                                            step="0.01"
+                                                            placeholder={
+                                                                row.recurring === false
+                                                                    ? 'Amount'
+                                                                    : 'Monthly amount'
+                                                            }
+                                                            value={editRowAmount}
+                                                            onChange={(e) =>
+                                                                setEditRowAmount(e.target.value)
+                                                            }
+                                                            onKeyDown={(e) =>
+                                                                e.key === 'Enter' &&
+                                                                handleSaveRowEdit(row._id)
+                                                            }
+                                                        />
+                                                        <div className="flex gap-1">
+                                                            <Button
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    handleSaveRowEdit(row._id)
+                                                                }
                                                             >
-                                                                <div className="flex justify-end gap-1">
-                                                                    <Button
-                                                                        size="sm"
-                                                                        onClick={() =>
-                                                                            handleSaveRowEdit(
-                                                                                row._id
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        Save
-                                                                    </Button>
-                                                                    <Button
-                                                                        size="sm"
-                                                                        variant="ghost"
-                                                                        onClick={() =>
-                                                                            setEditingRow(null)
-                                                                        }
-                                                                    >
-                                                                        Cancel
-                                                                    </Button>
-                                                                </div>
-                                                            </td>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <td className="py-2 pl-4 pr-2 text-sm text-neutral-800">
+                                                                Save
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => setEditingRow(null)}
+                                                            >
+                                                                Cancel
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            }
+
+                                            return (
+                                                <div
+                                                    key={row._id}
+                                                    className="group/row flex items-center gap-3 px-5 py-3 transition-colors hover:bg-neutral-50/70"
+                                                >
+                                                    {/* Name + meta + proportion bar */}
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="truncate text-sm font-semibold text-neutral-900">
                                                                 {row.name}
-                                                            </td>
-                                                            <td className="py-2 px-2 text-right text-sm font-mono text-neutral-400">
-                                                                {row.recurring !== false &&
-                                                                row.recurringAmount !== undefined
-                                                                    ? formatAmount(
-                                                                          row.recurringAmount
-                                                                      )
-                                                                    : '—'}
-                                                            </td>
-                                                            <td className="py-1 pr-2 w-32">
-                                                                <AmountCell
-                                                                    value={amt}
-                                                                    placeholder={
-                                                                        row.recurringAmount
-                                                                    }
-                                                                    onSave={(v) =>
-                                                                        handleSetEntry(row._id, v)
-                                                                    }
+                                                            </span>
+                                                            {row.budgeted && (
+                                                                <i
+                                                                    className="fa-solid fa-bookmark text-[10px] text-neutral-300"
+                                                                    title="In Budgets"
+                                                                    aria-hidden="true"
                                                                 />
-                                                            </td>
-                                                            <td className="py-2 pr-3 text-right">
-                                                                <div className="flex justify-end gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/row:opacity-100">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() =>
-                                                                            navigate(
-                                                                                `/finances/breakdown/${row._id}?month=${month}&recurring=${row.recurring !== false}`
-                                                                            )
-                                                                        }
-                                                                        title="View breakdown"
-                                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                                                                    >
-                                                                        <i
-                                                                            className="fa-solid fa-chart-pie text-xs"
-                                                                            aria-hidden="true"
-                                                                        />
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() =>
-                                                                            handleToggleBudget(
-                                                                                row._id,
-                                                                                !row.budgeted
-                                                                            )
-                                                                        }
-                                                                        title={
-                                                                            row.budgeted
-                                                                                ? 'Remove from Budgets'
-                                                                                : 'Add to Budgets'
-                                                                        }
-                                                                        className={[
-                                                                            'grid h-7 w-7 place-items-center rounded-full transition-colors',
-                                                                            row.budgeted
-                                                                                ? 'text-neutral-900 hover:bg-neutral-100'
-                                                                                : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500',
-                                                                        ].join(' ')}
-                                                                    >
-                                                                        <i
-                                                                            className="fa-solid fa-bookmark text-xs"
-                                                                            aria-hidden="true"
-                                                                        />
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            setEditingRow(row._id)
-                                                                            setEditRowName(row.name)
-                                                                            const current =
-                                                                                row.recurring ===
-                                                                                false
-                                                                                    ? (amt ??
-                                                                                      row.recurringAmount)
-                                                                                    : row.recurringAmount
-                                                                            setEditRowAmount(
-                                                                                current !==
-                                                                                    undefined
-                                                                                    ? String(
-                                                                                          current
-                                                                                      )
-                                                                                    : ''
-                                                                            )
-                                                                        }}
-                                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                                                                    >
-                                                                        <i
-                                                                            className="fa-solid fa-pen text-xs"
-                                                                            aria-hidden="true"
-                                                                        />
-                                                                    </button>
-                                                                    {!isSavings && (
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() =>
-                                                                                setPendingDelete({
-                                                                                    kind: 'row',
-                                                                                    id: row._id,
-                                                                                    name: row.name,
-                                                                                    scoped:
-                                                                                        row.recurring !==
-                                                                                        false,
-                                                                                })
-                                                                            }
-                                                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                                                                        >
-                                                                            <i
-                                                                                className="fa-solid fa-trash-can text-xs"
-                                                                                aria-hidden="true"
-                                                                            />
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                        </>
-                                                    )}
-                                                </tr>
+                                                            )}
+                                                            {row.recurring === false && (
+                                                                <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neutral-400">
+                                                                    one-time
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="mt-1.5 flex items-center gap-2">
+                                                            <div className="h-1 w-full max-w-[140px] overflow-hidden rounded-full bg-neutral-100">
+                                                                <div
+                                                                    className={`h-full rounded-full ${barCls}`}
+                                                                    style={{ width: `${pct}%` }}
+                                                                />
+                                                            </div>
+                                                            {row.recurring !== false &&
+                                                                row.recurringAmount !== undefined && (
+                                                                    <span className="shrink-0 font-mono text-[11px] tabular-nums text-neutral-400">
+                                                                        £
+                                                                        {formatAmount(
+                                                                            row.recurringAmount
+                                                                        )}
+                                                                        /mo
+                                                                    </span>
+                                                                )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Right cluster: amount flush-right, actions slide in on hover */}
+                                                    <div className="flex shrink-0 items-center justify-end">
+                                                    <div className="w-28 text-right">
+                                                        <AmountCell
+                                                            large
+                                                            value={amt}
+                                                            placeholder={row.recurringAmount}
+                                                            onSave={(v) =>
+                                                                handleSetEntry(row._id, v)
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    {/* Actions */}
+                                                    <div className="flex items-center gap-0.5 overflow-hidden max-w-[160px] opacity-100 transition-all duration-200 sm:max-w-0 sm:opacity-0 sm:group-hover/row:max-w-[160px] sm:group-hover/row:opacity-100">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                navigate(
+                                                                    `/finances/breakdown/${row._id}?month=${month}&recurring=${row.recurring !== false}`
+                                                                )
+                                                            }
+                                                            title="View breakdown"
+                                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                                        >
+                                                            <i
+                                                                className="fa-solid fa-chart-pie text-xs"
+                                                                aria-hidden="true"
+                                                            />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleToggleBudget(
+                                                                    row._id,
+                                                                    !row.budgeted
+                                                                )
+                                                            }
+                                                            title={
+                                                                row.budgeted
+                                                                    ? 'Remove from Budgets'
+                                                                    : 'Add to Budgets'
+                                                            }
+                                                            className={[
+                                                                'grid h-7 w-7 place-items-center rounded-full transition-colors',
+                                                                row.budgeted
+                                                                    ? 'text-neutral-900 hover:bg-neutral-100'
+                                                                    : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500',
+                                                            ].join(' ')}
+                                                        >
+                                                            <i
+                                                                className="fa-solid fa-bookmark text-xs"
+                                                                aria-hidden="true"
+                                                            />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setEditingRow(row._id)
+                                                                setEditRowName(row.name)
+                                                                const current =
+                                                                    row.recurring === false
+                                                                        ? (amt ??
+                                                                          row.recurringAmount)
+                                                                        : row.recurringAmount
+                                                                setEditRowAmount(
+                                                                    current !== undefined
+                                                                        ? String(current)
+                                                                        : ''
+                                                                )
+                                                            }}
+                                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                                        >
+                                                            <i
+                                                                className="fa-solid fa-pen text-xs"
+                                                                aria-hidden="true"
+                                                            />
+                                                        </button>
+                                                        {!isSavings && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setPendingDelete({
+                                                                        kind: 'row',
+                                                                        id: row._id,
+                                                                        name: row.name,
+                                                                        scoped:
+                                                                            row.recurring !== false,
+                                                                    })
+                                                                }
+                                                                className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                                            >
+                                                                <i
+                                                                    className="fa-solid fa-trash-can text-xs"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    </div>
+                                                </div>
                                             )
                                         })}
 
-                                        {addingRowFor?.groupId === group._id && !addingRowFor.potId && (
-                                            <AddRowForm
-                                                month={month}
-                                                onSave={(name, amount, recurring) =>
-                                                    handleAddRow(group._id, name, amount, recurring)
-                                                }
-                                                onCancel={() => setAddingRowFor(null)}
-                                            />
-                                        )}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr className="border-t border-neutral-200 bg-neutral-50">
-                                            <td className="py-2 pl-4 pr-2" colSpan={2}>
-                                                {!isSavings && !(addingRowFor?.groupId === group._id && !addingRowFor.potId) && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setAddingRowFor({ groupId: group._id })}
-                                                        className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:text-neutral-700"
+                                        {addingRowFor?.groupId === group._id &&
+                                            !addingRowFor.potId && (
+                                                <AddRowForm
+                                                    month={month}
+                                                    onSave={(name, amount, recurring) =>
+                                                        handleAddRow(
+                                                            group._id,
+                                                            name,
+                                                            amount,
+                                                            recurring
+                                                        )
+                                                    }
+                                                    onCancel={() => setAddingRowFor(null)}
+                                                />
+                                            )}
+                                    </div>
+
+                                    {/* Footer: add row / add pot + group total */}
+                                    <div className="flex items-center justify-between gap-3 bg-neutral-50 px-5 py-3">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {!isSavings &&
+                                                !(
+                                                    addingRowFor?.groupId === group._id &&
+                                                    !addingRowFor.potId
+                                                ) && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="secondary"
+                                                        icon="fa-solid fa-plus"
+                                                        onClick={() =>
+                                                            setAddingRowFor({ groupId: group._id })
+                                                        }
                                                     >
-                                                        <i
-                                                            className="fa-solid fa-plus"
-                                                            aria-hidden="true"
-                                                        />
                                                         Add row
-                                                    </button>
+                                                    </Button>
                                                 )}
-                                            </td>
-                                            <td
-                                                className={`py-2 pr-4 text-right text-sm font-bold font-mono ${totalCls}`}
+                                            {!isSavings && (
+                                                <AddPotInline
+                                                    groupId={group._id}
+                                                    onAdd={handleAddPot}
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300">
+                                                Total
+                                            </span>
+                                            <span
+                                                className={`pr-2 font-mono text-sm font-bold tabular-nums tracking-tight ${totalCls}`}
                                             >
                                                 {formatMoney(total)}
-                                            </td>
-                                            <td />
-                                        </tr>
-                                    </tfoot>
-                                </table>
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* Pots */}
                                 {(() => {
                                     const groupPots = pots.filter((p) => p.group === group._id)
-                                    if (groupPots.length === 0 && isSavings) return null
+                                    if (groupPots.length === 0) return null
                                     return (
                                         <div className="flex flex-col gap-3 p-4 pt-0">
                                             {groupPots.map((pot) => (
@@ -1322,12 +1387,6 @@ export default function Finances() {
                                                     onDelete={handleDeletePot}
                                                 />
                                             ))}
-                                            {!isSavings && (
-                                                <AddPotInline
-                                                    groupId={group._id}
-                                                    onAdd={handleAddPot}
-                                                />
-                                            )}
                                         </div>
                                     )
                                 })()}
@@ -1337,9 +1396,9 @@ export default function Finances() {
 
                     {/* Net summary */}
                     {monthGroups.length > 0 && (
-                        <div className="rounded-2xl border border-neutral-200 bg-neutral-950 p-5 text-white shadow-sm">
+                        <div className="rounded-3xl border border-neutral-200 bg-neutral-950 p-6 text-white shadow-sm">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-semibold uppercase tracking-wide text-neutral-400">
+                                <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                                     Summary
                                 </span>
                             </div>
@@ -1347,30 +1406,30 @@ export default function Finances() {
                                 className={`mt-4 grid gap-4 ${savingsGroups.length > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}
                             >
                                 <div>
-                                    <p className="text-xs text-neutral-500">Total Income</p>
-                                    <p className="mt-0.5 text-xl font-bold font-mono text-emerald-400">
+                                    <p className="text-[11px] font-medium text-neutral-500">Total Income</p>
+                                    <p className="mt-0.5 text-lg font-bold font-mono tabular-nums text-emerald-400">
                                         {formatMoney(totalIncome)}
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-neutral-500">Total Expenses</p>
-                                    <p className="mt-0.5 text-xl font-bold font-mono text-red-400">
+                                    <p className="text-[11px] font-medium text-neutral-500">Total Expenses</p>
+                                    <p className="mt-0.5 text-lg font-bold font-mono tabular-nums text-red-400">
                                         {formatMoney(totalExpense)}
                                     </p>
                                 </div>
                                 {savingsGroups.length > 0 && (
                                     <div>
-                                        <p className="text-xs text-neutral-500">Total Savings</p>
-                                        <p className="mt-0.5 text-xl font-bold font-mono text-blue-400">
+                                        <p className="text-[11px] font-medium text-neutral-500">Total Savings</p>
+                                        <p className="mt-0.5 text-lg font-bold font-mono tabular-nums text-blue-400">
                                             {formatMoney(totalSavings)}
                                         </p>
                                     </div>
                                 )}
                                 <div>
-                                    <p className="text-xs text-neutral-500">Net</p>
+                                    <p className="text-[11px] font-medium text-neutral-500">Net</p>
                                     <p
                                         className={[
-                                            'mt-0.5 text-xl font-bold font-mono',
+                                            'mt-0.5 text-lg font-bold font-mono tabular-nums',
                                             net >= 0 ? 'text-emerald-400' : 'text-red-400',
                                         ].join(' ')}
                                     >

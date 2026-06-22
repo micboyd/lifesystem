@@ -66,7 +66,7 @@ function SubItemRow({ item, onSave, onDelete }: SubItemRowProps) {
 
     if (editing) {
         return (
-            <li className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3">
+            <li className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-3">
                 <Input
                     ref={nameRef}
                     autoFocus
@@ -113,9 +113,9 @@ function SubItemRow({ item, onSave, onDelete }: SubItemRowProps) {
     }
 
     return (
-        <li className="group/item flex items-center justify-between gap-3 rounded-xl border border-neutral-100 bg-white px-4 py-3 transition-colors hover:border-neutral-200">
+        <li className="group/item flex items-center justify-between gap-3 rounded-2xl border border-neutral-100 bg-white px-4 py-3.5 transition-all hover:border-neutral-200 hover:shadow-sm">
             <span className="flex-1 text-sm font-semibold text-neutral-800">{item.name}</span>
-            <span className="font-mono text-sm text-neutral-700">£{fmt(item.amount)}</span>
+            <span className="font-mono tabular-nums text-sm text-neutral-700">£{fmt(item.amount)}</span>
             <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:opacity-100">
                 <button
                     type="button"
@@ -160,7 +160,7 @@ function AddItemForm({ onSave, onCancel }: AddItemFormProps) {
     }
 
     return (
-        <li className="flex items-center gap-2 rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-3">
+        <li className="flex items-center gap-2 rounded-2xl border border-neutral-300 bg-neutral-50 px-4 py-3">
             <Input
                 autoFocus
                 className="flex-1 !py-1.5 !text-sm"
@@ -328,7 +328,7 @@ export default function FinanceBreakdown() {
                     <header className="mb-8">
                         <div className="flex items-center gap-2 mb-1">
                             <span
-                                className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide ${badgeCls}`}
+                                className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeCls}`}
                             >
                                 {group.name}
                             </span>
@@ -380,8 +380,8 @@ export default function FinanceBreakdown() {
                     )}
 
                     {/* Total card */}
-                    <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <div className="mb-6 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                             {isRecurring
                                 ? `Total for ${formatMonth(month)}`
                                 : `Total — ${row.name}`}
@@ -426,7 +426,7 @@ export default function FinanceBreakdown() {
 
                     {/* Sub-items */}
                     <div className="mb-4 flex items-center justify-between">
-                        <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+                        <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                             Breakdown{' '}
                             {items.length > 0 &&
                                 `· ${items.length} item${items.length !== 1 ? 's' : ''}`}

@@ -90,11 +90,11 @@ function SettingField({ label, value, prefix, suffix, onChange, onCommit }: Sett
         onCommit(Number.isNaN(n) ? 0 : n)
     }
     return (
-        <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+        <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                 {label}
             </label>
-            <div className="flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 focus-within:border-neutral-950">
+            <div className="flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 transition-all focus-within:border-neutral-950 focus-within:ring-4 focus-within:ring-neutral-950/5">
                 {prefix && <span className="text-sm font-semibold text-neutral-400">{prefix}</span>}
                 <input
                     ref={inputRef}
@@ -127,12 +127,12 @@ function MilestoneCard({
     label?: string
 }) {
     return (
-        <div className="flex flex-col gap-1.5 rounded-2xl bg-neutral-950 px-5 py-4 text-white">
-            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+        <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white transition-transform duration-200 hover:-translate-y-0.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                 {label ?? `Year ${year}`}
             </p>
-            <p className="text-2xl font-bold font-mono tabular-nums">{fmtCompact(balance)}</p>
-            <p className="text-xs text-neutral-500 font-mono">£{fmt(balance, 0)}</p>
+            <p className="text-2xl font-bold font-mono tabular-nums tracking-tight">{fmtCompact(balance)}</p>
+            <p className="text-xs text-neutral-500 font-mono tabular-nums">£{fmt(balance, 0)}</p>
         </div>
     )
 }
@@ -158,13 +158,13 @@ function GroupSettingsCard({ group, monthlyContribution, onUpdate }: GroupSettin
     }, [group.annualInterestRate])
 
     return (
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5">
-            <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-neutral-300 hover:shadow-md">
+            <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                    <p className="font-bold text-neutral-900">{group.name}</p>
-                    <p className="text-sm text-neutral-400">£{fmt(monthlyContribution)} / month</p>
+                    <p className="text-lg font-bold tracking-tight text-neutral-900">{group.name}</p>
+                    <p className="mt-0.5 text-sm font-mono tabular-nums text-neutral-400">£{fmt(monthlyContribution)} / month</p>
                 </div>
-                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-blue-700">
+                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">
                     savings
                 </span>
             </div>
@@ -306,10 +306,10 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
 
     return (
         <section>
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">
+            <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                 Savings to date
             </h2>
-            <div className="rounded-2xl border border-neutral-200 bg-white p-5">
+            <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
                 <div className="flex flex-wrap items-end gap-3">
                     <MonthField
                         label="From"
@@ -334,14 +334,14 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
                     </div>
                 ) : (
                     <div className="mt-5 flex flex-col gap-4">
-                        <div className="rounded-2xl bg-neutral-950 px-5 py-4 text-white">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                        <div className="rounded-2xl bg-neutral-950 px-5 py-5 text-white">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                                 You should have saved
                             </p>
-                            <p className="mt-1 text-3xl font-bold font-mono tabular-nums">
+                            <p className="mt-1 text-3xl font-bold font-mono tabular-nums tracking-tight">
                                 £{fmt(grandTotal)}
                             </p>
-                            <p className="mt-1 font-mono text-xs text-neutral-500">
+                            <p className="mt-1 font-mono text-xs text-neutral-500 tabular-nums">
                                 {monthCount} {monthCount === 1 ? 'month' : 'months'} · avg £
                                 {fmt(monthlyAvg)}/mo
                             </p>
@@ -352,7 +352,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
                                 {perGroup.map(({ group, total }) => (
                                     <div
                                         key={group._id}
-                                        className="flex items-center justify-between gap-3 rounded-2xl bg-neutral-50 px-4 py-3"
+                                        className="flex items-center justify-between gap-3 rounded-2xl bg-neutral-50 px-4 py-3.5"
                                     >
                                         <span className="truncate text-sm font-semibold text-neutral-700">
                                             {group.name}
@@ -550,7 +550,7 @@ export default function SavingsForecast() {
                             <section>
                                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                                     <div>
-                                        <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+                                        <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                                             Projected balance
                                         </h2>
                                         {blendedRate > 0 && (
@@ -559,14 +559,14 @@ export default function SavingsForecast() {
                                             </p>
                                         )}
                                     </div>
-                                    <div className="flex flex-wrap gap-1.5">
+                                    <div className="flex flex-wrap gap-2">
                                         {HORIZONS.map((y) => (
                                             <button
                                                 key={y}
                                                 type="button"
                                                 onClick={() => setHorizon(y)}
                                                 className={[
-                                                    'rounded-full px-4 py-1.5 text-sm font-semibold transition-colors',
+                                                    'rounded-full px-4 py-2 text-sm font-semibold tracking-tight transition-all duration-150 active:scale-[0.97]',
                                                     horizon === y
                                                         ? 'bg-neutral-950 text-white'
                                                         : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200',
@@ -578,7 +578,7 @@ export default function SavingsForecast() {
                                         ))}
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
                                     {milestoneYears.map((y) => {
                                         const row = yearlyTable[y - 1]
                                         return row ? (
@@ -594,28 +594,28 @@ export default function SavingsForecast() {
                             </section>
 
                             {/* Summary stats */}
-                            <section className="grid grid-cols-2 gap-4 rounded-2xl border border-neutral-200 bg-white p-5 sm:grid-cols-3">
+                            <section className="grid grid-cols-2 gap-4 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm sm:grid-cols-3">
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                                         Starting balance
                                     </p>
-                                    <p className="mt-1 text-xl font-bold font-mono text-neutral-900">
+                                    <p className="mt-1 text-xl font-bold font-mono tabular-nums tracking-tight text-neutral-900">
                                         £{fmt(totalCurrentBalance, 0)}
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                                         Total contributions
                                     </p>
-                                    <p className="mt-1 text-xl font-bold font-mono text-neutral-900">
+                                    <p className="mt-1 text-xl font-bold font-mono tabular-nums tracking-tight text-neutral-900">
                                         £{fmt(totalContributions, 0)}
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                                         Interest earned
                                     </p>
-                                    <p className="mt-1 text-xl font-bold font-mono text-emerald-600">
+                                    <p className="mt-1 text-xl font-bold font-mono tabular-nums tracking-tight text-emerald-600">
                                         £
                                         {fmt(
                                             yearlyTable.reduce((s, r) => s + r.interestEarned, 0),
@@ -627,7 +627,7 @@ export default function SavingsForecast() {
 
                             {/* Per-group balance & rate inputs */}
                             <section>
-                                <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">
+                                <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                                     Accounts &amp; assumptions
                                 </h2>
                                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -644,7 +644,7 @@ export default function SavingsForecast() {
 
                             {/* Year-by-year table */}
                             <section>
-                                <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">
+                                <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                                     Year by year
                                 </h2>
                                 {hasScheduleGaps && (
@@ -656,7 +656,7 @@ export default function SavingsForecast() {
                                         monthly amount.
                                     </p>
                                 )}
-                                <div className="overflow-x-auto overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+                                <div className="overflow-x-auto overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm">
                                     <table className="w-full min-w-[380px]">
                                         <thead>
                                             <tr className="border-b border-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-400">

@@ -204,11 +204,11 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
             type="button"
             onClick={onClick}
             className={[
-                'flex flex-col rounded-xl border text-left w-full transition-colors',
+                'flex flex-col rounded-xl lg:rounded-2xl border text-left w-full transition-all duration-150',
                 'p-1.5 lg:p-3 min-h-[44px] lg:min-h-[170px] gap-1 lg:gap-2',
-                isToday ? 'border-neutral-950' : 'border-neutral-200',
+                isToday ? 'border-neutral-950 ring-2 ring-neutral-950/10' : 'border-neutral-200',
                 bg,
-                'hover:border-neutral-400',
+                'hover:border-neutral-400 hover:shadow-sm',
             ].join(' ')}
         >
             {/* Day number + excluded badge */}
@@ -335,8 +335,8 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
             type="button"
             onClick={onClick}
             className={[
-                'flex flex-col gap-2 rounded-xl border p-4 text-left w-full transition-colors',
-                'border-neutral-200 hover:border-neutral-400',
+                'flex flex-col gap-2 rounded-2xl border p-5 text-left w-full transition-all duration-150',
+                'border-neutral-200 hover:border-neutral-400 hover:shadow-sm',
                 bg,
             ].join(' ')}
         >
@@ -1068,30 +1068,30 @@ export default function BudgetCalendar() {
 
                 {pastDays.length > 0 && !loading && (
                     <div className="flex flex-wrap items-center gap-2">
-                        <div className="rounded-xl bg-white border border-neutral-200 px-4 py-2">
-                            <span className="text-xs text-neutral-400">Spent </span>
+                        <div className="rounded-full bg-white border border-neutral-200 px-4 py-2 shadow-sm">
+                            <span className="text-[11px] font-medium text-neutral-400">Spent </span>
                             <span
-                                className={`text-sm font-bold font-mono ${totalSpent > totalTarget ? 'text-red-600' : 'text-neutral-900'}`}
+                                className={`text-sm font-bold font-mono tabular-nums ${totalSpent > totalTarget ? 'text-red-600' : 'text-neutral-900'}`}
                             >
                                 £{fmt(totalSpent)}
                             </span>
                         </div>
-                        <div className="rounded-xl bg-white border border-neutral-200 px-4 py-2">
-                            <span className="text-xs text-neutral-400">Target </span>
-                            <span className="text-sm font-bold font-mono text-neutral-900">
+                        <div className="rounded-full bg-white border border-neutral-200 px-4 py-2 shadow-sm">
+                            <span className="text-[11px] font-medium text-neutral-400">Target </span>
+                            <span className="text-sm font-bold font-mono tabular-nums text-neutral-900">
                                 £{fmt(totalTarget)}
                             </span>
                         </div>
-                        <div className="rounded-xl bg-white border border-neutral-200 px-4 py-2">
-                            <span className="text-xs text-neutral-400">Logged </span>
-                            <span className="text-sm font-bold font-mono text-neutral-900">
+                        <div className="rounded-full bg-white border border-neutral-200 px-4 py-2 shadow-sm">
+                            <span className="text-[11px] font-medium text-neutral-400">Logged </span>
+                            <span className="text-sm font-bold font-mono tabular-nums text-neutral-900">
                                 {daysLogged}/{pastDays.length}
                             </span>
                         </div>
                         {excludedCount > 0 && (
-                            <div className="rounded-xl bg-neutral-100 border border-neutral-200 px-4 py-2">
-                                <span className="text-xs text-neutral-400">Excluded </span>
-                                <span className="text-sm font-bold font-mono text-neutral-500">
+                            <div className="rounded-full bg-neutral-100 border border-neutral-200 px-4 py-2">
+                                <span className="text-[11px] font-medium text-neutral-400">Excluded </span>
+                                <span className="text-sm font-bold font-mono tabular-nums text-neutral-500">
                                     {excludedCount}
                                 </span>
                             </div>
@@ -1105,7 +1105,7 @@ export default function BudgetCalendar() {
                     <Spinner />
                 </div>
             ) : allDailyRows.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-12 text-center">
+                <div className="rounded-3xl border border-dashed border-neutral-200 bg-white p-12 text-center">
                     <p className="text-sm text-neutral-400">
                         No daily budgets set up. Enable `Daily spend` on a card in the Budgets tab.
                     </p>
@@ -1123,13 +1123,13 @@ export default function BudgetCalendar() {
                                 />
                             </div>
                         )}
-                        <div className="flex rounded-full border border-neutral-200 bg-white p-1 text-sm font-semibold shrink-0">
+                        <div className="flex rounded-full border border-neutral-200 bg-white p-1 text-sm font-semibold shrink-0 shadow-sm">
                             {(['daily', 'weekly'] as const).map((v) => (
                                 <button
                                     key={v}
                                     type="button"
                                     onClick={() => setView(v)}
-                                    className={`rounded-full px-6 py-2 capitalize transition-colors ${
+                                    className={`rounded-full px-6 py-2 capitalize transition-all duration-150 active:scale-[0.97] ${
                                         view === v
                                             ? 'bg-neutral-900 text-white'
                                             : 'text-neutral-400 hover:text-neutral-600'
@@ -1165,7 +1165,7 @@ export default function BudgetCalendar() {
                             ))}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
                             {weekGroups.map((w, i) => (
                                 <WeekCell
                                     key={i}
