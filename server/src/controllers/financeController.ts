@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import FinanceGroup from '../models/FinanceGroup'
 import FinanceRow from '../models/FinanceRow'
+import FinancePot from '../models/FinancePot'
 import FinanceEntry, { MONTH_PATTERN } from '../models/FinanceEntry'
 
 function isValidMonth(v: unknown): v is string {
@@ -168,6 +169,7 @@ export async function createRow(req: AuthRequest, res: Response) {
     const month = !recurring && isValidMonth(req.body.month) ? req.body.month : null
     // Recurring rows can start from a given month ("all months from here on")
     const startMonth = recurring && isValidMonth(req.body.startMonth) ? req.body.startMonth : null
+    const pot = typeof req.body.pot === 'string' ? req.body.pot : null
     const row = await FinanceRow.create({
         user: req.userId,
         group: groupId,
@@ -177,6 +179,7 @@ export async function createRow(req: AuthRequest, res: Response) {
         month,
         startMonth,
         order,
+        pot,
     })
     res.status(201).json({ message: 'Created', data: row })
 }
@@ -193,6 +196,7 @@ export async function updateRow(req: AuthRequest, res: Response) {
     if (typeof req.body.budgeted === 'boolean') fields.budgeted = req.body.budgeted
     if (req.body.budgetType === 'daily') fields.budgetType = 'daily'
     if (req.body.budgetType === null) fields.budgetType = null
+    if (typeof req.body.pot === 'string' || req.body.pot === null) fields.pot = req.body.pot ?? null
     if (isValidMonth(req.body.startMonth) || req.body.startMonth === null)
         fields.startMonth = req.body.startMonth ?? null
     if (isValidMonth(req.body.endMonth) || req.body.endMonth === null)
@@ -301,4 +305,46 @@ export async function setEntry(req: AuthRequest, res: Response) {
         { upsert: true, new: true }
     )
     res.json({ message: 'Saved', data: entry })
+}
+
+// ── Pots ──────────────────────────────────────────────────────────────────────
+
+/** GET /api/finances/pots — list pots for the user, optionally filtered by group. */
+export async function listPots(req: AuthRequest, res: Response) {
+    const query: Record<string, unknown> = { user: req.userId }
+    if (typeof req.query.group === 'string') query.group = req.query.group
+    const pots = await FinancePot.find(query).sort({ order: 1, createdAt: 1 })
+    res.json({ message: 'OK', data: pots })
+}
+
+/** POST /api/finances/pots — create a pot within a group. */
+export async function createPot(req: AuthRequest, res: Response) {
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : ''
+    if (!name) { res.status(400).json({ message: 'name is required' }); return }
+    const group = typeof req.body.group === 'string' ? req.body.group : ''
+    if (!group) { res.status(400).json({ message: 'group is required' }); return }
+    const last = await FinancePot.findOne({ user: req.userId, group }).sort({ order: -1 })
+    const pot = await FinancePot.create({ user: req.userId, group, name, order: last ? last.order + 1 : 0 })
+    res.status(201).json({ message: 'Created', data: pot })
+}
+
+/** PUT /api/finances/pots/:id — rename a pot. */
+export async function updatePot(req: AuthRequest, res: Response) {
+    const fields: Record<string, unknown> = {}
+    if (typeof req.body.name === 'string' && req.body.name.trim()) fields.name = req.body.name.trim()
+    const pot = await FinancePot.findOneAndUpdate(
+        { _id: req.params.id, user: req.userId },
+        { $set: fields },
+        { new: true }
+    )
+    if (!pot) { res.status(404).json({ message: 'Pot not found' }); return }
+    res.json({ message: 'Saved', data: pot })
+}
+
+/** DELETE /api/finances/pots/:id — delete a pot and unassign its rows. */
+export async function deletePot(req: AuthRequest, res: Response) {
+    const pot = await FinancePot.findOneAndDelete({ _id: req.params.id, user: req.userId })
+    if (!pot) { res.status(404).json({ message: 'Pot not found' }); return }
+    await FinanceRow.updateMany({ user: req.userId, pot: pot._id }, { $set: { pot: null } })
+    res.json({ message: 'Deleted', data: pot })
 }

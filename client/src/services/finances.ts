@@ -2,6 +2,7 @@ import api from './api'
 import type {
     ApiResponse,
     FinanceGroup,
+    FinancePot,
     FinanceRow,
     FinanceEntry,
     BudgetSpend,
@@ -62,6 +63,29 @@ export async function deleteGroup(
     return res.data.data ?? null
 }
 
+// ── Pots ──────────────────────────────────────────────────────────────────────
+
+export async function listPots(groupId?: string): Promise<FinancePot[]> {
+    const res = await api.get<ApiResponse<FinancePot[]>>('/finances/pots', {
+        params: groupId ? { group: groupId } : undefined,
+    })
+    return res.data.data
+}
+
+export async function createPot(groupId: string, name: string): Promise<FinancePot> {
+    const res = await api.post<ApiResponse<FinancePot>>('/finances/pots', { group: groupId, name })
+    return res.data.data
+}
+
+export async function updatePot(id: string, name: string): Promise<FinancePot> {
+    const res = await api.put<ApiResponse<FinancePot>>(`/finances/pots/${id}`, { name })
+    return res.data.data
+}
+
+export async function deletePot(id: string): Promise<void> {
+    await api.delete(`/finances/pots/${id}`)
+}
+
 // ── Rows ──────────────────────────────────────────────────────────────────────
 
 export async function listRows(): Promise<FinanceRow[]> {
@@ -75,7 +99,8 @@ export async function createRow(
     recurringAmount?: number,
     recurring?: boolean,
     month?: string,
-    startMonth?: string
+    startMonth?: string,
+    pot?: string
 ): Promise<FinanceRow> {
     const res = await api.post<ApiResponse<FinanceRow>>('/finances/rows', {
         group,
@@ -84,6 +109,7 @@ export async function createRow(
         recurring,
         ...(month && { month }),
         ...(startMonth && { startMonth }),
+        ...(pot && { pot }),
     })
     return res.data.data
 }

@@ -14,13 +14,17 @@ import {
     deleteRow,
     listEntries,
     setEntry,
+    listPots,
+    createPot,
+    updatePot,
+    deletePot,
     type AddScope,
 } from '../services/finances'
 import { addMonths, rowVisibleInMonth, groupVisibleInMonth, type DeleteMode } from '../lib/finance'
 import { formatMoney, formatAmount } from '../lib/money'
 import { useToast } from '../context/ToastContext'
 import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
-import type { FinanceGroup, FinanceRow, FinanceEntry } from '../types'
+import type { FinanceGroup, FinancePot, FinanceRow, FinanceEntry } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -107,6 +111,249 @@ function AmountCell({ value, placeholder, onSave }: AmountCellProps) {
                 <span className="text-neutral-200">—</span>
             )}
         </button>
+    )
+}
+
+// ── Pot card ─────────────────────────────────────────────────────────────────
+
+interface PotCardProps {
+    pot: FinancePot
+    rows: FinanceRow[]
+    entries: FinanceEntry[]
+    month: string
+    totalCls: string
+    isSavings: boolean
+    isAddingRow: boolean
+    onStartAddRow: () => void
+    onCancelAddRow: () => void
+    onSaveAddRow: (name: string, amount: number | undefined, recurring: boolean) => Promise<void>
+    onSaveRow: (id: string, name: string, amountStr: string) => Promise<void>
+    onSetEntry: (rowId: string, amount: number | null) => Promise<void>
+    onDeleteRow: (id: string) => void
+    onToggleBudget: (rowId: string, budgeted: boolean) => Promise<void>
+    onNavigate: (rowId: string) => void
+    effectiveAmount: (row: FinanceRow) => number
+    onRename: (id: string, name: string) => Promise<void>
+    onDelete: (id: string) => void
+}
+
+function PotCard({
+    pot, rows, entries, month, totalCls, isSavings, isAddingRow,
+    onStartAddRow, onCancelAddRow, onSaveAddRow, onSaveRow,
+    onSetEntry, onDeleteRow, onToggleBudget, onNavigate,
+    effectiveAmount, onRename, onDelete,
+}: PotCardProps) {
+    const [renamingPot, setRenamingPot] = useState(false)
+    const [potNameInput, setPotNameInput] = useState(pot.name)
+    const [savingPotName, setSavingPotName] = useState(false)
+    const [editingRowId, setEditingRowId] = useState<string | null>(null)
+    const [draftName, setDraftName] = useState('')
+    const [draftAmount, setDraftAmount] = useState('')
+    const [savingRow, setSavingRow] = useState(false)
+    const total = rows.reduce((s, r) => s + effectiveAmount(r), 0)
+
+    async function saveRename() {
+        if (!potNameInput.trim() || potNameInput.trim() === pot.name) { setRenamingPot(false); return }
+        setSavingPotName(true)
+        try { await onRename(pot._id, potNameInput.trim()); setRenamingPot(false) }
+        finally { setSavingPotName(false) }
+    }
+
+    function startEditRow(row: FinanceRow) {
+        setEditingRowId(row._id)
+        setDraftName(row.name)
+        const current = row.recurring === false
+            ? (entries.find((e) => e.row === row._id)?.amount ?? row.recurringAmount)
+            : row.recurringAmount
+        setDraftAmount(current !== undefined ? String(current) : '')
+    }
+
+    async function commitEditRow(id: string) {
+        setSavingRow(true)
+        try { await onSaveRow(id, draftName, draftAmount); setEditingRowId(null) }
+        finally { setSavingRow(false) }
+    }
+
+    return (
+        <div className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50">
+            {/* Pot header */}
+            <div className="flex items-center justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-2.5">
+                {renamingPot ? (
+                    <div className="flex flex-1 items-center gap-2">
+                        <Input
+                            autoFocus
+                            className="!py-1 !text-xs"
+                            value={potNameInput}
+                            onChange={(e) => setPotNameInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenamingPot(false) }}
+                        />
+                        <Button size="sm" onClick={saveRename} disabled={savingPotName}>Save</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setRenamingPot(false)}>Cancel</Button>
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex items-center gap-2">
+                            <i className="fa-solid fa-layer-group text-xs text-neutral-400" aria-hidden="true" />
+                            <span className="text-sm font-semibold text-neutral-700">{pot.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className={`mr-1 text-xs font-semibold font-mono ${totalCls}`}>
+                                {formatMoney(total)}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => { setRenamingPot(true); setPotNameInput(pot.name) }}
+                                className="grid h-6 w-6 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                            >
+                                <i className="fa-solid fa-pen text-[10px]" aria-hidden="true" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onDelete(pot._id)}
+                                className="grid h-6 w-6 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-100 hover:text-red-500"
+                            >
+                                <i className="fa-solid fa-trash-can text-[10px]" aria-hidden="true" />
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Pot rows */}
+            <div className="overflow-x-auto">
+                <table className="w-full min-w-[420px] table-fixed">
+                    <tbody className="divide-y divide-neutral-100">
+                        {rows.map((row) => {
+                            const amt = entries.find((e) => e.row === row._id)?.amount
+                            return (
+                                <tr key={row._id} className="group/row bg-neutral-50">
+                                    {editingRowId === row._id ? (
+                                        <>
+                                            <td className="py-1.5 pl-4 pr-2">
+                                                <Input autoFocus className="!py-1.5 !text-xs" value={draftName}
+                                                    onChange={(e) => setDraftName(e.target.value)} />
+                                            </td>
+                                            <td className="py-1.5 px-2">
+                                                <Input className="!py-1.5 !text-xs" type="number" step="0.01"
+                                                    placeholder={row.recurring === false ? 'Amount' : 'Monthly amount'}
+                                                    value={draftAmount}
+                                                    onChange={(e) => setDraftAmount(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && commitEditRow(row._id)}
+                                                />
+                                            </td>
+                                            <td className="py-1.5 pr-4 text-right" colSpan={2}>
+                                                <div className="flex justify-end gap-1">
+                                                    <Button size="sm" onClick={() => commitEditRow(row._id)} disabled={savingRow}>Save</Button>
+                                                    <Button size="sm" variant="ghost" onClick={() => setEditingRowId(null)}>Cancel</Button>
+                                                </div>
+                                            </td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td className="py-2 pl-4 pr-2 text-sm text-neutral-800 w-[40%]">{row.name}</td>
+                                            <td className="py-2 px-2 text-right text-sm font-mono text-neutral-400 w-[22%]">
+                                                {row.recurring !== false && row.recurringAmount !== undefined
+                                                    ? formatAmount(row.recurringAmount) : '—'}
+                                            </td>
+                                            <td className="py-1 pr-2 w-[22%]">
+                                                <AmountCell value={amt} placeholder={row.recurringAmount}
+                                                    onSave={(v) => onSetEntry(row._id, v)} />
+                                            </td>
+                                            <td className="py-2 pr-3 text-right w-[16%]">
+                                                <div className="flex justify-end gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/row:opacity-100">
+                                                    <button type="button" onClick={() => onNavigate(row._id)} title="View breakdown"
+                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
+                                                        <i className="fa-solid fa-chart-pie text-xs" aria-hidden="true" />
+                                                    </button>
+                                                    <button type="button" onClick={() => onToggleBudget(row._id, !row.budgeted)}
+                                                        title={row.budgeted ? 'Remove from Budgets' : 'Add to Budgets'}
+                                                        className={['grid h-7 w-7 place-items-center rounded-full transition-colors',
+                                                            row.budgeted ? 'text-neutral-900 hover:bg-neutral-100' : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500'].join(' ')}>
+                                                        <i className="fa-solid fa-bookmark text-xs" aria-hidden="true" />
+                                                    </button>
+                                                    <button type="button" onClick={() => startEditRow(row)}
+                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
+                                                        <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
+                                                    </button>
+                                                    {!isSavings && (
+                                                        <button type="button" onClick={() => onDeleteRow(row._id)}
+                                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500">
+                                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </>
+                                    )}
+                                </tr>
+                            )
+                        })}
+                        {isAddingRow && (
+                            <AddRowForm month={month} onSave={onSaveAddRow} onCancel={onCancelAddRow} />
+                        )}
+                    </tbody>
+                    <tfoot>
+                        <tr className="border-t border-neutral-200 bg-neutral-50">
+                            <td className="py-2 pl-4 pr-2" colSpan={2}>
+                                {!isSavings && !isAddingRow && (
+                                    <button type="button" onClick={onStartAddRow}
+                                        className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:text-neutral-700">
+                                        <i className="fa-solid fa-plus" aria-hidden="true" />
+                                        Add row
+                                    </button>
+                                )}
+                            </td>
+                            <td className={`py-2 pr-4 text-right text-sm font-bold font-mono ${totalCls}`}>
+                                {formatMoney(total)}
+                            </td>
+                            <td />
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    )
+}
+
+// ── Add pot inline ────────────────────────────────────────────────────────────
+
+function AddPotInline({ groupId, onAdd }: { groupId: string; onAdd: (groupId: string, name: string) => Promise<void> }) {
+    const [open, setOpen] = useState(false)
+    const [name, setName] = useState('')
+    const [saving, setSaving] = useState(false)
+
+    async function submit() {
+        if (!name.trim()) return
+        setSaving(true)
+        try { await onAdd(groupId, name.trim()); setName(''); setOpen(false) }
+        finally { setSaving(false) }
+    }
+
+    if (!open) {
+        return (
+            <button type="button" onClick={() => setOpen(true)}
+                className="flex items-center gap-1.5 self-start text-xs font-semibold text-neutral-400 transition-colors hover:text-neutral-700">
+                <i className="fa-solid fa-layer-group text-[10px]" aria-hidden="true" />
+                Add pot
+            </button>
+        )
+    }
+
+    return (
+        <div className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2">
+            <Input
+                autoFocus
+                className="!py-1.5 !text-xs"
+                placeholder="Pot name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setOpen(false) }}
+            />
+            <Button size="sm" onClick={submit} disabled={saving || !name.trim()}>
+                {saving ? '…' : 'Add'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+        </div>
     )
 }
 
@@ -232,6 +479,7 @@ export default function Finances() {
     })
     const [groups, setGroups] = useState<FinanceGroup[]>([])
     const [rows, setRows] = useState<FinanceRow[]>([])
+    const [pots, setPots] = useState<FinancePot[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -253,18 +501,19 @@ export default function Finances() {
     // Editing
     const [editingGroup, setEditingGroup] = useState<string | null>(null)
     const [editGroupName, setEditGroupName] = useState('')
-    const [addingRowFor, setAddingRowFor] = useState<string | null>(null)
+    const [addingRowFor, setAddingRowFor] = useState<{ groupId: string; potId?: string } | null>(null)
     const [editingRow, setEditingRow] = useState<string | null>(null)
     const [editRowName, setEditRowName] = useState('')
     const [editRowAmount, setEditRowAmount] = useState('')
 
     useEffect(() => {
         let active = true
-        Promise.all([listGroups(), listRows()])
-            .then(([g, r]) => {
+        Promise.all([listGroups(), listRows(), listPots()])
+            .then(([g, r, p]) => {
                 if (!active) return
                 setGroups(g)
                 setRows(r)
+                setPots(p)
             })
             .finally(() => active && setLoading(false))
         return () => {
@@ -373,16 +622,44 @@ export default function Finances() {
         }
     }
 
+    async function handleAddPot(groupId: string, name: string) {
+        try {
+            const pot = await createPot(groupId, name)
+            setPots((prev) => [...prev, pot])
+        } catch {
+            toast.error("Couldn't add the pot.")
+        }
+    }
+
+    async function handleRenamePot(id: string, name: string) {
+        try {
+            const updated = await updatePot(id, name)
+            setPots((prev) => prev.map((p) => (p._id === id ? updated : p)))
+        } catch {
+            toast.error("Couldn't rename the pot.")
+        }
+    }
+
+    async function handleDeletePot(id: string) {
+        try {
+            await deletePot(id)
+            setPots((prev) => prev.filter((p) => p._id !== id))
+            setRows((prev) => prev.map((r) => (r.pot === id ? { ...r, pot: null } : r)))
+        } catch {
+            toast.error("Couldn't delete the pot.")
+        }
+    }
+
     async function handleAddRow(
         groupId: string,
         name: string,
         amount: number | undefined,
-        recurring: boolean
+        recurring: boolean,
+        potId?: string
     ) {
         try {
             if (recurring === false) {
-                // One-time rows are scoped to the viewed month; their value lives in the month entry.
-                const r = await createRow(groupId, name, undefined, false, month)
+                const r = await createRow(groupId, name, undefined, false, month, undefined, potId)
                 setRows((prev) => [...prev, r])
                 if (amount !== undefined) {
                     const entry = await setEntry(r._id, month, amount)
@@ -391,13 +668,35 @@ export default function Finances() {
                     )
                 }
             } else {
-                // Recurring rows apply from the viewed month onward (not retroactively).
-                const r = await createRow(groupId, name, amount, true, undefined, month)
+                const r = await createRow(groupId, name, amount, true, undefined, month, potId)
                 setRows((prev) => [...prev, r])
             }
             setAddingRowFor(null)
         } catch {
-            toast.error('Couldn’t add the row.')
+            toast.error("Couldn’t add the row.")
+        }
+    }
+
+    async function handleSaveRowFromPot(id: string, name: string, amountStr: string) {
+        const row = rows.find((x) => x._id === id)
+        const trimmed = amountStr.trim()
+        const parsed = trimmed !== '' && !Number.isNaN(parseFloat(trimmed)) ? parseFloat(trimmed) : null
+        try {
+            if (row && row.recurring === false) {
+                if (name.trim() && name.trim() !== row.name) {
+                    const updated = await updateRow(id, { name: name.trim() })
+                    setRows((prev) => prev.map((x) => (x._id === id ? updated : x)))
+                }
+                await handleSetEntry(id, parsed)
+            } else {
+                const fields: Parameters<typeof updateRow>[1] = {}
+                if (name.trim()) fields.name = name.trim()
+                fields.recurringAmount = parsed
+                const updated = await updateRow(id, fields)
+                setRows((prev) => prev.map((x) => (x._id === id ? updated : x)))
+            }
+        } catch {
+            toast.error("Couldn't save the row.")
         }
     }
 
@@ -951,7 +1250,7 @@ export default function Finances() {
                                             )
                                         })}
 
-                                        {addingRowFor === group._id && (
+                                        {addingRowFor?.groupId === group._id && !addingRowFor.potId && (
                                             <AddRowForm
                                                 month={month}
                                                 onSave={(name, amount, recurring) =>
@@ -964,10 +1263,10 @@ export default function Finances() {
                                     <tfoot>
                                         <tr className="border-t border-neutral-200 bg-neutral-50">
                                             <td className="py-2 pl-4 pr-2" colSpan={2}>
-                                                {!isSavings && addingRowFor !== group._id && (
+                                                {!isSavings && !(addingRowFor?.groupId === group._id && !addingRowFor.potId) && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => setAddingRowFor(group._id)}
+                                                        onClick={() => setAddingRowFor({ groupId: group._id })}
                                                         className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:text-neutral-700"
                                                     >
                                                         <i
@@ -988,6 +1287,50 @@ export default function Finances() {
                                     </tfoot>
                                 </table>
                                 </div>
+
+                                {/* Pots */}
+                                {(() => {
+                                    const groupPots = pots.filter((p) => p.group === group._id)
+                                    if (groupPots.length === 0 && isSavings) return null
+                                    return (
+                                        <div className="flex flex-col gap-3 p-4 pt-0">
+                                            {groupPots.map((pot) => (
+                                                <PotCard
+                                                    key={pot._id}
+                                                    pot={pot}
+                                                    rows={rows.filter((r) => r.pot === pot._id && rowVisibleInMonth(r, month, group))}
+                                                    entries={entries}
+                                                    month={month}
+                                                    totalCls={totalCls}
+                                                    isSavings={isSavings}
+                                                    isAddingRow={addingRowFor?.potId === pot._id}
+                                                    onStartAddRow={() => setAddingRowFor({ groupId: group._id, potId: pot._id })}
+                                                    onCancelAddRow={() => setAddingRowFor(null)}
+                                                    onSaveAddRow={(name, amount, recurring) =>
+                                                        handleAddRow(group._id, name, amount, recurring, pot._id)
+                                                    }
+                                                    onSaveRow={handleSaveRowFromPot}
+                                                    onSetEntry={handleSetEntry}
+                                                    onDeleteRow={(id) => setPendingDelete({ kind: 'row', id, name: rows.find((r) => r._id === id)?.name ?? '', scoped: (rows.find((r) => r._id === id)?.recurring ?? true) !== false })}
+                                                    onToggleBudget={handleToggleBudget}
+                                                    onNavigate={(rowId) => navigate(`/finances/breakdown/${rowId}?month=${month}&recurring=${(rows.find((r) => r._id === rowId)?.recurring ?? true) !== false}`)}
+                                                    effectiveAmount={(row) => {
+                                                        const e = entries.find((en) => en.row === row._id)?.amount
+                                                        return e !== undefined ? e : (row.recurringAmount ?? 0)
+                                                    }}
+                                                    onRename={handleRenamePot}
+                                                    onDelete={handleDeletePot}
+                                                />
+                                            ))}
+                                            {!isSavings && (
+                                                <AddPotInline
+                                                    groupId={group._id}
+                                                    onAdd={handleAddPot}
+                                                />
+                                            )}
+                                        </div>
+                                    )
+                                })()}
                             </div>
                         )
                     })}

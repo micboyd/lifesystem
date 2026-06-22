@@ -310,9 +310,19 @@ export interface FinanceGroup {
     updatedAt: string
 }
 
+export interface FinancePot {
+    _id: string
+    group: string
+    name: string
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
 export interface FinanceRow {
     _id: string
     group: string
+    pot?: string | null
     name: string
     recurringAmount?: number
     order: number

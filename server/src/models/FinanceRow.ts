@@ -13,6 +13,7 @@ export interface IFinanceRow extends Document {
     skipMonths: string[] // months explicitly hidden ("this month only" deletes)
     budgeted: boolean
     budgetType?: 'daily' | null
+    pot?: Types.ObjectId | null
     createdAt: Date
     updatedAt: Date
 }
@@ -31,6 +32,7 @@ const financeRowSchema = new Schema<IFinanceRow>(
         skipMonths: { type: [String], default: [] },
         budgeted: { type: Boolean, default: false },
         budgetType: { type: String, enum: ['daily'], default: null },
+        pot: { type: Schema.Types.ObjectId, ref: 'FinancePot', default: null },
     },
     { timestamps: true }
 )

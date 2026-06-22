@@ -10,6 +10,10 @@ import {
     deleteRow,
     listEntries,
     setEntry,
+    listPots,
+    createPot,
+    updatePot,
+    deletePot,
 } from '../controllers/financeController'
 import {
     listBudgetSpends,
@@ -54,6 +58,12 @@ router.delete('/budget-spends/:id', deleteBudgetSpend)
 // Budget day exclusions
 router.get('/budget-exclusions', listBudgetExclusions)
 router.put('/budget-exclusions/:date', setBudgetExclusion)
+
+// Pots (sub-groups within a group)
+router.get('/pots', listPots)
+router.post('/pots', createPot)
+router.put('/pots/:id', updatePot)
+router.delete('/pots/:id', deletePot)
 
 // Row breakdown sub-items
 router.get('/sub-items', listSubItems)
