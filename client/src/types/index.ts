@@ -131,6 +131,27 @@ export interface Recurrence {
     endsOn?: string
 }
 
+export type GoalStatus = 'active' | 'completed' | 'abandoned'
+
+export interface Milestone {
+    _id: string
+    title: string
+    completed: boolean
+    order: number
+}
+
+export interface Goal {
+    _id: string
+    title: string
+    description?: string
+    targetDate?: string
+    progress: number
+    status: GoalStatus
+    milestones: Milestone[]
+    createdAt: string
+    updatedAt: string
+}
+
 export interface Birthday {
     _id: string
     name: string

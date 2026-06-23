@@ -13,6 +13,7 @@ import StudyPacingWidget from '../components/dashboard/StudyPacingWidget'
 import BudgetTrendWidget from '../components/dashboard/BudgetTrendWidget'
 import DisciplineWidget from '../components/dashboard/DisciplineWidget'
 import BirthdayWidget from '../components/dashboard/BirthdayWidget'
+import GoalsWidget from '../components/dashboard/GoalsWidget'
 import { todayKey } from '../lib/calendar'
 
 export default function Home() {
@@ -59,6 +60,10 @@ export default function Home() {
                 <div className="mt-6 grid gap-6 md:grid-cols-2">
                     <DisciplineWidget date={date} />
                     <BudgetTrendWidget date={date} />
+                </div>
+
+                <div className="mt-6">
+                    <GoalsWidget />
                 </div>
 
                 <div className="mt-6">

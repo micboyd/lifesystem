@@ -7,6 +7,7 @@ import BudgetSpend from './models/BudgetSpend'
 import { connectDB } from './config/db'
 import cors from 'cors'
 import birthdayRoutes from './routes/birthdayRoutes'
+import goalRoutes from './routes/goalRoutes'
 import courseRoutes from './routes/courseRoutes'
 import dayStatusRoutes from './routes/dayStatusRoutes'
 import dotenv from 'dotenv'
@@ -53,6 +54,7 @@ app.use('/api/totals', totalsRoutes)
 app.use('/api/courses', courseRoutes)
 app.use('/api/finances', financeRoutes)
 app.use('/api/birthdays', birthdayRoutes)
+app.use('/api/goals', goalRoutes)
 
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })

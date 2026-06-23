@@ -22,6 +22,7 @@ import Input from '../components/Input'
 import Modal from '../components/Modal'
 import Select from '../components/Select'
 import Spinner from '../components/Spinner'
+import Tabs from '../components/Tabs'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1230,22 +1231,12 @@ export default function BudgetCalendar() {
                                 />
                             </div>
                         )}
-                        <div className="flex rounded-full border border-neutral-200 bg-white p-1 text-sm font-semibold shrink-0 shadow-sm">
-                            {(['daily', 'weekly'] as const).map((v) => (
-                                <button
-                                    key={v}
-                                    type="button"
-                                    onClick={() => setView(v)}
-                                    className={`rounded-full px-6 py-2 capitalize transition-all duration-150 active:scale-[0.97] ${
-                                        view === v
-                                            ? 'bg-neutral-900 text-white'
-                                            : 'text-neutral-400 hover:text-neutral-600'
-                                    }`}
-                                >
-                                    {v}
-                                </button>
-                            ))}
-                        </div>
+                        <Tabs
+                            tabs={['daily', 'weekly']}
+                            value={view}
+                            onChange={(v) => setView(v as 'daily' | 'weekly')}
+                            className="shrink-0"
+                        />
                     </div>
 
                     {view === 'daily' ? (
