@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
 import Spinner from '../Spinner'
+import { useDataVersion } from '../../context/DataSyncContext'
 import {
     listGroups,
     listRows,
@@ -9,7 +10,7 @@ import {
     listBudgetSpends,
     listBudgetExclusions,
 } from '../../services/finances'
-import { computeBudgetDay, monthOf, dayNumOf } from '../../lib/budget'
+import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, weekStartOf, weekEndOf } from '../../lib/budget'
 import { rowVisibleInMonth } from '../../lib/finance'
 import { formatAmount } from '../../lib/money'
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
@@ -116,6 +117,79 @@ function BudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProp
     )
 }
 
+// ── Weekly budget column ──────────────────────────────────────────────────────
+
+function WeeklyBudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProps) {
+    const { monthlyAmount, weeklyRate, carry, spentThisWeek, remaining, monthlyRemaining } =
+        computeBudgetWeek(row, entry, rowSpends, date, excludedDates)
+
+    const wStart = weekStartOf(date)
+    const wEnd = weekEndOf(date)
+    const weekLabel = (() => {
+        const s = new Date(`${wStart}T00:00:00`)
+        const e = new Date(`${wEnd}T00:00:00`)
+        const sDay = s.getDate()
+        const eDay = e.getDate()
+        const mon = e.toLocaleString('default', { month: 'short' })
+        return `${sDay}–${eDay} ${mon}`
+    })()
+    const spentPct = (weeklyRate + carry) > 0
+        ? Math.min(100, (spentThisWeek / (weeklyRate + carry)) * 100)
+        : spentThisWeek > 0 ? 100 : 0
+
+    return (
+        <div className="flex flex-1 basis-64 flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
+            <p className="text-sm font-bold text-neutral-800 truncate">{row.name}</p>
+
+            {/* Dark weekly allowance block */}
+            <div className="rounded-xl bg-neutral-950 px-3 py-2.5 text-white">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Weekly target
+                </p>
+                <p className="mt-0.5 text-xl font-bold font-mono tabular-nums">
+                    £{fmt(weeklyRate)}
+                </p>
+                <p className="mt-1 text-[10px] text-neutral-500">{weekLabel}</p>
+                {carry !== 0 && (
+                    <p className={`mt-1 text-[11px] font-semibold ${carry >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {carry >= 0 ? `+£${fmt(carry)} carry` : `-£${fmt(Math.abs(carry))} deficit`}
+                    </p>
+                )}
+            </div>
+
+            {/* Week progress bar */}
+            <div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
+                    <div
+                        className={`h-full rounded-full transition-all duration-300 ${remaining >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
+                        style={{ width: `${spentPct}%` }}
+                    />
+                </div>
+                <p className="mt-1 text-[10px] font-mono tabular-nums text-neutral-400">
+                    £{fmt(spentThisWeek)} of £{fmt(weeklyRate + carry)} this week
+                </p>
+            </div>
+
+            {/* Monthly remaining */}
+            {monthlyAmount > 0 && (
+                <p className={['text-xs font-semibold', monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400'].join(' ')}>
+                    £{fmt(Math.abs(monthlyRemaining))}{' '}
+                    {monthlyRemaining < 0 ? 'over monthly budget' : 'left this month'}
+                </p>
+            )}
+
+            {/* Remaining */}
+            <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Remaining this week</p>
+                <p className={['mt-0.5 text-base font-bold font-mono tabular-nums', remaining >= 0 ? 'text-emerald-600' : 'text-red-500'].join(' ')}>
+                    £{fmt(Math.abs(remaining))}
+                    {remaining < 0 && <span className="ml-0.5 text-[10px] font-normal">over</span>}
+                </p>
+            </div>
+        </div>
+    )
+}
+
 // ── Main widget ───────────────────────────────────────────────────────────────
 
 export default function BudgetWidget({ date }: { date: string }) {
@@ -130,6 +204,7 @@ export default function BudgetWidget({ date }: { date: string }) {
 
     const month = monthOf(date)
     const loading = loadedMonth !== month
+    const budgetVersion = useDataVersion('budget')
 
     useEffect(() => {
         let active = true
@@ -154,7 +229,7 @@ export default function BudgetWidget({ date }: { date: string }) {
         return () => {
             active = false
         }
-    }, [month])
+    }, [month, budgetVersion])
 
     // Only rows whose lifecycle (and their group's) covers this month.
     const visibleBudgeted = rows.filter(
@@ -168,7 +243,9 @@ export default function BudgetWidget({ date }: { date: string }) {
     )
     const budgetedRows = visibleBudgeted
     const dailyRows = budgetedRows.filter((r) => r.budgetType === 'daily')
-    const hasAmounts = dailyRows.some((r) => {
+    const weeklyRows = budgetedRows.filter((r) => r.budgetType === 'weekly')
+    const trackedRows = [...weeklyRows, ...dailyRows]
+    const hasAmounts = trackedRows.some((r) => {
         const entry = entries.find((e) => e.row === r._id)
         return (entry?.amount ?? r.recurringAmount ?? 0) > 0
     })
@@ -179,9 +256,9 @@ export default function BudgetWidget({ date }: { date: string }) {
                 <div>
                     <CardTitle>Budget</CardTitle>
                     <p className="mt-0.5 text-sm text-neutral-400">
-                        {dailyRows.length > 0
-                            ? `Daily spend across ${dailyRows.length} budget${dailyRows.length !== 1 ? 's' : ''}`
-                            : 'Daily spend tracker'}
+                        {trackedRows.length > 0
+                            ? `${weeklyRows.length > 0 ? 'Weekly' : 'Daily'} spend across ${trackedRows.length} budget${trackedRows.length !== 1 ? 's' : ''}`
+                            : 'Spend tracker'}
                     </p>
                 </div>
                 <Link
@@ -207,15 +284,15 @@ export default function BudgetWidget({ date }: { date: string }) {
                         Add some on the Budgets tab.
                     </Link>
                 </p>
-            ) : dailyRows.length === 0 ? (
+            ) : trackedRows.length === 0 ? (
                 <p className="py-4 text-sm text-neutral-400">
                     You have {budgetedRows.length} budget{budgetedRows.length !== 1 ? 's' : ''} but
-                    none have daily tracking on.{' '}
+                    none have weekly or daily tracking on.{' '}
                     <Link
                         to="/finances/budgets"
                         className="font-semibold text-neutral-600 underline underline-offset-2"
                     >
-                        Enable &quot;Daily spend&quot; on a card.
+                        Enable tracking on a card.
                     </Link>
                 </p>
             ) : !hasAmounts ? (
@@ -230,6 +307,16 @@ export default function BudgetWidget({ date }: { date: string }) {
                 </p>
             ) : (
                 <div className="flex flex-wrap gap-3">
+                    {weeklyRows.map((row) => (
+                        <WeeklyBudgetCol
+                            key={row._id}
+                            row={row}
+                            entry={entries.find((e) => e.row === row._id)}
+                            rowSpends={spends.filter((s) => s.row === row._id)}
+                            date={date}
+                            excludedDates={excludedDates}
+                        />
+                    ))}
                     {dailyRows.map((row) => (
                         <BudgetCol
                             key={row._id}

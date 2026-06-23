@@ -14,6 +14,7 @@ export async function createCourse(fields: {
     completedHours?: number
     notes?: string
     link?: string
+    targetDate?: string
 }): Promise<Course> {
     const res = await api.post<ApiResponse<Course>>('/courses', fields)
     return res.data.data
@@ -24,7 +25,15 @@ export async function updateCourse(
     fields: Partial<
         Pick<
             Course,
-            'name' | 'kind' | 'category' | 'requiredHours' | 'completedHours' | 'order' | 'notes' | 'link'
+            | 'name'
+            | 'kind'
+            | 'category'
+            | 'requiredHours'
+            | 'completedHours'
+            | 'order'
+            | 'notes'
+            | 'link'
+            | 'targetDate'
         >
     >
 ): Promise<Course> {

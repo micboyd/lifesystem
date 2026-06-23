@@ -12,7 +12,7 @@ import {
     listBudgetSpends,
     listBudgetExclusions,
 } from '../../services/finances'
-import { computeBudgetDay, monthOf } from '../../lib/budget'
+import { computeBudgetDay, computeBudgetWeek, monthOf, weekStartOf, weekEndOf } from '../../lib/budget'
 import { rowVisibleInMonth } from '../../lib/finance'
 import { addDays } from '../../lib/calendar'
 import { formatMoney } from '../../lib/money'
@@ -113,26 +113,65 @@ function budgetInsight(
     date: string
 ): Insight {
     const month = monthOf(date)
-    const dailyRows = rows.filter(
-        (r) =>
-            r.budgeted &&
-            r.budgetType === 'daily' &&
-            rowVisibleInMonth(
-                r,
-                month,
-                groups.find((g) => g._id === r.group)
-            )
-    )
-    const withAmounts = dailyRows.filter((r) => {
+    const visibleBudgeted = (type: 'daily' | 'weekly') =>
+        rows.filter(
+            (r) =>
+                r.budgeted &&
+                r.budgetType === type &&
+                rowVisibleInMonth(r, month, groups.find((g) => g._id === r.group))
+        )
+
+    const weeklyRows = visibleBudgeted('weekly').filter((r) => {
         const entry = entries.find((e) => e.row === r._id)
         return (entry?.amount ?? r.recurringAmount ?? 0) > 0
     })
-    if (withAmounts.length === 0) {
-        return { label: 'Daily allowance left', value: '—', icon: 'fa-solid fa-wallet' }
+    const dailyRows = visibleBudgeted('daily').filter((r) => {
+        const entry = entries.find((e) => e.row === r._id)
+        return (entry?.amount ?? r.recurringAmount ?? 0) > 0
+    })
+
+    // Prefer weekly budgets as the primary signal; fall back to daily.
+    const isWeekly = weeklyRows.length > 0
+    const trackedRows = isWeekly ? weeklyRows : dailyRows
+
+    if (trackedRows.length === 0) {
+        return { label: 'Allowance left', value: '—', icon: 'fa-solid fa-wallet' }
     }
 
-    // Sum today's allowance-left and the running carry across all daily budgets.
-    const { remaining, carry } = withAmounts.reduce(
+    if (isWeekly) {
+        // Weekly: show remaining for this week (rate + carry − spent so far)
+        const { remaining, carry } = weeklyRows.reduce(
+            (acc, row) => {
+                const entry = entries.find((e) => e.row === row._id)
+                const rowSpends = spends.filter((s) => s.row === row._id)
+                const bw = computeBudgetWeek(row, entry, rowSpends, date, excludedDates)
+                return { remaining: acc.remaining + bw.remaining, carry: acc.carry + bw.carry }
+            },
+            { remaining: 0, carry: 0 }
+        )
+        const roundedCarry = Math.round(carry * 100) / 100
+        const wStart = weekStartOf(date)
+        const wEnd = weekEndOf(date)
+        const s = new Date(`${wStart}T00:00:00`)
+        const e = new Date(`${wEnd}T00:00:00`)
+        const weekLabel = `${s.getDate()}–${e.getDate()} ${e.toLocaleString('default', { month: 'short' })}`
+        const sub =
+            roundedCarry > 0
+                ? `${money(roundedCarry)} carry · week ${weekLabel}`
+                : roundedCarry < 0
+                  ? `${money(Math.abs(roundedCarry))} deficit · week ${weekLabel}`
+                  : `week ${weekLabel}`
+        return {
+            label: 'Weekly allowance left',
+            value: money(remaining),
+            icon: 'fa-solid fa-wallet',
+            sub,
+            subVariant: remaining >= 0 ? 'success' : 'danger',
+        }
+    }
+
+    // Daily fallback
+    const { remaining, carry } = dailyRows.reduce(
         (acc, row) => {
             const entry = entries.find((e) => e.row === row._id)
             const rowSpends = spends.filter((s) => s.row === row._id)
@@ -141,8 +180,6 @@ function budgetInsight(
         },
         { remaining: 0, carry: 0 }
     )
-
-    // Round to the nearest penny so a tiny float residue doesn't read as a deficit.
     const roundedCarry = Math.round(carry * 100) / 100
     const sub =
         roundedCarry > 0
@@ -150,7 +187,6 @@ function budgetInsight(
             : roundedCarry < 0
               ? `${money(Math.abs(roundedCarry))} overspent`
               : undefined
-
     return {
         label: 'Daily allowance left',
         value: money(remaining),

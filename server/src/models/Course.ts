@@ -17,6 +17,8 @@ export interface ICourse extends Document {
     order: number
     notes?: string
     link?: string
+    /** Optional "YYYY-MM-DD" deadline used for on-track pacing. */
+    targetDate?: string
     createdAt: Date
     updatedAt: Date
 }
@@ -32,6 +34,7 @@ const courseSchema = new Schema<ICourse>(
         order: { type: Number, default: 0 },
         notes: { type: String, trim: true },
         link: { type: String, trim: true },
+        targetDate: { type: String, trim: true },
     },
     { timestamps: true }
 )

@@ -106,6 +106,14 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         set['settings.studyRowId'] = req.body.studyRowId
     }
 
+    // Finance start date: YYYY-MM-DD string or null/'' to clear.
+    const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+    if (req.body.financeStartDate === null || req.body.financeStartDate === '') {
+        unset['settings.financeStartDate'] = 1
+    } else if (typeof req.body.financeStartDate === 'string' && DATE_PATTERN.test(req.body.financeStartDate)) {
+        set['settings.financeStartDate'] = req.body.financeStartDate
+    }
+
     // Array settings
     if (Array.isArray(req.body.workDays)) {
         set['settings.workDays'] = req.body.workDays.filter(

@@ -3,6 +3,7 @@ import { Routes, Route, Outlet, useLocation } from 'react-router-dom'
 import { documentTitleForPath } from './lib/pageTitle'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
+import QuickLog from './components/QuickLog'
 import Home from './pages/Home'
 import Calendar from './pages/Calendar'
 import Day from './pages/Day'
@@ -15,6 +16,7 @@ import Budgets from './pages/Budgets'
 import BudgetCalendar from './pages/BudgetCalendar'
 import SavingsForecast from './pages/SavingsForecast'
 import FinanceBreakdown from './pages/FinanceBreakdown'
+import Birthdays from './pages/Birthdays'
 import Login from './pages/Login'
 import Profile from './pages/Profile'
 import StyleGuide from './pages/StyleGuide'
@@ -26,6 +28,7 @@ function AppLayout() {
         <>
             <Navbar />
             <Outlet />
+            <QuickLog />
         </>
     )
 }
@@ -65,6 +68,7 @@ export default function App() {
                     <Route path="forecast" element={<SavingsForecast />} />
                 </Route>
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/birthdays" element={<Birthdays />} />
                 <Route path="/styleguide" element={<StyleGuide />} />
                 <Route path="*" element={<NotFound />} />
             </Route>

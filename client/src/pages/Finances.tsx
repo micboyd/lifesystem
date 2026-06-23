@@ -23,6 +23,7 @@ import {
 import { addMonths, rowVisibleInMonth, groupVisibleInMonth, type DeleteMode } from '../lib/finance'
 import { formatMoney, formatAmount } from '../lib/money'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
 import type { FinanceGroup, FinancePot, FinanceRow, FinanceEntry } from '../types'
 
@@ -507,6 +508,8 @@ function AddRowForm({ month, onSave, onCancel }: AddRowFormProps) {
 export default function Finances() {
     const navigate = useNavigate()
     const toast = useToast()
+    const { user } = useAuth()
+    const financeStartMonth = user?.settings?.financeStartDate?.slice(0, 7) ?? null
     const [searchParams] = useSearchParams()
     const [month, setMonth] = useState(() => {
         const p = searchParams.get('month')
@@ -840,7 +843,8 @@ export default function Finances() {
                 <button
                     type="button"
                     onClick={() => setMonth((m) => addMonths(m, -1))}
-                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                    disabled={!!(financeStartMonth && month <= financeStartMonth)}
+                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-30 disabled:pointer-events-none"
                 >
                     <i className="fa-solid fa-chevron-left text-sm" aria-hidden="true" />
                 </button>

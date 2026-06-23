@@ -17,6 +17,7 @@ import {
     deleteCourse,
 } from '../services/courses'
 import { bankByMonth, projectCourses, type CourseProjection } from '../lib/study'
+import { computePacing, type CoursePacing } from '../lib/pacing'
 import { todayKey, formatDateLong } from '../lib/calendar'
 import type { TotalRow, TotalValue, Course } from '../types'
 
@@ -67,6 +68,14 @@ export default function Study() {
         () => projectCourses(courses, rowValues, today),
         [courses, rowValues, today]
     )
+    const pacing = useMemo(
+        () => computePacing(projection, rowValues, today),
+        [projection, rowValues, today]
+    )
+    const pacingByCourse = useMemo(
+        () => new Map(pacing.courses.map((p) => [p.course._id, p])),
+        [pacing]
+    )
 
     async function handleSelectRow(id: string) {
         const prev = studyRowId
@@ -87,6 +96,7 @@ export default function Study() {
         completedHours: number
         notes?: string
         link?: string
+        targetDate?: string
     }) {
         const course = await createCourse(fields)
         setCourses((prev) => [...prev, course])
@@ -94,7 +104,18 @@ export default function Study() {
 
     async function handleSaveCourse(
         id: string,
-        fields: Partial<Pick<Course, 'name' | 'category' | 'requiredHours' | 'completedHours' | 'notes' | 'link'>>
+        fields: Partial<
+            Pick<
+                Course,
+                | 'name'
+                | 'category'
+                | 'requiredHours'
+                | 'completedHours'
+                | 'notes'
+                | 'link'
+                | 'targetDate'
+            >
+        >
     ) {
         const updated = await updateCourse(id, fields)
         setCourses((prev) => prev.map((c) => (c._id === id ? updated : c)))
@@ -196,6 +217,7 @@ export default function Study() {
                                 <CourseRow
                                     key={p.course._id}
                                     projection={p}
+                                    pacing={pacingByCourse.get(p.course._id)}
                                     hasSource={!!studyRowId}
                                     isDragging={dragIndex === i}
                                     isDragOver={dragIndex !== null && overIndex === i && dragIndex !== i}
@@ -286,12 +308,24 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 interface CourseRowProps {
     projection: CourseProjection
+    pacing?: CoursePacing
     hasSource: boolean
     isDragging: boolean
     isDragOver: boolean
     onSave: (
         id: string,
-        fields: Partial<Pick<Course, 'name' | 'category' | 'requiredHours' | 'completedHours' | 'notes' | 'link'>>
+        fields: Partial<
+            Pick<
+                Course,
+                | 'name'
+                | 'category'
+                | 'requiredHours'
+                | 'completedHours'
+                | 'notes'
+                | 'link'
+                | 'targetDate'
+            >
+        >
     ) => Promise<void>
     onDelete: (id: string) => void
     onDragStart: () => void
@@ -302,6 +336,7 @@ interface CourseRowProps {
 
 function CourseRow({
     projection,
+    pacing,
     hasSource,
     isDragging,
     isDragOver,
@@ -331,6 +366,7 @@ function CourseRow({
     const [completed, setCompleted] = useState(String(course.completedHours ?? ''))
     const [notes, setNotes] = useState(course.notes ?? '')
     const [link, setLink] = useState(course.link ?? '')
+    const [targetDate, setTargetDate] = useState(course.targetDate ?? '')
     const [saving, setSaving] = useState(false)
 
     useEffect(() => {
@@ -340,7 +376,8 @@ function CourseRow({
         setCompleted(String(course.completedHours ?? ''))
         setNotes(course.notes ?? '')
         setLink(course.link ?? '')
-    }, [course.name, course.category, course.requiredHours, course.completedHours, course.notes, course.link])
+        setTargetDate(course.targetDate ?? '')
+    }, [course.name, course.category, course.requiredHours, course.completedHours, course.notes, course.link, course.targetDate])
 
     // Disarm the handle on any plain click release. A real drag ends with
     // 'dragend' (no trailing 'mouseup'), so this only fires when no drag started.
@@ -363,6 +400,7 @@ function CourseRow({
                 completedHours: Number.isFinite(done) && done >= 0 ? done : 0,
                 notes: notes.trim(),
                 link: !isBlock ? link.trim() : undefined,
+                targetDate: !isBlock ? targetDate : undefined,
             })
             setEditing(false)
         } finally {
@@ -420,6 +458,15 @@ function CourseRow({
                             type="url"
                             value={link}
                             onChange={(e) => setLink(e.target.value)}
+                        />
+                    )}
+                    {!isBlock && (
+                        <Input
+                            label="Target date (optional)"
+                            hint="Finish-by date for on-track pacing"
+                            type="date"
+                            value={targetDate}
+                            onChange={(e) => setTargetDate(e.target.value)}
                         />
                     )}
                     <div className="flex gap-2">
@@ -546,7 +593,10 @@ function CourseRow({
                                 </>
                             )}
                         </span>
-                        <FinishChip projection={projection} hasSource={hasSource} />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <PacingChip pacing={pacing} />
+                            <FinishChip projection={projection} hasSource={hasSource} />
+                        </div>
                     </div>
 
                     {(course.notes || course.link) && (
@@ -623,6 +673,47 @@ function FinishChip({
     )
 }
 
+/** On-track / behind pill, shown only for unfinished courses with a target date. */
+function PacingChip({ pacing }: { pacing?: CoursePacing }) {
+    if (!pacing || !pacing.targetDate || pacing.status === 'done') return null
+    if (pacing.status === 'no-target') return null
+
+    const config = {
+        'on-track': {
+            cls: 'bg-emerald-50 text-emerald-700',
+            icon: 'fa-solid fa-check',
+            label: 'On track',
+        },
+        behind: {
+            cls: 'bg-amber-50 text-amber-700',
+            icon: 'fa-solid fa-arrow-trend-down',
+            label: Number.isFinite(pacing.neededPacePerDay)
+                ? `Behind · need ${pacing.neededPacePerDay.toFixed(1)}h/day`
+                : 'Behind',
+        },
+        overdue: {
+            cls: 'bg-red-50 text-red-600',
+            icon: 'fa-solid fa-triangle-exclamation',
+            label: 'Past target',
+        },
+    }[pacing.status as 'on-track' | 'behind' | 'overdue']
+
+    if (!config) return null
+    return (
+        <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium ${config.cls}`}
+            title={
+                pacing.targetDate
+                    ? `Target ${formatDateLong(pacing.targetDate)}`
+                    : undefined
+            }
+        >
+            <i className={`${config.icon}`} aria-hidden="true" />
+            {config.label}
+        </span>
+    )
+}
+
 // ─── Add course ─────────────────────────────────────────────────────────────
 
 function AddCourseForm({
@@ -636,6 +727,7 @@ function AddCourseForm({
         completedHours: number
         notes?: string
         link?: string
+        targetDate?: string
     }) => Promise<void>
 }) {
     // null = collapsed; otherwise the kind being added.
@@ -646,6 +738,7 @@ function AddCourseForm({
     const [completed, setCompleted] = useState('')
     const [notes, setNotes] = useState('')
     const [link, setLink] = useState('')
+    const [targetDate, setTargetDate] = useState('')
     const [saving, setSaving] = useState(false)
 
     const isBlock = kind === 'block'
@@ -657,6 +750,7 @@ function AddCourseForm({
         setCompleted('')
         setNotes('')
         setLink('')
+        setTargetDate('')
         setKind(null)
     }
 
@@ -675,6 +769,7 @@ function AddCourseForm({
                 completedHours: Number.isFinite(done) && done >= 0 ? done : 0,
                 notes: notes.trim() || undefined,
                 link: !isBlock ? link.trim() || undefined : undefined,
+                targetDate: !isBlock ? targetDate || undefined : undefined,
             })
             reset()
         } finally {
@@ -747,6 +842,15 @@ function AddCourseForm({
                     type="url"
                     value={link}
                     onChange={(e) => setLink(e.target.value)}
+                />
+            )}
+            {!isBlock && (
+                <Input
+                    label="Target date (optional)"
+                    hint="Finish-by date for on-track pacing"
+                    type="date"
+                    value={targetDate}
+                    onChange={(e) => setTargetDate(e.target.value)}
                 />
             )}
             <div className="flex gap-2">

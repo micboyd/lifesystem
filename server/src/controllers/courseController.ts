@@ -29,6 +29,10 @@ export async function createCourse(req: AuthRequest, res: Response) {
     const completedHours = toHours(req.body.completedHours) ?? 0
     const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() || undefined : undefined
     const link = typeof req.body.link === 'string' ? req.body.link.trim() || undefined : undefined
+    const targetDate =
+        typeof req.body.targetDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.body.targetDate)
+            ? req.body.targetDate
+            : undefined
     const kind = req.body.kind === 'block' ? 'block' : 'course'
     const category =
         typeof req.body.category === 'string' ? req.body.category.trim() || undefined : undefined
@@ -46,6 +50,7 @@ export async function createCourse(req: AuthRequest, res: Response) {
         order,
         notes,
         link,
+        targetDate,
     })
     res.status(201).json({ message: 'Created', data: course })
 }
@@ -63,6 +68,10 @@ export async function updateCourse(req: AuthRequest, res: Response) {
     if (typeof req.body.order === 'number') fields.order = req.body.order
     if (typeof req.body.notes === 'string') fields.notes = req.body.notes.trim() || undefined
     if (typeof req.body.link === 'string') fields.link = req.body.link.trim() || undefined
+    if (typeof req.body.targetDate === 'string')
+        fields.targetDate = /^\d{4}-\d{2}-\d{2}$/.test(req.body.targetDate)
+            ? req.body.targetDate
+            : undefined
 
     const course = await Course.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },

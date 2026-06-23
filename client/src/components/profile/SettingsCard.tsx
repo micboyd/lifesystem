@@ -4,6 +4,7 @@ import { updateSettings } from '../../services/users'
 import { Card, CardHeader, CardTitle, CardBody } from '../Card'
 import TimePicker from '../TimePicker'
 import Switch from '../Switch'
+import DatePicker from '../DatePicker'
 import Button from '../Button'
 import Alert from '../Alert'
 import type { UserSettings } from '../../types'
@@ -23,6 +24,7 @@ export default function SettingsCard() {
     const [workStart, setWorkStart] = useState<string | null>(s.workStart ?? null)
     const [workEnd, setWorkEnd] = useState<string | null>(s.workEnd ?? null)
     const [showTotals, setShowTotals] = useState<boolean>(s.showTotals ?? false)
+    const [financeStartDate, setFinanceStartDate] = useState<string>(s.financeStartDate ?? '')
     const [workDays, setWorkDays] = useState<number[]>(s.workDays ?? [1, 2, 3, 4, 5])
     const [saving, setSaving] = useState(false)
     const [msg, setMsg] = useState<{ type: 'success' | 'danger'; text: string } | null>(null)
@@ -38,6 +40,7 @@ export default function SettingsCard() {
                 workEnd: workEnd ?? '',
                 showTotals,
                 workDays,
+                financeStartDate: financeStartDate || undefined,
             }
             const updated = await updateSettings(payload)
             updateUser(updated)
@@ -135,6 +138,20 @@ export default function SettingsCard() {
                                 })}
                             </div>
                         </div>
+                    </div>
+
+                    {/* Finance start date */}
+                    <div className="border-t border-neutral-100 pt-6">
+                        <p className="text-sm font-semibold text-neutral-700">Finance start date</p>
+                        <p className="mt-0.5 mb-3 text-xs text-neutral-400">
+                            Hide all financial data before this date. Useful for starting fresh from a specific point.
+                        </p>
+                        <DatePicker
+                            mode="single"
+                            value={financeStartDate || null}
+                            onChange={(v) => setFinanceStartDate(typeof v === 'string' ? v : '')}
+                            placeholder="No start date set"
+                        />
                     </div>
 
                     {/* Calendar */}

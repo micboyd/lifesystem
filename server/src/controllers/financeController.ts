@@ -194,7 +194,7 @@ export async function updateRow(req: AuthRequest, res: Response) {
     if (req.body.recurringAmount === null) fields.recurringAmount = undefined
     if (typeof req.body.recurring === 'boolean') fields.recurring = req.body.recurring
     if (typeof req.body.budgeted === 'boolean') fields.budgeted = req.body.budgeted
-    if (req.body.budgetType === 'daily') fields.budgetType = 'daily'
+    if (req.body.budgetType === 'daily' || req.body.budgetType === 'weekly') fields.budgetType = req.body.budgetType
     if (req.body.budgetType === null) fields.budgetType = null
     if (typeof req.body.pot === 'string' || req.body.pot === null) fields.pot = req.body.pot ?? null
     if (isValidMonth(req.body.startMonth) || req.body.startMonth === null)

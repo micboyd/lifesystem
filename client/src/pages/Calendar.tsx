@@ -17,6 +17,7 @@ import {
     parseDateKey,
 } from '../lib/calendar'
 import { listEvents, updateEvent, deleteEvent, type EventInput } from '../services/events'
+import { listBirthdays } from '../services/birthdays'
 import { listStatuses } from '../services/dayStatus'
 import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from '../services/totals'
 import { useAuth } from '../context/AuthContext'
@@ -118,9 +119,32 @@ export default function Calendar() {
     const totalsOn = !!user?.settings?.showTotals && view === 'Year'
 
     const reload = useCallback(() => {
-        Promise.all([listEvents(from, to), listStatuses(from, to)])
-            .then(([evts, sts]) => {
-                setEvents(evts)
+        Promise.all([listEvents(from, to), listStatuses(from, to), listBirthdays()])
+            .then(([evts, sts, bdays]) => {
+                // Expand each birthday into a synthetic all-day event for every year in the range.
+                const fromYear = parseInt(from.slice(0, 4), 10)
+                const toYear = parseInt(to.slice(0, 4), 10)
+                const birthdayEvents: Event[] = []
+                for (const b of bdays) {
+                    for (let y = fromYear; y <= toYear; y++) {
+                        const date = `${y}-${b.date}`
+                        if (date >= from && date <= to) {
+                            birthdayEvents.push({
+                                _id: `birthday-${b._id}-${y}`,
+                                title: b.name,
+                                eventType: 'general',
+                                allDay: true,
+                                startDate: date,
+                                startPart: 'na',
+                                endDate: date,
+                                endPart: 'na',
+                                createdAt: b.createdAt,
+                                updatedAt: b.updatedAt,
+                            })
+                        }
+                    }
+                }
+                setEvents([...(evts as Event[]), ...birthdayEvents])
                 setStatuses(sts)
             })
             .catch(() => {

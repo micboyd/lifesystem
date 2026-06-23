@@ -21,6 +21,30 @@ function dateKey(month: string, day: number): string {
     return `${month}-${String(day).padStart(2, '0')}`
 }
 
+/** Format a Date object as "YYYY-MM-DD" using local calendar date (not UTC). */
+function localDateStr(d: Date): string {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+}
+
+/** ISO Monday of the week containing `date`. */
+export function weekStartOf(date: string): string {
+    const d = new Date(`${date}T00:00:00`)
+    const dow = d.getDay() === 0 ? 6 : d.getDay() - 1 // Mon=0 … Sun=6
+    d.setDate(d.getDate() - dow)
+    return localDateStr(d)
+}
+
+/** ISO Sunday of the week containing `date`. */
+export function weekEndOf(date: string): string {
+    const d = new Date(`${date}T00:00:00`)
+    const dow = d.getDay() === 0 ? 6 : d.getDay() - 1
+    d.setDate(d.getDate() + (6 - dow))
+    return localDateStr(d)
+}
+
 /**
  * Days in `month` that aren't excluded. Excluded days (work trips, holidays)
  * carry no allowance, so the monthly amount is spread across the remaining days.
@@ -112,4 +136,95 @@ export function computeBudgetDay(
     const remaining = todaysAllowance - spentToday
 
     return { monthlyAmount, straightDailyRate, carry, spentToday, remaining, monthlyRemaining }
+}
+
+export interface BudgetWeek {
+    /** Budget amount for the month (entry override, else the recurring amount). */
+    monthlyAmount: number
+    /** Pro-rata weekly slice: monthlyAmount × 7 / daysInMonth. */
+    weeklyRate: number
+    /** Unspent (positive) or overspent (negative) carry from completed weeks this month. */
+    carry: number
+    /** Amount logged against this row during the current ISO week (Mon–today). */
+    spentThisWeek: number
+    /** Weekly allowance (rate + carry) minus what's been spent so far this week. */
+    remaining: number
+    /** What's left for the whole month. */
+    monthlyRemaining: number
+}
+
+/**
+ * Weekly-budget maths for a single row given today's date. The weekly rate is
+ * the month's budget multiplied by 7/daysInMonth (a natural pro-rata slice).
+ * Carry accumulates across completed weeks within the same month and resets at
+ * month boundaries. Individual excluded days reduce the effective allowance for
+ * their week proportionally, mirroring how daily budgets handle them.
+ */
+export function computeBudgetWeek(
+    row: FinanceRow,
+    entry: FinanceEntry | undefined,
+    rowSpends: BudgetSpend[],
+    today: string,
+    excluded: Set<string> = new Set()
+): BudgetWeek {
+    const month = monthOf(today)
+    const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
+    const totalDays = daysInMonth(month)
+    const weeklyRate = totalDays > 0 ? (monthlyAmount * 7) / totalDays : 0
+
+    const totalSpentMonth = rowSpends
+        .filter((s) => s.date.startsWith(month) && !excluded.has(s.date))
+        .reduce((sum, s) => sum + s.amount, 0)
+    const monthlyRemaining = monthlyAmount - totalSpentMonth
+
+    const wStart = weekStartOf(today)
+
+    // Carry = (completed weeks before this one × weeklyRate) − spend in those weeks.
+    // We work day-by-day within the month, stopping at the week boundary.
+    // Excluded days within a week reduce that week's effective allowance.
+    const monthStart = `${month}-01`
+    let carry = 0
+
+    if (wStart > monthStart) {
+        // Sum up completed weeks from month start to end of last week.
+        const lastWeekEndDate = new Date(`${wStart}T00:00:00`)
+        lastWeekEndDate.setDate(lastWeekEndDate.getDate() - 1)
+        const lastWeekEndStr = localDateStr(lastWeekEndDate)
+
+        // Walk week-by-week from month start up to (but not including) current week.
+        let cursor = weekStartOf(monthStart)
+        while (cursor <= lastWeekEndStr) {
+            const wEnd = weekEndOf(cursor)
+            // Active days in this week that fall within the month.
+            let activeDaysInWeek = 0
+            const d = new Date(`${cursor}T00:00:00`)
+            for (let i = 0; i < 7; i++) {
+                const dk = localDateStr(d)
+                if (dk >= monthStart && dk <= lastWeekEndStr && !excluded.has(dk)) {
+                    activeDaysInWeek++
+                }
+                d.setDate(d.getDate() + 1)
+            }
+            // Effective weekly allowance = daily rate × active days in this partial/full week.
+            const dailyRate = totalDays > 0 ? monthlyAmount / totalDays : 0
+            const weekAllowance = dailyRate * activeDaysInWeek
+            const weekSpend = rowSpends
+                .filter((s) => s.date >= cursor && s.date <= wEnd && s.date >= monthStart && !excluded.has(s.date))
+                .reduce((sum, s) => sum + s.amount, 0)
+            carry += weekAllowance - weekSpend
+
+            // Advance to next week.
+            const next = new Date(`${wEnd}T00:00:00`)
+            next.setDate(next.getDate() + 1)
+            cursor = localDateStr(next)
+        }
+    }
+
+    const spentThisWeek = rowSpends
+        .filter((s) => s.date >= wStart && s.date <= today && s.date.startsWith(month) && !excluded.has(s.date))
+        .reduce((sum, s) => sum + s.amount, 0)
+
+    const remaining = weeklyRate + carry - spentThisWeek
+
+    return { monthlyAmount, weeklyRate, carry, spentThisWeek, remaining, monthlyRemaining }
 }

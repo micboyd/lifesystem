@@ -7,6 +7,8 @@ export interface UserSettings {
     workDays?: number[]
     /** Id of the totals row whose hours feed the Study section. */
     studyRowId?: string
+    /** YYYY-MM-DD — all finance data before this date is hidden. */
+    financeStartDate?: string
 }
 
 export type CourseKind = 'course' | 'block'
@@ -23,6 +25,8 @@ export interface Course {
     order: number
     notes?: string
     link?: string
+    /** Optional "YYYY-MM-DD" deadline used for on-track pacing. */
+    targetDate?: string
     createdAt: string
     updatedAt: string
 }
@@ -125,6 +129,15 @@ export const RECURRENCE_LABELS: Record<RecurrenceFrequency, string> = {
 export interface Recurrence {
     frequency: RecurrenceFrequency
     endsOn?: string
+}
+
+export interface Birthday {
+    _id: string
+    name: string
+    /** MM-DD, recurs every year */
+    date: string
+    createdAt: string
+    updatedAt: string
 }
 
 export interface Event {
@@ -332,7 +345,7 @@ export interface FinanceRow {
     endMonth?: string | null // YYYY-MM inclusive; null/absent = open-ended
     skipMonths?: string[] // months explicitly hidden ("this month only" deletes)
     budgeted?: boolean
-    budgetType?: 'daily' | null
+    budgetType?: 'daily' | 'weekly' | null
     createdAt: string
     updatedAt: string
 }

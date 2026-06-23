@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { updateProfile, changePassword } from '../services/users'
 import Container from '../components/Container'
@@ -197,8 +197,34 @@ export default function Profile() {
                     </Card>
                 </div>
 
-                {/* Right column: Settings */}
-                <SettingsCard />
+                {/* Right column: Settings + quick links */}
+                <div className="flex flex-col gap-6">
+                    <SettingsCard />
+
+                    {/* Settings pages */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>More settings</CardTitle>
+                        </CardHeader>
+                        <CardBody>
+                            <Link
+                                to="/birthdays"
+                                className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-neutral-50"
+                            >
+                                <span className="grid h-9 w-9 place-items-center rounded-xl bg-pink-100 text-lg">
+                                    <i className="fa-solid fa-cake-candles" aria-hidden="true" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold text-neutral-900">Birthdays</p>
+                                    <p className="text-xs text-neutral-400">
+                                        Add people's birthdays to appear on your calendar
+                                    </p>
+                                </div>
+                                <i className="fa-solid fa-chevron-right text-xs text-neutral-300" aria-hidden="true" />
+                            </Link>
+                        </CardBody>
+                    </Card>
+                </div>
             </div>
         </Container>
     )

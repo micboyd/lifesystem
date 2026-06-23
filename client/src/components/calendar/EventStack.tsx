@@ -26,8 +26,12 @@ function Chip({
 }) {
     const { bg, hover, text } = colorsFor(event)
     const base = `flex w-full items-center gap-1 overflow-hidden rounded-md px-1.5 text-left ${bg} ${text} ${mini ? 'min-h-0 flex-1' : 'h-full'}`
+    const isBirthday = event._id.startsWith('birthday-')
     const title = (
         <>
+            {isBirthday && (
+                <i className="fa-solid fa-cake-candles shrink-0 text-[9px] opacity-70" />
+            )}
             <span
                 className={`truncate font-semibold leading-tight ${mini ? 'text-[10px]' : 'text-[11px]'}`}
             >

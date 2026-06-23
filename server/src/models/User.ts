@@ -11,6 +11,8 @@ export interface IUserSettings {
     workDays?: number[]
     /** Id of the totals row whose hours feed the Study section. */
     studyRowId?: string
+    /** YYYY-MM-DD — all finance data before this date is hidden. */
+    financeStartDate?: string
 }
 
 export interface IUser extends Document {
@@ -30,6 +32,7 @@ const settingsSchema = new Schema<IUserSettings>(
         showTotals: { type: Boolean, default: false },
         workDays: { type: [Number], default: undefined },
         studyRowId: { type: String },
+        financeStartDate: { type: String },
     },
     { _id: false }
 )

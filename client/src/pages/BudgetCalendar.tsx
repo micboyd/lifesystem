@@ -10,9 +10,11 @@ import {
     deleteBudgetSpend,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
-import { computeBudgetDay, daysInMonth, activeDaysInMonth } from '../lib/budget'
+import { computeBudgetDay, computeBudgetWeek, daysInMonth, activeDaysInMonth } from '../lib/budget'
 import { formatAmount } from '../lib/money'
 import { useToast } from '../context/ToastContext'
+import { useInvalidate } from '../context/DataSyncContext'
+import { useAuth } from '../context/AuthContext'
 import { useEffect, useState, type FormEvent } from 'react'
 
 import Button from '../components/Button'
@@ -72,27 +74,68 @@ interface WeekGroup {
     days: DayData[]
     spent: number
     target: number
-    remaining: number // target - spent (carry excluded — doesn't aggregate meaningfully across days)
+    remaining: number
     allFuture: boolean
     hasExcluded: boolean
+    /** True when all rows in view are weekly-tracked (no per-day amber/red). */
+    isWeeklyOnly: boolean
 }
 
-function groupByWeek(dayData: DayData[], today: string): WeekGroup[] {
+function groupByWeek(
+    dayData: DayData[],
+    today: string,
+    trackedRows: FinanceRow[],
+    entries: FinanceEntry[],
+    spends: BudgetSpend[],
+    excludedDates: Set<string>
+): WeekGroup[] {
+    const weeklyRows = trackedRows.filter((r) => r.budgetType === 'weekly')
+    const dailyRows = trackedRows.filter((r) => r.budgetType === 'daily')
+    const isWeeklyOnly = weeklyRows.length > 0 && dailyRows.length === 0
+
     const weeks: WeekGroup[] = []
     for (const day of dayData) {
         const d = new Date(`${day.date}T12:00:00`)
         const dow = d.getDay() === 0 ? 6 : d.getDay() - 1 // Mon=0…Sun=6
         const isMonday = dow === 0
         if (isMonday || weeks.length === 0) {
-            weeks.push({ label: '', days: [], spent: 0, target: 0, remaining: 0, allFuture: true, hasExcluded: false })
+            weeks.push({ label: '', days: [], spent: 0, target: 0, remaining: 0, allFuture: true, hasExcluded: false, isWeeklyOnly })
         }
         const w = weeks[weeks.length - 1]
         w.days.push(day)
         w.spent += day.spent
-        w.target += day.dailyRate
+        // For daily rows, sum daily rates; for weekly rows, use computeBudgetWeek on the last day of the week.
+        if (!isWeeklyOnly) w.target += day.dailyRate
         if (day.date <= today) w.allFuture = false
         if (day.excluded) w.hasExcluded = true
     }
+
+    // For weekly-only mode: replace the summed target with the proper weekly allowance (includes carry).
+    if (isWeeklyOnly) {
+        for (const w of weeks) {
+            const lastDay = w.days[w.days.length - 1]
+            const effectiveDate = lastDay.date > today ? today : lastDay.date
+            if (effectiveDate < w.days[0].date) {
+                // Entire week is future
+                let weeklyRate = 0
+                for (const row of weeklyRows) {
+                    const entry = entries.find((e) => e.row === row._id)
+                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), w.days[0].date, excludedDates)
+                    weeklyRate += bw.weeklyRate
+                }
+                w.target = weeklyRate
+            } else {
+                let weeklyAllowance = 0
+                for (const row of weeklyRows) {
+                    const entry = entries.find((e) => e.row === row._id)
+                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), effectiveDate, excludedDates)
+                    weeklyAllowance += bw.weeklyRate + bw.carry
+                }
+                w.target = weeklyAllowance
+            }
+        }
+    }
+
     for (const w of weeks) {
         w.remaining = w.target - w.spent
     }
@@ -119,14 +162,18 @@ interface DayData {
     date: string
     excluded: boolean
     spent: number
-    dailyRate: number // 0 for excluded days
-    carry: number
+    /** Spend from daily-tracked rows only — used for per-day over/under colouring. */
+    dailyOnlySpent: number
+    dailyRate: number // from daily-tracked rows; 0 for excluded days or if no daily rows
+    carry: number    // from daily-tracked rows
     effectiveAllowance: number
+    /** True when the visible rows are weekly-tracked (no daily rows in view). */
+    isWeeklyOnly: boolean
 }
 
 function buildDayData(
     month: string,
-    dailyRows: FinanceRow[],
+    trackedRows: FinanceRow[],
     entries: FinanceEntry[],
     spends: BudgetSpend[],
     excludedDates: Set<string>
@@ -134,13 +181,15 @@ function buildDayData(
     const total = daysInMonth(month)
     const days: DayData[] = []
 
-    // The pooled daily rate/carry is the sum of each row's figure from the shared
-    // budget engine — so this calendar, the Budgets cards, the dashboard widget and
-    // the insights strip can never drift apart.
+    const dailyRows = trackedRows.filter((r) => r.budgetType === 'daily')
+    const weeklyRows = trackedRows.filter((r) => r.budgetType === 'weekly')
+    const isWeeklyOnly = weeklyRows.length > 0 && dailyRows.length === 0
+
     for (let d = 1; d <= total; d++) {
         const date = dateKey(month, d)
         const excluded = excludedDates.has(date)
 
+        // Daily rows: per-day targets + carry (used for day colouring)
         let dailyRate = 0
         let carry = 0
         for (const row of dailyRows) {
@@ -150,17 +199,34 @@ function buildDayData(
             dailyRate += bd.straightDailyRate
             carry += bd.carry
         }
+        // Weekly rows: add equivalent daily rate as a guide (monthlyAmount / activeDays).
+        // No carry — weekly rows don't track per-day.
+        for (const row of weeklyRows) {
+            const entry = entries.find((e) => e.row === row._id)
+            const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
+            const activeDays = activeDaysInMonth(month, excludedDates)
+            dailyRate += activeDays > 0 ? monthlyAmount / activeDays : 0
+        }
 
+        const dailyRowIds = new Set(dailyRows.map((r) => r._id))
+        const allRowIds = new Set(trackedRows.map((r) => r._id))
+
+        const dailyOnlySpent = excluded
+            ? 0
+            : spends.filter((s) => s.date === date && dailyRowIds.has(s.row)).reduce((a, x) => a + x.amount, 0)
         const spent = excluded
             ? 0
-            : spends.filter((s) => s.date === date).reduce((s, x) => s + x.amount, 0)
+            : spends.filter((s) => s.date === date && allRowIds.has(s.row)).reduce((a, x) => a + x.amount, 0)
+
         days.push({
             date,
             excluded,
             spent,
+            dailyOnlySpent,
             dailyRate,
             carry,
             effectiveAllowance: dailyRate + carry,
+            isWeeklyOnly,
         })
     }
     return days
@@ -180,9 +246,10 @@ interface DayCellProps {
 function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
     const dayNum = Number(data.date.split('-')[2])
     const hasSpend = data.spent > 0
-    const remaining = data.effectiveAllowance - data.spent
-    const overTarget = hasSpend && data.spent > data.dailyRate
-    const overBudget = hasSpend && data.spent > data.effectiveAllowance
+    const remaining = data.effectiveAllowance - data.dailyOnlySpent
+    // For weekly-only rows, never colour per-day — only the WeekCell shows over/under.
+    const overTarget = !data.isWeeklyOnly && hasSpend && data.dailyOnlySpent > data.dailyRate
+    const overBudget = !data.isWeeklyOnly && hasSpend && data.dailyOnlySpent > data.effectiveAllowance
     const isPast = !isFuture && !isToday
 
     let bg = 'bg-white'
@@ -237,18 +304,16 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
             {/* Detail content — hidden on mobile, shown on sm+ */}
             {!data.excluded && (
                 <div className="hidden lg:flex flex-col gap-2 flex-1">
-                    <div className="flex items-baseline gap-1">
-                        <span
-                            className={`text-lg font-bold font-mono tabular-nums ${isFuture ? 'text-neutral-300' : 'text-neutral-700'}`}
-                        >
-                            £{fmt(data.dailyRate)}
-                        </span>
-                        <span
-                            className={`text-xs ${isFuture ? 'text-neutral-200' : 'text-neutral-400'}`}
-                        >
-                            /day
-                        </span>
-                    </div>
+                    {data.dailyRate > 0 && (
+                        <div className="flex items-baseline gap-1">
+                            <span className={`text-lg font-bold font-mono tabular-nums ${isFuture ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                                £{fmt(data.dailyRate)}
+                            </span>
+                            <span className={`text-xs ${isFuture ? 'text-neutral-200' : 'text-neutral-400'}`}>
+                                /day
+                            </span>
+                        </div>
+                    )}
 
                     {data.carry !== 0 && (
                         <span
@@ -430,7 +495,8 @@ function WeekModal({
     const activeDaysInMonth_ = activeDaysInMonth(activeDate.slice(0, 7), excludedDates)
     const dailyRate = activeDaysInMonth_ > 0 ? monthlyTotal / activeDaysInMonth_ : 0
     const spentToday = dayTx.reduce((s, t) => s + t.amount, 0)
-    const overTarget = !excluded && spentToday > dailyRate
+    const isWeeklyOnly = dailyRows.every((r) => r.budgetType === 'weekly')
+    const overTarget = !isWeeklyOnly && !excluded && spentToday > dailyRate
 
     const rowName = (id: string) => dailyRows.find((r) => r._id === id)?.name ?? '—'
 
@@ -578,14 +644,22 @@ function WeekModal({
                         <div className={excluded ? 'pointer-events-none opacity-40' : ''}>
                             {/* Day target + spent */}
                             <div className="mb-3 flex gap-2">
+                                {activeDay.dailyRate > 0 && (
+                                    <div className="flex-1 rounded-xl bg-neutral-50 px-3 py-2.5">
+                                        <p className="text-xs text-neutral-400">Daily guide</p>
+                                        <p className="font-mono text-sm font-bold text-neutral-900">£{fmt(activeDay.dailyRate)}</p>
+                                    </div>
+                                )}
                                 <div className="flex-1 rounded-xl bg-neutral-50 px-3 py-2.5">
-                                    <p className="text-xs text-neutral-400">Daily target</p>
-                                    <p className="font-mono text-sm font-bold text-neutral-900">£{fmt(activeDay.dailyRate)}</p>
+                                    <p className="text-xs text-neutral-400">Spent today</p>
+                                    <p className={`font-mono text-sm font-bold ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}>
+                                        {spentToday > 0 ? `£${fmt(spentToday)}` : '—'}
+                                    </p>
                                 </div>
                                 <div className="flex-1 rounded-xl bg-neutral-50 px-3 py-2.5">
-                                    <p className="text-xs text-neutral-400">Spent</p>
-                                    <p className={`font-mono text-sm font-bold ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}>
-                                        £{fmt(spentToday)}
+                                    <p className="text-xs text-neutral-400">Week left</p>
+                                    <p className={`font-mono text-sm font-bold ${week.remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                        {week.remaining < 0 ? '-' : ''}£{fmt(Math.abs(week.remaining))}
                                     </p>
                                 </div>
                             </div>
@@ -711,7 +785,8 @@ function DayModal({
     // Target uses active (non-excluded) days so it matches the calendar grid.
     const activeDays = activeDaysInMonth(date.slice(0, 7), excludedDates)
     const dailyRate = activeDays > 0 ? monthlyTotal / activeDays : 0
-    const overTarget = !excluded && spentToday > dailyRate
+    const isWeeklyOnly = dailyRows.every((r) => r.budgetType === 'weekly')
+    const overTarget = !isWeeklyOnly && !excluded && spentToday > dailyRate
 
     const rowName = (id: string) => dailyRows.find((r) => r._id === id)?.name ?? '—'
 
@@ -742,9 +817,28 @@ function DayModal({
             }
         >
             {isFuture ? (
-                <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-8 text-center text-sm text-neutral-400">
-                    Future day — nothing to log yet.
-                </p>
+                <div className="flex flex-col gap-4">
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3 transition-colors hover:bg-neutral-50">
+                        <input
+                            type="checkbox"
+                            checked={excluded}
+                            onChange={(e) => onSetExcluded(e.target.checked)}
+                            className="h-4 w-4 rounded accent-neutral-950"
+                        />
+                        <div>
+                            <p className="text-sm font-semibold text-neutral-800">Exclude from budget</p>
+                            <p className="text-xs text-neutral-400">
+                                Work trip, holiday, or other exception — budget redistributes across
+                                remaining days
+                            </p>
+                        </div>
+                    </label>
+                    {!excluded && (
+                        <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-400">
+                            Future day — nothing to log yet.
+                        </p>
+                    )}
+                </div>
             ) : panel === 'list' ? (
                 // ── Transactions view ──
                 <div className="flex flex-col gap-4">
@@ -822,55 +916,61 @@ function DayModal({
                     <div className={excluded ? 'pointer-events-none opacity-40' : ''}>
                         {/* Target + spent summary */}
                         <div className="mb-3 flex items-stretch gap-3">
+                            {dailyRate > 0 && (
+                                <div className="flex-1 rounded-xl bg-neutral-50 px-4 py-3">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                        Daily guide{dailyRows.length > 1 ? ' (all)' : ''}
+                                    </p>
+                                    <p className="mt-0.5 text-lg font-bold font-mono text-neutral-900">£{fmt(dailyRate)}</p>
+                                </div>
+                            )}
                             <div className="flex-1 rounded-xl bg-neutral-50 px-4 py-3">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                    Daily target{dailyRows.length > 1 ? ' (all)' : ''}
+                                    Spent today
                                 </p>
-                                <p className="mt-0.5 text-lg font-bold font-mono text-neutral-900">£{fmt(dailyRate)}</p>
-                            </div>
-                            <div className="flex-1 rounded-xl bg-neutral-50 px-4 py-3">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                    Spent
-                                </p>
-                                <p
-                                    className={`mt-0.5 text-lg font-bold font-mono ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}
-                                >
-                                    £{fmt(spentToday)}
+                                <p className={`mt-0.5 text-lg font-bold font-mono ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}>
+                                    {spentToday > 0 ? `£${fmt(spentToday)}` : '—'}
                                 </p>
                             </div>
                         </div>
 
-                        {/* Add a transaction */}
-                        <form onSubmit={handleAdd} className="flex flex-col gap-2">
-                            {dailyRows.length > 1 && (
-                                <Select
-                                    options={dailyRows.map((r) => ({ label: r.name, value: r._id }))}
-                                    value={rowId}
-                                    onChange={setRowId}
-                                />
-                            )}
-                            <div className="flex gap-2">
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    placeholder="Amount"
-                                    icon="fa-solid fa-sterling-sign"
-                                    className="w-32"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                />
-                                <Input
-                                    placeholder="Note (optional)"
-                                    className="flex-1"
-                                    value={note}
-                                    onChange={(e) => setNote(e.target.value)}
-                                />
-                            </div>
-                            <Button type="submit" disabled={saving || amount.trim() === ''} className="self-start">
-                                {saving ? 'Adding…' : 'Add transaction'}
-                            </Button>
-                        </form>
+                        {/* Add a transaction — only available for daily-tracked rows */}
+                        {isWeeklyOnly ? (
+                            <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-3 text-center text-xs text-neutral-400">
+                                Log transactions on the <strong>Weekly</strong> tab above
+                            </p>
+                        ) : (
+                            <form onSubmit={handleAdd} className="flex flex-col gap-2">
+                                {dailyRows.length > 1 && (
+                                    <Select
+                                        options={dailyRows.map((r) => ({ label: r.name, value: r._id }))}
+                                        value={rowId}
+                                        onChange={setRowId}
+                                    />
+                                )}
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="Amount"
+                                        icon="fa-solid fa-sterling-sign"
+                                        className="w-32"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                    />
+                                    <Input
+                                        placeholder="Note (optional)"
+                                        className="flex-1"
+                                        value={note}
+                                        onChange={(e) => setNote(e.target.value)}
+                                    />
+                                </div>
+                                <Button type="submit" disabled={saving || amount.trim() === ''} className="self-start">
+                                    {saving ? 'Adding…' : 'Add transaction'}
+                                </Button>
+                            </form>
+                        )}
 
                         {/* Per-budget targets */}
                         {dailyRows.length > 1 && (
@@ -932,6 +1032,8 @@ function DayModal({
 
 
 export default function BudgetCalendar() {
+    const { user } = useAuth()
+    const financeStartMonth = user?.settings?.financeStartDate?.slice(0, 7) ?? null
     const [month, setMonth] = useState(currentMonth)
     const [loading, setLoading] = useState(true)
     const [groups, setGroups] = useState<FinanceGroup[]>([])
@@ -944,6 +1046,7 @@ export default function BudgetCalendar() {
     const [selectedRowId, setSelectedRowId] = useState<string>('all')
     const [view, setView] = useState<'daily' | 'weekly'>('daily')
     const toast = useToast()
+    const invalidate = useInvalidate()
 
     useEffect(() => {
         let active = true
@@ -973,6 +1076,7 @@ export default function BudgetCalendar() {
         try {
             const result = await createBudgetSpend(rowId, date, amount, note)
             setSpends((prev) => [...prev, result])
+            invalidate('budget')
         } catch {
             toast.error("Couldn’t log that transaction.")
         }
@@ -982,6 +1086,7 @@ export default function BudgetCalendar() {
         try {
             await deleteBudgetSpend(id)
             setSpends((prev) => prev.filter((s) => s._id !== id))
+            invalidate('budget')
         } catch {
             toast.error("Couldn’t delete that transaction.")
         }
@@ -994,17 +1099,18 @@ export default function BudgetCalendar() {
                 const without = prev.filter((x) => x.date !== date)
                 return result ? [...without, result] : without
             })
+            invalidate('budget')
         } catch {
             toast.error("Couldn’t update this day.")
         }
     }
 
     const today = todayKey()
-    // Every daily-tracked budget active this month — drives the filter dropdown.
+    // Every tracked budget (daily + weekly) active this month — drives the filter dropdown.
     const allDailyRows = rows.filter(
         (r) =>
             r.budgeted &&
-            r.budgetType === 'daily' &&
+            (r.budgetType === 'daily' || r.budgetType === 'weekly') &&
             rowVisibleInMonth(
                 r,
                 month,
@@ -1026,7 +1132,7 @@ export default function BudgetCalendar() {
     const excludedDates = new Set(exclusions.map((x) => x.date))
     const dayData = buildDayData(month, dailyRows, entries, spends, excludedDates)
     const offset = startOffset(month)
-    const weekGroups = groupByWeek(dayData, today)
+    const weekGroups = groupByWeek(dayData, today, dailyRows, entries, spends, excludedDates)
 
     const pastDays = dayData.filter((d) => d.date <= today && !d.excluded)
     const totalSpent = pastDays.reduce((s, d) => s + d.spent, 0)
@@ -1041,7 +1147,8 @@ export default function BudgetCalendar() {
                     <button
                         type="button"
                         onClick={() => setMonth((m) => addMonths(m, -1))}
-                        className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
+                        disabled={!!(financeStartMonth && month <= financeStartMonth)}
+                        className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900 disabled:opacity-30 disabled:pointer-events-none"
                     >
                         <i className="fa-solid fa-chevron-left text-sm" aria-hidden="true" />
                     </button>
@@ -1107,7 +1214,7 @@ export default function BudgetCalendar() {
             ) : allDailyRows.length === 0 ? (
                 <div className="rounded-3xl border border-dashed border-neutral-200 bg-white p-12 text-center">
                     <p className="text-sm text-neutral-400">
-                        No daily budgets set up. Enable `Daily spend` on a card in the Budgets tab.
+                        No tracked budgets set up. Enable weekly or daily tracking on a card in the Budgets tab.
                     </p>
                 </div>
             ) : (
