@@ -56,7 +56,7 @@ export default function Accordion({
                             className={`grid transition-[grid-template-rows] duration-300 ease-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
                         >
                             <div className="overflow-hidden">
-                                <div className="px-5 pb-4 text-sm leading-relaxed text-neutral-500">
+                                <div className="px-5 pb-4 pt-1 text-sm leading-relaxed text-neutral-500">
                                     {item.content}
                                 </div>
                             </div>

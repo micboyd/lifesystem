@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Container from '../components/Container'
 import Spinner from '../components/Spinner'
 import Select from '../components/Select'
@@ -7,6 +7,12 @@ import Input from '../components/Input'
 import Textarea from '../components/Textarea'
 import Badge from '../components/Badge'
 import Progress from '../components/Progress'
+import Tabs from '../components/Tabs'
+import Alert from '../components/Alert'
+import Accordion from '../components/Accordion'
+import EmptyState from '../components/EmptyState'
+import Drawer from '../components/Drawer'
+import DropdownMenu from '../components/DropdownMenu'
 import { useAuth } from '../context/AuthContext'
 import { listRows, listValues } from '../services/totals'
 import { updateSettings } from '../services/users'
@@ -19,7 +25,7 @@ import {
 import { bankByMonth, projectCourses, type CourseProjection } from '../lib/study'
 import { computePacing, type CoursePacing } from '../lib/pacing'
 import { todayKey, formatDateLong } from '../lib/calendar'
-import type { TotalRow, TotalValue, Course } from '../types'
+import type { TotalRow, TotalValue, Course, CourseKind } from '../types'
 
 /** Wide window covering past entries and a long projection horizon. */
 function bankRange(): { from: string; to: string } {
@@ -33,6 +39,26 @@ function fmtHours(n: number): string {
     return `${Number.isInteger(v) ? v : v.toFixed(2)}h`
 }
 
+const FILTERS = ['All', 'Courses', 'Blocks', 'Completed'] as const
+type Filter = (typeof FILTERS)[number]
+
+/** Fields shared by the create/edit form. */
+interface CourseFields {
+    name: string
+    category?: string
+    requiredHours: number
+    completedHours: number
+    notes?: string
+    link?: string
+    targetDate?: string
+}
+
+/** The form drawer is either adding a new course/block or editing an existing one. */
+type FormState =
+    | { mode: 'create'; kind: CourseKind }
+    | { mode: 'edit'; kind: CourseKind; course: Course }
+    | null
+
 export default function Study() {
     const { user, updateUser } = useAuth()
     const [loading, setLoading] = useState(true)
@@ -40,6 +66,8 @@ export default function Study() {
     const [values, setValues] = useState<TotalValue[]>([])
     const [courses, setCourses] = useState<Course[]>([])
     const [studyRowId, setStudyRowId] = useState(user?.settings?.studyRowId ?? '')
+    const [filter, setFilter] = useState<Filter>('All')
+    const [form, setForm] = useState<FormState>(null)
     // Drag-to-reorder: the item being dragged and the row it's hovering over.
     const [dragIndex, setDragIndex] = useState<number | null>(null)
     const [overIndex, setOverIndex] = useState<number | null>(null)
@@ -77,6 +105,16 @@ export default function Study() {
         [pacing]
     )
 
+    // projectCourses preserves the `courses` array order, so a projection's index
+    // matches its index in `courses` — which the drag-reorder relies on.
+    const visible = useMemo(() => {
+        if (filter === 'Courses') return projection.courses.filter((p) => p.course.kind === 'course')
+        if (filter === 'Blocks') return projection.courses.filter((p) => p.course.kind === 'block')
+        if (filter === 'Completed')
+            return projection.courses.filter((p) => p.status === 'completed')
+        return projection.courses
+    }, [projection.courses, filter])
+
     async function handleSelectRow(id: string) {
         const prev = studyRowId
         setStudyRowId(id)
@@ -88,35 +126,12 @@ export default function Study() {
         }
     }
 
-    async function handleAddCourse(fields: {
-        name: string
-        kind: Course['kind']
-        category?: string
-        requiredHours: number
-        completedHours: number
-        notes?: string
-        link?: string
-        targetDate?: string
-    }) {
-        const course = await createCourse(fields)
+    async function handleAddCourse(kind: CourseKind, fields: CourseFields) {
+        const course = await createCourse({ ...fields, kind })
         setCourses((prev) => [...prev, course])
     }
 
-    async function handleSaveCourse(
-        id: string,
-        fields: Partial<
-            Pick<
-                Course,
-                | 'name'
-                | 'category'
-                | 'requiredHours'
-                | 'completedHours'
-                | 'notes'
-                | 'link'
-                | 'targetDate'
-            >
-        >
-    ) {
+    async function handleSaveCourse(id: string, fields: CourseFields) {
         const updated = await updateCourse(id, fields)
         setCourses((prev) => prev.map((c) => (c._id === id ? updated : c)))
     }
@@ -144,6 +159,8 @@ export default function Study() {
     }
 
     const rowOptions = rows.map((r) => ({ label: r.name, value: r._id }))
+    // Reordering only makes sense over the full, unfiltered list.
+    const reorderable = filter === 'All'
 
     return (
         <Container as="main" className="py-10">
@@ -186,6 +203,7 @@ export default function Study() {
                                         bank={bank}
                                         loggedHours={projection.loggedHours}
                                         availableHours={projection.availableHours}
+                                        remainingHours={projection.requiredHours}
                                     />
                                 )}
                             </div>
@@ -194,60 +212,109 @@ export default function Study() {
 
                     {/* Courses */}
                     <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-                        <div className="mb-4 flex items-center justify-between">
-                            <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-400">
-                                Courses
-                            </h2>
-                            {projection.requiredHours > 0 && (
-                                <span className="text-xs font-medium text-neutral-400">
-                                    {fmtHours(projection.requiredHours)} remaining ·{' '}
-                                    {fmtHours(projection.availableHours)} banked ahead
-                                </span>
-                            )}
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <Tabs
+                                tabs={[...FILTERS]}
+                                value={filter}
+                                onChange={(t) => setFilter(t as Filter)}
+                            />
+                            <DropdownMenu
+                                align="right"
+                                trigger={
+                                    <Button size="sm" icon="fa-solid fa-plus">
+                                        Add
+                                    </Button>
+                                }
+                                items={[
+                                    {
+                                        label: 'Course',
+                                        icon: 'fa-solid fa-graduation-cap',
+                                        onClick: () => setForm({ mode: 'create', kind: 'course' }),
+                                    },
+                                    {
+                                        label: 'Study block',
+                                        icon: 'fa-solid fa-cubes',
+                                        onClick: () => setForm({ mode: 'create', kind: 'block' }),
+                                    },
+                                ]}
+                            />
                         </div>
 
                         {!studyRowId && (
-                            <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                            <Alert variant="info" className="mb-4">
                                 Pick a study hours row above to project finish dates.
+                            </Alert>
+                        )}
+
+                        {projection.courses.length === 0 ? (
+                            <EmptyState
+                                icon="fa-regular fa-rectangle-list"
+                                title="No courses yet"
+                                description="Add a course to project its finish date, or a study block to track ad-hoc hours."
+                                action={
+                                    <Button
+                                        icon="fa-solid fa-plus"
+                                        onClick={() => setForm({ mode: 'create', kind: 'course' })}
+                                    >
+                                        Add course
+                                    </Button>
+                                }
+                            />
+                        ) : visible.length === 0 ? (
+                            <p className="py-8 text-center text-sm text-neutral-400">
+                                Nothing in “{filter}”.
                             </p>
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                {visible.map((p) => {
+                                    const i = projection.courses.indexOf(p)
+                                    return (
+                                        <CourseRow
+                                            key={p.course._id}
+                                            projection={p}
+                                            pacing={pacingByCourse.get(p.course._id)}
+                                            hasSource={!!studyRowId}
+                                            reorderable={reorderable}
+                                            isDragging={dragIndex === i}
+                                            isDragOver={
+                                                dragIndex !== null &&
+                                                overIndex === i &&
+                                                dragIndex !== i
+                                            }
+                                            onEdit={() =>
+                                                setForm({
+                                                    mode: 'edit',
+                                                    kind: p.course.kind,
+                                                    course: p.course,
+                                                })
+                                            }
+                                            onDelete={() => handleDeleteCourse(p.course._id)}
+                                            onDragStart={() => setDragIndex(i)}
+                                            onDragOver={() => setOverIndex(i)}
+                                            onDrop={() => {
+                                                if (dragIndex !== null) handleReorder(dragIndex, i)
+                                                setDragIndex(null)
+                                                setOverIndex(null)
+                                            }}
+                                            onDragEnd={() => {
+                                                setDragIndex(null)
+                                                setOverIndex(null)
+                                            }}
+                                        />
+                                    )
+                                })}
+                            </div>
                         )}
-
-                        <div className="flex flex-col gap-2">
-                            {projection.courses.map((p, i) => (
-                                <CourseRow
-                                    key={p.course._id}
-                                    projection={p}
-                                    pacing={pacingByCourse.get(p.course._id)}
-                                    hasSource={!!studyRowId}
-                                    isDragging={dragIndex === i}
-                                    isDragOver={dragIndex !== null && overIndex === i && dragIndex !== i}
-                                    onSave={handleSaveCourse}
-                                    onDelete={handleDeleteCourse}
-                                    onDragStart={() => setDragIndex(i)}
-                                    onDragOver={() => setOverIndex(i)}
-                                    onDrop={() => {
-                                        if (dragIndex !== null) handleReorder(dragIndex, i)
-                                        setDragIndex(null)
-                                        setOverIndex(null)
-                                    }}
-                                    onDragEnd={() => {
-                                        setDragIndex(null)
-                                        setOverIndex(null)
-                                    }}
-                                />
-                            ))}
-                        </div>
-
-                        {projection.courses.length === 0 && (
-                            <p className="mb-4 text-sm text-neutral-400">No courses yet.</p>
-                        )}
-
-                        <div className="mt-4 border-t border-neutral-100 pt-4">
-                            <AddCourseForm onAdd={handleAddCourse} />
-                        </div>
                     </section>
                 </div>
             )}
+
+            <CourseFormDrawer
+                form={form}
+                onClose={() => setForm(null)}
+                onAdd={handleAddCourse}
+                onSave={handleSaveCourse}
+            />
         </Container>
     )
 }
@@ -258,16 +325,19 @@ function BankSummary({
     bank,
     loggedHours,
     availableHours,
+    remainingHours,
 }: {
     bank: ReturnType<typeof bankByMonth>
     loggedHours: number
     availableHours: number
+    remainingHours: number
 }) {
     return (
-        <div>
-            <div className="mb-3 flex flex-wrap gap-3">
+        <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-3">
                 <Stat label="Logged so far" value={fmtHours(loggedHours)} />
                 <Stat label="Available ahead" value={fmtHours(availableHours)} />
+                <Stat label="Remaining" value={fmtHours(remainingHours)} />
             </div>
             {bank.length === 0 ? (
                 <p className="text-sm text-neutral-400">
@@ -275,19 +345,29 @@ function BankSummary({
                     Calendar.
                 </p>
             ) : (
-                <div className="flex flex-wrap gap-2">
-                    {bank.map((m) => (
-                        <span
-                            key={m.month}
-                            className="flex items-center gap-1.5 rounded-lg bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-600"
-                        >
-                            {m.label}
-                            <span className="font-bold tabular-nums text-neutral-900">
-                                {fmtHours(m.hours)}
-                            </span>
-                        </span>
-                    ))}
-                </div>
+                <Accordion
+                    className="bg-white"
+                    items={[
+                        {
+                            title: `Upcoming by month · ${bank.length} ${bank.length === 1 ? 'month' : 'months'}`,
+                            content: (
+                                <div className="flex flex-wrap gap-2">
+                                    {bank.map((m) => (
+                                        <span
+                                            key={m.month}
+                                            className="flex items-center gap-1.5 rounded-lg bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-600"
+                                        >
+                                            {m.label}
+                                            <span className="font-bold tabular-nums text-neutral-900">
+                                                {fmtHours(m.hours)}
+                                            </span>
+                                        </span>
+                                    ))}
+                                </div>
+                            ),
+                        },
+                    ]}
+                />
             )}
         </div>
     )
@@ -295,7 +375,7 @@ function BankSummary({
 
 function Stat({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-xl bg-neutral-950 px-4 py-2.5 text-white">
+        <div className="flex-1 rounded-xl bg-neutral-950 px-4 py-2.5 text-white">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-white/50">
                 {label}
             </p>
@@ -310,24 +390,11 @@ interface CourseRowProps {
     projection: CourseProjection
     pacing?: CoursePacing
     hasSource: boolean
+    reorderable: boolean
     isDragging: boolean
     isDragOver: boolean
-    onSave: (
-        id: string,
-        fields: Partial<
-            Pick<
-                Course,
-                | 'name'
-                | 'category'
-                | 'requiredHours'
-                | 'completedHours'
-                | 'notes'
-                | 'link'
-                | 'targetDate'
-            >
-        >
-    ) => Promise<void>
-    onDelete: (id: string) => void
+    onEdit: () => void
+    onDelete: () => void
     onDragStart: () => void
     onDragOver: () => void
     onDrop: () => void
@@ -338,9 +405,10 @@ function CourseRow({
     projection,
     pacing,
     hasSource,
+    reorderable,
     isDragging,
     isDragOver,
-    onSave,
+    onEdit,
     onDelete,
     onDragStart,
     onDragOver,
@@ -359,25 +427,6 @@ function CourseRow({
     // The row is only draggable once a drag is initiated from the grip handle,
     // so clicks/selection elsewhere in the row behave normally.
     const dragReady = useRef(false)
-    const [editing, setEditing] = useState(false)
-    const [name, setName] = useState(course.name ?? '')
-    const [category, setCategory] = useState(course.category ?? '')
-    const [requiredInput, setRequired] = useState(String(course.requiredHours ?? ''))
-    const [completed, setCompleted] = useState(String(course.completedHours ?? ''))
-    const [notes, setNotes] = useState(course.notes ?? '')
-    const [link, setLink] = useState(course.link ?? '')
-    const [targetDate, setTargetDate] = useState(course.targetDate ?? '')
-    const [saving, setSaving] = useState(false)
-
-    useEffect(() => {
-        setName(course.name ?? '')
-        setCategory(course.category ?? '')
-        setRequired(String(course.requiredHours ?? ''))
-        setCompleted(String(course.completedHours ?? ''))
-        setNotes(course.notes ?? '')
-        setLink(course.link ?? '')
-        setTargetDate(course.targetDate ?? '')
-    }, [course.name, course.category, course.requiredHours, course.completedHours, course.notes, course.link, course.targetDate])
 
     // Disarm the handle on any plain click release. A real drag ends with
     // 'dragend' (no trailing 'mouseup'), so this only fires when no drag started.
@@ -387,108 +436,9 @@ function CourseRow({
         return () => window.removeEventListener('mouseup', disarm)
     }, [])
 
-    async function save() {
-        const req = Number(requiredInput)
-        const done = Number(completed)
-        if (!name.trim() || !Number.isFinite(req) || req < 0) return
-        setSaving(true)
-        try {
-            await onSave(course._id, {
-                name: name.trim(),
-                category: isBlock ? category.trim() : undefined,
-                requiredHours: req,
-                completedHours: Number.isFinite(done) && done >= 0 ? done : 0,
-                notes: notes.trim(),
-                link: !isBlock ? link.trim() : undefined,
-                targetDate: !isBlock ? targetDate : undefined,
-            })
-            setEditing(false)
-        } finally {
-            setSaving(false)
-        }
-    }
-
-    if (editing) {
-        return (
-            <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-3">
-                    <Input
-                        autoFocus
-                        placeholder={isBlock ? 'What are you studying?' : 'Course name'}
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                    />
-                    {isBlock && (
-                        <Input
-                            label="Type (optional)"
-                            placeholder="Reading, revision, project…"
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                        />
-                    )}
-                    <div className="flex gap-3">
-                        <Input
-                            label="Required hours"
-                            type="number"
-                            min={0}
-                            step="any"
-                            value={requiredInput}
-                            onChange={(e) => setRequired(e.target.value)}
-                        />
-                        <Input
-                            label="Prior hours"
-                            hint="Done before calendar tracking"
-                            type="number"
-                            min={0}
-                            step="any"
-                            value={completed}
-                            onChange={(e) => setCompleted(e.target.value)}
-                        />
-                    </div>
-                    <Textarea
-                        label="Notes (optional)"
-                        rows={2}
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                    />
-                    {!isBlock && (
-                        <Input
-                            label="Link (optional)"
-                            placeholder="https://…"
-                            type="url"
-                            value={link}
-                            onChange={(e) => setLink(e.target.value)}
-                        />
-                    )}
-                    {!isBlock && (
-                        <Input
-                            label="Target date (optional)"
-                            hint="Finish-by date for on-track pacing"
-                            type="date"
-                            value={targetDate}
-                            onChange={(e) => setTargetDate(e.target.value)}
-                        />
-                    )}
-                    <div className="flex gap-2">
-                        <Button
-                            size="sm"
-                            onClick={save}
-                            disabled={saving || !name.trim()}
-                        >
-                            {saving ? 'Saving…' : 'Save'}
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-                            Cancel
-                        </Button>
-                    </div>
-                </div>
-            </div>
-        )
-    }
-
     return (
         <div
-            draggable
+            draggable={reorderable}
             onDragStart={(e) => {
                 if (!dragReady.current) {
                     e.preventDefault()
@@ -498,6 +448,7 @@ function CourseRow({
                 onDragStart()
             }}
             onDragOver={(e) => {
+                if (!reorderable) return
                 e.preventDefault()
                 e.dataTransfer.dropEffect = 'move'
                 onDragOver()
@@ -520,15 +471,17 @@ function CourseRow({
         >
             <div className="flex items-start gap-3">
                 {/* Drag handle */}
-                <button
-                    type="button"
-                    aria-label="Drag to reorder"
-                    onMouseDown={() => (dragReady.current = true)}
-                    onTouchStart={() => (dragReady.current = true)}
-                    className="grid h-8 w-5 shrink-0 cursor-grab touch-none place-items-center rounded text-neutral-300 transition-colors hover:text-neutral-500 active:cursor-grabbing"
-                >
-                    <i className="fa-solid fa-grip-vertical text-xs" aria-hidden="true" />
-                </button>
+                {reorderable && (
+                    <button
+                        type="button"
+                        aria-label="Drag to reorder"
+                        onMouseDown={() => (dragReady.current = true)}
+                        onTouchStart={() => (dragReady.current = true)}
+                        className="grid h-8 w-5 shrink-0 cursor-grab touch-none place-items-center rounded text-neutral-300 transition-colors hover:text-neutral-500 active:cursor-grabbing"
+                    >
+                        <i className="fa-solid fa-grip-vertical text-xs" aria-hidden="true" />
+                    </button>
+                )}
 
                 {/* Details */}
                 <div className="min-w-0 flex-1">
@@ -540,28 +493,31 @@ function CourseRow({
                             {isBlock && (
                                 <Badge variant="outline">{course.category?.trim() || 'Block'}</Badge>
                             )}
-                            <StatusBadge projection={projection} hasSource={hasSource} />
                         </div>
 
                         {/* Actions */}
-                        <div className="-mr-1 -mt-1 flex shrink-0 items-center gap-1">
-                            <button
-                                type="button"
-                                onClick={() => setEditing(true)}
-                                aria-label="Edit course"
-                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                            >
-                                <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onDelete(course._id)}
-                                aria-label="Delete course"
-                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                            >
-                                <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                            </button>
-                        </div>
+                        <DropdownMenu
+                            align="right"
+                            className="-mr-1 -mt-1 shrink-0"
+                            trigger={
+                                <button
+                                    type="button"
+                                    aria-label="Course actions"
+                                    className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                >
+                                    <i className="fa-solid fa-ellipsis" aria-hidden="true" />
+                                </button>
+                            }
+                            items={[
+                                { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onEdit },
+                                {
+                                    label: 'Delete',
+                                    icon: 'fa-solid fa-trash-can',
+                                    danger: true,
+                                    onClick: onDelete,
+                                },
+                            ]}
+                        />
                     </div>
 
                     {/* Progress */}
@@ -576,7 +532,7 @@ function CourseRow({
                         </span>
                     </div>
 
-                    {/* Hours + finish */}
+                    {/* Hours + status */}
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs">
                         <span className="text-neutral-500">
                             <span className="font-semibold tabular-nums text-neutral-700">
@@ -593,16 +549,13 @@ function CourseRow({
                                 </>
                             )}
                         </span>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                            <PacingChip pacing={pacing} />
-                            <FinishChip projection={projection} hasSource={hasSource} />
-                        </div>
+                        <RowStatus projection={projection} pacing={pacing} hasSource={hasSource} />
                     </div>
 
                     {(course.notes || course.link) && (
                         <div className="mt-2 flex flex-col gap-1.5 border-t border-neutral-100 pt-2">
                             {course.notes && (
-                                <p className="whitespace-pre-wrap text-sm text-neutral-400">
+                                <p className="line-clamp-2 whitespace-pre-wrap text-sm text-neutral-400">
                                     {course.notes}
                                 </p>
                             )}
@@ -611,10 +564,13 @@ function CourseRow({
                                     href={course.link}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
+                                    className="inline-flex w-fit items-center gap-1.5 text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
                                 >
-                                    <i className="fa-solid fa-arrow-up-right-from-square text-xs" aria-hidden="true" />
-                                    {course.link}
+                                    <i
+                                        className="fa-solid fa-arrow-up-right-from-square text-xs"
+                                        aria-hidden="true"
+                                    />
+                                    Open link
                                 </a>
                             )}
                         </div>
@@ -625,113 +581,104 @@ function CourseRow({
     )
 }
 
-function StatusBadge({
+/**
+ * A single status indicator per row. Priority: completed → pacing warnings
+ * (behind/overdue) → insufficient capacity → projected finish date. This keeps
+ * one clear signal instead of stacking a status badge, pacing chip and finish chip.
+ */
+function RowStatus({
     projection,
+    pacing,
     hasSource,
 }: {
     projection: CourseProjection
+    pacing?: CoursePacing
     hasSource: boolean
 }) {
-    if (projection.status === 'completed') return <Badge variant="success">Completed</Badge>
+    if (projection.status === 'completed') {
+        return <Badge variant="success">Completed</Badge>
+    }
     if (!hasSource) return null
-    if (projection.status === 'insufficient') return <Badge variant="warning">Needs more hours</Badge>
-    return <Badge variant="outline">Scheduled</Badge>
-}
 
-/** Compact pill summarising when a course will finish (or why it won't). */
-function FinishChip({
-    projection,
-    hasSource,
-}: {
-    projection: CourseProjection
-    hasSource: boolean
-}) {
-    if (!hasSource || projection.status === 'completed') return null
+    const pacingActive = pacing && pacing.targetDate && pacing.status !== 'done'
+
+    if (pacingActive && pacing.status === 'overdue') {
+        return <Chip cls="bg-red-50 text-red-600" icon="fa-solid fa-triangle-exclamation" title={`Target ${formatDateLong(pacing.targetDate!)}`}>Past target</Chip>
+    }
+    if (pacingActive && pacing.status === 'behind') {
+        const label = Number.isFinite(pacing.neededPacePerDay)
+            ? `Behind · need ${pacing.neededPacePerDay.toFixed(1)}h/day`
+            : 'Behind'
+        return <Chip cls="bg-amber-50 text-amber-700" icon="fa-solid fa-arrow-trend-down" title={`Target ${formatDateLong(pacing.targetDate!)}`}>{label}</Chip>
+    }
     if (projection.status === 'insufficient') {
-        return (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-700">
-                <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" />
-                {fmtHours(projection.shortByHours)} short
-            </span>
-        )
+        return <Chip cls="bg-amber-50 text-amber-700" icon="fa-solid fa-triangle-exclamation">{fmtHours(projection.shortByHours)} short</Chip>
     }
     if (!projection.finishDate) {
         return <span className="text-neutral-400">Not scheduled yet</span>
     }
+    // On track (or no target set): show the projected finish, plus a subtle
+    // on-track check when a target date confirms it.
+    const onTrack = pacingActive && pacing.status === 'on-track'
     return (
-        <span
-            className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 font-medium text-neutral-700"
-            title={
-                projection.startDate
-                    ? `Starts ${formatDateLong(projection.startDate)}`
-                    : undefined
-            }
+        <Chip
+            cls="bg-neutral-100 text-neutral-700"
+            icon={onTrack ? 'fa-solid fa-check text-emerald-600' : 'fa-solid fa-flag-checkered text-neutral-400'}
+            title={projection.startDate ? `Starts ${formatDateLong(projection.startDate)}` : undefined}
         >
-            <i className="fa-solid fa-flag-checkered text-neutral-400" aria-hidden="true" />
             Finishes {formatDateLong(projection.finishDate)}
-        </span>
+        </Chip>
     )
 }
 
-/** On-track / behind pill, shown only for unfinished courses with a target date. */
-function PacingChip({ pacing }: { pacing?: CoursePacing }) {
-    if (!pacing || !pacing.targetDate || pacing.status === 'done') return null
-    if (pacing.status === 'no-target') return null
-
-    const config = {
-        'on-track': {
-            cls: 'bg-emerald-50 text-emerald-700',
-            icon: 'fa-solid fa-check',
-            label: 'On track',
-        },
-        behind: {
-            cls: 'bg-amber-50 text-amber-700',
-            icon: 'fa-solid fa-arrow-trend-down',
-            label: Number.isFinite(pacing.neededPacePerDay)
-                ? `Behind · need ${pacing.neededPacePerDay.toFixed(1)}h/day`
-                : 'Behind',
-        },
-        overdue: {
-            cls: 'bg-red-50 text-red-600',
-            icon: 'fa-solid fa-triangle-exclamation',
-            label: 'Past target',
-        },
-    }[pacing.status as 'on-track' | 'behind' | 'overdue']
-
-    if (!config) return null
+/** Small status pill used by RowStatus. */
+function Chip({
+    cls,
+    icon,
+    title,
+    children,
+}: {
+    cls: string
+    icon: string
+    title?: string
+    children: ReactNode
+}) {
     return (
         <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium ${config.cls}`}
-            title={
-                pacing.targetDate
-                    ? `Target ${formatDateLong(pacing.targetDate)}`
-                    : undefined
-            }
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium ${cls}`}
+            title={title}
         >
-            <i className={`${config.icon}`} aria-hidden="true" />
-            {config.label}
+            <i className={icon} aria-hidden="true" />
+            {children}
         </span>
     )
 }
 
-// ─── Add course ─────────────────────────────────────────────────────────────
+// ─── Add / edit course drawer ─────────────────────────────────────────────────
 
-function AddCourseForm({
+function CourseFormDrawer({
+    form,
+    onClose,
     onAdd,
+    onSave,
 }: {
-    onAdd: (fields: {
-        name: string
-        kind: Course['kind']
-        category?: string
-        requiredHours: number
-        completedHours: number
-        notes?: string
-        link?: string
-        targetDate?: string
-    }) => Promise<void>
+    form: FormState
+    onClose: () => void
+    onAdd: (kind: CourseKind, fields: CourseFields) => Promise<void>
+    onSave: (id: string, fields: CourseFields) => Promise<void>
 }) {
-    // null = collapsed; otherwise the kind being added.
-    const [kind, setKind] = useState<Course['kind'] | null>(null)
+    // Retain the last form while the drawer animates closed so its contents
+    // don't flicker empty during the slide-out.
+    const [view, setView] = useState<FormState>(form)
+    useEffect(() => {
+        if (form) setView(form)
+    }, [form])
+
+    const open = !!form
+    const kind = view?.kind ?? 'course'
+    const isBlock = kind === 'block'
+    const editing = view?.mode === 'edit' ? view.course : undefined
+
     const [name, setName] = useState('')
     const [category, setCategory] = useState('')
     const [required, setRequired] = useState('')
@@ -741,126 +688,126 @@ function AddCourseForm({
     const [targetDate, setTargetDate] = useState('')
     const [saving, setSaving] = useState(false)
 
-    const isBlock = kind === 'block'
+    // Reset the fields each time the drawer opens for a different item.
+    useEffect(() => {
+        setName(editing?.name ?? '')
+        setCategory(editing?.category ?? '')
+        setRequired(editing?.requiredHours != null ? String(editing.requiredHours) : '')
+        setCompleted(editing?.completedHours != null ? String(editing.completedHours) : '')
+        setNotes(editing?.notes ?? '')
+        setLink(editing?.link ?? '')
+        setTargetDate(editing?.targetDate ?? '')
+        setSaving(false)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [view])
 
-    function reset() {
-        setName('')
-        setCategory('')
-        setRequired('')
-        setCompleted('')
-        setNotes('')
-        setLink('')
-        setTargetDate('')
-        setKind(null)
-    }
+    const req = Number(required)
+    const valid = name.trim() !== '' && Number.isFinite(req) && req >= 0 && required !== ''
 
     async function submit() {
-        if (!kind) return
-        const req = Number(required)
-        if (!name.trim() || !Number.isFinite(req) || req < 0) return
+        if (!view || !valid) return
         const done = Number(completed)
+        const fields: CourseFields = {
+            name: name.trim(),
+            category: isBlock ? category.trim() || undefined : undefined,
+            requiredHours: req,
+            completedHours: Number.isFinite(done) && done >= 0 ? done : 0,
+            notes: notes.trim() || undefined,
+            link: !isBlock ? link.trim() || undefined : undefined,
+            targetDate: !isBlock ? targetDate || undefined : undefined,
+        }
         setSaving(true)
         try {
-            await onAdd({
-                name: name.trim(),
-                kind,
-                category: isBlock ? category.trim() || undefined : undefined,
-                requiredHours: req,
-                completedHours: Number.isFinite(done) && done >= 0 ? done : 0,
-                notes: notes.trim() || undefined,
-                link: !isBlock ? link.trim() || undefined : undefined,
-                targetDate: !isBlock ? targetDate || undefined : undefined,
-            })
-            reset()
+            if (view.mode === 'create') await onAdd(kind, fields)
+            else await onSave(view.course._id, fields)
+            onClose()
         } finally {
             setSaving(false)
         }
     }
 
-    if (!kind) {
-        return (
-            <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" icon="fa-solid fa-plus" onClick={() => setKind('course')}>
-                    Add course
-                </Button>
-                <Button variant="secondary" icon="fa-solid fa-plus" onClick={() => setKind('block')}>
-                    Add study block
-                </Button>
-            </div>
-        )
-    }
+    const noun = isBlock ? 'study block' : 'course'
+    const title = `${view?.mode === 'edit' ? 'Edit' : 'Add'} ${noun}`
 
     return (
-        <div className="flex flex-col gap-3">
-            <Input
-                autoFocus
-                placeholder={isBlock ? 'What are you studying?' : 'Course name'}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && submit()}
-            />
-            {isBlock && (
+        <Drawer
+            open={open}
+            onClose={onClose}
+            title={title}
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button onClick={submit} disabled={saving || !valid}>
+                        {saving ? 'Saving…' : view?.mode === 'edit' ? 'Save' : 'Add'}
+                    </Button>
+                </>
+            }
+        >
+            <div className="flex flex-col gap-4">
                 <Input
-                    label="Type (optional)"
-                    placeholder="Reading, revision, project…"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    label={isBlock ? 'What are you studying?' : 'Course name'}
+                    autoFocus
+                    placeholder={isBlock ? 'e.g. Spanish revision' : 'Course name'}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                 />
-            )}
-            <div className="flex gap-3">
-                <Input
-                    label="Required hours"
-                    type="number"
-                    min={0}
-                    step="any"
-                    placeholder="60"
-                    value={required}
-                    onChange={(e) => setRequired(e.target.value)}
+                {isBlock && (
+                    <Input
+                        label="Type (optional)"
+                        placeholder="Reading, revision, project…"
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                    />
+                )}
+                <div className="flex gap-3">
+                    <Input
+                        label="Required hours"
+                        type="number"
+                        min={0}
+                        step="any"
+                        placeholder="60"
+                        value={required}
+                        onChange={(e) => setRequired(e.target.value)}
+                    />
+                    <Input
+                        label="Prior hours"
+                        hint="Done before calendar tracking"
+                        type="number"
+                        min={0}
+                        step="any"
+                        placeholder="0"
+                        value={completed}
+                        onChange={(e) => setCompleted(e.target.value)}
+                    />
+                </div>
+                <Textarea
+                    label="Notes (optional)"
+                    rows={3}
+                    placeholder={isBlock ? 'What is this block for?' : undefined}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
                 />
-                <Input
-                    label="Prior hours (optional)"
-                    hint="Done before calendar tracking"
-                    type="number"
-                    min={0}
-                    step="any"
-                    placeholder="0"
-                    value={completed}
-                    onChange={(e) => setCompleted(e.target.value)}
-                />
+                {!isBlock && (
+                    <Input
+                        label="Link (optional)"
+                        placeholder="https://…"
+                        type="url"
+                        value={link}
+                        onChange={(e) => setLink(e.target.value)}
+                    />
+                )}
+                {!isBlock && (
+                    <Input
+                        label="Target date (optional)"
+                        hint="Finish-by date for on-track pacing"
+                        type="date"
+                        value={targetDate}
+                        onChange={(e) => setTargetDate(e.target.value)}
+                    />
+                )}
             </div>
-            <Textarea
-                label="Notes (optional)"
-                rows={2}
-                placeholder={isBlock ? 'What is this block for?' : undefined}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-            />
-            {!isBlock && (
-                <Input
-                    label="Link (optional)"
-                    placeholder="https://…"
-                    type="url"
-                    value={link}
-                    onChange={(e) => setLink(e.target.value)}
-                />
-            )}
-            {!isBlock && (
-                <Input
-                    label="Target date (optional)"
-                    hint="Finish-by date for on-track pacing"
-                    type="date"
-                    value={targetDate}
-                    onChange={(e) => setTargetDate(e.target.value)}
-                />
-            )}
-            <div className="flex gap-2">
-                <Button onClick={submit} disabled={saving || !name.trim() || required === ''}>
-                    {saving ? 'Saving…' : isBlock ? 'Add block' : 'Save'}
-                </Button>
-                <Button variant="ghost" onClick={reset}>
-                    Cancel
-                </Button>
-            </div>
-        </div>
+        </Drawer>
     )
 }
