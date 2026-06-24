@@ -222,6 +222,22 @@ export default function Profile() {
                                 </div>
                                 <i className="fa-solid fa-chevron-right text-xs text-neutral-300" aria-hidden="true" />
                             </Link>
+
+                            <Link
+                                to="/days-since"
+                                className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-neutral-50"
+                            >
+                                <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-lg">
+                                    <i className="fa-solid fa-hourglass-half text-emerald-600" aria-hidden="true" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold text-neutral-900">Days Since</p>
+                                    <p className="text-xs text-neutral-400">
+                                        Count the days since a milestone, habit or fresh start
+                                    </p>
+                                </div>
+                                <i className="fa-solid fa-chevron-right text-xs text-neutral-300" aria-hidden="true" />
+                            </Link>
                         </CardBody>
                     </Card>
                 </div>

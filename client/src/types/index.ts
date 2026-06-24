@@ -161,6 +161,70 @@ export interface Birthday {
     updatedAt: string
 }
 
+export const DAYS_SINCE_COLORS = ['emerald', 'sky', 'violet', 'amber', 'rose', 'teal'] as const
+export type DaysSinceColor = (typeof DAYS_SINCE_COLORS)[number]
+
+/** Tailwind classes per accent. Keys are bare classes — no dynamic construction. */
+export const DAYS_SINCE_COLOR_CLASSES: Record<
+    DaysSinceColor,
+    { tile: string; accent: string; bar: string; track: string; glow: string }
+> = {
+    emerald: {
+        tile: 'bg-emerald-100',
+        accent: 'text-emerald-600',
+        bar: 'bg-emerald-500',
+        track: 'bg-emerald-100',
+        glow: 'from-emerald-100',
+    },
+    sky: {
+        tile: 'bg-sky-100',
+        accent: 'text-sky-600',
+        bar: 'bg-sky-500',
+        track: 'bg-sky-100',
+        glow: 'from-sky-100',
+    },
+    violet: {
+        tile: 'bg-violet-100',
+        accent: 'text-violet-600',
+        bar: 'bg-violet-500',
+        track: 'bg-violet-100',
+        glow: 'from-violet-100',
+    },
+    amber: {
+        tile: 'bg-amber-100',
+        accent: 'text-amber-600',
+        bar: 'bg-amber-500',
+        track: 'bg-amber-100',
+        glow: 'from-amber-100',
+    },
+    rose: {
+        tile: 'bg-rose-100',
+        accent: 'text-rose-600',
+        bar: 'bg-rose-500',
+        track: 'bg-rose-100',
+        glow: 'from-rose-100',
+    },
+    teal: {
+        tile: 'bg-teal-100',
+        accent: 'text-teal-600',
+        bar: 'bg-teal-500',
+        track: 'bg-teal-100',
+        glow: 'from-teal-100',
+    },
+}
+
+export interface DaysSinceItem {
+    _id: string
+    label: string
+    /** YYYY-MM-DD — the day the count is measured from. */
+    startDate: string
+    /** Font Awesome class string, e.g. "fa-solid fa-fire". */
+    icon: string
+    color: DaysSinceColor
+    createdAt: string
+    updatedAt: string
+}
+
 export interface Event {
     _id: string
     title: string
