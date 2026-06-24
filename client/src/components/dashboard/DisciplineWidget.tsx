@@ -223,7 +223,7 @@ export default function DisciplineWidget({ date }: { date: string }) {
                 </div>
             ) : !view?.anyBudget ? (
                 <p className="py-4 text-sm text-neutral-400">
-                    Once you're tracking spend (weekly or daily), your on-budget record builds here.{' '}
+                    Once you are tracking spend (weekly or daily), your on-budget record builds here.{' '}
                     <Link
                         to="/finances/budgets"
                         className="font-semibold text-neutral-600 underline underline-offset-2"
