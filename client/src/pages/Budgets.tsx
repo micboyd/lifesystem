@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
+import { useAuth } from '../context/AuthContext'
 import {
     listRows,
     listGroups,
@@ -341,10 +342,31 @@ export default function Budgets() {
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
     const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
+    const [month, setMonth] = useState(currentMonth())
     const toast = useToast()
     const invalidate = useInvalidate()
+    const { user } = useAuth()
 
-    const month = currentMonth()
+    const financeStartMonth = user?.settings?.financeStartDate?.slice(0, 7) ?? null
+    const today = currentMonth()
+
+    function prevMonth() {
+        setMonth((m) => {
+            const [y, mo] = m.split('-').map(Number)
+            const d = new Date(y, mo - 2, 1)
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        })
+        setLoading(true)
+    }
+
+    function nextMonth() {
+        setMonth((m) => {
+            const [y, mo] = m.split('-').map(Number)
+            const d = new Date(y, mo, 1)
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        })
+        setLoading(true)
+    }
 
     useEffect(() => {
         let active = true
@@ -413,11 +435,42 @@ export default function Budgets() {
 
     return (
         <>
-            <header className="mb-8">
-                <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">Budgets</h1>
-                <p className="mt-1 text-sm text-neutral-500">
-                    Spending targets derived from your monthly figures.
-                </p>
+            <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">Budgets</h1>
+                    <p className="mt-1 text-sm text-neutral-500">
+                        Spending targets derived from your monthly figures.
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={prevMonth}
+                        disabled={!!(financeStartMonth && month <= financeStartMonth)}
+                        className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                        <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
+                    </button>
+                    <span className="min-w-[7rem] text-center text-sm font-semibold text-neutral-700">
+                        {new Date(month + '-02').toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={nextMonth}
+                        className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                    >
+                        <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
+                    </button>
+                    {month !== today && (
+                        <button
+                            type="button"
+                            onClick={() => { setMonth(today); setLoading(true) }}
+                            className="ml-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                        >
+                            Today
+                        </button>
+                    )}
+                </div>
             </header>
 
             {budgetedRows.length === 0 ? (
