@@ -58,7 +58,9 @@ const STATUS_LABEL: Record<DayDiscipline['status'], string> = {
 export default function DisciplineWidget({ date }: { date: string }) {
     const budgetVersion = useDataVersion('budget')
     const today = todayKey()
-    const currentMonth = monthOf(today)
+    // Allow a look-ahead window so upcoming months can be previewed (all future
+    // days show greyed) without letting navigation run away indefinitely.
+    const maxMonth = addMonths(monthOf(today), 12)
     const [month, setMonth] = useState(monthOf(date))
     const [mode, setMode] = useState<Mode>('days')
     const [data, setData] = useState<LoadedData | null>(null)
@@ -113,6 +115,7 @@ export default function DisciplineWidget({ date }: { date: string }) {
         const pureWeekly = wRows.length > 0 && dRows.length === 0
 
         // Cache week assessments so days in the same week (and the week strip) agree.
+        // The week strip reports an open (in-progress) week as `future`.
         const weekCache = new Map<string, DayDiscipline['status']>()
         const weekStatus = (wEnd: string): DayDiscipline['status'] => {
             if (wEnd > today) return 'future'
@@ -120,6 +123,17 @@ export default function DisciplineWidget({ date }: { date: string }) {
             if (cached) return cached
             const st = weekDiscipline(wEnd, groups, rows, byMonth, today).status
             weekCache.set(wEnd, st)
+            return st
+        }
+
+        // For the day grid we grade the open week on its spend so far, so days
+        // that have already passed within it aren't greyed out as upcoming.
+        const runningCache = new Map<string, DayDiscipline['status']>()
+        const runningWeekStatus = (wEnd: string): DayDiscipline['status'] => {
+            const cached = runningCache.get(wEnd)
+            if (cached) return cached
+            const st = weekDiscipline(wEnd, groups, rows, byMonth, today, true).status
+            runningCache.set(wEnd, st)
             return st
         }
 
@@ -134,7 +148,7 @@ export default function DisciplineWidget({ date }: { date: string }) {
                 continue
             }
             const dd = dayDiscipline(dk, groups, rows, monthData, today)
-            days.push(pureWeekly ? { ...dd, status: weekStatus(weekEndOf(dk)) } : dd)
+            days.push(pureWeekly ? { ...dd, status: runningWeekStatus(weekEndOf(dk)) } : dd)
         }
 
         // ── Week cells (weeks overlapping this month) ──
@@ -234,7 +248,7 @@ export default function DisciplineWidget({ date }: { date: string }) {
                             <button
                                 type="button"
                                 onClick={() => setMonth((m) => addMonths(m, 1))}
-                                disabled={month >= currentMonth}
+                                disabled={month >= maxMonth}
                                 aria-label="Next month"
                                 className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
                             >

@@ -115,13 +115,19 @@ export function dayDiscipline(
  * Weekly discipline assessment for a single ISO week ending on `weekEnd` (or
  * `today` if the week is still in progress). Used by summariseDiscipline to
  * produce one "dot" per week for weekly-budget rows.
+ *
+ * By default an in-progress week (one whose end is after `today`) reports
+ * `future`. Pass `running: true` to instead grade it on the spend logged so far
+ * — the day grid uses this so a week's already-elapsed days aren't greyed out
+ * as upcoming while the week is still open.
  */
 export function weekDiscipline(
     weekEnd: string,
     groups: FinanceGroup[],
     rows: FinanceRow[],
     byMonth: Map<string, MonthBudgetData>,
-    today: string
+    today: string,
+    running = false
 ): DayDiscipline {
     const effectiveEnd = weekEnd > today ? today : weekEnd
     const wStart = weekStartOf(weekEnd)
@@ -146,7 +152,7 @@ export function weekDiscipline(
     }
 
     let status: DayDiscipline['status']
-    if (weekEnd > today) status = 'future'
+    if (!running && weekEnd > today) status = 'future'
     else if (!hasAny || totalTarget <= 0) status = 'skip'
     else status = totalSpent <= totalTarget + 0.005 ? 'under' : 'over'
 
