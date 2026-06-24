@@ -115,13 +115,13 @@ export default function DisciplineWidget({ date }: { date: string }) {
         const pureWeekly = wRows.length > 0 && dRows.length === 0
 
         // Cache week assessments so days in the same week (and the week strip) agree.
-        // The week strip reports an open (in-progress) week as `future`.
+        // Weeks are chopped to the viewed month; the strip reports an open
+        // (in-progress) week as `future`.
         const weekCache = new Map<string, DayDiscipline['status']>()
         const weekStatus = (wEnd: string): DayDiscipline['status'] => {
-            if (wEnd > today) return 'future'
             const cached = weekCache.get(wEnd)
             if (cached) return cached
-            const st = weekDiscipline(wEnd, groups, rows, byMonth, today).status
+            const st = weekDiscipline(month, wEnd, groups, rows, byMonth, today).status
             weekCache.set(wEnd, st)
             return st
         }
@@ -132,7 +132,7 @@ export default function DisciplineWidget({ date }: { date: string }) {
         const runningWeekStatus = (wEnd: string): DayDiscipline['status'] => {
             const cached = runningCache.get(wEnd)
             if (cached) return cached
-            const st = weekDiscipline(wEnd, groups, rows, byMonth, today, true).status
+            const st = weekDiscipline(month, wEnd, groups, rows, byMonth, today, true).status
             runningCache.set(wEnd, st)
             return st
         }
@@ -152,14 +152,17 @@ export default function DisciplineWidget({ date }: { date: string }) {
         }
 
         // ── Week cells (weeks overlapping this month) ──
+        // Boundaries are clamped to the month, so the first week starts on the
+        // 1st and the last ends on the final day — edge weeks are chopped.
         const monthStart = `${month}-01`
         const monthEnd = `${month}-${String(total).padStart(2, '0')}`
         const weeks: WeekCell[] = []
         let cursorEnd = weekEndOf(monthStart)
         while (weekStartOf(cursorEnd) <= monthEnd) {
+            const isoStart = weekStartOf(cursorEnd)
             weeks.push({
-                wStart: weekStartOf(cursorEnd),
-                wEnd: cursorEnd,
+                wStart: isoStart < monthStart ? monthStart : isoStart,
+                wEnd: cursorEnd > monthEnd ? monthEnd : cursorEnd,
                 status: weekStatus(cursorEnd),
             })
             cursorEnd = addDays(cursorEnd, 7)

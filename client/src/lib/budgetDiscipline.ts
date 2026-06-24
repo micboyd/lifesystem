@@ -1,5 +1,5 @@
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../types'
-import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, daysInMonth, weekStartOf, weekEndOf } from './budget'
+import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, daysInMonth, weekEndOf } from './budget'
 import { rowVisibleInMonth } from './finance'
 import { addDays } from './calendar'
 
@@ -112,16 +112,18 @@ export function dayDiscipline(
 }
 
 /**
- * Weekly discipline assessment for a single ISO week ending on `weekEnd` (or
- * `today` if the week is still in progress). Used by summariseDiscipline to
- * produce one "dot" per week for weekly-budget rows.
+ * Weekly discipline for the slice of an ISO week (ending on `weekEnd`) that
+ * falls inside `month`. Weeks are chopped at the month edges — the first and
+ * last weeks are assessed on just their in-month days and never spill into a
+ * neighbouring month — matching how the Daily Log groups weeks.
  *
- * By default an in-progress week (one whose end is after `today`) reports
- * `future`. Pass `running: true` to instead grade it on the spend logged so far
- * — the day grid uses this so a week's already-elapsed days aren't greyed out
- * as upcoming while the week is still open.
+ * By default an in-progress week (one whose in-month end is after `today`)
+ * reports `future`. Pass `running: true` to instead grade it on the spend logged
+ * so far — the day grid uses this so a week's already-elapsed days aren't greyed
+ * out as upcoming while the week is still open.
  */
 export function weekDiscipline(
+    month: string,
     weekEnd: string,
     groups: FinanceGroup[],
     rows: FinanceRow[],
@@ -129,34 +131,34 @@ export function weekDiscipline(
     today: string,
     running = false
 ): DayDiscipline {
-    const effectiveEnd = weekEnd > today ? today : weekEnd
-    const wStart = weekStartOf(weekEnd)
+    // Chop the week to the month so edge weeks stay within it.
+    const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, '0')}`
+    const clampedEnd = weekEnd > monthEnd ? monthEnd : weekEnd
+    const effectiveEnd = clampedEnd > today ? today : clampedEnd
 
-    // Gather all months that overlap this week
-    const months = new Set([monthOf(wStart), monthOf(effectiveEnd)])
+    const data = byMonth.get(month) ?? { entries: [], spends: [], excluded: new Set() }
+    const wRows = weeklyRowsInMonth(groups, rows, month)
+
     let totalTarget = 0
     let totalSpent = 0
     let hasAny = false
 
-    for (const month of months) {
-        const data = byMonth.get(month) ?? { entries: [], spends: [], excluded: new Set() }
-        const wRows = weeklyRowsInMonth(groups, rows, month)
-        for (const row of wRows) {
-            hasAny = true
-            const entry = data.entries.find((e) => e.row === row._id)
-            const rowSpends = data.spends.filter((s) => s.row === row._id)
-            const bw = computeBudgetWeek(row, entry, rowSpends, effectiveEnd, data.excluded)
-            totalTarget += bw.weeklyRate + bw.carry
-            totalSpent += bw.spentThisWeek
-        }
+    for (const row of wRows) {
+        hasAny = true
+        const entry = data.entries.find((e) => e.row === row._id)
+        const rowSpends = data.spends.filter((s) => s.row === row._id)
+        // computeBudgetWeek keeps spend and carry within the month already.
+        const bw = computeBudgetWeek(row, entry, rowSpends, effectiveEnd, data.excluded)
+        totalTarget += bw.weeklyRate + bw.carry
+        totalSpent += bw.spentThisWeek
     }
 
     let status: DayDiscipline['status']
-    if (!running && weekEnd > today) status = 'future'
+    if (!running && clampedEnd > today) status = 'future'
     else if (!hasAny || totalTarget <= 0) status = 'skip'
     else status = totalSpent <= totalTarget + 0.005 ? 'under' : 'over'
 
-    return { date: weekEnd, target: totalTarget, spent: totalSpent, status, isWeekly: true }
+    return { date: clampedEnd, target: totalTarget, spent: totalSpent, status, isWeekly: true }
 }
 
 export interface DisciplineSummary {
@@ -192,13 +194,17 @@ export function summariseDiscipline(
 ): DisciplineSummary {
     const hasWeekly = rows.some((r) => r.budgeted && r.budgetType === 'weekly')
 
-    // Pre-compute weekly statuses so days in the same week share a status.
+    // Pre-compute weekly statuses so days in the same (month-bounded) week share
+    // a status. Keyed by month + week end since edge weeks are chopped per month.
     const weeklyStatusCache = new Map<string, DayDiscipline['status']>()
     if (hasWeekly) {
         for (let d = from; d <= today; d = addDays(d, 1)) {
-            const wEnd = weekEndOf(d)
-            if (!weeklyStatusCache.has(wEnd)) {
-                weeklyStatusCache.set(wEnd, weekDiscipline(wEnd, groups, rows, byMonth, today).status)
+            const key = `${monthOf(d)}|${weekEndOf(d)}`
+            if (!weeklyStatusCache.has(key)) {
+                weeklyStatusCache.set(
+                    key,
+                    weekDiscipline(monthOf(d), weekEndOf(d), groups, rows, byMonth, today).status
+                )
             }
         }
     }
@@ -209,7 +215,7 @@ export function summariseDiscipline(
         const dd = dayDiscipline(d, groups, rows, data, today)
         if (hasWeekly && !rows.some((r) => r.budgeted && r.budgetType === 'daily')) {
             // Pure weekly mode: override status from week assessment
-            const wStatus = weeklyStatusCache.get(weekEndOf(d)) ?? 'skip'
+            const wStatus = weeklyStatusCache.get(`${monthOf(d)}|${weekEndOf(d)}`) ?? 'skip'
             days.push({ ...dd, status: d > today ? 'future' : wStatus, isWeekly: true })
         } else {
             days.push(dd)
