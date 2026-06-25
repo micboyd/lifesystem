@@ -477,7 +477,7 @@ export default function Budgets() {
                     {!isCurrentWeek && (
                         <button
                             type="button"
-                            onClick={() => { setWeekAnchor(todayDate); setLoading(true) }}
+                            onClick={() => { if (todayDate.slice(0, 7) !== month) setLoading(true); setWeekAnchor(todayDate) }}
                             className="ml-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                         >
                             Today
