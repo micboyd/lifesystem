@@ -1042,10 +1042,7 @@ export default function Finances() {
                               : 'text-red-700'
 
                         return (
-                            <div
-                                key={group._id}
-                                className="overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md"
-                            >
+                            <Card key={group._id} flush className="overflow-hidden">
                                 {/* Group header */}
                                 <div
                                     className={`group/gh flex items-center justify-between px-5 py-4 ${headerBg}`}
@@ -1475,7 +1472,7 @@ export default function Finances() {
                                         </div>
                                     )
                                 })()}
-                            </div>
+                            </Card>
                         )
                     })}
 

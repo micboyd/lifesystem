@@ -309,7 +309,7 @@ export default function StyleGuide() {
 
                 <Section
                     title="Cards"
-                    description="Composable card built from Header, Title, Body, and Footer parts."
+                    description="Composable card built from Header, Title, Body, and Footer parts. Pass `flush` for full-bleed, sectioned cards that supply their own header/footer bars (pair with `overflow-hidden`)."
                     preview={
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Card>
@@ -354,6 +354,23 @@ export default function StyleGuide() {
                                     </Button>
                                 </CardFooter>
                             </Card>
+                            {/* Flush: full-bleed header/body, no default padding */}
+                            <Card flush className="overflow-hidden md:col-span-2">
+                                <div className="flex items-center justify-between bg-neutral-50 px-5 py-4">
+                                    <CardTitle>Fixed Expenses</CardTitle>
+                                    <Badge variant="danger">expense</Badge>
+                                </div>
+                                <div className="divide-y divide-neutral-100">
+                                    <div className="flex items-center justify-between px-5 py-3 text-sm">
+                                        <span className="font-semibold text-neutral-900">Rent</span>
+                                        <span className="tabular-nums text-neutral-700">£1,200.00</span>
+                                    </div>
+                                    <div className="flex items-center justify-between px-5 py-3 text-sm">
+                                        <span className="font-semibold text-neutral-900">Utilities</span>
+                                        <span className="tabular-nums text-neutral-700">£180.00</span>
+                                    </div>
+                                </div>
+                            </Card>
                         </div>
                     }
                     code={`<Card>
@@ -369,6 +386,12 @@ export default function StyleGuide() {
     <CardFooter>
         <Button variant="ghost" size="sm">Learn more →</Button>
     </CardFooter>
+</Card>
+
+{/* Full-bleed sections: own header/footer bars, no default padding */}
+<Card flush className="overflow-hidden">
+    <div className="bg-neutral-50 px-5 py-4">…header bar…</div>
+    <div className="divide-y divide-neutral-100">…rows…</div>
 </Card>`}
                 />
 

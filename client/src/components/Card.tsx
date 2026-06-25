@@ -8,12 +8,23 @@ interface CardProps {
 interface CardRootProps extends CardProps {
     /** Element to render as (e.g. "div", "section", "article"). Defaults to "div". */
     as?: ElementType
+    /**
+     * Drop the default `p-6` padding for full-bleed, sectioned cards that supply
+     * their own headers/footers/rows (e.g. a colored header bar). Pair with
+     * `overflow-hidden` so the contents clip to the rounded corners.
+     */
+    flush?: boolean
 }
 
-export function Card({ as: Tag = 'div', children, className = '' }: CardRootProps) {
+export function Card({
+    as: Tag = 'div',
+    children,
+    className = '',
+    flush = false,
+}: CardRootProps) {
     return (
         <Tag
-            className={`rounded-2xl border border-neutral-100 bg-white p-6 transition-all duration-300 hover:border-neutral-200 hover:shadow-md hover:-translate-y-0.5 ${className}`}
+            className={`rounded-2xl border border-neutral-100 bg-white ${flush ? '' : 'p-6'} transition-all duration-300 hover:border-neutral-200 hover:shadow-md hover:-translate-y-0.5 ${className}`}
         >
             {children}
         </Tag>
