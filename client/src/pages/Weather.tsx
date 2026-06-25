@@ -11,6 +11,7 @@ import { todayKey } from '../lib/calendar'
 import {
     fetchForecast,
     searchLocations,
+    reverseGeocode,
     weatherInfo,
     whatToWear,
     dayLabel,
@@ -41,6 +42,36 @@ function LocationPicker({
     const [query, setQuery] = useState('')
     const [results, setResults] = useState<GeocodeResult[]>([])
     const [searching, setSearching] = useState(false)
+    const [locating, setLocating] = useState(false)
+    const [geoError, setGeoError] = useState<string | null>(null)
+
+    function useMyLocation() {
+        if (!navigator.geolocation) {
+            setGeoError('Your browser doesn’t support location access.')
+            return
+        }
+        setGeoError(null)
+        setLocating(true)
+        navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+                const { latitude, longitude } = pos.coords
+                const name = (await reverseGeocode(latitude, longitude)) ?? 'My location'
+                onSelect({ name, latitude, longitude })
+                setLocating(false)
+                setEditing(false)
+                setQuery('')
+            },
+            (err) => {
+                setLocating(false)
+                setGeoError(
+                    err.code === err.PERMISSION_DENIED
+                        ? 'Location permission was denied — search by name instead.'
+                        : 'Couldn’t get your location — search by name instead.'
+                )
+            },
+            { enableHighAccuracy: true, timeout: 10_000 }
+        )
+    }
 
     // Debounced geocoding search.
     useEffect(() => {
@@ -92,11 +123,33 @@ function LocationPicker({
                         onClick={() => {
                             setEditing(false)
                             setQuery('')
+                            setGeoError(null)
                         }}
                     >
                         Cancel
                     </Button>
                 )}
+            </div>
+
+            {/* Geolocation — exact coordinates, no name ambiguity. */}
+            <div>
+                <button
+                    type="button"
+                    onClick={useMyLocation}
+                    disabled={locating || saving}
+                    className="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-3.5 py-2 text-xs font-semibold text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
+                >
+                    <i
+                        className={
+                            locating
+                                ? 'fa-solid fa-spinner fa-spin'
+                                : 'fa-solid fa-location-crosshairs text-sky-500'
+                        }
+                        aria-hidden="true"
+                    />
+                    {locating ? 'Locating…' : 'Use my current location'}
+                </button>
+                {geoError && <p className="mt-2 text-xs text-red-500">{geoError}</p>}
             </div>
 
             {searching ? (

@@ -130,6 +130,36 @@ export async function searchLocations(query: string): Promise<GeocodeResult[]> {
     }))
 }
 
+interface ReverseGeoResponse {
+    city?: string
+    locality?: string
+    principalSubdivision?: string
+    countryName?: string
+}
+
+/**
+ * Best-effort name for a set of coordinates (used by "Use my location"), via
+ * BigDataCloud's free keyless reverse geocoder. Returns null on any failure so
+ * callers can fall back to a generic label — the forecast works regardless.
+ */
+export async function reverseGeocode(latitude: number, longitude: number): Promise<string | null> {
+    try {
+        const params = new URLSearchParams({
+            latitude: String(latitude),
+            longitude: String(longitude),
+            localityLanguage: 'en',
+        })
+        const res = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?${params.toString()}`
+        )
+        if (!res.ok) return null
+        const data = (await res.json()) as ReverseGeoResponse
+        return data.city || data.locality || data.principalSubdivision || null
+    } catch {
+        return null
+    }
+}
+
 interface CodeInfo {
     label: string
     /** Font Awesome class string. */
