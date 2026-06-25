@@ -14,6 +14,12 @@ interface CardRootProps extends CardProps {
      * `overflow-hidden` so the contents clip to the rounded corners.
      */
     flush?: boolean
+    /**
+     * Lift-and-shadow on hover. On by default; pass `false` for large or densely
+     * interactive cards (e.g. a calendar grid) where hovering the contents
+     * shouldn't animate the whole card.
+     */
+    hover?: boolean
 }
 
 export function Card({
@@ -21,14 +27,13 @@ export function Card({
     children,
     className = '',
     flush = false,
+    hover = true,
 }: CardRootProps) {
-    return (
-        <Tag
-            className={`rounded-2xl border border-neutral-100 bg-white ${flush ? '' : 'p-6'} transition-all duration-300 hover:border-neutral-200 hover:shadow-md hover:-translate-y-0.5 ${className}`}
-        >
-            {children}
-        </Tag>
-    )
+    const base = `rounded-2xl border border-neutral-100 bg-white ${flush ? '' : 'p-6'}`
+    const hoverCls = hover
+        ? 'transition-all duration-300 hover:border-neutral-200 hover:shadow-md hover:-translate-y-0.5'
+        : ''
+    return <Tag className={`${base} ${hoverCls} ${className}`}>{children}</Tag>
 }
 
 export function CardHeader({ children, className = '' }: CardProps) {

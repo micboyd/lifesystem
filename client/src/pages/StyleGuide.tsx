@@ -309,7 +309,7 @@ export default function StyleGuide() {
 
                 <Section
                     title="Cards"
-                    description="Composable card built from Header, Title, Body, and Footer parts. Pass `flush` for full-bleed, sectioned cards that supply their own header/footer bars (pair with `overflow-hidden`)."
+                    description="Composable card built from Header, Title, Body, and Footer parts. Pass `flush` for full-bleed, sectioned cards that supply their own header/footer bars (pair with `overflow-hidden`), and `hover={false}` to disable the lift-on-hover for large or densely interactive cards."
                     preview={
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Card>

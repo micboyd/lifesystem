@@ -1,6 +1,7 @@
 import { todayKey, addDays, getWeekStart, parseDateKey } from '../../lib/calendar'
 import { EVENT_TYPE_COLORS, NA_EVENT_COLORS, DAY_STATUS_OPTIONS } from '../../types'
 import type { Event, DayStatus, Part } from '../../types'
+import { Card } from '../Card'
 
 interface Props {
     focusDate: string
@@ -28,7 +29,7 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
     const gridDays = Array.from({ length: totalCells }, (_, i) => addDays(gridStart, i))
 
     return (
-        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+        <Card flush hover={false} className="overflow-hidden">
             {/* Weekday headers */}
             <div className="grid grid-cols-7 border-b border-neutral-200 bg-white">
                 {WEEKDAY_HEADERS.map((d) => (
@@ -137,6 +138,6 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
                     )
                 })}
             </div>
-        </div>
+        </Card>
     )
 }
