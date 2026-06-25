@@ -15,12 +15,14 @@ import { addMonths } from '../../lib/finance'
 import { useAuth } from '../../context/AuthContext'
 import { monthTrend, type MonthBudgetTrend } from '../../lib/budgetTrends'
 import { formatAmount } from '../../lib/money'
+import { useMoneyHidden } from '../useMoneyHidden'
 import type { FinanceGroup, FinanceRow } from '../../types'
 
 const fmt = formatAmount
 const MONTHS_BACK = 6
 
 export default function BudgetTrendWidget({ date }: { date: string }) {
+    useMoneyHidden() // re-render when money is hidden/shown
     const { user } = useAuth()
     const financeStartMonth = user?.settings?.financeStartDate?.slice(0, 7) ?? null
     const [trends, setTrends] = useState<MonthBudgetTrend[]>([])

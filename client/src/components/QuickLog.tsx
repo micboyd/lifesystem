@@ -16,6 +16,7 @@ import {
 import { monthOf } from '../lib/budget'
 import { todayKey } from '../lib/calendar'
 import { formatMoney, formatAmount } from '../lib/money'
+import { useMoneyHidden } from './useMoneyHidden'
 import {
     trackedRowsInMonth,
     safeToSpendToday,
@@ -25,6 +26,7 @@ import {
 import type { FinanceGroup, FinanceRow } from '../types'
 
 export default function QuickLog() {
+    useMoneyHidden() // re-render when money is hidden/shown
     const toast = useToast()
     const invalidate = useInvalidate()
     const budgetVersion = useDataVersion('budget')

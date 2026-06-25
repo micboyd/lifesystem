@@ -25,6 +25,7 @@ import {
 } from '../services/finances'
 import { addMonths, rowVisibleInMonth, groupVisibleInMonth, type DeleteMode } from '../lib/finance'
 import { formatMoney, formatAmount } from '../lib/money'
+import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
@@ -510,6 +511,7 @@ function AddRowForm({ month, onSave, onCancel }: AddRowFormProps) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Finances() {
+    useMoneyHidden() // re-render this subtree when money is hidden/shown
     const navigate = useNavigate()
     const toast = useToast()
     const { user } = useAuth()

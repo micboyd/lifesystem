@@ -9,6 +9,8 @@ import {
 } from '../../types'
 import { MONTHS, WEEKDAYS_LONG } from '../../lib/calendar'
 import type { Event } from '../../types'
+import { formatAmount } from '../../lib/money'
+import { useMoneyHidden } from '../useMoneyHidden'
 
 interface Props {
     event: Event | null
@@ -59,6 +61,7 @@ function partRange(event: Event): string {
 
 export default function EventDetailModal({ event, onClose, onEdit, onDeleteOccurrence }: Props) {
     const [deletingOccurrence, setDeletingOccurrence] = useState(false)
+    useMoneyHidden() // re-render when money is hidden/shown
     if (!event) return null
 
     async function handleDeleteOccurrence() {
@@ -161,11 +164,7 @@ export default function EventDetailModal({ event, onClose, onEdit, onDeleteOccur
                 {/* Budget */}
                 {event.budget != null && (
                     <DetailRow icon="fa-solid fa-wallet">
-                        £
-                        {event.budget.toLocaleString('en-GB', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                        })}
+                        £{formatAmount(event.budget)}
                         {event.budgetRow && event.budgetRowName && (
                             <span className="ml-1.5 inline-flex items-center gap-1 text-neutral-400">
                                 <i className="fa-solid fa-link text-[10px]" aria-hidden="true" />

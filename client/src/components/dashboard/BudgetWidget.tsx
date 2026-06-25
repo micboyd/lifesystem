@@ -13,6 +13,7 @@ import {
 import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, weekStartOf, weekEndOf } from '../../lib/budget'
 import { rowVisibleInMonth } from '../../lib/finance'
 import { formatAmount } from '../../lib/money'
+import { useMoneyHidden } from '../useMoneyHidden'
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -193,6 +194,7 @@ function WeeklyBudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetC
 // ── Main widget ───────────────────────────────────────────────────────────────
 
 export default function BudgetWidget({ date }: { date: string }) {
+    useMoneyHidden() // re-render when money is hidden/shown
     const [groups, setGroups] = useState<FinanceGroup[]>([])
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])

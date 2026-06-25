@@ -14,6 +14,7 @@ import {
     deleteSubItem,
 } from '../services/finances'
 import { formatAmount } from '../lib/money'
+import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
 import type { FinanceGroup, FinanceRow, FinanceEntry, FinanceSubItem } from '../types'
 
@@ -205,6 +206,7 @@ function AddItemForm({ onSave, onCancel }: AddItemFormProps) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function FinanceBreakdown() {
+    useMoneyHidden() // re-render this subtree when money is hidden/shown
     const { rowId } = useParams<{ rowId: string }>()
     const [searchParams, setSearchParams] = useSearchParams()
     const navigate = useNavigate()

@@ -14,6 +14,7 @@ import {
 import { rowVisibleInMonth } from '../lib/finance'
 import { computeBudgetDay, computeBudgetWeek, daysInMonth, weekStartOf, weekEndOf } from '../lib/budget'
 import { formatAmount } from '../lib/money'
+import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
 import { useInvalidate } from '../context/DataSyncContext'
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../types'
@@ -350,6 +351,7 @@ function BudgetCard({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Budgets() {
+    useMoneyHidden() // re-render this subtree when money is hidden/shown
     const [loading, setLoading] = useState(true)
     const [groups, setGroups] = useState<FinanceGroup[]>([])
     const [rows, setRows] = useState<FinanceRow[]>([])

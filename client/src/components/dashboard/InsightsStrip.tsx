@@ -16,6 +16,7 @@ import { computeBudgetDay, computeBudgetWeek, monthOf, weekStartOf, weekEndOf } 
 import { rowVisibleInMonth } from '../../lib/finance'
 import { addDays } from '../../lib/calendar'
 import { formatMoney } from '../../lib/money'
+import { useMoneyHidden } from '../useMoneyHidden'
 import { timeToMinutes, formatDuration, DEFAULT_WAKE, DEFAULT_BED } from '../../lib/time'
 import type {
     HabitDef,
@@ -206,6 +207,7 @@ const PLACEHOLDERS: Insight[] = [
 ]
 
 export default function InsightsStrip({ date }: { date: string }) {
+    useMoneyHidden() // re-render when money is hidden/shown
     const { user } = useAuth()
     // Refetch whenever any of these data topics change elsewhere in the app.
     const dataVersion = useDataVersion('habits', 'tasks', 'timeboxes', 'budget')

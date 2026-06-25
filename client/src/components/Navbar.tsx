@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import Container from './Container'
+import { useMoneyHidden } from './useMoneyHidden'
+import { toggleMoneyHidden } from '../lib/moneyVisibility'
 
 const navLinks = [
     { label: 'Home', to: '/' },
@@ -17,6 +19,7 @@ const navLinks = [
 export default function Navbar() {
     const { pathname } = useLocation()
     const [open, setOpen] = useState(false)
+    const moneyHidden = useMoneyHidden()
 
     // Close drawer on route change
     useEffect(() => {
@@ -46,36 +49,59 @@ export default function Navbar() {
                             </span>
                         </Link>
 
-                        {/* Desktop links */}
-                        <div className="hidden items-center gap-1 lg:flex">
-                            {navLinks.map(({ label, to }) => {
-                                const active = pathname === to
-                                return (
-                                    <Link
-                                        key={to}
-                                        to={to}
-                                        className={[
-                                            'rounded-full px-4 py-2 text-sm font-semibold transition-all duration-150',
-                                            active
-                                                ? 'bg-neutral-950 text-white'
-                                                : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900',
-                                        ].join(' ')}
-                                    >
-                                        {label}
-                                    </Link>
-                                )
-                            })}
-                        </div>
+                        {/* Right cluster: links, money toggle, mobile menu */}
+                        <div className="flex items-center gap-1">
+                            {/* Desktop links */}
+                            <div className="hidden items-center gap-1 lg:flex">
+                                {navLinks.map(({ label, to }) => {
+                                    const active = pathname === to
+                                    return (
+                                        <Link
+                                            key={to}
+                                            to={to}
+                                            className={[
+                                                'rounded-full px-4 py-2 text-sm font-semibold transition-all duration-150',
+                                                active
+                                                    ? 'bg-neutral-950 text-white'
+                                                    : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900',
+                                            ].join(' ')}
+                                        >
+                                            {label}
+                                        </Link>
+                                    )
+                                })}
+                            </div>
 
-                        {/* Mobile menu button */}
-                        <button
-                            type="button"
-                            onClick={() => setOpen(true)}
-                            aria-label="Open menu"
-                            className="grid h-9 w-9 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-neutral-100 lg:hidden"
-                        >
-                            <i className="fa-solid fa-bars text-sm" aria-hidden="true" />
-                        </button>
+                            {/* Master hide-money toggle */}
+                            <button
+                                type="button"
+                                onClick={toggleMoneyHidden}
+                                aria-pressed={moneyHidden}
+                                aria-label={moneyHidden ? 'Show money values' : 'Hide money values'}
+                                title={moneyHidden ? 'Show money values' : 'Hide money values'}
+                                className={[
+                                    'grid h-9 w-9 place-items-center rounded-full transition-colors',
+                                    moneyHidden
+                                        ? 'bg-neutral-950 text-white'
+                                        : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900',
+                                ].join(' ')}
+                            >
+                                <i
+                                    className={`fa-solid ${moneyHidden ? 'fa-eye-slash' : 'fa-eye'} text-sm`}
+                                    aria-hidden="true"
+                                />
+                            </button>
+
+                            {/* Mobile menu button */}
+                            <button
+                                type="button"
+                                onClick={() => setOpen(true)}
+                                aria-label="Open menu"
+                                className="grid h-9 w-9 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-neutral-100 lg:hidden"
+                            >
+                                <i className="fa-solid fa-bars text-sm" aria-hidden="true" />
+                            </button>
+                        </div>
                     </nav>
                 </Container>
             </div>

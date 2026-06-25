@@ -12,6 +12,7 @@ import {
 import { rowVisibleInMonth } from '../lib/finance'
 import { computeBudgetDay, computeBudgetWeek, daysInMonth, activeDaysInMonth } from '../lib/budget'
 import { formatAmount } from '../lib/money'
+import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
 import { useInvalidate } from '../context/DataSyncContext'
 import { useAuth } from '../context/AuthContext'
@@ -1033,6 +1034,7 @@ function DayModal({
 
 
 export default function BudgetCalendar() {
+    useMoneyHidden() // re-render this subtree when money is hidden/shown
     const { user } = useAuth()
     const financeStartMonth = user?.settings?.financeStartDate?.slice(0, 7) ?? null
     const [month, setMonth] = useState(currentMonth)

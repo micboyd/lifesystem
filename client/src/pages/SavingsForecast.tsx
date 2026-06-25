@@ -6,6 +6,7 @@ import Tabs from '../components/Tabs'
 import { listGroups, listRows, listEntries, updateGroup, deleteGroup } from '../services/finances'
 import { groupVisibleInMonth, rowVisibleInMonth, addMonths } from '../lib/finance'
 import { formatAmount, formatMoneyCompact } from '../lib/money'
+import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
 import type { FinanceGroup, FinanceRow, FinanceEntry } from '../types'
 
@@ -597,6 +598,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SavingsForecast() {
+    useMoneyHidden() // re-render this subtree when money is hidden/shown
     const toast = useToast()
     const [loading, setLoading] = useState(true)
     const [groups, setGroups] = useState<FinanceGroup[]>([])

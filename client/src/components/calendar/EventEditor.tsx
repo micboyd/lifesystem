@@ -23,6 +23,8 @@ import {
     type FinanceEntry,
 } from '../../types'
 import type { EventInput } from '../../services/events'
+import { formatAmount } from '../../lib/money'
+import { useMoneyHidden } from '../useMoneyHidden'
 import { listRows as listFinanceRows, listGroups, listEntries } from '../../services/finances'
 
 interface EventEditorProps {
@@ -214,6 +216,7 @@ export default function EventEditor({
     onSave,
     onDelete,
 }: EventEditorProps) {
+    useMoneyHidden() // re-render when money is hidden/shown
     const [title, setTitle] = useState('')
     const [location, setLocation] = useState('')
     const [eventType, setEventType] = useState<EventType>('general')
@@ -397,8 +400,7 @@ export default function EventEditor({
           0)
         : undefined
 
-    const fmtMoney = (n: number) =>
-        n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const fmtMoney = formatAmount
 
     return (
         <Drawer
