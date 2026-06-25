@@ -180,13 +180,13 @@ function MonthDrawer({
                                     <td className="py-3 pl-6 pr-3 text-sm font-semibold text-neutral-900">
                                         {label(m.month)}
                                     </td>
-                                    <td className="py-3 px-3 text-right text-sm font-mono text-neutral-600">
+                                    <td className="py-3 px-3 text-right text-sm text-neutral-600">
                                         £{fmt(m.contributions, 0)}
                                     </td>
-                                    <td className={`py-3 px-3 text-right text-sm font-mono ${m.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-400'}`}>
+                                    <td className={`py-3 px-3 text-right text-sm ${m.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-400'}`}>
                                         {m.interestEarned > 0 ? '+' : ''}£{fmt(m.interestEarned, 0)}
                                     </td>
-                                    <td className="py-3 pl-3 pr-6 text-right text-sm font-bold font-mono text-neutral-900">
+                                    <td className="py-3 pl-3 pr-6 text-right text-sm font-bold text-neutral-900">
                                         £{fmt(m.endBalance, 0)}
                                     </td>
                                 </tr>
@@ -199,15 +199,15 @@ function MonthDrawer({
                     <div className="grid grid-cols-3 gap-3 text-center">
                         <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Contributions</p>
-                            <p className="mt-0.5 text-sm font-bold font-mono text-neutral-900">£{fmt(yearRow.contributions, 0)}</p>
+                            <p className="mt-0.5 text-sm font-bold text-neutral-900">£{fmt(yearRow.contributions, 0)}</p>
                         </div>
                         <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Interest</p>
-                            <p className="mt-0.5 text-sm font-bold font-mono text-emerald-600">+£{fmt(yearRow.interestEarned, 0)}</p>
+                            <p className="mt-0.5 text-sm font-bold text-emerald-600">+£{fmt(yearRow.interestEarned, 0)}</p>
                         </div>
                         <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">End balance</p>
-                            <p className="mt-0.5 text-sm font-bold font-mono text-neutral-900">£{fmt(yearRow.endBalance, 0)}</p>
+                            <p className="mt-0.5 text-sm font-bold text-neutral-900">£{fmt(yearRow.endBalance, 0)}</p>
                         </div>
                     </div>
                 </div>
@@ -275,8 +275,8 @@ function MilestoneCard({
             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                 {label ?? `Year ${year}`}
             </p>
-            <p className="text-2xl font-bold font-mono tabular-nums tracking-tight">{fmtCompact(balance)}</p>
-            <p className="text-xs text-neutral-500 font-mono tabular-nums">£{fmt(balance, 0)}</p>
+            <p className="text-2xl font-bold tabular-nums tracking-tight">{fmtCompact(balance)}</p>
+            <p className="text-xs text-neutral-500 tabular-nums">£{fmt(balance, 0)}</p>
         </div>
     )
 }
@@ -329,7 +329,7 @@ function GroupSettingsCard({ group, monthlyContribution, activeDescription, onUp
             <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                     <p className="text-lg font-bold tracking-tight text-neutral-900">{group.name}</p>
-                    <p className="mt-0.5 text-sm font-mono tabular-nums text-neutral-400">£{fmt(monthlyContribution)} / month</p>
+                    <p className="mt-0.5 text-sm tabular-nums text-neutral-400">£{fmt(monthlyContribution)} / month</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">
@@ -539,10 +539,10 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                                 You should have saved
                             </p>
-                            <p className="mt-1 text-3xl font-bold font-mono tabular-nums tracking-tight">
+                            <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
                                 £{fmt(grandTotal)}
                             </p>
-                            <p className="mt-1 font-mono text-xs text-neutral-500 tabular-nums">
+                            <p className="mt-1 text-xs text-neutral-500 tabular-nums">
                                 {monthCount} {monthCount === 1 ? 'month' : 'months'} · avg £
                                 {fmt(monthlyAvg)}/mo
                             </p>
@@ -558,7 +558,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
                                         <span className="truncate text-sm font-semibold text-neutral-700">
                                             {group.name}
                                         </span>
-                                        <span className="shrink-0 text-sm font-bold font-mono tabular-nums text-neutral-900">
+                                        <span className="shrink-0 text-sm font-bold tabular-nums text-neutral-900">
                                             £{fmt(total)}
                                         </span>
                                     </div>
@@ -580,7 +580,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
                                             <span className="text-sm text-neutral-600">
                                                 {new Date(month + '-02').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                                             </span>
-                                            <span className={`text-sm font-mono font-semibold tabular-nums ${total === 0 ? 'text-neutral-400' : 'text-neutral-900'}`}>
+                                            <span className={`text-sm font-semibold tabular-nums ${total === 0 ? 'text-neutral-400' : 'text-neutral-900'}`}>
                                                 £{fmt(total)}
                                             </span>
                                         </div>
@@ -851,7 +851,7 @@ export default function SavingsForecast() {
                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                                         Starting balance
                                     </p>
-                                    <p className="mt-1 text-xl font-bold font-mono tabular-nums tracking-tight text-neutral-900">
+                                    <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-neutral-900">
                                         £{fmt(totalCurrentBalance, 0)}
                                     </p>
                                 </div>
@@ -859,7 +859,7 @@ export default function SavingsForecast() {
                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                                         Total contributions
                                     </p>
-                                    <p className="mt-1 text-xl font-bold font-mono tabular-nums tracking-tight text-neutral-900">
+                                    <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-neutral-900">
                                         £{fmt(totalContributions, 0)}
                                     </p>
                                 </div>
@@ -867,7 +867,7 @@ export default function SavingsForecast() {
                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                                         Interest earned
                                     </p>
-                                    <p className="mt-1 text-xl font-bold font-mono tabular-nums tracking-tight text-emerald-600">
+                                    <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-emerald-600">
                                         £
                                         {fmt(
                                             yearlyTable.reduce((s, r) => s + r.interestEarned, 0),
@@ -948,13 +948,13 @@ export default function SavingsForecast() {
                                                                 </span>
                                                             )}
                                                         </td>
-                                                        <td className="py-3 px-3 text-right text-sm font-mono text-neutral-600">
+                                                        <td className="py-3 px-3 text-right text-sm text-neutral-600">
                                                             £{fmt(row.contributions, 0)}
                                                         </td>
-                                                        <td className={`py-3 px-3 text-right text-sm font-mono ${row.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-400'}`}>
+                                                        <td className={`py-3 px-3 text-right text-sm ${row.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-400'}`}>
                                                             {row.interestEarned > 0 ? '+' : ''}£{fmt(row.interestEarned, 0)}
                                                         </td>
-                                                        <td className="py-3 pl-3 pr-5 text-right text-sm font-bold font-mono text-neutral-900">
+                                                        <td className="py-3 pl-3 pr-5 text-right text-sm font-bold text-neutral-900">
                                                             £{fmt(row.endBalance, 0)}
                                                         </td>
                                                     </tr>

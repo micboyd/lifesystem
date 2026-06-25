@@ -99,13 +99,13 @@ function SpendInput({ spentToday, hasLogged, onAdd }: SpendInputProps) {
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                     Spent today
                 </span>
-                <span className={`text-sm font-mono tabular-nums ${hasLogged ? 'text-neutral-900' : 'text-neutral-300'}`}>
+                <span className={`text-sm tabular-nums ${hasLogged ? 'text-neutral-900' : 'text-neutral-300'}`}>
                     {hasLogged ? `£${fmt(spentToday)}` : '—'}
                 </span>
             </div>
             <form onSubmit={submit} className="flex gap-2">
                 <div className="relative min-w-0 flex-1">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-mono text-neutral-400">£</span>
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-400">£</span>
                     <input
                         type="number"
                         step="0.01"
@@ -113,7 +113,7 @@ function SpendInput({ spentToday, hasLogged, onAdd }: SpendInputProps) {
                         placeholder="Log a transaction"
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
-                        className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm font-mono tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
+                        className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
                     />
                 </div>
                 <button
@@ -208,7 +208,7 @@ function BudgetCard({
                 </div>
                 <div className="shrink-0 text-right">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Monthly</p>
-                    <p className="mt-0.5 text-xl font-bold font-mono tabular-nums tracking-tight text-neutral-900">
+                    <p className="mt-0.5 text-xl font-bold tabular-nums tracking-tight text-neutral-900">
                         {monthlyAmount > 0 ? `£${fmt(monthlyAmount)}` : '—'}
                     </p>
                     {monthlyAmount > 0 && (
@@ -228,7 +228,7 @@ function BudgetCard({
                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                                     Week allowance
                                 </p>
-                                <p className="mt-1 text-3xl font-bold font-mono tabular-nums tracking-tight">
+                                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
                                     £{fmt(weeklyBudget.weeklyRate + weeklyBudget.carry)}
                                 </p>
                                 <p className="mt-0.5 text-[10px] text-neutral-500">{rangeLabel}</p>
@@ -237,7 +237,7 @@ function BudgetCard({
                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                                     Remaining
                                 </p>
-                                <p className={['mt-1 text-xl font-bold font-mono tabular-nums', weeklyBudget.remaining >= 0 ? 'text-emerald-400' : 'text-red-400'].join(' ')}>
+                                <p className={['mt-1 text-xl font-bold tabular-nums', weeklyBudget.remaining >= 0 ? 'text-emerald-400' : 'text-red-400'].join(' ')}>
                                     £{fmt(Math.abs(weeklyBudget.remaining))}
                                     {weeklyBudget.remaining < 0 && <span className="ml-1 text-xs font-normal">over</span>}
                                 </p>
@@ -251,7 +251,7 @@ function BudgetCard({
                                     style={{ width: `${Math.min(100, (weeklyBudget.spentThisWeek / ((weeklyBudget.weeklyRate + weeklyBudget.carry) || 1)) * 100)}%` }}
                                 />
                             </div>
-                            <div className="mt-2 flex justify-between text-[11px] font-mono tabular-nums text-neutral-400">
+                            <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-400">
                                 <span>£{fmt(weeklyBudget.spentThisWeek)} spent</span>
                                 <span>£{fmt(weeklyBudget.weeklyRate + weeklyBudget.carry)}</span>
                             </div>
@@ -288,7 +288,7 @@ function BudgetCard({
                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                                     Week allowance
                                 </p>
-                                <p className="mt-1 text-3xl font-bold font-mono tabular-nums tracking-tight">
+                                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
                                     £{fmt(weekTargetDaily)}
                                 </p>
                                 <p className="mt-0.5 text-[10px] text-neutral-500">{rangeLabel}</p>
@@ -297,7 +297,7 @@ function BudgetCard({
                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                                     Remaining
                                 </p>
-                                <p className={['mt-1 text-xl font-bold font-mono tabular-nums', weekRemainingDaily >= 0 ? 'text-emerald-400' : 'text-red-400'].join(' ')}>
+                                <p className={['mt-1 text-xl font-bold tabular-nums', weekRemainingDaily >= 0 ? 'text-emerald-400' : 'text-red-400'].join(' ')}>
                                     £{fmt(Math.abs(weekRemainingDaily))}
                                     {weekRemainingDaily < 0 && <span className="ml-1 text-xs font-normal">over</span>}
                                 </p>
@@ -311,7 +311,7 @@ function BudgetCard({
                                     style={{ width: `${Math.min(100, (weekSpentDaily / (weekTargetDaily || 1)) * 100)}%` }}
                                 />
                             </div>
-                            <div className="mt-2 flex justify-between text-[11px] font-mono tabular-nums text-neutral-400">
+                            <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-400">
                                 <span>£{fmt(weekSpentDaily)} spent</span>
                                 <span>£{fmt(weekTargetDaily)}</span>
                             </div>

@@ -135,7 +135,7 @@ export default function QuickLog() {
                         {overShort ? 'Over today' : 'Safe today'}
                     </span>
                     <span
-                        className={`font-mono text-sm font-bold tabular-nums ${
+                        className={`text-sm font-bold tabular-nums ${
                             safe.remaining >= 0 ? 'text-emerald-400' : 'text-red-400'
                         }`}
                     >
@@ -171,13 +171,13 @@ export default function QuickLog() {
                                     {overShort ? 'Over budget today' : 'Safe to spend today'}
                                 </p>
                                 <p
-                                    className={`mt-1 text-3xl font-bold font-mono tabular-nums tracking-tight ${
+                                    className={`mt-1 text-3xl font-bold tabular-nums tracking-tight ${
                                         safe.remaining >= 0 ? 'text-white' : 'text-red-400'
                                     }`}
                                 >
                                     {formatMoney(safe.remaining)}
                                 </p>
-                                <p className="mt-1 font-mono text-xs text-neutral-500 tabular-nums">
+                                <p className="mt-1 text-xs text-neutral-500 tabular-nums">
                                     £{formatAmount(safe.spentToday)} spent of £
                                     {formatAmount(safe.spentToday + safe.remaining)} allowance
                                 </p>
@@ -201,7 +201,7 @@ export default function QuickLog() {
                                     Amount
                                 </label>
                                 <div className="relative">
-                                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-mono text-neutral-400">
+                                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">
                                         £
                                     </span>
                                     <input
@@ -213,7 +213,7 @@ export default function QuickLog() {
                                         placeholder="0.00"
                                         value={amount}
                                         onChange={(e) => setAmount(e.target.value)}
-                                        className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2.5 pl-8 pr-4 font-mono tabular-nums text-neutral-900 outline-none transition-all focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200"
+                                        className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2.5 pl-8 pr-4 tabular-nums text-neutral-900 outline-none transition-all focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200"
                                     />
                                 </div>
                             </div>

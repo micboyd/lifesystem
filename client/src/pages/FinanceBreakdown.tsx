@@ -92,7 +92,7 @@ function SubItemRow({ item, onSave, onDelete }: SubItemRowProps) {
                             if (e.key === 'Enter') handleSave()
                             if (e.key === 'Escape') setEditing(false)
                         }}
-                        className="ml-1 w-full bg-transparent text-sm font-mono outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="ml-1 w-full bg-transparent text-sm outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                 </div>
                 <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
@@ -116,7 +116,7 @@ function SubItemRow({ item, onSave, onDelete }: SubItemRowProps) {
     return (
         <li className="group/item flex items-center justify-between gap-3 rounded-2xl border border-neutral-100 bg-white px-4 py-3.5 transition-all hover:border-neutral-200 hover:shadow-sm">
             <span className="flex-1 text-sm font-semibold text-neutral-800">{item.name}</span>
-            <span className="font-mono tabular-nums text-sm text-neutral-700">£{fmt(item.amount)}</span>
+            <span className="tabular-nums text-sm text-neutral-700">£{fmt(item.amount)}</span>
             <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:opacity-100">
                 <button
                     type="button"
@@ -186,7 +186,7 @@ function AddItemForm({ onSave, onCancel }: AddItemFormProps) {
                         if (e.key === 'Enter') handleSave()
                         if (e.key === 'Escape') onCancel()
                     }}
-                    className="ml-1 w-full bg-transparent text-sm font-mono outline-none placeholder:text-neutral-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className="ml-1 w-full bg-transparent text-sm outline-none placeholder:text-neutral-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
             </div>
             <Button
@@ -389,7 +389,7 @@ export default function FinanceBreakdown() {
                                 : `Total — ${row.name}`}
                         </p>
                         <p
-                            className={`mt-1 text-4xl font-bold font-mono tabular-nums ${accentCls}`}
+                            className={`mt-1 text-4xl font-bold tabular-nums ${accentCls}`}
                         >
                             £{fmt(totalAmount)}
                         </p>

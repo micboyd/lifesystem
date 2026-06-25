@@ -114,7 +114,7 @@ export default function BudgetTrendWidget({ date }: { date: string }) {
                     {/* Summary */}
                     <div className="mb-5 flex flex-wrap items-baseline gap-x-6 gap-y-1">
                         <div>
-                            <span className="text-2xl font-bold font-mono tabular-nums tracking-tight text-neutral-900">
+                            <span className="text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
                                 £{fmt(avgSpend)}
                             </span>
                             <span className="ml-1.5 text-xs font-medium text-neutral-400">
@@ -148,7 +148,7 @@ export default function BudgetTrendWidget({ date }: { date: string }) {
                                     title={`${t.label}: £${fmt(t.spent)} spent of £${fmt(t.budget)} budget`}
                                 >
                                     <span
-                                        className={`font-mono text-[10px] tabular-nums ${
+                                        className={`text-[10px] tabular-nums ${
                                             empty
                                                 ? 'text-neutral-300'
                                                 : t.over

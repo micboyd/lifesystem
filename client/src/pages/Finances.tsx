@@ -97,7 +97,7 @@ function AmountCell({ value, placeholder, onSave, large = false }: AmountCellPro
                     if (e.key === 'Escape') setEditing(false)
                 }}
                 className={[
-                    'w-full rounded-lg border border-neutral-300 bg-white px-2 text-right font-mono tabular-nums focus:border-neutral-950 focus:outline-none',
+                    'w-full rounded-lg border border-neutral-300 bg-white px-2 text-right tabular-nums focus:border-neutral-950 focus:outline-none',
                     large ? 'py-1 text-sm font-semibold' : 'py-1 text-sm',
                 ].join(' ')}
             />
@@ -112,7 +112,7 @@ function AmountCell({ value, placeholder, onSave, large = false }: AmountCellPro
             type="button"
             onClick={startEdit}
             className={[
-                'w-full rounded-lg px-2 text-right font-mono tabular-nums transition-colors hover:bg-neutral-100',
+                'w-full rounded-lg px-2 text-right tabular-nums transition-colors hover:bg-neutral-100',
                 large ? 'py-1 text-sm font-semibold' : 'py-1 text-sm',
                 isPlaceholder
                     ? large
@@ -213,7 +213,7 @@ function PotCard({
                             <span className="text-sm font-semibold text-neutral-700">{pot.name}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                            <span className={`mr-1 text-xs font-semibold font-mono tabular-nums ${totalCls}`}>
+                            <span className={`mr-1 text-xs font-semibold tabular-nums ${totalCls}`}>
                                 {formatMoney(total)}
                             </span>
                             <button
@@ -299,7 +299,7 @@ function PotCard({
                                             <div className={`h-full rounded-full ${barCls}`} style={{ width: `${pct}%` }} />
                                         </div>
                                         {row.recurring !== false && row.recurringAmount !== undefined && (
-                                            <span className="shrink-0 font-mono text-[11px] tabular-nums text-neutral-400">
+                                            <span className="shrink-0 text-[11px] tabular-nums text-neutral-400">
                                                 £{formatAmount(row.recurringAmount)}/mo
                                             </span>
                                         )}
@@ -352,7 +352,7 @@ function PotCard({
                     )}
                     <div className="flex items-baseline gap-2">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300">Total</span>
-                        <span className={`pr-2 font-mono text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
+                        <span className={`pr-2 text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
                             {formatMoney(total)}
                         </span>
                     </div>
@@ -1084,7 +1084,7 @@ export default function Finances() {
                                                 <span className="truncate text-sm font-bold tracking-tight text-neutral-900">
                                                     {group.name}
                                                 </span>
-                                                <span className={`shrink-0 font-mono text-base font-bold tabular-nums tracking-tight ${totalCls}`}>
+                                                <span className={`shrink-0 text-base font-bold tabular-nums tracking-tight ${totalCls}`}>
                                                     {formatMoney(total)}
                                                 </span>
                                                 <span className={`shrink-0 w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeCls}`}>
@@ -1242,7 +1242,7 @@ export default function Finances() {
                                                             </div>
                                                             {row.recurring !== false &&
                                                                 row.recurringAmount !== undefined && (
-                                                                    <span className="shrink-0 font-mono text-[11px] tabular-nums text-neutral-400">
+                                                                    <span className="shrink-0 text-[11px] tabular-nums text-neutral-400">
                                                                         £
                                                                         {formatAmount(
                                                                             row.recurringAmount
@@ -1420,7 +1420,7 @@ export default function Finances() {
                                                     <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                                                         Left to pay
                                                     </span>
-                                                    <span className={`pr-2 font-mono text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
+                                                    <span className={`pr-2 text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
                                                         {formatMoney(leftToPay)}
                                                     </span>
                                                 </>
@@ -1429,7 +1429,7 @@ export default function Finances() {
                                                     <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300">
                                                         Total
                                                     </span>
-                                                    <span className={`pr-2 font-mono text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
+                                                    <span className={`pr-2 text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
                                                         {formatMoney(total)}
                                                     </span>
                                                 </>
@@ -1492,20 +1492,20 @@ export default function Finances() {
                             >
                                 <div>
                                     <p className="text-[11px] font-medium text-neutral-500">Total Income</p>
-                                    <p className="mt-0.5 text-lg font-bold font-mono tabular-nums text-emerald-400">
+                                    <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-400">
                                         {formatMoney(totalIncome)}
                                     </p>
                                 </div>
                                 <div>
                                     <p className="text-[11px] font-medium text-neutral-500">Total Expenses</p>
-                                    <p className="mt-0.5 text-lg font-bold font-mono tabular-nums text-red-400">
+                                    <p className="mt-0.5 text-lg font-bold tabular-nums text-red-400">
                                         {formatMoney(totalExpense)}
                                     </p>
                                 </div>
                                 {savingsGroups.length > 0 && (
                                     <div>
                                         <p className="text-[11px] font-medium text-neutral-500">Total Savings</p>
-                                        <p className="mt-0.5 text-lg font-bold font-mono tabular-nums text-blue-400">
+                                        <p className="mt-0.5 text-lg font-bold tabular-nums text-blue-400">
                                             {formatMoney(totalSavings)}
                                         </p>
                                     </div>
@@ -1514,7 +1514,7 @@ export default function Finances() {
                                     <p className="text-[11px] font-medium text-neutral-500">Net</p>
                                     <p
                                         className={[
-                                            'mt-0.5 text-lg font-bold font-mono tabular-nums',
+                                            'mt-0.5 text-lg font-bold tabular-nums',
                                             net >= 0 ? 'text-emerald-400' : 'text-red-400',
                                         ].join(' ')}
                                     >

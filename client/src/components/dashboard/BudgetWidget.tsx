@@ -44,7 +44,7 @@ function BudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProp
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                     Daily target
                 </p>
-                <p className="mt-0.5 text-xl font-bold font-mono tabular-nums">
+                <p className="mt-0.5 text-xl font-bold tabular-nums">
                     £{fmt(straightDailyRate)}
                 </p>
                 {dayNum > 1 && (
@@ -75,7 +75,7 @@ function BudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProp
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
                         Spent
                     </p>
-                    <p className="mt-0.5 text-base font-bold font-mono tabular-nums text-neutral-700">
+                    <p className="mt-0.5 text-base font-bold tabular-nums text-neutral-700">
                         £{fmt(spentToday)}
                     </p>
                 </div>
@@ -85,7 +85,7 @@ function BudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProp
                     </p>
                     <p
                         className={[
-                            'mt-0.5 text-base font-bold font-mono tabular-nums',
+                            'mt-0.5 text-base font-bold tabular-nums',
                             remaining >= 0 ? 'text-emerald-600' : 'text-red-500',
                         ].join(' ')}
                     >
@@ -147,7 +147,7 @@ function WeeklyBudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetC
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                     Weekly target
                 </p>
-                <p className="mt-0.5 text-xl font-bold font-mono tabular-nums">
+                <p className="mt-0.5 text-xl font-bold tabular-nums">
                     £{fmt(weeklyRate)}
                 </p>
                 <p className="mt-1 text-[10px] text-neutral-500">{weekLabel}</p>
@@ -166,7 +166,7 @@ function WeeklyBudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetC
                         style={{ width: `${spentPct}%` }}
                     />
                 </div>
-                <p className="mt-1 text-[10px] font-mono tabular-nums text-neutral-400">
+                <p className="mt-1 text-[10px] tabular-nums text-neutral-400">
                     £{fmt(spentThisWeek)} of £{fmt(weeklyRate + carry)} this week
                 </p>
             </div>
@@ -182,7 +182,7 @@ function WeeklyBudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetC
             {/* Remaining */}
             <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Remaining this week</p>
-                <p className={['mt-0.5 text-base font-bold font-mono tabular-nums', remaining >= 0 ? 'text-emerald-600' : 'text-red-500'].join(' ')}>
+                <p className={['mt-0.5 text-base font-bold tabular-nums', remaining >= 0 ? 'text-emerald-600' : 'text-red-500'].join(' ')}>
                     £{fmt(Math.abs(remaining))}
                     {remaining < 0 && <span className="ml-0.5 text-[10px] font-normal">over</span>}
                 </p>

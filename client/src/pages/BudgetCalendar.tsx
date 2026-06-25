@@ -308,7 +308,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                 <div className="hidden lg:flex flex-col gap-2 flex-1">
                     {data.dailyRate > 0 && (
                         <div className="flex items-baseline gap-1">
-                            <span className={`text-lg font-bold font-mono tabular-nums ${isFuture ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                            <span className={`text-lg font-bold tabular-nums ${isFuture ? 'text-neutral-300' : 'text-neutral-700'}`}>
                                 £{fmt(data.dailyRate)}
                             </span>
                             <span className={`text-xs ${isFuture ? 'text-neutral-200' : 'text-neutral-400'}`}>
@@ -341,7 +341,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                             <div className="flex items-baseline justify-between gap-1">
                                 <span className="text-xs text-neutral-400">spent</span>
                                 <span
-                                    className={`text-sm font-semibold font-mono tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}
+                                    className={`text-sm font-semibold tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}
                                 >
                                     {hasSpend ? `£${fmt(data.spent)}` : '—'}
                                 </span>
@@ -350,7 +350,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                                 <div className="flex items-baseline justify-between gap-1">
                                     <span className="text-xs text-neutral-400">left</span>
                                     <span
-                                        className={`text-sm font-semibold font-mono tabular-nums ${remainingColor}`}
+                                        className={`text-sm font-semibold tabular-nums ${remainingColor}`}
                                     >
                                         {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
                                     </span>
@@ -414,7 +414,7 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
                 </span>
             </div>
             <div className="flex items-baseline gap-1">
-                <span className={`text-xl font-bold font-mono tabular-nums ${week.allFuture ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                <span className={`text-xl font-bold tabular-nums ${week.allFuture ? 'text-neutral-300' : 'text-neutral-700'}`}>
                     £{fmt(week.target)}
                 </span>
                 <span className={`text-sm ${week.allFuture ? 'text-neutral-200' : 'text-neutral-400'}`}>/wk</span>
@@ -424,14 +424,14 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
                     <div className="mt-auto border-t border-neutral-200" />
                     <div className="flex items-baseline justify-between gap-1">
                         <span className="text-sm text-neutral-400">spent</span>
-                        <span className={`text-base font-semibold font-mono tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}>
+                        <span className={`text-base font-semibold tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}>
                             {hasSpend ? `£${fmt(week.spent)}` : '—'}
                         </span>
                     </div>
                     {hasSpend && (
                         <div className="flex items-baseline justify-between gap-1">
                             <span className="text-sm text-neutral-400">left</span>
-                            <span className={`text-base font-semibold font-mono tabular-nums ${remainingColor}`}>
+                            <span className={`text-base font-semibold tabular-nums ${remainingColor}`}>
                                 {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
                             </span>
                         </div>
@@ -529,17 +529,17 @@ function WeekModal({
                 <div className="flex gap-2">
                     <div className="flex-1 rounded-xl bg-neutral-50 px-3 py-2.5">
                         <p className="text-xs text-neutral-400">Week target</p>
-                        <p className="font-mono text-sm font-bold text-neutral-900">£{fmt(week.target)}</p>
+                        <p className="text-sm font-bold text-neutral-900">£{fmt(week.target)}</p>
                     </div>
                     <div className="flex-1 rounded-xl bg-neutral-50 px-3 py-2.5">
                         <p className="text-xs text-neutral-400">Spent</p>
-                        <p className={`font-mono text-sm font-bold ${week.remaining < 0 ? 'text-red-600' : week.spent > week.target ? 'text-amber-700' : 'text-neutral-900'}`}>
+                        <p className={`text-sm font-bold ${week.remaining < 0 ? 'text-red-600' : week.spent > week.target ? 'text-amber-700' : 'text-neutral-900'}`}>
                             £{fmt(week.spent)}
                         </p>
                     </div>
                     <div className="flex-1 rounded-xl bg-neutral-50 px-3 py-2.5">
                         <p className="text-xs text-neutral-400">Remaining</p>
-                        <p className={`font-mono text-sm font-bold ${week.remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                        <p className={`text-sm font-bold ${week.remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                             {week.remaining < 0 ? '-' : ''}£{fmt(Math.abs(week.remaining))}
                         </p>
                     </div>
@@ -608,7 +608,7 @@ function WeekModal({
                                             )}
                                         </div>
                                         <div className="flex shrink-0 items-center gap-2">
-                                            <span className="font-mono text-sm text-neutral-700">£{fmt(t.amount)}</span>
+                                            <span className="text-sm text-neutral-700">£{fmt(t.amount)}</span>
                                             <button
                                                 type="button"
                                                 onClick={() => onDeleteSpend(t._id)}
@@ -624,7 +624,7 @@ function WeekModal({
                         )}
                         <div className="flex items-center justify-between border-t border-neutral-100 pt-2">
                             <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Day total</span>
-                            <span className="font-mono text-sm font-bold text-neutral-900">£{fmt(spentToday)}</span>
+                            <span className="text-sm font-bold text-neutral-900">£{fmt(spentToday)}</span>
                         </div>
                     </div>
                 ) : (
@@ -649,18 +649,18 @@ function WeekModal({
                                 {activeDay.dailyRate > 0 && (
                                     <div className="flex-1 rounded-xl bg-neutral-50 px-3 py-2.5">
                                         <p className="text-xs text-neutral-400">Daily guide</p>
-                                        <p className="font-mono text-sm font-bold text-neutral-900">£{fmt(activeDay.dailyRate)}</p>
+                                        <p className="text-sm font-bold text-neutral-900">£{fmt(activeDay.dailyRate)}</p>
                                     </div>
                                 )}
                                 <div className="flex-1 rounded-xl bg-neutral-50 px-3 py-2.5">
                                     <p className="text-xs text-neutral-400">Spent today</p>
-                                    <p className={`font-mono text-sm font-bold ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}>
+                                    <p className={`text-sm font-bold ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}>
                                         {spentToday > 0 ? `£${fmt(spentToday)}` : '—'}
                                     </p>
                                 </div>
                                 <div className="flex-1 rounded-xl bg-neutral-50 px-3 py-2.5">
                                     <p className="text-xs text-neutral-400">Week left</p>
-                                    <p className={`font-mono text-sm font-bold ${week.remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                    <p className={`text-sm font-bold ${week.remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                                         {week.remaining < 0 ? '-' : ''}£{fmt(Math.abs(week.remaining))}
                                     </p>
                                 </div>
@@ -729,7 +729,7 @@ function WeekModal({
                                     <li key={t._id} className="flex items-center justify-between gap-3 py-2 text-xs">
                                         <span className="text-neutral-400">{dayLabel}</span>
                                         <span className="flex-1 truncate font-semibold text-neutral-700">{t.note || rowName(t.row)}</span>
-                                        <span className="font-mono text-neutral-700">£{fmt(t.amount)}</span>
+                                        <span className="text-neutral-700">£{fmt(t.amount)}</span>
                                     </li>
                                 )
                             })}
@@ -873,7 +873,7 @@ function DayModal({
                                         )}
                                     </div>
                                     <div className="flex shrink-0 items-center gap-2">
-                                        <span className="font-mono text-sm text-neutral-700">£{fmt(t.amount)}</span>
+                                        <span className="text-sm text-neutral-700">£{fmt(t.amount)}</span>
                                         <button
                                             type="button"
                                             onClick={() => onDeleteSpend(t._id)}
@@ -892,7 +892,7 @@ function DayModal({
                         <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                             Total spent
                         </span>
-                        <span className="font-mono text-sm font-bold text-neutral-900">£{fmt(spentToday)}</span>
+                        <span className="text-sm font-bold text-neutral-900">£{fmt(spentToday)}</span>
                     </div>
                 </div>
             ) : (
@@ -923,14 +923,14 @@ function DayModal({
                                     <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                         Daily guide{dailyRows.length > 1 ? ' (all)' : ''}
                                     </p>
-                                    <p className="mt-0.5 text-lg font-bold font-mono text-neutral-900">£{fmt(dailyRate)}</p>
+                                    <p className="mt-0.5 text-lg font-bold text-neutral-900">£{fmt(dailyRate)}</p>
                                 </div>
                             )}
                             <div className="flex-1 rounded-xl bg-neutral-50 px-4 py-3">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                     Spent today
                                 </p>
-                                <p className={`mt-0.5 text-lg font-bold font-mono ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}>
+                                <p className={`mt-0.5 text-lg font-bold ${overTarget ? 'text-amber-700' : 'text-neutral-900'}`}>
                                     {spentToday > 0 ? `£${fmt(spentToday)}` : '—'}
                                 </p>
                             </div>
@@ -993,7 +993,7 @@ function DayModal({
                                     return (
                                         <div key={row._id} className="flex items-center justify-between gap-2 text-xs">
                                             <span className="font-semibold text-neutral-600">{row.name}</span>
-                                            <span className="font-mono text-neutral-400">
+                                            <span className="text-neutral-400">
                                                 £{fmt(rowSpent)} / £{fmt(straightDailyRate)}
                                             </span>
                                         </div>
@@ -1181,27 +1181,27 @@ export default function BudgetCalendar() {
                         <div className="rounded-full bg-white border border-neutral-200 px-4 py-2 shadow-sm">
                             <span className="text-[11px] font-medium text-neutral-400">Spent </span>
                             <span
-                                className={`text-sm font-bold font-mono tabular-nums ${totalSpent > totalTarget ? 'text-red-600' : 'text-neutral-900'}`}
+                                className={`text-sm font-bold tabular-nums ${totalSpent > totalTarget ? 'text-red-600' : 'text-neutral-900'}`}
                             >
                                 £{fmt(totalSpent)}
                             </span>
                         </div>
                         <div className="rounded-full bg-white border border-neutral-200 px-4 py-2 shadow-sm">
                             <span className="text-[11px] font-medium text-neutral-400">Target </span>
-                            <span className="text-sm font-bold font-mono tabular-nums text-neutral-900">
+                            <span className="text-sm font-bold tabular-nums text-neutral-900">
                                 £{fmt(totalTarget)}
                             </span>
                         </div>
                         <div className="rounded-full bg-white border border-neutral-200 px-4 py-2 shadow-sm">
                             <span className="text-[11px] font-medium text-neutral-400">Logged </span>
-                            <span className="text-sm font-bold font-mono tabular-nums text-neutral-900">
+                            <span className="text-sm font-bold tabular-nums text-neutral-900">
                                 {daysLogged}/{pastDays.length}
                             </span>
                         </div>
                         {excludedCount > 0 && (
                             <div className="rounded-full bg-neutral-100 border border-neutral-200 px-4 py-2">
                                 <span className="text-[11px] font-medium text-neutral-400">Excluded </span>
-                                <span className="text-sm font-bold font-mono tabular-nums text-neutral-500">
+                                <span className="text-sm font-bold tabular-nums text-neutral-500">
                                     {excludedCount}
                                 </span>
                             </div>
