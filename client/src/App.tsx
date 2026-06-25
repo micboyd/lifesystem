@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Routes, Route, Outlet, useLocation } from 'react-router-dom'
 import { documentTitleForPath } from './lib/pageTitle'
 import Navbar from './components/Navbar'
+import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 import QuickLog from './components/QuickLog'
 import Home from './pages/Home'
@@ -28,11 +29,14 @@ import NotFound from './pages/NotFound'
 /** The signed-in app shell: nav chrome plus the matched page. */
 function AppLayout() {
     return (
-        <>
+        <div className="flex min-h-screen flex-col">
             <Navbar />
-            <Outlet />
+            <main className="flex-1">
+                <Outlet />
+            </main>
+            <Footer />
             <QuickLog />
-        </>
+        </div>
     )
 }
 
