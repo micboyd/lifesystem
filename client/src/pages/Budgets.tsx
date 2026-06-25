@@ -373,13 +373,15 @@ export default function Budgets() {
     const monthLabel = new Date(`${month}-02T00:00:00`).toLocaleString('default', { month: 'long', year: 'numeric' })
 
     function goToPrevWeek() {
-        setWeekAnchor(addDays(weekStart, -1))
-        setLoading(true)
+        const newAnchor = addDays(weekStart, -1)
+        if (newAnchor.slice(0, 7) !== month) setLoading(true)
+        setWeekAnchor(newAnchor)
     }
 
     function goToNextWeek() {
-        setWeekAnchor(addDays(weekEnd, 1))
-        setLoading(true)
+        const newAnchor = addDays(weekEnd, 1)
+        if (newAnchor.slice(0, 7) !== month) setLoading(true)
+        setWeekAnchor(newAnchor)
     }
 
     const atStart = !!(financeStartMonth && month <= financeStartMonth && weekNum === 1)
