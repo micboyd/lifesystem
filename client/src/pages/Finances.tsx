@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Spinner from '../components/Spinner'
 import Button from '../components/Button'
 import Input from '../components/Input'
+import { Card } from '../components/Card'
 import {
     listGroups,
     createGroup,
@@ -911,7 +912,7 @@ export default function Finances() {
 
             {/* Add group form */}
             {addingGroup && (
-                <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <Card className="mb-6">
                     <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-400">
                         New group
                     </h2>
@@ -995,7 +996,7 @@ export default function Finances() {
                             </Button>
                         </div>
                     </div>
-                </div>
+                </Card>
             )}
 
             {/* Groups */}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import DatePicker, { type DateRange } from '../DatePicker'
+import { Card } from '../Card'
 import Button from '../Button'
 import { listStatuses, createStatus, deleteStatus } from '../../services/dayStatus'
 import { DAY_STATUS_OPTIONS, type DayStatus, type DayStatusType } from '../../types'
@@ -91,7 +92,7 @@ export default function DayStatusSection({ date, defaultAdding = false }: Props)
 
             {/* Add form */}
             {adding ? (
-                <div className="flex flex-col gap-4 rounded-2xl border border-neutral-200 bg-white p-4">
+                <Card className="flex flex-col gap-4">
                     {/* Status options */}
                     <div className="flex flex-col gap-2">
                         {DAY_STATUS_OPTIONS.map((opt) => {
@@ -166,7 +167,7 @@ export default function DayStatusSection({ date, defaultAdding = false }: Props)
                             Cancel
                         </Button>
                     </div>
-                </div>
+                </Card>
             ) : (
                 <Button
                     variant="ghost"

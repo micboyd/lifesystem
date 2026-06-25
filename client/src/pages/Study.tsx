@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Container from '../components/Container'
+import { Card } from '../components/Card'
 import Spinner from '../components/Spinner'
 import Select from '../components/Select'
 import Button from '../components/Button'
@@ -178,7 +179,7 @@ export default function Study() {
             ) : (
                 <div className="flex flex-col gap-6">
                     {/* Source picker + bank summary */}
-                    <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+                    <Card as="section">
                         <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-400">
                             Hours bank
                         </h2>
@@ -208,10 +209,10 @@ export default function Study() {
                                 )}
                             </div>
                         )}
-                    </section>
+                    </Card>
 
                     {/* Courses */}
-                    <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+                    <Card as="section">
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                             <Tabs
                                 tabs={[...FILTERS]}
@@ -305,7 +306,7 @@ export default function Study() {
                                 })}
                             </div>
                         )}
-                    </section>
+                    </Card>
                 </div>
             )}
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Container from '../components/Container'
+import { Card } from '../components/Card'
 import Spinner from '../components/Spinner'
 import Input from '../components/Input'
 import Button from '../components/Button'
@@ -86,7 +87,7 @@ export default function Habits() {
 
             {/* Add form */}
             {adding && (
-                <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <Card className="mb-6">
                     <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-400">
                         New habit
                     </h2>
@@ -120,7 +121,7 @@ export default function Habits() {
                             </Button>
                         </div>
                     </div>
-                </div>
+                </Card>
             )}
 
             {loading ? (
@@ -222,12 +223,9 @@ function HabitList({
         )
     }
     return (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
             {habits.map((habit) => (
-                <div
-                    key={habit._id}
-                    className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm"
-                >
+                <Card key={habit._id}>
                     {editing === habit._id ? (
                         <div className="flex flex-col gap-3">
                             <Input
@@ -295,7 +293,7 @@ function HabitList({
                             </div>
                         </div>
                     )}
-                </div>
+                </Card>
             ))}
         </div>
     )

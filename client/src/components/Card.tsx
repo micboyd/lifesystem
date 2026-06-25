@@ -1,17 +1,22 @@
-import type { ReactNode } from 'react'
+import type { ElementType, ReactNode } from 'react'
 
 interface CardProps {
     children: ReactNode
     className?: string
 }
 
-export function Card({ children, className = '' }: CardProps) {
+interface CardRootProps extends CardProps {
+    /** Element to render as (e.g. "div", "section", "article"). Defaults to "div". */
+    as?: ElementType
+}
+
+export function Card({ as: Tag = 'div', children, className = '' }: CardRootProps) {
     return (
-        <div
+        <Tag
             className={`rounded-2xl border border-neutral-100 bg-white p-6 transition-all duration-300 hover:border-neutral-200 hover:shadow-md hover:-translate-y-0.5 ${className}`}
         >
             {children}
-        </div>
+        </Tag>
     )
 }
 
