@@ -206,6 +206,9 @@ export function whatToWear(day: WearInput): string {
     else if (t >= 4) parts.push('Cold — a warm coat and layers')
     else parts.push('Freezing — heavy coat, hat and gloves')
 
+    // Bottoms: shorts at 17° or above, otherwise trousers.
+    parts.push(t >= 17 ? 'shorts weather' : 'trousers')
+
     const isSnow = (day.code >= 71 && day.code <= 77) || day.code === 85 || day.code === 86
     const isRain =
         (day.code >= 51 && day.code <= 67) || (day.code >= 80 && day.code <= 82) || day.code >= 95
