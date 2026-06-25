@@ -304,7 +304,7 @@ export default function FinanceBreakdown() {
     }
 
     return (
-        <Container as="main" className="max-w-2xl py-10">
+        <Container as="main" className="py-10">
             {/* Back */}
             <Button
                 variant="ghost"

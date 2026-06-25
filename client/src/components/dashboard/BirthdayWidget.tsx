@@ -57,7 +57,6 @@ export default function BirthdayWidget({ date }: { date: string }) {
     if (!loading && upcoming.length === 0) return null
 
     return (
-        <div className="mt-6">
         <Card>
             <CardHeader className="flex items-center justify-between gap-4">
                 <CardTitle>Upcoming birthdays</CardTitle>
@@ -108,6 +107,5 @@ export default function BirthdayWidget({ date }: { date: string }) {
                 </ul>
             )}
         </Card>
-        </div>
     )
 }

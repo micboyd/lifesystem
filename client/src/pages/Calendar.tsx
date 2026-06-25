@@ -23,6 +23,7 @@ import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from 
 import { useAuth } from '../context/AuthContext'
 import { DAY_STATUS_OPTIONS } from '../types'
 import type { Event, Part, DayStatus, TotalRow } from '../types'
+import Container from '../components/Container'
 import Tabs from '../components/Tabs'
 import EventDetailModal from '../components/calendar/EventDetailModal'
 import EventEditor from '../components/calendar/EventEditor'
@@ -427,9 +428,9 @@ export default function Calendar() {
 
     return (
         <main className="min-h-screen bg-neutral-50">
-            {/* Toolbar */}
+            {/* Toolbar — the bar is full-bleed; its content uses the fluid container. */}
             <div className="sticky top-14 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-sm sm:top-16">
-                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+                <Container fluid className="flex flex-wrap items-center justify-between gap-3 py-3">
                     {/* Title + nav */}
                     <div className="flex items-center gap-2">
                         <button
@@ -487,11 +488,11 @@ export default function Calendar() {
                             onChange={(v) => setView(v as CalendarView)}
                         />
                     </div>
-                </div>
+                </Container>
             </div>
 
             {/* Views */}
-            <div className="p-4 sm:p-6">
+            <Container fluid className="py-4 sm:py-6">
                 {view === 'Week' && <WeekView {...sharedProps} />}
 
                 {view === 'Month' && <MonthView {...sharedProps} />}
@@ -537,7 +538,7 @@ export default function Calendar() {
                         )}
                     </div>
                 )}
-            </div>
+            </Container>
 
             <EventDetailModal
                 event={detailEvent}

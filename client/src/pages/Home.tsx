@@ -22,64 +22,38 @@ export default function Home() {
     const [date, setDate] = useState(todayKey())
 
     return (
-        <Container as="main" className="py-10">
+        <Container as="main" fluid className="py-8">
+            {/* Top bar */}
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <DashboardHeader />
                 <DashboardDateNav date={date} onChange={setDate} />
             </div>
 
-            {/* ── Today ── */}
-            <section className="mt-8">
-                <p className="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-400">Today</p>
-
+            {/* Full-width status + at-a-glance KPIs */}
+            <div className="mt-6 flex flex-col gap-4">
                 <WorkStatusBanner date={date} />
+                <InsightsStrip date={date} />
+            </div>
+
+            {/*
+              Packed masonry board. Widgets are direct children so any that render
+              null (e.g. Timebox/Birthday when empty) leave no gap — `[&>*]:mb-6`
+              only applies to elements that actually render.
+            */}
+            <div className="mt-6 columns-1 gap-6 md:columns-2 xl:columns-3 [&>*]:mb-6 [&>*]:break-inside-avoid">
+                <WeatherWidget />
                 <BirthdayWidget date={date} />
-
-                <div className="mt-6">
-                    <WeatherWidget />
-                </div>
-
-                <div className="mt-6">
-                    <InsightsStrip date={date} />
-                </div>
-
-                <div className="mt-6">
-                    <TimeboxWidget date={date} />
-                </div>
-
-                <div className="mt-6 grid gap-6 md:grid-cols-2">
-                    <TodayWidget date={date} />
-                    <HabitsWidget date={date} />
-                </div>
-
-                <div className="mt-6">
-                    <TasksWidget date={date} />
-                </div>
-            </section>
-
-            {/* ── General ── */}
-            <section className="mt-10">
-                <p className="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-400">General</p>
-
+                <TimeboxWidget date={date} />
+                <TodayWidget date={date} />
+                <HabitsWidget date={date} />
+                <TasksWidget date={date} />
                 <BudgetWidget date={date} />
-
-                <div className="mt-6 grid gap-6 md:grid-cols-2">
-                    <DisciplineWidget date={date} />
-                    <BudgetTrendWidget date={date} />
-                </div>
-
-                <div className="mt-6">
-                    <GoalsWidget />
-                </div>
-
-                <div className="mt-6">
-                    <DaysSinceWidget />
-                </div>
-
-                <div className="mt-6">
-                    <StudyPacingWidget />
-                </div>
-            </section>
+                <DisciplineWidget date={date} />
+                <BudgetTrendWidget date={date} />
+                <GoalsWidget />
+                <DaysSinceWidget />
+                <StudyPacingWidget />
+            </div>
         </Container>
     )
 }

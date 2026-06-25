@@ -26,7 +26,7 @@ export default function Day() {
     const isToday = date === todayKey()
 
     return (
-        <Container as="main" className="py-10 max-w-2xl">
+        <Container as="main" className="py-10">
             <Button
                 variant="ghost"
                 size="sm"

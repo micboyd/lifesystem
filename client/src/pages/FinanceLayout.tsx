@@ -39,9 +39,9 @@ export default function FinanceLayout() {
                         />
                     </div>
                 </Container>
-                <div className="px-4 pb-10 sm:px-6">
+                <Container fluid className="pb-10">
                     <Outlet />
-                </div>
+                </Container>
             </main>
         )
     }
