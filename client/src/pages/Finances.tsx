@@ -14,6 +14,8 @@ import {
     deleteRow,
     listEntries,
     setEntry,
+    listPaid,
+    setPaid,
     listPots,
     createPot,
     updatePot,
@@ -25,6 +27,7 @@ import { formatMoney, formatAmount } from '../lib/money'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
+import Tabs from '../components/Tabs'
 import type { FinanceGroup, FinancePot, FinanceRow, FinanceEntry } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -520,12 +523,14 @@ export default function Finances() {
     const [pots, setPots] = useState<FinancePot[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [loading, setLoading] = useState(true)
+    const [paidRows, setPaidRows] = useState<Set<string>>(new Set())
 
     // New group form
     const [addingGroup, setAddingGroup] = useState(false)
     const [newGroupName, setNewGroupName] = useState('')
     const [newGroupType, setNewGroupType] = useState<'income' | 'expense' | 'savings'>('expense')
     const [newGroupScope, setNewGroupScope] = useState<AddScope>('all')
+    const [newGroupMonthly, setNewGroupMonthly] = useState('')
     const [savingGroup, setSavingGroup] = useState(false)
 
     // Delete confirmation / scope dialog
@@ -565,6 +570,13 @@ export default function Finances() {
         return () => {
             active = false
         }
+    }, [month])
+
+    // Load paid state from server when month changes
+    useEffect(() => {
+        let active = true
+        listPaid(month).then((ids) => active && setPaidRows(new Set(ids)))
+        return () => { active = false }
     }, [month])
 
     // ── Derived totals ────────────────────────────────────────────────────────
@@ -607,13 +619,40 @@ export default function Finances() {
 
     const net = totalIncome - totalExpense - totalSavings
 
+    function togglePaid(rowId: string) {
+        setPaidRows((prev) => {
+            const nowPaid = !prev.has(rowId)
+            const next = new Set(prev)
+            if (nowPaid) next.add(rowId)
+            else next.delete(rowId)
+            setPaid(rowId, month, nowPaid)
+            return next
+        })
+    }
+
+    function setGroupAllPaid(groupRowIds: string[], paid: boolean) {
+        setPaidRows((prev) => {
+            const next = new Set(prev)
+            for (const id of groupRowIds) {
+                if (paid) next.add(id)
+                else next.delete(id)
+                setPaid(id, month, paid)
+            }
+            return next
+        })
+    }
+
     // ── Handlers ──────────────────────────────────────────────────────────────
 
     async function handleAddGroup() {
         if (!newGroupName.trim()) return
         setSavingGroup(true)
         try {
-            const g = await createGroup(newGroupName.trim(), newGroupType, newGroupScope, month)
+            const monthly = parseFloat(newGroupMonthly.replace(/,/g, ''))
+            const extra = newGroupType === 'savings' && !Number.isNaN(monthly) && monthly > 0
+                ? { recurringAmount: monthly }
+                : undefined
+            const g = await createGroup(newGroupName.trim(), newGroupType, newGroupScope, month, extra)
             setGroups((prev) => [...prev, g])
             // Savings groups auto-create a row on the server — re-fetch so it appears
             if (g.type === 'savings') {
@@ -622,6 +661,7 @@ export default function Finances() {
             }
             setNewGroupName('')
             setNewGroupScope('all')
+            setNewGroupMonthly('')
             setAddingGroup(false)
         } catch {
             toast.error('Couldn’t add the group. Please try again.')
@@ -911,32 +951,29 @@ export default function Finances() {
                             })}
                         </div>
 
+                        {/* Monthly amount — savings only */}
+                        {newGroupType === 'savings' && (
+                            <div className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 focus-within:border-neutral-950 focus-within:ring-4 focus-within:ring-neutral-950/5">
+                                <span className="text-sm font-semibold text-neutral-400">£</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="Monthly amount (optional)"
+                                    value={newGroupMonthly}
+                                    onChange={(e) => setNewGroupMonthly(e.target.value)}
+                                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-neutral-900 outline-none placeholder:font-normal placeholder:text-neutral-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                />
+                                <span className="text-sm text-neutral-400">/ mo</span>
+                            </div>
+                        )}
+
                         {/* Month scope */}
-                        <div className="flex flex-wrap gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1">
-                            {(
-                                [
-                                    ['all', `All months (from ${formatMonth(month)})`],
-                                    ['month', `Just ${formatMonth(month)}`],
-                                ] as const
-                            ).map(([key, label]) => {
-                                const active = newGroupScope === key
-                                return (
-                                    <button
-                                        key={key}
-                                        type="button"
-                                        onClick={() => setNewGroupScope(key)}
-                                        className={[
-                                            'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
-                                            active
-                                                ? 'bg-neutral-950 text-white'
-                                                : 'text-neutral-500 hover:text-neutral-900',
-                                        ].join(' ')}
-                                    >
-                                        {label}
-                                    </button>
-                                )
-                            })}
-                        </div>
+                        <Tabs
+                            tabs={[`All months (from ${formatMonth(month)})`, `Just ${formatMonth(month)}`]}
+                            value={newGroupScope === 'all' ? `All months (from ${formatMonth(month)})` : `Just ${formatMonth(month)}`}
+                            onChange={(label) => setNewGroupScope(label.startsWith('All') ? 'all' : 'month')}
+                        />
 
                         <div className="flex gap-2">
                             <Button
@@ -951,6 +988,7 @@ export default function Finances() {
                                     setAddingGroup(false)
                                     setNewGroupName('')
                                     setNewGroupScope('all')
+                                    setNewGroupMonthly('')
                                 }}
                             >
                                 Cancel
@@ -976,6 +1014,13 @@ export default function Finances() {
                         const total = groupTotal(group)
                         const isIncome = group.type === 'income'
                         const isSavings = group.type === 'savings'
+                        const groupRowIds = groupRows.map((r) => r._id)
+                        const allPaid = groupRowIds.length > 0 && groupRowIds.every((id) => paidRows.has(id))
+                        const somePaid = groupRowIds.some((id) => paidRows.has(id))
+                        const leftToPay = groupRows.reduce((sum, r) => {
+                            if (paidRows.has(r._id)) return sum
+                            return sum + Math.abs(effectiveAmount(r))
+                        }, 0)
 
                         const headerBg = isIncome
                             ? 'bg-emerald-50'
@@ -1031,16 +1076,19 @@ export default function Finances() {
                                         </div>
                                     ) : (
                                         <>
-                                            <div className="flex min-w-0 flex-col gap-1.5">
-                                                <span
-                                                    className={`w-fit rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeCls}`}
-                                                >
-                                                    {group.type}
-                                                </span>
+                                            {/* Left: name + total */}
+                                            <div className="flex min-w-0 flex-1 items-baseline gap-3">
                                                 <span className="truncate text-sm font-bold tracking-tight text-neutral-900">
                                                     {group.name}
                                                 </span>
+                                                <span className={`shrink-0 font-mono text-base font-bold tabular-nums tracking-tight ${totalCls}`}>
+                                                    {formatMoney(total)}
+                                                </span>
+                                                <span className={`shrink-0 w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeCls}`}>
+                                                    {group.type}
+                                                </span>
                                             </div>
+                                            {/* Right: hover actions + paid checkbox */}
                                             <div className="flex items-center gap-1">
                                                 <div className="flex items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/gh:opacity-100">
                                                     <button
@@ -1049,12 +1097,9 @@ export default function Finances() {
                                                             setEditingGroup(group._id)
                                                             setEditGroupName(group.name)
                                                         }}
-                                                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-neutral-700"
+                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-neutral-700"
                                                     >
-                                                        <i
-                                                            className="fa-solid fa-pen text-xs"
-                                                            aria-hidden="true"
-                                                        />
+                                                        <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
                                                     </button>
                                                     <button
                                                         type="button"
@@ -1066,19 +1111,27 @@ export default function Finances() {
                                                                 scoped: true,
                                                             })
                                                         }
-                                                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-100 hover:text-red-500"
+                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-100 hover:text-red-500"
                                                     >
-                                                        <i
-                                                            className="fa-solid fa-trash-can text-xs"
-                                                            aria-hidden="true"
-                                                        />
+                                                        <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
                                                     </button>
                                                 </div>
-                                                <span
-                                                    className={`ml-1 pr-2 text-lg font-bold font-mono tabular-nums tracking-tight ${totalCls}`}
+                                                {/* All paid checkbox */}
+                                                <button
+                                                    type="button"
+                                                    title={allPaid ? 'Mark all unpaid' : 'Mark all paid'}
+                                                    onClick={() => setGroupAllPaid(groupRowIds, !allPaid)}
+                                                    className={[
+                                                        'ml-1 grid h-6 w-6 shrink-0 place-items-center rounded-md border-2 transition-colors',
+                                                        allPaid
+                                                            ? 'border-neutral-700 bg-neutral-700 text-white'
+                                                            : somePaid
+                                                              ? 'border-neutral-400 bg-neutral-200 text-neutral-400'
+                                                              : 'border-neutral-300 bg-white/60 text-transparent hover:border-neutral-500',
+                                                    ].join(' ')}
                                                 >
-                                                    {formatMoney(total)}
-                                                </span>
+                                                    <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
+                                                </button>
                                             </div>
                                         </>
                                     )}
@@ -1296,6 +1349,20 @@ export default function Finances() {
                                                             </button>
                                                         )}
                                                     </div>
+                                                    {/* Paid checkbox */}
+                                                    <button
+                                                        type="button"
+                                                        title={paidRows.has(row._id) ? 'Mark unpaid' : 'Mark paid'}
+                                                        onClick={() => togglePaid(row._id)}
+                                                        className={[
+                                                            'ml-2 grid h-5 w-5 shrink-0 place-items-center rounded border-2 transition-colors',
+                                                            paidRows.has(row._id)
+                                                                ? 'border-neutral-700 bg-neutral-700 text-white'
+                                                                : 'border-neutral-300 bg-white text-transparent hover:border-neutral-500',
+                                                        ].join(' ')}
+                                                    >
+                                                        <i className="fa-solid fa-check text-[9px]" aria-hidden="true" />
+                                                    </button>
                                                     </div>
                                                 </div>
                                             )
@@ -1345,14 +1412,25 @@ export default function Finances() {
                                             )}
                                         </div>
                                         <div className="flex items-baseline gap-2">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300">
-                                                Total
-                                            </span>
-                                            <span
-                                                className={`pr-2 font-mono text-sm font-bold tabular-nums tracking-tight ${totalCls}`}
-                                            >
-                                                {formatMoney(total)}
-                                            </span>
+                                            {somePaid ? (
+                                                <>
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                                                        Left to pay
+                                                    </span>
+                                                    <span className={`pr-2 font-mono text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
+                                                        {formatMoney(leftToPay)}
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300">
+                                                        Total
+                                                    </span>
+                                                    <span className={`pr-2 font-mono text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
+                                                        {formatMoney(total)}
+                                                    </span>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

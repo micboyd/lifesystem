@@ -10,6 +10,8 @@ import {
     deleteRow,
     listEntries,
     setEntry,
+    listPaid,
+    setPaid,
     listPots,
     createPot,
     updatePot,
@@ -48,6 +50,10 @@ router.delete('/rows/:id', deleteRow)
 // Entries
 router.get('/entries', listEntries)
 router.put('/entries/:rowId/:month', setEntry)
+
+// Paid state
+router.get('/paid', listPaid)
+router.put('/paid/:rowId/:month', setPaid)
 
 // Budget daily spends (transactions — many per row per day)
 router.get('/budget-spends', listBudgetSpends)

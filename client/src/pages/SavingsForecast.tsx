@@ -3,7 +3,7 @@ import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import DatePicker from '../components/DatePicker'
 import Tabs from '../components/Tabs'
-import { listGroups, listRows, listEntries, updateGroup } from '../services/finances'
+import { listGroups, listRows, listEntries, updateGroup, deleteGroup } from '../services/finances'
 import { groupVisibleInMonth, rowVisibleInMonth, addMonths } from '../lib/finance'
 import { formatAmount, formatMoneyCompact } from '../lib/money'
 import { useToast } from '../context/ToastContext'
@@ -30,6 +30,56 @@ interface YearRow {
     contributions: number
     interestEarned: number
     endBalance: number
+}
+
+interface MonthRow {
+    month: string   // YYYY-MM
+    contributions: number
+    interestEarned: number
+    endBalance: number
+}
+
+/** Run the same simulation but return month-by-month rows for a single year (1-indexed). */
+function buildMonthlyForYear(
+    groups: FinanceGroup[],
+    contributionForMonth: (group: FinanceGroup, month: string) => number,
+    startMonth: string,
+    targetYear: number
+): MonthRow[] {
+    const balances = new Map(groups.map((g) => [g._id, g.currentBalance ?? 0]))
+    let m = startMonth
+
+    // Fast-forward to the start of targetYear
+    for (let y = 1; y < targetYear; y++) {
+        for (let i = 0; i < 12; i++) {
+            for (const g of groups) {
+                const bal = balances.get(g._id) ?? 0
+                const interest = bal * monthlyRate(g.annualInterestRate ?? 0)
+                const contrib = contributionForMonth(g, m)
+                balances.set(g._id, bal + interest + contrib)
+            }
+            m = addMonths(m, 1)
+        }
+    }
+
+    // Collect the 12 months of targetYear
+    const rows: MonthRow[] = []
+    for (let i = 0; i < 12; i++) {
+        let contributions = 0
+        let interestEarned = 0
+        for (const g of groups) {
+            const bal = balances.get(g._id) ?? 0
+            const interest = bal * monthlyRate(g.annualInterestRate ?? 0)
+            const contrib = contributionForMonth(g, m)
+            balances.set(g._id, bal + interest + contrib)
+            interestEarned += interest
+            contributions += contrib
+        }
+        const endBalance = [...balances.values()].reduce((s, b) => s + b, 0)
+        rows.push({ month: m, contributions, interestEarned, endBalance })
+        m = addMonths(m, 1)
+    }
+    return rows
 }
 
 /**
@@ -70,6 +120,99 @@ function buildYearlyTable(
         out.push({ year: y, startBalance, contributions, interestEarned, endBalance })
     }
     return out
+}
+
+// ── Month breakdown drawer ─────────────────────────────────────────────────
+
+function MonthDrawer({
+    yearRow,
+    months,
+    onClose,
+}: {
+    yearRow: YearRow
+    months: MonthRow[]
+    onClose: () => void
+}) {
+    function label(ym: string) {
+        const [y, m] = ym.split('-').map(Number)
+        return new Date(y, m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
+    }
+
+    return (
+        <>
+            {/* Backdrop */}
+            <div
+                className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
+                onClick={onClose}
+            />
+            {/* Drawer */}
+            <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-5">
+                    <div>
+                        <p className="text-lg font-bold tracking-tight text-neutral-900">
+                            Year {yearRow.year}
+                        </p>
+                        <p className="text-xs text-neutral-400">Month by month breakdown</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                    >
+                        <i className="fa-solid fa-xmark" aria-hidden="true" />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                    <table className="w-full">
+                        <thead className="sticky top-0 bg-white">
+                            <tr className="border-b border-neutral-100 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                <th className="py-3 pl-6 pr-3 text-left">Month</th>
+                                <th className="py-3 px-3 text-right">Contrib.</th>
+                                <th className="py-3 px-3 text-right">Interest</th>
+                                <th className="py-3 pl-3 pr-6 text-right">Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-50">
+                            {months.map((m) => (
+                                <tr key={m.month} className="hover:bg-neutral-50">
+                                    <td className="py-3 pl-6 pr-3 text-sm font-semibold text-neutral-900">
+                                        {label(m.month)}
+                                    </td>
+                                    <td className="py-3 px-3 text-right text-sm font-mono text-neutral-600">
+                                        £{fmt(m.contributions, 0)}
+                                    </td>
+                                    <td className={`py-3 px-3 text-right text-sm font-mono ${m.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-400'}`}>
+                                        {m.interestEarned > 0 ? '+' : ''}£{fmt(m.interestEarned, 0)}
+                                    </td>
+                                    <td className="py-3 pl-3 pr-6 text-right text-sm font-bold font-mono text-neutral-900">
+                                        £{fmt(m.endBalance, 0)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="border-t border-neutral-100 px-6 py-4">
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Contributions</p>
+                            <p className="mt-0.5 text-sm font-bold font-mono text-neutral-900">£{fmt(yearRow.contributions, 0)}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Interest</p>
+                            <p className="mt-0.5 text-sm font-bold font-mono text-emerald-600">+£{fmt(yearRow.interestEarned, 0)}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">End balance</p>
+                            <p className="mt-0.5 text-sm font-bold font-mono text-neutral-900">£{fmt(yearRow.endBalance, 0)}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </>
+    )
 }
 
 // ── Settings input ─────────────────────────────────────────────────────────
@@ -142,20 +285,43 @@ function MilestoneCard({
 interface GroupSettingsProps {
     group: FinanceGroup
     monthlyContribution: number
+    activeDescription: { recurring: boolean; months: string[] }
     onUpdate: (id: string, fields: Partial<FinanceGroup>) => void
+    onDelete: (id: string) => void
 }
 
-function GroupSettingsCard({ group, monthlyContribution, onUpdate }: GroupSettingsProps) {
+function GroupSettingsCard({ group, monthlyContribution, activeDescription, onUpdate, onDelete }: GroupSettingsProps) {
     const [balance, setBalance] = useState(String(group.currentBalance ?? 0))
     const [rate, setRate] = useState(String(group.annualInterestRate ?? 0))
+    const [confirming, setConfirming] = useState(false)
+    const [deleting, setDeleting] = useState(false)
 
-    // Sync if parent group changes
-    useEffect(() => {
-        setBalance(String(group.currentBalance ?? 0))
-    }, [group.currentBalance])
-    useEffect(() => {
-        setRate(String(group.annualInterestRate ?? 0))
-    }, [group.annualInterestRate])
+    useEffect(() => { setBalance(String(group.currentBalance ?? 0)) }, [group.currentBalance])
+    useEffect(() => { setRate(String(group.annualInterestRate ?? 0)) }, [group.annualInterestRate])
+
+    function monthLabel(ym: string) {
+        const [y, m] = ym.split('-').map(Number)
+        return new Date(y, m - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' })
+    }
+
+    const { recurring, months } = activeDescription
+    const monthSummary = recurring
+        ? 'This is a recurring account with no end date.'
+        : months.length === 0
+          ? 'This account has no active months.'
+          : months.length > 5
+            ? `This account is used across multiple months (${months.length} total).`
+            : `This account is used in ${months.map(monthLabel).join(', ')}.`
+
+    async function handleConfirmDelete() {
+        setDeleting(true)
+        try {
+            await onDelete(group._id)
+        } finally {
+            setDeleting(false)
+            setConfirming(false)
+        }
+    }
 
     return (
         <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-neutral-300 hover:shadow-md">
@@ -164,26 +330,60 @@ function GroupSettingsCard({ group, monthlyContribution, onUpdate }: GroupSettin
                     <p className="text-lg font-bold tracking-tight text-neutral-900">{group.name}</p>
                     <p className="mt-0.5 text-sm font-mono tabular-nums text-neutral-400">£{fmt(monthlyContribution)} / month</p>
                 </div>
-                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">
-                    savings
-                </span>
+                <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">
+                        savings
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => setConfirming(true)}
+                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
+                    >
+                        <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                    </button>
+                </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-                <SettingField
-                    label="Current balance"
-                    prefix="£"
-                    value={balance}
-                    onChange={setBalance}
-                    onCommit={(v) => onUpdate(group._id, { currentBalance: v })}
-                />
-                <SettingField
-                    label="Annual interest rate"
-                    suffix="%"
-                    value={rate}
-                    onChange={setRate}
-                    onCommit={(v) => onUpdate(group._id, { annualInterestRate: v })}
-                />
-            </div>
+
+            {confirming ? (
+                <div className="rounded-2xl bg-red-50 p-4">
+                    <p className="text-sm font-semibold text-red-700">Delete {group.name}?</p>
+                    <p className="mt-1 text-xs text-red-500">{monthSummary} This cannot be undone.</p>
+                    <div className="mt-3 flex gap-2">
+                        <button
+                            type="button"
+                            onClick={handleConfirmDelete}
+                            disabled={deleting}
+                            className="rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                        >
+                            {deleting ? 'Deleting…' : 'Yes, delete'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setConfirming(false)}
+                            className="rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-50"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 gap-3">
+                    <SettingField
+                        label="Current balance"
+                        prefix="£"
+                        value={balance}
+                        onChange={setBalance}
+                        onCommit={(v) => onUpdate(group._id, { currentBalance: v })}
+                    />
+                    <SettingField
+                        label="Annual interest rate"
+                        suffix="%"
+                        value={rate}
+                        onChange={setRate}
+                        onCommit={(v) => onUpdate(group._id, { annualInterestRate: v })}
+                    />
+                </div>
+            )}
         </div>
     )
 }
@@ -404,6 +604,7 @@ export default function SavingsForecast() {
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [horizon, setHorizon] = useState<Horizon>(10)
     const [view, setView] = useState<'Projection' | 'Savings to date'>('Projection')
+    const [openYear, setOpenYear] = useState<number | null>(null)
 
     const month = currentMonth()
 
@@ -428,8 +629,57 @@ export default function SavingsForecast() {
             const updated = await updateGroup(id, fields)
             setGroups((prev) => prev.map((g) => (g._id === id ? updated : g)))
         } catch {
-            toast.error('Couldn’t save that setting.')
+            toast.error("Couldn’t save that setting.")
         }
+    }
+
+    async function handleDeleteGroup(id: string) {
+        try {
+            await deleteGroup(id, "all")
+            setGroups((prev) => prev.filter((g) => g._id !== id))
+        } catch {
+            toast.error("Couldn’t delete that account.")
+        }
+    }
+
+    /**
+     * Describe when the group is active for the delete confirmation.
+     * Returns { recurring, months } where recurring=true means open-ended
+     * and months is a bounded list (only populated when start and end are both known).
+     */
+    function groupActiveDescription(group: FinanceGroup): { recurring: boolean; months: string[] } {
+        const groupRows = rows.filter((r) => r.group === group._id)
+
+        // Non-recurring rows have a specific month set on them directly.
+        const oneOffMonths = groupRows
+            .filter((r) => r.recurring === false && r.month)
+            .map((r) => r.month as string)
+
+        // Recurring rows: check if any are open-ended (no endMonth on row or group).
+        const recurringRows = groupRows.filter((r) => r.recurring !== false)
+        const isOpenEnded = recurringRows.some(
+            (r) => !r.endMonth && !group.endMonth
+        )
+
+        if (isOpenEnded) {
+            return { recurring: true, months: [] }
+        }
+
+        // All rows are bounded — enumerate the months.
+        const bounded: string[] = [...oneOffMonths]
+        for (const row of recurringRows) {
+            const start = row.startMonth ?? group.startMonth
+            const end = row.endMonth ?? group.endMonth
+            if (!start || !end) continue
+            let m = start
+            while (m <= end) {
+                bounded.push(m)
+                m = addMonths(m, 1)
+            }
+        }
+
+        const sorted = [...new Set(bounded)].sort()
+        return { recurring: false, months: sorted }
     }
 
     // A savings stream forecasts forward as long as it hasn't *ended* before now.
@@ -636,7 +886,9 @@ export default function SavingsForecast() {
                                             key={group._id}
                                             group={group}
                                             monthlyContribution={monthlyContribution(group)}
+                                            activeDescription={groupActiveDescription(group)}
                                             onUpdate={handleUpdateGroup}
+                                            onDelete={handleDeleteGroup}
                                         />
                                     ))}
                                 </div>
@@ -672,15 +924,17 @@ export default function SavingsForecast() {
                                         </thead>
                                         <tbody className="divide-y divide-neutral-100">
                                             {yearlyTable.map((row) => {
-                                                const isMilestone = milestoneYears.includes(
-                                                    row.year as Horizon
-                                                )
+                                                const isMilestone = milestoneYears.includes(row.year as Horizon)
+                                                const isOpen = openYear === row.year
                                                 return (
                                                     <tr
                                                         key={row.year}
-                                                        className={
-                                                            isMilestone ? 'bg-neutral-50' : ''
-                                                        }
+                                                        onClick={() => setOpenYear(isOpen ? null : row.year)}
+                                                        className={[
+                                                            'cursor-pointer transition-colors hover:bg-neutral-50',
+                                                            isMilestone ? 'bg-neutral-50 hover:bg-neutral-100' : '',
+                                                            isOpen ? 'bg-neutral-100' : '',
+                                                        ].join(' ')}
                                                     >
                                                         <td className="py-3 pl-5 pr-3">
                                                             <span className="text-sm font-semibold text-neutral-900">
@@ -695,11 +949,8 @@ export default function SavingsForecast() {
                                                         <td className="py-3 px-3 text-right text-sm font-mono text-neutral-600">
                                                             £{fmt(row.contributions, 0)}
                                                         </td>
-                                                        <td
-                                                            className={`py-3 px-3 text-right text-sm font-mono ${row.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-400'}`}
-                                                        >
-                                                            {row.interestEarned > 0 ? '+' : ''}£
-                                                            {fmt(row.interestEarned, 0)}
+                                                        <td className={`py-3 px-3 text-right text-sm font-mono ${row.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-400'}`}>
+                                                            {row.interestEarned > 0 ? '+' : ''}£{fmt(row.interestEarned, 0)}
                                                         </td>
                                                         <td className="py-3 pl-3 pr-5 text-right text-sm font-bold font-mono text-neutral-900">
                                                             £{fmt(row.endBalance, 0)}
@@ -715,6 +966,19 @@ export default function SavingsForecast() {
                     )}
                 </div>
             )}
+
+            {openYear !== null && (() => {
+                const yearRow = yearlyTable[openYear - 1]
+                if (!yearRow) return null
+                const months = buildMonthlyForYear(savingsGroups, contributionForMonth, month, openYear)
+                return (
+                    <MonthDrawer
+                        yearRow={yearRow}
+                        months={months}
+                        onClose={() => setOpenYear(null)}
+                    />
+                )
+            })()}
         </>
     )
 }

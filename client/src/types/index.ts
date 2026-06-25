@@ -442,6 +442,12 @@ export interface FinanceEntry {
     amount: number
 }
 
+export interface FinancePaid {
+    rowId: string
+    month: string
+    paid: boolean
+}
+
 export interface BudgetSpend {
     _id: string
     row: string

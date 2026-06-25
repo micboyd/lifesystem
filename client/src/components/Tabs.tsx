@@ -28,7 +28,7 @@ export default function Tabs({ tabs, value, defaultTab, onChange, className = ''
                         type="button"
                         onClick={() => select(tab)}
                         className={[
-                            'rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 whitespace-nowrap capitalize',
+                            'rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 whitespace-nowrap',
                             selected
                                 ? 'bg-white text-neutral-900 shadow-sm'
                                 : 'text-neutral-500 hover:text-neutral-900',

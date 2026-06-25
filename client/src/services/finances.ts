@@ -25,7 +25,8 @@ export async function createGroup(
     name: string,
     type: 'income' | 'expense' | 'savings',
     scope: AddScope = 'all',
-    month?: string
+    month?: string,
+    extra?: { recurringAmount?: number }
 ): Promise<FinanceGroup> {
     // "all" = from the viewed month onward; "month" = that single month only.
     const lifecycle = month ? { startMonth: month, endMonth: scope === 'month' ? month : null } : {}
@@ -33,6 +34,7 @@ export async function createGroup(
         name,
         type,
         ...lifecycle,
+        ...(extra ?? {}),
     })
     return res.data.data
 }
@@ -143,6 +145,15 @@ export async function deleteRow(
 }
 
 // ── Entries ───────────────────────────────────────────────────────────────────
+
+export async function listPaid(month: string): Promise<string[]> {
+    const res = await api.get<ApiResponse<string[]>>('/finances/paid', { params: { month } })
+    return res.data.data
+}
+
+export async function setPaid(rowId: string, month: string, paid: boolean): Promise<void> {
+    await api.put(`/finances/paid/${rowId}/${month}`, { paid })
+}
 
 export async function listEntries(month: string): Promise<FinanceEntry[]> {
     const res = await api.get<ApiResponse<FinanceEntry[]>>('/finances/entries', {

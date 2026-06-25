@@ -4,6 +4,7 @@ import FinanceGroup from '../models/FinanceGroup'
 import FinanceRow from '../models/FinanceRow'
 import FinancePot from '../models/FinancePot'
 import FinanceEntry, { MONTH_PATTERN } from '../models/FinanceEntry'
+import FinancePaid from '../models/FinancePaid'
 
 function isValidMonth(v: unknown): v is string {
     return typeof v === 'string' && MONTH_PATTERN.test(v)
@@ -52,7 +53,8 @@ export async function createGroup(req: AuthRequest, res: Response) {
 
     // Savings groups get exactly one auto-created row
     if (type === 'savings') {
-        await FinanceRow.create({ user: req.userId, group: group._id, name: 'Savings', order: 0 })
+        const recurringAmount = typeof req.body.recurringAmount === 'number' ? req.body.recurringAmount : undefined
+        await FinanceRow.create({ user: req.userId, group: group._id, name: 'Savings', order: 0, ...(recurringAmount !== undefined && { recurringAmount }) })
     }
 
     res.status(201).json({ message: 'Created', data: group })
@@ -347,4 +349,42 @@ export async function deletePot(req: AuthRequest, res: Response) {
     if (!pot) { res.status(404).json({ message: 'Pot not found' }); return }
     await FinanceRow.updateMany({ user: req.userId, pot: pot._id }, { $set: { pot: null } })
     res.json({ message: 'Deleted', data: pot })
+}
+
+// ── Paid ──────────────────────────────────────────────────────────────────────
+
+/** GET /finances/paid?month=YYYY-MM — returns array of paid row IDs for the month. */
+export async function listPaid(req: AuthRequest, res: Response) {
+    const { month } = req.query
+    if (!isValidMonth(month)) {
+        res.status(400).json({ message: 'month must be YYYY-MM' })
+        return
+    }
+    const records = await FinancePaid.find({ user: req.userId, month })
+    res.json({ message: 'OK', data: records.map((r) => String(r.row)) })
+}
+
+/** PUT /finances/paid/:rowId/:month — toggle paid state for a row in a month. */
+export async function setPaid(req: AuthRequest, res: Response) {
+    const { rowId, month } = req.params
+    if (!isValidMonth(month)) {
+        res.status(400).json({ message: 'month must be YYYY-MM' })
+        return
+    }
+    const row = await FinanceRow.findOne({ _id: rowId, user: req.userId })
+    if (!row) {
+        res.status(404).json({ message: 'Row not found' })
+        return
+    }
+    const paid = req.body.paid === true
+    if (paid) {
+        await FinancePaid.findOneAndUpdate(
+            { user: req.userId, row: rowId, month },
+            { user: req.userId, row: rowId, month },
+            { upsert: true }
+        )
+    } else {
+        await FinancePaid.deleteOne({ user: req.userId, row: rowId, month })
+    }
+    res.json({ message: 'Saved', data: { rowId, month, paid } })
 }
