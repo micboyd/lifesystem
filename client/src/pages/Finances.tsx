@@ -1355,13 +1355,13 @@ export default function Finances() {
                                                         title={paidRows.has(row._id) ? 'Mark unpaid' : 'Mark paid'}
                                                         onClick={() => togglePaid(row._id)}
                                                         className={[
-                                                            'ml-2 grid h-5 w-5 shrink-0 place-items-center rounded border-2 transition-colors',
+                                                            'ml-2 grid h-6 w-6 shrink-0 place-items-center rounded-md border-2 transition-colors',
                                                             paidRows.has(row._id)
                                                                 ? 'border-neutral-700 bg-neutral-700 text-white'
                                                                 : 'border-neutral-300 bg-white text-transparent hover:border-neutral-500',
                                                         ].join(' ')}
                                                     >
-                                                        <i className="fa-solid fa-check text-[9px]" aria-hidden="true" />
+                                                        <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
                                                     </button>
                                                     </div>
                                                 </div>

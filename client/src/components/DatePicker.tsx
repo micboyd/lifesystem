@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { createPortal } from 'react-dom'
 
 export interface DateRange {
     start: string
@@ -137,6 +138,48 @@ export default function DatePicker({
     const [hoverDate, setHoverDate] = useState<Date | null>(null)
     const [view, setView] = useState<CalendarView>('days')
     const containerRef = useRef<HTMLDivElement>(null)
+    const triggerRef = useRef<HTMLButtonElement>(null)
+    const menuRef = useRef<HTMLDivElement>(null)
+    // Fixed-viewport coordinates for the portaled dropdown, so container
+    // overflow can never clip it or grow a scrollbar.
+    const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+
+    const menuWidth = isRange ? 320 : 288 // matches w-80 / w-72
+    function positionMenu() {
+        const trigger = triggerRef.current
+        if (!trigger) return
+        const rect = trigger.getBoundingClientRect()
+        const gap = 8
+        const margin = 8
+        const estHeight = menuRef.current?.offsetHeight ?? 360
+
+        let left = rect.left
+        if (left + menuWidth > window.innerWidth - margin) {
+            left = window.innerWidth - menuWidth - margin // keep the right edge on-screen
+        }
+        if (left < margin) left = margin
+
+        // Drop below the trigger; flip above when there isn't room and there is above.
+        let top = rect.bottom + gap
+        if (top + estHeight > window.innerHeight - margin && rect.top - gap - estHeight > margin) {
+            top = rect.top - gap - estHeight
+        }
+        setMenuPos({ top, left })
+    }
+
+    // Keep the dropdown pinned to the trigger while open, even as ancestors scroll.
+    useEffect(() => {
+        if (!open) return
+        positionMenu()
+        const handler = () => positionMenu()
+        window.addEventListener('scroll', handler, true)
+        window.addEventListener('resize', handler)
+        return () => {
+            window.removeEventListener('scroll', handler, true)
+            window.removeEventListener('resize', handler)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, view, isRange])
 
     // Reconcile internal state with a controlled value during render
     // (React's endorsed "adjust state when a prop changes" pattern).
@@ -151,13 +194,15 @@ export default function DatePicker({
         setLastValueKey(valueKey)
     }
 
-    // Close on outside click.
+    // Close on outside click. The menu is portaled outside the container, so it
+    // gets its own ref check — otherwise clicking inside it would close it.
     useEffect(() => {
         if (!open) return
         function handle(event: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setOpen(false)
-            }
+            const target = event.target as Node
+            const inTrigger = containerRef.current?.contains(target)
+            const inMenu = menuRef.current?.contains(target)
+            if (!inTrigger && !inMenu) setOpen(false)
         }
         document.addEventListener('mousedown', handle)
         return () => document.removeEventListener('mousedown', handle)
@@ -235,6 +280,7 @@ export default function DatePicker({
         setHoverDate(null)
         setView('days')
         setRangeSelecting(isRange && rangeStart && !rangeEnd ? 'end' : 'start')
+        positionMenu() // place it before paint to avoid a flash at the origin
         setOpen(true)
     }
 
@@ -390,7 +436,13 @@ export default function DatePicker({
     return (
         <div ref={containerRef} className={`relative ${className}`}>
             {/* Trigger */}
-            <button type="button" onClick={toggle} disabled={disabled} className={triggerClasses}>
+            <button
+                ref={triggerRef}
+                type="button"
+                onClick={toggle}
+                disabled={disabled}
+                className={triggerClasses}
+            >
                 <i
                     className="fa-regular fa-calendar shrink-0 text-sm text-neutral-400"
                     aria-hidden="true"
@@ -417,10 +469,15 @@ export default function DatePicker({
                 )}
             </button>
 
-            {/* Dropdown */}
-            {open && (
+            {/* Dropdown — portaled to the body and fixed to the viewport so no
+                ancestor's overflow can clip it or grow a scrollbar. */}
+            {open &&
+                menuPos &&
+                createPortal(
                 <div
-                    className={`absolute left-0 top-full z-50 mt-2 rounded-2xl border border-neutral-100 bg-white p-4 shadow-xl ${isRange ? 'w-80' : 'w-72'}`}
+                    ref={menuRef}
+                    style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
+                    className={`z-[100] rounded-2xl border border-neutral-100 bg-white p-4 shadow-xl ${isRange ? 'w-80' : 'w-72'}`}
                 >
                     {/* Header nav */}
                     <div className="mb-3 flex items-center justify-between gap-2">
@@ -561,8 +618,9 @@ export default function DatePicker({
                             Today
                         </button>
                     </div>
-                </div>
-            )}
+                </div>,
+                    document.body
+                )}
         </div>
     )
 }
