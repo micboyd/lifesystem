@@ -87,7 +87,7 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         }
     }
 
-    const set: Record<string, string | boolean> = {}
+    const set: Record<string, unknown> = {}
     const unset: Record<string, 1> = {}
     for (const [k, v] of Object.entries(settings)) {
         if (v === undefined) unset[k] = 1
@@ -119,6 +119,25 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         set['settings.workDays'] = req.body.workDays.filter(
             (d: unknown) => typeof d === 'number' && d >= 0 && d <= 6
         )
+    }
+
+    // Weather location: an object {name, latitude, longitude}, or null/'' to clear.
+    const loc = req.body.weatherLocation
+    if (loc === null || loc === '') {
+        unset['settings.weatherLocation'] = 1
+    } else if (
+        loc &&
+        typeof loc === 'object' &&
+        typeof loc.name === 'string' &&
+        loc.name.trim() &&
+        typeof loc.latitude === 'number' &&
+        typeof loc.longitude === 'number'
+    ) {
+        set['settings.weatherLocation'] = {
+            name: loc.name.trim(),
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+        }
     }
 
     const user = await User.findByIdAndUpdate(

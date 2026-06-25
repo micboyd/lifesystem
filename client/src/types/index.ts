@@ -1,3 +1,10 @@
+export interface WeatherLocation {
+    /** Display name, e.g. "Glasgow". */
+    name: string
+    latitude: number
+    longitude: number
+}
+
 export interface UserSettings {
     wakeTime?: string
     bedTime?: string
@@ -9,6 +16,8 @@ export interface UserSettings {
     studyRowId?: string
     /** YYYY-MM-DD — all finance data before this date is hidden. */
     financeStartDate?: string
+    /** Saved location the weather forecast is based on. */
+    weatherLocation?: WeatherLocation
 }
 
 export type CourseKind = 'course' | 'block'

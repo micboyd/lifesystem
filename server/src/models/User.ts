@@ -2,6 +2,12 @@ import { Schema, model, Document } from 'mongoose'
 
 export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
+export interface IWeatherLocation {
+    name: string
+    latitude: number
+    longitude: number
+}
+
 export interface IUserSettings {
     wakeTime?: string
     bedTime?: string
@@ -13,6 +19,8 @@ export interface IUserSettings {
     studyRowId?: string
     /** YYYY-MM-DD — all finance data before this date is hidden. */
     financeStartDate?: string
+    /** Saved location the weather forecast is based on. */
+    weatherLocation?: IWeatherLocation
 }
 
 export interface IUser extends Document {
@@ -22,6 +30,15 @@ export interface IUser extends Document {
     settings: IUserSettings
     createdAt: Date
 }
+
+const weatherLocationSchema = new Schema<IWeatherLocation>(
+    {
+        name: { type: String, required: true },
+        latitude: { type: Number, required: true },
+        longitude: { type: Number, required: true },
+    },
+    { _id: false }
+)
 
 const settingsSchema = new Schema<IUserSettings>(
     {
@@ -33,6 +50,7 @@ const settingsSchema = new Schema<IUserSettings>(
         workDays: { type: [Number], default: undefined },
         studyRowId: { type: String },
         financeStartDate: { type: String },
+        weatherLocation: { type: weatherLocationSchema, default: undefined },
     },
     { _id: false }
 )

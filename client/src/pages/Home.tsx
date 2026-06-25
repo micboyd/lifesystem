@@ -13,6 +13,7 @@ import StudyPacingWidget from '../components/dashboard/StudyPacingWidget'
 import BudgetTrendWidget from '../components/dashboard/BudgetTrendWidget'
 import DisciplineWidget from '../components/dashboard/DisciplineWidget'
 import BirthdayWidget from '../components/dashboard/BirthdayWidget'
+import WeatherWidget from '../components/dashboard/WeatherWidget'
 import DaysSinceWidget from '../components/dashboard/DaysSinceWidget'
 import GoalsWidget from '../components/dashboard/GoalsWidget'
 import { todayKey } from '../lib/calendar'
@@ -33,6 +34,10 @@ export default function Home() {
 
                 <WorkStatusBanner date={date} />
                 <BirthdayWidget date={date} />
+
+                <div className="mt-6">
+                    <WeatherWidget />
+                </div>
 
                 <div className="mt-6">
                     <InsightsStrip date={date} />
