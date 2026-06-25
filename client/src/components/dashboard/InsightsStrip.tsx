@@ -206,12 +206,29 @@ const PLACEHOLDERS: Insight[] = [
     { label: 'Budget left today', value: '…', icon: 'fa-solid fa-wallet' },
 ]
 
+/** Raw inputs for the strip; insights are derived from these at render time. */
+interface StripData {
+    habits: HabitDef[]
+    logs: HabitLog[]
+    tasks: Task[]
+    boxes: Timebox[]
+    groups: FinanceGroup[]
+    rows: FinanceRow[]
+    entries: FinanceEntry[]
+    spends: BudgetSpend[]
+    excludedDates: Set<string>
+}
+
 export default function InsightsStrip({ date }: { date: string }) {
-    useMoneyHidden() // re-render when money is hidden/shown
+    // Subscribe to the hide-money switch. Because the money figures are formatted
+    // during render (below) rather than baked into state, this re-render re-masks
+    // them the instant the toggle flips — no refetch needed.
+    useMoneyHidden()
     const { user } = useAuth()
     // Refetch whenever any of these data topics change elsewhere in the app.
     const dataVersion = useDataVersion('habits', 'tasks', 'timeboxes', 'budget')
-    const [insights, setInsights] = useState<Insight[]>(PLACEHOLDERS)
+    const [data, setData] = useState<StripData | null>(null)
+    const [failed, setFailed] = useState(false)
     const [loadedKey, setLoadedKey] = useState<string | null>(null)
 
     const month = monthOf(date)
@@ -224,6 +241,7 @@ export default function InsightsStrip({ date }: { date: string }) {
 
     useEffect(() => {
         let active = true
+        setFailed(false)
         Promise.all([
             listHabits(),
             listLogs(addDays(date, -STREAK_WINDOW), date),
@@ -237,15 +255,24 @@ export default function InsightsStrip({ date }: { date: string }) {
         ])
             .then(([habits, logs, tasks, boxes, groups, rows, entries, spends, exclusions]) => {
                 if (!active) return
-                const excludedDates = new Set(exclusions.map((d) => d.date))
-                setInsights([
-                    habitInsight(habits, logs, date),
-                    taskInsight(tasks),
-                    timeboxInsight(boxes, wake, bed),
-                    budgetInsight(groups, rows, entries, spends, excludedDates, date),
-                ])
+                setData({
+                    habits,
+                    logs,
+                    tasks,
+                    boxes,
+                    groups,
+                    rows,
+                    entries,
+                    spends,
+                    excludedDates: new Set(exclusions.map((d) => d.date)),
+                })
             })
-            .catch(() => active && setInsights(PLACEHOLDERS.map((p) => ({ ...p, value: '—' }))))
+            .catch(() => {
+                if (active) {
+                    setData(null)
+                    setFailed(true)
+                }
+            })
             .finally(() => {
                 if (active) setLoadedKey(key)
             })
@@ -257,7 +284,26 @@ export default function InsightsStrip({ date }: { date: string }) {
         // flashing placeholders.
     }, [key, dataVersion, date, month, wake, bed])
 
-    const cards = loading ? PLACEHOLDERS : insights
+    // Derive the cards on every render so money formatting reflects the hide
+    // switch immediately; the raw data is cached in state between fetches.
+    const cards: Insight[] =
+        loading || !data
+            ? failed
+                ? PLACEHOLDERS.map((p) => ({ ...p, value: '—' }))
+                : PLACEHOLDERS
+            : [
+                  habitInsight(data.habits, data.logs, date),
+                  taskInsight(data.tasks),
+                  timeboxInsight(data.boxes, wake, bed),
+                  budgetInsight(
+                      data.groups,
+                      data.rows,
+                      data.entries,
+                      data.spends,
+                      data.excludedDates,
+                      date
+                  ),
+              ]
 
     return (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
