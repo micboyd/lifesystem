@@ -74,11 +74,12 @@ interface SpendInputProps {
     spentToday: number
     hasLogged: boolean
     label?: string
-    onAdd: (amount: number) => Promise<void>
+    onAdd: (amount: number, note?: string) => Promise<void>
 }
 
 function SpendInput({ spentToday, hasLogged, label, onAdd }: SpendInputProps) {
     const [draft, setDraft] = useState('')
+    const [note, setNote] = useState('')
     const [saving, setSaving] = useState(false)
 
     async function submit(e: FormEvent) {
@@ -87,8 +88,9 @@ function SpendInput({ spentToday, hasLogged, label, onAdd }: SpendInputProps) {
         if (Number.isNaN(n) || n < 0) return
         setSaving(true)
         try {
-            await onAdd(n)
+            await onAdd(n, note.trim() || undefined)
             setDraft('')
+            setNote('')
         } finally {
             setSaving(false)
         }
@@ -104,26 +106,36 @@ function SpendInput({ spentToday, hasLogged, label, onAdd }: SpendInputProps) {
                     {hasLogged ? `£${fmt(spentToday)}` : '—'}
                 </span>
             </div>
-            <form onSubmit={submit} className="flex gap-2">
-                <div className="relative min-w-0 flex-1">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-400">£</span>
-                    <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="Log a transaction"
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
-                    />
+            <form onSubmit={submit} className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                    <div className="relative min-w-0 flex-1">
+                        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-400">£</span>
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                            className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={saving || draft.trim() === ''}
+                        className="shrink-0 rounded-xl bg-neutral-950 px-5 py-2.5 text-xs font-semibold tracking-tight text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
+                    >
+                        {saving ? '…' : 'Log'}
+                    </button>
                 </div>
-                <button
-                    type="submit"
-                    disabled={saving || draft.trim() === ''}
-                    className="shrink-0 rounded-xl bg-neutral-950 px-5 py-2.5 text-xs font-semibold tracking-tight text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
-                >
-                    {saving ? '…' : 'Log'}
-                </button>
+                <input
+                    type="text"
+                    placeholder="Label (optional)"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    maxLength={200}
+                    className="w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
+                />
             </form>
         </div>
     )
@@ -142,7 +154,7 @@ interface BudgetCardProps {
     isCurrentWeek: boolean
     isFutureWeek: boolean
     onToggleDailySpend: (row: FinanceRow) => void
-    onLogSpend: (rowId: string, amount: number, date: string) => Promise<void>
+    onLogSpend: (rowId: string, amount: number, date: string, note?: string) => Promise<void>
 }
 
 function BudgetCard({
@@ -278,7 +290,7 @@ function BudgetCard({
                             spentToday={isFutureWeek ? 0 : spentToday}
                             hasLogged={false}
                             label={isFutureWeek ? 'Plan a spend' : undefined}
-                            onAdd={(a) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today)}
+                            onAdd={(a, n) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today, n)}
                         />
                     )}
                 </>
@@ -339,7 +351,7 @@ function BudgetCard({
                             spentToday={isFutureWeek ? 0 : spentToday}
                             hasLogged={false}
                             label={isFutureWeek ? 'Plan a spend' : undefined}
-                            onAdd={(a) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today)}
+                            onAdd={(a, n) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today, n)}
                         />
                     )}
                 </>
@@ -431,9 +443,9 @@ export default function Budgets() {
         }
     }
 
-    async function handleLogSpend(rowId: string, amount: number, date: string) {
+    async function handleLogSpend(rowId: string, amount: number, date: string, note?: string) {
         try {
-            const result = await createBudgetSpend(rowId, date, amount)
+            const result = await createBudgetSpend(rowId, date, amount, note)
             setSpends((prev) => [...prev, result])
             invalidate('budget')
         } catch {
