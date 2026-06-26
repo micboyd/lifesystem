@@ -122,7 +122,9 @@ function groupByWeek(
                 let weeklyRate = 0
                 for (const row of weeklyRows) {
                     const entry = entries.find((e) => e.row === row._id)
-                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), w.days[0].date, excludedDates)
+                    const wStart = w.days[0].date
+                    const wEnd = w.days[w.days.length - 1].date
+                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), wStart, wEnd, today, excludedDates)
                     weeklyRate += bw.weeklyRate
                 }
                 w.target = weeklyRate
@@ -130,7 +132,9 @@ function groupByWeek(
                 let weeklyAllowance = 0
                 for (const row of weeklyRows) {
                     const entry = entries.find((e) => e.row === row._id)
-                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), effectiveDate, excludedDates)
+                    const wStart = w.days[0].date
+                    const wEnd = w.days[w.days.length - 1].date
+                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), wStart, wEnd, today, excludedDates)
                     weeklyAllowance += bw.weeklyRate + bw.carry
                 }
                 w.target = weeklyAllowance

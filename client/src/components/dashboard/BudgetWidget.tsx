@@ -121,11 +121,10 @@ function BudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProp
 // ── Weekly budget column ──────────────────────────────────────────────────────
 
 function WeeklyBudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProps) {
-    const { monthlyAmount, weeklyRate, carry, spentThisWeek, remaining, monthlyRemaining } =
-        computeBudgetWeek(row, entry, rowSpends, date, excludedDates)
-
     const wStart = weekStartOf(date)
     const wEnd = weekEndOf(date)
+    const { monthlyAmount, weeklyRate, carry, spentThisWeek, remaining, monthlyRemaining } =
+        computeBudgetWeek(row, entry, rowSpends, wStart, wEnd, date, excludedDates)
     const weekLabel = (() => {
         const s = new Date(`${wStart}T00:00:00`)
         const e = new Date(`${wEnd}T00:00:00`)
