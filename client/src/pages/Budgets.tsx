@@ -142,6 +142,111 @@ function SpendInput({ spentToday, hasLogged, label, onAdd }: SpendInputProps) {
     )
 }
 
+// ── Monthly overview ──────────────────────────────────────────────────────────
+
+interface MonthRowStat {
+    name: string
+    budget: number
+    spent: number
+}
+
+interface MonthlyOverviewProps {
+    rows: FinanceRow[]
+    groups: FinanceGroup[]
+    entries: FinanceEntry[]
+    spends: BudgetSpend[]
+    excludedDates: Set<string>
+    month: string
+}
+
+function MonthlyOverview({ rows, groups, entries, spends, excludedDates, month }: MonthlyOverviewProps) {
+    const [open, setOpen] = useState(false)
+
+    const monthStart = `${month}-01`
+    const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, '0')}`
+
+    const stats: MonthRowStat[] = rows.map((row) => {
+        const entry = entries.find((e) => e.row === row._id)
+        const budget = entry?.amount ?? row.recurringAmount ?? 0
+        const spent = spends
+            .filter((s) => s.row === row._id && s.date >= monthStart && s.date <= monthEnd && !excludedDates.has(s.date))
+            .reduce((sum, s) => sum + s.amount, 0)
+        const group = groups.find((g) => g._id === row.group)
+        // Flip income rows — "spent" is money received, "budget" is the income target
+        const isIncome = group?.type === 'income'
+        return { name: row.name, budget: isIncome ? 0 : budget, spent: isIncome ? 0 : spent }
+    }).filter((s) => s.budget > 0)
+
+    const totalBudget = stats.reduce((sum, s) => sum + s.budget, 0)
+    const totalSpent = stats.reduce((sum, s) => sum + s.spent, 0)
+    const totalRemaining = totalBudget - totalSpent
+    const overallPct = totalBudget > 0 ? Math.min(100, (totalSpent / totalBudget) * 100) : 0
+
+    if (stats.length === 0) return null
+
+    return (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-neutral-50"
+            >
+                <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-neutral-800">Monthly overview</span>
+                    <span className={`text-xs font-semibold tabular-nums ${totalRemaining < 0 ? 'text-red-500' : 'text-neutral-400'}`}>
+                        £{fmt(Math.abs(totalRemaining))} {totalRemaining < 0 ? 'over' : 'remaining'}
+                    </span>
+                </div>
+                <i className={`fa-solid fa-chevron-down text-[10px] text-neutral-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+            </button>
+
+            {open && (
+                <div className="border-t border-neutral-100 px-5 py-4 flex flex-col gap-4">
+                    {/* Overall progress */}
+                    <div>
+                        <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                            <span className="text-xs font-semibold text-neutral-500">Total</span>
+                            <span className="text-xs tabular-nums text-neutral-400">
+                                £{fmt(totalSpent)} of £{fmt(totalBudget)}
+                            </span>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
+                            <div
+                                className={`h-full rounded-full transition-all duration-300 ${overallPct >= 100 ? 'bg-red-400' : overallPct >= 80 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                                style={{ width: `${overallPct}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Per-row breakdown */}
+                    <div className="flex flex-col gap-3">
+                        {stats.map((s) => {
+                            const pct = s.budget > 0 ? Math.min(100, (s.spent / s.budget) * 100) : 0
+                            const remaining = s.budget - s.spent
+                            return (
+                                <div key={s.name}>
+                                    <div className="mb-1 flex items-baseline justify-between gap-2">
+                                        <span className="truncate text-xs font-semibold text-neutral-700">{s.name}</span>
+                                        <span className={`shrink-0 text-xs tabular-nums ${remaining < 0 ? 'text-red-500' : 'text-neutral-400'}`}>
+                                            {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))} {remaining < 0 ? 'over' : 'left'} · £{fmt(s.budget)}
+                                        </span>
+                                    </div>
+                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-300 ${pct >= 100 ? 'bg-red-400' : pct >= 80 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                                            style={{ width: `${pct}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
 // ── Budget card ───────────────────────────────────────────────────────────────
 
 interface BudgetCardProps {
@@ -567,6 +672,15 @@ export default function Budgets() {
                     )}
                 </div>
             </header>
+
+            <MonthlyOverview
+                rows={budgetedRows}
+                groups={groups}
+                entries={entries}
+                spends={spends}
+                excludedDates={excludedDates}
+                month={month}
+            />
 
             {budgetedRows.length === 0 ? (
                 <EmptyState

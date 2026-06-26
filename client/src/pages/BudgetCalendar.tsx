@@ -498,7 +498,6 @@ function WeekModal({
     const [amount, setAmount] = useState('')
     const [note, setNote] = useState('')
     const [saving, setSaving] = useState(false)
-    const [showingTx, setShowingTx] = useState(false)
 
     const rowIds = new Set(dailyRows.map((r) => r._id))
     const activeDay = week.days.find((d) => d.date === activeDate) ?? week.days[0]
@@ -576,7 +575,7 @@ function WeekModal({
                             <button
                                 key={d.date}
                                 type="button"
-                                onClick={() => { setActiveDate(d.date); setShowingTx(false) }}
+                                onClick={() => setActiveDate(d.date)}
                                 className={[
                                     'flex flex-1 flex-col items-center rounded-lg py-1.5 text-xs font-semibold transition-colors',
                                     isActive
@@ -597,54 +596,12 @@ function WeekModal({
                 </div>
 
                 {/* Day content */}
-                {isFuture && dayTx.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-400">
-                        Future day — nothing planned yet.
-                    </p>
-                ) : showingTx || (isFuture && dayTx.length > 0) ? (
-                    <div className="flex flex-col gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setShowingTx(false)}
-                            className="flex items-center gap-1.5 self-start text-sm font-semibold text-neutral-500 transition-colors hover:text-neutral-900"
-                        >
-                            <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
-                            Back
-                        </button>
-                        {dayTx.length === 0 ? (
-                            <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-8 text-center text-sm text-neutral-400">
-                                No transactions for this day.
-                            </p>
-                        ) : (
-                            <ul className="flex flex-col gap-2">
-                                {dayTx.map((t) => (
-                                    <li key={t._id} className="group/tx flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-4 py-2.5">
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-semibold text-neutral-800">{t.note || rowName(t.row)}</p>
-                                            {t.note && dailyRows.length > 1 && (
-                                                <p className="truncate text-xs text-neutral-400">{rowName(t.row)}</p>
-                                            )}
-                                        </div>
-                                        <div className="flex shrink-0 items-center gap-2">
-                                            <span className="text-sm text-neutral-700">£{fmt(t.amount)}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => onDeleteSpend(t._id)}
-                                                aria-label="Delete transaction"
-                                                className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                                            >
-                                                <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                        <div className="flex items-center justify-between border-t border-neutral-100 pt-2">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Day total</span>
-                            <span className="text-sm font-bold text-neutral-900">£{fmt(spentToday)}</span>
-                        </div>
-                    </div>
+                {isFuture ? (
+                    dayTx.length === 0 && (
+                        <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-400">
+                            Future day — nothing planned yet.
+                        </p>
+                    )
                 ) : (
                     <div className="flex flex-col gap-3">
                         {/* Exclude toggle */}
@@ -716,24 +673,11 @@ function WeekModal({
                                 </Button>
                             </form>
                         </div>
-
-                        {/* View transactions */}
-                        <button
-                            type="button"
-                            onClick={() => setShowingTx(true)}
-                            className="flex items-center justify-between rounded-xl border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
-                        >
-                            <span>
-                                View transactions
-                                {dayTx.length > 0 && <span className="ml-1.5 text-neutral-400">({dayTx.length})</span>}
-                            </span>
-                            <i className="fa-solid fa-chevron-right text-xs text-neutral-400" aria-hidden="true" />
-                        </button>
                     </div>
                 )}
 
                 {/* Week transaction list */}
-                {weekTx.length > 0 && !showingTx && (
+                {weekTx.length > 0 && (
                     <details className="rounded-xl border border-neutral-100">
                         <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-neutral-500 hover:text-neutral-900">
                             All transactions this week ({weekTx.length})
@@ -744,10 +688,18 @@ function WeekModal({
                                 const date = new Date(Number(t.date.split('-')[0]), Number(t.date.split('-')[1]) - 1, d)
                                 const dayLabel = date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
                                 return (
-                                    <li key={t._id} className="flex items-center justify-between gap-3 py-2 text-xs">
-                                        <span className="text-neutral-400">{dayLabel}</span>
+                                    <li key={t._id} className="flex items-center gap-3 py-2 text-xs">
+                                        <span className="w-10 shrink-0 text-neutral-400">{dayLabel}</span>
                                         <span className="flex-1 truncate font-semibold text-neutral-700">{t.note || rowName(t.row)}</span>
-                                        <span className="text-neutral-700">£{fmt(t.amount)}</span>
+                                        <span className="shrink-0 text-neutral-700">£{fmt(t.amount)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteSpend(t._id)}
+                                            aria-label="Delete transaction"
+                                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                                        >
+                                            <i className="fa-solid fa-trash-can text-[10px]" aria-hidden="true" />
+                                        </button>
                                     </li>
                                 )
                             })}
