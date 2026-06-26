@@ -73,10 +73,11 @@ const fmt = formatAmount
 interface SpendInputProps {
     spentToday: number
     hasLogged: boolean
+    label?: string
     onAdd: (amount: number) => Promise<void>
 }
 
-function SpendInput({ spentToday, hasLogged, onAdd }: SpendInputProps) {
+function SpendInput({ spentToday, hasLogged, label, onAdd }: SpendInputProps) {
     const [draft, setDraft] = useState('')
     const [saving, setSaving] = useState(false)
 
@@ -97,7 +98,7 @@ function SpendInput({ spentToday, hasLogged, onAdd }: SpendInputProps) {
         <div className="flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-                    Spent today
+                    {label ?? 'Spent today'}
                 </span>
                 <span className={`text-sm tabular-nums ${hasLogged ? 'text-neutral-900' : 'text-neutral-300'}`}>
                     {hasLogged ? `£${fmt(spentToday)}` : '—'}
@@ -139,13 +140,14 @@ interface BudgetCardProps {
     weekStart: string
     weekEnd: string
     isCurrentWeek: boolean
+    isFutureWeek: boolean
     onToggleDailySpend: (row: FinanceRow) => void
-    onLogSpend: (rowId: string, amount: number) => Promise<void>
+    onLogSpend: (rowId: string, amount: number, date: string) => Promise<void>
 }
 
 function BudgetCard({
     row, group, entry, spends, excludedDates,
-    weekStart, weekEnd, isCurrentWeek,
+    weekStart, weekEnd, isCurrentWeek, isFutureWeek,
     onToggleDailySpend, onLogSpend,
 }: BudgetCardProps) {
     const isDailySpend = row.budgetType === 'daily'
@@ -182,7 +184,7 @@ function BudgetCard({
     const spentToday = spends
         .filter((s) => s.date === today && !excludedDates.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
-    const hasLoggedToday = spends.some((s) => s.date === today)
+
 
     // Week date range label e.g. "1–5 Jul"
     const rangeLabel = (() => {
@@ -271,8 +273,13 @@ function BudgetCard({
                         </div>
                     )}
 
-                    {isCurrentWeek && (
-                        <SpendInput spentToday={spentToday} hasLogged={hasLoggedToday} onAdd={(a) => onLogSpend(row._id, a)} />
+                    {(isCurrentWeek || isFutureWeek) && (
+                        <SpendInput
+                            spentToday={isFutureWeek ? 0 : spentToday}
+                            hasLogged={false}
+                            label={isFutureWeek ? 'Plan a spend' : undefined}
+                            onAdd={(a) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today)}
+                        />
                     )}
                 </>
             )}
@@ -327,8 +334,13 @@ function BudgetCard({
                         </div>
                     )}
 
-                    {isCurrentWeek && (
-                        <SpendInput spentToday={spentToday} hasLogged={hasLoggedToday} onAdd={(a) => onLogSpend(row._id, a)} />
+                    {(isCurrentWeek || isFutureWeek) && (
+                        <SpendInput
+                            spentToday={isFutureWeek ? 0 : spentToday}
+                            hasLogged={false}
+                            label={isFutureWeek ? 'Plan a spend' : undefined}
+                            onAdd={(a) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today)}
+                        />
                     )}
                 </>
             )}
@@ -419,9 +431,9 @@ export default function Budgets() {
         }
     }
 
-    async function handleLogSpend(rowId: string, amount: number) {
+    async function handleLogSpend(rowId: string, amount: number, date: string) {
         try {
-            const result = await createBudgetSpend(rowId, todayDate, amount)
+            const result = await createBudgetSpend(rowId, date, amount)
             setSpends((prev) => [...prev, result])
             invalidate('budget')
         } catch {
@@ -510,6 +522,7 @@ export default function Budgets() {
                                 weekStart={weekStart}
                                 weekEnd={weekEnd}
                                 isCurrentWeek={isCurrentWeek}
+                                isFutureWeek={weekStart > todayDate}
                                 onToggleDailySpend={handleToggleDailySpend}
                                 onLogSpend={handleLogSpend}
                             />
