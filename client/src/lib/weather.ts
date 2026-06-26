@@ -278,21 +278,31 @@ export function weatherWarnings(hourly: HourlySlot[], today: DailyForecast): Wea
     const waking = hourly.filter((h) => h.hour >= 6 && h.hour <= 23)
     const warnings: WeatherWarning[] = []
 
-    // Thunderstorm
+    // Thunderstorm — check both hourly codes and the daily summary code so we
+    // catch cases where Open-Meteo flags a storm in the day aggregate but not
+    // every individual hour slot (common with UK-style scattered storms).
     const thunderHours = waking.filter((h) => h.code >= 95)
-    if (thunderHours.length > 0) {
+    const dailyThunder = today.code >= 95
+    if (thunderHours.length > 0 || dailyThunder) {
+        const hasHail = thunderHours.some((h) => h.code === 96 || h.code === 99) || today.code === 96 || today.code === 99
+        const rainExpected = today.precipitationProbability >= 50 || waking.some((h) => h.precipitation > 0)
         const first = thunderHours[0]
-        const hasHail = thunderHours.some((h) => h.code === 96 || h.code === 99)
+        const whenStr = first ? ` from ${fmt12(first.hour)}` : ''
+        const detail = hasHail
+            ? `Lightning and hail expected${whenStr}`
+            : rainExpected
+              ? `Lightning and heavy rain expected${whenStr}`
+              : `Thunderstorm possible${whenStr} — stay indoors if caught outside`
         warnings.push({
             id: 'thunder',
             severity: hasHail ? 'red' : 'amber',
             icon: 'fa-solid fa-cloud-bolt',
             title: hasHail ? 'Thunderstorm with hail' : 'Thunderstorm warning',
-            detail: `Thunderstorms expected from ${fmt12(first.hour)}${hasHail ? ' — hail possible' : ''}`,
+            detail,
         })
     }
 
-    // High winds (gusts)
+    // High winds (gusts) — threshold starts at 40mph
     const maxGust = Math.max(...waking.map((h) => h.windGust))
     if (maxGust >= 60) {
         warnings.push({
@@ -309,14 +319,6 @@ export function weatherWarnings(hourly: HourlySlot[], today: DailyForecast): Wea
             icon: 'fa-solid fa-wind',
             title: 'Strong winds',
             detail: `Gusts up to ${maxGust}mph — take care outdoors`,
-        })
-    } else if (maxGust >= 25) {
-        warnings.push({
-            id: 'wind',
-            severity: 'yellow',
-            icon: 'fa-solid fa-wind',
-            title: 'Breezy conditions',
-            detail: `Gusts up to ${maxGust}mph`,
         })
     }
 
