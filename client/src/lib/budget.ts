@@ -231,8 +231,8 @@ export function computeBudgetWeek(
         }
     }
 
-    // Spend in this week — capped at today for the current week, weekEnd for past weeks.
-    const spendCutoff = today < weekEnd ? today : weekEnd
+    // Spend in this week — for past/current weeks cap at today; for future weeks include all planned spends.
+    const spendCutoff = today < weekStart ? weekEnd : today < weekEnd ? today : weekEnd
     const spentThisWeek = rowSpends
         .filter((s) => s.date >= weekStart && s.date <= spendCutoff && !excluded.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)

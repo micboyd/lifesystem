@@ -9,6 +9,7 @@ import {
     updateRow,
     listBudgetSpends,
     createBudgetSpend,
+    deleteBudgetSpend,
     listBudgetExclusions,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
@@ -155,12 +156,13 @@ interface BudgetCardProps {
     isFutureWeek: boolean
     onToggleDailySpend: (row: FinanceRow) => void
     onLogSpend: (rowId: string, amount: number, date: string, note?: string) => Promise<void>
+    onDeleteSpend: (id: string) => Promise<void>
 }
 
 function BudgetCard({
     row, group, entry, spends, excludedDates,
     weekStart, weekEnd, isCurrentWeek, isFutureWeek,
-    onToggleDailySpend, onLogSpend,
+    onToggleDailySpend, onLogSpend, onDeleteSpend,
 }: BudgetCardProps) {
     const isDailySpend = row.budgetType === 'daily'
     const isWeeklySpend = row.budgetType === 'weekly'
@@ -285,6 +287,29 @@ function BudgetCard({
                         </div>
                     )}
 
+                    {isFutureWeek && spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).length > 0 && (
+                        <ul className="flex flex-col gap-1.5">
+                            {spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).map((t) => (
+                                <li key={t._id} className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3 py-2">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-neutral-800">{t.note || row.name}</p>
+                                        <p className="text-xs text-neutral-400">{t.date}</p>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <span className="text-sm tabular-nums text-neutral-700">£{fmt(t.amount)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteSpend(t._id)}
+                                            aria-label="Delete planned transaction"
+                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                        >
+                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                     {(isCurrentWeek || isFutureWeek) && (
                         <SpendInput
                             spentToday={isFutureWeek ? 0 : spentToday}
@@ -346,6 +371,29 @@ function BudgetCard({
                         </div>
                     )}
 
+                    {isFutureWeek && spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).length > 0 && (
+                        <ul className="flex flex-col gap-1.5">
+                            {spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).map((t) => (
+                                <li key={t._id} className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3 py-2">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-neutral-800">{t.note || row.name}</p>
+                                        <p className="text-xs text-neutral-400">{t.date}</p>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <span className="text-sm tabular-nums text-neutral-700">£{fmt(t.amount)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteSpend(t._id)}
+                                            aria-label="Delete planned transaction"
+                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                        >
+                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                     {(isCurrentWeek || isFutureWeek) && (
                         <SpendInput
                             spentToday={isFutureWeek ? 0 : spentToday}
@@ -453,6 +501,16 @@ export default function Budgets() {
         }
     }
 
+    async function handleDeleteSpend(id: string) {
+        try {
+            await deleteBudgetSpend(id)
+            setSpends((prev) => prev.filter((s) => s._id !== id))
+            invalidate('budget')
+        } catch {
+            toast.error("Couldn't delete that transaction.")
+        }
+    }
+
     if (loading) {
         return (
             <div className="grid place-items-center py-16">
@@ -537,6 +595,7 @@ export default function Budgets() {
                                 isFutureWeek={weekStart > todayDate}
                                 onToggleDailySpend={handleToggleDailySpend}
                                 onLogSpend={handleLogSpend}
+                                onDeleteSpend={handleDeleteSpend}
                             />
                         )
                     })}
