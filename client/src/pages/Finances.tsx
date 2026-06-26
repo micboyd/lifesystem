@@ -27,6 +27,7 @@ import { addMonths, rowVisibleInMonth, groupVisibleInMonth, type DeleteMode } fr
 import { formatMoney, formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
+import { useInvalidate } from '../context/DataSyncContext'
 import { useAuth } from '../context/AuthContext'
 import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
 import Tabs from '../components/Tabs'
@@ -514,6 +515,7 @@ export default function Finances() {
     useMoneyHidden() // re-render this subtree when money is hidden/shown
     const navigate = useNavigate()
     const toast = useToast()
+    const invalidate = useInvalidate()
     const { user } = useAuth()
     const financeStartMonth = user?.settings?.financeStartDate?.slice(0, 7) ?? null
     const [searchParams] = useSearchParams()
@@ -836,6 +838,8 @@ export default function Finances() {
         try {
             const updated = await updateRow(rowId, { budgeted })
             setRows((prev) => prev.map((r) => (r._id === rowId ? updated : r)))
+            // Let the dashboard's budget widgets/insights pick up the change.
+            invalidate('budget')
         } catch {
             toast.error(budgeted ? 'Couldn’t add to Budgets.' : 'Couldn’t remove from Budgets.')
         }

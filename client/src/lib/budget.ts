@@ -170,7 +170,7 @@ export function computeBudgetWeek(
     const month = monthOf(today)
     const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
     const totalDays = daysInMonth(month)
-    const weeklyRate = totalDays > 0 ? (monthlyAmount * 7) / totalDays : 0
+    const dailyRate = totalDays > 0 ? monthlyAmount / totalDays : 0
 
     const totalSpentMonth = rowSpends
         .filter((s) => s.date.startsWith(month) && !excluded.has(s.date))
@@ -178,6 +178,21 @@ export function computeBudgetWeek(
     const monthlyRemaining = monthlyAmount - totalSpentMonth
 
     const wStart = weekStartOf(today)
+
+    // This week's allowance is the daily rate × the week's active days that fall
+    // within the month. A full in-month week gives 7 × dailyRate (the usual
+    // pro-rata slice); partial weeks at month boundaries are prorated down, so
+    // the allowance — even with carry — can never exceed the month's budget.
+    let activeDaysThisWeek = 0
+    {
+        const d = new Date(`${wStart}T00:00:00`)
+        for (let i = 0; i < 7; i++) {
+            const dk = localDateStr(d)
+            if (dk.startsWith(month) && !excluded.has(dk)) activeDaysThisWeek++
+            d.setDate(d.getDate() + 1)
+        }
+    }
+    const weeklyRate = dailyRate * activeDaysThisWeek
 
     // Carry = (completed weeks before this one × weeklyRate) − spend in those weeks.
     // We work day-by-day within the month, stopping at the week boundary.
@@ -206,7 +221,6 @@ export function computeBudgetWeek(
                 d.setDate(d.getDate() + 1)
             }
             // Effective weekly allowance = daily rate × active days in this partial/full week.
-            const dailyRate = totalDays > 0 ? monthlyAmount / totalDays : 0
             const weekAllowance = dailyRate * activeDaysInWeek
             const weekSpend = rowSpends
                 .filter((s) => s.date >= cursor && s.date <= wEnd && s.date >= monthStart && !excluded.has(s.date))
