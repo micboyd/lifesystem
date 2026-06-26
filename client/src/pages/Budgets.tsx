@@ -159,10 +159,8 @@ function BudgetCard({
     const { monthlyAmount, monthlyRemaining } = monthRef
 
     // ── Weekly row maths ────────────────────────────────────────────────────
-    // Pass the "effective" date for this week: end of week for past, today for current, start for future.
-    const weekEffective = weekEnd <= today ? weekEnd : weekStart > today ? weekStart : today
     const weeklyBudget = isWeeklySpend
-        ? computeBudgetWeek(row, entry, spends, weekEffective, excludedDates)
+        ? computeBudgetWeek(row, entry, spends, weekStart, weekEnd, today, excludedDates)
         : null
 
     // ── Daily row maths for the week slice ──────────────────────────────────
