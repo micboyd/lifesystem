@@ -200,7 +200,8 @@ export function computeBudgetWeek(
     const monthStart = `${month}-01`
     const monthEnd = dateKey(month, daysInMonth(month))
     const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
-    const dailyRate = daysInMonth(month) > 0 ? monthlyAmount / daysInMonth(month) : 0
+    const totalActiveDays = activeDaysInMonth(month, excluded)
+    const dailyRate = totalActiveDays > 0 ? monthlyAmount / totalActiveDays : 0
 
     // This week's allowance — daily rate × active days in the clamped slice.
     const weeklyRate = dailyRate * activeDaysBetween(weekStart, weekEnd, excluded)
