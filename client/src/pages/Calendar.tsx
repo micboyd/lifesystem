@@ -16,7 +16,7 @@ import {
     formatWeekRange,
     parseDateKey,
 } from '../lib/calendar'
-import { listEvents, updateEvent, deleteEvent, type EventInput } from '../services/events'
+import { listEvents, createEvent, updateEvent, deleteEvent, type EventInput } from '../services/events'
 import { listBirthdays } from '../services/birthdays'
 import { listStatuses } from '../services/dayStatus'
 import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from '../services/totals'
@@ -88,6 +88,7 @@ export default function Calendar() {
     const [editingEvent, setEditingEvent] = useState<Event | null>(null)
     const [scopeEvent, setScopeEvent] = useState<Event | null>(null)
     const [editorOpen, setEditorOpen] = useState(false)
+    const [defaultDate, setDefaultDate] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
     // Day whose leave/holiday is being edited in the drawer (Year-view Leave row).
@@ -215,14 +216,18 @@ export default function Calendar() {
     }
 
     async function handleSave(input: EventInput) {
-        if (!editingEvent) return
         setSaving(true)
         setConflict(false)
         try {
-            await updateEvent(editingEvent._id, input)
+            if (editingEvent) {
+                await updateEvent(editingEvent._id, input)
+            } else {
+                await createEvent(input)
+            }
             reload()
             setEditorOpen(false)
             setEditingEvent(null)
+            setDefaultDate(null)
         } catch (err: unknown) {
             if ((err as { response?: { status?: number } })?.response?.status === 409)
                 setConflict(true)
@@ -418,6 +423,11 @@ export default function Calendar() {
             nav(`/day/${date}`, { state: { openPart: part } }),
         onEventClick: (event: Event) => setDetailEvent(event),
         onPickEvents: (evts: Event[]) => setPickerEvents(evts),
+        onCreateEvent: (date: string) => {
+            setEditingEvent(null)
+            setEditorOpen(true)
+            setDefaultDate(date)
+        },
     }
 
     // Year view: hide past months
@@ -564,13 +574,16 @@ export default function Calendar() {
                 defaultSlot={
                     editingEvent
                         ? { date: editingEvent.startDate, part: editingEvent.startPart }
-                        : null
+                        : defaultDate
+                          ? { date: defaultDate, part: 'morning' }
+                          : null
                 }
                 saving={saving}
                 conflict={conflict}
                 onClose={() => {
                     setEditorOpen(false)
                     setEditingEvent(null)
+                    setDefaultDate(null)
                     setConflict(false)
                 }}
                 onSave={handleSave}
