@@ -40,7 +40,7 @@ export default function WeekView({
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
     return (
-        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
             <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                     {/* Day headers */}
@@ -53,14 +53,10 @@ export default function WeekView({
                                 const { day } = parseDateKey(date)
                                 const weekday = new Date(date + 'T00:00:00').getDay()
                                 const isToday = date === tk
-                                const isPast = date < tk
                                 return (
                                     <th
                                         key={date}
-                                        className={[
-                                            'px-1 py-2 text-center',
-                                            isPast ? 'bg-red-50/40' : '',
-                                        ].join(' ')}
+                                        className="px-1 py-2 text-center"
                                     >
                                         <button
                                             type="button"

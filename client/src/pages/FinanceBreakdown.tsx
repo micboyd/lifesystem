@@ -114,7 +114,7 @@ function SubItemRow({ item, onSave, onDelete }: SubItemRowProps) {
     }
 
     return (
-        <li className="group/item flex items-center justify-between gap-3 rounded-2xl border border-neutral-100 bg-white px-4 py-3.5 transition-all hover:border-neutral-200 hover:shadow-sm">
+        <li className="group/item flex items-center justify-between gap-3 rounded-2xl border border-neutral-100 bg-white px-4 py-3.5 transition-colors hover:border-neutral-200">
             <span className="flex-1 text-sm font-semibold text-neutral-800">{item.name}</span>
             <span className="tabular-nums text-sm text-neutral-700">£{fmt(item.amount)}</span>
             <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:opacity-100">
@@ -382,7 +382,7 @@ export default function FinanceBreakdown() {
                     )}
 
                     {/* Total card */}
-                    <div className="mb-6 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
+                    <div className="mb-6 rounded-3xl border border-neutral-200 bg-white p-6">
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                             {isRecurring
                                 ? `Total for ${formatMonth(month)}`

@@ -11,12 +11,13 @@ interface Props {
     /** Accepted for a shared prop shape with the other views; unused here. */
     onOpenPart?: (date: string, part: Part) => void
     onEventClick: (event: Event) => void
+    onCreateEvent?: (date: string) => void
 }
 
 const WEEKDAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MAX_VISIBLE = 3
 
-export default function MonthView({ focusDate, events, statuses, onOpenDay, onEventClick }: Props) {
+export default function MonthView({ focusDate, events, statuses, onOpenDay, onEventClick, onCreateEvent }: Props) {
     const tk = todayKey()
     const { year, month } = parseDateKey(focusDate)
 
@@ -68,7 +69,7 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
                     return (
                         <div
                             key={date}
-                            onClick={() => onOpenDay(date)}
+                            onClick={() => onCreateEvent?.(date)}
                             className={[
                                 'min-h-28 cursor-pointer p-1.5 transition-colors hover:bg-neutral-50',
                                 !isCurrentMonth ? 'bg-neutral-50/60' : '',
@@ -88,11 +89,15 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
                                     )
                                 })()}
 
-                            {/* Day number */}
+                            {/* Day number — click navigates to day page */}
                             <div className="mb-1 flex justify-end">
                                 <span
+                                    onClick={(ev) => {
+                                        ev.stopPropagation()
+                                        onOpenDay(date)
+                                    }}
                                     className={[
-                                        'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold',
+                                        'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold hover:ring-2 hover:ring-neutral-400',
                                         isToday
                                             ? 'bg-neutral-950 text-white'
                                             : isCurrentMonth

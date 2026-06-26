@@ -147,18 +147,18 @@ function MonthDrawer({
                 onClick={onClose}
             />
             {/* Drawer */}
-            <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-white shadow-2xl">
-                <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-5">
+            <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-neutral-100 px-8 py-6">
                     <div>
-                        <p className="text-lg font-bold tracking-tight text-neutral-900">
+                        <p className="text-xl font-bold tracking-tight text-neutral-900">
                             Year {yearRow.year}
                         </p>
-                        <p className="text-xs text-neutral-400">Month by month breakdown</p>
+                        <p className="mt-0.5 text-sm text-neutral-400">Month by month breakdown</p>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                        className="grid h-9 w-9 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                     >
                         <i className="fa-solid fa-xmark" aria-hidden="true" />
                     </button>
@@ -168,25 +168,25 @@ function MonthDrawer({
                     <table className="w-full">
                         <thead className="sticky top-0 bg-white">
                             <tr className="border-b border-neutral-100 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                                <th className="py-3 pl-6 pr-3 text-left">Month</th>
-                                <th className="py-3 px-3 text-right">Contrib.</th>
-                                <th className="py-3 px-3 text-right">Interest</th>
-                                <th className="py-3 pl-3 pr-6 text-right">Balance</th>
+                                <th className="py-4 pl-8 pr-4 text-left">Month</th>
+                                <th className="px-4 py-4 text-right">Contributions</th>
+                                <th className="px-4 py-4 text-right">Interest</th>
+                                <th className="py-4 pl-4 pr-12 text-right">Balance</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-50">
                             {months.map((m) => (
                                 <tr key={m.month} className="hover:bg-neutral-50">
-                                    <td className="py-3 pl-6 pr-3 text-sm font-semibold text-neutral-900">
+                                    <td className="py-4 pl-8 pr-4 text-sm font-semibold text-neutral-900">
                                         {label(m.month)}
                                     </td>
-                                    <td className="py-3 px-3 text-right text-sm text-neutral-600">
+                                    <td className="px-4 py-4 text-right text-sm tabular-nums text-neutral-600">
                                         £{fmt(m.contributions, 0)}
                                     </td>
-                                    <td className={`py-3 px-3 text-right text-sm ${m.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-400'}`}>
+                                    <td className={`px-4 py-4 text-right text-sm tabular-nums ${m.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-300'}`}>
                                         {m.interestEarned > 0 ? '+' : ''}£{fmt(m.interestEarned, 0)}
                                     </td>
-                                    <td className="py-3 pl-3 pr-6 text-right text-sm font-bold text-neutral-900">
+                                    <td className="py-4 pl-4 pr-12 text-right text-sm font-bold tabular-nums text-neutral-900">
                                         £{fmt(m.endBalance, 0)}
                                     </td>
                                 </tr>
@@ -195,19 +195,19 @@ function MonthDrawer({
                     </table>
                 </div>
 
-                <div className="border-t border-neutral-100 px-6 py-4">
-                    <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="border-t border-neutral-100 px-8 py-6">
+                    <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Contributions</p>
-                            <p className="mt-0.5 text-sm font-bold text-neutral-900">£{fmt(yearRow.contributions, 0)}</p>
+                            <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">£{fmt(yearRow.contributions, 0)}</p>
                         </div>
                         <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Interest</p>
-                            <p className="mt-0.5 text-sm font-bold text-emerald-600">+£{fmt(yearRow.interestEarned, 0)}</p>
+                            <p className="mt-1 text-base font-bold tabular-nums text-emerald-600">+£{fmt(yearRow.interestEarned, 0)}</p>
                         </div>
                         <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">End balance</p>
-                            <p className="mt-0.5 text-sm font-bold text-neutral-900">£{fmt(yearRow.endBalance, 0)}</p>
+                            <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">£{fmt(yearRow.endBalance, 0)}</p>
                         </div>
                     </div>
                 </div>
@@ -325,7 +325,7 @@ function GroupSettingsCard({ group, monthlyContribution, activeDescription, onUp
     }
 
     return (
-        <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-neutral-300 hover:shadow-md">
+        <div className="rounded-3xl border border-neutral-200 bg-white p-6 transition-colors duration-200 hover:border-neutral-300">
             <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                     <p className="text-lg font-bold tracking-tight text-neutral-900">{group.name}</p>
@@ -510,7 +510,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
             <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                 Savings to date
             </h2>
-            <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
+            <div className="rounded-3xl border border-neutral-200 bg-white p-6">
                 <div className="flex flex-wrap items-end gap-3">
                     <MonthField
                         label="From"
@@ -846,7 +846,7 @@ export default function SavingsForecast() {
                             </section>
 
                             {/* Summary stats */}
-                            <section className="grid grid-cols-2 gap-4 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm sm:grid-cols-3">
+                            <section className="grid grid-cols-2 gap-4 rounded-3xl border border-neutral-200 bg-white p-6 sm:grid-cols-3">
                                 <div>
                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                                         Starting balance
@@ -910,7 +910,7 @@ export default function SavingsForecast() {
                                         monthly amount.
                                     </p>
                                 )}
-                                <div className="overflow-x-auto overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm">
+                                <div className="overflow-x-auto overflow-hidden rounded-3xl border border-neutral-200 bg-white">
                                     <table className="w-full min-w-[380px]">
                                         <thead>
                                             <tr className="border-b border-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-400">

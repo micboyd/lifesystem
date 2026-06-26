@@ -277,7 +277,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                 'p-1.5 lg:p-3 min-h-[44px] lg:min-h-[170px] gap-1 lg:gap-2',
                 isToday ? 'border-neutral-950 ring-2 ring-neutral-950/10' : 'border-neutral-200',
                 bg,
-                'hover:border-neutral-400 hover:shadow-sm',
+                'hover:border-neutral-400',
             ].join(' ')}
         >
             {/* Day number + excluded badge */}
@@ -403,7 +403,7 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
             onClick={onClick}
             className={[
                 'flex flex-col gap-2 rounded-2xl border p-5 text-left w-full transition-all duration-150',
-                'border-neutral-200 hover:border-neutral-400 hover:shadow-sm',
+                'border-neutral-200 hover:border-neutral-400',
                 bg,
             ].join(' ')}
         >
