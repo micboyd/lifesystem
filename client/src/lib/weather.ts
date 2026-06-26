@@ -27,10 +27,19 @@ export interface DailyForecast {
     uvIndexMax?: number
 }
 
+export interface HourlySlot {
+    hour: number
+    temperature: number
+    precipitationProbability: number
+    code: number
+}
+
 export interface Forecast {
     current: CurrentWeather
     /** Today plus the next three days (four entries). */
     daily: DailyForecast[]
+    /** Today's hourly slots (hours 0–23). */
+    hourly: HourlySlot[]
 }
 
 interface OpenMeteoForecastResponse {
@@ -41,6 +50,12 @@ interface OpenMeteoForecastResponse {
         wind_speed_10m: number
         relative_humidity_2m: number
         is_day: number
+    }
+    hourly: {
+        time: string[]
+        temperature_2m: number[]
+        precipitation_probability: (number | null)[]
+        weather_code: number[]
     }
     daily: {
         time: string[]
@@ -61,11 +76,12 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
         longitude: String(loc.longitude),
         current:
             'temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day',
+        hourly: 'temperature_2m,precipitation_probability,weather_code',
         daily:
             'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset,uv_index_max',
         timezone: 'auto',
         wind_speed_unit: 'mph',
-        forecast_days: '4',
+        forecast_days: '2',
     })
 
     const res = await fetch(`${FORECAST_URL}?${params.toString()}`)
@@ -85,6 +101,15 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
         uvIndexMax: d.uv_index_max?.[i] ?? undefined,
     }))
 
+    // Only keep today's 24 hours (first 24 slots)
+    const h = data.hourly
+    const hourly: HourlySlot[] = h.time.slice(0, 24).map((_, i) => ({
+        hour: i,
+        temperature: Math.round(h.temperature_2m[i]),
+        precipitationProbability: h.precipitation_probability[i] ?? 0,
+        code: h.weather_code[i],
+    }))
+
     const c = data.current
     return {
         current: {
@@ -96,6 +121,7 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
             isDay: c.is_day === 1,
         },
         daily,
+        hourly,
     }
 }
 
@@ -219,6 +245,59 @@ export function whatToWear(day: WearInput): string {
     if (day.windMax >= 25) parts.push('it’s windy, add a windproof layer')
 
     return parts.join('; ')
+}
+
+function fmt12(hour: number): string {
+    if (hour === 0) return 'midnight'
+    if (hour === 12) return 'midday'
+    return hour < 12 ? `${hour}am` : `${hour - 12}pm`
+}
+
+/**
+ * Derives a plain-English planning insight from today's hourly data.
+ * Looks at waking hours (6am–10pm) only.
+ */
+export function planningInsight(hourly: HourlySlot[]): string {
+    const waking = hourly.filter((h) => h.hour >= 6 && h.hour <= 22)
+    if (waking.length === 0) return ''
+
+    const RAIN_THRESHOLD = 50
+
+    // Find first hour rain becomes likely
+    const rainStart = waking.find((h) => h.precipitationProbability >= RAIN_THRESHOLD)
+    // Find last hour rain is likely
+    const rainEnd = [...waking].reverse().find((h) => h.precipitationProbability >= RAIN_THRESHOLD)
+
+    // All-day dry
+    const allDry = waking.every((h) => h.precipitationProbability < RAIN_THRESHOLD)
+    if (allDry) {
+        const peak = waking.reduce((a, b) => (a.temperature > b.temperature ? a : b))
+        return `Dry all day — warmest around ${fmt12(peak.hour)} at ${peak.temperature}°`
+    }
+
+    // All-day wet
+    const allWet = waking.every((h) => h.precipitationProbability >= RAIN_THRESHOLD)
+    if (allWet) {
+        return `Rain expected throughout the day — best to stay prepared`
+    }
+
+    // Rain clears at some point
+    const clearAfterRain = rainEnd && waking.some((h) => h.hour > rainEnd.hour && h.precipitationProbability < RAIN_THRESHOLD)
+    if (clearAfterRain && rainEnd) {
+        const clearHour = waking.find((h) => h.hour > rainEnd.hour && h.precipitationProbability < RAIN_THRESHOLD)
+        if (clearHour) return `Rain easing around ${fmt12(clearHour.hour)} — afternoon should improve`
+    }
+
+    // Rain arrives later
+    if (rainStart) {
+        const dryBefore = waking.filter((h) => h.hour < rainStart.hour)
+        if (dryBefore.length > 0) {
+            const peak = dryBefore.reduce((a, b) => (a.temperature > b.temperature ? a : b))
+            return `Rain arriving around ${fmt12(rainStart.hour)} — best to get out before then (${peak.temperature}° at ${fmt12(peak.hour)})`
+        }
+    }
+
+    return 'Mixed conditions today — keep an eye on the forecast'
 }
 
 /** "Today", "Tomorrow", else a short weekday like "Thu". */

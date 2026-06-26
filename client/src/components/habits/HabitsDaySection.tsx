@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Spinner from '../Spinner'
+import Input from '../Input'
 import { listHabits, listLogs, checkHabit, uncheckHabit, createHabit } from '../../services/habits'
 import { useInvalidate } from '../../context/DataSyncContext'
 import type { HabitDef, HabitLog } from '../../types'
@@ -181,9 +182,8 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
             {!compact &&
                 (adding ? (
                     <div className="mt-1 flex flex-col gap-2 rounded-xl border border-neutral-200 p-3">
-                        <input
+                        <Input
                             ref={inputRef}
-                            type="text"
                             placeholder="Habit name"
                             value={newName}
                             onChange={(e) => setNewName(e.target.value)}
@@ -191,10 +191,8 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                                 if (e.key === 'Enter') handleAdd()
                                 if (e.key === 'Escape') setAdding(false)
                             }}
-                            className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200"
                         />
-                        <input
-                            type="text"
+                        <Input
                             placeholder="Description (optional)"
                             value={newDesc}
                             onChange={(e) => setNewDesc(e.target.value)}
@@ -202,7 +200,6 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                                 if (e.key === 'Enter') handleAdd()
                                 if (e.key === 'Escape') setAdding(false)
                             }}
-                            className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200"
                         />
                         <div className="flex items-center gap-2">
                             <button

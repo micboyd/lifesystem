@@ -463,7 +463,7 @@ function CourseRow({
                 onDragEnd()
             }}
             className={[
-                'rounded-2xl border bg-white p-4 shadow-sm transition-shadow',
+                'rounded-2xl border bg-white p-4 transition-colors',
                 isDragging ? 'border-neutral-300 opacity-40' : 'border-neutral-200',
                 isDragOver ? 'ring-2 ring-neutral-300' : '',
             ]

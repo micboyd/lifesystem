@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import Modal from './Modal'
 import Button from './Button'
+import Input from './Input'
 import Select from './Select'
 import Spinner from './Spinner'
 import { useToast } from '../context/ToastContext'
@@ -196,27 +197,19 @@ export default function QuickLog() {
                             )}
 
                             {/* Amount */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                    Amount
-                                </label>
-                                <div className="relative">
-                                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">
-                                        £
-                                    </span>
-                                    <input
-                                        autoFocus
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        inputMode="decimal"
-                                        placeholder="0.00"
-                                        value={amount}
-                                        onChange={(e) => setAmount(e.target.value)}
-                                        className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2.5 pl-8 pr-4 tabular-nums text-neutral-900 outline-none transition-all focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200"
-                                    />
-                                </div>
-                            </div>
+                            <Input
+                                label="Amount"
+                                icon="fa-solid fa-sterling-sign"
+                                autoFocus
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                inputMode="decimal"
+                                placeholder="0.00"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                className="tabular-nums"
+                            />
 
                             {/* Overspend friction */}
                             {isOver && (
@@ -237,24 +230,14 @@ export default function QuickLog() {
                             )}
 
                             {/* Note — required when over */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                    {isOver ? 'Reason (required)' : 'Note (optional)'}
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder={
-                                        isOver ? 'Why did this go over?' : 'What was it for?'
-                                    }
-                                    value={note}
-                                    onChange={(e) => setNote(e.target.value)}
-                                    className={`w-full rounded-xl border bg-neutral-50 px-4 py-2.5 text-sm text-neutral-900 outline-none transition-all focus:bg-white focus:ring-2 ${
-                                        isOver
-                                            ? 'border-red-300 focus:border-red-400 focus:ring-red-200'
-                                            : 'border-neutral-200 focus:border-neutral-400 focus:ring-neutral-200'
-                                    }`}
-                                />
-                            </div>
+                            <Input
+                                label={isOver ? 'Reason (required)' : 'Note (optional)'}
+                                type="text"
+                                placeholder={isOver ? 'Why did this go over?' : 'What was it for?'}
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                                error={isOver ? ' ' : undefined}
+                            />
 
                             <Button
                                 type="submit"

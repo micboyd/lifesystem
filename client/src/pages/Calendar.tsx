@@ -719,7 +719,7 @@ function MonthBlock({
         .reduce((sum, e) => sum + (e.budget ?? 0), 0)
 
     return (
-        <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+        <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
             <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3">
                 <h2 className="text-base font-bold tracking-tight text-neutral-950">
                     {MONTHS[month]} <span className="font-semibold text-neutral-400">{year}</span>

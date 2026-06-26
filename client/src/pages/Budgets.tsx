@@ -197,7 +197,7 @@ function BudgetCard({
     })()
 
     return (
-        <div className="group flex flex-col gap-6 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-neutral-300 hover:shadow-md">
+        <div className="group flex flex-col gap-6 rounded-3xl border border-neutral-200 bg-white p-6 transition-colors duration-200 hover:border-neutral-300">
             {/* Header */}
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
