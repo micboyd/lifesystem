@@ -44,9 +44,10 @@ interface SubItemRowProps {
     item: FinanceSubItem
     onSave: (id: string, name: string, amount: number) => Promise<void>
     onDelete: (id: string) => Promise<void>
+    onTogglePaid: (id: string, paid: boolean) => Promise<void>
 }
 
-function SubItemRow({ item, onSave, onDelete }: SubItemRowProps) {
+function SubItemRow({ item, onSave, onDelete, onTogglePaid }: SubItemRowProps) {
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(item.name)
     const [amount, setAmount] = useState(String(item.amount))
@@ -114,9 +115,26 @@ function SubItemRow({ item, onSave, onDelete }: SubItemRowProps) {
     }
 
     return (
-        <li className="group/item flex items-center justify-between gap-3 rounded-2xl border border-neutral-100 bg-white px-4 py-3.5 transition-colors hover:border-neutral-200">
-            <span className="flex-1 text-sm font-semibold text-neutral-800">{item.name}</span>
-            <span className="tabular-nums text-sm text-neutral-700">£{fmt(item.amount)}</span>
+        <li className={`group/item flex items-center gap-3 rounded-2xl border bg-white px-4 py-3.5 transition-colors ${item.paid ? 'border-emerald-100 bg-emerald-50/40' : 'border-neutral-100 hover:border-neutral-200'}`}>
+            <button
+                type="button"
+                onClick={() => onTogglePaid(item._id, !item.paid)}
+                aria-label={item.paid ? 'Mark unpaid' : 'Mark paid'}
+                className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition-colors ${item.paid ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-neutral-300 hover:border-emerald-400'}`}
+            >
+                {item.paid && <i className="fa-solid fa-check text-[9px]" aria-hidden="true" />}
+            </button>
+            <span className={`flex-1 text-sm font-semibold transition-colors ${item.paid ? 'text-neutral-400 line-through decoration-neutral-300' : 'text-neutral-800'}`}>
+                {item.name}
+            </span>
+            <span className={`tabular-nums text-sm ${item.paid ? 'text-neutral-400' : 'text-neutral-700'}`}>
+                £{fmt(item.amount)}
+            </span>
+            {item.paid && (
+                <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
+                    Paid
+                </span>
+            )}
             <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:opacity-100">
                 <button
                     type="button"
@@ -264,8 +282,11 @@ export default function FinanceBreakdown() {
 
     const totalAmount = entry?.amount ?? row?.recurringAmount ?? 0
     const breakdownTotal = items.reduce((s, i) => s + i.amount, 0)
+    const paidTotal = items.filter((i) => i.paid).reduce((s, i) => s + i.amount, 0)
+    const leftToPay = breakdownTotal - paidTotal
     const remaining = totalAmount - breakdownTotal
     const pct = totalAmount > 0 ? Math.min(100, (breakdownTotal / totalAmount) * 100) : 0
+    const paidPct = breakdownTotal > 0 ? Math.min(100, (paidTotal / breakdownTotal) * 100) : 0
 
     const isIncome = group?.type === 'income'
     const isSavings = group?.type === 'savings'
@@ -301,7 +322,17 @@ export default function FinanceBreakdown() {
             await deleteSubItem(id)
             setItems((prev) => prev.filter((i) => i._id !== id))
         } catch {
-            toast.error('Couldn’t delete that item.')
+            toast.error("Couldn’t delete that item.")
+        }
+    }
+
+    async function handleTogglePaid(id: string, paid: boolean) {
+        setItems((prev) => prev.map((i) => (i._id === id ? { ...i, paid } : i)))
+        try {
+            await updateSubItem(id, { paid })
+        } catch {
+            setItems((prev) => prev.map((i) => (i._id === id ? { ...i, paid: !paid } : i)))
+            toast.error("Couldn’t update that item.")
         }
     }
 
@@ -399,7 +430,7 @@ export default function FinanceBreakdown() {
                             </p>
                         )}
 
-                        {/* Progress bar */}
+                        {/* Breakdown progress */}
                         {totalAmount > 0 && (
                             <div className="mt-4">
                                 <div className="mb-1.5 flex items-center justify-between text-xs">
@@ -421,6 +452,30 @@ export default function FinanceBreakdown() {
                                         className={`h-full rounded-full transition-all duration-300 ${remaining < 0 ? 'bg-red-400' : 'bg-neutral-950'}`}
                                         style={{ width: `${pct}%` }}
                                     />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Payment progress */}
+                        {breakdownTotal > 0 && (
+                            <div className="mt-4 rounded-2xl bg-neutral-50 px-4 py-3">
+                                <div className="mb-2 flex items-baseline justify-between gap-2">
+                                    <span className="text-xs font-semibold text-neutral-500">Payment progress</span>
+                                    <span className={`text-xs font-bold tabular-nums ${leftToPay === 0 ? 'text-emerald-600' : 'text-neutral-700'}`}>
+                                        {leftToPay === 0
+                                            ? 'All paid'
+                                            : `£${fmt(leftToPay)} left to pay`}
+                                    </span>
+                                </div>
+                                <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200">
+                                    <div
+                                        className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                                        style={{ width: `${paidPct}%` }}
+                                    />
+                                </div>
+                                <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-neutral-400">
+                                    <span>£{fmt(paidTotal)} paid</span>
+                                    <span>£{fmt(breakdownTotal)} total</span>
                                 </div>
                             </div>
                         )}
@@ -452,6 +507,7 @@ export default function FinanceBreakdown() {
                                 item={item}
                                 onSave={handleSave}
                                 onDelete={handleDelete}
+                                onTogglePaid={handleTogglePaid}
                             />
                         ))}
 

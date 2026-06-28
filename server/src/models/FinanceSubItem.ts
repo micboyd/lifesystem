@@ -7,6 +7,7 @@ export interface IFinanceSubItem extends Document {
     name: string
     amount: number
     order: number
+    paid: boolean
     createdAt: Date
     updatedAt: Date
 }
@@ -19,6 +20,7 @@ const financeSubItemSchema = new Schema<IFinanceSubItem>(
         name: { type: String, required: true, trim: true },
         amount: { type: Number, required: true },
         order: { type: Number, default: 0 },
+        paid: { type: Boolean, default: false },
     },
     { timestamps: true }
 )
