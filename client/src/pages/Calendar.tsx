@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     MONTHS,
@@ -761,8 +761,24 @@ function MonthBlock({
     const tk = todayKey()
     const total = daysInMonth(year, month)
     const dayNums = Array.from({ length: total }, (_, i) => i + 1)
-    const isToday = (day: number) =>
-        year === today.getFullYear() && month === today.getMonth() && day === today.getDate()
+    const isCurrentMonth = year === today.getFullYear() && month === today.getMonth()
+    const isToday = (day: number) => isCurrentMonth && day === today.getDate()
+
+    // On load, centre today's column when the grid overflows (e.g. on mobile),
+    // so the user lands on the current date instead of having to swipe across.
+    const scrollRef = useRef<HTMLDivElement>(null)
+    const todayRef = useRef<HTMLTableCellElement>(null)
+    useLayoutEffect(() => {
+        if (!isCurrentMonth) return
+        const container = scrollRef.current
+        const cell = todayRef.current
+        if (!container || !cell) return
+        if (container.scrollWidth <= container.clientWidth) return // fits, nothing to swipe
+        const cRect = container.getBoundingClientRect()
+        const tRect = cell.getBoundingClientRect()
+        const delta = tRect.left - cRect.left - (container.clientWidth / 2 - tRect.width / 2)
+        container.scrollLeft += delta
+    }, [isCurrentMonth])
 
     const colSpan = totalsOn ? dayNums.length + 2 : dayNums.length + 1
 
@@ -794,7 +810,7 @@ function MonthBlock({
                     </span>
                 )}
             </div>
-            <div className="overflow-x-auto">
+            <div ref={scrollRef} className="overflow-x-auto">
                 <table
                     className={`w-full min-w-[64rem] table-fixed border-collapse ${dragging ? 'select-none' : ''}`}
                 >
@@ -812,6 +828,7 @@ function MonthBlock({
                                 return (
                                     <th
                                         key={day}
+                                        ref={todayCol ? todayRef : undefined}
                                         className={[
                                             'group/day w-12 px-1 py-2 text-center',
                                             weekend ? 'bg-neutral-100' : '',
