@@ -62,7 +62,7 @@ export default function DisciplineWidget({ date }: { date: string }) {
     // days show greyed) without letting navigation run away indefinitely.
     const maxMonth = addMonths(monthOf(today), 12)
     const [month, setMonth] = useState(monthOf(date))
-    const [mode, setMode] = useState<Mode>('days')
+    const [mode, setMode] = useState<Mode>('weeks')
     const [data, setData] = useState<LoadedData | null>(null)
     const [loadedKey, setLoadedKey] = useState<string | null>(null)
     const loading = loadedKey !== month

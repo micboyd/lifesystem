@@ -11,7 +11,7 @@ import {
     listBudgetExclusions,
 } from '../../services/finances'
 import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, clampedWeekRange } from '../../lib/budget'
-import Accordion from '../Accordion'
+import Select from '../Select'
 import { rowVisibleInMonth } from '../../lib/finance'
 import { formatAmount } from '../../lib/money'
 import { useMoneyHidden } from '../useMoneyHidden'
@@ -20,6 +20,9 @@ import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../../
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fmt = formatAmount
+
+/** Sentinel filter value for the pooled "all budgets" view. */
+const TOTAL = '__total__'
 
 // ── Per-budget column ─────────────────────────────────────────────────────────
 
@@ -202,6 +205,8 @@ export default function BudgetWidget({ date }: { date: string }) {
     // Derive loading from which month finished loading — avoids a synchronous
     // setState inside the fetch effect (flagged as cascading renders).
     const [loadedMonth, setLoadedMonth] = useState<string | null>(null)
+    // Which budget the filter is showing — TOTAL pools every tracked budget.
+    const [selected, setSelected] = useState<string>(TOTAL)
 
     const month = monthOf(date)
     const loading = loadedMonth !== month
@@ -282,6 +287,16 @@ export default function BudgetWidget({ date }: { date: string }) {
               ? 'Daily allowance'
               : 'Allowance'
 
+    // Filter options — "all budgets" plus one entry per tracked row. Fall back to
+    // the total if the selected row isn't present this month.
+    const filterOptions = [
+        { label: 'All budgets — total', value: TOTAL },
+        ...trackedRows.map((r) => ({ label: r.name, value: r._id })),
+    ]
+    const selectedValue =
+        selected !== TOTAL && !trackedRows.some((r) => r._id === selected) ? TOTAL : selected
+    const selectedRow = selectedValue === TOTAL ? null : trackedRows.find((r) => r._id === selectedValue)!
+
     return (
         <Card>
             <CardHeader className="flex items-start justify-between gap-4">
@@ -339,84 +354,84 @@ export default function BudgetWidget({ date }: { date: string }) {
                 </p>
             ) : (
                 <div className="flex flex-col gap-4">
-                    {/* Pooled total across every tracked budget */}
-                    <div className="rounded-2xl bg-neutral-950 p-5 text-white">
-                        <div className="flex items-end justify-between gap-4">
-                            <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-                                    {allowanceLabel}
-                                </p>
-                                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
-                                    £{fmt(totals.allowance)}
-                                </p>
-                                {totals.monthlyRemaining !== 0 && (
-                                    <p
-                                        className={`mt-0.5 text-[11px] font-semibold ${totals.monthlyRemaining < 0 ? 'text-red-400' : 'text-neutral-500'}`}
-                                    >
-                                        £{fmt(Math.abs(totals.monthlyRemaining))}{' '}
-                                        {totals.monthlyRemaining < 0 ? 'over this month' : 'left this month'}
+                    {/* Filter — show the pooled total or a single budget */}
+                    {trackedRows.length > 1 && (
+                        <Select
+                            value={selectedValue}
+                            onChange={setSelected}
+                            options={filterOptions}
+                            icon="fa-solid fa-filter"
+                        />
+                    )}
+
+                    {selectedRow === null ? (
+                        /* Pooled total across every tracked budget */
+                        <div className="rounded-2xl bg-neutral-950 p-5 text-white">
+                            <div className="flex items-end justify-between gap-4">
+                                <div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                                        {allowanceLabel}
                                     </p>
-                                )}
+                                    <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
+                                        £{fmt(totals.allowance)}
+                                    </p>
+                                    {totals.monthlyRemaining !== 0 && (
+                                        <p
+                                            className={`mt-0.5 text-[11px] font-semibold ${totals.monthlyRemaining < 0 ? 'text-red-400' : 'text-neutral-500'}`}
+                                        >
+                                            £{fmt(Math.abs(totals.monthlyRemaining))}{' '}
+                                            {totals.monthlyRemaining < 0 ? 'over this month' : 'left this month'}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                                        Remaining
+                                    </p>
+                                    <p
+                                        className={`mt-1 text-xl font-bold tabular-nums ${totals.remaining >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                                    >
+                                        £{fmt(Math.abs(totals.remaining))}
+                                        {totals.remaining < 0 && <span className="ml-1 text-xs font-normal">over</span>}
+                                    </p>
+                                </div>
                             </div>
-                            <div className="text-right">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-                                    Remaining
-                                </p>
-                                <p
-                                    className={`mt-1 text-xl font-bold tabular-nums ${totals.remaining >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
-                                >
-                                    £{fmt(Math.abs(totals.remaining))}
-                                    {totals.remaining < 0 && <span className="ml-1 text-xs font-normal">over</span>}
-                                </p>
+
+                            <div className="mt-4">
+                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-300 ${totals.remaining >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`}
+                                        style={{ width: `${Math.min(100, (totals.spent / (totals.allowance || 1)) * 100)}%` }}
+                                    />
+                                </div>
+                                <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-400">
+                                    <span>£{fmt(totals.spent)} spent</span>
+                                    <span>£{fmt(totals.allowance)}</span>
+                                </div>
                             </div>
                         </div>
-
-                        <div className="mt-4">
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                                <div
-                                    className={`h-full rounded-full transition-all duration-300 ${totals.remaining >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`}
-                                    style={{ width: `${Math.min(100, (totals.spent / (totals.allowance || 1)) * 100)}%` }}
+                    ) : (
+                        /* Single chosen budget */
+                        <div className="flex">
+                            {selectedRow.budgetType === 'weekly' ? (
+                                <WeeklyBudgetCol
+                                    row={selectedRow}
+                                    entry={entries.find((e) => e.row === selectedRow._id)}
+                                    rowSpends={spends.filter((s) => s.row === selectedRow._id)}
+                                    date={date}
+                                    excludedDates={excludedDates}
                                 />
-                            </div>
-                            <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-400">
-                                <span>£{fmt(totals.spent)} spent</span>
-                                <span>£{fmt(totals.allowance)}</span>
-                            </div>
+                            ) : (
+                                <BudgetCol
+                                    row={selectedRow}
+                                    entry={entries.find((e) => e.row === selectedRow._id)}
+                                    rowSpends={spends.filter((s) => s.row === selectedRow._id)}
+                                    date={date}
+                                    excludedDates={excludedDates}
+                                />
+                            )}
                         </div>
-                    </div>
-
-                    {/* Individual budgets — collapsed by default */}
-                    <Accordion
-                        items={[
-                            {
-                                title: `Individual budgets (${trackedRows.length})`,
-                                content: (
-                                    <div className="flex flex-wrap gap-3">
-                                        {weeklyRows.map((row) => (
-                                            <WeeklyBudgetCol
-                                                key={row._id}
-                                                row={row}
-                                                entry={entries.find((e) => e.row === row._id)}
-                                                rowSpends={spends.filter((s) => s.row === row._id)}
-                                                date={date}
-                                                excludedDates={excludedDates}
-                                            />
-                                        ))}
-                                        {dailyRows.map((row) => (
-                                            <BudgetCol
-                                                key={row._id}
-                                                row={row}
-                                                entry={entries.find((e) => e.row === row._id)}
-                                                rowSpends={spends.filter((s) => s.row === row._id)}
-                                                date={date}
-                                                excludedDates={excludedDates}
-                                            />
-                                        ))}
-                                    </div>
-                                ),
-                            },
-                        ]}
-                    />
+                    )}
                 </div>
             )}
 
