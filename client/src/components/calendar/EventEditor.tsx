@@ -7,13 +7,12 @@ import Textarea from '../Textarea'
 import DatePicker, { type DateRange } from '../DatePicker'
 import Switch from '../Switch'
 import TimePicker from '../TimePicker'
+import RecurrencePicker from './RecurrencePicker'
 import { slotOrdinal } from '../../lib/calendar'
 import {
     EVENT_TYPES,
     EVENT_TYPE_LABELS,
     EVENT_TYPE_COLORS,
-    RECURRENCE_FREQUENCIES,
-    RECURRENCE_LABELS,
     type Event,
     type EventType,
     type Part,
@@ -596,55 +595,15 @@ export default function EventEditor({
                 )}
 
                 {/* Repeats */}
-                <div className="flex flex-col gap-3">
-                    <Switch checked={recurring} onChange={setRecurring} label="Repeats" />
-                    {recurring && (
-                        <>
-                            <div className="grid grid-cols-3 gap-1 rounded-xl border border-neutral-200 bg-neutral-50 p-1">
-                                {RECURRENCE_FREQUENCIES.map((f) => (
-                                    <button
-                                        key={f}
-                                        type="button"
-                                        onClick={() => setRecurrenceFrequency(f)}
-                                        className={[
-                                            'rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors',
-                                            recurrenceFrequency === f
-                                                ? 'bg-neutral-950 text-white'
-                                                : 'text-neutral-500 hover:text-neutral-900',
-                                        ].join(' ')}
-                                    >
-                                        {RECURRENCE_LABELS[f]}
-                                    </button>
-                                ))}
-                            </div>
-                            {recurrenceFrequency === 'lastWeekday' && (
-                                <p className="flex items-center gap-1.5 text-xs text-neutral-400">
-                                    <i
-                                        className="fa-solid fa-circle-info text-[10px]"
-                                        aria-hidden="true"
-                                    />
-                                    Repeats on the last working day (Mon–Fri) of each month.
-                                </p>
-                            )}
-                            <div className="flex flex-col gap-1.5">
-                                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                    Ends on{' '}
-                                    <span className="normal-case font-normal text-neutral-300">
-                                        (optional)
-                                    </span>
-                                </span>
-                                <DatePicker
-                                    value={recurrenceEndsOn || null}
-                                    minDate={endDate || startDate || undefined}
-                                    onChange={(v) =>
-                                        setRecurrenceEndsOn(typeof v === 'string' && v ? v : '')
-                                    }
-                                    placeholder="No end date"
-                                />
-                            </div>
-                        </>
-                    )}
-                </div>
+                <RecurrencePicker
+                    enabled={recurring}
+                    onEnabledChange={setRecurring}
+                    frequency={recurrenceFrequency}
+                    onFrequencyChange={setRecurrenceFrequency}
+                    endsOn={recurrenceEndsOn}
+                    onEndsOnChange={setRecurrenceEndsOn}
+                    minEndDate={endDate || startDate || undefined}
+                />
 
                 {/* Budget */}
                 <div className="flex flex-col gap-2">

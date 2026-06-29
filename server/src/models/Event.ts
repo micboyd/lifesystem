@@ -1,4 +1,13 @@
 import { Schema, model, Document, Types } from 'mongoose'
+import {
+    RECURRENCE_FREQUENCIES,
+    type RecurrenceFrequency,
+    type RecurrenceSpec,
+} from '../lib/recurrence'
+
+// Re-exported so existing importers (controllers) keep their `../models/Event` paths.
+export { RECURRENCE_FREQUENCIES }
+export type { RecurrenceFrequency }
 
 export const PARTS = ['morning', 'afternoon', 'evening', 'na'] as const
 export type Part = (typeof PARTS)[number]
@@ -6,23 +15,10 @@ export type Part = (typeof PARTS)[number]
 export const EVENT_TYPES = ['trip', 'social', 'general'] as const
 export type EventType = (typeof EVENT_TYPES)[number]
 
-export const RECURRENCE_FREQUENCIES = [
-    'daily',
-    'weekly',
-    'biweekly',
-    'monthly',
-    'yearly',
-    'lastWeekday',
-] as const
-export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number]
-
 export const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
-export interface IRecurrence {
-    frequency: RecurrenceFrequency
-    endsOn?: string
-}
+export type IRecurrence = RecurrenceSpec
 
 export interface IEvent extends Document {
     user: Types.ObjectId

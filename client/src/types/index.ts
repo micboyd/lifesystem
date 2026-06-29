@@ -132,7 +132,7 @@ export const RECURRENCE_LABELS: Record<RecurrenceFrequency, string> = {
     biweekly: 'Bi-weekly',
     monthly: 'Monthly',
     yearly: 'Yearly',
-    lastWeekday: 'Last working day',
+    lastWeekday: 'Last weekday',
 }
 
 export interface Recurrence {
@@ -391,6 +391,9 @@ export interface Reminder {
     date: string
     text: string
     order: number
+    recurrence?: Recurrence
+    /** YYYY-MM-DD occurrence dates removed from a recurring series. */
+    exdates?: string[]
     createdAt: string
     updatedAt: string
 }

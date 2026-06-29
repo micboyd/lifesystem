@@ -10,11 +10,11 @@ import Event, {
     Part,
     EventType,
     RecurrenceFrequency,
-    IEvent,
     IRecurrence,
 } from '../models/Event'
 import FinanceRow from '../models/FinanceRow'
 import FinanceEntry from '../models/FinanceEntry'
+import { expandRecurring } from '../lib/recurrence'
 
 function isValidDate(value: unknown): value is string {
     return typeof value === 'string' && DATE_PATTERN.test(value)
@@ -38,110 +38,6 @@ function isFrequency(value: unknown): value is RecurrenceFrequency {
 function slotOrdinal(date: string, part: Part) {
     const [y, m, d] = date.split('-').map(Number)
     return (Date.UTC(y, m - 1, d) / 86_400_000) * 4 + PARTS.indexOf(part)
-}
-
-/** Last weekday (Mon–Fri) of the given month. `monthIndex` may overflow (Date.UTC normalizes it). */
-function lastWeekdayOfMonth(year: number, monthIndex: number): string {
-    // Day 0 of the next month is the last day of this month.
-    let dt = new Date(Date.UTC(year, monthIndex + 1, 0))
-    const dow = dt.getUTCDay()
-    if (dow === 6) dt = new Date(dt.getTime() - 86_400_000) // Sat → Fri
-    else if (dow === 0) dt = new Date(dt.getTime() - 2 * 86_400_000) // Sun → Fri
-    return dt.toISOString().slice(0, 10)
-}
-
-/** Add `days` to a YYYY-MM-DD string. */
-function addDays(date: string, days: number): string {
-    const [y, m, d] = date.split('-').map(Number)
-    return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
-}
-
-/** Add n intervals of `frequency` to a YYYY-MM-DD string. */
-function addInterval(date: string, frequency: RecurrenceFrequency, n: number): string {
-    const [y, m, d] = date.split('-').map(Number)
-    let dt: Date
-    switch (frequency) {
-        case 'daily':
-            dt = new Date(Date.UTC(y, m - 1, d + n))
-            break
-        case 'weekly':
-            dt = new Date(Date.UTC(y, m - 1, d + n * 7))
-            break
-        case 'biweekly':
-            dt = new Date(Date.UTC(y, m - 1, d + n * 14))
-            break
-        case 'monthly':
-            dt = new Date(Date.UTC(y, m - 1 + n, d))
-            break
-        case 'yearly':
-            dt = new Date(Date.UTC(y + n, m - 1, d))
-            break
-        case 'lastWeekday':
-            // The nth occurrence is the last weekday of the month n months on.
-            return lastWeekdayOfMonth(y, m - 1 + n)
-    }
-    return dt.toISOString().slice(0, 10)
-}
-
-/**
- * Returns the approximate starting iteration index for a recurring event
- * so we begin expansion near `from` rather than from n=0.
- */
-function startingN(eventStart: string, frequency: RecurrenceFrequency, from: string): number {
-    const diffDays = (Date.parse(from) - Date.parse(eventStart)) / 86_400_000
-    if (diffDays <= 0) return 0
-    switch (frequency) {
-        case 'daily':
-            return Math.max(0, Math.floor(diffDays) - 1)
-        case 'weekly':
-            return Math.max(0, Math.floor(diffDays / 7) - 1)
-        case 'biweekly':
-            return Math.max(0, Math.floor(diffDays / 14) - 1)
-        case 'monthly':
-        case 'lastWeekday':
-            return Math.max(0, Math.floor(diffDays / 30.44) - 1)
-        case 'yearly':
-            return Math.max(0, Math.floor(diffDays / 365.25) - 1)
-    }
-}
-
-/** Expand a recurring event master into instances that overlap [from, to]. */
-function expandOccurrences(event: IEvent, from: string, to: string) {
-    if (!event.recurrence) return []
-    const { frequency, endsOn } = event.recurrence
-    const effectiveTo = endsOn && endsOn < to ? endsOn : to
-    const base = event.toObject()
-    const exdates = new Set(event.exdates ?? [])
-    const results: (typeof base)[] = []
-    const MAX = 500
-
-    let n = startingN(event.startDate, frequency, from)
-    let safety = 0
-    // For computed-date frequencies (lastWeekday) the end can't be derived by
-    // shifting the master's endDate by a fixed interval, so carry its duration.
-    const durationDays = Math.round(
-        (Date.parse(event.endDate) - Date.parse(event.startDate)) / 86_400_000
-    )
-
-    while (safety++ < MAX) {
-        const occStart = addInterval(event.startDate, frequency, n)
-        if (occStart > effectiveTo) break
-        const occEnd =
-            frequency === 'lastWeekday'
-                ? addDays(occStart, durationDays)
-                : addInterval(event.endDate, frequency, n)
-        // Within the series, overlaps [from, to], and not an excepted ("this event only") occurrence?
-        if (
-            occStart >= event.startDate &&
-            occEnd >= from &&
-            occStart <= to &&
-            !exdates.has(occStart)
-        ) {
-            results.push({ ...base, startDate: occStart, endDate: occEnd })
-        }
-        n++
-    }
-    return results
 }
 
 interface EventFields {
@@ -335,7 +231,7 @@ export async function listEvents(req: AuthRequest, res: Response) {
         })
 
         const instances = recurring.flatMap((e) =>
-            expandOccurrences(e, from as string, to as string)
+            expandRecurring(e.toObject(), from as string, to as string)
         )
 
         const data = [...regular.map((e) => e.toObject()), ...instances].sort((a, b) =>

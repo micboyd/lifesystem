@@ -75,7 +75,10 @@ export default function RemindersWidget({ date }: { date: string }) {
                         const daysUntil = daysBetween(date, reminder.date)
                         const isToday = daysUntil <= 0
                         return (
-                            <li key={reminder._id} className="flex items-center gap-4 py-3">
+                            <li
+                                key={`${reminder._id}-${reminder.date}`}
+                                className="flex items-center gap-4 py-3"
+                            >
                                 <span
                                     className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm ${
                                         isToday
@@ -86,8 +89,15 @@ export default function RemindersWidget({ date }: { date: string }) {
                                     <i className="fa-solid fa-bell" aria-hidden="true" />
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-neutral-900">
-                                        {reminder.text}
+                                    <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-neutral-900">
+                                        <span className="truncate">{reminder.text}</span>
+                                        {reminder.recurrence && (
+                                            <i
+                                                className="fa-solid fa-repeat shrink-0 text-[10px] text-neutral-300"
+                                                title="Repeats"
+                                                aria-hidden="true"
+                                            />
+                                        )}
                                     </p>
                                     <p className="text-xs text-neutral-400">
                                         {shortDate(reminder.date)}

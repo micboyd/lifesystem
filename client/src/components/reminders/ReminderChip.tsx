@@ -45,6 +45,12 @@ export default function ReminderChip({
             <span className="truncate text-[10px] font-semibold leading-tight">
                 {reminders[0].text}
             </span>
+            {reminders[0].recurrence && (
+                <i
+                    className="fa-solid fa-repeat shrink-0 text-[8px] opacity-60"
+                    aria-hidden="true"
+                />
+            )}
             {extra > 0 && (
                 <span className="shrink-0 text-[9px] font-bold opacity-70">+{extra}</span>
             )}

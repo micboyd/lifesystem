@@ -5,10 +5,12 @@ import { MONTHS, WEEKDAYS_LONG } from '../../lib/calendar'
 export type DeleteScope = 'instance' | 'series'
 
 interface Props {
-    /** The event's title, shown in the copy. */
+    /** The item's title, shown in the copy. */
     title: string
     /** The occurrence being removed, YYYY-MM-DD. */
     occurrenceDate: string
+    /** Noun for the repeating item, e.g. "event" (default) or "reminder". */
+    noun?: string
     onClose: () => void
     onConfirm: (scope: DeleteScope) => void
 }
@@ -28,19 +30,20 @@ interface Choice {
 export default function DeleteRecurringEventDialog({
     title,
     occurrenceDate,
+    noun = 'event',
     onClose,
     onConfirm,
 }: Props) {
     const choices: Choice[] = [
         {
             scope: 'instance',
-            label: 'This event only',
+            label: `This ${noun} only`,
             detail: `Remove just the occurrence on ${formatDate(occurrenceDate)}. The rest of the series stays.`,
         },
         {
             scope: 'series',
-            label: 'All events in the series',
-            detail: `Delete every occurrence of this repeating event. This can't be undone.`,
+            label: `All ${noun}s in the series`,
+            detail: `Delete every occurrence of this repeating ${noun}. This can't be undone.`,
             danger: true,
         },
     ]
@@ -50,7 +53,7 @@ export default function DeleteRecurringEventDialog({
             open
             onClose={onClose}
             size="sm"
-            title="Remove repeating event"
+            title={`Remove repeating ${noun}`}
             footer={
                 <Button variant="ghost" onClick={onClose}>
                     Cancel
