@@ -13,7 +13,7 @@ import {
 } from '../../services/finances'
 import { monthOf, daysInMonth, weekStartOf, weekEndOf } from '../../lib/budget'
 import { addMonths } from '../../lib/finance'
-import { todayKey, addDays, formatMonthYear, formatWeekRange } from '../../lib/calendar'
+import { todayKey, addDays, formatWeekRange } from '../../lib/calendar'
 import {
     dayDiscipline,
     weekDiscipline,
@@ -58,10 +58,8 @@ const STATUS_LABEL: Record<DayDiscipline['status'], string> = {
 export default function DisciplineWidget({ date }: { date: string }) {
     const budgetVersion = useDataVersion('budget')
     const today = todayKey()
-    // Allow a look-ahead window so upcoming months can be previewed (all future
-    // days show greyed) without letting navigation run away indefinitely.
-    const maxMonth = addMonths(monthOf(today), 12)
-    const [month, setMonth] = useState(monthOf(date))
+    // Month follows the dashboard's shared day selector rather than a local nav.
+    const month = monthOf(date)
     const [mode, setMode] = useState<Mode>('weeks')
     const [data, setData] = useState<LoadedData | null>(null)
     const [loadedKey, setLoadedKey] = useState<string | null>(null)
@@ -234,33 +232,8 @@ export default function DisciplineWidget({ date }: { date: string }) {
                 </p>
             ) : (
                 <>
-                    {/* Month navigator + view toggle */}
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center gap-1">
-                            <button
-                                type="button"
-                                onClick={() => setMonth((m) => addMonths(m, -1))}
-                                aria-label="Previous month"
-                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                            >
-                                <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
-                            </button>
-                            <span className="min-w-[8.5rem] text-center text-sm font-semibold tracking-tight text-neutral-900">
-                                {formatMonthYear(`${month}-01`)}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => setMonth((m) => addMonths(m, 1))}
-                                disabled={month >= maxMonth}
-                                aria-label="Next month"
-                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
-                            >
-                                <i
-                                    className="fa-solid fa-chevron-right text-xs"
-                                    aria-hidden="true"
-                                />
-                            </button>
-                        </div>
+                    {/* View toggle — month follows the dashboard's day selector */}
+                    <div className="flex items-center justify-end">
                         <Tabs
                             tabs={['Days', 'Weeks']}
                             value={mode === 'days' ? 'Days' : 'Weeks'}
