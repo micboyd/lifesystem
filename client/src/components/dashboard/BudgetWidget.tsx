@@ -11,6 +11,7 @@ import {
     listBudgetExclusions,
 } from '../../services/finances'
 import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, clampedWeekRange } from '../../lib/budget'
+import Accordion from '../Accordion'
 import { rowVisibleInMonth } from '../../lib/finance'
 import { formatAmount } from '../../lib/money'
 import { useMoneyHidden } from '../useMoneyHidden'
@@ -250,6 +251,37 @@ export default function BudgetWidget({ date }: { date: string }) {
         return (entry?.amount ?? r.recurringAmount ?? 0) > 0
     })
 
+    // Pooled totals across every tracked budget for the current period (this week
+    // for weekly rows, today for daily rows) — the headline figure on the widget.
+    const totals = trackedRows.reduce(
+        (acc, row) => {
+            const entry = entries.find((e) => e.row === row._id)
+            const rowSpends = spends.filter((s) => s.row === row._id)
+            if (row.budgetType === 'weekly') {
+                const { weekStart, weekEnd } = clampedWeekRange(date)
+                const bw = computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, date, excludedDates)
+                acc.allowance += bw.weeklyRate + bw.carry
+                acc.spent += bw.spentThisWeek
+                acc.remaining += bw.remaining
+                acc.monthlyRemaining += bw.monthlyRemaining
+            } else {
+                const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates)
+                acc.allowance += bd.straightDailyRate + bd.carry
+                acc.spent += bd.spentToday
+                acc.remaining += bd.remaining
+                acc.monthlyRemaining += bd.monthlyRemaining
+            }
+            return acc
+        },
+        { allowance: 0, spent: 0, remaining: 0, monthlyRemaining: 0 }
+    )
+    const allowanceLabel =
+        weeklyRows.length > 0 && dailyRows.length === 0
+            ? 'Weekly allowance'
+            : dailyRows.length > 0 && weeklyRows.length === 0
+              ? 'Daily allowance'
+              : 'Allowance'
+
     return (
         <Card>
             <CardHeader className="flex items-start justify-between gap-4">
@@ -306,27 +338,85 @@ export default function BudgetWidget({ date }: { date: string }) {
                     </Link>
                 </p>
             ) : (
-                <div className="flex flex-wrap gap-3">
-                    {weeklyRows.map((row) => (
-                        <WeeklyBudgetCol
-                            key={row._id}
-                            row={row}
-                            entry={entries.find((e) => e.row === row._id)}
-                            rowSpends={spends.filter((s) => s.row === row._id)}
-                            date={date}
-                            excludedDates={excludedDates}
-                        />
-                    ))}
-                    {dailyRows.map((row) => (
-                        <BudgetCol
-                            key={row._id}
-                            row={row}
-                            entry={entries.find((e) => e.row === row._id)}
-                            rowSpends={spends.filter((s) => s.row === row._id)}
-                            date={date}
-                            excludedDates={excludedDates}
-                        />
-                    ))}
+                <div className="flex flex-col gap-4">
+                    {/* Pooled total across every tracked budget */}
+                    <div className="rounded-2xl bg-neutral-950 p-5 text-white">
+                        <div className="flex items-end justify-between gap-4">
+                            <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                                    {allowanceLabel}
+                                </p>
+                                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
+                                    £{fmt(totals.allowance)}
+                                </p>
+                                {totals.monthlyRemaining !== 0 && (
+                                    <p
+                                        className={`mt-0.5 text-[11px] font-semibold ${totals.monthlyRemaining < 0 ? 'text-red-400' : 'text-neutral-500'}`}
+                                    >
+                                        £{fmt(Math.abs(totals.monthlyRemaining))}{' '}
+                                        {totals.monthlyRemaining < 0 ? 'over this month' : 'left this month'}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                                    Remaining
+                                </p>
+                                <p
+                                    className={`mt-1 text-xl font-bold tabular-nums ${totals.remaining >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                                >
+                                    £{fmt(Math.abs(totals.remaining))}
+                                    {totals.remaining < 0 && <span className="ml-1 text-xs font-normal">over</span>}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="mt-4">
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-300 ${totals.remaining >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`}
+                                    style={{ width: `${Math.min(100, (totals.spent / (totals.allowance || 1)) * 100)}%` }}
+                                />
+                            </div>
+                            <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-400">
+                                <span>£{fmt(totals.spent)} spent</span>
+                                <span>£{fmt(totals.allowance)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Individual budgets — collapsed by default */}
+                    <Accordion
+                        items={[
+                            {
+                                title: `Individual budgets (${trackedRows.length})`,
+                                content: (
+                                    <div className="flex flex-wrap gap-3">
+                                        {weeklyRows.map((row) => (
+                                            <WeeklyBudgetCol
+                                                key={row._id}
+                                                row={row}
+                                                entry={entries.find((e) => e.row === row._id)}
+                                                rowSpends={spends.filter((s) => s.row === row._id)}
+                                                date={date}
+                                                excludedDates={excludedDates}
+                                            />
+                                        ))}
+                                        {dailyRows.map((row) => (
+                                            <BudgetCol
+                                                key={row._id}
+                                                row={row}
+                                                entry={entries.find((e) => e.row === row._id)}
+                                                rowSpends={spends.filter((s) => s.row === row._id)}
+                                                date={date}
+                                                excludedDates={excludedDates}
+                                            />
+                                        ))}
+                                    </div>
+                                ),
+                            },
+                        ]}
+                    />
                 </div>
             )}
 
