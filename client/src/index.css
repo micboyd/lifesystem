@@ -25,3 +25,14 @@ body {
 button {
     cursor: pointer;
 }
+
+/* Stop iOS Safari from auto-zooming when a text field is focused — it does this
+   whenever the control's font is under 16px (many inputs use text-sm = 14px).
+   !important is needed to beat Tailwind's per-input text-size utilities. */
+@media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+}
