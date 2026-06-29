@@ -9,16 +9,19 @@ import {
     todayKey,
 } from '../../lib/calendar'
 import { DAY_STATUS_OPTIONS } from '../../types'
-import type { Event, DayStatus, Part } from '../../types'
+import type { Event, DayStatus, Part, Reminder } from '../../types'
 import EventStack from './EventStack'
+import ReminderChip from '../reminders/ReminderChip'
 
 interface Props {
     focusDate: string
     events: Event[]
     statuses: DayStatus[]
+    reminders: Reminder[]
     today: Date
     onOpenDay: (date: string) => void
     onOpenPart: (date: string, part: Part) => void
+    onOpenReminders: (date: string) => void
     onEventClick: (event: Event) => void
     onPickEvents: (events: Event[]) => void
 }
@@ -29,9 +32,11 @@ export default function WeekView({
     focusDate,
     events,
     statuses,
+    reminders,
     today,
     onOpenDay,
     onOpenPart,
+    onOpenReminders,
     onEventClick,
     onPickEvents,
 }: Props) {
@@ -227,6 +232,41 @@ export default function WeekView({
                                                 <i className="fa-solid fa-plus text-[10px] opacity-0 group-hover:opacity-100" />
                                             </button>
                                         )}
+                                    </td>
+                                )
+                            })}
+                        </tr>
+
+                        {/* Reminders row */}
+                        <tr className="border-t-2 border-neutral-200">
+                            <th
+                                scope="row"
+                                className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
+                            >
+                                <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
+                                    <i
+                                        className="fa-solid fa-bell w-4 text-center text-neutral-400"
+                                        aria-hidden="true"
+                                    />
+                                    Reminders
+                                </span>
+                            </th>
+                            {weekDays.map((date) => {
+                                const weekday = new Date(date + 'T00:00:00').getDay()
+                                const weekend = weekday === 0 || weekday === 6
+                                const dayReminders = reminders.filter((r) => r.date === date)
+                                return (
+                                    <td
+                                        key={date}
+                                        className={[
+                                            'h-12 border-l border-neutral-100 p-0.5 align-top',
+                                            weekend ? 'bg-neutral-100/60' : '',
+                                        ].join(' ')}
+                                    >
+                                        <ReminderChip
+                                            reminders={dayReminders}
+                                            onOpen={() => onOpenReminders(date)}
+                                        />
                                     </td>
                                 )
                             })}

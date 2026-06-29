@@ -5,6 +5,7 @@ import DayView from '../components/calendar/DayView'
 import HabitsDaySection from '../components/habits/HabitsDaySection'
 import TasksDaySection from '../components/tasks/TasksDaySection'
 import DayStatusSection from '../components/calendar/DayStatusSection'
+import RemindersDaySection from '../components/reminders/RemindersDaySection'
 import StudyDaySection from '../components/study/StudyDaySection'
 import { useAuth } from '../context/AuthContext'
 import { formatDateLong, todayKey } from '../lib/calendar'
@@ -54,6 +55,14 @@ export default function Day() {
                     Events
                 </h2>
                 <DayView date={date} initialOpenPart={openPart} />
+            </section>
+
+            {/* Reminders */}
+            <section className="mb-8">
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">
+                    Reminders
+                </h2>
+                <RemindersDaySection date={date} />
             </section>
 
             {/* Tasks */}

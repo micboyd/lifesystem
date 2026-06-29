@@ -17,6 +17,7 @@ import express from 'express'
 import financeRoutes from './routes/financeRoutes'
 import habitRoutes from './routes/habitRoutes'
 import path from 'path'
+import reminderRoutes from './routes/reminderRoutes'
 import taskRoutes from './routes/taskRoutes'
 import timeboxRoutes from './routes/timeboxRoutes'
 import totalsRoutes from './routes/totalsRoutes'
@@ -49,6 +50,7 @@ app.use('/api/users', userRoutes)
 app.use('/api/events', eventRoutes)
 app.use('/api/habits', habitRoutes)
 app.use('/api/day-status', dayStatusRoutes)
+app.use('/api/reminders', reminderRoutes)
 app.use('/api/tasks', taskRoutes)
 app.use('/api/timeboxes', timeboxRoutes)
 app.use('/api/totals', totalsRoutes)

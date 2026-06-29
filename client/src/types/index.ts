@@ -386,6 +386,15 @@ export interface Task {
     updatedAt: string
 }
 
+export interface Reminder {
+    _id: string
+    date: string
+    text: string
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
 export interface HabitDef {
     _id: string
     name: string

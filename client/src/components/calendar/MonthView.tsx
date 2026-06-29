@@ -1,15 +1,18 @@
 import { todayKey, addDays, getWeekStart, parseDateKey } from '../../lib/calendar'
 import { EVENT_TYPE_COLORS, NA_EVENT_COLORS, DAY_STATUS_OPTIONS } from '../../types'
-import type { Event, DayStatus, Part } from '../../types'
+import type { Event, DayStatus, Part, Reminder } from '../../types'
 import { Card } from '../Card'
+import ReminderChip from '../reminders/ReminderChip'
 
 interface Props {
     focusDate: string
     events: Event[]
     statuses: DayStatus[]
+    reminders: Reminder[]
     onOpenDay: (date: string) => void
     /** Accepted for a shared prop shape with the other views; unused here. */
     onOpenPart?: (date: string, part: Part) => void
+    onOpenReminders: (date: string) => void
     onEventClick: (event: Event) => void
     onCreateEvent?: (date: string) => void
 }
@@ -17,7 +20,16 @@ interface Props {
 const WEEKDAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MAX_VISIBLE = 3
 
-export default function MonthView({ focusDate, events, statuses, onOpenDay, onEventClick, onCreateEvent }: Props) {
+export default function MonthView({
+    focusDate,
+    events,
+    statuses,
+    reminders,
+    onOpenDay,
+    onOpenReminders,
+    onEventClick,
+    onCreateEvent,
+}: Props) {
     const tk = todayKey()
     const { year, month } = parseDateKey(focusDate)
 
@@ -66,12 +78,14 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
                     const visible = dayEvents.slice(0, MAX_VISIBLE)
                     const overflow = dayEvents.length - MAX_VISIBLE
 
+                    const dayReminders = reminders.filter((r) => r.date === date)
+
                     return (
                         <div
                             key={date}
                             onClick={() => onCreateEvent?.(date)}
                             className={[
-                                'min-h-28 cursor-pointer p-1.5 transition-colors hover:bg-neutral-50',
+                                'group/cell min-h-28 cursor-pointer p-1.5 transition-colors hover:bg-neutral-50',
                                 !isCurrentMonth ? 'bg-neutral-50/60' : '',
                                 isPast && isCurrentMonth ? 'bg-red-50/40' : '',
                             ].join(' ')}
@@ -89,8 +103,34 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
                                     )
                                 })()}
 
-                            {/* Day number — click navigates to day page */}
-                            <div className="mb-1 flex justify-end">
+                            {/* Header: reminder affordance (left) + day number (right) */}
+                            <div className="mb-1 flex items-center justify-between">
+                                <button
+                                    type="button"
+                                    onClick={(ev) => {
+                                        ev.stopPropagation()
+                                        onOpenReminders(date)
+                                    }}
+                                    aria-label="Reminders"
+                                    title={
+                                        dayReminders.length
+                                            ? dayReminders.map((r) => r.text).join('\n')
+                                            : 'Add reminder'
+                                    }
+                                    className={[
+                                        'grid h-6 w-6 place-items-center rounded-full text-xs transition-colors hover:bg-amber-100',
+                                        dayReminders.length
+                                            ? 'text-amber-500'
+                                            : 'text-neutral-300 opacity-0 group-hover/cell:opacity-100',
+                                    ].join(' ')}
+                                >
+                                    <i className="fa-solid fa-bell text-[11px]" aria-hidden="true" />
+                                    {dayReminders.length > 1 && (
+                                        <span className="ml-0.5 text-[9px] font-bold">
+                                            {dayReminders.length}
+                                        </span>
+                                    )}
+                                </button>
                                 <span
                                     onClick={(ev) => {
                                         ev.stopPropagation()
@@ -108,6 +148,16 @@ export default function MonthView({ focusDate, events, statuses, onOpenDay, onEv
                                     {dayNum}
                                 </span>
                             </div>
+
+                            {/* Reminder chips */}
+                            {dayReminders.length > 0 && (
+                                <div className="mb-0.5">
+                                    <ReminderChip
+                                        reminders={dayReminders}
+                                        onOpen={() => onOpenReminders(date)}
+                                    />
+                                </div>
+                            )}
 
                             {/* Event chips */}
                             <div className="flex flex-col gap-0.5">

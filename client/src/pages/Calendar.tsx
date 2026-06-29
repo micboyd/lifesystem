@@ -14,15 +14,17 @@ import {
     getWeekStart,
     formatMonthYear,
     formatWeekRange,
+    formatDateLong,
     parseDateKey,
 } from '../lib/calendar'
 import { listEvents, createEvent, updateEvent, deleteEvent, type EventInput } from '../services/events'
 import { listBirthdays } from '../services/birthdays'
 import { listStatuses } from '../services/dayStatus'
+import { listReminders } from '../services/reminders'
 import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from '../services/totals'
 import { useAuth } from '../context/AuthContext'
 import { DAY_STATUS_OPTIONS } from '../types'
-import type { Event, Part, DayStatus, TotalRow } from '../types'
+import type { Event, Part, DayStatus, TotalRow, Reminder } from '../types'
 import Container from '../components/Container'
 import Tabs from '../components/Tabs'
 import EventDetailModal from '../components/calendar/EventDetailModal'
@@ -36,6 +38,8 @@ import MonthView from '../components/calendar/MonthView'
 import WeekView from '../components/calendar/WeekView'
 import Drawer from '../components/Drawer'
 import DayStatusSection from '../components/calendar/DayStatusSection'
+import RemindersDaySection from '../components/reminders/RemindersDaySection'
+import ReminderChip from '../components/reminders/ReminderChip'
 
 type CalendarView = 'Week' | 'Month' | 'Year'
 const VIEWS: CalendarView[] = ['Year', 'Month', 'Week']
@@ -81,6 +85,7 @@ export default function Calendar() {
     const [focusDate, setFocusDate] = useState(todayKey())
     const [events, setEvents] = useState<Event[]>([])
     const [statuses, setStatuses] = useState<DayStatus[]>([])
+    const [reminders, setReminders] = useState<Reminder[]>([])
     const [rows, setRows] = useState<TotalRow[]>([])
     const [values, setValues] = useState<Record<string, number>>({})
     const [detailEvent, setDetailEvent] = useState<Event | null>(null)
@@ -88,11 +93,13 @@ export default function Calendar() {
     const [editingEvent, setEditingEvent] = useState<Event | null>(null)
     const [scopeEvent, setScopeEvent] = useState<Event | null>(null)
     const [editorOpen, setEditorOpen] = useState(false)
-    const [defaultDate, setDefaultDate] = useState<string | null>(null)
+    const [defaultSlot, setDefaultSlot] = useState<{ date: string; part: Part } | null>(null)
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
     // Day whose leave/holiday is being edited in the drawer (Year-view Leave row).
     const [leaveDate, setLeaveDate] = useState<string | null>(null)
+    // Day whose reminders are being edited in the drawer.
+    const [reminderDate, setReminderDate] = useState<string | null>(null)
 
     // ── Totals cell selection + in-app copy buffer ──
     const [selection, setSelection] = useState<CellSel | null>(null)
@@ -121,8 +128,13 @@ export default function Calendar() {
     const totalsOn = !!user?.settings?.showTotals && view === 'Year'
 
     const reload = useCallback(() => {
-        Promise.all([listEvents(from, to), listStatuses(from, to), listBirthdays()])
-            .then(([evts, sts, bdays]) => {
+        Promise.all([
+            listEvents(from, to),
+            listStatuses(from, to),
+            listBirthdays(),
+            listReminders(from, to),
+        ])
+            .then(([evts, sts, bdays, rems]) => {
                 // Expand each birthday into a synthetic all-day event for every year in the range.
                 const fromYear = parseInt(from.slice(0, 4), 10)
                 const toYear = parseInt(to.slice(0, 4), 10)
@@ -148,10 +160,12 @@ export default function Calendar() {
                 }
                 setEvents([...(evts as Event[]), ...birthdayEvents])
                 setStatuses(sts)
+                setReminders(rems)
             })
             .catch(() => {
                 setEvents([])
                 setStatuses([])
+                setReminders([])
             })
 
         if (totalsOn) {
@@ -227,7 +241,7 @@ export default function Calendar() {
             reload()
             setEditorOpen(false)
             setEditingEvent(null)
-            setDefaultDate(null)
+            setDefaultSlot(null)
         } catch (err: unknown) {
             if ((err as { response?: { status?: number } })?.response?.status === 409)
                 setConflict(true)
@@ -417,16 +431,23 @@ export default function Calendar() {
         focusDate,
         events,
         statuses,
+        reminders,
         today,
         onOpenDay: (date: string) => nav(`/day/${date}`),
-        onOpenPart: (date: string, part: Part) =>
-            nav(`/day/${date}`, { state: { openPart: part } }),
+        onOpenReminders: (date: string) => setReminderDate(date),
+        // Adding an event from a slot opens the editor in place — only the day
+        // number navigates to the day view.
+        onOpenPart: (date: string, part: Part) => {
+            setEditingEvent(null)
+            setEditorOpen(true)
+            setDefaultSlot({ date, part })
+        },
         onEventClick: (event: Event) => setDetailEvent(event),
         onPickEvents: (evts: Event[]) => setPickerEvents(evts),
         onCreateEvent: (date: string) => {
             setEditingEvent(null)
             setEditorOpen(true)
-            setDefaultDate(date)
+            setDefaultSlot({ date, part: 'morning' })
         },
     }
 
@@ -524,6 +545,7 @@ export default function Calendar() {
                                     today={today}
                                     events={events}
                                     statuses={statuses}
+                                    reminders={reminders}
                                     totalsOn={totalsOn}
                                     rows={rows}
                                     values={values}
@@ -537,10 +559,13 @@ export default function Calendar() {
                                     onDeleteRow={handleDeleteRow}
                                     onChangeGranularity={handleChangeGranularity}
                                     onOpenDay={(date) => nav(`/day/${date}`)}
-                                    onOpenPart={(date, part) =>
-                                        nav(`/day/${date}`, { state: { openPart: part } })
-                                    }
+                                    onOpenPart={(date, part) => {
+                                        setEditingEvent(null)
+                                        setEditorOpen(true)
+                                        setDefaultSlot({ date, part })
+                                    }}
                                     onLeaveClick={(date) => setLeaveDate(date)}
+                                    onReminderClick={(date) => setReminderDate(date)}
                                     onEventClick={(event) => setDetailEvent(event)}
                                     onPickEvents={(evts) => setPickerEvents(evts)}
                                 />
@@ -574,16 +599,14 @@ export default function Calendar() {
                 defaultSlot={
                     editingEvent
                         ? { date: editingEvent.startDate, part: editingEvent.startPart }
-                        : defaultDate
-                          ? { date: defaultDate, part: 'morning' }
-                          : null
+                        : defaultSlot
                 }
                 saving={saving}
                 conflict={conflict}
                 onClose={() => {
                     setEditorOpen(false)
                     setEditingEvent(null)
-                    setDefaultDate(null)
+                    setDefaultSlot(null)
                     setConflict(false)
                 }}
                 onSave={handleSave}
@@ -609,6 +632,22 @@ export default function Calendar() {
             >
                 {leaveDate && (
                     <DayStatusSection key={leaveDate} date={leaveDate} defaultAdding />
+                )}
+            </Drawer>
+
+            {/* Reminders editor — opened from any view's reminder affordance. */}
+            <Drawer
+                open={!!reminderDate}
+                onClose={() => setReminderDate(null)}
+                title={reminderDate ? `Reminders · ${formatDateLong(reminderDate)}` : 'Reminders'}
+            >
+                {reminderDate && (
+                    <RemindersDaySection
+                        key={reminderDate}
+                        date={reminderDate}
+                        autoFocus
+                        onChange={reload}
+                    />
                 )}
             </Drawer>
         </main>
@@ -672,6 +711,7 @@ interface MonthBlockProps {
     today: Date
     events: Event[]
     statuses: DayStatus[]
+    reminders: Reminder[]
     totalsOn: boolean
     rows: TotalRow[]
     values: Record<string, number>
@@ -687,6 +727,7 @@ interface MonthBlockProps {
     onOpenDay: (date: string) => void
     onOpenPart: (date: string, part: Part) => void
     onLeaveClick: (date: string) => void
+    onReminderClick: (date: string) => void
     onEventClick: (event: Event) => void
     onPickEvents: (events: Event[]) => void
 }
@@ -697,6 +738,7 @@ function MonthBlock({
     today,
     events,
     statuses,
+    reminders,
     totalsOn,
     rows,
     values,
@@ -712,6 +754,7 @@ function MonthBlock({
     onOpenDay,
     onOpenPart,
     onLeaveClick,
+    onReminderClick,
     onEventClick,
     onPickEvents,
 }: MonthBlockProps) {
@@ -965,6 +1008,48 @@ function MonthBlock({
                                                 <i className="fa-solid fa-plus text-[10px] opacity-0 group-hover:opacity-100" />
                                             </button>
                                         )}
+                                    </td>
+                                )
+                            })}
+                            {totalsOn && (
+                                <td className="border-l border-neutral-200 bg-neutral-50/50" />
+                            )}
+                        </tr>
+
+                        {/* Reminders row */}
+                        <tr className="border-t border-neutral-200">
+                            <th
+                                scope="row"
+                                className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
+                            >
+                                <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
+                                    <i
+                                        className="fa-solid fa-bell w-4 text-center text-neutral-400"
+                                        aria-hidden="true"
+                                    />
+                                    Reminders
+                                </span>
+                            </th>
+                            {dayNums.map((day) => {
+                                const weekday = new Date(year, month, day).getDay()
+                                const weekend = weekday === 0 || weekday === 6
+                                const key = dateKey(year, month, day)
+                                const dayReminders = reminders.filter((r) => r.date === key)
+                                return (
+                                    <td
+                                        key={day}
+                                        className={[
+                                            'h-12 p-0.5 align-top',
+                                            isToday(day)
+                                                ? 'border-r border-neutral-400'
+                                                : 'border-l border-neutral-100',
+                                            weekend ? 'bg-neutral-100/60' : '',
+                                        ].join(' ')}
+                                    >
+                                        <ReminderChip
+                                            reminders={dayReminders}
+                                            onOpen={() => onReminderClick(key)}
+                                        />
                                     </td>
                                 )
                             })}

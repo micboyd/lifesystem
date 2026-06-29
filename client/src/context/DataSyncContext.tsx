@@ -10,7 +10,14 @@ import type { ReactNode } from 'react'
  * elsewhere in the app. This is single-tab reactivity — true cross-device sync
  * would need server push (SSE/WebSockets).
  */
-export type SyncTopic = 'tasks' | 'habits' | 'timeboxes' | 'budget' | 'events' | 'dayStatus'
+export type SyncTopic =
+    | 'tasks'
+    | 'habits'
+    | 'timeboxes'
+    | 'budget'
+    | 'events'
+    | 'dayStatus'
+    | 'reminders'
 
 interface DataSyncValue {
     versions: Record<string, number>

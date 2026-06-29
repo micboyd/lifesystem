@@ -5,6 +5,7 @@ import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import WorkStatusBanner from '../components/dashboard/WorkStatusBanner'
 import InsightsStrip from '../components/dashboard/InsightsStrip'
 import TodayWidget from '../components/dashboard/TodayWidget'
+import RemindersWidget from '../components/dashboard/RemindersWidget'
 import HabitsWidget from '../components/dashboard/HabitsWidget'
 import TasksWidget from '../components/dashboard/TasksWidget'
 import TimeboxWidget from '../components/dashboard/TimeboxWidget'
@@ -43,6 +44,7 @@ export default function Home() {
             <div className="mt-6 columns-1 gap-6 md:columns-2 xl:columns-3 [&>*]:mb-6 [&>*]:break-inside-avoid">
                 <WeatherWidget />
                 <BirthdayWidget date={date} />
+                <RemindersWidget date={date} />
                 <TimeboxWidget date={date} />
                 <TodayWidget date={date} />
                 <HabitsWidget date={date} />
