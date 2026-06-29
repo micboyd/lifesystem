@@ -39,7 +39,6 @@ import WeekView from '../components/calendar/WeekView'
 import Drawer from '../components/Drawer'
 import DayStatusSection from '../components/calendar/DayStatusSection'
 import RemindersDaySection from '../components/reminders/RemindersDaySection'
-import ReminderChip from '../components/reminders/ReminderChip'
 
 type CalendarView = 'Week' | 'Month' | 'Year'
 const VIEWS: CalendarView[] = ['Year', 'Month', 'Week']
@@ -808,37 +807,64 @@ function MonthBlock({
                                 const weekday = new Date(year, month, day).getDay()
                                 const weekend = weekday === 0 || weekday === 6
                                 const todayCol = isToday(day)
+                                const key = dateKey(year, month, day)
+                                const dayReminders = reminders.filter((r) => r.date === key)
                                 return (
                                     <th
                                         key={day}
                                         className={[
-                                            'w-12 px-1 py-2 text-center',
+                                            'group/day w-12 px-1 py-2 text-center',
                                             weekend ? 'bg-neutral-100' : '',
                                             todayCol ? 'border-r border-neutral-400' : '',
                                         ].join(' ')}
                                     >
-                                        <button
-                                            type="button"
-                                            onClick={() => onOpenDay(dateKey(year, month, day))}
-                                            className={[
-                                                'mx-auto flex h-9 w-9 flex-col items-center justify-center rounded-lg transition-colors',
-                                                todayCol
-                                                    ? 'bg-neutral-950 text-white hover:bg-neutral-800'
-                                                    : 'text-neutral-700 hover:bg-neutral-100',
-                                            ].join(' ')}
-                                        >
-                                            <span className="text-sm font-semibold leading-none tabular-nums">
-                                                {day}
-                                            </span>
-                                            <span
+                                        <div className="flex flex-col items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => onOpenDay(key)}
                                                 className={[
-                                                    'mt-0.5 text-[10px] leading-none',
-                                                    todayCol ? 'text-white/70' : 'text-neutral-400',
+                                                    'flex h-9 w-9 flex-col items-center justify-center rounded-lg transition-colors',
+                                                    todayCol
+                                                        ? 'bg-neutral-950 text-white hover:bg-neutral-800'
+                                                        : 'text-neutral-700 hover:bg-neutral-100',
                                                 ].join(' ')}
                                             >
-                                                {WEEKDAYS[weekday]}
-                                            </span>
-                                        </button>
+                                                <span className="text-sm font-semibold leading-none tabular-nums">
+                                                    {day}
+                                                </span>
+                                                <span
+                                                    className={[
+                                                        'mt-0.5 text-[10px] leading-none',
+                                                        todayCol ? 'text-white/70' : 'text-neutral-400',
+                                                    ].join(' ')}
+                                                >
+                                                    {WEEKDAYS[weekday]}
+                                                </span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => onReminderClick(key)}
+                                                aria-label="Reminders"
+                                                title={
+                                                    dayReminders.length
+                                                        ? dayReminders.map((r) => r.text).join('\n')
+                                                        : 'Add reminder'
+                                                }
+                                                className={[
+                                                    'inline-flex h-5 items-center gap-0.5 rounded-full px-1.5 transition-colors hover:bg-amber-100',
+                                                    dayReminders.length
+                                                        ? 'text-amber-500'
+                                                        : 'text-neutral-300 opacity-0 group-hover/day:opacity-100',
+                                                ].join(' ')}
+                                            >
+                                                <i className="fa-solid fa-bell text-[10px]" aria-hidden="true" />
+                                                {dayReminders.length > 1 && (
+                                                    <span className="text-[9px] font-bold leading-none">
+                                                        {dayReminders.length}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        </div>
                                     </th>
                                 )
                             })}
@@ -1009,48 +1035,6 @@ function MonthBlock({
                                                 <i className="fa-solid fa-plus text-[10px] opacity-0 group-hover:opacity-100" />
                                             </button>
                                         )}
-                                    </td>
-                                )
-                            })}
-                            {totalsOn && (
-                                <td className="border-l border-neutral-200 bg-neutral-50/50" />
-                            )}
-                        </tr>
-
-                        {/* Reminders row */}
-                        <tr className="border-t border-neutral-200">
-                            <th
-                                scope="row"
-                                className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
-                            >
-                                <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
-                                    <i
-                                        className="fa-solid fa-bell w-4 text-center text-neutral-400"
-                                        aria-hidden="true"
-                                    />
-                                    Reminders
-                                </span>
-                            </th>
-                            {dayNums.map((day) => {
-                                const weekday = new Date(year, month, day).getDay()
-                                const weekend = weekday === 0 || weekday === 6
-                                const key = dateKey(year, month, day)
-                                const dayReminders = reminders.filter((r) => r.date === key)
-                                return (
-                                    <td
-                                        key={day}
-                                        className={[
-                                            'h-12 p-0.5 align-top',
-                                            isToday(day)
-                                                ? 'border-r border-neutral-400'
-                                                : 'border-l border-neutral-100',
-                                            weekend ? 'bg-neutral-100/60' : '',
-                                        ].join(' ')}
-                                    >
-                                        <ReminderChip
-                                            reminders={dayReminders}
-                                            onOpen={() => onReminderClick(key)}
-                                        />
                                     </td>
                                 )
                             })}
