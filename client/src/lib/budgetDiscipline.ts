@@ -1,5 +1,5 @@
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../types'
-import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, daysInMonth, weekStartOf, weekEndOf } from './budget'
+import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, daysInMonth, weekStartOf, weekEndOf, clampedWeekRange } from './budget'
 import { rowVisibleInMonth } from './finance'
 import { addDays } from './calendar'
 
@@ -96,7 +96,9 @@ export function dayDiscipline(
     for (const row of wRows) {
         const entry = data.entries.find((e) => e.row === row._id)
         const rowSpends = data.spends.filter((s) => s.row === row._id)
-        const bw = computeBudgetWeek(row, entry, rowSpends, weekStartOf(date), weekEndOf(date), date, data.excluded)
+        // Clamp to the month so the week is sliced at the 1st, matching the Budgets page.
+        const { weekStart, weekEnd } = clampedWeekRange(date)
+        const bw = computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, date, data.excluded)
         target += bw.weeklyRate / 7
         if (!isExcluded) {
             spent += rowSpends.filter((s) => s.date === date).reduce((a, s) => a + s.amount, 0)
@@ -284,7 +286,8 @@ export function safeToSpendToday(
     today: string
 ): SafeToSpend {
     const month = monthOf(today)
-    const wEnd = weekEndOf(today)
+    // Clamp the week to the month so a month-boundary week resets on the 1st.
+    const { weekStart: wStart, weekEnd: wEnd } = clampedWeekRange(today)
 
     const allDailyRows = dailyRowsInMonth(groups, rows, month).filter((r) => {
         const entry = data.entries.find((e) => e.row === r._id)
@@ -311,7 +314,7 @@ export function safeToSpendToday(
     for (const row of allWeeklyRows) {
         const entry = data.entries.find((e) => e.row === row._id)
         const rowSpends = data.spends.filter((s) => s.row === row._id)
-        const bw = computeBudgetWeek(row, entry, rowSpends, weekStartOf(today), wEnd, today, data.excluded)
+        const bw = computeBudgetWeek(row, entry, rowSpends, wStart, wEnd, today, data.excluded)
         // Count active days remaining in the week from today (inclusive).
         let activeDaysLeft = 0
         let d = new Date(`${today}T00:00:00`)

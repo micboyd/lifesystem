@@ -46,6 +46,26 @@ export function weekEndOf(date: string): string {
 }
 
 /**
+ * ISO Mon–Sun week containing `date`, clamped to that date's calendar month so
+ * every week resets on the 1st (a Mon-30th–Tue-31st stub is its own short week).
+ *
+ * Single source of truth for week slicing — used by the Budgets page selector and
+ * the dashboard budget widget so both agree on month boundaries.
+ */
+export function clampedWeekRange(date: string): { month: string; weekStart: string; weekEnd: string } {
+    const month = monthOf(date)
+    const monthStart = `${month}-01`
+    const monthEnd = dateKey(month, daysInMonth(month))
+    const rawStart = weekStartOf(date)
+    const rawEnd = weekEndOf(date)
+    return {
+        month,
+        weekStart: rawStart < monthStart ? monthStart : rawStart,
+        weekEnd: rawEnd > monthEnd ? monthEnd : rawEnd,
+    }
+}
+
+/**
  * Days in `month` that aren't excluded. Excluded days (work trips, holidays)
  * carry no allowance, so the monthly amount is spread across the remaining days.
  */

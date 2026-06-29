@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
-import { useAuth } from '../context/AuthContext'
 import {
     listRows,
     listGroups,
@@ -13,7 +12,7 @@ import {
     listBudgetExclusions,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
-import { computeBudgetDay, computeBudgetWeek, daysInMonth, weekStartOf, weekEndOf } from '../lib/budget'
+import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange } from '../lib/budget'
 import { formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
@@ -31,20 +30,6 @@ function addDays(date: string, n: number): string {
     const d = new Date(`${date}T00:00:00`)
     d.setDate(d.getDate() + n)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-/** Week start/end clamped to the anchor's month, matching BudgetCalendar's week grouping. */
-function weekRangeFor(anchor: string): { month: string; weekStart: string; weekEnd: string } {
-    const month = anchor.slice(0, 7)
-    const monthStart = `${month}-01`
-    const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, '0')}`
-    const rawStart = weekStartOf(anchor)
-    const rawEnd = weekEndOf(anchor)
-    return {
-        month,
-        weekStart: rawStart < monthStart ? monthStart : rawStart,
-        weekEnd: rawEnd > monthEnd ? monthEnd : rawEnd,
-    }
 }
 
 /** 1-indexed week number within the month, same grouping logic as BudgetCalendar. */
@@ -537,12 +522,10 @@ export default function Budgets() {
     const [weekAnchor, setWeekAnchor] = useState(todayKey())
     const toast = useToast()
     const invalidate = useInvalidate()
-    const { user } = useAuth()
 
-    const financeStartMonth = user?.settings?.financeStartDate?.slice(0, 7) ?? null
     const todayDate = todayKey()
 
-    const { month, weekStart, weekEnd } = weekRangeFor(weekAnchor)
+    const { month, weekStart, weekEnd } = clampedWeekRange(weekAnchor)
     const weekNum = weekNumberInMonth(weekAnchor)
     const totalWeeks = weeksInMonth(month)
     const isCurrentWeek = weekStart <= todayDate && todayDate <= weekEnd
@@ -560,8 +543,6 @@ export default function Budgets() {
         if (newAnchor.slice(0, 7) !== month) setLoading(true)
         setWeekAnchor(newAnchor)
     }
-
-    const atStart = !!(financeStartMonth && month <= financeStartMonth && weekNum === 1)
 
     useEffect(() => {
         let active = true
@@ -640,8 +621,7 @@ export default function Budgets() {
                     <button
                         type="button"
                         onClick={goToPrevWeek}
-                        disabled={atStart}
-                        className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-30 disabled:pointer-events-none"
+                        className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                     >
                         <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
                     </button>

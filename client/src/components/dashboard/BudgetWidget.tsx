@@ -10,7 +10,7 @@ import {
     listBudgetSpends,
     listBudgetExclusions,
 } from '../../services/finances'
-import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, weekStartOf, weekEndOf } from '../../lib/budget'
+import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, clampedWeekRange } from '../../lib/budget'
 import { rowVisibleInMonth } from '../../lib/finance'
 import { formatAmount } from '../../lib/money'
 import { useMoneyHidden } from '../useMoneyHidden'
@@ -121,8 +121,7 @@ function BudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProp
 // ── Weekly budget column ──────────────────────────────────────────────────────
 
 function WeeklyBudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProps) {
-    const wStart = weekStartOf(date)
-    const wEnd = weekEndOf(date)
+    const { weekStart: wStart, weekEnd: wEnd } = clampedWeekRange(date)
     const { monthlyAmount, weeklyRate, carry, spentThisWeek, remaining, monthlyRemaining } =
         computeBudgetWeek(row, entry, rowSpends, wStart, wEnd, date, excludedDates)
     const weekLabel = (() => {
