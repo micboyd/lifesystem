@@ -122,7 +122,9 @@ function groupByWeek(
                 let weeklyRate = 0
                 for (const row of weeklyRows) {
                     const entry = entries.find((e) => e.row === row._id)
-                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), w.days[0].date, excludedDates)
+                    const wStart = w.days[0].date
+                    const wEnd = w.days[w.days.length - 1].date
+                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), wStart, wEnd, today, excludedDates)
                     weeklyRate += bw.weeklyRate
                 }
                 w.target = weeklyRate
@@ -130,7 +132,9 @@ function groupByWeek(
                 let weeklyAllowance = 0
                 for (const row of weeklyRows) {
                     const entry = entries.find((e) => e.row === row._id)
-                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), effectiveDate, excludedDates)
+                    const wStart = w.days[0].date
+                    const wEnd = w.days[w.days.length - 1].date
+                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), wStart, wEnd, today, excludedDates)
                     weeklyAllowance += bw.weeklyRate + bw.carry
                 }
                 w.target = weeklyAllowance
@@ -303,6 +307,18 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                 )}
             </div>
 
+            {/* Mobile: compact spend + remaining */}
+            {!isFuture && !data.excluded && hasSpend && (
+                <div className="flex lg:hidden flex-col items-start gap-0.5 mt-0.5">
+                    <span className="text-[9px] font-semibold tabular-nums text-neutral-500">
+                        £{fmt(data.spent)}
+                    </span>
+                    <span className={`text-[9px] font-semibold tabular-nums ${remainingColor}`}>
+                        {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
+                    </span>
+                </div>
+            )}
+
             {/* Detail content — hidden on mobile, shown on sm+ */}
             {!data.excluded && (
                 <div className="hidden lg:flex flex-col gap-2 flex-1">
@@ -336,10 +352,10 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                         className={`border-t mt-auto ${isFuture ? 'border-neutral-100' : 'border-neutral-200'}`}
                     />
 
-                    {!isFuture && (
+                    {(!isFuture || hasSpend) && (
                         <>
                             <div className="flex items-baseline justify-between gap-1">
-                                <span className="text-xs text-neutral-400">spent</span>
+                                <span className="text-xs text-neutral-400">{isFuture ? 'planned' : 'spent'}</span>
                                 <span
                                     className={`text-sm font-semibold tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}
                                 >
@@ -419,11 +435,11 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
                 </span>
                 <span className={`text-sm ${week.allFuture ? 'text-neutral-200' : 'text-neutral-400'}`}>/wk</span>
             </div>
-            {!week.allFuture && (
+            {(!week.allFuture || hasSpend) && (
                 <>
                     <div className="mt-auto border-t border-neutral-200" />
                     <div className="flex items-baseline justify-between gap-1">
-                        <span className="text-sm text-neutral-400">spent</span>
+                        <span className="text-sm text-neutral-400">{week.allFuture ? 'planned' : 'spent'}</span>
                         <span className={`text-base font-semibold tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}>
                             {hasSpend ? `£${fmt(week.spent)}` : '—'}
                         </span>
@@ -436,9 +452,11 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
                             </span>
                         </div>
                     )}
-                    <span className="text-sm text-neutral-400">
-                        {daysLogged}/{activeDays} days logged
-                    </span>
+                    {!week.allFuture && (
+                        <span className="text-sm text-neutral-400">
+                            {daysLogged}/{activeDays} days logged
+                        </span>
+                    )}
                 </>
             )}
         </button>
@@ -480,7 +498,6 @@ function WeekModal({
     const [amount, setAmount] = useState('')
     const [note, setNote] = useState('')
     const [saving, setSaving] = useState(false)
-    const [showingTx, setShowingTx] = useState(false)
 
     const rowIds = new Set(dailyRows.map((r) => r._id))
     const activeDay = week.days.find((d) => d.date === activeDate) ?? week.days[0]
@@ -558,7 +575,7 @@ function WeekModal({
                             <button
                                 key={d.date}
                                 type="button"
-                                onClick={() => { setActiveDate(d.date); setShowingTx(false) }}
+                                onClick={() => setActiveDate(d.date)}
                                 className={[
                                     'flex flex-1 flex-col items-center rounded-lg py-1.5 text-xs font-semibold transition-colors',
                                     isActive
@@ -570,8 +587,8 @@ function WeekModal({
                                     {SHORT_DAYS[dow]}
                                 </span>
                                 <span className={isActive ? 'text-neutral-900' : ''}>{dayNum}</span>
-                                {hasTx && isPast && (
-                                    <span className={`mt-0.5 h-1 w-1 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-neutral-300'}`} />
+                                {hasTx && (
+                                    <span className={`mt-0.5 h-1 w-1 rounded-full ${isActive ? 'bg-emerald-500' : isPast ? 'bg-neutral-300' : 'bg-sky-300'}`} />
                                 )}
                             </button>
                         )
@@ -580,53 +597,11 @@ function WeekModal({
 
                 {/* Day content */}
                 {isFuture ? (
-                    <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-400">
-                        Future day — nothing to log yet.
-                    </p>
-                ) : showingTx ? (
-                    <div className="flex flex-col gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setShowingTx(false)}
-                            className="flex items-center gap-1.5 self-start text-sm font-semibold text-neutral-500 transition-colors hover:text-neutral-900"
-                        >
-                            <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
-                            Back
-                        </button>
-                        {dayTx.length === 0 ? (
-                            <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-8 text-center text-sm text-neutral-400">
-                                No transactions for this day.
-                            </p>
-                        ) : (
-                            <ul className="flex flex-col gap-2">
-                                {dayTx.map((t) => (
-                                    <li key={t._id} className="group/tx flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-4 py-2.5">
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-semibold text-neutral-800">{t.note || rowName(t.row)}</p>
-                                            {t.note && dailyRows.length > 1 && (
-                                                <p className="truncate text-xs text-neutral-400">{rowName(t.row)}</p>
-                                            )}
-                                        </div>
-                                        <div className="flex shrink-0 items-center gap-2">
-                                            <span className="text-sm text-neutral-700">£{fmt(t.amount)}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => onDeleteSpend(t._id)}
-                                                aria-label="Delete transaction"
-                                                className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                                            >
-                                                <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                        <div className="flex items-center justify-between border-t border-neutral-100 pt-2">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Day total</span>
-                            <span className="text-sm font-bold text-neutral-900">£{fmt(spentToday)}</span>
-                        </div>
-                    </div>
+                    dayTx.length === 0 && (
+                        <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-400">
+                            Future day — nothing planned yet.
+                        </p>
+                    )
                 ) : (
                     <div className="flex flex-col gap-3">
                         {/* Exclude toggle */}
@@ -698,24 +673,11 @@ function WeekModal({
                                 </Button>
                             </form>
                         </div>
-
-                        {/* View transactions */}
-                        <button
-                            type="button"
-                            onClick={() => setShowingTx(true)}
-                            className="flex items-center justify-between rounded-xl border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
-                        >
-                            <span>
-                                View transactions
-                                {dayTx.length > 0 && <span className="ml-1.5 text-neutral-400">({dayTx.length})</span>}
-                            </span>
-                            <i className="fa-solid fa-chevron-right text-xs text-neutral-400" aria-hidden="true" />
-                        </button>
                     </div>
                 )}
 
                 {/* Week transaction list */}
-                {weekTx.length > 0 && !showingTx && (
+                {weekTx.length > 0 && (
                     <details className="rounded-xl border border-neutral-100">
                         <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-neutral-500 hover:text-neutral-900">
                             All transactions this week ({weekTx.length})
@@ -726,10 +688,18 @@ function WeekModal({
                                 const date = new Date(Number(t.date.split('-')[0]), Number(t.date.split('-')[1]) - 1, d)
                                 const dayLabel = date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
                                 return (
-                                    <li key={t._id} className="flex items-center justify-between gap-3 py-2 text-xs">
-                                        <span className="text-neutral-400">{dayLabel}</span>
+                                    <li key={t._id} className="flex items-center gap-3 py-2 text-xs">
+                                        <span className="w-10 shrink-0 text-neutral-400">{dayLabel}</span>
                                         <span className="flex-1 truncate font-semibold text-neutral-700">{t.note || rowName(t.row)}</span>
-                                        <span className="text-neutral-700">£{fmt(t.amount)}</span>
+                                        <span className="shrink-0 text-neutral-700">£{fmt(t.amount)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteSpend(t._id)}
+                                            aria-label="Delete transaction"
+                                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                                        >
+                                            <i className="fa-solid fa-trash-can text-[10px]" aria-hidden="true" />
+                                        </button>
                                     </li>
                                 )
                             })}
@@ -835,10 +805,35 @@ function DayModal({
                             </p>
                         </div>
                     </label>
-                    {!excluded && (
+                    {!excluded && dayTx.length === 0 && (
                         <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-400">
-                            Future day — nothing to log yet.
+                            Future day — nothing planned yet.
                         </p>
+                    )}
+                    {!excluded && dayTx.length > 0 && (
+                        <ul className="flex flex-col gap-2">
+                            {dayTx.map((t) => (
+                                <li key={t._id} className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-4 py-2.5">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-neutral-800">{t.note || rowName(t.row)}</p>
+                                        {t.note && dailyRows.length > 1 && (
+                                            <p className="truncate text-xs text-neutral-400">{rowName(t.row)}</p>
+                                        )}
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <span className="text-sm text-neutral-700">£{fmt(t.amount)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteSpend(t._id)}
+                                            aria-label="Delete transaction"
+                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                        >
+                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
                     )}
                 </div>
             ) : panel === 'list' ? (

@@ -145,7 +145,7 @@ function budgetInsight(
             (acc, row) => {
                 const entry = entries.find((e) => e.row === row._id)
                 const rowSpends = spends.filter((s) => s.row === row._id)
-                const bw = computeBudgetWeek(row, entry, rowSpends, date, excludedDates)
+                const bw = computeBudgetWeek(row, entry, rowSpends, weekStartOf(date), weekEndOf(date), date, excludedDates)
                 return { remaining: acc.remaining + bw.remaining, carry: acc.carry + bw.carry }
             },
             { remaining: 0, carry: 0 }

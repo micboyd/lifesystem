@@ -916,6 +916,42 @@ export default function Finances() {
                 )}
             </div>
 
+            {/* Month payment summary */}
+            {(() => {
+                const outgoingGroups = [...expenseGroups, ...savingsGroups]
+                const allOutgoingRows = outgoingGroups.flatMap((g) => visibleRows(g))
+                const totalOwed = allOutgoingRows.reduce((sum, r) => sum + Math.abs(effectiveAmount(r)), 0)
+                const totalPaid = allOutgoingRows
+                    .filter((r) => paidRows.has(r._id))
+                    .reduce((sum, r) => sum + Math.abs(effectiveAmount(r)), 0)
+                const leftToPay = totalOwed - totalPaid
+                const pct = totalOwed > 0 ? Math.min(100, (totalPaid / totalOwed) * 100) : 0
+
+                if (totalOwed === 0) return null
+
+                return (
+                    <div className="mb-8 rounded-2xl border border-neutral-200 bg-white px-5 py-4">
+                        <div className="flex items-baseline justify-between gap-4 mb-3">
+                            <div>
+                                <span className="text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
+                                    £{formatAmount(leftToPay)}
+                                </span>
+                                <span className="ml-2 text-sm text-neutral-400">left to pay</span>
+                            </div>
+                            <span className="text-sm tabular-nums text-neutral-400">
+                                £{formatAmount(totalPaid)} of £{formatAmount(totalOwed)} done
+                            </span>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
+                            <div
+                                className="h-full rounded-full bg-neutral-950 transition-all duration-300"
+                                style={{ width: `${pct}%` }}
+                            />
+                        </div>
+                    </div>
+                )
+            })()}
+
             {/* Add group form */}
             {addingGroup && (
                 <Card className="mb-6">

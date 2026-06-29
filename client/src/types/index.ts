@@ -486,6 +486,7 @@ export interface FinanceSubItem {
     name: string
     amount: number
     order: number
+    paid: boolean
     createdAt: string
     updatedAt: string
 }

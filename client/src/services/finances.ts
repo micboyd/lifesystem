@@ -259,7 +259,7 @@ export async function createSubItem(
 
 export async function updateSubItem(
     id: string,
-    fields: Partial<Pick<FinanceSubItem, 'name' | 'amount' | 'order'>>
+    fields: Partial<Pick<FinanceSubItem, 'name' | 'amount' | 'order' | 'paid'>>
 ): Promise<FinanceSubItem> {
     const res = await api.put<ApiResponse<FinanceSubItem>>(`/finances/sub-items/${id}`, fields)
     return res.data.data

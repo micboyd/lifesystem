@@ -1,5 +1,5 @@
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../types'
-import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, daysInMonth, weekEndOf } from './budget'
+import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, daysInMonth, weekStartOf, weekEndOf } from './budget'
 import { rowVisibleInMonth } from './finance'
 import { addDays } from './calendar'
 
@@ -96,7 +96,7 @@ export function dayDiscipline(
     for (const row of wRows) {
         const entry = data.entries.find((e) => e.row === row._id)
         const rowSpends = data.spends.filter((s) => s.row === row._id)
-        const bw = computeBudgetWeek(row, entry, rowSpends, date, data.excluded)
+        const bw = computeBudgetWeek(row, entry, rowSpends, weekStartOf(date), weekEndOf(date), date, data.excluded)
         target += bw.weeklyRate / 7
         if (!isExcluded) {
             spent += rowSpends.filter((s) => s.date === date).reduce((a, s) => a + s.amount, 0)
@@ -134,7 +134,6 @@ export function weekDiscipline(
     // Chop the week to the month so edge weeks stay within it.
     const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, '0')}`
     const clampedEnd = weekEnd > monthEnd ? monthEnd : weekEnd
-    const effectiveEnd = clampedEnd > today ? today : clampedEnd
 
     const data = byMonth.get(month) ?? { entries: [], spends: [], excluded: new Set() }
     const wRows = weeklyRowsInMonth(groups, rows, month)
@@ -147,8 +146,8 @@ export function weekDiscipline(
         hasAny = true
         const entry = data.entries.find((e) => e.row === row._id)
         const rowSpends = data.spends.filter((s) => s.row === row._id)
-        // computeBudgetWeek keeps spend and carry within the month already.
-        const bw = computeBudgetWeek(row, entry, rowSpends, effectiveEnd, data.excluded)
+        const clampedStart = weekStartOf(weekEnd) < `${month}-01` ? `${month}-01` : weekStartOf(weekEnd)
+        const bw = computeBudgetWeek(row, entry, rowSpends, clampedStart, clampedEnd, today, data.excluded)
         totalTarget += bw.weeklyRate + bw.carry
         totalSpent += bw.spentThisWeek
     }
@@ -312,7 +311,7 @@ export function safeToSpendToday(
     for (const row of allWeeklyRows) {
         const entry = data.entries.find((e) => e.row === row._id)
         const rowSpends = data.spends.filter((s) => s.row === row._id)
-        const bw = computeBudgetWeek(row, entry, rowSpends, today, data.excluded)
+        const bw = computeBudgetWeek(row, entry, rowSpends, weekStartOf(today), wEnd, today, data.excluded)
         // Count active days remaining in the week from today (inclusive).
         let activeDaysLeft = 0
         let d = new Date(`${today}T00:00:00`)

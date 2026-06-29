@@ -65,6 +65,7 @@ export async function updateSubItem(req: AuthRequest, res: Response) {
         fields.name = req.body.name.trim()
     if (typeof req.body.amount === 'number') fields.amount = req.body.amount
     if (typeof req.body.order === 'number') fields.order = req.body.order
+    if (typeof req.body.paid === 'boolean') fields.paid = req.body.paid
 
     const item = await FinanceSubItem.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },

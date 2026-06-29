@@ -31,7 +31,18 @@ export interface HourlySlot {
     hour: number
     temperature: number
     precipitationProbability: number
+    precipitation: number
+    windGust: number
+    visibility: number
     code: number
+}
+
+export interface WeatherWarning {
+    id: string
+    severity: 'yellow' | 'amber' | 'red'
+    icon: string
+    title: string
+    detail: string
 }
 
 export interface Forecast {
@@ -55,6 +66,9 @@ interface OpenMeteoForecastResponse {
         time: string[]
         temperature_2m: number[]
         precipitation_probability: (number | null)[]
+        precipitation: number[]
+        wind_gusts_10m: number[]
+        visibility: number[]
         weather_code: number[]
     }
     daily: {
@@ -76,12 +90,12 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
         longitude: String(loc.longitude),
         current:
             'temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day',
-        hourly: 'temperature_2m,precipitation_probability,weather_code',
+        hourly: 'temperature_2m,precipitation_probability,precipitation,wind_gusts_10m,visibility,weather_code',
         daily:
             'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset,uv_index_max',
         timezone: 'auto',
         wind_speed_unit: 'mph',
-        forecast_days: '2',
+        forecast_days: '3',
     })
 
     const res = await fetch(`${FORECAST_URL}?${params.toString()}`)
@@ -107,6 +121,9 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
         hour: i,
         temperature: Math.round(h.temperature_2m[i]),
         precipitationProbability: h.precipitation_probability[i] ?? 0,
+        precipitation: h.precipitation[i] ?? 0,
+        windGust: Math.round(h.wind_gusts_10m[i] ?? 0),
+        visibility: Math.round((h.visibility[i] ?? 10000) / 1000), // km
         code: h.weather_code[i],
     }))
 
@@ -251,6 +268,132 @@ function fmt12(hour: number): string {
     if (hour === 0) return 'midnight'
     if (hour === 12) return 'midday'
     return hour < 12 ? `${hour}am` : `${hour - 12}pm`
+}
+
+/**
+ * Derives weather warnings from today's hourly data and daily summary.
+ * Returns an array sorted by severity (red → amber → yellow).
+ */
+export function weatherWarnings(hourly: HourlySlot[], today: DailyForecast): WeatherWarning[] {
+    const waking = hourly.filter((h) => h.hour >= 6 && h.hour <= 23)
+    const warnings: WeatherWarning[] = []
+
+    // Thunderstorm — check both hourly codes and the daily summary code so we
+    // catch cases where Open-Meteo flags a storm in the day aggregate but not
+    // every individual hour slot (common with UK-style scattered storms).
+    const thunderHours = waking.filter((h) => h.code >= 95)
+    const dailyThunder = today.code >= 95
+    if (thunderHours.length > 0 || dailyThunder) {
+        const hasHail = thunderHours.some((h) => h.code === 96 || h.code === 99) || today.code === 96 || today.code === 99
+        const rainExpected = today.precipitationProbability >= 50 || waking.some((h) => h.precipitation > 0)
+        const first = thunderHours[0]
+        const whenStr = first ? ` from ${fmt12(first.hour)}` : ''
+        const detail = hasHail
+            ? `Lightning and hail expected${whenStr}`
+            : rainExpected
+              ? `Lightning and heavy rain expected${whenStr}`
+              : `Thunderstorm possible${whenStr} — stay indoors if caught outside`
+        warnings.push({
+            id: 'thunder',
+            severity: hasHail ? 'red' : 'amber',
+            icon: 'fa-solid fa-cloud-bolt',
+            title: hasHail ? 'Thunderstorm with hail' : 'Thunderstorm warning',
+            detail,
+        })
+    }
+
+    // High winds (gusts) — threshold starts at 40mph
+    const maxGust = Math.max(...waking.map((h) => h.windGust))
+    if (maxGust >= 60) {
+        warnings.push({
+            id: 'wind',
+            severity: 'red',
+            icon: 'fa-solid fa-wind',
+            title: 'Severe wind warning',
+            detail: `Gusts up to ${maxGust}mph — avoid exposed areas`,
+        })
+    } else if (maxGust >= 40) {
+        warnings.push({
+            id: 'wind',
+            severity: 'amber',
+            icon: 'fa-solid fa-wind',
+            title: 'Strong winds',
+            detail: `Gusts up to ${maxGust}mph — take care outdoors`,
+        })
+    }
+
+    // Heavy rain — total precipitation
+    const totalRain = waking.reduce((sum, h) => sum + h.precipitation, 0)
+    const maxHourlyRain = Math.max(...waking.map((h) => h.precipitation))
+    if (totalRain >= 30 || maxHourlyRain >= 10) {
+        warnings.push({
+            id: 'rain',
+            severity: 'red',
+            icon: 'fa-solid fa-cloud-showers-heavy',
+            title: 'Heavy rain warning',
+            detail: `${Math.round(totalRain)}mm expected today — flooding possible`,
+        })
+    } else if (totalRain >= 10 || maxHourlyRain >= 4) {
+        warnings.push({
+            id: 'rain',
+            severity: 'amber',
+            icon: 'fa-solid fa-cloud-showers-heavy',
+            title: 'Heavy rain',
+            detail: `${Math.round(totalRain)}mm expected today`,
+        })
+    } else if (today.precipitationProbability >= 70) {
+        warnings.push({
+            id: 'rain',
+            severity: 'yellow',
+            icon: 'fa-solid fa-cloud-rain',
+            title: 'Rain likely',
+            detail: `${today.precipitationProbability}% chance of rain`,
+        })
+    }
+
+    // Low visibility / fog
+    const minVis = Math.min(...waking.map((h) => h.visibility))
+    if (minVis <= 0.2) {
+        warnings.push({
+            id: 'fog',
+            severity: 'amber',
+            icon: 'fa-solid fa-smog',
+            title: 'Dense fog',
+            detail: 'Visibility below 200m — dangerous driving conditions',
+        })
+    } else if (minVis <= 1) {
+        warnings.push({
+            id: 'fog',
+            severity: 'yellow',
+            icon: 'fa-solid fa-smog',
+            title: 'Fog warning',
+            detail: `Visibility as low as ${minVis < 1 ? Math.round(minVis * 1000) + 'm' : minVis + 'km'}`,
+        })
+    }
+
+    // UV
+    const uv = today.uvIndexMax ?? 0
+    if (uv >= 8) {
+        warnings.push({
+            id: 'uv',
+            severity: 'amber',
+            icon: 'fa-solid fa-sun',
+            title: 'Very high UV',
+            detail: `UV index ${uv} — sunscreen essential, limit midday sun`,
+        })
+    } else if (uv >= 6) {
+        warnings.push({
+            id: 'uv',
+            severity: 'yellow',
+            icon: 'fa-solid fa-sun',
+            title: 'High UV',
+            detail: `UV index ${uv} — sunscreen recommended`,
+        })
+    }
+
+    // Sort: red first, then amber, then yellow
+    const order: Record<WeatherWarning['severity'], number> = { red: 0, amber: 1, yellow: 2 }
+    return warnings.sort((a, b) => order[a.severity] - order[b.severity])
 }
 
 /**

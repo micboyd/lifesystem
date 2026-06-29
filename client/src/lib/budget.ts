@@ -141,102 +141,106 @@ export function computeBudgetDay(
 export interface BudgetWeek {
     /** Budget amount for the month (entry override, else the recurring amount). */
     monthlyAmount: number
-    /** Pro-rata weekly slice: monthlyAmount × 7 / daysInMonth. */
+    /** Daily rate × active days in this week slice. */
     weeklyRate: number
-    /** Unspent (positive) or overspent (negative) carry from completed weeks this month. */
+    /** Unspent (positive) or overspent (negative) carry from all prior weeks this month. */
     carry: number
-    /** Amount logged against this row during the current ISO week (Mon–today). */
+    /** Amount logged against this row during this week's days up to today (or weekEnd for past weeks). */
     spentThisWeek: number
-    /** Weekly allowance (rate + carry) minus what's been spent so far this week. */
+    /** Weekly allowance (weeklyRate + carry) minus spentThisWeek. */
     remaining: number
     /** What's left for the whole month. */
     monthlyRemaining: number
 }
 
+/** Add one day to a YYYY-MM-DD string. */
+function nextDay(date: string): string {
+    const d = new Date(`${date}T00:00:00`)
+    d.setDate(d.getDate() + 1)
+    return localDateStr(d)
+}
+
+/** Previous day. */
+function prevDay(date: string): string {
+    const d = new Date(`${date}T00:00:00`)
+    d.setDate(d.getDate() - 1)
+    return localDateStr(d)
+}
+
+/** Count non-excluded days between start and end inclusive. */
+function activeDaysBetween(start: string, end: string, excluded: Set<string>): number {
+    let n = 0
+    let d = start
+    while (d <= end) {
+        if (!excluded.has(d)) n++
+        d = nextDay(d)
+    }
+    return n
+}
+
 /**
- * Weekly-budget maths for a single row given today's date. The weekly rate is
- * the month's budget multiplied by 7/daysInMonth (a natural pro-rata slice).
- * Carry accumulates across completed weeks within the same month and resets at
- * month boundaries. Individual excluded days reduce the effective allowance for
- * their week proportionally, mirroring how daily budgets handle them.
+ * Weekly-budget maths for a single row.
+ *
+ * weekStart / weekEnd must already be clamped to the month (the caller's job).
+ * today is the real calendar date — used to limit spentThisWeek for the current week.
+ *
+ * Carry logic: daily rate × days in each prior week's slice − spend in that slice.
+ * With zero spend, the last week of the month carries the full monthly budget.
  */
 export function computeBudgetWeek(
     row: FinanceRow,
     entry: FinanceEntry | undefined,
     rowSpends: BudgetSpend[],
+    weekStart: string,
+    weekEnd: string,
     today: string,
     excluded: Set<string> = new Set()
 ): BudgetWeek {
-    const month = monthOf(today)
-    const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
-    const totalDays = daysInMonth(month)
-    const dailyRate = totalDays > 0 ? monthlyAmount / totalDays : 0
-
-    const totalSpentMonth = rowSpends
-        .filter((s) => s.date.startsWith(month) && !excluded.has(s.date))
-        .reduce((sum, s) => sum + s.amount, 0)
-    const monthlyRemaining = monthlyAmount - totalSpentMonth
-
-    const wStart = weekStartOf(today)
-
-    // This week's allowance is the daily rate × the week's active days that fall
-    // within the month. A full in-month week gives 7 × dailyRate (the usual
-    // pro-rata slice); partial weeks at month boundaries are prorated down, so
-    // the allowance — even with carry — can never exceed the month's budget.
-    let activeDaysThisWeek = 0
-    {
-        const d = new Date(`${wStart}T00:00:00`)
-        for (let i = 0; i < 7; i++) {
-            const dk = localDateStr(d)
-            if (dk.startsWith(month) && !excluded.has(dk)) activeDaysThisWeek++
-            d.setDate(d.getDate() + 1)
-        }
-    }
-    const weeklyRate = dailyRate * activeDaysThisWeek
-
-    // Carry = (completed weeks before this one × weeklyRate) − spend in those weeks.
-    // We work day-by-day within the month, stopping at the week boundary.
-    // Excluded days within a week reduce that week's effective allowance.
+    const month = weekStart.slice(0, 7)
     const monthStart = `${month}-01`
+    const monthEnd = dateKey(month, daysInMonth(month))
+    const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
+    const totalActiveDays = activeDaysInMonth(month, excluded)
+    const dailyRate = totalActiveDays > 0 ? monthlyAmount / totalActiveDays : 0
+
+    // This week's allowance — daily rate × active days in the clamped slice.
+    const weeklyRate = dailyRate * activeDaysBetween(weekStart, weekEnd, excluded)
+
+    // Walk prior weeks from the first day of the month up to weekStart.
     let carry = 0
-
-    if (wStart > monthStart) {
-        // Sum up completed weeks from month start to end of last week.
-        const lastWeekEndDate = new Date(`${wStart}T00:00:00`)
-        lastWeekEndDate.setDate(lastWeekEndDate.getDate() - 1)
-        const lastWeekEndStr = localDateStr(lastWeekEndDate)
-
-        // Walk week-by-week from month start up to (but not including) current week.
+    if (weekStart > monthStart) {
+        // First week of the month may start before day 1 (ISO Monday in prior month) — clamp.
         let cursor = weekStartOf(monthStart)
-        while (cursor <= lastWeekEndStr) {
-            const wEnd = weekEndOf(cursor)
-            // Active days in this week that fall within the month.
-            let activeDaysInWeek = 0
-            const d = new Date(`${cursor}T00:00:00`)
-            for (let i = 0; i < 7; i++) {
-                const dk = localDateStr(d)
-                if (dk >= monthStart && dk <= lastWeekEndStr && !excluded.has(dk)) {
-                    activeDaysInWeek++
-                }
-                d.setDate(d.getDate() + 1)
-            }
-            // Effective weekly allowance = daily rate × active days in this partial/full week.
-            const weekAllowance = dailyRate * activeDaysInWeek
-            const weekSpend = rowSpends
-                .filter((s) => s.date >= cursor && s.date <= wEnd && s.date >= monthStart && !excluded.has(s.date))
-                .reduce((sum, s) => sum + s.amount, 0)
-            carry += weekAllowance - weekSpend
+        if (cursor < monthStart) cursor = monthStart
 
-            // Advance to next week.
-            const next = new Date(`${wEnd}T00:00:00`)
-            next.setDate(next.getDate() + 1)
-            cursor = localDateStr(next)
+        while (cursor < weekStart) {
+            // This prior week's slice: Mon–Sun clamped to [monthStart, weekStart-1]
+            const rawEnd = weekEndOf(cursor)
+            const sliceEnd = rawEnd >= weekStart ? prevDay(weekStart) : (rawEnd > monthEnd ? monthEnd : rawEnd)
+
+            const priorAllowance = dailyRate * activeDaysBetween(cursor, sliceEnd, excluded)
+            const priorSpend = rowSpends
+                .filter((s) => s.date >= cursor && s.date <= sliceEnd && !excluded.has(s.date))
+                .reduce((sum, s) => sum + s.amount, 0)
+            carry += priorAllowance - priorSpend
+
+            // Advance to next ISO Monday after this week's Sunday.
+            cursor = nextDay(weekEndOf(cursor))
+            // If the next Monday overshoots weekStart (edge case at month start), stop.
+            if (cursor >= weekStart) break
         }
     }
 
+    // Spend in this week — for past/current weeks cap at today; for future weeks include all planned spends.
+    const spendCutoff = today < weekStart ? weekEnd : today < weekEnd ? today : weekEnd
     const spentThisWeek = rowSpends
-        .filter((s) => s.date >= wStart && s.date <= today && s.date.startsWith(month) && !excluded.has(s.date))
+        .filter((s) => s.date >= weekStart && s.date <= spendCutoff && !excluded.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
+
+    const totalMonthSpend = rowSpends
+        .filter((s) => s.date >= monthStart && s.date <= monthEnd && !excluded.has(s.date))
+        .reduce((sum, s) => sum + s.amount, 0)
+    const monthlyRemaining = monthlyAmount - totalMonthSpend
 
     const remaining = weeklyRate + carry - spentThisWeek
 

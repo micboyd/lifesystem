@@ -9,6 +9,7 @@ import {
     updateRow,
     listBudgetSpends,
     createBudgetSpend,
+    deleteBudgetSpend,
     listBudgetExclusions,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
@@ -73,11 +74,13 @@ const fmt = formatAmount
 interface SpendInputProps {
     spentToday: number
     hasLogged: boolean
-    onAdd: (amount: number) => Promise<void>
+    label?: string
+    onAdd: (amount: number, note?: string) => Promise<void>
 }
 
-function SpendInput({ spentToday, hasLogged, onAdd }: SpendInputProps) {
+function SpendInput({ spentToday, hasLogged, label, onAdd }: SpendInputProps) {
     const [draft, setDraft] = useState('')
+    const [note, setNote] = useState('')
     const [saving, setSaving] = useState(false)
 
     async function submit(e: FormEvent) {
@@ -86,8 +89,9 @@ function SpendInput({ spentToday, hasLogged, onAdd }: SpendInputProps) {
         if (Number.isNaN(n) || n < 0) return
         setSaving(true)
         try {
-            await onAdd(n)
+            await onAdd(n, note.trim() || undefined)
             setDraft('')
+            setNote('')
         } finally {
             setSaving(false)
         }
@@ -97,33 +101,148 @@ function SpendInput({ spentToday, hasLogged, onAdd }: SpendInputProps) {
         <div className="flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-                    Spent today
+                    {label ?? 'Spent today'}
                 </span>
                 <span className={`text-sm tabular-nums ${hasLogged ? 'text-neutral-900' : 'text-neutral-300'}`}>
                     {hasLogged ? `£${fmt(spentToday)}` : '—'}
                 </span>
             </div>
-            <form onSubmit={submit} className="flex gap-2">
-                <div className="relative min-w-0 flex-1">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-400">£</span>
-                    <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="Log a transaction"
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
-                    />
+            <form onSubmit={submit} className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                    <div className="relative min-w-0 flex-1">
+                        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-400">£</span>
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                            className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={saving || draft.trim() === ''}
+                        className="shrink-0 rounded-xl bg-neutral-950 px-5 py-2.5 text-xs font-semibold tracking-tight text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
+                    >
+                        {saving ? '…' : 'Log'}
+                    </button>
                 </div>
-                <button
-                    type="submit"
-                    disabled={saving || draft.trim() === ''}
-                    className="shrink-0 rounded-xl bg-neutral-950 px-5 py-2.5 text-xs font-semibold tracking-tight text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
-                >
-                    {saving ? '…' : 'Log'}
-                </button>
+                <input
+                    type="text"
+                    placeholder="Label (optional)"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    maxLength={200}
+                    className="w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
+                />
             </form>
+        </div>
+    )
+}
+
+// ── Monthly overview ──────────────────────────────────────────────────────────
+
+interface MonthRowStat {
+    name: string
+    budget: number
+    spent: number
+}
+
+interface MonthlyOverviewProps {
+    rows: FinanceRow[]
+    groups: FinanceGroup[]
+    entries: FinanceEntry[]
+    spends: BudgetSpend[]
+    excludedDates: Set<string>
+    month: string
+}
+
+function MonthlyOverview({ rows, groups, entries, spends, excludedDates, month }: MonthlyOverviewProps) {
+    const [open, setOpen] = useState(false)
+
+    const monthStart = `${month}-01`
+    const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, '0')}`
+
+    const stats: MonthRowStat[] = rows.map((row) => {
+        const entry = entries.find((e) => e.row === row._id)
+        const budget = entry?.amount ?? row.recurringAmount ?? 0
+        const spent = spends
+            .filter((s) => s.row === row._id && s.date >= monthStart && s.date <= monthEnd && !excludedDates.has(s.date))
+            .reduce((sum, s) => sum + s.amount, 0)
+        const group = groups.find((g) => g._id === row.group)
+        // Flip income rows — "spent" is money received, "budget" is the income target
+        const isIncome = group?.type === 'income'
+        return { name: row.name, budget: isIncome ? 0 : budget, spent: isIncome ? 0 : spent }
+    }).filter((s) => s.budget > 0)
+
+    const totalBudget = stats.reduce((sum, s) => sum + s.budget, 0)
+    const totalSpent = stats.reduce((sum, s) => sum + s.spent, 0)
+    const totalRemaining = totalBudget - totalSpent
+    const overallPct = totalBudget > 0 ? Math.min(100, (totalSpent / totalBudget) * 100) : 0
+
+    if (stats.length === 0) return null
+
+    return (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-neutral-50"
+            >
+                <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-neutral-800">Monthly overview</span>
+                    <span className={`text-xs font-semibold tabular-nums ${totalRemaining < 0 ? 'text-red-500' : 'text-neutral-400'}`}>
+                        £{fmt(Math.abs(totalRemaining))} {totalRemaining < 0 ? 'over' : 'remaining'}
+                    </span>
+                </div>
+                <i className={`fa-solid fa-chevron-down text-[10px] text-neutral-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+            </button>
+
+            {open && (
+                <div className="border-t border-neutral-100 px-5 py-4 flex flex-col gap-4">
+                    {/* Overall progress */}
+                    <div>
+                        <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                            <span className="text-xs font-semibold text-neutral-500">Total</span>
+                            <span className="text-xs tabular-nums text-neutral-400">
+                                £{fmt(totalSpent)} of £{fmt(totalBudget)}
+                            </span>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
+                            <div
+                                className={`h-full rounded-full transition-all duration-300 ${overallPct >= 100 ? 'bg-red-400' : overallPct >= 80 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                                style={{ width: `${overallPct}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Per-row breakdown */}
+                    <div className="flex flex-col gap-3">
+                        {stats.map((s) => {
+                            const pct = s.budget > 0 ? Math.min(100, (s.spent / s.budget) * 100) : 0
+                            const remaining = s.budget - s.spent
+                            return (
+                                <div key={s.name}>
+                                    <div className="mb-1 flex items-baseline justify-between gap-2">
+                                        <span className="truncate text-xs font-semibold text-neutral-700">{s.name}</span>
+                                        <span className={`shrink-0 text-xs tabular-nums ${remaining < 0 ? 'text-red-500' : 'text-neutral-400'}`}>
+                                            {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))} {remaining < 0 ? 'over' : 'left'} · £{fmt(s.budget)}
+                                        </span>
+                                    </div>
+                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-300 ${pct >= 100 ? 'bg-red-400' : pct >= 80 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                                            style={{ width: `${pct}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
@@ -139,14 +258,16 @@ interface BudgetCardProps {
     weekStart: string
     weekEnd: string
     isCurrentWeek: boolean
+    isFutureWeek: boolean
     onToggleDailySpend: (row: FinanceRow) => void
-    onLogSpend: (rowId: string, amount: number) => Promise<void>
+    onLogSpend: (rowId: string, amount: number, date: string, note?: string) => Promise<void>
+    onDeleteSpend: (id: string) => Promise<void>
 }
 
 function BudgetCard({
     row, group, entry, spends, excludedDates,
-    weekStart, weekEnd, isCurrentWeek,
-    onToggleDailySpend, onLogSpend,
+    weekStart, weekEnd, isCurrentWeek, isFutureWeek,
+    onToggleDailySpend, onLogSpend, onDeleteSpend,
 }: BudgetCardProps) {
     const isDailySpend = row.budgetType === 'daily'
     const isWeeklySpend = row.budgetType === 'weekly'
@@ -159,10 +280,8 @@ function BudgetCard({
     const { monthlyAmount, monthlyRemaining } = monthRef
 
     // ── Weekly row maths ────────────────────────────────────────────────────
-    // Pass the "effective" date for this week: end of week for past, today for current, start for future.
-    const weekEffective = weekEnd <= today ? weekEnd : weekStart > today ? weekStart : today
     const weeklyBudget = isWeeklySpend
-        ? computeBudgetWeek(row, entry, spends, weekEffective, excludedDates)
+        ? computeBudgetWeek(row, entry, spends, weekStart, weekEnd, today, excludedDates)
         : null
 
     // ── Daily row maths for the week slice ──────────────────────────────────
@@ -184,7 +303,7 @@ function BudgetCard({
     const spentToday = spends
         .filter((s) => s.date === today && !excludedDates.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
-    const hasLoggedToday = spends.some((s) => s.date === today)
+
 
     // Week date range label e.g. "1–5 Jul"
     const rangeLabel = (() => {
@@ -273,8 +392,36 @@ function BudgetCard({
                         </div>
                     )}
 
-                    {isCurrentWeek && (
-                        <SpendInput spentToday={spentToday} hasLogged={hasLoggedToday} onAdd={(a) => onLogSpend(row._id, a)} />
+                    {isFutureWeek && spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).length > 0 && (
+                        <ul className="flex flex-col gap-1.5">
+                            {spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).map((t) => (
+                                <li key={t._id} className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3 py-2">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-neutral-800">{t.note || row.name}</p>
+                                        <p className="text-xs text-neutral-400">{t.date}</p>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <span className="text-sm tabular-nums text-neutral-700">£{fmt(t.amount)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteSpend(t._id)}
+                                            aria-label="Delete planned transaction"
+                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                        >
+                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    {(isCurrentWeek || isFutureWeek) && (
+                        <SpendInput
+                            spentToday={isFutureWeek ? 0 : spentToday}
+                            hasLogged={false}
+                            label={isFutureWeek ? 'Plan a spend' : undefined}
+                            onAdd={(a, n) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today, n)}
+                        />
                     )}
                 </>
             )}
@@ -329,8 +476,36 @@ function BudgetCard({
                         </div>
                     )}
 
-                    {isCurrentWeek && (
-                        <SpendInput spentToday={spentToday} hasLogged={hasLoggedToday} onAdd={(a) => onLogSpend(row._id, a)} />
+                    {isFutureWeek && spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).length > 0 && (
+                        <ul className="flex flex-col gap-1.5">
+                            {spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).map((t) => (
+                                <li key={t._id} className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3 py-2">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-neutral-800">{t.note || row.name}</p>
+                                        <p className="text-xs text-neutral-400">{t.date}</p>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <span className="text-sm tabular-nums text-neutral-700">£{fmt(t.amount)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteSpend(t._id)}
+                                            aria-label="Delete planned transaction"
+                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                        >
+                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    {(isCurrentWeek || isFutureWeek) && (
+                        <SpendInput
+                            spentToday={isFutureWeek ? 0 : spentToday}
+                            hasLogged={false}
+                            label={isFutureWeek ? 'Plan a spend' : undefined}
+                            onAdd={(a, n) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today, n)}
+                        />
                     )}
                 </>
             )}
@@ -421,13 +596,23 @@ export default function Budgets() {
         }
     }
 
-    async function handleLogSpend(rowId: string, amount: number) {
+    async function handleLogSpend(rowId: string, amount: number, date: string, note?: string) {
         try {
-            const result = await createBudgetSpend(rowId, todayDate, amount)
+            const result = await createBudgetSpend(rowId, date, amount, note)
             setSpends((prev) => [...prev, result])
             invalidate('budget')
         } catch {
             toast.error("Couldn't log that spend.")
+        }
+    }
+
+    async function handleDeleteSpend(id: string) {
+        try {
+            await deleteBudgetSpend(id)
+            setSpends((prev) => prev.filter((s) => s._id !== id))
+            invalidate('budget')
+        } catch {
+            toast.error("Couldn't delete that transaction.")
         }
     }
 
@@ -488,6 +673,15 @@ export default function Budgets() {
                 </div>
             </header>
 
+            <MonthlyOverview
+                rows={budgetedRows}
+                groups={groups}
+                entries={entries}
+                spends={spends}
+                excludedDates={excludedDates}
+                month={month}
+            />
+
             {budgetedRows.length === 0 ? (
                 <EmptyState
                     icon="fa-solid fa-bookmark"
@@ -512,8 +706,10 @@ export default function Budgets() {
                                 weekStart={weekStart}
                                 weekEnd={weekEnd}
                                 isCurrentWeek={isCurrentWeek}
+                                isFutureWeek={weekStart > todayDate}
                                 onToggleDailySpend={handleToggleDailySpend}
                                 onLogSpend={handleLogSpend}
+                                onDeleteSpend={handleDeleteSpend}
                             />
                         )
                     })}
