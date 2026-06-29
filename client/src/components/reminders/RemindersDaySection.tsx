@@ -6,6 +6,7 @@ import DeleteRecurringEventDialog, {
 } from '../calendar/DeleteRecurringEventDialog'
 import { listReminders, createReminder, deleteReminder } from '../../services/reminders'
 import { useInvalidate } from '../../context/DataSyncContext'
+import { todayKey, parseDateKey } from '../../lib/calendar'
 import type { Reminder, RecurrenceFrequency } from '../../types'
 
 interface Props {
@@ -14,6 +15,21 @@ interface Props {
     onChange?: () => void
     /** Autofocus the input on mount — handy when opened from the calendar. */
     autoFocus?: boolean
+    /** Show a "X days away" line at the top (used in the calendar drawer). */
+    showDaysAway?: boolean
+}
+
+/** Relative-day label for a YYYY-MM-DD date, e.g. "3 days away" / "Today". */
+function daysAwayLabel(date: string): string {
+    const a = parseDateKey(todayKey())
+    const b = parseDateKey(date)
+    const diff = Math.round(
+        (Date.UTC(b.year, b.month, b.day) - Date.UTC(a.year, a.month, a.day)) / 86_400_000
+    )
+    if (diff === 0) return 'Today'
+    if (diff === 1) return 'Tomorrow'
+    if (diff === -1) return 'Yesterday'
+    return diff > 0 ? `${diff} days away` : `${Math.abs(diff)} days ago`
 }
 
 /**
@@ -23,7 +39,12 @@ interface Props {
  * which case the listed items include the recurring occurrences for this day.
  * Reused by the Day page and the calendar's reminders drawer.
  */
-export default function RemindersDaySection({ date, onChange, autoFocus = false }: Props) {
+export default function RemindersDaySection({
+    date,
+    onChange,
+    autoFocus = false,
+    showDaysAway = false,
+}: Props) {
     const invalidate = useInvalidate()
     const [reminders, setReminders] = useState<Reminder[]>([])
     const [loadedDate, setLoadedDate] = useState<string | null>(null)
@@ -113,6 +134,13 @@ export default function RemindersDaySection({ date, onChange, autoFocus = false 
 
     return (
         <div className="flex flex-col gap-1">
+            {showDaysAway && (
+                <p className="mb-2 flex items-center gap-1.5 px-3 text-xs font-semibold text-amber-600">
+                    <i className="fa-regular fa-clock text-[10px]" aria-hidden="true" />
+                    {daysAwayLabel(date)}
+                </p>
+            )}
+
             {/* Reminder rows */}
             {reminders.map((reminder) => (
                 <div

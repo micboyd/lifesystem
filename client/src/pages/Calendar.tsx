@@ -646,6 +646,7 @@ export default function Calendar() {
                         key={reminderDate}
                         date={reminderDate}
                         autoFocus
+                        showDaysAway
                         onChange={reload}
                     />
                 )}
