@@ -8,12 +8,23 @@
 // Auth is a single Personal Access Token in the server env (single-user app).
 
 // `|| ` (not `??`) so an empty STARLING_API_BASE= in .env falls back to prod.
-const API_BASE = process.env.STARLING_API_BASE || 'https://api.starlingbank.com'
-const TOKEN = process.env.STARLING_ACCESS_TOKEN
 const REQUEST_TIMEOUT_MS = 15_000
 
+// Read env lazily, not at module load: this file is imported (via the route
+// chain) before index.ts calls dotenv.config(), so capturing these in top-level
+// consts would freeze them to `undefined`. Functions read the current value.
+function token(): string | undefined {
+    return process.env.STARLING_ACCESS_TOKEN
+}
+
+// `|| ` (not `??`) so an empty STARLING_API_BASE= in .env falls back to prod.
+function apiBase(): string {
+    return process.env.STARLING_API_BASE || 'https://api.starlingbank.com'
+}
+
 export function starlingConfigured(): boolean {
-    return typeof TOKEN === 'string' && TOKEN.trim().length > 0
+    const t = token()
+    return typeof t === 'string' && t.trim().length > 0
 }
 
 /** A normalised Space the client can pick from when linking a budget. */
@@ -58,9 +69,9 @@ async function request<T>(path: string): Promise<T> {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
     try {
-        const res = await fetch(`${API_BASE}${path}`, {
+        const res = await fetch(`${apiBase()}${path}`, {
             headers: {
-                Authorization: `Bearer ${TOKEN}`,
+                Authorization: `Bearer ${token()}`,
                 Accept: 'application/json',
                 // Starling requires a User-Agent on public API calls.
                 'User-Agent': 'lifesystem',
