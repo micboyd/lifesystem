@@ -6,7 +6,7 @@ const MASK = '••••'
 /** Format a number as a plain amount, e.g. 1234.5 → "1,234.50". */
 export function formatAmount(n: number, decimals = 2): string {
     if (isMoneyHidden()) return MASK
-    return n.toLocaleString('en-GB', {
+    return (n ?? 0).toLocaleString('en-GB', {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
     })

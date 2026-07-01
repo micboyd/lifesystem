@@ -249,9 +249,17 @@ export async function getStarlingReconciliation(req: AuthRequest, res: Response)
  * GET /finances/starling/exclusions — transactions deleted or moved away from a
  * Starling-linked budget, kept out of future syncs. Feeds the "removed
  * transactions" drawer, which can send any of them back with recoverStarlingExclusion.
+ *
+ * Only returns tombstones that carry the full snapshot (reason/date/amount/etc).
+ * Earlier tombstones — written before those fields existed — still do their job of
+ * blocking re-import in syncStarlingRow, but have nothing to display or recover, so
+ * they're left out here rather than shown with missing data.
  */
 export async function listStarlingExclusions(req: AuthRequest, res: Response) {
-    const exclusions = await StarlingExclusion.find({ user: req.userId }).sort({ createdAt: -1 })
+    const exclusions = await StarlingExclusion.find({
+        user: req.userId,
+        reason: { $exists: true },
+    }).sort({ createdAt: -1 })
     res.json({ message: 'OK', data: exclusions })
 }
 
