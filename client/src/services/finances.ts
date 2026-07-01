@@ -8,6 +8,7 @@ import type {
     BudgetSpend,
     BudgetExclusion,
     FinanceSubItem,
+    StarlingSpace,
 } from '../types'
 import type { DeleteMode } from '../lib/finance'
 
@@ -119,7 +120,10 @@ export async function createRow(
 export async function updateRow(
     id: string,
     fields: Partial<
-        Pick<FinanceRow, 'name' | 'order' | 'recurring' | 'budgeted' | 'budgetType'> & {
+        Pick<
+            FinanceRow,
+            'name' | 'order' | 'recurring' | 'budgeted' | 'budgetType' | 'starlingCategoryUid'
+        > & {
             recurringAmount: number | null
         }
     >
@@ -211,6 +215,32 @@ export async function updateBudgetSpend(
 /** Remove a transaction. */
 export async function deleteBudgetSpend(id: string): Promise<void> {
     await api.delete(`/finances/budget-spends/${id}`)
+}
+
+// ── Starling Bank ─────────────────────────────────────────────────────────────
+
+/** List linkable Starling Spaces. Throws 501 if Starling isn't configured server-side. */
+export async function listStarlingSpaces(): Promise<StarlingSpace[]> {
+    const res = await api.get<ApiResponse<StarlingSpace[]>>('/finances/starling/spaces')
+    return res.data.data
+}
+
+export interface StarlingSyncResult {
+    imported: number
+    updated: number
+    total: number
+}
+
+/** Pull the linked Space's transactions for a month into the budget's spends. */
+export async function syncStarlingSpace(
+    rowId: string,
+    month: string
+): Promise<StarlingSyncResult> {
+    const res = await api.post<ApiResponse<StarlingSyncResult>>('/finances/starling/sync', {
+        rowId,
+        month,
+    })
+    return res.data.data
 }
 
 // ── Budget day exclusions ─────────────────────────────────────────────────────

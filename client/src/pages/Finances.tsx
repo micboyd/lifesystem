@@ -1064,6 +1064,10 @@ export default function Finances() {
                             if (paidRows.has(r._id)) return sum
                             return sum + Math.abs(effectiveAmount(r))
                         }, 0)
+                        const paidSoFar = groupRows.reduce((sum, r) => {
+                            if (!paidRows.has(r._id)) return sum
+                            return sum + Math.abs(effectiveAmount(r))
+                        }, 0)
 
                         const headerBg = isIncome
                             ? 'bg-emerald-50'
@@ -1454,6 +1458,12 @@ export default function Finances() {
                                         <div className="flex items-baseline gap-2">
                                             {somePaid ? (
                                                 <>
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300">
+                                                        Paid
+                                                    </span>
+                                                    <span className="pr-3 text-sm font-bold tabular-nums tracking-tight text-neutral-400">
+                                                        {formatMoney(paidSoFar)}
+                                                    </span>
                                                     <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                                                         Left to pay
                                                     </span>

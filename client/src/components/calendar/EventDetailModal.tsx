@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Modal from '../Modal'
 import Button from '../Button'
+import Textarea from '../Textarea'
 import {
     EVENT_TYPE_LABELS,
     EVENT_TYPE_COLORS,
@@ -17,6 +18,8 @@ interface Props {
     onClose: () => void
     onEdit: () => void
     onDeleteOccurrence?: (event: Event) => Promise<void>
+    /** Persist an inline notes edit. When omitted, notes are shown read-only. */
+    onSaveNotes?: (notes: string) => Promise<void>
 }
 
 const PART_LABELS: Record<string, string> = {
@@ -59,9 +62,25 @@ function partRange(event: Event): string {
     return `${PART_LABELS[event.startPart]} → ${PART_LABELS[event.endPart]}`
 }
 
-export default function EventDetailModal({ event, onClose, onEdit, onDeleteOccurrence }: Props) {
+export default function EventDetailModal({
+    event,
+    onClose,
+    onEdit,
+    onDeleteOccurrence,
+    onSaveNotes,
+}: Props) {
     const [deletingOccurrence, setDeletingOccurrence] = useState(false)
+    const [editingNotes, setEditingNotes] = useState(false)
+    const [notesDraft, setNotesDraft] = useState('')
+    const [savingNotes, setSavingNotes] = useState(false)
     useMoneyHidden() // re-render when money is hidden/shown
+
+    // Reset the inline notes editor whenever the viewed event changes.
+    useEffect(() => {
+        setEditingNotes(false)
+        setNotesDraft(event?.notes ?? '')
+    }, [event?._id, event?.notes])
+
     if (!event) return null
 
     async function handleDeleteOccurrence() {
@@ -71,6 +90,17 @@ export default function EventDetailModal({ event, onClose, onEdit, onDeleteOccur
             await onDeleteOccurrence(event!)
         } finally {
             setDeletingOccurrence(false)
+        }
+    }
+
+    async function handleSaveNotes() {
+        if (!onSaveNotes) return
+        setSavingNotes(true)
+        try {
+            await onSaveNotes(notesDraft.trim())
+            setEditingNotes(false)
+        } finally {
+            setSavingNotes(false)
         }
     }
 
@@ -174,13 +204,66 @@ export default function EventDetailModal({ event, onClose, onEdit, onDeleteOccur
                     </DetailRow>
                 )}
 
-                {/* Notes */}
-                {event.notes && (
-                    <div className="rounded-2xl bg-neutral-50 px-4 py-3">
-                        <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">
-                            {event.notes}
-                        </p>
-                    </div>
+                {/* Notes — inline-editable when onSaveNotes is provided */}
+                {onSaveNotes ? (
+                    editingNotes ? (
+                        <div className="flex flex-col gap-2">
+                            <Textarea
+                                rows={3}
+                                autoFocus
+                                placeholder="Add notes…"
+                                value={notesDraft}
+                                onChange={(e) => setNotesDraft(e.target.value)}
+                            />
+                            <div className="flex justify-end gap-2">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setNotesDraft(event.notes ?? '')
+                                        setEditingNotes(false)
+                                    }}
+                                    disabled={savingNotes}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button size="sm" onClick={handleSaveNotes} disabled={savingNotes}>
+                                    {savingNotes ? 'Saving…' : 'Save notes'}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : event.notes ? (
+                        <button
+                            type="button"
+                            onClick={() => setEditingNotes(true)}
+                            className="group rounded-2xl bg-neutral-50 px-4 py-3 text-left transition-colors hover:bg-neutral-100"
+                        >
+                            <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">
+                                {event.notes}
+                            </p>
+                            <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-neutral-400 group-hover:text-neutral-500">
+                                <i className="fa-solid fa-pen text-[10px]" aria-hidden="true" />
+                                Edit notes
+                            </span>
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setEditingNotes(true)}
+                            className="flex items-center gap-2 rounded-2xl border border-dashed border-neutral-200 px-4 py-3 text-sm font-medium text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-600"
+                        >
+                            <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                            Add notes
+                        </button>
+                    )
+                ) : (
+                    event.notes && (
+                        <div className="rounded-2xl bg-neutral-50 px-4 py-3">
+                            <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">
+                                {event.notes}
+                            </p>
+                        </div>
+                    )
                 )}
             </div>
         </Modal>

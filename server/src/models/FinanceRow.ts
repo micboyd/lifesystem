@@ -14,6 +14,8 @@ export interface IFinanceRow extends Document {
     budgeted: boolean
     budgetType?: 'daily' | 'weekly' | null
     pot?: Types.ObjectId | null
+    /** Starling Space categoryUid this budget mirrors transactions from (null = not linked). */
+    starlingCategoryUid?: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -33,6 +35,7 @@ const financeRowSchema = new Schema<IFinanceRow>(
         budgeted: { type: Boolean, default: false },
         budgetType: { type: String, enum: ['daily', 'weekly'], default: null },
         pot: { type: Schema.Types.ObjectId, ref: 'FinancePot', default: null },
+        starlingCategoryUid: { type: String, default: null },
     },
     { timestamps: true }
 )

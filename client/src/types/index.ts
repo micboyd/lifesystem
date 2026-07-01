@@ -452,8 +452,20 @@ export interface FinanceRow {
     skipMonths?: string[] // months explicitly hidden ("this month only" deletes)
     budgeted?: boolean
     budgetType?: 'daily' | 'weekly' | null
+    /** Starling Space categoryUid this budget mirrors transactions from. */
+    starlingCategoryUid?: string | null
     createdAt: string
     updatedAt: string
+}
+
+/** A Starling Bank Space (spending space or savings goal) a budget can link to. */
+export interface StarlingSpace {
+    /** categoryUid used to filter the transaction feed. */
+    id: string
+    name: string
+    type: 'spending' | 'savings'
+    balance: number
+    currency: string
 }
 
 export interface FinanceEntry {
@@ -475,6 +487,8 @@ export interface BudgetSpend {
     date: string
     amount: number
     note?: string
+    /** Present when imported from a Starling Space feed. */
+    starlingFeedItemUid?: string
 }
 
 export interface BudgetExclusion {

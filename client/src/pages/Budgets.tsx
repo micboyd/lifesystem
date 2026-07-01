@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
+import Modal from '../components/Modal'
+import Button from '../components/Button'
 import {
     listRows,
     listGroups,
@@ -10,6 +12,8 @@ import {
     createBudgetSpend,
     deleteBudgetSpend,
     listBudgetExclusions,
+    listStarlingSpaces,
+    syncStarlingSpace,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
 import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange } from '../lib/budget'
@@ -17,7 +21,7 @@ import { formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
 import { useInvalidate } from '../context/DataSyncContext'
-import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../types'
+import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend, StarlingSpace } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -232,6 +236,100 @@ function MonthlyOverview({ rows, groups, entries, spends, excludedDates, month }
     )
 }
 
+// ── Link-a-Space modal ────────────────────────────────────────────────────────
+
+interface LinkSpaceModalProps {
+    row: FinanceRow
+    spaces: StarlingSpace[]
+    loading: boolean
+    error: boolean
+    onClose: () => void
+    onChoose: (categoryUid: string | null) => Promise<void>
+}
+
+function LinkSpaceModal({ row, spaces, loading, error, onClose, onChoose }: LinkSpaceModalProps) {
+    const [busy, setBusy] = useState(false)
+    const current = row.starlingCategoryUid ?? null
+
+    async function choose(uid: string | null) {
+        setBusy(true)
+        try {
+            await onChoose(uid)
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    return (
+        <Modal open onClose={onClose} title={`Link "${row.name}" to a bank space`} size="sm">
+            <div className="flex flex-col gap-3">
+                <p className="text-sm text-neutral-500">
+                    Pick the Starling Space this budget tracks. Card spending from that space will
+                    be pulled in as transactions when you sync.
+                </p>
+
+                {loading ? (
+                    <div className="grid place-items-center py-8">
+                        <Spinner />
+                    </div>
+                ) : error ? (
+                    <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                        Couldn't reach Starling. Check the access token is set on the server.
+                    </div>
+                ) : spaces.length === 0 ? (
+                    <div className="rounded-xl bg-neutral-50 px-4 py-3 text-sm text-neutral-500">
+                        No spaces found on your Starling account.
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-1.5">
+                        {spaces.map((s) => {
+                            const selected = s.id === current
+                            return (
+                                <button
+                                    key={s.id}
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => choose(selected ? null : s.id)}
+                                    className={[
+                                        'flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors disabled:opacity-50',
+                                        selected
+                                            ? 'border-neutral-950 bg-neutral-950 text-white'
+                                            : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50',
+                                    ].join(' ')}
+                                >
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold">{s.name}</p>
+                                        <p className="text-xs text-neutral-400">
+                                            {s.type === 'spending' ? 'Spending space' : 'Savings goal'}{' '}
+                                            · £{fmt(s.balance)}
+                                        </p>
+                                    </div>
+                                    {selected && (
+                                        <i className="fa-solid fa-check text-xs" aria-hidden="true" />
+                                    )}
+                                </button>
+                            )
+                        })}
+                    </div>
+                )}
+
+                {current && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        icon="fa-solid fa-link-slash"
+                        disabled={busy}
+                        onClick={() => choose(null)}
+                        className="self-start"
+                    >
+                        Unlink this budget
+                    </Button>
+                )}
+            </div>
+        </Modal>
+    )
+}
+
 // ── Budget card ───────────────────────────────────────────────────────────────
 
 interface BudgetCardProps {
@@ -244,16 +342,23 @@ interface BudgetCardProps {
     weekEnd: string
     isCurrentWeek: boolean
     isFutureWeek: boolean
+    starlingEnabled: boolean
+    linkedSpace: StarlingSpace | undefined
+    syncing: boolean
     onToggleDailySpend: (row: FinanceRow) => void
     onLogSpend: (rowId: string, amount: number, date: string, note?: string) => Promise<void>
     onDeleteSpend: (id: string) => Promise<void>
+    onOpenLink: (row: FinanceRow) => void
+    onSync: (row: FinanceRow) => void
 }
 
 function BudgetCard({
     row, group, entry, spends, excludedDates,
     weekStart, weekEnd, isCurrentWeek, isFutureWeek,
-    onToggleDailySpend, onLogSpend, onDeleteSpend,
+    starlingEnabled, linkedSpace, syncing,
+    onToggleDailySpend, onLogSpend, onDeleteSpend, onOpenLink, onSync,
 }: BudgetCardProps) {
+    const isLinked = !!row.starlingCategoryUid
     const isDailySpend = row.budgetType === 'daily'
     const isWeeklySpend = row.budgetType === 'weekly'
     const isIncome = group.type === 'income'
@@ -495,15 +600,52 @@ function BudgetCard({
                 </>
             )}
 
-            {/* Tracking toggle — cycles: off → weekly → daily → off */}
-            <button
-                type="button"
-                onClick={() => onToggleDailySpend(row)}
-                className={['mt-auto inline-flex items-center gap-2 self-start rounded-full px-4 py-2 text-xs font-semibold tracking-tight transition-all duration-150 active:scale-[0.97]', isWeeklySpend || isDailySpend ? 'bg-neutral-950 text-white hover:bg-neutral-800' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700'].join(' ')}
-            >
-                <i className={`fa-solid fa-${isWeeklySpend || isDailySpend ? 'check' : 'toggle-off'}`} aria-hidden="true" />
-                {isWeeklySpend ? 'Weekly tracking on' : isDailySpend ? 'Daily tracking on' : 'Enable tracking'}
-            </button>
+            <div className="mt-auto flex flex-col gap-3">
+                {/* Starling Space link — mirror card spending into this budget */}
+                {starlingEnabled && (
+                    isLinked ? (
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => onOpenLink(row)}
+                                className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
+                                title="Change or unlink the bank space"
+                            >
+                                <i className="fa-solid fa-building-columns text-[10px]" aria-hidden="true" />
+                                <span className="truncate">{linkedSpace?.name ?? 'Linked space'}</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onSync(row)}
+                                disabled={syncing}
+                                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200 disabled:opacity-50"
+                            >
+                                <i className={`fa-solid fa-arrows-rotate text-[10px] ${syncing ? 'animate-spin' : ''}`} aria-hidden="true" />
+                                {syncing ? 'Syncing…' : 'Sync'}
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => onOpenLink(row)}
+                            className="inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
+                        >
+                            <i className="fa-solid fa-building-columns text-[10px]" aria-hidden="true" />
+                            Link a bank space
+                        </button>
+                    )
+                )}
+
+                {/* Tracking toggle — cycles: off → weekly → daily → off */}
+                <button
+                    type="button"
+                    onClick={() => onToggleDailySpend(row)}
+                    className={['inline-flex items-center gap-2 self-start rounded-full px-4 py-2 text-xs font-semibold tracking-tight transition-all duration-150 active:scale-[0.97]', isWeeklySpend || isDailySpend ? 'bg-neutral-950 text-white hover:bg-neutral-800' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700'].join(' ')}
+                >
+                    <i className={`fa-solid fa-${isWeeklySpend || isDailySpend ? 'check' : 'toggle-off'}`} aria-hidden="true" />
+                    {isWeeklySpend ? 'Weekly tracking on' : isDailySpend ? 'Daily tracking on' : 'Enable tracking'}
+                </button>
+            </div>
         </div>
     )
 }
@@ -520,6 +662,13 @@ export default function Budgets() {
     const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
     // Navigate by week — anchor is any date in the desired week
     const [weekAnchor, setWeekAnchor] = useState(todayKey())
+    // Starling Bank linking
+    const [spaces, setSpaces] = useState<StarlingSpace[]>([])
+    const [starlingEnabled, setStarlingEnabled] = useState(false)
+    const [spacesLoading, setSpacesLoading] = useState(false)
+    const [spacesError, setSpacesError] = useState(false)
+    const [linkModalRow, setLinkModalRow] = useState<FinanceRow | null>(null)
+    const [syncingRowId, setSyncingRowId] = useState<string | null>(null)
     const toast = useToast()
     const invalidate = useInvalidate()
 
@@ -564,6 +713,64 @@ export default function Budgets() {
             .finally(() => active && setLoading(false))
         return () => { active = false }
     }, [month])
+
+    // Load Starling Spaces once. A 501 means the feature isn't configured on the
+    // server — hide it silently. Any other failure leaves it enabled but flagged.
+    useEffect(() => {
+        let active = true
+        setSpacesLoading(true)
+        listStarlingSpaces()
+            .then((s) => {
+                if (!active) return
+                setSpaces(s)
+                setStarlingEnabled(true)
+                setSpacesError(false)
+            })
+            .catch((err) => {
+                if (!active) return
+                if (err?.response?.status === 501) {
+                    setStarlingEnabled(false)
+                } else {
+                    setStarlingEnabled(true)
+                    setSpacesError(true)
+                }
+            })
+            .finally(() => active && setSpacesLoading(false))
+        return () => { active = false }
+    }, [])
+
+    async function handleChooseSpace(categoryUid: string | null) {
+        if (!linkModalRow) return
+        try {
+            const updated = await updateRow(linkModalRow._id, { starlingCategoryUid: categoryUid })
+            setRows((prev) => prev.map((r) => (r._id === updated._id ? updated : r)))
+            setLinkModalRow(null)
+            toast.show(categoryUid ? 'Budget linked to bank space.' : 'Budget unlinked.', 'success')
+        } catch {
+            toast.error("Couldn't update the bank link.")
+        }
+    }
+
+    async function handleSync(row: FinanceRow) {
+        setSyncingRowId(row._id)
+        try {
+            const result = await syncStarlingSpace(row._id, month)
+            const fresh = await listBudgetSpends({ month })
+            setSpends(fresh)
+            invalidate('budget')
+            const n = result.imported
+            toast.show(
+                n > 0
+                    ? `Imported ${n} transaction${n === 1 ? '' : 's'} from Starling.`
+                    : 'Up to date — no new transactions.',
+                'success'
+            )
+        } catch {
+            toast.error("Couldn't sync from Starling.")
+        } finally {
+            setSyncingRowId(null)
+        }
+    }
 
     async function handleToggleDailySpend(row: FinanceRow) {
         const newType: 'weekly' | 'daily' | null =
@@ -687,13 +894,29 @@ export default function Budgets() {
                                 weekEnd={weekEnd}
                                 isCurrentWeek={isCurrentWeek}
                                 isFutureWeek={weekStart > todayDate}
+                                starlingEnabled={starlingEnabled}
+                                linkedSpace={spaces.find((s) => s.id === row.starlingCategoryUid)}
+                                syncing={syncingRowId === row._id}
                                 onToggleDailySpend={handleToggleDailySpend}
                                 onLogSpend={handleLogSpend}
                                 onDeleteSpend={handleDeleteSpend}
+                                onOpenLink={setLinkModalRow}
+                                onSync={handleSync}
                             />
                         )
                     })}
                 </div>
+            )}
+
+            {linkModalRow && (
+                <LinkSpaceModal
+                    row={linkModalRow}
+                    spaces={spaces}
+                    loading={spacesLoading}
+                    error={spacesError}
+                    onClose={() => setLinkModalRow(null)}
+                    onChoose={handleChooseSpace}
+                />
             )}
         </>
     )

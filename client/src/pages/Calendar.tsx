@@ -583,6 +583,34 @@ export default function Calendar() {
                     setDetailEvent(null)
                     reload()
                 }}
+                onSaveNotes={
+                    // Inline notes only for real, non-recurring events. Recurring
+                    // instances carry an occurrence date (saving would move the
+                    // series) and birthdays are synthetic — both stay read-only.
+                    detailEvent &&
+                    !detailEvent._id.startsWith('birthday-') &&
+                    !detailEvent.recurrence
+                        ? async (notes) => {
+                              const ev = detailEvent
+                              await updateEvent(ev._id, {
+                                  title: ev.title,
+                                  notes: notes || undefined,
+                                  location: ev.location,
+                                  eventType: ev.eventType,
+                                  allDay: ev.allDay,
+                                  time: ev.time,
+                                  startDate: ev.startDate,
+                                  startPart: ev.startPart,
+                                  endDate: ev.endDate,
+                                  endPart: ev.endPart,
+                                  budget: ev.budgetRow ? undefined : ev.budget,
+                                  budgetRow: ev.budgetRow,
+                              })
+                              setDetailEvent({ ...ev, notes: notes || undefined })
+                              reload()
+                          }
+                        : undefined
+                }
             />
             <EventPickerModal
                 events={pickerEvents}
