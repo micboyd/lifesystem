@@ -155,6 +155,12 @@ export async function listSpaces(): Promise<StarlingSpace[]> {
     return [...spending, ...savings]
 }
 
+/** Current balance of a single Space, for the reconciliation check. */
+export async function getSpaceBalance(categoryUid: string): Promise<number | null> {
+    const spaces = await listSpaces()
+    return spaces.find((s) => s.id === categoryUid)?.balance ?? null
+}
+
 /**
  * Feed items for a Space between two instants (inclusive of min, exclusive of max).
  * `minTransactionTimestamp`/`maxTransactionTimestamp` are ISO-8601 strings.

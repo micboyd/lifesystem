@@ -468,6 +468,24 @@ export interface StarlingSpace {
     currency: string
 }
 
+/** Why a Starling movement didn't count as a budget transaction. */
+export type StarlingMovementReason =
+    | 'transfer_in'
+    | 'transfer_out'
+    | 'refund'
+    | 'declined'
+    | 'reversed'
+
+/** A Space feed item that moved money without registering as spend — the raw
+ *  material for explaining a balance/budget mismatch. */
+export interface StarlingMovement {
+    date: string
+    amount: number
+    direction: 'IN' | 'OUT'
+    reason: StarlingMovementReason
+    counterPartyName?: string
+}
+
 export interface FinanceEntry {
     _id: string
     row: string

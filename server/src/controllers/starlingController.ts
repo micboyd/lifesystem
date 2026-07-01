@@ -4,7 +4,9 @@ import BudgetSpend from '../models/BudgetSpend'
 import FinanceRow from '../models/FinanceRow'
 import {
     StarlingError,
+    StarlingFeedItem,
     getFeedBetween,
+    getSpaceBalance,
     listSpaces,
     minorToMajor,
     starlingConfigured,
@@ -41,6 +43,32 @@ function monthFetchWindow(month: string): { min: string; max: string } {
 function localDate(iso: string): string {
     // en-CA renders as YYYY-MM-DD; the timeZone shifts it to the local calendar day.
     return new Date(iso).toLocaleDateString('en-CA', { timeZone: LOCAL_TZ })
+}
+
+function isNonSpending(it: StarlingFeedItem): boolean {
+    return NON_SPENDING_STATUSES.has(it.status) || NON_SPENDING_SOURCES.has(it.source ?? '')
+}
+
+/** Feed items for a Space, scoped to the local calendar month, split into
+ *  genuine spend (what the budget imports) vs everything else (what explains
+ *  a balance/budget mismatch — transfers, refunds, declined card auths). */
+function classifyMonth(
+    items: StarlingFeedItem[],
+    month: string
+): { spends: StarlingFeedItem[]; movements: StarlingFeedItem[] } {
+    const inMonth = items.filter((it) => localDate(it.transactionTime).slice(0, 7) === month)
+    const spends = inMonth.filter((it) => it.direction === 'OUT' && !isNonSpending(it))
+    const movements = inMonth.filter((it) => !(it.direction === 'OUT' && !isNonSpending(it)))
+    return { spends, movements }
+}
+
+type MovementReason = 'transfer_in' | 'transfer_out' | 'refund' | 'declined' | 'reversed'
+
+function movementReason(it: StarlingFeedItem): MovementReason {
+    if (NON_SPENDING_SOURCES.has(it.source ?? '')) return it.direction === 'IN' ? 'transfer_in' : 'transfer_out'
+    if (it.status === 'DECLINED' || it.status === 'REFUSED') return 'declined'
+    if (it.status === 'REVERSED') return 'reversed'
+    return 'refund' // direction IN, a real refund/payment received — not counted as negative spend
 }
 
 function handleStarlingError(res: Response, err: unknown): boolean {
@@ -94,7 +122,7 @@ export async function syncStarlingRow(req: AuthRequest, res: Response) {
     }
 
     const { min, max } = monthFetchWindow(month)
-    let items
+    let items: StarlingFeedItem[]
     try {
         items = await getFeedBetween(row.starlingCategoryUid, min, max)
     } catch (err) {
@@ -102,15 +130,7 @@ export async function syncStarlingRow(req: AuthRequest, res: Response) {
         throw err
     }
 
-    // Genuine spending only: money out, actually left the account, not an internal
-    // space top-up/withdrawal, and dated (locally) within the requested month.
-    const spends = items.filter(
-        (it) =>
-            it.direction === 'OUT' &&
-            !NON_SPENDING_STATUSES.has(it.status) &&
-            !NON_SPENDING_SOURCES.has(it.source ?? '') &&
-            localDate(it.transactionTime).slice(0, 7) === month
-    )
+    const { spends } = classifyMonth(items, month)
 
     let imported = 0
     let updated = 0
@@ -144,8 +164,72 @@ export async function syncStarlingRow(req: AuthRequest, res: Response) {
     })
     const removed = removal.deletedCount ?? 0
 
+    // Current balance too, so the client can refresh its mismatch check without a
+    // second round trip.
+    let balance: number | null = null
+    try {
+        balance = await getSpaceBalance(row.starlingCategoryUid)
+    } catch {
+        // Non-fatal — the sync itself succeeded, just skip the balance refresh.
+    }
+
     res.json({
         message: 'Synced',
-        data: { imported, updated, removed, total: spends.length },
+        data: { imported, updated, removed, total: spends.length, balance },
     })
+}
+
+/**
+ * GET /finances/starling/reconcile?rowId=&month= — read-only. Explains a gap between
+ * the linked Space's current balance and the budget's "remaining" figure by listing
+ * everything in the month that moved the Space's money without counting as spend:
+ * transfers in/out, refunds, and declined/reversed card auths.
+ */
+export async function getStarlingReconciliation(req: AuthRequest, res: Response) {
+    if (!starlingConfigured()) {
+        res.status(501).json({ message: 'Starling is not configured on the server' })
+        return
+    }
+
+    const { rowId, month } = req.query
+    if (typeof month !== 'string' || !MONTH_RE.test(month)) {
+        res.status(400).json({ message: 'month must be YYYY-MM' })
+        return
+    }
+
+    const row = await FinanceRow.findOne({ _id: rowId, user: req.userId })
+    if (!row) {
+        res.status(404).json({ message: 'Row not found' })
+        return
+    }
+    if (!row.starlingCategoryUid) {
+        res.status(400).json({ message: 'This budget is not linked to a Starling Space' })
+        return
+    }
+
+    const { min, max } = monthFetchWindow(month)
+    let items: StarlingFeedItem[]
+    let balance: number | null
+    try {
+        ;[items, balance] = await Promise.all([
+            getFeedBetween(row.starlingCategoryUid, min, max),
+            getSpaceBalance(row.starlingCategoryUid),
+        ])
+    } catch (err) {
+        if (handleStarlingError(res, err)) return
+        throw err
+    }
+
+    const { movements } = classifyMonth(items, month)
+    const data = movements
+        .map((it) => ({
+            date: localDate(it.transactionTime),
+            amount: minorToMajor(it.amount.minorUnits),
+            direction: it.direction,
+            reason: movementReason(it),
+            counterPartyName: it.counterPartyName,
+        }))
+        .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+
+    res.json({ message: 'OK', data: { balance, movements: data } })
 }

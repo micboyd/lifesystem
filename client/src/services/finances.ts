@@ -9,6 +9,7 @@ import type {
     BudgetExclusion,
     FinanceSubItem,
     StarlingSpace,
+    StarlingMovement,
 } from '../types'
 import type { DeleteMode } from '../lib/finance'
 
@@ -230,6 +231,8 @@ export interface StarlingSyncResult {
     updated: number
     removed: number
     total: number
+    /** The Space's current balance right after syncing, if it could be fetched. */
+    balance: number | null
 }
 
 /** Pull the linked Space's transactions for a month into the budget's spends. */
@@ -240,6 +243,25 @@ export async function syncStarlingSpace(
     const res = await api.post<ApiResponse<StarlingSyncResult>>('/finances/starling/sync', {
         rowId,
         month,
+    })
+    return res.data.data
+}
+
+export interface StarlingReconciliation {
+    balance: number | null
+    movements: StarlingMovement[]
+}
+
+/**
+ * Read-only explanation for a Space balance / budget-remaining mismatch: everything
+ * in the month that moved the Space's money without counting as budget spend.
+ */
+export async function getStarlingReconciliation(
+    rowId: string,
+    month: string
+): Promise<StarlingReconciliation> {
+    const res = await api.get<ApiResponse<StarlingReconciliation>>('/finances/starling/reconcile', {
+        params: { rowId, month },
     })
     return res.data.data
 }

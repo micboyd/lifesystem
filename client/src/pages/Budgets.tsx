@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import Modal from '../components/Modal'
+import Drawer from '../components/Drawer'
 import Button from '../components/Button'
 import {
     listRows,
@@ -14,6 +15,8 @@ import {
     listBudgetExclusions,
     listStarlingSpaces,
     syncStarlingSpace,
+    getStarlingReconciliation,
+    type StarlingReconciliation,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
 import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange } from '../lib/budget'
@@ -21,7 +24,25 @@ import { formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
 import { useInvalidate } from '../context/DataSyncContext'
-import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend, StarlingSpace } from '../types'
+import type {
+    FinanceGroup,
+    FinanceRow,
+    FinanceEntry,
+    BudgetSpend,
+    StarlingSpace,
+    StarlingMovementReason,
+} from '../types'
+
+// Balance/remaining differences smaller than this are rounding noise, not a real mismatch.
+const RECONCILE_EPSILON = 0.005
+
+const MOVEMENT_INFO: Record<StarlingMovementReason, { label: string; icon: string; tone: string }> = {
+    transfer_in: { label: 'Transferred into space', icon: 'fa-arrow-down', tone: 'bg-emerald-50 text-emerald-600' },
+    transfer_out: { label: 'Transferred out of space', icon: 'fa-arrow-up', tone: 'bg-amber-50 text-amber-600' },
+    refund: { label: 'Refund received (not deducted)', icon: 'fa-rotate-left', tone: 'bg-emerald-50 text-emerald-600' },
+    declined: { label: 'Card payment declined', icon: 'fa-ban', tone: 'bg-neutral-100 text-neutral-500' },
+    reversed: { label: 'Payment reversed', icon: 'fa-rotate-left', tone: 'bg-neutral-100 text-neutral-500' },
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -330,6 +351,121 @@ function LinkSpaceModal({ row, spaces, loading, error, onClose, onChoose }: Link
     )
 }
 
+// ── Reconciliation drawer ─────────────────────────────────────────────────────
+
+interface ReconcileDrawerProps {
+    row: FinanceRow
+    monthlyRemaining: number
+    fallbackBalance: number | undefined
+    loading: boolean
+    error: boolean
+    data: StarlingReconciliation | null
+    onClose: () => void
+}
+
+function ReconcileDrawer({
+    row, monthlyRemaining, fallbackBalance, loading, error, data, onClose,
+}: ReconcileDrawerProps) {
+    const balance = data?.balance ?? fallbackBalance ?? null
+    const diff = balance !== null ? balance - monthlyRemaining : null
+
+    return (
+        <Drawer open onClose={onClose} title={`"${row.name}" out of sync`} size="md">
+            <div className="flex flex-col gap-5">
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-neutral-50 px-4 py-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                            Space balance
+                        </p>
+                        <p className="mt-1 text-lg font-bold tabular-nums text-neutral-900">
+                            {balance !== null ? `£${fmt(balance)}` : '—'}
+                        </p>
+                    </div>
+                    <div className="rounded-xl bg-neutral-50 px-4 py-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                            Budget remaining
+                        </p>
+                        <p className="mt-1 text-lg font-bold tabular-nums text-neutral-900">
+                            £{fmt(monthlyRemaining)}
+                        </p>
+                    </div>
+                </div>
+
+                {diff !== null && Math.abs(diff) > RECONCILE_EPSILON && (
+                    <div
+                        className={[
+                            'rounded-xl px-4 py-3 text-sm font-semibold',
+                            diff > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600',
+                        ].join(' ')}
+                    >
+                        {diff > 0
+                            ? `The space has £${fmt(diff)} more than the budget expects.`
+                            : `The space has £${fmt(Math.abs(diff))} less than the budget expects.`}
+                    </div>
+                )}
+
+                {loading && (
+                    <div className="grid place-items-center py-8">
+                        <Spinner />
+                    </div>
+                )}
+
+                {!loading && error && (
+                    <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                        Couldn't load the details from Starling.
+                    </div>
+                )}
+
+                {!loading && !error && data && (
+                    data.movements.length === 0 ? (
+                        <p className="text-sm text-neutral-500">
+                            No transfers, refunds, or declined payments found this month — the
+                            difference may be a balance carried over from before.
+                        </p>
+                    ) : (
+                        <div>
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                                What moved this month
+                            </p>
+                            <ul className="flex flex-col gap-1.5">
+                                {data.movements.map((m, i) => {
+                                    const info = MOVEMENT_INFO[m.reason]
+                                    return (
+                                        <li
+                                            key={i}
+                                            className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3 py-2"
+                                        >
+                                            <div className="flex min-w-0 items-center gap-2.5">
+                                                <span
+                                                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs ${info.tone}`}
+                                                >
+                                                    <i className={`fa-solid ${info.icon}`} aria-hidden="true" />
+                                                </span>
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-semibold text-neutral-800">
+                                                        {info.label}
+                                                    </p>
+                                                    <p className="text-xs text-neutral-400">
+                                                        {m.date}
+                                                        {m.counterPartyName ? ` · ${m.counterPartyName}` : ''}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <span className="shrink-0 text-sm tabular-nums text-neutral-700">
+                                                {m.direction === 'IN' ? '+' : '-'}£{fmt(m.amount)}
+                                            </span>
+                                        </li>
+                                    )
+                                })}
+                            </ul>
+                        </div>
+                    )
+                )}
+            </div>
+        </Drawer>
+    )
+}
+
 // ── Budget card ───────────────────────────────────────────────────────────────
 
 interface BudgetCardProps {
@@ -350,13 +486,14 @@ interface BudgetCardProps {
     onDeleteSpend: (id: string) => Promise<void>
     onOpenLink: (row: FinanceRow) => void
     onSync: (row: FinanceRow) => void
+    onOpenReconcile: (row: FinanceRow) => void
 }
 
 function BudgetCard({
     row, group, entry, spends, excludedDates,
     weekStart, weekEnd, isCurrentWeek, isFutureWeek,
     starlingEnabled, linkedSpace, syncing,
-    onToggleDailySpend, onLogSpend, onDeleteSpend, onOpenLink, onSync,
+    onToggleDailySpend, onLogSpend, onDeleteSpend, onOpenLink, onSync, onOpenReconcile,
 }: BudgetCardProps) {
     const isLinked = !!row.starlingCategoryUid
     const isDailySpend = row.budgetType === 'daily'
@@ -368,6 +505,10 @@ function BudgetCard({
     // computeBudgetDay gives monthlyAmount / monthlyRemaining regardless of the day param.
     const monthRef = computeBudgetDay(row, entry, spends, weekStart, excludedDates)
     const { monthlyAmount, monthlyRemaining } = monthRef
+
+    // Space balance vs budget remaining — only meaningful once linked and budgeted.
+    const canReconcile = isLinked && !!linkedSpace && monthlyAmount > 0
+    const outOfSync = canReconcile && Math.abs(linkedSpace!.balance - monthlyRemaining) > RECONCILE_EPSILON
 
     // ── Weekly row maths ────────────────────────────────────────────────────
     const weeklyBudget = isWeeklySpend
@@ -424,6 +565,16 @@ function BudgetCard({
                         <p className={['mt-0.5 text-xs font-semibold tabular-nums', monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400'].join(' ')}>
                             £{fmt(Math.abs(monthlyRemaining))} {monthlyRemaining < 0 ? 'over' : 'left'}
                         </p>
+                    )}
+                    {outOfSync && (
+                        <button
+                            type="button"
+                            onClick={() => onOpenReconcile(row)}
+                            className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 transition-colors hover:bg-amber-200"
+                        >
+                            <i className="fa-solid fa-triangle-exclamation text-[9px]" aria-hidden="true" />
+                            Out of sync
+                        </button>
                     )}
                 </div>
             </div>
@@ -669,6 +820,10 @@ export default function Budgets() {
     const [spacesError, setSpacesError] = useState(false)
     const [linkModalRow, setLinkModalRow] = useState<FinanceRow | null>(null)
     const [syncingRowId, setSyncingRowId] = useState<string | null>(null)
+    const [reconcileRow, setReconcileRow] = useState<FinanceRow | null>(null)
+    const [reconcileLoading, setReconcileLoading] = useState(false)
+    const [reconcileError, setReconcileError] = useState(false)
+    const [reconcileData, setReconcileData] = useState<StarlingReconciliation | null>(null)
     const toast = useToast()
     const invalidate = useInvalidate()
 
@@ -751,12 +906,31 @@ export default function Budgets() {
         }
     }
 
+    function openReconcile(row: FinanceRow) {
+        setReconcileRow(row)
+        setReconcileData(null)
+        setReconcileError(false)
+        setReconcileLoading(true)
+        getStarlingReconciliation(row._id, month)
+            .then((data) => setReconcileData(data))
+            .catch(() => setReconcileError(true))
+            .finally(() => setReconcileLoading(false))
+    }
+
     async function handleSync(row: FinanceRow) {
         setSyncingRowId(row._id)
         try {
             const result = await syncStarlingSpace(row._id, month)
             const fresh = await listBudgetSpends({ month })
             setSpends(fresh)
+            // Refresh the balance we already hold locally so the "out of sync" badge
+            // reflects reality immediately, without a second Starling round trip.
+            if (result.balance !== null && row.starlingCategoryUid) {
+                const categoryUid = row.starlingCategoryUid
+                setSpaces((prev) =>
+                    prev.map((s) => (s.id === categoryUid ? { ...s, balance: result.balance! } : s))
+                )
+            }
             invalidate('budget')
             const parts: string[] = []
             if (result.imported > 0) parts.push(`imported ${result.imported}`)
@@ -906,6 +1080,7 @@ export default function Budgets() {
                                 onDeleteSpend={handleDeleteSpend}
                                 onOpenLink={setLinkModalRow}
                                 onSync={handleSync}
+                                onOpenReconcile={openReconcile}
                             />
                         )
                     })}
@@ -920,6 +1095,26 @@ export default function Budgets() {
                     error={spacesError}
                     onClose={() => setLinkModalRow(null)}
                     onChoose={handleChooseSpace}
+                />
+            )}
+
+            {reconcileRow && (
+                <ReconcileDrawer
+                    row={reconcileRow}
+                    monthlyRemaining={
+                        computeBudgetDay(
+                            reconcileRow,
+                            entries.find((e) => e.row === reconcileRow._id),
+                            spends.filter((s) => s.row === reconcileRow._id),
+                            weekStart,
+                            excludedDates
+                        ).monthlyRemaining
+                    }
+                    fallbackBalance={spaces.find((s) => s.id === reconcileRow.starlingCategoryUid)?.balance}
+                    loading={reconcileLoading}
+                    error={reconcileError}
+                    data={reconcileData}
+                    onClose={() => setReconcileRow(null)}
                 />
             )}
         </>

@@ -24,7 +24,11 @@ import {
     deleteBudgetSpend,
 } from '../controllers/budgetSpendController'
 import { listBudgetExclusions, setBudgetExclusion } from '../controllers/budgetExclusionController'
-import { listStarlingSpaces, syncStarlingRow } from '../controllers/starlingController'
+import {
+    listStarlingSpaces,
+    syncStarlingRow,
+    getStarlingReconciliation,
+} from '../controllers/starlingController'
 import {
     listSubItems,
     createSubItem,
@@ -69,6 +73,7 @@ router.put('/budget-exclusions/:date', setBudgetExclusion)
 // Starling Bank — link a budget to a Space and pull its transactions
 router.get('/starling/spaces', listStarlingSpaces)
 router.post('/starling/sync', syncStarlingRow)
+router.get('/starling/reconcile', getStarlingReconciliation)
 
 // Pots (sub-groups within a group)
 router.get('/pots', listPots)
