@@ -12,15 +12,35 @@ import {
 
 const MONTH_RE = /^\d{4}-\d{2}$/
 
+// The calendar we bucket transactions into — should match what you see in the
+// Starling app (and the rest of the app's dates).
+const LOCAL_TZ = 'Europe/London'
+
 // Card auths that never actually left the account — ignore so they don't inflate a budget.
 const NON_SPENDING_STATUSES = new Set(['DECLINED', 'REFUSED', 'REVERSED'])
 
-/** Turn "YYYY-MM" into the [start, endExclusive) ISO instants covering that month. */
-function monthBounds(month: string): { min: string; max: string } {
+// Moving money between a space and your main balance shows on the feed but is not
+// spending — exclude it so top-ups/withdrawals don't count against the budget.
+const NON_SPENDING_SOURCES = new Set(['INTERNAL_TRANSFER'])
+
+/**
+ * UTC window to fetch, widened a day either side of the target month. We over-fetch
+ * and then bucket by LOCAL date, so a transaction near a month boundary lands in the
+ * right month regardless of the UTC/BST offset.
+ */
+function monthFetchWindow(month: string): { min: string; max: string } {
     const [y, m] = month.split('-').map(Number)
     const start = new Date(Date.UTC(y, m - 1, 1))
+    start.setUTCDate(start.getUTCDate() - 1)
     const end = new Date(Date.UTC(y, m, 1))
+    end.setUTCDate(end.getUTCDate() + 1)
     return { min: start.toISOString(), max: end.toISOString() }
+}
+
+/** The local (Europe/London) calendar date "YYYY-MM-DD" an instant falls on. */
+function localDate(iso: string): string {
+    // en-CA renders as YYYY-MM-DD; the timeZone shifts it to the local calendar day.
+    return new Date(iso).toLocaleDateString('en-CA', { timeZone: LOCAL_TZ })
 }
 
 function handleStarlingError(res: Response, err: unknown): boolean {
@@ -73,7 +93,7 @@ export async function syncStarlingRow(req: AuthRequest, res: Response) {
         return
     }
 
-    const { min, max } = monthBounds(month)
+    const { min, max } = monthFetchWindow(month)
     let items
     try {
         items = await getFeedBetween(row.starlingCategoryUid, min, max)
@@ -82,14 +102,21 @@ export async function syncStarlingRow(req: AuthRequest, res: Response) {
         throw err
     }
 
-    const outgoings = items.filter(
-        (it) => it.direction === 'OUT' && !NON_SPENDING_STATUSES.has(it.status)
+    // Genuine spending only: money out, actually left the account, not an internal
+    // space top-up/withdrawal, and dated (locally) within the requested month.
+    const spends = items.filter(
+        (it) =>
+            it.direction === 'OUT' &&
+            !NON_SPENDING_STATUSES.has(it.status) &&
+            !NON_SPENDING_SOURCES.has(it.source ?? '') &&
+            localDate(it.transactionTime).slice(0, 7) === month
     )
 
     let imported = 0
     let updated = 0
-    for (const it of outgoings) {
-        const date = it.transactionTime.slice(0, 10)
+    const seenUids: string[] = []
+    for (const it of spends) {
+        const date = localDate(it.transactionTime)
         const amount = minorToMajor(it.amount.minorUnits)
         const note = (it.counterPartyName || it.reference || '').trim().slice(0, 200)
 
@@ -101,12 +128,24 @@ export async function syncStarlingRow(req: AuthRequest, res: Response) {
             { $set: set },
             { upsert: true }
         )
+        seenUids.push(it.feedItemUid)
         if (result.upsertedCount) imported++
         else if (result.modifiedCount) updated++
     }
 
+    // Reconcile: drop transactions we imported for this budget/month before that no
+    // longer qualify (e.g. a transfer moved back, or a payment later reversed). Only
+    // ever touches Starling-imported spends — manual ones have no feedItemUid.
+    const removal = await BudgetSpend.deleteMany({
+        user: req.userId,
+        row: row._id,
+        date: { $regex: `^${month}` },
+        starlingFeedItemUid: { $exists: true, $nin: seenUids },
+    })
+    const removed = removal.deletedCount ?? 0
+
     res.json({
         message: 'Synced',
-        data: { imported, updated, total: outgoings.length },
+        data: { imported, updated, removed, total: spends.length },
     })
 }

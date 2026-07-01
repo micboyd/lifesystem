@@ -228,6 +228,7 @@ export async function listStarlingSpaces(): Promise<StarlingSpace[]> {
 export interface StarlingSyncResult {
     imported: number
     updated: number
+    removed: number
     total: number
 }
 

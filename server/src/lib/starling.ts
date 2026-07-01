@@ -49,6 +49,10 @@ export interface StarlingFeedItem {
     reference?: string
     status: string
     spendingCategory?: string
+    /** How the money moved, e.g. MASTER_CARD, FASTER_PAYMENT_OUT, INTERNAL_TRANSFER. */
+    source?: string
+    /** Who was on the other side, e.g. MERCHANT, PAYEE, CATEGORY (a space top-up/withdrawal). */
+    counterPartyType?: string
 }
 
 class StarlingError extends Error {

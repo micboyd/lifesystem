@@ -758,11 +758,15 @@ export default function Budgets() {
             const fresh = await listBudgetSpends({ month })
             setSpends(fresh)
             invalidate('budget')
-            const n = result.imported
+            const parts: string[] = []
+            if (result.imported > 0) parts.push(`imported ${result.imported}`)
+            if (result.removed > 0) parts.push(`removed ${result.removed}`)
             toast.show(
-                n > 0
-                    ? `Imported ${n} transaction${n === 1 ? '' : 's'} from Starling.`
-                    : 'Up to date — no new transactions.',
+                parts.length > 0
+                    ? `Synced — ${parts.join(', ')} transaction${
+                          result.imported + result.removed === 1 ? '' : 's'
+                      }.`
+                    : 'Up to date — no changes.',
                 'success'
             )
         } catch {
