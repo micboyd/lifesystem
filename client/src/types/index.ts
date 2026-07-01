@@ -486,6 +486,19 @@ export interface StarlingMovement {
     counterPartyName?: string
 }
 
+/** A transaction deleted or moved away from a Starling-linked budget, kept out of
+ *  future syncs — recoverable from the "removed transactions" drawer. */
+export interface StarlingExclusion {
+    _id: string
+    reason: 'deleted' | 'moved'
+    originalRowName: string
+    movedToRowName?: string
+    date: string
+    amount: number
+    note?: string
+    createdAt: string
+}
+
 export interface FinanceEntry {
     _id: string
     row: string

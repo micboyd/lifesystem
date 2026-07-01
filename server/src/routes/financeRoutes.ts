@@ -29,6 +29,8 @@ import {
     listStarlingSpaces,
     syncStarlingRow,
     getStarlingReconciliation,
+    listStarlingExclusions,
+    recoverStarlingExclusion,
 } from '../controllers/starlingController'
 import {
     listSubItems,
@@ -76,6 +78,8 @@ router.put('/budget-exclusions/:date', setBudgetExclusion)
 router.get('/starling/spaces', listStarlingSpaces)
 router.post('/starling/sync', syncStarlingRow)
 router.get('/starling/reconcile', getStarlingReconciliation)
+router.get('/starling/exclusions', listStarlingExclusions)
+router.post('/starling/exclusions/:id/recover', recoverStarlingExclusion)
 
 // Pots (sub-groups within a group)
 router.get('/pots', listPots)

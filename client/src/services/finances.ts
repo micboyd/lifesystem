@@ -10,6 +10,7 @@ import type {
     FinanceSubItem,
     StarlingSpace,
     StarlingMovement,
+    StarlingExclusion,
 } from '../types'
 import type { DeleteMode } from '../lib/finance'
 
@@ -279,6 +280,20 @@ export async function getStarlingReconciliation(
     const res = await api.get<ApiResponse<StarlingReconciliation>>('/finances/starling/reconcile', {
         params: { rowId, month },
     })
+    return res.data.data
+}
+
+/** List transactions deleted or moved away from a Starling-linked budget. */
+export async function listStarlingExclusions(): Promise<StarlingExclusion[]> {
+    const res = await api.get<ApiResponse<StarlingExclusion[]>>('/finances/starling/exclusions')
+    return res.data.data
+}
+
+/** Undo a delete or move: restores the transaction and lets it sync normally again. */
+export async function recoverStarlingExclusion(id: string): Promise<BudgetSpend> {
+    const res = await api.post<ApiResponse<BudgetSpend>>(
+        `/finances/starling/exclusions/${id}/recover`
+    )
     return res.data.data
 }
 

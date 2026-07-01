@@ -17,6 +17,8 @@ import {
     syncStarlingSpace,
     getStarlingReconciliation,
     type StarlingReconciliation,
+    listStarlingExclusions,
+    recoverStarlingExclusion,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
 import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange } from '../lib/budget'
@@ -31,6 +33,7 @@ import type {
     BudgetSpend,
     StarlingSpace,
     StarlingMovementReason,
+    StarlingExclusion,
 } from '../types'
 
 // Balance/remaining differences smaller than this are rounding noise, not a real mismatch.
@@ -75,6 +78,59 @@ function weekNumberInMonth(anchor: string): number {
 function weeksInMonth(month: string): number {
     const lastDay = `${month}-${String(daysInMonth(month)).padStart(2, '0')}`
     return weekNumberInMonth(lastDay)
+}
+
+/** First/last calendar date of each week number in the month (Monday-starting). */
+function monthWeekBounds(month: string): Map<number, { start: string; end: string }> {
+    const bounds = new Map<number, { start: string; end: string }>()
+    const total = daysInMonth(month)
+    for (let d = 1; d <= total; d++) {
+        const date = `${month}-${String(d).padStart(2, '0')}`
+        const wn = weekNumberInMonth(date)
+        const existing = bounds.get(wn)
+        if (existing) existing.end = date
+        else bounds.set(wn, { start: date, end: date })
+    }
+    return bounds
+}
+
+/** e.g. "1–5 Jul", or just "5 Jul" for a single-day range. */
+function formatDateRange(start: string, end: string): string {
+    const s = new Date(`${start}T00:00:00`)
+    const startStr = s.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    if (start === end) return startStr
+    const e = new Date(`${end}T00:00:00`)
+    const endStr = e.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    return `${startStr}–${endStr}`
+}
+
+/** e.g. "Mon, 6 Jul" — for individual transaction rows. */
+function formatTxDate(date: string): string {
+    return new Date(`${date}T00:00:00`).toLocaleDateString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+    })
+}
+
+/** This month's spends for a row, bucketed by week number and sorted chronologically. */
+function groupSpendsByWeek(
+    month: string,
+    spends: BudgetSpend[]
+): { weekNum: number; items: BudgetSpend[] }[] {
+    const buckets = new Map<number, BudgetSpend[]>()
+    for (const s of spends) {
+        if (s.date.slice(0, 7) !== month) continue
+        const wn = weekNumberInMonth(s.date)
+        if (!buckets.has(wn)) buckets.set(wn, [])
+        buckets.get(wn)!.push(s)
+    }
+    return Array.from(buckets.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([weekNum, items]) => ({
+            weekNum,
+            items: items.slice().sort((a, b) => a.date.localeCompare(b.date)),
+        }))
 }
 
 const fmt = formatAmount
@@ -466,6 +522,136 @@ function ReconcileDrawer({
     )
 }
 
+// ── Removed transactions drawer ───────────────────────────────────────────────
+
+interface RemovedTransactionsDrawerProps {
+    open: boolean
+    exclusions: StarlingExclusion[]
+    recoveringId: string | null
+    onClose: () => void
+    onRecover: (id: string) => void
+}
+
+function RemovedTransactionsDrawer({
+    open, exclusions, recoveringId, onClose, onRecover,
+}: RemovedTransactionsDrawerProps) {
+    return (
+        <Drawer open={open} onClose={onClose} title="Removed transactions" size="md">
+            {exclusions.length === 0 ? (
+                <p className="text-sm text-neutral-500">
+                    Nothing here — deleted or moved Starling transactions show up in this list so
+                    you can bring them back.
+                </p>
+            ) : (
+                <ul className="flex flex-col gap-2">
+                    {exclusions.map((x) => (
+                        <li
+                            key={x._id}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-4 py-3"
+                        >
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-neutral-800">
+                                    {x.note || 'Transaction'}
+                                </p>
+                                <p className="text-xs text-neutral-400">
+                                    {x.date} · £{fmt(x.amount)}
+                                </p>
+                                <p className="mt-0.5 text-xs text-neutral-400">
+                                    {x.reason === 'deleted'
+                                        ? `Deleted from ${x.originalRowName}`
+                                        : `Moved from ${x.originalRowName} to ${x.movedToRowName}`}
+                                </p>
+                            </div>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                icon="fa-solid fa-arrow-rotate-left"
+                                disabled={recoveringId === x._id}
+                                onClick={() => onRecover(x._id)}
+                                className="shrink-0"
+                            >
+                                {recoveringId === x._id ? '…' : 'Recover'}
+                            </Button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </Drawer>
+    )
+}
+
+// ── All transactions drawer ───────────────────────────────────────────────────
+
+interface AllTransactionsDrawerProps {
+    row: FinanceRow
+    month: string
+    spends: BudgetSpend[]
+    onClose: () => void
+    onDelete: (id: string) => Promise<void>
+}
+
+function AllTransactionsDrawer({ row, month, spends, onClose, onDelete }: AllTransactionsDrawerProps) {
+    const weeks = groupSpendsByWeek(month, spends)
+    const bounds = monthWeekBounds(month)
+    const monthTotal = weeks.reduce((sum, w) => sum + w.items.reduce((s, t) => s + t.amount, 0), 0)
+
+    return (
+        <Drawer open onClose={onClose} title={row.name} badge={`£${fmt(monthTotal)}`} size="md">
+            {weeks.length === 0 ? (
+                <p className="text-sm text-neutral-500">No transactions logged this month.</p>
+            ) : (
+                <div className="flex flex-col gap-5">
+                    {weeks.map(({ weekNum, items }) => {
+                        const range = bounds.get(weekNum)
+                        const weekTotal = items.reduce((s, t) => s + t.amount, 0)
+                        return (
+                            <div key={weekNum}>
+                                <div className="mb-2 flex items-baseline justify-between gap-2">
+                                    <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                                        Week {weekNum}
+                                        {range ? ` · ${formatDateRange(range.start, range.end)}` : ''}
+                                    </span>
+                                    <span className="text-xs font-semibold tabular-nums text-neutral-500">
+                                        £{fmt(weekTotal)}
+                                    </span>
+                                </div>
+                                <ul className="flex flex-col gap-1.5">
+                                    {items.map((t) => (
+                                        <li
+                                            key={t._id}
+                                            className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3.5 py-2.5"
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-semibold text-neutral-800">
+                                                    {t.note || row.name}
+                                                </p>
+                                                <p className="text-xs text-neutral-400">{formatTxDate(t.date)}</p>
+                                            </div>
+                                            <div className="flex shrink-0 items-center gap-2">
+                                                <span className="text-sm tabular-nums text-neutral-700">
+                                                    £{fmt(t.amount)}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onDelete(t._id)}
+                                                    aria-label="Delete transaction"
+                                                    className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                                >
+                                                    <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                                </button>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )
+                    })}
+                </div>
+            )}
+        </Drawer>
+    )
+}
+
 // ── Budget card ───────────────────────────────────────────────────────────────
 
 interface BudgetCardProps {
@@ -474,6 +660,7 @@ interface BudgetCardProps {
     entry: FinanceEntry | undefined
     spends: BudgetSpend[]
     excludedDates: Set<string>
+    month: string
     weekStart: string
     weekEnd: string
     isCurrentWeek: boolean
@@ -490,11 +677,12 @@ interface BudgetCardProps {
 }
 
 function BudgetCard({
-    row, group, entry, spends, excludedDates,
+    row, group, entry, spends, excludedDates, month,
     weekStart, weekEnd, isCurrentWeek, isFutureWeek,
     starlingEnabled, linkedSpace, syncing,
     onToggleDailySpend, onLogSpend, onDeleteSpend, onOpenLink, onSync, onOpenReconcile,
 }: BudgetCardProps) {
+    const [txDrawerOpen, setTxDrawerOpen] = useState(false)
     const isLinked = !!row.starlingCategoryUid
     const isDailySpend = row.budgetType === 'daily'
     const isWeeklySpend = row.budgetType === 'weekly'
@@ -547,6 +735,7 @@ function BudgetCard({
     })()
 
     return (
+        <>
         <div className="group flex flex-col gap-6 rounded-3xl border border-neutral-200 bg-white p-6 transition-colors duration-200 hover:border-neutral-300">
             {/* Header */}
             <div className="flex items-start justify-between gap-4">
@@ -752,6 +941,16 @@ function BudgetCard({
             )}
 
             <div className="mt-auto flex flex-col gap-3">
+                {/* All this month's transactions, grouped by week */}
+                <button
+                    type="button"
+                    onClick={() => setTxDrawerOpen(true)}
+                    className="inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
+                >
+                    <i className="fa-solid fa-receipt text-[10px]" aria-hidden="true" />
+                    View all transactions
+                </button>
+
                 {/* Starling Space link — mirror card spending into this budget */}
                 {starlingEnabled && (
                     isLinked ? (
@@ -798,6 +997,17 @@ function BudgetCard({
                 </button>
             </div>
         </div>
+
+        {txDrawerOpen && (
+            <AllTransactionsDrawer
+                row={row}
+                month={month}
+                spends={spends}
+                onClose={() => setTxDrawerOpen(false)}
+                onDelete={onDeleteSpend}
+            />
+        )}
+        </>
     )
 }
 
@@ -824,6 +1034,9 @@ export default function Budgets() {
     const [reconcileLoading, setReconcileLoading] = useState(false)
     const [reconcileError, setReconcileError] = useState(false)
     const [reconcileData, setReconcileData] = useState<StarlingReconciliation | null>(null)
+    const [exclusions, setExclusions] = useState<StarlingExclusion[]>([])
+    const [exclusionsOpen, setExclusionsOpen] = useState(false)
+    const [recoveringId, setRecoveringId] = useState<string | null>(null)
     const toast = useToast()
     const invalidate = useInvalidate()
 
@@ -893,6 +1106,32 @@ export default function Budgets() {
             .finally(() => active && setSpacesLoading(false))
         return () => { active = false }
     }, [])
+
+    // Load removed (deleted/moved) Starling transactions once, for the recovery drawer.
+    useEffect(() => {
+        let active = true
+        listStarlingExclusions()
+            .then((x) => active && setExclusions(x))
+            .catch(() => {})
+        return () => { active = false }
+    }, [])
+
+    async function handleRecover(id: string) {
+        setRecoveringId(id)
+        try {
+            const spend = await recoverStarlingExclusion(id)
+            setExclusions((prev) => prev.filter((x) => x._id !== id))
+            if (spend.date.slice(0, 7) === month) {
+                setSpends((prev) => [...prev.filter((s) => s._id !== spend._id), spend])
+            }
+            invalidate('budget')
+            toast.show('Transaction recovered.', 'success')
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message ?? "Couldn't recover that transaction.")
+        } finally {
+            setRecoveringId(null)
+        }
+    }
 
     async function handleChooseSpace(categoryUid: string | null) {
         if (!linkModalRow) return
@@ -1001,6 +1240,23 @@ export default function Budgets() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {starlingEnabled && (
+                        <button
+                            type="button"
+                            onClick={() => setExclusionsOpen(true)}
+                            aria-label="Removed transactions"
+                            title="Removed transactions"
+                            className="relative grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                        >
+                            <i className="fa-solid fa-clock-rotate-left text-xs" aria-hidden="true" />
+                            {exclusions.length > 0 && (
+                                <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-amber-500 text-[9px] font-bold text-white">
+                                    {exclusions.length > 9 ? '9+' : exclusions.length}
+                                </span>
+                            )}
+                        </button>
+                    )}
+
                     <button
                         type="button"
                         onClick={goToPrevWeek}
@@ -1066,6 +1322,7 @@ export default function Budgets() {
                                 entry={entry}
                                 spends={rowSpends}
                                 excludedDates={excludedDates}
+                                month={month}
                                 weekStart={weekStart}
                                 weekEnd={weekEnd}
                                 isCurrentWeek={isCurrentWeek}
@@ -1115,6 +1372,14 @@ export default function Budgets() {
                     onClose={() => setReconcileRow(null)}
                 />
             )}
+
+            <RemovedTransactionsDrawer
+                open={exclusionsOpen}
+                exclusions={exclusions}
+                recoveringId={recoveringId}
+                onClose={() => setExclusionsOpen(false)}
+                onRecover={handleRecover}
+            />
         </>
     )
 }

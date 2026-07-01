@@ -33,16 +33,31 @@ function parseNote(raw: unknown): string | undefined {
     return typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, 200) : undefined
 }
 
+interface TombstonePayload {
+    userId: string
+    feedItemUid: string
+    reason: 'deleted' | 'moved'
+    originalRowId: string
+    originalRowName: string
+    movedToRowName?: string
+    spendId?: string
+    date: string
+    amount: number
+    note?: string
+}
+
 /**
- * Permanently mark a Starling feed item as "don't auto-import this again". Used
- * whenever a Starling-linked transaction is deleted or moved away from its
- * originating budget, since Starling's own feed still shows it under the source
- * Space and a later sync would otherwise treat it as new.
+ * Permanently mark a Starling feed item as "don't auto-import this again", with a
+ * snapshot of the transaction so it can be restored later from the "removed
+ * transactions" drawer. Used whenever a Starling-linked transaction is deleted or
+ * moved away from its originating budget, since Starling's own feed still shows it
+ * under the source Space and a later sync would otherwise treat it as new.
  */
-async function tombstoneFeedItem(userId: string, feedItemUid: string): Promise<void> {
+async function tombstoneFeedItem(payload: TombstonePayload): Promise<void> {
+    const { userId, feedItemUid, originalRowId, ...rest } = payload
     await StarlingExclusion.updateOne(
         { user: userId, feedItemUid },
-        { $setOnInsert: { user: userId, feedItemUid } },
+        { $setOnInsert: { user: userId, feedItemUid, originalRow: originalRowId, ...rest } },
         { upsert: true }
     )
 }
@@ -133,7 +148,19 @@ export async function moveBudgetSpend(req: AuthRequest, res: Response) {
         return
     }
     if (existing.starlingFeedItemUid) {
-        await tombstoneFeedItem(req.userId!, existing.starlingFeedItemUid)
+        const originalRow = await FinanceRow.findById(existing.row)
+        await tombstoneFeedItem({
+            userId: req.userId!,
+            feedItemUid: existing.starlingFeedItemUid,
+            reason: 'moved',
+            originalRowId: String(existing.row),
+            originalRowName: originalRow?.name ?? 'Unknown budget',
+            movedToRowName: targetRow.name,
+            spendId: String(existing._id),
+            date: existing.date,
+            amount: existing.amount,
+            note: existing.note,
+        })
     }
 
     const spend = await BudgetSpend.findOneAndUpdate(
@@ -155,7 +182,17 @@ export async function deleteBudgetSpend(req: AuthRequest, res: Response) {
         return
     }
     if (spend.starlingFeedItemUid) {
-        await tombstoneFeedItem(req.userId!, spend.starlingFeedItemUid)
+        const originalRow = await FinanceRow.findById(spend.row)
+        await tombstoneFeedItem({
+            userId: req.userId!,
+            feedItemUid: spend.starlingFeedItemUid,
+            reason: 'deleted',
+            originalRowId: String(spend.row),
+            originalRowName: originalRow?.name ?? 'Unknown budget',
+            date: spend.date,
+            amount: spend.amount,
+            note: spend.note,
+        })
     }
     res.json({ message: 'Deleted', data: null })
 }

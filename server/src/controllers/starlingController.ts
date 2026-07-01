@@ -2,7 +2,7 @@ import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import BudgetSpend from '../models/BudgetSpend'
 import FinanceRow from '../models/FinanceRow'
-import StarlingExclusion from '../models/StarlingExclusion'
+import StarlingExclusion, { IStarlingExclusion } from '../models/StarlingExclusion'
 import {
     StarlingError,
     StarlingFeedItem,
@@ -243,4 +243,75 @@ export async function getStarlingReconciliation(req: AuthRequest, res: Response)
         .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
 
     res.json({ message: 'OK', data: { balance, movements: data } })
+}
+
+/**
+ * GET /finances/starling/exclusions — transactions deleted or moved away from a
+ * Starling-linked budget, kept out of future syncs. Feeds the "removed
+ * transactions" drawer, which can send any of them back with recoverStarlingExclusion.
+ */
+export async function listStarlingExclusions(req: AuthRequest, res: Response) {
+    const exclusions = await StarlingExclusion.find({ user: req.userId }).sort({ createdAt: -1 })
+    res.json({ message: 'OK', data: exclusions })
+}
+
+/**
+ * POST /finances/starling/exclusions/:id/recover — undo a delete or move.
+ * - 'deleted': recreate the BudgetSpend from the stored snapshot, reattached to Starling.
+ * - 'moved': send the still-live BudgetSpend back to its original budget and reattach it
+ *   (falls back to recreating from the snapshot if that copy was itself deleted since).
+ * Either way the tombstone is cleared, so normal syncing resumes for this transaction.
+ */
+export async function recoverStarlingExclusion(req: AuthRequest, res: Response) {
+    const exclusion: IStarlingExclusion | null = await StarlingExclusion.findOne({
+        _id: req.params.id,
+        user: req.userId,
+    })
+    if (!exclusion) {
+        res.status(404).json({ message: 'Nothing to recover' })
+        return
+    }
+
+    const originalRow = await FinanceRow.findOne({
+        _id: exclusion.originalRow,
+        user: req.userId,
+        budgeted: true,
+    })
+    if (!originalRow) {
+        res.status(400).json({ message: 'The original budget no longer exists' })
+        return
+    }
+
+    try {
+        if (exclusion.reason === 'moved' && exclusion.spendId) {
+            const spend = await BudgetSpend.findOneAndUpdate(
+                { _id: exclusion.spendId, user: req.userId },
+                { $set: { row: exclusion.originalRow, starlingFeedItemUid: exclusion.feedItemUid } },
+                { new: true }
+            )
+            if (spend) {
+                await exclusion.deleteOne()
+                res.json({ message: 'Recovered', data: spend })
+                return
+            }
+            // The moved copy was itself deleted since — fall through and recreate it.
+        }
+
+        const spend = await BudgetSpend.create({
+            user: req.userId,
+            row: exclusion.originalRow,
+            date: exclusion.date,
+            amount: exclusion.amount,
+            note: exclusion.note,
+            starlingFeedItemUid: exclusion.feedItemUid,
+        })
+        await exclusion.deleteOne()
+        res.json({ message: 'Recovered', data: spend })
+    } catch (err: unknown) {
+        if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
+            res.status(409).json({ message: 'This transaction is already being tracked' })
+            return
+        }
+        throw err
+    }
 }
