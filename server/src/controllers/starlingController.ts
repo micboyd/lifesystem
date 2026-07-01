@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import BudgetSpend from '../models/BudgetSpend'
 import FinanceRow from '../models/FinanceRow'
+import StarlingExclusion from '../models/StarlingExclusion'
 import {
     StarlingError,
     StarlingFeedItem,
@@ -130,7 +131,17 @@ export async function syncStarlingRow(req: AuthRequest, res: Response) {
         throw err
     }
 
-    const { spends } = classifyMonth(items, month)
+    const { spends: candidateSpends } = classifyMonth(items, month)
+
+    // Transactions the user has deliberately deleted or moved elsewhere stay gone,
+    // even though Starling itself still shows them under this Space.
+    const excludedUids = new Set(
+        (await StarlingExclusion.find({ user: req.userId }).select('feedItemUid').lean()).map(
+            (e) => e.feedItemUid
+        )
+    )
+    const spends = candidateSpends.filter((it) => !excludedUids.has(it.feedItemUid))
+    const skipped = candidateSpends.length - spends.length
 
     let imported = 0
     let updated = 0
@@ -175,7 +186,7 @@ export async function syncStarlingRow(req: AuthRequest, res: Response) {
 
     res.json({
         message: 'Synced',
-        data: { imported, updated, removed, total: spends.length, balance },
+        data: { imported, updated, removed, skipped, total: spends.length, balance },
     })
 }
 

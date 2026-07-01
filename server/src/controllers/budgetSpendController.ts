@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import BudgetSpend from '../models/BudgetSpend'
 import FinanceRow from '../models/FinanceRow'
+import StarlingExclusion from '../models/StarlingExclusion'
 
 const MONTH_RE = /^\d{4}-\d{2}$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -30,6 +31,20 @@ function parseAmount(raw: unknown): number | null {
 
 function parseNote(raw: unknown): string | undefined {
     return typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, 200) : undefined
+}
+
+/**
+ * Permanently mark a Starling feed item as "don't auto-import this again". Used
+ * whenever a Starling-linked transaction is deleted or moved away from its
+ * originating budget, since Starling's own feed still shows it under the source
+ * Space and a later sync would otherwise treat it as new.
+ */
+async function tombstoneFeedItem(userId: string, feedItemUid: string): Promise<void> {
+    await StarlingExclusion.updateOne(
+        { user: userId, feedItemUid },
+        { $setOnInsert: { user: userId, feedItemUid } },
+        { upsert: true }
+    )
 }
 
 /** POST /budget-spends — log a single transaction against a row on a date. */
@@ -94,9 +109,10 @@ export async function updateBudgetSpend(req: AuthRequest, res: Response) {
  * PUT /budget-spends/:id/move — reassign a transaction to a different budget row.
  *
  * If the transaction was imported from Starling, this also detaches it from that
- * link (clears starlingFeedItemUid): the underlying transaction is still attributed
- * to the original Space in Starling's own feed, so a future sync of the original
- * budget would otherwise see it as still-current and silently move it back.
+ * link (clears starlingFeedItemUid) and tombstones the feed item: the underlying
+ * transaction is still attributed to the original Space in Starling's own feed, so
+ * without the tombstone, a future sync of the original budget would see it as new
+ * and re-import a duplicate there.
  */
 export async function moveBudgetSpend(req: AuthRequest, res: Response) {
     const rowId = typeof req.body.row === 'string' ? req.body.row : ''
@@ -111,24 +127,35 @@ export async function moveBudgetSpend(req: AuthRequest, res: Response) {
         return
     }
 
+    const existing = await BudgetSpend.findOne({ _id: req.params.id, user: req.userId })
+    if (!existing) {
+        res.status(404).json({ message: 'Transaction not found' })
+        return
+    }
+    if (existing.starlingFeedItemUid) {
+        await tombstoneFeedItem(req.userId!, existing.starlingFeedItemUid)
+    }
+
     const spend = await BudgetSpend.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },
         { $set: { row: rowId }, $unset: { starlingFeedItemUid: '' } },
         { new: true }
     )
-    if (!spend) {
-        res.status(404).json({ message: 'Transaction not found' })
-        return
-    }
     res.json({ message: 'Moved', data: spend })
 }
 
-/** DELETE /budget-spends/:id — remove a transaction. */
+/**
+ * DELETE /budget-spends/:id — remove a transaction. If it came from Starling, also
+ * tombstone its feed item so a future sync won't silently re-import it.
+ */
 export async function deleteBudgetSpend(req: AuthRequest, res: Response) {
     const spend = await BudgetSpend.findOneAndDelete({ _id: req.params.id, user: req.userId })
     if (!spend) {
         res.status(404).json({ message: 'Transaction not found' })
         return
+    }
+    if (spend.starlingFeedItemUid) {
+        await tombstoneFeedItem(req.userId!, spend.starlingFeedItemUid)
     }
     res.json({ message: 'Deleted', data: null })
 }

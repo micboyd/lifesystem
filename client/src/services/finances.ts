@@ -243,6 +243,9 @@ export interface StarlingSyncResult {
     imported: number
     updated: number
     removed: number
+    /** Transactions Starling still shows, but you'd previously deleted or moved away
+     *  — correctly left out rather than re-added. */
+    skipped: number
     total: number
     /** The Space's current balance right after syncing, if it could be fetched. */
     balance: number | null

@@ -932,15 +932,13 @@ export default function Budgets() {
                 )
             }
             invalidate('budget')
+            const plural = (n: number, label: string) => `${label} ${n} transaction${n === 1 ? '' : 's'}`
             const parts: string[] = []
-            if (result.imported > 0) parts.push(`imported ${result.imported}`)
-            if (result.removed > 0) parts.push(`removed ${result.removed}`)
+            if (result.imported > 0) parts.push(plural(result.imported, 'imported'))
+            if (result.removed > 0) parts.push(plural(result.removed, 'removed'))
+            if (result.skipped > 0) parts.push(plural(result.skipped, 'skipped previously-removed'))
             toast.show(
-                parts.length > 0
-                    ? `Synced — ${parts.join(', ')} transaction${
-                          result.imported + result.removed === 1 ? '' : 's'
-                      }.`
-                    : 'Up to date — no changes.',
+                parts.length > 0 ? `Synced — ${parts.join(', ')}.` : 'Up to date — no changes.',
                 'success'
             )
         } catch {
