@@ -8,6 +8,7 @@ import {
     setBudgetExclusion,
     createBudgetSpend,
     deleteBudgetSpend,
+    moveBudgetSpend,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
 import { computeBudgetDay, computeBudgetWeek, daysInMonth, activeDaysInMonth } from '../lib/budget'
@@ -463,6 +464,56 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
     )
 }
 
+// ── Move-to-another-budget menu ───────────────────────────────────────────────
+
+interface MoveMenuProps {
+    options: { id: string; name: string }[]
+    onMove: (rowId: string) => void
+}
+
+/** Small popover listing other budgets a transaction can be reassigned to. */
+function MoveMenu({ options, onMove }: MoveMenuProps) {
+    const [open, setOpen] = useState(false)
+    if (options.length === 0) return null
+
+    return (
+        <div className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                aria-label="Move to another budget"
+                title="Move to another budget"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+            >
+                <i className="fa-solid fa-right-left text-xs" aria-hidden="true" />
+            </button>
+            {open && (
+                <>
+                    <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden="true" />
+                    <div className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-neutral-100 bg-white py-1 shadow-lg">
+                        <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                            Move to
+                        </p>
+                        {options.map((o) => (
+                            <button
+                                key={o.id}
+                                type="button"
+                                onClick={() => {
+                                    onMove(o.id)
+                                    setOpen(false)
+                                }}
+                                className="block w-full truncate px-3 py-2 text-left text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-100"
+                            >
+                                {o.name}
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
+    )
+}
+
 // ── Week modal ────────────────────────────────────────────────────────────────
 
 const SHORT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -471,12 +522,14 @@ interface WeekModalProps {
     week: WeekGroup
     today: string
     dailyRows: FinanceRow[]
+    allRows: FinanceRow[]
     entries: FinanceEntry[]
     spends: BudgetSpend[]
     excludedDates: Set<string>
     onClose: () => void
     onAddSpend: (rowId: string, date: string, amount: number, note?: string) => Promise<void>
     onDeleteSpend: (id: string) => Promise<void>
+    onMoveSpend: (id: string, rowId: string) => Promise<void>
     onSetExcluded: (date: string, excluded: boolean) => Promise<void>
 }
 
@@ -484,12 +537,14 @@ function WeekModal({
     week,
     today,
     dailyRows,
+    allRows,
     entries,
     spends,
     excludedDates,
     onClose,
     onAddSpend,
     onDeleteSpend,
+    onMoveSpend,
     onSetExcluded,
 }: WeekModalProps) {
     const firstAvailable = week.days.find((d) => d.date <= today) ?? week.days[0]
@@ -692,6 +747,10 @@ function WeekModal({
                                         <span className="w-10 shrink-0 text-neutral-400">{dayLabel}</span>
                                         <span className="flex-1 truncate font-semibold text-neutral-700">{t.note || rowName(t.row)}</span>
                                         <span className="shrink-0 text-neutral-700">£{fmt(t.amount)}</span>
+                                        <MoveMenu
+                                            options={allRows.filter((r) => r._id !== t.row).map((r) => ({ id: r._id, name: r.name }))}
+                                            onMove={(rowId) => onMoveSpend(t._id, rowId)}
+                                        />
                                         <button
                                             type="button"
                                             onClick={() => onDeleteSpend(t._id)}
@@ -716,6 +775,7 @@ function WeekModal({
 interface DayModalProps {
     date: string
     dailyRows: FinanceRow[]
+    allRows: FinanceRow[]
     entries: FinanceEntry[]
     spends: BudgetSpend[]
     excluded: boolean
@@ -723,12 +783,14 @@ interface DayModalProps {
     onClose: () => void
     onAddSpend: (rowId: string, date: string, amount: number, note?: string) => Promise<void>
     onDeleteSpend: (id: string) => Promise<void>
+    onMoveSpend: (id: string, rowId: string) => Promise<void>
     onSetExcluded: (excluded: boolean) => Promise<void>
 }
 
 function DayModal({
     date,
     dailyRows,
+    allRows,
     entries,
     spends,
     excluded,
@@ -736,6 +798,7 @@ function DayModal({
     onClose,
     onAddSpend,
     onDeleteSpend,
+    onMoveSpend,
     onSetExcluded,
 }: DayModalProps) {
     const isFuture = date > todayKey()
@@ -822,6 +885,10 @@ function DayModal({
                                     </div>
                                     <div className="flex shrink-0 items-center gap-2">
                                         <span className="text-sm text-neutral-700">£{fmt(t.amount)}</span>
+                                        <MoveMenu
+                                            options={allRows.filter((r) => r._id !== t.row).map((r) => ({ id: r._id, name: r.name }))}
+                                            onMove={(rowId) => onMoveSpend(t._id, rowId)}
+                                        />
                                         <button
                                             type="button"
                                             onClick={() => onDeleteSpend(t._id)}
@@ -869,6 +936,10 @@ function DayModal({
                                     </div>
                                     <div className="flex shrink-0 items-center gap-2">
                                         <span className="text-sm text-neutral-700">£{fmt(t.amount)}</span>
+                                        <MoveMenu
+                                            options={allRows.filter((r) => r._id !== t.row).map((r) => ({ id: r._id, name: r.name }))}
+                                            onMove={(rowId) => onMoveSpend(t._id, rowId)}
+                                        />
                                         <button
                                             type="button"
                                             onClick={() => onDeleteSpend(t._id)}
@@ -1090,6 +1161,17 @@ export default function BudgetCalendar() {
         }
     }
 
+    async function handleMoveSpend(id: string, rowId: string) {
+        try {
+            const updated = await moveBudgetSpend(id, rowId)
+            setSpends((prev) => prev.map((s) => (s._id === id ? updated : s)))
+            invalidate('budget')
+            toast.show('Transaction moved.', 'success')
+        } catch {
+            toast.error("Couldn’t move that transaction.")
+        }
+    }
+
     async function handleSetExcluded(date: string, excluded: boolean) {
         try {
             const result = await setBudgetExclusion(date, excluded)
@@ -1291,6 +1373,7 @@ export default function BudgetCalendar() {
                 <DayModal
                     date={selectedDate}
                     dailyRows={dailyRows}
+                    allRows={allDailyRows}
                     entries={entries}
                     spends={spends}
                     excluded={excludedDates.has(selectedDate)}
@@ -1298,6 +1381,7 @@ export default function BudgetCalendar() {
                     onClose={() => setSelectedDate(null)}
                     onAddSpend={handleAddSpend}
                     onDeleteSpend={handleDeleteSpend}
+                    onMoveSpend={handleMoveSpend}
                     onSetExcluded={(ex) => handleSetExcluded(selectedDate, ex)}
                 />
             )}
@@ -1307,12 +1391,14 @@ export default function BudgetCalendar() {
                     week={selectedWeek}
                     today={today}
                     dailyRows={dailyRows}
+                    allRows={allDailyRows}
                     entries={entries}
                     spends={spends}
                     excludedDates={excludedDates}
                     onClose={() => setSelectedWeek(null)}
                     onAddSpend={handleAddSpend}
                     onDeleteSpend={handleDeleteSpend}
+                    onMoveSpend={handleMoveSpend}
                     onSetExcluded={handleSetExcluded}
                 />
             )}

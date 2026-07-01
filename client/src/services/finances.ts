@@ -218,6 +218,19 @@ export async function deleteBudgetSpend(id: string): Promise<void> {
     await api.delete(`/finances/budget-spends/${id}`)
 }
 
+/**
+ * Reassign a transaction to a different budget. If it was imported from Starling,
+ * this also detaches it from that link server-side — the underlying transaction is
+ * still attributed to the original Space in Starling's feed, so without detaching,
+ * a future sync of the original budget would silently move it back.
+ */
+export async function moveBudgetSpend(id: string, rowId: string): Promise<BudgetSpend> {
+    const res = await api.put<ApiResponse<BudgetSpend>>(`/finances/budget-spends/${id}/move`, {
+        row: rowId,
+    })
+    return res.data.data
+}
+
 // ── Starling Bank ─────────────────────────────────────────────────────────────
 
 /** List linkable Starling Spaces. Throws 501 if Starling isn't configured server-side. */

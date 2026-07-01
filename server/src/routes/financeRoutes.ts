@@ -21,6 +21,7 @@ import {
     listBudgetSpends,
     createBudgetSpend,
     updateBudgetSpend,
+    moveBudgetSpend,
     deleteBudgetSpend,
 } from '../controllers/budgetSpendController'
 import { listBudgetExclusions, setBudgetExclusion } from '../controllers/budgetExclusionController'
@@ -64,6 +65,7 @@ router.put('/paid/:rowId/:month', setPaid)
 router.get('/budget-spends', listBudgetSpends)
 router.post('/budget-spends', createBudgetSpend)
 router.put('/budget-spends/:id', updateBudgetSpend)
+router.put('/budget-spends/:id/move', moveBudgetSpend)
 router.delete('/budget-spends/:id', deleteBudgetSpend)
 
 // Budget day exclusions

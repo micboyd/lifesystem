@@ -90,6 +90,39 @@ export async function updateBudgetSpend(req: AuthRequest, res: Response) {
     res.json({ message: 'Saved', data: spend })
 }
 
+/**
+ * PUT /budget-spends/:id/move — reassign a transaction to a different budget row.
+ *
+ * If the transaction was imported from Starling, this also detaches it from that
+ * link (clears starlingFeedItemUid): the underlying transaction is still attributed
+ * to the original Space in Starling's own feed, so a future sync of the original
+ * budget would otherwise see it as still-current and silently move it back.
+ */
+export async function moveBudgetSpend(req: AuthRequest, res: Response) {
+    const rowId = typeof req.body.row === 'string' ? req.body.row : ''
+    if (!rowId) {
+        res.status(400).json({ message: 'row is required' })
+        return
+    }
+
+    const targetRow = await FinanceRow.findOne({ _id: rowId, user: req.userId, budgeted: true })
+    if (!targetRow) {
+        res.status(404).json({ message: 'Target budget not found' })
+        return
+    }
+
+    const spend = await BudgetSpend.findOneAndUpdate(
+        { _id: req.params.id, user: req.userId },
+        { $set: { row: rowId }, $unset: { starlingFeedItemUid: '' } },
+        { new: true }
+    )
+    if (!spend) {
+        res.status(404).json({ message: 'Transaction not found' })
+        return
+    }
+    res.json({ message: 'Moved', data: spend })
+}
+
 /** DELETE /budget-spends/:id — remove a transaction. */
 export async function deleteBudgetSpend(req: AuthRequest, res: Response) {
     const spend = await BudgetSpend.findOneAndDelete({ _id: req.params.id, user: req.userId })
