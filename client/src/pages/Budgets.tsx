@@ -104,32 +104,53 @@ function formatDateRange(start: string, end: string): string {
     return `${startStr}–${endStr}`
 }
 
-/** e.g. "Mon, 6 Jul" — for individual transaction rows. */
-function formatTxDate(date: string): string {
-    return new Date(`${date}T00:00:00`).toLocaleDateString('en-GB', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-    })
+/** 1st, 2nd, 3rd, 4th... */
+function ordinal(n: number): string {
+    if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`
+    switch (n % 10) {
+        case 1: return `${n}st`
+        case 2: return `${n}nd`
+        case 3: return `${n}rd`
+        default: return `${n}th`
+    }
 }
 
-/** This month's spends for a row, bucketed by week number and sorted chronologically. */
-function groupSpendsByWeek(
-    month: string,
-    spends: BudgetSpend[]
-): { weekNum: number; items: BudgetSpend[] }[] {
-    const buckets = new Map<number, BudgetSpend[]>()
+/** e.g. "Monday 2nd of June" — a day-group header. */
+function formatDayHeader(date: string): string {
+    const d = new Date(`${date}T00:00:00`)
+    const weekday = d.toLocaleDateString('en-GB', { weekday: 'long' })
+    const month = d.toLocaleDateString('en-GB', { month: 'long' })
+    return `${weekday} ${ordinal(d.getDate())} of ${month}`
+}
+
+interface DayGroup {
+    date: string
+    items: BudgetSpend[]
+}
+
+interface WeekGroup {
+    weekNum: number
+    days: DayGroup[]
+}
+
+/** This month's spends for a row, bucketed by week then by day, chronologically. */
+function groupSpendsByWeek(month: string, spends: BudgetSpend[]): WeekGroup[] {
+    const weekBuckets = new Map<number, Map<string, BudgetSpend[]>>()
     for (const s of spends) {
         if (s.date.slice(0, 7) !== month) continue
         const wn = weekNumberInMonth(s.date)
-        if (!buckets.has(wn)) buckets.set(wn, [])
-        buckets.get(wn)!.push(s)
+        if (!weekBuckets.has(wn)) weekBuckets.set(wn, new Map())
+        const dayBuckets = weekBuckets.get(wn)!
+        if (!dayBuckets.has(s.date)) dayBuckets.set(s.date, [])
+        dayBuckets.get(s.date)!.push(s)
     }
-    return Array.from(buckets.entries())
+    return Array.from(weekBuckets.entries())
         .sort(([a], [b]) => a - b)
-        .map(([weekNum, items]) => ({
+        .map(([weekNum, dayBuckets]) => ({
             weekNum,
-            items: items.slice().sort((a, b) => a.date.localeCompare(b.date)),
+            days: Array.from(dayBuckets.entries())
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([date, items]) => ({ date, items })),
         }))
 }
 
@@ -593,20 +614,26 @@ interface AllTransactionsDrawerProps {
 function AllTransactionsDrawer({ row, month, spends, onClose, onDelete }: AllTransactionsDrawerProps) {
     const weeks = groupSpendsByWeek(month, spends)
     const bounds = monthWeekBounds(month)
-    const monthTotal = weeks.reduce((sum, w) => sum + w.items.reduce((s, t) => s + t.amount, 0), 0)
+    const monthTotal = weeks.reduce(
+        (sum, w) => sum + w.days.reduce((s, d) => s + d.items.reduce((s2, t) => s2 + t.amount, 0), 0),
+        0
+    )
 
     return (
         <Drawer open onClose={onClose} title={row.name} badge={`£${fmt(monthTotal)}`} size="md">
             {weeks.length === 0 ? (
                 <p className="text-sm text-neutral-500">No transactions logged this month.</p>
             ) : (
-                <div className="flex flex-col gap-5">
-                    {weeks.map(({ weekNum, items }) => {
+                <div className="flex flex-col gap-6">
+                    {weeks.map(({ weekNum, days }) => {
                         const range = bounds.get(weekNum)
-                        const weekTotal = items.reduce((s, t) => s + t.amount, 0)
+                        const weekTotal = days.reduce(
+                            (s, d) => s + d.items.reduce((s2, t) => s2 + t.amount, 0),
+                            0
+                        )
                         return (
                             <div key={weekNum}>
-                                <div className="mb-2 flex items-baseline justify-between gap-2">
+                                <div className="mb-3 flex items-baseline justify-between gap-2">
                                     <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
                                         Week {weekNum}
                                         {range ? ` · ${formatDateRange(range.start, range.end)}` : ''}
@@ -615,34 +642,40 @@ function AllTransactionsDrawer({ row, month, spends, onClose, onDelete }: AllTra
                                         £{fmt(weekTotal)}
                                     </span>
                                 </div>
-                                <ul className="flex flex-col gap-1.5">
-                                    {items.map((t) => (
-                                        <li
-                                            key={t._id}
-                                            className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3.5 py-2.5"
-                                        >
-                                            <div className="min-w-0">
-                                                <p className="truncate text-sm font-semibold text-neutral-800">
-                                                    {t.note || row.name}
-                                                </p>
-                                                <p className="text-xs text-neutral-400">{formatTxDate(t.date)}</p>
-                                            </div>
-                                            <div className="flex shrink-0 items-center gap-2">
-                                                <span className="text-sm tabular-nums text-neutral-700">
-                                                    £{fmt(t.amount)}
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onDelete(t._id)}
-                                                    aria-label="Delete transaction"
-                                                    className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                                                >
-                                                    <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                                                </button>
-                                            </div>
-                                        </li>
+                                <div className="flex flex-col gap-4">
+                                    {days.map(({ date, items }) => (
+                                        <div key={date}>
+                                            <p className="mb-1.5 text-sm font-semibold text-neutral-700">
+                                                {formatDayHeader(date)}
+                                            </p>
+                                            <ul className="flex flex-col gap-1.5">
+                                                {items.map((t) => (
+                                                    <li
+                                                        key={t._id}
+                                                        className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3.5 py-2.5"
+                                                    >
+                                                        <p className="min-w-0 truncate text-sm font-semibold text-neutral-800">
+                                                            {t.note || row.name}
+                                                        </p>
+                                                        <div className="flex shrink-0 items-center gap-2">
+                                                            <span className="text-sm tabular-nums text-neutral-700">
+                                                                £{fmt(t.amount)}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => onDelete(t._id)}
+                                                                aria-label="Delete transaction"
+                                                                className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                                            >
+                                                                <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                                            </button>
+                                                        </div>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
                         )
                     })}
@@ -660,7 +693,6 @@ interface BudgetCardProps {
     entry: FinanceEntry | undefined
     spends: BudgetSpend[]
     excludedDates: Set<string>
-    month: string
     weekStart: string
     weekEnd: string
     isCurrentWeek: boolean
@@ -674,15 +706,15 @@ interface BudgetCardProps {
     onOpenLink: (row: FinanceRow) => void
     onSync: (row: FinanceRow) => void
     onOpenReconcile: (row: FinanceRow) => void
+    onOpenTransactions: (row: FinanceRow) => void
 }
 
 function BudgetCard({
-    row, group, entry, spends, excludedDates, month,
+    row, group, entry, spends, excludedDates,
     weekStart, weekEnd, isCurrentWeek, isFutureWeek,
     starlingEnabled, linkedSpace, syncing,
-    onToggleDailySpend, onLogSpend, onDeleteSpend, onOpenLink, onSync, onOpenReconcile,
+    onToggleDailySpend, onLogSpend, onDeleteSpend, onOpenLink, onSync, onOpenReconcile, onOpenTransactions,
 }: BudgetCardProps) {
-    const [txDrawerOpen, setTxDrawerOpen] = useState(false)
     const isLinked = !!row.starlingCategoryUid
     const isDailySpend = row.budgetType === 'daily'
     const isWeeklySpend = row.budgetType === 'weekly'
@@ -735,7 +767,6 @@ function BudgetCard({
     })()
 
     return (
-        <>
         <div className="group flex flex-col gap-6 rounded-3xl border border-neutral-200 bg-white p-6 transition-colors duration-200 hover:border-neutral-300">
             {/* Header */}
             <div className="flex items-start justify-between gap-4">
@@ -944,7 +975,7 @@ function BudgetCard({
                 {/* All this month's transactions, grouped by week */}
                 <button
                     type="button"
-                    onClick={() => setTxDrawerOpen(true)}
+                    onClick={() => onOpenTransactions(row)}
                     className="inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
                 >
                     <i className="fa-solid fa-receipt text-[10px]" aria-hidden="true" />
@@ -997,17 +1028,6 @@ function BudgetCard({
                 </button>
             </div>
         </div>
-
-        {txDrawerOpen && (
-            <AllTransactionsDrawer
-                row={row}
-                month={month}
-                spends={spends}
-                onClose={() => setTxDrawerOpen(false)}
-                onDelete={onDeleteSpend}
-            />
-        )}
-        </>
     )
 }
 
@@ -1034,6 +1054,7 @@ export default function Budgets() {
     const [reconcileLoading, setReconcileLoading] = useState(false)
     const [reconcileError, setReconcileError] = useState(false)
     const [reconcileData, setReconcileData] = useState<StarlingReconciliation | null>(null)
+    const [txRow, setTxRow] = useState<FinanceRow | null>(null)
     const [exclusions, setExclusions] = useState<StarlingExclusion[]>([])
     const [exclusionsOpen, setExclusionsOpen] = useState(false)
     const [recoveringId, setRecoveringId] = useState<string | null>(null)
@@ -1322,7 +1343,6 @@ export default function Budgets() {
                                 entry={entry}
                                 spends={rowSpends}
                                 excludedDates={excludedDates}
-                                month={month}
                                 weekStart={weekStart}
                                 weekEnd={weekEnd}
                                 isCurrentWeek={isCurrentWeek}
@@ -1336,6 +1356,7 @@ export default function Budgets() {
                                 onOpenLink={setLinkModalRow}
                                 onSync={handleSync}
                                 onOpenReconcile={openReconcile}
+                                onOpenTransactions={setTxRow}
                             />
                         )
                     })}
@@ -1370,6 +1391,16 @@ export default function Budgets() {
                     error={reconcileError}
                     data={reconcileData}
                     onClose={() => setReconcileRow(null)}
+                />
+            )}
+
+            {txRow && (
+                <AllTransactionsDrawer
+                    row={txRow}
+                    month={month}
+                    spends={spends.filter((s) => s.row === txRow._id)}
+                    onClose={() => setTxRow(null)}
+                    onDelete={handleDeleteSpend}
                 />
             )}
 
