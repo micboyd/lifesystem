@@ -835,15 +835,23 @@ function DayModal({
     const dayTx = spends.filter((s) => s.date === date && rowIds.has(s.row))
     const spentToday = dayTx.reduce((sum, t) => sum + t.amount, 0)
 
-    const monthlyTotal = dailyRows.reduce((sum, row) => {
-        const entry = entries.find((e) => e.row === row._id)
-        return sum + (entry?.amount ?? row.recurringAmount ?? 0)
-    }, 0)
-    // Target uses active (non-excluded) days so it matches the calendar grid.
-    const activeDays = activeDaysInMonth(date.slice(0, 7), excludedDates)
-    const dailyRate = activeDays > 0 ? monthlyTotal / activeDays : 0
+    // Daily guide + carry, via computeBudgetDay (the single source of truth used by
+    // the calendar grid too) — summed across the daily-tracked rows in view, so an
+    // under/overspend from earlier days shows up here rather than being invisible.
+    const dailyOnlyRows = dailyRows.filter((r) => r.budgetType === 'daily')
+    const dailySummary = dailyOnlyRows.reduce(
+        (acc, row) => {
+            const entry = entries.find((e) => e.row === row._id)
+            const rowSpends = spends.filter((s) => s.row === row._id)
+            const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates)
+            return { rate: acc.rate + bd.straightDailyRate, carry: acc.carry + bd.carry }
+        },
+        { rate: 0, carry: 0 }
+    )
+    const dailyRate = dailySummary.rate
+    const dailyCarry = dailySummary.carry
     const isWeeklyOnly = dailyRows.every((r) => r.budgetType === 'weekly')
-    const overTarget = !isWeeklyOnly && !excluded && spentToday > dailyRate
+    const overTarget = !isWeeklyOnly && !excluded && spentToday > dailyRate + dailyCarry
 
     // Weekly-tracked rows still log on the Weekly tab, but showing the week's carry
     // here too means you can check where things stand without switching tabs.
@@ -1025,9 +1033,14 @@ function DayModal({
                             {dailyRate > 0 && !isWeeklyOnly && (
                                 <div className="flex-1 rounded-xl bg-neutral-50 px-4 py-3">
                                     <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                        Daily guide{dailyRows.length > 1 ? ' (all)' : ''}
+                                        Daily guide{dailyOnlyRows.length > 1 ? ' (all)' : ''}
                                     </p>
                                     <p className="mt-0.5 text-lg font-bold text-neutral-900">£{fmt(dailyRate)}</p>
+                                    {dailyCarry !== 0 && (
+                                        <p className={`mt-0.5 text-xs font-semibold ${dailyCarry >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                            {dailyCarry >= 0 ? '+' : '-'}£{fmt(Math.abs(dailyCarry))} carry
+                                        </p>
+                                    )}
                                 </div>
                             )}
                             <div className="flex-1 rounded-xl bg-neutral-50 px-4 py-3">
@@ -1112,12 +1125,12 @@ function DayModal({
                         )}
 
                         {/* Per-budget targets */}
-                        {dailyRows.length > 1 && (
+                        {dailyOnlyRows.length > 1 && (
                             <div className="mt-4 flex flex-col gap-1.5 border-t border-neutral-100 pt-3">
-                                {dailyRows.map((row) => {
+                                {dailyOnlyRows.map((row) => {
                                     const entry = entries.find((e) => e.row === row._id)
                                     const rowSpends = spends.filter((s) => s.row === row._id)
-                                    const { straightDailyRate } = computeBudgetDay(
+                                    const { straightDailyRate, carry } = computeBudgetDay(
                                         row,
                                         entry,
                                         rowSpends,
@@ -1131,7 +1144,13 @@ function DayModal({
                                         <div key={row._id} className="flex items-center justify-between gap-2 text-xs">
                                             <span className="font-semibold text-neutral-600">{row.name}</span>
                                             <span className="text-neutral-400">
-                                                £{fmt(rowSpent)} / £{fmt(straightDailyRate)}
+                                                £{fmt(rowSpent)} / £{fmt(straightDailyRate + carry)}
+                                                {carry !== 0 && (
+                                                    <span className={carry >= 0 ? 'text-emerald-600' : 'text-red-500'}>
+                                                        {' '}
+                                                        ({carry >= 0 ? '+' : '-'}£{fmt(Math.abs(carry))})
+                                                    </span>
+                                                )}
                                             </span>
                                         </div>
                                     )
@@ -1142,7 +1161,7 @@ function DayModal({
                         {overTarget && (
                             <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm font-semibold text-amber-700">
                                 <i className="fa-solid fa-triangle-exclamation text-xs" aria-hidden="true" />
-                                Over daily target by £{fmt(spentToday - dailyRate)}
+                                Over daily target by £{fmt(spentToday - (dailyRate + dailyCarry))}
                             </div>
                         )}
                     </div>
