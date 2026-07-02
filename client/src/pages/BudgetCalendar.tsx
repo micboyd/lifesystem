@@ -68,6 +68,28 @@ function startOffset(ym: string): number {
     return (dow + 6) % 7
 }
 
+function shiftDate(date: string, n: number): string {
+    const d = new Date(`${date}T00:00:00`)
+    d.setDate(d.getDate() + n)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function dayOfWeek(date: string): number {
+    const dow = new Date(`${date}T12:00:00`).getDay()
+    return dow === 0 ? 6 : dow - 1 // Mon=0…Sun=6
+}
+
+/** Month-clamped Monday–Sunday boundaries for the week containing `date` — same
+ *  clamping groupByWeek uses, so the carry math lines up with the Weekly tab. */
+function weekBoundsFor(date: string): { start: string; end: string } {
+    const month = date.slice(0, 7)
+    let start = date
+    while (dayOfWeek(start) > 0 && shiftDate(start, -1).slice(0, 7) === month) start = shiftDate(start, -1)
+    let end = date
+    while (dayOfWeek(end) < 6 && shiftDate(end, 1).slice(0, 7) === month) end = shiftDate(end, 1)
+    return { start, end }
+}
+
 const fmt = formatAmount
 
 // ── Week grouping ─────────────────────────────────────────────────────────────
@@ -823,6 +845,22 @@ function DayModal({
     const isWeeklyOnly = dailyRows.every((r) => r.budgetType === 'weekly')
     const overTarget = !isWeeklyOnly && !excluded && spentToday > dailyRate
 
+    // Weekly-tracked rows still log on the Weekly tab, but showing the week's carry
+    // here too means you can check where things stand without switching tabs.
+    const weeklySummaries = isWeeklyOnly
+        ? (() => {
+              const { start: weekStart, end: weekEnd } = weekBoundsFor(date)
+              return dailyRows.map((row) => {
+                  const entry = entries.find((e) => e.row === row._id)
+                  const rowSpends = spends.filter((s) => s.row === row._id)
+                  return {
+                      row,
+                      ...computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, todayKey(), excludedDates),
+                  }
+              })
+          })()
+        : []
+
     const rowName = (id: string) => dailyRows.find((r) => r._id === id)?.name ?? '—'
 
     async function handleAdd(e: FormEvent) {
@@ -984,7 +1022,7 @@ function DayModal({
                     <div className={excluded ? 'pointer-events-none opacity-40' : ''}>
                         {/* Target + spent summary */}
                         <div className="mb-3 flex items-stretch gap-3">
-                            {dailyRate > 0 && (
+                            {dailyRate > 0 && !isWeeklyOnly && (
                                 <div className="flex-1 rounded-xl bg-neutral-50 px-4 py-3">
                                     <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                         Daily guide{dailyRows.length > 1 ? ' (all)' : ''}
@@ -1004,9 +1042,42 @@ function DayModal({
 
                         {/* Add a transaction — only available for daily-tracked rows */}
                         {isWeeklyOnly ? (
-                            <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-3 text-center text-xs text-neutral-400">
-                                Log transactions on the <strong>Weekly</strong> tab above
-                            </p>
+                            <div className="flex flex-col gap-2">
+                                {weeklySummaries.map(({ row, weeklyRate, carry, spentThisWeek, remaining }) => (
+                                    <div key={row._id} className="rounded-xl border border-neutral-100 px-4 py-3">
+                                        {weeklySummaries.length > 1 && (
+                                            <p className="mb-1.5 text-xs font-semibold text-neutral-600">{row.name}</p>
+                                        )}
+                                        <div className="flex items-baseline justify-between gap-2">
+                                            <span className="text-xs text-neutral-400">This week's allowance</span>
+                                            <span className="text-sm font-bold text-neutral-900">
+                                                £{fmt(weeklyRate + carry)}
+                                            </span>
+                                        </div>
+                                        {carry !== 0 && (
+                                            <div className="mt-1 flex items-baseline justify-between gap-2">
+                                                <span className="text-xs text-neutral-400">Carry</span>
+                                                <span className={`text-xs font-semibold ${carry >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                    {carry >= 0 ? '+' : '-'}£{fmt(Math.abs(carry))}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="mt-1 flex items-baseline justify-between gap-2">
+                                            <span className="text-xs text-neutral-400">Spent this week</span>
+                                            <span className="text-xs text-neutral-700">£{fmt(spentThisWeek)}</span>
+                                        </div>
+                                        <div className="mt-1 flex items-baseline justify-between gap-2">
+                                            <span className="text-xs text-neutral-400">Remaining</span>
+                                            <span className={`text-xs font-semibold ${remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                                {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                                <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-3 text-center text-xs text-neutral-400">
+                                    Log transactions on the <strong>Weekly</strong> tab above
+                                </p>
+                            </div>
                         ) : (
                             <form onSubmit={handleAdd} className="flex flex-col gap-2">
                                 {dailyRows.length > 1 && (
