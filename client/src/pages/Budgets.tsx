@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import Modal from '../components/Modal'
@@ -1058,6 +1058,9 @@ export default function Budgets() {
     const [exclusions, setExclusions] = useState<StarlingExclusion[]>([])
     const [exclusionsOpen, setExclusionsOpen] = useState(false)
     const [recoveringId, setRecoveringId] = useState<string | null>(null)
+    // Tracks which month has already been auto-synced this session, so navigating
+    // back and forth within the same month doesn't re-trigger it.
+    const autoSyncedMonthRef = useRef<string | null>(null)
     const toast = useToast()
     const invalidate = useInvalidate()
 
@@ -1137,6 +1140,43 @@ export default function Budgets() {
         return () => { active = false }
     }, [])
 
+    // Silently sync every Starling-linked budget once per month view, so figures are
+    // fresh on open without a click. Runs once per month (tracked via the ref, not
+    // re-triggered by unrelated row updates) and stays quiet on failure — the manual
+    // Sync button on each card is still there as a fallback.
+    useEffect(() => {
+        if (loading || !starlingEnabled) return
+        if (autoSyncedMonthRef.current === month) return
+        autoSyncedMonthRef.current = month
+
+        const linkedRows = rows.filter((r) => r.budgeted && r.starlingCategoryUid)
+        if (linkedRows.length === 0) return
+
+        let active = true
+        ;(async () => {
+            for (const row of linkedRows) {
+                if (!active) return
+                try {
+                    await runSync(row)
+                } catch {
+                    // Silent — one budget failing to sync shouldn't block the rest.
+                }
+            }
+            if (!active) return
+            try {
+                const fresh = await listBudgetSpends({ month })
+                if (active) {
+                    setSpends(fresh)
+                    invalidate('budget')
+                }
+            } catch {
+                // Silent — spends just reflect pre-sync state until the next load.
+            }
+        })()
+
+        return () => { active = false }
+    }, [month, starlingEnabled, loading, rows])
+
     async function handleRecover(id: string) {
         setRecoveringId(id)
         try {
@@ -1177,20 +1217,29 @@ export default function Budgets() {
             .finally(() => setReconcileLoading(false))
     }
 
+    /**
+     * The actual Starling sync call for one row, plus the local balance refresh so
+     * the "out of sync" badge is accurate straight after. Shared by the manual Sync
+     * button and the silent auto-sync on page/month load — callers handle their own
+     * loading state, spends refresh, and feedback.
+     */
+    async function runSync(row: FinanceRow) {
+        const result = await syncStarlingSpace(row._id, month)
+        if (result.balance !== null && row.starlingCategoryUid) {
+            const categoryUid = row.starlingCategoryUid
+            setSpaces((prev) =>
+                prev.map((s) => (s.id === categoryUid ? { ...s, balance: result.balance! } : s))
+            )
+        }
+        return result
+    }
+
     async function handleSync(row: FinanceRow) {
         setSyncingRowId(row._id)
         try {
-            const result = await syncStarlingSpace(row._id, month)
+            const result = await runSync(row)
             const fresh = await listBudgetSpends({ month })
             setSpends(fresh)
-            // Refresh the balance we already hold locally so the "out of sync" badge
-            // reflects reality immediately, without a second Starling round trip.
-            if (result.balance !== null && row.starlingCategoryUid) {
-                const categoryUid = row.starlingCategoryUid
-                setSpaces((prev) =>
-                    prev.map((s) => (s.id === categoryUid ? { ...s, balance: result.balance! } : s))
-                )
-            }
             invalidate('budget')
             const plural = (n: number, label: string) => `${label} ${n} transaction${n === 1 ? '' : 's'}`
             const parts: string[] = []
