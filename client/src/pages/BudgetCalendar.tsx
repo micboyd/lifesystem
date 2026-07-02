@@ -218,23 +218,20 @@ function buildDayData(
         const date = dateKey(month, d)
         const excluded = excludedDates.has(date)
 
-        // Daily rows: per-day targets + carry (used for day colouring)
+        // Every tracked row — daily or weekly — gets a per-day rate + carry via
+        // computeBudgetDay: what's left from earlier active days this month, rolled
+        // into today (bounded to the month, same as everywhere else). Weekly rows
+        // still only get coloured per-week (below); this carry figure is just as
+        // meaningful for them as a reference, it's just never used to flag a day
+        // amber/red on its own.
         let dailyRate = 0
         let carry = 0
-        for (const row of dailyRows) {
+        for (const row of trackedRows) {
             const entry = entries.find((e) => e.row === row._id)
             const rowSpends = spends.filter((s) => s.row === row._id)
             const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates)
             dailyRate += bd.straightDailyRate
             carry += bd.carry
-        }
-        // Weekly rows: add equivalent daily rate as a guide (monthlyAmount / activeDays).
-        // No carry — weekly rows don't track per-day.
-        for (const row of weeklyRows) {
-            const entry = entries.find((e) => e.row === row._id)
-            const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
-            const activeDays = activeDaysInMonth(month, excludedDates)
-            dailyRate += activeDays > 0 ? monthlyAmount / activeDays : 0
         }
 
         const dailyRowIds = new Set(dailyRows.map((r) => r._id))
@@ -275,7 +272,10 @@ interface DayCellProps {
 function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
     const dayNum = Number(data.date.split('-')[2])
     const hasSpend = data.spent > 0
-    const remaining = data.effectiveAllowance - data.dailyOnlySpent
+    // "Left" reflects everything actually spent that day (matches the "spent" figure
+    // shown right above it) — dailyOnlySpent below stays scoped to daily-tracked rows
+    // only, since it's just used to gate the amber/red colouring.
+    const remaining = data.effectiveAllowance - data.spent
     // For weekly-only rows, never colour per-day — only the WeekCell shows over/under.
     const overTarget = !data.isWeeklyOnly && hasSpend && data.dailyOnlySpent > data.dailyRate
     const overBudget = !data.isWeeklyOnly && hasSpend && data.dailyOnlySpent > data.effectiveAllowance
@@ -330,12 +330,15 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                 )}
             </div>
 
-            {/* Mobile: compact spend + remaining */}
-            {!isFuture && !data.excluded && hasSpend && (
+            {/* Mobile: compact spend + remaining — shown even with nothing spent yet,
+                so the day's carried-forward allowance is still visible at a glance. */}
+            {!isFuture && !data.excluded && (
                 <div className="flex lg:hidden flex-col items-start gap-0.5 mt-0.5">
-                    <span className="text-[9px] font-semibold tabular-nums text-neutral-500">
-                        £{fmt(data.spent)}
-                    </span>
+                    {hasSpend && (
+                        <span className="text-[9px] font-semibold tabular-nums text-neutral-500">
+                            £{fmt(data.spent)}
+                        </span>
+                    )}
                     <span className={`text-[9px] font-semibold tabular-nums ${remainingColor}`}>
                         {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
                     </span>
@@ -385,7 +388,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                                     {hasSpend ? `£${fmt(data.spent)}` : '—'}
                                 </span>
                             </div>
-                            {hasSpend && (
+                            {(!isFuture || hasSpend) && (
                                 <div className="flex items-baseline justify-between gap-1">
                                     <span className="text-xs text-neutral-400">left</span>
                                     <span
