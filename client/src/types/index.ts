@@ -527,6 +527,14 @@ export interface BudgetExclusion {
     date: string
 }
 
+export interface BudgetTopUp {
+    _id: string
+    row: string
+    date: string
+    amount: number
+    note?: string
+}
+
 export interface FinanceSubItem {
     _id: string
     row: string

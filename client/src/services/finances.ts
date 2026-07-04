@@ -7,6 +7,7 @@ import type {
     FinanceEntry,
     BudgetSpend,
     BudgetExclusion,
+    BudgetTopUp,
     FinanceSubItem,
     StarlingSpace,
     StarlingMovement,
@@ -295,6 +296,36 @@ export async function recoverStarlingExclusion(id: string): Promise<BudgetSpend>
         `/finances/starling/exclusions/${id}/recover`
     )
     return res.data.data
+}
+
+// ── Budget top-ups ────────────────────────────────────────────────────────────
+
+export async function listBudgetTopUps(month: string): Promise<BudgetTopUp[]> {
+    const res = await api.get<ApiResponse<BudgetTopUp[]>>('/finances/budget-topups', {
+        params: { month },
+    })
+    return res.data.data
+}
+
+/** Add extra money to a budget, dated today — boosts what's left from today onward. */
+export async function createBudgetTopUp(
+    rowId: string,
+    date: string,
+    amount: number,
+    note?: string
+): Promise<BudgetTopUp> {
+    const res = await api.post<ApiResponse<BudgetTopUp>>('/finances/budget-topups', {
+        row: rowId,
+        date,
+        amount,
+        ...(note && { note }),
+    })
+    return res.data.data
+}
+
+/** Undo a top-up. */
+export async function deleteBudgetTopUp(id: string): Promise<void> {
+    await api.delete(`/finances/budget-topups/${id}`)
 }
 
 // ── Budget day exclusions ─────────────────────────────────────────────────────

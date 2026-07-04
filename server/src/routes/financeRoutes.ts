@@ -33,6 +33,11 @@ import {
     recoverStarlingExclusion,
 } from '../controllers/starlingController'
 import {
+    listBudgetTopUps,
+    createBudgetTopUp,
+    deleteBudgetTopUp,
+} from '../controllers/budgetTopUpController'
+import {
     listSubItems,
     createSubItem,
     updateSubItem,
@@ -80,6 +85,11 @@ router.post('/starling/sync', syncStarlingRow)
 router.get('/starling/reconcile', getStarlingReconciliation)
 router.get('/starling/exclusions', listStarlingExclusions)
 router.post('/starling/exclusions/:id/recover', recoverStarlingExclusion)
+
+// Budget top-ups (extra money added to a budget, forward-only from the day it's added)
+router.get('/budget-topups', listBudgetTopUps)
+router.post('/budget-topups', createBudgetTopUp)
+router.delete('/budget-topups/:id', deleteBudgetTopUp)
 
 // Pots (sub-groups within a group)
 router.get('/pots', listPots)
