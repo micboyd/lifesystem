@@ -556,6 +556,8 @@ export interface ExclusionBudget {
     /** Sorted YYYY-MM-DD keys; always a subset of the user's excluded days. */
     dates: string[]
     amount: number
+    /** Optional funding budget row — pot-day spends are logged against it. */
+    row?: string
     note?: string
 }
 

@@ -11,6 +11,8 @@ export interface IExclusionBudget extends Document {
     /** Sorted, de-duplicated YYYY-MM-DD keys; always a subset of the user's excluded days. */
     dates: string[]
     amount: number
+    /** Optional funding budget — spends on the pot's days are logged against this row. */
+    row?: Types.ObjectId
     note?: string
     createdAt: Date
     updatedAt: Date
@@ -25,6 +27,7 @@ const exclusionBudgetSchema = new Schema<IExclusionBudget>(
             required: true,
         },
         amount: { type: Number, required: true, min: 0 },
+        row: { type: Schema.Types.ObjectId, ref: 'FinanceRow' },
         note: { type: String, trim: true, maxlength: 200 },
     },
     { timestamps: true }

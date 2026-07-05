@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import ExclusionBudget from '../models/ExclusionBudget'
 import BudgetExclusion from '../models/BudgetExclusion'
+import FinanceRow from '../models/FinanceRow'
 
 const MONTH_RE = /^\d{4}-\d{2}$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -61,10 +62,21 @@ export async function createExclusionBudget(req: AuthRequest, res: Response) {
         return
     }
 
+    let rowId: string | undefined
+    if (req.body.row) {
+        const row = await FinanceRow.findOne({ _id: req.body.row, user: req.userId })
+        if (!row) {
+            res.status(404).json({ message: 'Row not found' })
+            return
+        }
+        rowId = req.body.row
+    }
+
     const budget = await ExclusionBudget.create({
         user: req.userId,
         dates,
         amount,
+        row: rowId,
         label: parseText(req.body.label, 100),
         note: parseText(req.body.note, 200),
     })
@@ -106,6 +118,18 @@ export async function updateExclusionBudget(req: AuthRequest, res: Response) {
             return
         }
         budget.amount = amount
+    }
+    if (req.body.row !== undefined) {
+        if (!req.body.row) {
+            budget.row = undefined
+        } else {
+            const row = await FinanceRow.findOne({ _id: req.body.row, user: req.userId })
+            if (!row) {
+                res.status(404).json({ message: 'Row not found' })
+                return
+            }
+            budget.row = row._id
+        }
     }
     if (req.body.label !== undefined) budget.label = parseText(req.body.label, 100)
     if (req.body.note !== undefined) budget.note = parseText(req.body.note, 200)

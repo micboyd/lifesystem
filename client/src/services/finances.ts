@@ -354,6 +354,8 @@ export async function setBudgetExclusion(
 export interface ExclusionBudgetPayload {
     dates: string[]
     amount: number
+    /** Funding budget row id; null clears a previously set row. */
+    row?: string | null
     label?: string
     note?: string
 }
