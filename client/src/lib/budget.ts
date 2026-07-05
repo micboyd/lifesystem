@@ -1,4 +1,4 @@
-import type { FinanceRow, FinanceEntry, BudgetSpend, BudgetTopUp } from '../types'
+import type { FinanceRow, FinanceEntry, BudgetSpend, BudgetTopUp, ExclusionBudget } from '../types'
 
 /** "YYYY-MM-DD" → "YYYY-MM". */
 export function monthOf(date: string): string {
@@ -288,4 +288,30 @@ export function computeBudgetWeek(
     const remaining = weeklyRate + carry + topUpThisWeek - spentThisWeek
 
     return { monthlyAmount, weeklyRate, carry, spentThisWeek, remaining, monthlyRemaining }
+}
+
+// ── Exclusion budgets ─────────────────────────────────────────────────────────
+
+export interface ExclusionPot {
+    /** amount ÷ number of days — a guide, not a per-day cap. */
+    guideRate: number
+    /** All spends (any row) dated within the pot's days. */
+    spent: number
+    /** amount − spent: the number that matters — one shared pot. */
+    remaining: number
+}
+
+/**
+ * Roll up an exclusion budget: under/overspend flows freely between the pot's
+ * days, so the pot is judged on its total, not day by day. Row-agnostic —
+ * anything spent on those days counts against the pot.
+ */
+export function computeExclusionPot(group: ExclusionBudget, allSpends: BudgetSpend[]): ExclusionPot {
+    const dateSet = new Set(group.dates)
+    const spent = allSpends.filter((s) => dateSet.has(s.date)).reduce((sum, s) => sum + s.amount, 0)
+    return {
+        guideRate: group.dates.length > 0 ? group.amount / group.dates.length : 0,
+        spent,
+        remaining: group.amount - spent,
+    }
 }

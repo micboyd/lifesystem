@@ -38,6 +38,12 @@ import {
     deleteBudgetTopUp,
 } from '../controllers/budgetTopUpController'
 import {
+    listExclusionBudgets,
+    createExclusionBudget,
+    updateExclusionBudget,
+    deleteExclusionBudget,
+} from '../controllers/exclusionBudgetController'
+import {
     listSubItems,
     createSubItem,
     updateSubItem,
@@ -90,6 +96,12 @@ router.post('/starling/exclusions/:id/recover', recoverStarlingExclusion)
 router.get('/budget-topups', listBudgetTopUps)
 router.post('/budget-topups', createBudgetTopUp)
 router.delete('/budget-topups/:id', deleteBudgetTopUp)
+
+// Exclusion budgets (an alternate pot shared across a set of excluded days)
+router.get('/exclusion-budgets', listExclusionBudgets)
+router.post('/exclusion-budgets', createExclusionBudget)
+router.put('/exclusion-budgets/:id', updateExclusionBudget)
+router.delete('/exclusion-budgets/:id', deleteExclusionBudget)
 
 // Pots (sub-groups within a group)
 router.get('/pots', listPots)

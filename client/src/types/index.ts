@@ -549,6 +549,16 @@ export interface BudgetExclusion {
     date: string
 }
 
+/** An alternate budget pot shared across a set of excluded days. */
+export interface ExclusionBudget {
+    _id: string
+    label?: string
+    /** Sorted YYYY-MM-DD keys; always a subset of the user's excluded days. */
+    dates: string[]
+    amount: number
+    note?: string
+}
+
 export interface BudgetTopUp {
     _id: string
     row: string

@@ -7,6 +7,7 @@ import type {
     FinanceEntry,
     BudgetSpend,
     BudgetExclusion,
+    ExclusionBudget,
     BudgetTopUp,
     FinanceSubItem,
     StarlingSpace,
@@ -346,6 +347,43 @@ export async function setBudgetExclusion(
         { excluded }
     )
     return res.data.data
+}
+
+// ── Exclusion budgets ─────────────────────────────────────────────────────────
+
+export interface ExclusionBudgetPayload {
+    dates: string[]
+    amount: number
+    label?: string
+    note?: string
+}
+
+export async function listExclusionBudgets(month: string): Promise<ExclusionBudget[]> {
+    const res = await api.get<ApiResponse<ExclusionBudget[]>>('/finances/exclusion-budgets', {
+        params: { month },
+    })
+    return res.data.data
+}
+
+/** Assign an alternate budget pot to a set of excluded days. */
+export async function createExclusionBudget(payload: ExclusionBudgetPayload): Promise<ExclusionBudget> {
+    const res = await api.post<ApiResponse<ExclusionBudget>>('/finances/exclusion-budgets', payload)
+    return res.data.data
+}
+
+export async function updateExclusionBudget(
+    id: string,
+    payload: Partial<ExclusionBudgetPayload>
+): Promise<ExclusionBudget> {
+    const res = await api.put<ApiResponse<ExclusionBudget>>(
+        `/finances/exclusion-budgets/${id}`,
+        payload
+    )
+    return res.data.data
+}
+
+export async function deleteExclusionBudget(id: string): Promise<void> {
+    await api.delete(`/finances/exclusion-budgets/${id}`)
 }
 
 // ── Row breakdown sub-items ───────────────────────────────────────────────────
