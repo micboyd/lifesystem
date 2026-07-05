@@ -222,6 +222,24 @@ export const DAYS_SINCE_COLOR_CLASSES: Record<
     },
 }
 
+/** A completed run that ended in a reset. */
+export interface DaysSinceAttempt {
+    startDate: string
+    endDate: string
+    days: number
+    reason?: string
+}
+
+export interface DaysSinceCheckIn {
+    _id: string
+    item: string
+    /** YYYY-MM-DD */
+    date: string
+    /** 1 (easy) – 5 (intense urge) */
+    intensity: number
+    note?: string
+}
+
 export interface DaysSinceItem {
     _id: string
     label: string
@@ -230,6 +248,10 @@ export interface DaysSinceItem {
     /** Font Awesome class string, e.g. "fa-solid fa-fire". */
     icon: string
     color: DaysSinceColor
+    /** Longest run ever completed. */
+    bestStreakDays: number
+    /** Past attempts, oldest first. */
+    history: DaysSinceAttempt[]
     createdAt: string
     updatedAt: string
 }

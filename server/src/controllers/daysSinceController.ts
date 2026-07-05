@@ -5,9 +5,15 @@ import DaysSinceItem, {
     DAYS_SINCE_COLORS,
     DaysSinceColor,
 } from '../models/DaysSinceItem'
+import DaysSinceCheckIn from '../models/DaysSinceCheckIn'
+import { daysBetween } from '../lib/dates'
 
 function isValidDate(v: unknown): v is string {
     return typeof v === 'string' && ISO_DATE_PATTERN.test(v)
+}
+
+function isValidIntensity(v: unknown): v is number {
+    return typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 5
 }
 
 function isValidColor(v: unknown): v is DaysSinceColor {
@@ -72,4 +78,63 @@ export async function deleteDaysSince(req: AuthRequest, res: Response) {
         return
     }
     res.json({ message: 'Deleted', data: null })
+}
+
+export async function resetDaysSince(req: AuthRequest, res: Response) {
+    if (!isValidDate(req.body.startDate)) {
+        res.status(400).json({ message: 'startDate must be YYYY-MM-DD' })
+        return
+    }
+    const reason =
+        typeof req.body.reason === 'string' && req.body.reason.trim()
+            ? req.body.reason.trim()
+            : undefined
+
+    const item = await DaysSinceItem.findOne({ _id: req.params.id, user: req.userId })
+    if (!item) {
+        res.status(404).json({ message: 'Counter not found' })
+        return
+    }
+
+    const days = daysBetween(item.startDate, req.body.startDate)
+    item.history.push({ startDate: item.startDate, endDate: req.body.startDate, days, reason })
+    item.bestStreakDays = Math.max(item.bestStreakDays, days)
+    item.startDate = req.body.startDate
+    await item.save()
+
+    res.json({ message: 'Reset', data: item })
+}
+
+export async function listCheckIns(req: AuthRequest, res: Response) {
+    const since = isValidDate(req.query.since) ? req.query.since : undefined
+    const filter: Record<string, unknown> = { user: req.userId }
+    if (since) filter.date = { $gte: since }
+
+    const checkIns = await DaysSinceCheckIn.find(filter).sort({ date: 1 })
+    res.json({ message: 'OK', data: checkIns })
+}
+
+export async function upsertCheckIn(req: AuthRequest, res: Response) {
+    const item = await DaysSinceItem.findOne({ _id: req.params.id, user: req.userId })
+    if (!item) {
+        res.status(404).json({ message: 'Counter not found' })
+        return
+    }
+    if (!isValidDate(req.body.date)) {
+        res.status(400).json({ message: 'date must be YYYY-MM-DD' })
+        return
+    }
+    if (!isValidIntensity(req.body.intensity)) {
+        res.status(400).json({ message: 'intensity must be an integer 1-5' })
+        return
+    }
+    const note =
+        typeof req.body.note === 'string' && req.body.note.trim() ? req.body.note.trim() : undefined
+
+    const checkIn = await DaysSinceCheckIn.findOneAndUpdate(
+        { user: req.userId, item: item._id, date: req.body.date },
+        { $set: { intensity: req.body.intensity, note } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    )
+    res.json({ message: 'Saved', data: checkIn })
 }
