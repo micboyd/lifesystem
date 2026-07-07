@@ -293,7 +293,10 @@ export async function recoverStarlingExclusion(req: AuthRequest, res: Response) 
     try {
         if (exclusion.reason === 'moved' && exclusion.spendId) {
             // The move actually went through and this tombstone is just its
-            // safety-net record — recovering it here means undoing that move.
+            // safety-net record — recovering it here means undoing that move. Safe to
+            // reattach Starling tracking and drop the tombstone: the transaction is
+            // going back to exactly where Starling's own feed already says it
+            // belongs, so no future sync can duplicate or reclaim it unexpectedly.
             const spend = await BudgetSpend.findOneAndUpdate(
                 { _id: exclusion.spendId, user: req.userId },
                 { $set: { row: exclusion.originalRow, starlingFeedItemUid: exclusion.feedItemUid } },
@@ -304,10 +307,8 @@ export async function recoverStarlingExclusion(req: AuthRequest, res: Response) 
                 res.json({ message: 'Recovered', data: spend })
                 return
             }
-            // The moved copy is gone — the move itself never actually completed (e.g.
-            // it failed partway through and a later sync swept up the orphaned
-            // record). Recreate it where it was meant to end up, not back at the
-            // origin, so recovering finishes the move rather than silently reversing it.
+            // The moved copy is gone — the move itself never actually completed.
+            // Fall through and recreate it, detached, at its intended destination.
         }
 
         let targetRowId = exclusion.originalRow
@@ -326,15 +327,34 @@ export async function recoverStarlingExclusion(req: AuthRequest, res: Response) 
             if (destinationRow) targetRowId = destinationRow._id
         }
 
+        // For 'deleted', this genuinely restores full Starling tracking — the
+        // transaction only ever lived in one place, so there's nothing to duplicate.
+        // For 'moved' with no live copy left to reattach, it has to stay detached:
+        // reattaching starlingFeedItemUid here (and clearing the tombstone) would let
+        // a future sync of the *original* budget re-import this same transaction as
+        // if it were new — which is the exact bug this is fixing.
+        const reattachStarling = exclusion.reason === 'deleted'
+
         const spend = await BudgetSpend.create({
             user: req.userId,
             row: targetRowId,
             date: exclusion.date,
             amount: exclusion.amount,
             note: exclusion.note,
-            starlingFeedItemUid: exclusion.feedItemUid,
+            ...(reattachStarling && { starlingFeedItemUid: exclusion.feedItemUid }),
         })
-        await exclusion.deleteOne()
+
+        if (reattachStarling) {
+            await exclusion.deleteOne()
+        } else {
+            // Keep the tombstone alive — it's still the only thing stopping the
+            // original budget's sync from reclaiming this transaction — but point it
+            // at the freshly recreated copy so a later Recover click does a clean
+            // undo instead of repeating this same repair.
+            exclusion.spendId = spend._id
+            await exclusion.save()
+        }
+
         res.json({ message: 'Recovered', data: spend })
     } catch (err: unknown) {
         if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
