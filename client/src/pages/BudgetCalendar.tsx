@@ -1260,8 +1260,8 @@ export default function BudgetCalendar() {
             setSpends((prev) => prev.map((s) => (s._id === id ? updated : s)))
             invalidate('budget')
             toast.show('Transaction moved.', 'success')
-        } catch {
-            toast.error("Couldn’t move that transaction.")
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message ?? "Couldn’t move that transaction.")
         }
     }
 

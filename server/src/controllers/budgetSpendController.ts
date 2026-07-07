@@ -128,6 +128,12 @@ export async function updateBudgetSpend(req: AuthRequest, res: Response) {
  * transaction is still attributed to the original Space in Starling's own feed, so
  * without the tombstone, a future sync of the original budget would see it as new
  * and re-import a duplicate there.
+ *
+ * The move itself happens first, before any tombstone bookkeeping — that way a
+ * failure writing the tombstone (e.g. a duplicate-key clash from a retried request)
+ * can never abort or half-apply the move the user actually asked for. Worst case if
+ * tombstoning fails, a later sync could re-import this one Starling transaction —
+ * annoying but recoverable (delete or move it again) — instead of losing the move.
  */
 export async function moveBudgetSpend(req: AuthRequest, res: Response) {
     const rowId = typeof req.body.row === 'string' ? req.body.row : ''
@@ -147,33 +153,44 @@ export async function moveBudgetSpend(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Transaction not found' })
         return
     }
-    if (existing.starlingFeedItemUid) {
-        const originalRow = await FinanceRow.findById(existing.row)
-        await tombstoneFeedItem({
-            userId: req.userId!,
-            feedItemUid: existing.starlingFeedItemUid,
-            reason: 'moved',
-            originalRowId: String(existing.row),
-            originalRowName: originalRow?.name ?? 'Unknown budget',
-            movedToRowName: targetRow.name,
-            spendId: String(existing._id),
-            date: existing.date,
-            amount: existing.amount,
-            note: existing.note,
-        })
-    }
+
+    const previousRowId = existing.row
+    const previousFeedItemUid = existing.starlingFeedItemUid
 
     const spend = await BudgetSpend.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },
         { $set: { row: rowId }, $unset: { starlingFeedItemUid: '' } },
         { new: true }
     )
+
+    if (previousFeedItemUid) {
+        try {
+            const originalRow = await FinanceRow.findById(previousRowId)
+            await tombstoneFeedItem({
+                userId: req.userId!,
+                feedItemUid: previousFeedItemUid,
+                reason: 'moved',
+                originalRowId: String(previousRowId),
+                originalRowName: originalRow?.name ?? 'Unknown budget',
+                movedToRowName: targetRow.name,
+                spendId: String(existing._id),
+                date: existing.date,
+                amount: existing.amount,
+                note: existing.note,
+            })
+        } catch (err) {
+            console.error('moveBudgetSpend: tombstone write failed after a successful move', err)
+        }
+    }
+
     res.json({ message: 'Moved', data: spend })
 }
 
 /**
  * DELETE /budget-spends/:id — remove a transaction. If it came from Starling, also
- * tombstone its feed item so a future sync won't silently re-import it.
+ * tombstone its feed item so a future sync won't silently re-import it. Tombstone
+ * failures are logged, not thrown — the delete has already happened by that point
+ * and shouldn't be reported as failed over a secondary bookkeeping step.
  */
 export async function deleteBudgetSpend(req: AuthRequest, res: Response) {
     const spend = await BudgetSpend.findOneAndDelete({ _id: req.params.id, user: req.userId })
@@ -182,17 +199,21 @@ export async function deleteBudgetSpend(req: AuthRequest, res: Response) {
         return
     }
     if (spend.starlingFeedItemUid) {
-        const originalRow = await FinanceRow.findById(spend.row)
-        await tombstoneFeedItem({
-            userId: req.userId!,
-            feedItemUid: spend.starlingFeedItemUid,
-            reason: 'deleted',
-            originalRowId: String(spend.row),
-            originalRowName: originalRow?.name ?? 'Unknown budget',
-            date: spend.date,
-            amount: spend.amount,
-            note: spend.note,
-        })
+        try {
+            const originalRow = await FinanceRow.findById(spend.row)
+            await tombstoneFeedItem({
+                userId: req.userId!,
+                feedItemUid: spend.starlingFeedItemUid,
+                reason: 'deleted',
+                originalRowId: String(spend.row),
+                originalRowName: originalRow?.name ?? 'Unknown budget',
+                date: spend.date,
+                amount: spend.amount,
+                note: spend.note,
+            })
+        } catch (err) {
+            console.error('deleteBudgetSpend: tombstone write failed after a successful delete', err)
+        }
     }
     res.json({ message: 'Deleted', data: null })
 }
