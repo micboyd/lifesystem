@@ -292,6 +292,8 @@ export async function recoverStarlingExclusion(req: AuthRequest, res: Response) 
 
     try {
         if (exclusion.reason === 'moved' && exclusion.spendId) {
+            // The move actually went through and this tombstone is just its
+            // safety-net record — recovering it here means undoing that move.
             const spend = await BudgetSpend.findOneAndUpdate(
                 { _id: exclusion.spendId, user: req.userId },
                 { $set: { row: exclusion.originalRow, starlingFeedItemUid: exclusion.feedItemUid } },
@@ -302,12 +304,31 @@ export async function recoverStarlingExclusion(req: AuthRequest, res: Response) 
                 res.json({ message: 'Recovered', data: spend })
                 return
             }
-            // The moved copy was itself deleted since — fall through and recreate it.
+            // The moved copy is gone — the move itself never actually completed (e.g.
+            // it failed partway through and a later sync swept up the orphaned
+            // record). Recreate it where it was meant to end up, not back at the
+            // origin, so recovering finishes the move rather than silently reversing it.
+        }
+
+        let targetRowId = exclusion.originalRow
+        if (exclusion.reason === 'moved') {
+            let destinationRow = exclusion.movedToRow
+                ? await FinanceRow.findOne({ _id: exclusion.movedToRow, user: req.userId, budgeted: true })
+                : null
+            // Legacy tombstones written before movedToRow existed only have the name.
+            if (!destinationRow && exclusion.movedToRowName) {
+                destinationRow = await FinanceRow.findOne({
+                    user: req.userId,
+                    name: exclusion.movedToRowName,
+                    budgeted: true,
+                })
+            }
+            if (destinationRow) targetRowId = destinationRow._id
         }
 
         const spend = await BudgetSpend.create({
             user: req.userId,
-            row: exclusion.originalRow,
+            row: targetRowId,
             date: exclusion.date,
             amount: exclusion.amount,
             note: exclusion.note,

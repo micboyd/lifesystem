@@ -17,7 +17,9 @@ export interface IStarlingExclusion extends Document {
     /** The budget it was in immediately before removal — recovering sends it back here. */
     originalRow: Types.ObjectId
     originalRowName: string
-    /** Only for 'moved': the budget it was moved to. */
+    /** Only for 'moved': the budget it was moved to — recovering a lost move sends
+     *  the transaction here rather than back to originalRow. */
+    movedToRow?: Types.ObjectId
     movedToRowName?: string
     /** Only for 'moved': the still-live BudgetSpend to reattach on recovery. */
     spendId?: Types.ObjectId
@@ -35,6 +37,7 @@ const starlingExclusionSchema = new Schema<IStarlingExclusion>(
         reason: { type: String, enum: ['deleted', 'moved'], required: true },
         originalRow: { type: Schema.Types.ObjectId, ref: 'FinanceRow', required: true },
         originalRowName: { type: String, required: true },
+        movedToRow: { type: Schema.Types.ObjectId, ref: 'FinanceRow' },
         movedToRowName: { type: String },
         spendId: { type: Schema.Types.ObjectId, ref: 'BudgetSpend' },
         date: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },

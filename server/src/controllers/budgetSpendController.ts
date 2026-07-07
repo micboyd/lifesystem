@@ -39,6 +39,7 @@ interface TombstonePayload {
     reason: 'deleted' | 'moved'
     originalRowId: string
     originalRowName: string
+    movedToRow?: string
     movedToRowName?: string
     spendId?: string
     date: string
@@ -172,6 +173,7 @@ export async function moveBudgetSpend(req: AuthRequest, res: Response) {
                 reason: 'moved',
                 originalRowId: String(previousRowId),
                 originalRowName: originalRow?.name ?? 'Unknown budget',
+                movedToRow: rowId,
                 movedToRowName: targetRow.name,
                 spendId: String(existing._id),
                 date: existing.date,
