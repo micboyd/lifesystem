@@ -3,33 +3,50 @@ import { Link } from 'react-router-dom'
 import Container from '../components/Container'
 import { Card } from '../components/Card'
 import Input from '../components/Input'
+import Textarea from '../components/Textarea'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import DatePicker, { type DatePickerValue } from '../components/DatePicker'
 import DropdownMenu from '../components/DropdownMenu'
+import Rating from '../components/Rating'
 import {
     DAYS_SINCE_COLORS,
     DAYS_SINCE_COLOR_CLASSES,
     type DaysSinceItem,
     type DaysSinceColor,
+    type DaysSinceCheckIn,
 } from '../types'
 import {
     listDaysSince,
     createDaysSince,
     updateDaysSince,
     deleteDaysSince,
+    resetDaysSince,
+    listCheckIns,
+    upsertCheckIn,
 } from '../services/daysSince'
-import { todayKey } from '../lib/calendar'
+import { todayKey, addDays } from '../lib/calendar'
 import {
     daysBetween,
+    bestDays,
     nextMilestone,
     milestoneLabel,
     milestoneProgress,
     isMilestoneDay,
     formatStartDate,
 } from '../lib/daysSince'
+
+const CHECK_IN_WINDOW = 14
+
+const INTENSITY_CLASS: Record<number, string> = {
+    1: 'bg-emerald-400',
+    2: 'bg-lime-400',
+    3: 'bg-amber-400',
+    4: 'bg-orange-400',
+    5: 'bg-red-500',
+}
 
 const ICON_CHOICES = [
     'fa-solid fa-fire',
@@ -68,6 +85,11 @@ export default function DaysSince() {
     const [editor, setEditor] = useState<EditorState | null>(null)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [checkIns, setCheckIns] = useState<DaysSinceCheckIn[]>([])
+    const [resetTarget, setResetTarget] = useState<DaysSinceItem | null>(null)
+    const [resetReason, setResetReason] = useState('')
+    const [resetting, setResetting] = useState(false)
+    const [historyTarget, setHistoryTarget] = useState<DaysSinceItem | null>(null)
 
     const today = todayKey()
 
@@ -75,12 +97,29 @@ export default function DaysSince() {
         listDaysSince()
             .then(setItems)
             .finally(() => setLoading(false))
+        listCheckIns(addDays(today, -(CHECK_IN_WINDOW - 1))).then(setCheckIns)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     // Longest-running streaks first.
     const sorted = useMemo(
         () => [...items].sort((a, b) => a.startDate.localeCompare(b.startDate)),
         [items]
+    )
+
+    const checkInsByItem = useMemo(() => {
+        const map = new Map<string, DaysSinceCheckIn[]>()
+        for (const c of checkIns) {
+            const list = map.get(c.item) ?? []
+            list.push(c)
+            map.set(c.item, list)
+        }
+        return map
+    }, [checkIns])
+
+    const recentDays = useMemo(
+        () => Array.from({ length: CHECK_IN_WINDOW }, (_, i) => addDays(today, i - (CHECK_IN_WINDOW - 1))),
+        [today]
     )
 
     function openAdd() {
@@ -131,10 +170,29 @@ export default function DaysSince() {
         }
     }
 
-    async function handleReset(item: DaysSinceItem) {
-        if (!window.confirm(`Reset "${item.label}" back to zero, starting from today?`)) return
-        const updated = await updateDaysSince(item._id, { startDate: today })
-        setItems((prev) => prev.map((i) => (i._id === updated._id ? updated : i)))
+    function openReset(item: DaysSinceItem) {
+        setResetReason('')
+        setResetTarget(item)
+    }
+
+    async function handleConfirmReset() {
+        if (!resetTarget) return
+        setResetting(true)
+        try {
+            const updated = await resetDaysSince(resetTarget._id, {
+                startDate: today,
+                reason: resetReason.trim() || undefined,
+            })
+            setItems((prev) => prev.map((i) => (i._id === updated._id ? updated : i)))
+            setResetTarget(null)
+        } finally {
+            setResetting(false)
+        }
+    }
+
+    async function handleCheckIn(item: DaysSinceItem, intensity: number, note?: string) {
+        const saved = await upsertCheckIn(item._id, { date: today, intensity, note })
+        setCheckIns((prev) => [...prev.filter((c) => !(c.item === item._id && c.date === today)), saved])
     }
 
     async function handleDelete(item: DaysSinceItem) {
@@ -190,6 +248,9 @@ export default function DaysSince() {
                         const celebrating = isMilestoneDay(days)
                         const progress = milestoneProgress(days)
                         const next = nextMilestone(days)
+                        const best = bestDays(item, today)
+                        const itemCheckIns = checkInsByItem.get(item._id) ?? []
+                        const todayCheckIn = itemCheckIns.find((c2) => c2.date === today)
                         return (
                             <Card key={item._id} className="relative overflow-hidden">
                                 <div
@@ -231,7 +292,7 @@ export default function DaysSince() {
                                                 {
                                                     label: 'Reset to today',
                                                     icon: 'fa-solid fa-rotate-left',
-                                                    onClick: () => handleReset(item),
+                                                    onClick: () => openReset(item),
                                                 },
                                                 'divider',
                                                 {
@@ -259,6 +320,21 @@ export default function DaysSince() {
                                         )}
                                     </div>
 
+                                    {item.history.length > 0 && (
+                                        <p className="mt-1 text-xs text-neutral-400">
+                                            Best: {best} {best === 1 ? 'day' : 'days'}
+                                            {' · '}
+                                            <button
+                                                type="button"
+                                                onClick={() => setHistoryTarget(item)}
+                                                className="font-semibold text-neutral-500 underline-offset-2 hover:underline"
+                                            >
+                                                {item.history.length} past attempt
+                                                {item.history.length === 1 ? '' : 's'}
+                                            </button>
+                                        </p>
+                                    )}
+
                                     <div className="mt-4">
                                         <div className={`h-1.5 w-full overflow-hidden rounded-full ${c.track}`}>
                                             <div
@@ -270,6 +346,48 @@ export default function DaysSince() {
                                             {next - days} {next - days === 1 ? 'day' : 'days'} to{' '}
                                             {milestoneLabel(next)}
                                         </p>
+                                    </div>
+
+                                    <div className="mt-5 border-t border-neutral-100 pt-4">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                                How tough was today?
+                                            </span>
+                                            <Rating
+                                                size="sm"
+                                                value={todayCheckIn?.intensity ?? 0}
+                                                onChange={(v) => handleCheckIn(item, v, todayCheckIn?.note)}
+                                            />
+                                        </div>
+                                        {todayCheckIn && (
+                                            <input
+                                                type="text"
+                                                defaultValue={todayCheckIn.note ?? ''}
+                                                placeholder="Add a note (optional)"
+                                                onBlur={(e) =>
+                                                    handleCheckIn(item, todayCheckIn.intensity, e.target.value)
+                                                }
+                                                className="mt-2 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs text-neutral-700 outline-none focus:border-neutral-400"
+                                            />
+                                        )}
+                                        <div className="mt-3 flex gap-1">
+                                            {recentDays.map((d) => {
+                                                const entry = itemCheckIns.find((c2) => c2.date === d)
+                                                return (
+                                                    <span
+                                                        key={d}
+                                                        title={
+                                                            entry
+                                                                ? `${d}: ${entry.intensity}/5${entry.note ? ' — ' + entry.note : ''}`
+                                                                : d
+                                                        }
+                                                        className={`h-3 flex-1 rounded-sm ${
+                                                            entry ? INTENSITY_CLASS[entry.intensity] : 'bg-neutral-100'
+                                                        }`}
+                                                    />
+                                                )
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
                             </Card>
@@ -369,6 +487,70 @@ export default function DaysSince() {
                             />
                         </div>
                     </form>
+                )}
+            </Modal>
+
+            <Modal
+                open={resetTarget !== null}
+                onClose={() => setResetTarget(null)}
+                title={resetTarget ? `Reset "${resetTarget.label}"` : undefined}
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setResetTarget(null)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleConfirmReset} disabled={resetting}>
+                            {resetting ? 'Resetting…' : 'Reset to today'}
+                        </Button>
+                    </>
+                }
+            >
+                {resetTarget && (
+                    <div className="flex flex-col gap-4">
+                        <p className="text-sm text-neutral-500">
+                            This logs your current run of{' '}
+                            <strong className="font-semibold text-neutral-700">
+                                {daysBetween(resetTarget.startDate, today)} days
+                            </strong>{' '}
+                            to its history and starts counting again from today.
+                        </p>
+                        <Textarea
+                            label="What happened? (optional)"
+                            placeholder="What triggered it — worth remembering for next time."
+                            value={resetReason}
+                            onChange={(e) => setResetReason(e.target.value)}
+                            rows={3}
+                        />
+                    </div>
+                )}
+            </Modal>
+
+            <Modal
+                open={historyTarget !== null}
+                onClose={() => setHistoryTarget(null)}
+                title={historyTarget ? `${historyTarget.label} — history` : undefined}
+            >
+                {historyTarget && (
+                    <ul className="flex flex-col gap-3">
+                        {[...historyTarget.history].reverse().map((attempt, i) => (
+                            <li
+                                key={i}
+                                className="rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3"
+                            >
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-sm font-bold text-neutral-900">
+                                        {attempt.days} {attempt.days === 1 ? 'day' : 'days'}
+                                    </span>
+                                    <span className="text-xs text-neutral-400">
+                                        {formatStartDate(attempt.startDate)} – {formatStartDate(attempt.endDate)}
+                                    </span>
+                                </div>
+                                {attempt.reason && (
+                                    <p className="mt-1.5 text-xs text-neutral-500">{attempt.reason}</p>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
                 )}
             </Modal>
         </Container>

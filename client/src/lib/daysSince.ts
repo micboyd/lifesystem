@@ -1,5 +1,7 @@
 /** Day-counting maths shared by the Days Since page and dashboard widget. */
 
+import type { DaysSinceItem } from '../types'
+
 /** Whole days elapsed from `startDate` up to `todayKey` (both "YYYY-MM-DD"). */
 export function daysBetween(startDate: string, todayKey: string): number {
     const [sy, sm, sd] = startDate.split('-').map(Number)
@@ -7,6 +9,11 @@ export function daysBetween(startDate: string, todayKey: string): number {
     const start = Date.UTC(sy, sm - 1, sd)
     const today = Date.UTC(ty, tm - 1, td)
     return Math.round((today - start) / 86_400_000)
+}
+
+/** Longest run ever, accounting for a current run that's already the record. */
+export function bestDays(item: DaysSinceItem, todayKey: string): number {
+    return Math.max(item.bestStreakDays, daysBetween(item.startDate, todayKey))
 }
 
 /** Fixed early milestones; after a year, every anniversary is a milestone. */

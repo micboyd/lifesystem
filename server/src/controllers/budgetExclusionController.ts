@@ -1,6 +1,7 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import BudgetExclusion from '../models/BudgetExclusion'
+import ExclusionBudget from '../models/ExclusionBudget'
 
 const MONTH_RE = /^\d{4}-\d{2}$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -36,6 +37,13 @@ export async function setBudgetExclusion(req: AuthRequest, res: Response) {
         res.json({ message: 'Excluded', data: record })
     } else {
         await BudgetExclusion.deleteOne({ user: req.userId, date })
+        // Exclusion budgets may only cover excluded days: pull the date from
+        // any pot and drop pots that end up empty.
+        await ExclusionBudget.updateMany(
+            { user: req.userId, dates: date },
+            { $pull: { dates: date } }
+        )
+        await ExclusionBudget.deleteMany({ user: req.userId, dates: { $size: 0 } })
         res.json({ message: 'Included', data: null })
     }
 }

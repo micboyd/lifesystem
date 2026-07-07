@@ -1,4 +1,11 @@
-import type { BudgetExclusion, BudgetSpend, FinanceEntry, FinanceGroup, FinanceRow } from '../types'
+import type {
+    BudgetExclusion,
+    BudgetSpend,
+    ExclusionBudget,
+    FinanceEntry,
+    FinanceGroup,
+    FinanceRow,
+} from '../types'
 import {
     listBudgetExclusions,
     listBudgetSpends,
@@ -9,9 +16,21 @@ import {
     createBudgetSpend,
     deleteBudgetSpend,
     moveBudgetSpend,
+    listExclusionBudgets,
+    createExclusionBudget,
+    updateExclusionBudget,
+    deleteExclusionBudget,
+    type ExclusionBudgetPayload,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
-import { computeBudgetDay, computeBudgetWeek, daysInMonth, activeDaysInMonth } from '../lib/budget'
+import {
+    computeBudgetDay,
+    computeBudgetWeek,
+    daysInMonth,
+    activeDaysInMonth,
+    computeExclusionPot,
+    type ExclusionPot,
+} from '../lib/budget'
 import { formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
@@ -198,6 +217,8 @@ interface DayData {
     effectiveAllowance: number
     /** True when the visible rows are weekly-tracked (no daily rows in view). */
     isWeeklyOnly: boolean
+    /** Present when this excluded day belongs to an exclusion-budget pot. */
+    pot?: { group: ExclusionBudget } & ExclusionPot
 }
 
 function buildDayData(
@@ -205,7 +226,9 @@ function buildDayData(
     trackedRows: FinanceRow[],
     entries: FinanceEntry[],
     spends: BudgetSpend[],
-    excludedDates: Set<string>
+    excludedDates: Set<string>,
+    dateToGroup: Map<string, ExclusionBudget>,
+    potByGroup: Map<string, ExclusionPot>
 ): DayData[] {
     const total = daysInMonth(month)
     const days: DayData[] = []
@@ -244,6 +267,9 @@ function buildDayData(
             ? 0
             : spends.filter((s) => s.date === date && allRowIds.has(s.row)).reduce((a, x) => a + x.amount, 0)
 
+        const group = excluded ? dateToGroup.get(date) : undefined
+        const groupPot = group ? potByGroup.get(group._id) : undefined
+
         days.push({
             date,
             excluded,
@@ -253,6 +279,7 @@ function buildDayData(
             carry,
             effectiveAllowance: dailyRate + carry,
             isWeeklyOnly,
+            ...(group && groupPot && { pot: { group, ...groupPot } }),
         })
     }
     return days
@@ -324,7 +351,11 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                     {dayNum}
                 </span>
                 {data.excluded && (
-                    <span className="hidden lg:inline-block rounded-full bg-neutral-200 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-neutral-500">
+                    <span
+                        className={`hidden lg:inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                            data.pot ? 'bg-sky-100 text-sky-600' : 'bg-neutral-200 text-neutral-500'
+                        }`}
+                    >
                         excl.
                     </span>
                 )}
@@ -341,6 +372,19 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                     )}
                     <span className={`text-[9px] font-semibold tabular-nums ${remainingColor}`}>
                         {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
+                    </span>
+                </div>
+            )}
+
+            {/* Mobile: pot remaining for excluded days with an assigned budget */}
+            {data.excluded && data.pot && (
+                <div className="flex lg:hidden mt-0.5">
+                    <span
+                        className={`text-[9px] font-semibold tabular-nums ${
+                            data.pot.remaining < 0 ? 'text-red-500' : 'text-emerald-600'
+                        }`}
+                    >
+                        {data.pot.remaining < 0 ? '-' : ''}£{fmt(Math.abs(data.pot.remaining))}
                     </span>
                 </div>
             )}
@@ -406,9 +450,22 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                 </div>
             )}
 
-            {data.excluded && (
+            {data.excluded && data.pot ? (
+                <div className="hidden lg:flex flex-col gap-1 mt-auto">
+                    <span className="text-xs font-semibold text-sky-600">
+                        £{fmt(data.pot.guideRate)}/day guide
+                    </span>
+                    <span
+                        className={`text-xs font-semibold tabular-nums ${
+                            data.pot.remaining < 0 ? 'text-red-500' : 'text-emerald-600'
+                        }`}
+                    >
+                        {data.pot.remaining < 0 ? '-' : ''}£{fmt(Math.abs(data.pot.remaining))} left
+                    </span>
+                </div>
+            ) : data.excluded ? (
                 <p className="hidden lg:block mt-auto text-xs text-neutral-400">Outside budget</p>
-            )}
+            ) : null}
         </button>
     )
 }
@@ -551,6 +608,10 @@ interface WeekModalProps {
     entries: FinanceEntry[]
     spends: BudgetSpend[]
     excludedDates: Set<string>
+    /** Pot info for a date that belongs to an exclusion budget. */
+    potFor: (date: string) => { group: ExclusionBudget; pot: ExclusionPot; row?: FinanceRow } | undefined
+    /** Name lookup across ALL budget rows (pot rows may be non-tracked). */
+    rowNameOf: (id: string) => string
     onClose: () => void
     onAddSpend: (rowId: string, date: string, amount: number, note?: string) => Promise<void>
     onDeleteSpend: (id: string) => Promise<void>
@@ -566,6 +627,8 @@ function WeekModal({
     entries,
     spends,
     excludedDates,
+    potFor,
+    rowNameOf,
     onClose,
     onAddSpend,
     onDeleteSpend,
@@ -583,9 +646,12 @@ function WeekModal({
     const activeDay = week.days.find((d) => d.date === activeDate) ?? week.days[0]
     const isFuture = activeDate > today
     const excluded = excludedDates.has(activeDate)
+    const potInfo = excluded ? potFor(activeDate) : undefined
 
-    const dayTx = spends.filter((s) => s.date === activeDate && rowIds.has(s.row))
-    const weekTx = spends.filter((s) => week.days.some((d) => d.date === s.date) && rowIds.has(s.row))
+    // Pot funding rows may be non-tracked — include their spends on pot days.
+    const inView = (s: BudgetSpend) => rowIds.has(s.row) || potFor(s.date)?.row?._id === s.row
+    const dayTx = spends.filter((s) => s.date === activeDate && inView(s))
+    const weekTx = spends.filter((s) => week.days.some((d) => d.date === s.date) && inView(s))
 
     const monthlyTotal = dailyRows.reduce((sum, row) => {
         const entry = entries.find((e) => e.row === row._id)
@@ -597,15 +663,18 @@ function WeekModal({
     const isWeeklyOnly = dailyRows.every((r) => r.budgetType === 'weekly')
     const overTarget = !isWeeklyOnly && !excluded && spentToday > dailyRate
 
-    const rowName = (id: string) => dailyRows.find((r) => r._id === id)?.name ?? '—'
+    const rowName = (id: string) => dailyRows.find((r) => r._id === id)?.name ?? rowNameOf(id)
+
+    // On a pot day with a funding budget, spends go to that row.
+    const logTargetRow = potInfo?.row ? potInfo.row._id : rowId
 
     async function handleAdd(e: FormEvent) {
         e.preventDefault()
         const n = parseFloat(amount.trim())
-        if (Number.isNaN(n) || n < 0 || !rowId) return
+        if (Number.isNaN(n) || n < 0 || !logTargetRow) return
         setSaving(true)
         try {
-            await onAddSpend(rowId, activeDate, n, note.trim() || undefined)
+            await onAddSpend(logTargetRow, activeDate, n, note.trim() || undefined)
             setAmount('')
             setNote('')
         } finally {
@@ -698,7 +767,24 @@ function WeekModal({
                             </div>
                         </label>
 
-                        <div className={excluded ? 'pointer-events-none opacity-40' : ''}>
+                        {/* Compact pot line for excluded days with an assigned budget */}
+                        {potInfo && (
+                            <div className="flex items-center justify-between gap-3 rounded-xl bg-sky-50 px-4 py-2.5 text-xs">
+                                <span className="truncate font-semibold text-sky-700">
+                                    {potInfo.group.label || potInfo.row?.name || 'Other budget'}
+                                </span>
+                                <span className="shrink-0 text-neutral-500">
+                                    £{fmt(potInfo.pot.guideRate)}/day
+                                </span>
+                                <span
+                                    className={`shrink-0 font-semibold tabular-nums ${potInfo.pot.remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}
+                                >
+                                    {potInfo.pot.remaining < 0 ? '-' : ''}£{fmt(Math.abs(potInfo.pot.remaining))} left
+                                </span>
+                            </div>
+                        )}
+
+                        <div className={excluded && !potInfo ? 'pointer-events-none opacity-40' : ''}>
                             {/* Day target + spent */}
                             <div className="mb-3 flex gap-2">
                                 {activeDay.dailyRate > 0 && (
@@ -723,12 +809,21 @@ function WeekModal({
 
                             {/* Log form */}
                             <form onSubmit={handleAdd} className="flex flex-col gap-2">
-                                {dailyRows.length > 1 && (
-                                    <Select
-                                        options={dailyRows.map((r) => ({ label: r.name, value: r._id }))}
-                                        value={rowId}
-                                        onChange={setRowId}
-                                    />
+                                {potInfo?.row ? (
+                                    <p className="text-xs text-neutral-400">
+                                        Logged to{' '}
+                                        <span className="font-semibold text-neutral-600">
+                                            {potInfo.row.name}
+                                        </span>
+                                    </p>
+                                ) : (
+                                    dailyRows.length > 1 && (
+                                        <Select
+                                            options={dailyRows.map((r) => ({ label: r.name, value: r._id }))}
+                                            value={rowId}
+                                            onChange={setRowId}
+                                        />
+                                    )
                                 )}
                                 <div className="flex gap-2">
                                     <Input
@@ -805,11 +900,20 @@ interface DayModalProps {
     spends: BudgetSpend[]
     excluded: boolean
     excludedDates: Set<string>
+    /** The exclusion-budget pot this day belongs to, if any. */
+    potGroup?: ExclusionBudget
+    pot?: ExclusionPot
+    /** The pot's funding budget row, when one is linked. */
+    potRow?: FinanceRow
+    /** Name lookup across ALL budget rows (pot rows may be non-tracked). */
+    rowNameOf: (id: string) => string
     onClose: () => void
     onAddSpend: (rowId: string, date: string, amount: number, note?: string) => Promise<void>
     onDeleteSpend: (id: string) => Promise<void>
     onMoveSpend: (id: string, rowId: string) => Promise<void>
     onSetExcluded: (excluded: boolean) => Promise<void>
+    onOpenAssign: () => void
+    onDeleteGroup: (id: string) => Promise<void>
 }
 
 function DayModal({
@@ -820,11 +924,17 @@ function DayModal({
     spends,
     excluded,
     excludedDates,
+    potGroup,
+    pot,
+    potRow,
+    rowNameOf,
     onClose,
     onAddSpend,
     onDeleteSpend,
     onMoveSpend,
     onSetExcluded,
+    onOpenAssign,
+    onDeleteGroup,
 }: DayModalProps) {
     const isFuture = date > todayKey()
     const [panel, setPanel] = useState<'log' | 'list'>('log')
@@ -833,8 +943,10 @@ function DayModal({
     const [note, setNote] = useState('')
     const [saving, setSaving] = useState(false)
 
-    // Only this day's transactions, limited to the budgets currently in view.
+    // Only this day's transactions, limited to the budgets currently in view —
+    // plus the pot's funding row, which may be non-tracked.
     const rowIds = new Set(dailyRows.map((r) => r._id))
+    if (potRow) rowIds.add(potRow._id)
     const dayTx = spends.filter((s) => s.date === date && rowIds.has(s.row))
     const spentToday = dayTx.reduce((sum, t) => sum + t.amount, 0)
 
@@ -872,21 +984,85 @@ function DayModal({
           })()
         : []
 
-    const rowName = (id: string) => dailyRows.find((r) => r._id === id)?.name ?? '—'
+    const rowName = (id: string) => dailyRows.find((r) => r._id === id)?.name ?? rowNameOf(id)
+
+    // On a pot day with a funding budget, spends go to that row.
+    const logTargetRow = excluded && potGroup && potRow ? potRow._id : rowId
 
     async function handleAdd(e: FormEvent) {
         e.preventDefault()
         const n = parseFloat(amount.trim())
-        if (Number.isNaN(n) || n < 0 || !rowId) return
+        if (Number.isNaN(n) || n < 0 || !logTargetRow) return
         setSaving(true)
         try {
-            await onAddSpend(rowId, date, n, note.trim() || undefined)
+            await onAddSpend(logTargetRow, date, n, note.trim() || undefined)
             setAmount('')
             setNote('')
         } finally {
             setSaving(false)
         }
     }
+
+    // Pot summary / assign action for excluded days — shown under the exclude
+    // toggle in both the future-day and log views.
+    const potSection = !excluded ? null : potGroup && pot ? (
+        <div className="rounded-xl border border-sky-100 bg-sky-50/60 px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold uppercase tracking-wide text-sky-600">
+                        {potGroup.label || potRow?.name || 'Other budget'}
+                    </p>
+                    <p className="mt-0.5 text-sm font-bold text-neutral-900">
+                        £{fmt(potGroup.amount)} over {potGroup.dates.length} day
+                        {potGroup.dates.length !== 1 ? 's' : ''}
+                    </p>
+                    {potRow && (
+                        <p className="mt-0.5 text-xs text-neutral-400">
+                            funded by <span className="font-semibold text-neutral-600">{potRow.name}</span>
+                        </p>
+                    )}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                    <button
+                        type="button"
+                        onClick={onOpenAssign}
+                        aria-label="Edit budget"
+                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-sky-100 hover:text-sky-700"
+                    >
+                        <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onDeleteGroup(potGroup._id)}
+                        aria-label="Remove budget"
+                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                    >
+                        <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                    </button>
+                </div>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                <span className="text-neutral-400">£{fmt(pot.guideRate)}/day guide</span>
+                <span className="text-neutral-400">
+                    spent <span className="font-semibold text-neutral-700">£{fmt(pot.spent)}</span>
+                </span>
+                <span
+                    className={`font-semibold tabular-nums ${pot.remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}
+                >
+                    {pot.remaining < 0 ? '-' : ''}£{fmt(Math.abs(pot.remaining))} left
+                </span>
+            </div>
+        </div>
+    ) : (
+        <button
+            type="button"
+            onClick={onOpenAssign}
+            className="flex items-center gap-2 self-start rounded-full border border-dashed border-neutral-300 px-3.5 py-2 text-xs font-semibold text-neutral-500 transition-colors hover:border-neutral-400 hover:text-neutral-900"
+        >
+            <i className="fa-solid fa-sack-dollar text-[11px]" aria-hidden="true" />
+            Assign other budget
+        </button>
+    )
 
     return (
         <Modal
@@ -917,6 +1093,7 @@ function DayModal({
                             </p>
                         </div>
                     </label>
+                    {potSection}
                     {!excluded && dayTx.length === 0 && (
                         <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-400">
                             Future day — nothing planned yet.
@@ -1030,7 +1207,9 @@ function DayModal({
                         </div>
                     </label>
 
-                    <div className={excluded ? 'pointer-events-none opacity-40' : ''}>
+                    {potSection}
+
+                    <div className={excluded && !potGroup ? 'pointer-events-none opacity-40' : ''}>
                         {/* Target + spent summary */}
                         <div className="mb-3 flex items-stretch gap-3">
                             {dailyRate > 0 && !isWeeklyOnly && (
@@ -1096,12 +1275,21 @@ function DayModal({
                             </div>
                         ) : (
                             <form onSubmit={handleAdd} className="flex flex-col gap-2">
-                                {dailyRows.length > 1 && (
-                                    <Select
-                                        options={dailyRows.map((r) => ({ label: r.name, value: r._id }))}
-                                        value={rowId}
-                                        onChange={setRowId}
-                                    />
+                                {excluded && potGroup && potRow ? (
+                                    <p className="text-xs text-neutral-400">
+                                        Logged to{' '}
+                                        <span className="font-semibold text-neutral-600">
+                                            {potRow.name}
+                                        </span>
+                                    </p>
+                                ) : (
+                                    dailyRows.length > 1 && (
+                                        <Select
+                                            options={dailyRows.map((r) => ({ label: r.name, value: r._id }))}
+                                            value={rowId}
+                                            onChange={setRowId}
+                                        />
+                                    )
                                 )}
                                 <div className="flex gap-2">
                                     <Input
@@ -1189,6 +1377,218 @@ function DayModal({
     )
 }
 
+// ── Assign-budget modal ───────────────────────────────────────────────────────
+
+/** Contiguous run of available excluded days containing `date`. */
+function contiguousRun(date: string, available: Set<string>): string[] {
+    if (!available.has(date)) return []
+    const run = [date]
+    for (let d = shiftDate(date, -1); available.has(d); d = shiftDate(d, -1)) run.unshift(d)
+    for (let d = shiftDate(date, 1); available.has(d); d = shiftDate(d, 1)) run.push(d)
+    return run
+}
+
+/** "Mon 14 Jul" from a "YYYY-MM-DD" key. */
+function shortDayLabel(date: string): string {
+    const [y, m, d] = date.split('-').map(Number)
+    return new Date(y, m - 1, d).toLocaleDateString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+    })
+}
+
+interface AssignBudgetModalProps {
+    initialDate: string
+    /** This month's excluded days not already in another pot. */
+    availableDates: string[]
+    /** Non-tracked budget rows that can fund the pot, with their monthly amount. */
+    fundingOptions: { row: FinanceRow; monthlyAmount: number }[]
+    existing?: ExclusionBudget
+    onSave: (payload: ExclusionBudgetPayload, existingId?: string) => Promise<void>
+    onClose: () => void
+}
+
+function AssignBudgetModal({
+    initialDate,
+    availableDates,
+    fundingOptions,
+    existing,
+    onSave,
+    onClose,
+}: AssignBudgetModalProps) {
+    const [amount, setAmount] = useState(existing ? String(existing.amount) : '')
+    const [label, setLabel] = useState(existing?.label ?? '')
+    const [note, setNote] = useState(existing?.note ?? '')
+    const [fundRowId, setFundRowId] = useState(existing?.row ?? '')
+    const [selected, setSelected] = useState<Set<string>>(() =>
+        existing
+            ? new Set(existing.dates)
+            : new Set(contiguousRun(initialDate, new Set(availableDates)))
+    )
+    const [saving, setSaving] = useState(false)
+
+    // Editing merges the pot's own dates back in (including out-of-month ones).
+    const options = [...new Set([...availableDates, ...(existing?.dates ?? [])])].sort()
+    const amountNum = parseFloat(amount.trim())
+    const valid = !Number.isNaN(amountNum) && amountNum > 0 && selected.size > 0
+
+    function toggle(d: string) {
+        setSelected((prev) => {
+            const next = new Set(prev)
+            if (next.has(d)) next.delete(d)
+            else next.add(d)
+            return next
+        })
+    }
+
+    function handleFundChange(rowId: string) {
+        setFundRowId(rowId)
+        if (!rowId) return
+        const opt = fundingOptions.find((o) => o.row._id === rowId)
+        if (!opt) return
+        // The pot takes the funding budget's monthly amount and name; both stay editable.
+        if (opt.monthlyAmount > 0) setAmount(String(opt.monthlyAmount))
+        setLabel((l) => l || opt.row.name)
+    }
+
+    async function handleSave(e: FormEvent) {
+        e.preventDefault()
+        if (!valid || saving) return
+        setSaving(true)
+        try {
+            await onSave(
+                {
+                    dates: [...selected].sort(),
+                    amount: amountNum,
+                    row: fundRowId || null,
+                    label: label.trim() || undefined,
+                    note: note.trim() || undefined,
+                },
+                existing?._id
+            )
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    return (
+        <Modal
+            open
+            onClose={onClose}
+            size="sm"
+            title={existing ? 'Edit other budget' : 'Assign other budget'}
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleSave} disabled={saving || !valid}>
+                        {saving ? 'Saving…' : 'Save'}
+                    </Button>
+                </>
+            }
+        >
+            <form onSubmit={handleSave} className="flex flex-col gap-4">
+                <p className="text-xs text-neutral-400">
+                    One shared pot split across the selected excluded days — under- or overspend
+                    flows between them.
+                </p>
+
+                {fundingOptions.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Fund from
+                        </span>
+                        <Select
+                            options={[
+                                { label: 'Custom amount', value: '' },
+                                ...fundingOptions.map((o) => ({
+                                    label: `${o.row.name} — £${fmt(o.monthlyAmount)}/mo`,
+                                    value: o.row._id,
+                                })),
+                            ]}
+                            value={fundRowId}
+                            onChange={handleFundChange}
+                        />
+                        {fundRowId && (
+                            <p className="text-xs text-neutral-400">
+                                Spends on these days will be logged against this budget.
+                            </p>
+                        )}
+                    </div>
+                )}
+
+                <div className="flex gap-2">
+                    <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Amount"
+                        icon="fa-solid fa-sterling-sign"
+                        className="w-32"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        autoFocus
+                    />
+                    <Input
+                        placeholder="Label (e.g. Lisbon trip)"
+                        className="flex-1"
+                        value={label}
+                        onChange={(e) => setLabel(e.target.value)}
+                    />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        Days covered
+                    </span>
+                    {options.length === 0 ? (
+                        <p className="text-xs text-neutral-400">No excluded days available.</p>
+                    ) : (
+                        <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+                            {options.map((d) => (
+                                <label
+                                    key={d}
+                                    className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-neutral-50"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={selected.has(d)}
+                                        onChange={() => toggle(d)}
+                                        className="h-4 w-4 rounded accent-neutral-950"
+                                    />
+                                    <span className="font-semibold text-neutral-700">
+                                        {shortDayLabel(d)}
+                                    </span>
+                                    {d.slice(0, 7) !== initialDate.slice(0, 7) && (
+                                        <span className="text-xs text-neutral-400">
+                                            ({d.slice(0, 7)})
+                                        </span>
+                                    )}
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {valid && (
+                    <p className="rounded-xl bg-neutral-50 px-4 py-2.5 text-xs font-semibold text-neutral-500">
+                        £{fmt(amountNum)} ÷ {selected.size} day{selected.size !== 1 ? 's' : ''} = £
+                        {fmt(amountNum / selected.size)}/day guide
+                    </p>
+                )}
+
+                <Input
+                    placeholder="Note (optional)"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                />
+            </form>
+        </Modal>
+    )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 
@@ -1203,6 +1603,10 @@ export default function BudgetCalendar() {
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
     const [exclusions, setExclusions] = useState<BudgetExclusion[]>([])
+    const [exclusionBudgets, setExclusionBudgets] = useState<ExclusionBudget[]>([])
+    /** Other-month spends for pots that span a month boundary — pot math only. */
+    const [potSpends, setPotSpends] = useState<BudgetSpend[]>([])
+    const [assignTarget, setAssignTarget] = useState<{ date: string; existing?: ExclusionBudget } | null>(null)
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [selectedWeek, setSelectedWeek] = useState<WeekGroup | null>(null)
     const [selectedRowId, setSelectedRowId] = useState<string>('all')
@@ -1219,14 +1623,30 @@ export default function BudgetCalendar() {
             listEntries(month),
             listBudgetSpends({ month }),
             listBudgetExclusions(month),
+            listExclusionBudgets(month),
         ])
-            .then(([g, r, e, s, x]) => {
+            .then(([g, r, e, s, x, eb]) => {
                 if (!active) return
                 setGroups(g)
                 setRows(r)
                 setEntries(e)
                 setSpends(s)
                 setExclusions(x)
+                setExclusionBudgets(eb)
+                // Pots can span a month boundary; fetch the other months' spends
+                // so the pot total is right. Kept separate from `spends` so the
+                // normal monthly math never sees them.
+                const extraMonths = new Set(eb.flatMap((b) => b.dates.map((d) => d.slice(0, 7))))
+                extraMonths.delete(month)
+                if (extraMonths.size === 0) {
+                    setPotSpends([])
+                    return
+                }
+                return Promise.all(
+                    [...extraMonths].map((m) => listBudgetSpends({ month: m }))
+                ).then((extra) => {
+                    if (active) setPotSpends(extra.flat())
+                })
             })
             .finally(() => active && setLoading(false))
         return () => {
@@ -1272,9 +1692,47 @@ export default function BudgetCalendar() {
                 const without = prev.filter((x) => x.date !== date)
                 return result ? [...without, result] : without
             })
+            if (!excluded) {
+                // Mirror the server: un-excluding pulls the day from any pot,
+                // and a pot with no days left is dropped.
+                setExclusionBudgets((prev) =>
+                    prev
+                        .map((b) =>
+                            b.dates.includes(date)
+                                ? { ...b, dates: b.dates.filter((d) => d !== date) }
+                                : b
+                        )
+                        .filter((b) => b.dates.length > 0)
+                )
+            }
             invalidate('budget')
         } catch {
             toast.error("Couldn’t update this day.")
+        }
+    }
+
+    async function handleSaveExclusionBudget(payload: ExclusionBudgetPayload, existingId?: string) {
+        try {
+            const saved = existingId
+                ? await updateExclusionBudget(existingId, payload)
+                : await createExclusionBudget(payload)
+            setExclusionBudgets((prev) =>
+                existingId ? prev.map((b) => (b._id === saved._id ? saved : b)) : [...prev, saved]
+            )
+            setAssignTarget(null)
+            invalidate('budget')
+        } catch {
+            toast.error("Couldn’t save that budget.")
+        }
+    }
+
+    async function handleDeleteExclusionBudget(id: string) {
+        try {
+            await deleteExclusionBudget(id)
+            setExclusionBudgets((prev) => prev.filter((b) => b._id !== id))
+            invalidate('budget')
+        } catch {
+            toast.error("Couldn’t remove that budget.")
         }
     }
 
@@ -1303,7 +1761,40 @@ export default function BudgetCalendar() {
         ...allDailyRows.map((r) => ({ label: r.name, value: r._id })),
     ]
     const excludedDates = new Set(exclusions.map((x) => x.date))
-    const dayData = buildDayData(month, dailyRows, entries, spends, excludedDates)
+
+    // Exclusion pots: which pot covers each date, and each pot's totals. Pot
+    // spends include neighbouring months when a pot spans a boundary.
+    const dateToGroup = new Map<string, ExclusionBudget>()
+    for (const b of exclusionBudgets) for (const d of b.dates) dateToGroup.set(d, b)
+    const potSpendPool = potSpends.length > 0 ? [...spends, ...potSpends] : spends
+    const potByGroup = new Map<string, ExclusionPot>()
+    for (const b of exclusionBudgets) potByGroup.set(b._id, computeExclusionPot(b, potSpendPool))
+    // Excluded days this month that aren't already covered by a pot.
+    const availableExcludedDates = exclusions
+        .map((x) => x.date)
+        .filter((d) => !dateToGroup.has(d))
+        .sort()
+
+    // Non-tracked budgets visible this month can fund a pot.
+    const fundingOptions = rows
+        .filter(
+            (r) =>
+                !(r.budgeted && (r.budgetType === 'daily' || r.budgetType === 'weekly')) &&
+                rowVisibleInMonth(
+                    r,
+                    month,
+                    groups.find((g) => g._id === r.group)
+                )
+        )
+        .map((row) => ({
+            row,
+            monthlyAmount: entries.find((e) => e.row === row._id)?.amount ?? row.recurringAmount ?? 0,
+        }))
+    const rowNameOf = (id: string) => rows.find((r) => r._id === id)?.name ?? '—'
+    const potRowOf = (g?: ExclusionBudget) =>
+        g?.row ? rows.find((r) => r._id === g.row) : undefined
+
+    const dayData = buildDayData(month, dailyRows, entries, spends, excludedDates, dateToGroup, potByGroup)
     const offset = startOffset(month)
     const weekGroups = groupByWeek(dayData, today, dailyRows, entries, spends, excludedDates)
 
@@ -1471,11 +1962,22 @@ export default function BudgetCalendar() {
                     spends={spends}
                     excluded={excludedDates.has(selectedDate)}
                     excludedDates={excludedDates}
+                    potGroup={dateToGroup.get(selectedDate)}
+                    pot={(() => {
+                        const g = dateToGroup.get(selectedDate)
+                        return g ? potByGroup.get(g._id) : undefined
+                    })()}
+                    potRow={potRowOf(dateToGroup.get(selectedDate))}
+                    rowNameOf={rowNameOf}
                     onClose={() => setSelectedDate(null)}
                     onAddSpend={handleAddSpend}
                     onDeleteSpend={handleDeleteSpend}
                     onMoveSpend={handleMoveSpend}
                     onSetExcluded={(ex) => handleSetExcluded(selectedDate, ex)}
+                    onOpenAssign={() =>
+                        setAssignTarget({ date: selectedDate, existing: dateToGroup.get(selectedDate) })
+                    }
+                    onDeleteGroup={handleDeleteExclusionBudget}
                 />
             )}
 
@@ -1488,11 +1990,28 @@ export default function BudgetCalendar() {
                     entries={entries}
                     spends={spends}
                     excludedDates={excludedDates}
+                    potFor={(d) => {
+                        const g = dateToGroup.get(d)
+                        const p = g ? potByGroup.get(g._id) : undefined
+                        return g && p ? { group: g, pot: p, row: potRowOf(g) } : undefined
+                    }}
+                    rowNameOf={rowNameOf}
                     onClose={() => setSelectedWeek(null)}
                     onAddSpend={handleAddSpend}
                     onDeleteSpend={handleDeleteSpend}
                     onMoveSpend={handleMoveSpend}
                     onSetExcluded={handleSetExcluded}
+                />
+            )}
+
+            {assignTarget && (
+                <AssignBudgetModal
+                    initialDate={assignTarget.date}
+                    availableDates={availableExcludedDates}
+                    fundingOptions={fundingOptions}
+                    existing={assignTarget.existing}
+                    onSave={handleSaveExclusionBudget}
+                    onClose={() => setAssignTarget(null)}
                 />
             )}
         </>

@@ -222,6 +222,24 @@ export const DAYS_SINCE_COLOR_CLASSES: Record<
     },
 }
 
+/** A completed run that ended in a reset. */
+export interface DaysSinceAttempt {
+    startDate: string
+    endDate: string
+    days: number
+    reason?: string
+}
+
+export interface DaysSinceCheckIn {
+    _id: string
+    item: string
+    /** YYYY-MM-DD */
+    date: string
+    /** 1 (easy) – 5 (intense urge) */
+    intensity: number
+    note?: string
+}
+
 export interface DaysSinceItem {
     _id: string
     label: string
@@ -230,6 +248,10 @@ export interface DaysSinceItem {
     /** Font Awesome class string, e.g. "fa-solid fa-fire". */
     icon: string
     color: DaysSinceColor
+    /** Longest run ever completed. */
+    bestStreakDays: number
+    /** Past attempts, oldest first. */
+    history: DaysSinceAttempt[]
     createdAt: string
     updatedAt: string
 }
@@ -525,6 +547,26 @@ export interface BudgetSpend {
 export interface BudgetExclusion {
     _id: string
     date: string
+}
+
+/** An alternate budget pot shared across a set of excluded days. */
+export interface ExclusionBudget {
+    _id: string
+    label?: string
+    /** Sorted YYYY-MM-DD keys; always a subset of the user's excluded days. */
+    dates: string[]
+    amount: number
+    /** Optional funding budget row — pot-day spends are logged against it. */
+    row?: string
+    note?: string
+}
+
+export interface BudgetTopUp {
+    _id: string
+    row: string
+    date: string
+    amount: number
+    note?: string
 }
 
 export interface FinanceSubItem {

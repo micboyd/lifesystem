@@ -18,6 +18,7 @@ import { addDays } from '../../lib/calendar'
 import { formatMoney } from '../../lib/money'
 import { useMoneyHidden } from '../useMoneyHidden'
 import { timeToMinutes, formatDuration, DEFAULT_WAKE, DEFAULT_BED } from '../../lib/time'
+import { computeHabitStreak } from '../../lib/habits'
 import type {
     HabitDef,
     HabitLog,
@@ -48,28 +49,14 @@ const money = formatMoney
 // ── Per-metric calculations ─────────────────────────────────────────────────────
 
 function habitInsight(habits: HabitDef[], logs: HabitLog[], date: string): Insight {
-    const active = habits.filter((h) => h.active)
-    if (active.length === 0) {
+    const { doneToday, total, streak } = computeHabitStreak(habits, logs, date, STREAK_WINDOW)
+    if (total === 0) {
         return { label: 'Habits today', value: '—', icon: 'fa-solid fa-seedling' }
-    }
-
-    const completedOn = (d: string) =>
-        new Set(logs.filter((l) => l.date === d && l.completed).map((l) => l.habit))
-    const isPerfect = (d: string) => active.every((h) => completedOn(d).has(h._id))
-
-    const doneToday = active.filter((h) => completedOn(date).has(h._id)).length
-
-    // Count back from today; an incomplete today doesn't break a prior streak.
-    let streak = 0
-    let cursor = isPerfect(date) ? date : addDays(date, -1)
-    for (let i = 0; i < STREAK_WINDOW && isPerfect(cursor); i++) {
-        streak++
-        cursor = addDays(cursor, -1)
     }
 
     return {
         label: 'Habits today',
-        value: `${doneToday}/${active.length}`,
+        value: `${doneToday}/${total}`,
         icon: 'fa-solid fa-fire',
         trend: streak > 0 ? `${streak}-day streak${streak >= STREAK_WINDOW ? '+' : ''}` : undefined,
         trendVariant: 'success',

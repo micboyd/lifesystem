@@ -19,6 +19,9 @@ import {
     type StarlingReconciliation,
     listStarlingExclusions,
     recoverStarlingExclusion,
+    listBudgetTopUps,
+    createBudgetTopUp,
+    deleteBudgetTopUp,
 } from '../services/finances'
 import { rowVisibleInMonth } from '../lib/finance'
 import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange } from '../lib/budget'
@@ -31,6 +34,7 @@ import type {
     FinanceRow,
     FinanceEntry,
     BudgetSpend,
+    BudgetTopUp,
     StarlingSpace,
     StarlingMovementReason,
     StarlingExclusion,
@@ -229,6 +233,92 @@ function SpendInput({ spentToday, hasLogged, label, onAdd }: SpendInputProps) {
     )
 }
 
+// ── Top up ────────────────────────────────────────────────────────────────────
+
+interface TopUpInputProps {
+    onAdd: (amount: number, note?: string) => Promise<void>
+}
+
+/** Inline "add extra money to this budget" form — a credit, not a spend. Boosts
+ * what's left from today onward without touching days already elapsed. */
+function TopUpInput({ onAdd }: TopUpInputProps) {
+    const [open, setOpen] = useState(false)
+    const [draft, setDraft] = useState('')
+    const [note, setNote] = useState('')
+    const [saving, setSaving] = useState(false)
+
+    async function submit(e: FormEvent) {
+        e.preventDefault()
+        const n = parseFloat(draft.trim())
+        if (Number.isNaN(n) || n <= 0) return
+        setSaving(true)
+        try {
+            await onAdd(n, note.trim() || undefined)
+            setDraft('')
+            setNote('')
+            setOpen(false)
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    if (!open) {
+        return (
+            <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+            >
+                <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
+                Top up
+            </button>
+        )
+    }
+
+    return (
+        <form onSubmit={submit} className="flex flex-col gap-2">
+            <div className="flex gap-2">
+                <div className="relative min-w-0 flex-1">
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-400">£</span>
+                    <input
+                        autoFocus
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        placeholder="0.00"
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10"
+                    />
+                </div>
+                <button
+                    type="submit"
+                    disabled={saving || draft.trim() === ''}
+                    className="shrink-0 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-semibold tracking-tight text-white transition-all duration-150 hover:bg-emerald-700 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
+                >
+                    {saving ? '…' : 'Add'}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    aria-label="Cancel"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                >
+                    <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
+                </button>
+            </div>
+            <input
+                type="text"
+                placeholder="Label (optional) — e.g. birthday money"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={200}
+                className="w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-neutral-300 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10"
+            />
+        </form>
+    )
+}
+
 // ── Monthly overview ──────────────────────────────────────────────────────────
 
 interface MonthRowStat {
@@ -242,11 +332,12 @@ interface MonthlyOverviewProps {
     groups: FinanceGroup[]
     entries: FinanceEntry[]
     spends: BudgetSpend[]
+    topUps: BudgetTopUp[]
     excludedDates: Set<string>
     month: string
 }
 
-function MonthlyOverview({ rows, groups, entries, spends, excludedDates, month }: MonthlyOverviewProps) {
+function MonthlyOverview({ rows, groups, entries, spends, topUps, excludedDates, month }: MonthlyOverviewProps) {
     const [open, setOpen] = useState(false)
 
     const monthStart = `${month}-01`
@@ -254,7 +345,10 @@ function MonthlyOverview({ rows, groups, entries, spends, excludedDates, month }
 
     const stats: MonthRowStat[] = rows.map((row) => {
         const entry = entries.find((e) => e.row === row._id)
-        const budget = entry?.amount ?? row.recurringAmount ?? 0
+        const topUpTotal = topUps
+            .filter((t) => t.row === row._id && t.date >= monthStart && t.date <= monthEnd)
+            .reduce((sum, t) => sum + t.amount, 0)
+        const budget = (entry?.amount ?? row.recurringAmount ?? 0) + topUpTotal
         const spent = spends
             .filter((s) => s.row === row._id && s.date >= monthStart && s.date <= monthEnd && !excludedDates.has(s.date))
             .reduce((sum, s) => sum + s.amount, 0)
@@ -692,6 +786,7 @@ interface BudgetCardProps {
     group: FinanceGroup
     entry: FinanceEntry | undefined
     spends: BudgetSpend[]
+    topUps: BudgetTopUp[]
     excludedDates: Set<string>
     weekStart: string
     weekEnd: string
@@ -707,13 +802,16 @@ interface BudgetCardProps {
     onSync: (row: FinanceRow) => void
     onOpenReconcile: (row: FinanceRow) => void
     onOpenTransactions: (row: FinanceRow) => void
+    onTopUp: (rowId: string, amount: number, note?: string) => Promise<void>
+    onDeleteTopUp: (id: string) => Promise<void>
 }
 
 function BudgetCard({
-    row, group, entry, spends, excludedDates,
+    row, group, entry, spends, topUps, excludedDates,
     weekStart, weekEnd, isCurrentWeek, isFutureWeek,
     starlingEnabled, linkedSpace, syncing,
     onToggleDailySpend, onLogSpend, onDeleteSpend, onOpenLink, onSync, onOpenReconcile, onOpenTransactions,
+    onTopUp, onDeleteTopUp,
 }: BudgetCardProps) {
     const isLinked = !!row.starlingCategoryUid
     const isDailySpend = row.budgetType === 'daily'
@@ -723,7 +821,7 @@ function BudgetCard({
 
     // Monthly overview — always based on the month the week sits in.
     // computeBudgetDay gives monthlyAmount / monthlyRemaining regardless of the day param.
-    const monthRef = computeBudgetDay(row, entry, spends, weekStart, excludedDates)
+    const monthRef = computeBudgetDay(row, entry, spends, weekStart, excludedDates, topUps)
     const { monthlyAmount, monthlyRemaining } = monthRef
 
     // Space balance vs budget remaining — only meaningful once linked and budgeted.
@@ -732,8 +830,10 @@ function BudgetCard({
 
     // ── Weekly row maths ────────────────────────────────────────────────────
     const weeklyBudget = isWeeklySpend
-        ? computeBudgetWeek(row, entry, spends, weekStart, weekEnd, today, excludedDates)
+        ? computeBudgetWeek(row, entry, spends, weekStart, weekEnd, today, excludedDates, topUps)
         : null
+    // remaining + spent = the total allowance for the week, including any top-up added this week.
+    const weeklyAllowance = weeklyBudget ? weeklyBudget.remaining + weeklyBudget.spentThisWeek : 0
 
     // ── Daily row maths for the week slice ──────────────────────────────────
     const dailyRate = monthRef.straightDailyRate
@@ -744,7 +844,10 @@ function BudgetCard({
         if (!excludedDates.has(d)) activeDaysInWeek++
         d = addDays(d, 1)
     }
-    const weekTargetDaily = dailyRate * activeDaysInWeek
+    const topUpsThisWeek = topUps
+        .filter((t) => t.date >= weekStart && t.date <= weekEnd)
+        .reduce((sum, t) => sum + t.amount, 0)
+    const weekTargetDaily = dailyRate * activeDaysInWeek + topUpsThisWeek
     const weekSpentDaily = spends
         .filter((s) => s.date >= weekStart && s.date <= weekEnd && !excludedDates.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
@@ -755,6 +858,9 @@ function BudgetCard({
         .filter((s) => s.date === today && !excludedDates.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
 
+    // This row's top-ups logged so far this month (already scoped to the row by the caller).
+    const rowTopUpTotal = topUps.reduce((sum, t) => sum + t.amount, 0)
+    const effectiveMonthlyAmount = monthlyAmount + rowTopUpTotal
 
     // Week date range label e.g. "1–5 Jul"
     const rangeLabel = (() => {
@@ -779,9 +885,9 @@ function BudgetCard({
                 <div className="shrink-0 text-right">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Monthly</p>
                     <p className="mt-0.5 text-xl font-bold tabular-nums tracking-tight text-neutral-900">
-                        {monthlyAmount > 0 ? `£${fmt(monthlyAmount)}` : '—'}
+                        {effectiveMonthlyAmount > 0 ? `£${fmt(effectiveMonthlyAmount)}` : '—'}
                     </p>
-                    {monthlyAmount > 0 && (
+                    {effectiveMonthlyAmount > 0 && (
                         <p className={['mt-0.5 text-xs font-semibold tabular-nums', monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400'].join(' ')}>
                             £{fmt(Math.abs(monthlyRemaining))} {monthlyRemaining < 0 ? 'over' : 'left'}
                         </p>
@@ -799,6 +905,36 @@ function BudgetCard({
                 </div>
             </div>
 
+            {/* Top up — add extra money to this budget, boosting what's left from today onward */}
+            {monthlyAmount > 0 && !isIncome && (
+                <div className="flex flex-col gap-2">
+                    <TopUpInput onAdd={(amount, note) => onTopUp(row._id, amount, note)} />
+                    {rowTopUpTotal > 0 && (
+                        <ul className="flex flex-col gap-1.5">
+                            {topUps.map((t) => (
+                                <li key={t._id} className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-emerald-800">{t.note || 'Top up'}</p>
+                                        <p className="text-xs text-emerald-600/70">{t.date}</p>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <span className="text-sm font-semibold tabular-nums text-emerald-700">+£{fmt(t.amount)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteTopUp(t._id)}
+                                            aria-label="Remove top-up"
+                                            className="grid h-7 w-7 place-items-center rounded-full text-emerald-400 transition-colors hover:bg-emerald-100 hover:text-emerald-700"
+                                        >
+                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
+
             {/* Weekly tracking — week slice */}
             {isWeeklySpend && weeklyBudget && (
                 <>
@@ -809,7 +945,7 @@ function BudgetCard({
                                     Week allowance
                                 </p>
                                 <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
-                                    £{fmt(weeklyBudget.weeklyRate + weeklyBudget.carry)}
+                                    £{fmt(weeklyAllowance)}
                                 </p>
                                 <p className="mt-0.5 text-[10px] text-neutral-500">{rangeLabel}</p>
                             </div>
@@ -828,12 +964,12 @@ function BudgetCard({
                             <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                                 <div
                                     className={['h-full rounded-full transition-all duration-300', weeklyBudget.remaining >= 0 ? 'bg-emerald-400' : 'bg-red-400'].join(' ')}
-                                    style={{ width: `${Math.min(100, (weeklyBudget.spentThisWeek / ((weeklyBudget.weeklyRate + weeklyBudget.carry) || 1)) * 100)}%` }}
+                                    style={{ width: `${Math.min(100, (weeklyBudget.spentThisWeek / (weeklyAllowance || 1)) * 100)}%` }}
                                 />
                             </div>
                             <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-400">
                                 <span>£{fmt(weeklyBudget.spentThisWeek)} spent</span>
-                                <span>£{fmt(weeklyBudget.weeklyRate + weeklyBudget.carry)}</span>
+                                <span>£{fmt(weeklyAllowance)}</span>
                             </div>
                         </div>
 
@@ -1040,6 +1176,7 @@ export default function Budgets() {
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
+    const [topUps, setTopUps] = useState<BudgetTopUp[]>([])
     const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
     // Navigate by week — anchor is any date in the desired week
     const [weekAnchor, setWeekAnchor] = useState(todayKey())
@@ -1093,14 +1230,16 @@ export default function Budgets() {
             listEntries(month),
             listBudgetSpends({ month }),
             listBudgetExclusions(month),
+            listBudgetTopUps(month),
         ])
-            .then(([g, r, e, s, x]) => {
+            .then(([g, r, e, s, x, t]) => {
                 if (!active) return
                 setGroups(g)
                 setRows(r)
                 setEntries(e)
                 setSpends(s)
                 setExcludedDates(new Set(x.map((dx) => dx.date)))
+                setTopUps(t)
             })
             .finally(() => active && setLoading(false))
         return () => { active = false }
@@ -1289,6 +1428,27 @@ export default function Budgets() {
         }
     }
 
+    async function handleTopUp(rowId: string, amount: number, note?: string) {
+        try {
+            const result = await createBudgetTopUp(rowId, todayDate, amount, note)
+            setTopUps((prev) => [...prev, result])
+            invalidate('budget')
+            toast.show(`Added £${formatAmount(amount)} to this budget.`, 'success')
+        } catch {
+            toast.error("Couldn't add that top-up.")
+        }
+    }
+
+    async function handleDeleteTopUp(id: string) {
+        try {
+            await deleteBudgetTopUp(id)
+            setTopUps((prev) => prev.filter((t) => t._id !== id))
+            invalidate('budget')
+        } catch {
+            toast.error("Couldn't remove that top-up.")
+        }
+    }
+
     if (loading) {
         return (
             <div className="grid place-items-center py-16">
@@ -1367,6 +1527,7 @@ export default function Budgets() {
                 groups={groups}
                 entries={entries}
                 spends={spends}
+                topUps={topUps}
                 excludedDates={excludedDates}
                 month={month}
             />
@@ -1384,6 +1545,7 @@ export default function Budgets() {
                         if (!group) return null
                         const entry = entries.find((e) => e.row === row._id)
                         const rowSpends = spends.filter((s) => s.row === row._id)
+                        const rowTopUps = topUps.filter((t) => t.row === row._id)
                         return (
                             <BudgetCard
                                 key={row._id}
@@ -1391,6 +1553,7 @@ export default function Budgets() {
                                 group={group}
                                 entry={entry}
                                 spends={rowSpends}
+                                topUps={rowTopUps}
                                 excludedDates={excludedDates}
                                 weekStart={weekStart}
                                 weekEnd={weekEnd}
@@ -1406,6 +1569,8 @@ export default function Budgets() {
                                 onSync={handleSync}
                                 onOpenReconcile={openReconcile}
                                 onOpenTransactions={setTxRow}
+                                onTopUp={handleTopUp}
+                                onDeleteTopUp={handleDeleteTopUp}
                             />
                         )
                     })}

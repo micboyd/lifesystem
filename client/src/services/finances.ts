@@ -7,6 +7,8 @@ import type {
     FinanceEntry,
     BudgetSpend,
     BudgetExclusion,
+    ExclusionBudget,
+    BudgetTopUp,
     FinanceSubItem,
     StarlingSpace,
     StarlingMovement,
@@ -297,6 +299,36 @@ export async function recoverStarlingExclusion(id: string): Promise<BudgetSpend>
     return res.data.data
 }
 
+// ── Budget top-ups ────────────────────────────────────────────────────────────
+
+export async function listBudgetTopUps(month: string): Promise<BudgetTopUp[]> {
+    const res = await api.get<ApiResponse<BudgetTopUp[]>>('/finances/budget-topups', {
+        params: { month },
+    })
+    return res.data.data
+}
+
+/** Add extra money to a budget, dated today — boosts what's left from today onward. */
+export async function createBudgetTopUp(
+    rowId: string,
+    date: string,
+    amount: number,
+    note?: string
+): Promise<BudgetTopUp> {
+    const res = await api.post<ApiResponse<BudgetTopUp>>('/finances/budget-topups', {
+        row: rowId,
+        date,
+        amount,
+        ...(note && { note }),
+    })
+    return res.data.data
+}
+
+/** Undo a top-up. */
+export async function deleteBudgetTopUp(id: string): Promise<void> {
+    await api.delete(`/finances/budget-topups/${id}`)
+}
+
 // ── Budget day exclusions ─────────────────────────────────────────────────────
 
 export async function listBudgetExclusions(month: string): Promise<BudgetExclusion[]> {
@@ -315,6 +347,45 @@ export async function setBudgetExclusion(
         { excluded }
     )
     return res.data.data
+}
+
+// ── Exclusion budgets ─────────────────────────────────────────────────────────
+
+export interface ExclusionBudgetPayload {
+    dates: string[]
+    amount: number
+    /** Funding budget row id; null clears a previously set row. */
+    row?: string | null
+    label?: string
+    note?: string
+}
+
+export async function listExclusionBudgets(month: string): Promise<ExclusionBudget[]> {
+    const res = await api.get<ApiResponse<ExclusionBudget[]>>('/finances/exclusion-budgets', {
+        params: { month },
+    })
+    return res.data.data
+}
+
+/** Assign an alternate budget pot to a set of excluded days. */
+export async function createExclusionBudget(payload: ExclusionBudgetPayload): Promise<ExclusionBudget> {
+    const res = await api.post<ApiResponse<ExclusionBudget>>('/finances/exclusion-budgets', payload)
+    return res.data.data
+}
+
+export async function updateExclusionBudget(
+    id: string,
+    payload: Partial<ExclusionBudgetPayload>
+): Promise<ExclusionBudget> {
+    const res = await api.put<ApiResponse<ExclusionBudget>>(
+        `/finances/exclusion-budgets/${id}`,
+        payload
+    )
+    return res.data.data
+}
+
+export async function deleteExclusionBudget(id: string): Promise<void> {
+    await api.delete(`/finances/exclusion-budgets/${id}`)
 }
 
 // ── Row breakdown sub-items ───────────────────────────────────────────────────

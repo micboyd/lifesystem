@@ -1,4 +1,4 @@
-import type { FinanceRow, FinanceEntry, BudgetSpend } from '../types'
+import type { FinanceRow, FinanceEntry, BudgetSpend, BudgetTopUp, ExclusionBudget } from '../types'
 
 /** "YYYY-MM-DD" → "YYYY-MM". */
 export function monthOf(date: string): string {
@@ -114,13 +114,18 @@ export interface BudgetDay {
  * Single source of truth for every budget surface (Budgets, Daily Log, the
  * dashboard widget, and the insights strip). Pass the month's excluded dates so
  * all surfaces agree; omit them and it behaves as a plain even split.
+ *
+ * Top-ups (`rowTopUps`) are forward-only: a top-up dated on or before `date`
+ * boosts carry/monthlyRemaining, but never changes the figures for a date
+ * before the top-up happened.
  */
 export function computeBudgetDay(
     row: FinanceRow,
     entry: FinanceEntry | undefined,
     rowSpends: BudgetSpend[],
     date: string,
-    excluded: Set<string> = new Set()
+    excluded: Set<string> = new Set(),
+    rowTopUps: BudgetTopUp[] = []
 ): BudgetDay {
     const month = monthOf(date)
     const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
@@ -134,7 +139,8 @@ export function computeBudgetDay(
     const totalSpentMonth = rowSpends
         .filter((s) => !excluded.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
-    const monthlyRemaining = monthlyAmount - totalSpentMonth
+    const totalTopUpMonth = rowTopUps.reduce((sum, t) => sum + t.amount, 0)
+    const monthlyRemaining = monthlyAmount + totalTopUpMonth - totalSpentMonth
 
     // Excluded days have no allowance of their own.
     if (excluded.has(date)) {
@@ -151,7 +157,10 @@ export function computeBudgetDay(
     const totalSpentBefore = rowSpends
         .filter((s) => s.date < date && !excluded.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
-    const carry = activeDaysBefore(date, excluded) * straightDailyRate - totalSpentBefore
+    const totalTopUpBefore = rowTopUps
+        .filter((t) => t.date <= date)
+        .reduce((sum, t) => sum + t.amount, 0)
+    const carry = activeDaysBefore(date, excluded) * straightDailyRate - totalSpentBefore + totalTopUpBefore
     const todaysAllowance = straightDailyRate + carry
     const remaining = todaysAllowance - spentToday
 
@@ -206,6 +215,10 @@ function activeDaysBetween(start: string, end: string, excluded: Set<string>): n
  *
  * Carry logic: daily rate × days in each prior week's slice − spend in that slice.
  * With zero spend, the last week of the month carries the full monthly budget.
+ *
+ * Top-ups (`rowTopUps`) are forward-only: only top-ups whose date falls on or
+ * before the slice/date being evaluated count, so a top-up never changes a week
+ * that had already closed before it was added.
  */
 export function computeBudgetWeek(
     row: FinanceRow,
@@ -214,7 +227,8 @@ export function computeBudgetWeek(
     weekStart: string,
     weekEnd: string,
     today: string,
-    excluded: Set<string> = new Set()
+    excluded: Set<string> = new Set(),
+    rowTopUps: BudgetTopUp[] = []
 ): BudgetWeek {
     const month = weekStart.slice(0, 7)
     const monthStart = `${month}-01`
@@ -242,7 +256,10 @@ export function computeBudgetWeek(
             const priorSpend = rowSpends
                 .filter((s) => s.date >= cursor && s.date <= sliceEnd && !excluded.has(s.date))
                 .reduce((sum, s) => sum + s.amount, 0)
-            carry += priorAllowance - priorSpend
+            const priorTopUp = rowTopUps
+                .filter((t) => t.date >= cursor && t.date <= sliceEnd)
+                .reduce((sum, t) => sum + t.amount, 0)
+            carry += priorAllowance - priorSpend + priorTopUp
 
             // Advance to next ISO Monday after this week's Sunday.
             cursor = nextDay(weekEndOf(cursor))
@@ -256,13 +273,45 @@ export function computeBudgetWeek(
     const spentThisWeek = rowSpends
         .filter((s) => s.date >= weekStart && s.date <= spendCutoff && !excluded.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
+    const topUpThisWeek = rowTopUps
+        .filter((t) => t.date >= weekStart && t.date <= spendCutoff)
+        .reduce((sum, t) => sum + t.amount, 0)
 
     const totalMonthSpend = rowSpends
         .filter((s) => s.date >= monthStart && s.date <= monthEnd && !excluded.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
-    const monthlyRemaining = monthlyAmount - totalMonthSpend
+    const totalMonthTopUp = rowTopUps
+        .filter((t) => t.date >= monthStart && t.date <= monthEnd)
+        .reduce((sum, t) => sum + t.amount, 0)
+    const monthlyRemaining = monthlyAmount + totalMonthTopUp - totalMonthSpend
 
-    const remaining = weeklyRate + carry - spentThisWeek
+    const remaining = weeklyRate + carry + topUpThisWeek - spentThisWeek
 
     return { monthlyAmount, weeklyRate, carry, spentThisWeek, remaining, monthlyRemaining }
+}
+
+// ── Exclusion budgets ─────────────────────────────────────────────────────────
+
+export interface ExclusionPot {
+    /** amount ÷ number of days — a guide, not a per-day cap. */
+    guideRate: number
+    /** All spends (any row) dated within the pot's days. */
+    spent: number
+    /** amount − spent: the number that matters — one shared pot. */
+    remaining: number
+}
+
+/**
+ * Roll up an exclusion budget: under/overspend flows freely between the pot's
+ * days, so the pot is judged on its total, not day by day. Row-agnostic —
+ * anything spent on those days counts against the pot.
+ */
+export function computeExclusionPot(group: ExclusionBudget, allSpends: BudgetSpend[]): ExclusionPot {
+    const dateSet = new Set(group.dates)
+    const spent = allSpends.filter((s) => dateSet.has(s.date)).reduce((sum, s) => sum + s.amount, 0)
+    return {
+        guideRate: group.dates.length > 0 ? group.amount / group.dates.length : 0,
+        spent,
+        remaining: group.amount - spent,
+    }
 }

@@ -1,0 +1,66 @@
+import { Response } from 'express'
+import { AuthRequest } from '../middleware/auth'
+import BudgetTopUp from '../models/BudgetTopUp'
+import FinanceRow from '../models/FinanceRow'
+
+const MONTH_RE = /^\d{4}-\d{2}$/
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+export async function listBudgetTopUps(req: AuthRequest, res: Response) {
+    const { month } = req.query
+    if (typeof month !== 'string' || !MONTH_RE.test(month)) {
+        res.status(400).json({ message: 'month (YYYY-MM) required' })
+        return
+    }
+    const topUps = await BudgetTopUp.find({ user: req.userId, date: { $regex: `^${month}` } })
+    res.json({ message: 'OK', data: topUps })
+}
+
+function parseAmount(raw: unknown): number | null {
+    const num = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN
+    return Number.isNaN(num) || num <= 0 ? null : num
+}
+
+function parseNote(raw: unknown): string | undefined {
+    return typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, 200) : undefined
+}
+
+/** POST /budget-topups — add extra money to a budget, dated today (forward-only). */
+export async function createBudgetTopUp(req: AuthRequest, res: Response) {
+    const { row: rowId, date } = req.body
+    if (typeof date !== 'string' || !DATE_RE.test(date)) {
+        res.status(400).json({ message: 'date must be YYYY-MM-DD' })
+        return
+    }
+
+    const row = await FinanceRow.findOne({ _id: rowId, user: req.userId })
+    if (!row) {
+        res.status(404).json({ message: 'Row not found' })
+        return
+    }
+
+    const amount = parseAmount(req.body.amount)
+    if (amount === null) {
+        res.status(400).json({ message: 'amount must be a number > 0' })
+        return
+    }
+
+    const topUp = await BudgetTopUp.create({
+        user: req.userId,
+        row: rowId,
+        date,
+        amount,
+        note: parseNote(req.body.note),
+    })
+    res.status(201).json({ message: 'Created', data: topUp })
+}
+
+/** DELETE /budget-topups/:id — undo a top-up. */
+export async function deleteBudgetTopUp(req: AuthRequest, res: Response) {
+    const topUp = await BudgetTopUp.findOneAndDelete({ _id: req.params.id, user: req.userId })
+    if (!topUp) {
+        res.status(404).json({ message: 'Top-up not found' })
+        return
+    }
+    res.json({ message: 'Deleted', data: null })
+}

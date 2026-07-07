@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { listDaysSince } from '../../services/daysSince'
-import { daysBetween, isMilestoneDay, milestoneLabel } from '../../lib/daysSince'
+import { daysBetween, bestDays, isMilestoneDay, milestoneLabel } from '../../lib/daysSince'
 import { DAYS_SINCE_COLOR_CLASSES, type DaysSinceItem } from '../../types'
 import { todayKey } from '../../lib/calendar'
 
@@ -59,6 +59,7 @@ export default function DaysSinceWidget() {
                 <ul className="divide-y divide-neutral-100">
                     {ranked.map(({ item, days }) => {
                         const c = DAYS_SINCE_COLOR_CLASSES[item.color]
+                        const best = bestDays(item, today)
                         return (
                             <li key={item._id} className="flex items-center gap-4 py-3">
                                 <span
@@ -70,11 +71,15 @@ export default function DaysSinceWidget() {
                                     <p className="truncate text-sm font-semibold text-neutral-900">
                                         {item.label}
                                     </p>
-                                    {isMilestoneDay(days) && (
+                                    {isMilestoneDay(days) ? (
                                         <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
                                             <i className="fa-solid fa-trophy" aria-hidden="true" />
                                             {milestoneLabel(days)} today!
                                         </p>
+                                    ) : (
+                                        item.history.length > 0 && (
+                                            <p className="text-xs text-neutral-400">Best: {best} days</p>
+                                        )
                                     )}
                                 </div>
                                 <div className="shrink-0 text-right">

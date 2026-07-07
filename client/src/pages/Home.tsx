@@ -3,6 +3,7 @@ import Container from '../components/Container'
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import WorkStatusBanner from '../components/dashboard/WorkStatusBanner'
+import StatusOverviewStrip from '../components/dashboard/StatusOverviewStrip'
 import InsightsStrip from '../components/dashboard/InsightsStrip'
 import TodayWidget from '../components/dashboard/TodayWidget'
 import RemindersWidget from '../components/dashboard/RemindersWidget'
@@ -33,6 +34,7 @@ export default function Home() {
             {/* Full-width status + at-a-glance KPIs */}
             <div className="mt-6 flex flex-col gap-4">
                 <WorkStatusBanner date={date} />
+                <StatusOverviewStrip />
                 <InsightsStrip date={date} />
             </div>
 
