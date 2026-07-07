@@ -25,10 +25,14 @@ const budgetSpendSchema = new Schema<IBudgetSpend>(
 )
 
 // One imported transaction per Starling feed item — lets re-syncs upsert rather
-// than duplicate. Sparse so manually-logged spends (no feed id) aren't constrained.
+// than duplicate. Partial (not sparse!) so it only applies to documents where the
+// field is an actual string: a sparse index still enforces uniqueness on documents
+// where the field is explicitly null (as opposed to absent), so any two manually
+// logged or detached spends — which both end up with starlingFeedItemUid unset —
+// would otherwise collide as soon as a second one existed.
 budgetSpendSchema.index(
     { user: 1, starlingFeedItemUid: 1 },
-    { unique: true, sparse: true }
+    { unique: true, partialFilterExpression: { starlingFeedItemUid: { $type: 'string' } } }
 )
 
 // A day can hold many transactions per row, so this is a plain lookup index — not

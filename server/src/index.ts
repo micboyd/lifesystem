@@ -95,6 +95,19 @@ connectDB()
             // Already dropped or never existed.
         }
 
+        // One-time migration: the starlingFeedItemUid unique index was `sparse`,
+        // which still enforces uniqueness on documents where the field is explicitly
+        // null (only truly-absent fields are skipped) — so moving or manually
+        // logging a second spend collided with the first as soon as one existed.
+        // Dropping it lets Mongoose recreate it as a partial index (defined on the
+        // schema), which correctly excludes null/absent values entirely.
+        try {
+            await BudgetSpend.collection.dropIndex('user_1_starlingFeedItemUid_1')
+            console.log('BudgetSpend: dropped stale sparse starlingFeedItemUid index')
+        } catch {
+            // Already dropped or never existed.
+        }
+
         app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
     })
     .catch((err) => {
