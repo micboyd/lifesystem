@@ -37,7 +37,7 @@ function SpaceCard({ space }: { space: StarlingSpace }) {
 }
 
 /** Read-only visual overview of every Starling Space and its current balance. */
-export default function SpacesOutlook() {
+export default function Spaces() {
     useMoneyHidden() // re-render this subtree when money is hidden/shown
     const [loading, setLoading] = useState(true)
     const [spaces, setSpaces] = useState<StarlingSpace[]>([])
@@ -112,7 +112,7 @@ export default function SpacesOutlook() {
     return (
         <>
             <header className="mb-8">
-                <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">Spaces outlook</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">Spaces</h1>
                 <p className="mt-1 text-sm text-neutral-500">
                     A live snapshot of every Starling space and its balance.
                 </p>

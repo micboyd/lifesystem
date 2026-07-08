@@ -2,7 +2,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Container from '../components/Container'
 import Tabs from '../components/Tabs'
 
-const TABS = ['Monthly', 'Budgets', 'Logs', 'Forecast', 'Spaces outlook'] as const
+const TABS = ['Monthly', 'Budgets', 'Logs', 'Forecast', 'Spaces'] as const
 type FinanceTab = (typeof TABS)[number]
 
 const PATHS: Record<FinanceTab, string> = {
@@ -10,7 +10,7 @@ const PATHS: Record<FinanceTab, string> = {
     Budgets: '/finances/budgets',
     Logs: '/finances/daily-log',
     Forecast: '/finances/forecast',
-    'Spaces outlook': '/finances/spaces-outlook',
+    Spaces: '/finances/spaces',
 }
 
 const FULL_WIDTH_TABS: FinanceTab[] = ['Logs']
@@ -26,8 +26,8 @@ export default function FinanceLayout() {
           ? 'Budgets'
           : pathname.startsWith('/finances/forecast')
             ? 'Forecast'
-            : pathname.startsWith('/finances/spaces-outlook')
-              ? 'Spaces outlook'
+            : pathname.startsWith('/finances/spaces')
+              ? 'Spaces'
               : 'Monthly'
 
     if (FULL_WIDTH_TABS.includes(active)) {

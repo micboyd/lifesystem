@@ -16,7 +16,7 @@ import Finances from './pages/Finances'
 import Budgets from './pages/Budgets'
 import BudgetCalendar from './pages/BudgetCalendar'
 import SavingsForecast from './pages/SavingsForecast'
-import SpacesOutlook from './pages/SpacesOutlook'
+import Spaces from './pages/Spaces'
 import FinanceBreakdown from './pages/FinanceBreakdown'
 import Birthdays from './pages/Birthdays'
 import DaysSince from './pages/DaysSince'
@@ -74,7 +74,7 @@ export default function App() {
                     <Route path="budgets" element={<Budgets />} />
                     <Route path="daily-log" element={<BudgetCalendar />} />
                     <Route path="forecast" element={<SavingsForecast />} />
-                    <Route path="spaces-outlook" element={<SpacesOutlook />} />
+                    <Route path="spaces" element={<Spaces />} />
                 </Route>
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/birthdays" element={<Birthdays />} />
