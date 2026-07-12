@@ -10,6 +10,7 @@ import { fetchForecast, weatherInfo, whatToWear, type Forecast } from '../lib/we
 import {
     computeBudgetDay,
     computeBudgetWeek,
+    computeExclusionPot,
     clampedWeekRange,
     activeDaysBetween,
     monthOf,
@@ -33,6 +34,7 @@ import {
     listBudgetSpends,
     listBudgetExclusions,
     listBudgetTopUps,
+    listExclusionBudgets,
 } from '../services/finances'
 import { listTasks, updateTask } from '../services/tasks'
 import { listEvents } from '../services/events'
@@ -44,6 +46,7 @@ import type {
     FinanceEntry,
     BudgetSpend,
     BudgetTopUp,
+    ExclusionBudget,
     Task,
     Event,
     Reminder,
@@ -189,6 +192,7 @@ export default function DailyReport() {
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
     const [topUps, setTopUps] = useState<BudgetTopUp[]>([])
+    const [exclusionPots, setExclusionPots] = useState<ExclusionBudget[]>([])
     const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
     const [loadedMonth, setLoadedMonth] = useState<string | null>(null)
     const budgetVersion = useDataVersion('budget')
@@ -202,8 +206,9 @@ export default function DailyReport() {
             listBudgetSpends({ month }),
             listBudgetExclusions(month),
             listBudgetTopUps(month),
+            listExclusionBudgets(month),
         ])
-            .then(([g, r, e, s, x, t]) => {
+            .then(([g, r, e, s, x, t, p]) => {
                 if (!active) return
                 setGroups(g)
                 setRows(r)
@@ -211,6 +216,7 @@ export default function DailyReport() {
                 setSpends(s)
                 setExcludedDates(new Set(x.map((d) => d.date)))
                 setTopUps(t)
+                setExclusionPots(p)
             })
             .finally(() => active && setLoadedMonth(month))
         return () => {
@@ -270,17 +276,45 @@ export default function DailyReport() {
             (r.budgetType === 'daily' || r.budgetType === 'weekly') &&
             rowVisibleInMonth(r, month, groups.find((g) => g._id === r.group))
     )
-    const budgetsToday = trackedRows.map((row) =>
-        computeBudgetToday(
-            row,
-            entries.find((e) => e.row === row._id),
-            spends.filter((s) => s.row === row._id),
-            topUps.filter((t) => t.row === row._id),
-            date,
-            excludedDates
-        )
-    )
-    const totalToday = budgetsToday.reduce((sum, b) => sum + b.canSpendToday, 0)
+    // On an excluded day (trip/holiday), regular budgets carry no allowance — the
+    // day is funded by its exclusion pot instead, so show that pot's figures.
+    const isExcludedDay = excludedDates.has(date)
+    const potsToday = exclusionPots.filter((p) => p.dates.includes(date))
+
+    interface SpendFigure {
+        key: string
+        name: string
+        amount: number
+        context: string
+    }
+    const spendFigures: SpendFigure[] = isExcludedDay
+        ? potsToday.map((p) => {
+              const pot = computeExclusionPot(p, spends)
+              const last = p.dates[p.dates.length - 1]
+              return {
+                  key: p._id,
+                  name: p.label || 'Day-off pot',
+                  amount: pot.remaining,
+                  context: `£${fmt(p.amount)} pot over ${p.dates.length} day${p.dates.length !== 1 ? 's' : ''} · £${fmt(pot.spent)} spent · ${last === date ? 'last day' : `runs to ${Number(last.slice(8))}/${Number(last.slice(5, 7))}`}`,
+              }
+          })
+        : trackedRows.map((row) => {
+              const b = computeBudgetToday(
+                  row,
+                  entries.find((e) => e.row === row._id),
+                  spends.filter((s) => s.row === row._id),
+                  topUps.filter((t) => t.row === row._id),
+                  date,
+                  excludedDates
+              )
+              return { key: row._id, name: row.name, amount: b.canSpendToday, context: b.context }
+          })
+    const totalToday = spendFigures.reduce((sum, b) => sum + b.amount, 0)
+    const spendSubtitle = isExcludedDay
+        ? potsToday.length > 0
+            ? `Day off regular budgets — spending comes from your ${potsToday.map((p) => p.label || 'day-off').join(' & ')} pot${potsToday.length !== 1 ? 's' : ''}`
+            : 'Day off budget — no pot covers this day'
+        : `Across ${spendFigures.length} budget${spendFigures.length !== 1 ? 's' : ''}, carry included`
 
     // ── Derived: day plan ───────────────────────────────────────────────────
     const allDayEvents = events.filter((e) => eventCoversAllDay(e, date))
@@ -323,8 +357,7 @@ export default function DailyReport() {
                             {totalToday < 0 ? '-' : ''}£{fmt(Math.abs(totalToday))}
                         </p>
                         <p className="mt-1 text-xs text-neutral-400">
-                            Across {budgetsToday.length} budget{budgetsToday.length !== 1 ? 's' : ''}, carry
-                            included
+                            {spendSubtitle}
                             {openTasks.length > 0 && (
                                 <>
                                     {' '}
@@ -340,25 +373,25 @@ export default function DailyReport() {
                             )}
                         </p>
 
-                        {/* Per-budget figures */}
-                        {budgetsToday.length > 0 && (
+                        {/* Per-budget (or per-pot) figures */}
+                        {spendFigures.length > 0 && (
                             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                                {budgetsToday.map((b) => (
-                                    <div key={b.row._id} className="rounded-xl bg-white/5 px-4 py-3">
+                                {spendFigures.map((b) => (
+                                    <div key={b.key} className="rounded-xl bg-white/5 px-4 py-3">
                                         <p className="truncate text-xs font-semibold text-neutral-300">
-                                            {b.row.name}
+                                            {b.name}
                                         </p>
                                         <p
-                                            className={`mt-0.5 text-xl font-bold tabular-nums ${b.canSpendToday < 0 ? 'text-red-400' : 'text-emerald-400'}`}
+                                            className={`mt-0.5 text-xl font-bold tabular-nums ${b.amount < 0 ? 'text-red-400' : 'text-emerald-400'}`}
                                         >
-                                            {b.canSpendToday < 0 ? '-' : ''}£{fmt(Math.abs(b.canSpendToday))}
+                                            {b.amount < 0 ? '-' : ''}£{fmt(Math.abs(b.amount))}
                                         </p>
                                         <p className="mt-0.5 text-[11px] text-neutral-500">{b.context}</p>
                                     </div>
                                 ))}
                             </div>
                         )}
-                        {budgetsToday.length === 0 && (
+                        {spendFigures.length === 0 && !isExcludedDay && (
                             <p className="mt-3 text-xs text-neutral-500">
                                 No tracked budgets this month —{' '}
                                 <Link to="/finances/budgets" className="font-semibold text-neutral-300 underline underline-offset-2">
