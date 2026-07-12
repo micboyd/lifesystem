@@ -7,6 +7,7 @@ import { toggleMoneyHidden } from '../lib/moneyVisibility'
 
 const navLinks = [
     { label: 'Home', to: '/' },
+    { label: 'Report', to: '/daily-report' },
     { label: 'Calendar', to: '/calendar' },
     { label: 'Finances', to: '/finances' },
     { label: 'Timebox', to: '/timebox' },

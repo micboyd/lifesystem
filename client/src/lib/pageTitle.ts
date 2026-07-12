@@ -8,6 +8,7 @@ export const BRAND = 'AdminLife'
  */
 export function pageNameForPath(pathname: string): string | null {
     if (pathname === '/') return 'Dashboard'
+    if (pathname === '/daily-report') return 'Daily Report'
     if (pathname === '/login') return 'Sign in'
     if (pathname === '/calendar') return 'Calendar'
     if (pathname.startsWith('/day/')) return 'Day'

@@ -197,7 +197,7 @@ function prevDay(date: string): string {
 }
 
 /** Count non-excluded days between start and end inclusive. */
-function activeDaysBetween(start: string, end: string, excluded: Set<string>): number {
+export function activeDaysBetween(start: string, end: string, excluded: Set<string>): number {
     let n = 0
     let d = start
     while (d <= end) {
