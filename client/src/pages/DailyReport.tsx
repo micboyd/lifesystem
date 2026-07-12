@@ -347,7 +347,7 @@ export default function DailyReport() {
             ) : (
                 <div className="flex flex-col gap-6">
                     {/* At-a-glance brief */}
-                    <Card className="bg-neutral-950 text-white" hover={false}>
+                    <div className="rounded-2xl bg-neutral-950 p-6 text-white">
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                             {isToday ? 'You can spend today' : `Spendable on this day`}
                         </p>
@@ -400,7 +400,7 @@ export default function DailyReport() {
                                 .
                             </p>
                         )}
-                    </Card>
+                    </div>
 
                     <div className="grid gap-6 lg:grid-cols-2">
                         {/* Weather */}
