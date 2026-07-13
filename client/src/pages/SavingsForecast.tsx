@@ -1241,13 +1241,16 @@ export default function SavingsForecast() {
     // Steady monthly contribution per group: each recurring row's amount — this
     // month's override if one is set, otherwise the recurring amount. A skipped
     // current month no longer zeroes this out. Used for the per-group settings card.
+    // Deliberately reads the latest recurringAmount rather than the month-resolved
+    // value: this is the go-forward assumption driving the projection, so a
+    // "from next month onwards" change should show here immediately.
     function monthlyContribution(group: FinanceGroup): number {
         const groupRows = rows.filter(
             (r) => r.group === group._id && r.recurring !== false && liveFromNow(r)
         )
         return groupRows.reduce((sum, row) => {
             const entry = entries.find((e) => e.row === row._id)
-            return sum + (entry?.amount ?? recurringAmountForMonth(row, month) ?? 0)
+            return sum + (entry?.amount ?? row.recurringAmount ?? 0)
         }, 0)
     }
 
