@@ -9,6 +9,7 @@ import { Schema, model, Document, Types } from 'mongoose'
 export interface ISavingsTarget extends Document {
     user: Types.ObjectId
     name: string
+    notes?: string
     // Inputs
     targetAmount: number
     startingBalance: number
@@ -31,6 +32,7 @@ const savingsTargetSchema = new Schema<ISavingsTarget>(
     {
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         name: { type: String, required: true, trim: true },
+        notes: { type: String, trim: true },
         targetAmount: { type: Number, required: true },
         startingBalance: { type: Number, default: 0 },
         annualInterestRate: { type: Number, default: 0 },

@@ -5,7 +5,7 @@ import DatePicker from '../components/DatePicker'
 import Tabs from '../components/Tabs'
 import { listGroups, listRows, listEntries, updateGroup, deleteGroup } from '../services/finances'
 import {
-    listSavingsTargets, createSavingsTarget, renameSavingsTarget, deleteSavingsTarget,
+    listSavingsTargets, createSavingsTarget, updateSavingsTarget, deleteSavingsTarget,
 } from '../services/savingsTargets'
 import { groupVisibleInMonth, rowVisibleInMonth, addMonths } from '../lib/finance'
 import { formatAmount, formatMoneyCompact } from '../lib/money'
@@ -686,15 +686,17 @@ function monthLabelLong(ym: string) {
 
 function SavedTargetCard({
     target,
-    onRename,
+    onUpdate,
     onDelete,
 }: {
     target: SavingsTarget
-    onRename: (id: string, name: string) => Promise<void>
+    onUpdate: (id: string, fields: { name?: string; notes?: string | null }) => Promise<void>
     onDelete: (id: string) => Promise<void>
 }) {
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(target.name)
+    const [editingNotes, setEditingNotes] = useState(false)
+    const [notesDraft, setNotesDraft] = useState('')
     const [confirming, setConfirming] = useState(false)
     const [busy, setBusy] = useState(false)
 
@@ -705,7 +707,19 @@ function SavedTargetCard({
             setName(target.name)
             return
         }
-        await onRename(target._id, trimmed)
+        await onUpdate(target._id, { name: trimmed })
+    }
+
+    async function commitNotes() {
+        const trimmed = notesDraft.trim()
+        setEditingNotes(false)
+        if (trimmed === (target.notes ?? '')) return
+        await onUpdate(target._id, { notes: trimmed || null })
+    }
+
+    function openNotesEditor() {
+        setNotesDraft(target.notes ?? '')
+        setEditingNotes(true)
     }
 
     async function handleDelete() {
@@ -744,7 +758,10 @@ function SavedTargetCard({
                     ) : (
                         <button
                             type="button"
-                            onClick={() => setEditing(true)}
+                            onClick={() => {
+                                setName(target.name)
+                                setEditing(true)
+                            }}
                             title="Rename"
                             className="group flex items-center gap-2 text-left"
                         >
@@ -811,6 +828,44 @@ function SavedTargetCard({
                         contributions £{fmt(target.totalContributions, 0)} · interest £
                         {fmt(target.interestEarned, 0)}
                     </p>
+                    {editingNotes ? (
+                        <textarea
+                            autoFocus
+                            value={notesDraft}
+                            onChange={(e) => setNotesDraft(e.target.value)}
+                            onBlur={commitNotes}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Escape') setEditingNotes(false)
+                            }}
+                            rows={3}
+                            placeholder="Notes…"
+                            className="mt-3 w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-xs text-neutral-700 outline-none transition-all placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
+                        />
+                    ) : target.notes ? (
+                        <button
+                            type="button"
+                            onClick={openNotesEditor}
+                            title="Edit notes"
+                            className="group mt-3 w-full text-left"
+                        >
+                            <p className="whitespace-pre-wrap text-xs text-neutral-500">
+                                {target.notes}
+                                <i
+                                    className="fa-solid fa-pen ml-2 text-[9px] text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100"
+                                    aria-hidden="true"
+                                />
+                            </p>
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={openNotesEditor}
+                            className="mt-3 text-xs font-semibold text-neutral-300 transition-colors hover:text-neutral-500"
+                        >
+                            <i className="fa-solid fa-plus mr-1 text-[9px]" aria-hidden="true" />
+                            Add notes
+                        </button>
+                    )}
                 </>
             )}
         </div>
@@ -835,6 +890,7 @@ function TargetPlannerSection({
     const [snapshots, setSnapshots] = useState<SavingsTarget[]>([])
     const [snapshotsLoading, setSnapshotsLoading] = useState(true)
     const [snapshotName, setSnapshotName] = useState('')
+    const [snapshotNotes, setSnapshotNotes] = useState('')
     const [saving, setSaving] = useState(false)
 
     useEffect(() => {
@@ -867,6 +923,7 @@ function TargetPlannerSection({
         try {
             const created = await createSavingsTarget({
                 name: snapshotName.trim() || defaultName,
+                notes: snapshotNotes.trim() || undefined,
                 targetAmount: parse(targetAmount),
                 startingBalance: parse(balance),
                 annualInterestRate: parse(rate),
@@ -882,6 +939,7 @@ function TargetPlannerSection({
             })
             setSnapshots((prev) => [created, ...prev])
             setSnapshotName('')
+            setSnapshotNotes('')
             toast.show('Plan saved.', 'success')
         } catch {
             toast.error("Couldn't save that plan.")
@@ -890,12 +948,12 @@ function TargetPlannerSection({
         }
     }
 
-    async function handleRename(id: string, name: string) {
+    async function handleUpdate(id: string, fields: { name?: string; notes?: string | null }) {
         try {
-            const updated = await renameSavingsTarget(id, name)
+            const updated = await updateSavingsTarget(id, fields)
             setSnapshots((prev) => prev.map((t) => (t._id === id ? updated : t)))
         } catch {
-            toast.error("Couldn't rename that plan.")
+            toast.error("Couldn't update that plan.")
         }
     }
 
@@ -1020,24 +1078,33 @@ function TargetPlannerSection({
                     )}
 
                     {!plan.error && (
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
-                            <input
-                                value={snapshotName}
-                                onChange={(e) => setSnapshotName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !saving) handleSave()
-                                }}
-                                placeholder="Name this plan (e.g. House deposit)"
-                                className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm font-semibold text-neutral-900 outline-none transition-all placeholder:font-normal placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
+                        <div className="mt-4 flex flex-col gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <input
+                                    value={snapshotName}
+                                    onChange={(e) => setSnapshotName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !saving) handleSave()
+                                    }}
+                                    placeholder="Name this plan (e.g. House deposit)"
+                                    className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm font-semibold text-neutral-900 outline-none transition-all placeholder:font-normal placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="rounded-full bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-50"
+                                >
+                                    {saving ? 'Saving…' : 'Save plan'}
+                                </button>
+                            </div>
+                            <textarea
+                                value={snapshotNotes}
+                                onChange={(e) => setSnapshotNotes(e.target.value)}
+                                rows={2}
+                                placeholder="Notes (optional) — why this target, what it's for…"
+                                className="w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-700 outline-none transition-all placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
                             />
-                            <button
-                                type="button"
-                                onClick={handleSave}
-                                disabled={saving}
-                                className="rounded-full bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-50"
-                            >
-                                {saving ? 'Saving…' : 'Save plan'}
-                            </button>
                         </div>
                     )}
                 </div>
@@ -1062,7 +1129,7 @@ function TargetPlannerSection({
                             <SavedTargetCard
                                 key={t._id}
                                 target={t}
-                                onRename={handleRename}
+                                onUpdate={handleUpdate}
                                 onDelete={handleDelete}
                             />
                         ))}

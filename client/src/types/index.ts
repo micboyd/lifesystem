@@ -165,6 +165,7 @@ export interface Goal {
 export interface SavingsTarget {
     _id: string
     name: string
+    notes?: string
     targetAmount: number
     startingBalance: number
     annualInterestRate: number

@@ -13,8 +13,11 @@ export async function createSavingsTarget(input: SavingsTargetInput): Promise<Sa
     return res.data.data
 }
 
-export async function renameSavingsTarget(id: string, name: string): Promise<SavingsTarget> {
-    const res = await api.put<ApiResponse<SavingsTarget>>(`/savings-targets/${id}`, { name })
+export async function updateSavingsTarget(
+    id: string,
+    fields: { name?: string; notes?: string | null }
+): Promise<SavingsTarget> {
+    const res = await api.put<ApiResponse<SavingsTarget>>(`/savings-targets/${id}`, fields)
     return res.data.data
 }
 
