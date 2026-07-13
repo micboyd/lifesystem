@@ -870,6 +870,10 @@ function BudgetCard({
     const monthRef = computeBudgetDay(row, entry, spends, weekStart, excludedDates, topUps)
     const { monthlyAmount, monthlyRemaining } = monthRef
 
+    // This row's top-ups logged so far this month (already scoped to the row by the caller).
+    const rowTopUpTotal = topUps.reduce((sum, t) => sum + t.amount, 0)
+    const effectiveMonthlyAmount = monthlyAmount + rowTopUpTotal
+
     // Spending logged on excluded (day-off) days counts toward the day-off pot,
     // not this budget. Only Starling-imported spends (they carry a feed item id)
     // verifiably left the linked space — a manual log may have been paid in cash
@@ -880,12 +884,16 @@ function BudgetCard({
         .filter((s) => s.starlingFeedItemUid)
         .reduce((sum, s) => sum + s.amount, 0)
 
-    // Space balance vs budget remaining — only meaningful once linked and budgeted,
-    // and only for the current month (a past month's remaining says nothing about
-    // what the space holds today). Day-off spends that left the space are a known,
-    // explained difference, so they don't count as drift.
+    // Space balance vs budget remaining — only meaningful once linked and funded
+    // (a monthly amount or a top-up), and only for the current month (a past
+    // month's remaining says nothing about what the space holds today). Day-off
+    // spends that left the space are a known, explained difference, so they don't
+    // count as drift.
     const canReconcile =
-        isLinked && !!linkedSpace && monthlyAmount > 0 && today.slice(0, 7) === weekStart.slice(0, 7)
+        isLinked &&
+        !!linkedSpace &&
+        effectiveMonthlyAmount > 0 &&
+        today.slice(0, 7) === weekStart.slice(0, 7)
     const outOfSync =
         canReconcile &&
         Math.abs(linkedSpace!.balance - (monthlyRemaining - excludedFromSpaceTotal)) > RECONCILE_EPSILON
@@ -919,10 +927,6 @@ function BudgetCard({
     const spentToday = spends
         .filter((s) => s.date === today && !excludedDates.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
-
-    // This row's top-ups logged so far this month (already scoped to the row by the caller).
-    const rowTopUpTotal = topUps.reduce((sum, t) => sum + t.amount, 0)
-    const effectiveMonthlyAmount = monthlyAmount + rowTopUpTotal
 
     // Week date range label e.g. "1–5 Jul"
     const rangeLabel = (() => {
@@ -1208,7 +1212,11 @@ function BudgetCard({
                                 title="Change or unlink the bank space"
                             >
                                 <i className="fa-solid fa-building-columns text-[10px]" aria-hidden="true" />
-                                <span className="truncate">{linkedSpace?.name ?? 'Linked space'}</span>
+                                <span className="truncate">
+                                    {linkedSpace
+                                        ? `${linkedSpace.name} · £${fmt(linkedSpace.balance)}`
+                                        : 'Linked space'}
+                                </span>
                             </button>
                             <button
                                 type="button"
