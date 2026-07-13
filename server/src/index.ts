@@ -18,6 +18,7 @@ import financeRoutes from './routes/financeRoutes'
 import habitRoutes from './routes/habitRoutes'
 import path from 'path'
 import reminderRoutes from './routes/reminderRoutes'
+import savingsTargetRoutes from './routes/savingsTargetRoutes'
 import taskRoutes from './routes/taskRoutes'
 import timeboxRoutes from './routes/timeboxRoutes'
 import totalsRoutes from './routes/totalsRoutes'
@@ -59,6 +60,7 @@ app.use('/api/finances', financeRoutes)
 app.use('/api/birthdays', birthdayRoutes)
 app.use('/api/days-since', daysSinceRoutes)
 app.use('/api/goals', goalRoutes)
+app.use('/api/savings-targets', savingsTargetRoutes)
 
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })

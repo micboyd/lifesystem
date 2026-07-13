@@ -4,11 +4,14 @@ import EmptyState from '../components/EmptyState'
 import DatePicker from '../components/DatePicker'
 import Tabs from '../components/Tabs'
 import { listGroups, listRows, listEntries, updateGroup, deleteGroup } from '../services/finances'
+import {
+    listSavingsTargets, createSavingsTarget, renameSavingsTarget, deleteSavingsTarget,
+} from '../services/savingsTargets'
 import { groupVisibleInMonth, rowVisibleInMonth, addMonths } from '../lib/finance'
 import { formatAmount, formatMoneyCompact } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
-import type { FinanceGroup, FinanceRow, FinanceEntry } from '../types'
+import type { FinanceGroup, FinanceRow, FinanceEntry, SavingsTarget } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -681,6 +684,139 @@ function monthLabelLong(ym: string) {
     return new Date(y, m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
 }
 
+function SavedTargetCard({
+    target,
+    onRename,
+    onDelete,
+}: {
+    target: SavingsTarget
+    onRename: (id: string, name: string) => Promise<void>
+    onDelete: (id: string) => Promise<void>
+}) {
+    const [editing, setEditing] = useState(false)
+    const [name, setName] = useState(target.name)
+    const [confirming, setConfirming] = useState(false)
+    const [busy, setBusy] = useState(false)
+
+    async function commitRename() {
+        const trimmed = name.trim()
+        setEditing(false)
+        if (!trimmed || trimmed === target.name) {
+            setName(target.name)
+            return
+        }
+        await onRename(target._id, trimmed)
+    }
+
+    async function handleDelete() {
+        setBusy(true)
+        try {
+            await onDelete(target._id)
+        } finally {
+            setBusy(false)
+            setConfirming(false)
+        }
+    }
+
+    const savedOn = new Date(target.createdAt).toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric',
+    })
+
+    return (
+        <div className="rounded-3xl border border-neutral-200 bg-white p-6 transition-colors duration-200 hover:border-neutral-300">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    {editing ? (
+                        <input
+                            autoFocus
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            onBlur={commitRename}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.currentTarget.blur()
+                                if (e.key === 'Escape') {
+                                    setName(target.name)
+                                    setEditing(false)
+                                }
+                            }}
+                            className="w-full rounded-lg border border-neutral-200 px-2 py-1 text-lg font-bold tracking-tight text-neutral-900 outline-none focus:border-neutral-950"
+                        />
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setEditing(true)}
+                            title="Rename"
+                            className="group flex items-center gap-2 text-left"
+                        >
+                            <span className="truncate text-lg font-bold tracking-tight text-neutral-900">
+                                {target.name}
+                            </span>
+                            <i
+                                className="fa-solid fa-pen text-[10px] text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100"
+                                aria-hidden="true"
+                            />
+                        </button>
+                    )}
+                    <p className="mt-0.5 text-xs text-neutral-400">Saved {savedOn}</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setConfirming(true)}
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
+                >
+                    <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                </button>
+            </div>
+
+            {confirming ? (
+                <div className="mt-4 rounded-2xl bg-red-50 p-4">
+                    <p className="text-sm font-semibold text-red-700">Delete {target.name}?</p>
+                    <div className="mt-3 flex gap-2">
+                        <button
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={busy}
+                            className="rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                        >
+                            {busy ? 'Deleting…' : 'Yes, delete'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setConfirming(false)}
+                            className="rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-50"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <p className="mt-4 text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
+                        {target.onTrack ? (
+                            <span className="text-emerald-600">On track — £0 / month</span>
+                        ) : (
+                            <>£{fmt(target.requiredMonthly)} <span className="text-sm font-semibold text-neutral-400">/ month</span></>
+                        )}
+                    </p>
+                    <p className="mt-1 text-xs text-neutral-500 tabular-nums">
+                        £{fmt(target.targetAmount, 0)} by {monthLabelLong(target.targetMonth)}
+                        {!target.onTrack && (
+                            <> · {target.contributionMonths}{' '}
+                            {target.contributionMonths === 1 ? 'month' : 'months'} from{' '}
+                            {monthLabelLong(target.startMonth)}</>
+                        )}
+                    </p>
+                    <p className="mt-3 border-t border-neutral-100 pt-3 text-xs text-neutral-400 tabular-nums">
+                        From £{fmt(target.startingBalance, 0)} at {fmt(target.annualInterestRate, 2)}% ·
+                        contributions £{fmt(target.totalContributions, 0)} · interest £
+                        {fmt(target.interestEarned, 0)}
+                    </p>
+                </>
+            )}
+        </div>
+    )
+}
+
 function TargetPlannerSection({
     defaultBalance,
     defaultRate,
@@ -688,12 +824,28 @@ function TargetPlannerSection({
     defaultBalance: number
     defaultRate: number
 }) {
+    const toast = useToast()
     const now = currentMonth()
     const [targetAmount, setTargetAmount] = useState('10000')
     const [balance, setBalance] = useState(String(Math.round(defaultBalance)))
     const [rate, setRate] = useState(String(Math.round(defaultRate * 100) / 100))
     const [startDate, setStartDate] = useState(`${now}-01`)
     const [targetDate, setTargetDate] = useState(`${addMonths(now, 12)}-01`)
+
+    const [snapshots, setSnapshots] = useState<SavingsTarget[]>([])
+    const [snapshotsLoading, setSnapshotsLoading] = useState(true)
+    const [snapshotName, setSnapshotName] = useState('')
+    const [saving, setSaving] = useState(false)
+
+    useEffect(() => {
+        let active = true
+        listSavingsTargets()
+            .then((t) => active && setSnapshots(t))
+            .finally(() => active && setSnapshotsLoading(false))
+        return () => {
+            active = false
+        }
+    }, [])
 
     const parse = (s: string) => {
         const n = parseFloat(s.replace(/,/g, ''))
@@ -708,6 +860,53 @@ function TargetPlannerSection({
         targetDate.slice(0, 7),
         now
     )
+
+    async function handleSave() {
+        const defaultName = `£${parse(targetAmount).toLocaleString('en-GB')} by ${monthLabelLong(targetDate.slice(0, 7))}`
+        setSaving(true)
+        try {
+            const created = await createSavingsTarget({
+                name: snapshotName.trim() || defaultName,
+                targetAmount: parse(targetAmount),
+                startingBalance: parse(balance),
+                annualInterestRate: parse(rate),
+                startMonth: plan.firstContribMonth,
+                targetMonth: targetDate.slice(0, 7),
+                savedMonth: now,
+                onTrack: plan.onTrack,
+                requiredMonthly: plan.requiredMonthly,
+                contributionMonths: plan.contributionMonths,
+                totalContributions: plan.totalContributions,
+                interestEarned: plan.interestEarned,
+                growthOnly: plan.growthOnly,
+            })
+            setSnapshots((prev) => [created, ...prev])
+            setSnapshotName('')
+            toast.show('Plan saved.', 'success')
+        } catch {
+            toast.error("Couldn't save that plan.")
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    async function handleRename(id: string, name: string) {
+        try {
+            const updated = await renameSavingsTarget(id, name)
+            setSnapshots((prev) => prev.map((t) => (t._id === id ? updated : t)))
+        } catch {
+            toast.error("Couldn't rename that plan.")
+        }
+    }
+
+    async function handleDelete(id: string) {
+        try {
+            await deleteSavingsTarget(id)
+            setSnapshots((prev) => prev.filter((t) => t._id !== id))
+        } catch {
+            toast.error("Couldn't delete that plan.")
+        }
+    }
 
     return (
         <section>
@@ -819,7 +1018,56 @@ function TargetPlannerSection({
                             </div>
                         </div>
                     )}
+
+                    {!plan.error && (
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <input
+                                value={snapshotName}
+                                onChange={(e) => setSnapshotName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !saving) handleSave()
+                                }}
+                                placeholder="Name this plan (e.g. House deposit)"
+                                className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm font-semibold text-neutral-900 outline-none transition-all placeholder:font-normal placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
+                            />
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="rounded-full bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-50"
+                            >
+                                {saving ? 'Saving…' : 'Save plan'}
+                            </button>
+                        </div>
+                    )}
                 </div>
+            </div>
+
+            <div className="mt-8">
+                <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                    Saved plans
+                </h2>
+                {snapshotsLoading ? (
+                    <div className="grid place-items-center py-8">
+                        <Spinner />
+                    </div>
+                ) : snapshots.length === 0 ? (
+                    <p className="text-sm text-neutral-400">
+                        No saved plans yet — set up a target above and hit “Save plan” to keep a
+                        snapshot of it.
+                    </p>
+                ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {snapshots.map((t) => (
+                            <SavedTargetCard
+                                key={t._id}
+                                target={t}
+                                onRename={handleRename}
+                                onDelete={handleDelete}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
         </section>
     )
