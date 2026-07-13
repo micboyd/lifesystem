@@ -490,6 +490,9 @@ export interface FinanceRow {
     pot?: string | null
     name: string
     recurringAmount?: number
+    /** Superseded recurring amounts: months before `beforeMonth` used `amount`.
+     *  `recurringAmount` stays the current value. */
+    pastAmounts?: { beforeMonth: string; amount?: number }[]
     order: number
     recurring?: boolean
     month?: string // YYYY-MM — set for non-recurring rows, absent for recurring

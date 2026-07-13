@@ -14,7 +14,7 @@ import type {
     StarlingMovement,
     StarlingExclusion,
 } from '../types'
-import type { DeleteMode } from '../lib/finance'
+import type { AmountScope, DeleteMode } from '../lib/finance'
 
 /** Add-scope for new groups/rows: visible from this month on, or this month only. */
 export type AddScope = 'all' | 'month'
@@ -129,6 +129,10 @@ export async function updateRow(
             'name' | 'order' | 'recurring' | 'budgeted' | 'budgetType' | 'starlingCategoryUid'
         > & {
             recurringAmount: number | null
+            /** How an amount edit applies: everywhere, or from `month` onwards. */
+            amountScope: AmountScope
+            /** YYYY-MM the 'onward' scope starts from (the viewed month). */
+            month: string
         }
     >
 ): Promise<FinanceRow> {

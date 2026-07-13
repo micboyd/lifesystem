@@ -1,6 +1,6 @@
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../types'
 import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, daysInMonth, weekStartOf, weekEndOf, clampedWeekRange } from './budget'
-import { rowVisibleInMonth } from './finance'
+import { rowVisibleInMonth, recurringAmountForMonth } from './finance'
 import { addDays } from './calendar'
 
 /** Per-month data the discipline maths needs (rows/groups are global). */
@@ -291,11 +291,11 @@ export function safeToSpendToday(
 
     const allDailyRows = dailyRowsInMonth(groups, rows, month).filter((r) => {
         const entry = data.entries.find((e) => e.row === r._id)
-        return (entry?.amount ?? r.recurringAmount ?? 0) > 0
+        return (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0) > 0
     })
     const allWeeklyRows = weeklyRowsInMonth(groups, rows, month).filter((r) => {
         const entry = data.entries.find((e) => e.row === r._id)
-        return (entry?.amount ?? r.recurringAmount ?? 0) > 0
+        return (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0) > 0
     })
 
     let remaining = 0

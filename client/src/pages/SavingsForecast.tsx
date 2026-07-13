@@ -7,7 +7,7 @@ import { listGroups, listRows, listEntries, updateGroup, deleteGroup } from '../
 import {
     listSavingsTargets, createSavingsTarget, updateSavingsTarget, deleteSavingsTarget,
 } from '../services/savingsTargets'
-import { groupVisibleInMonth, rowVisibleInMonth, addMonths } from '../lib/finance'
+import { groupVisibleInMonth, rowVisibleInMonth, addMonths, recurringAmountForMonth } from '../lib/finance'
 import { formatAmount, formatMoneyCompact } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
@@ -490,7 +490,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
         return rows
             .filter((r) => r.group === group._id && rowVisibleInMonth(r, m, group))
             .reduce(
-                (s, r) => s + (es.find((e) => e.row === r._id)?.amount ?? r.recurringAmount ?? 0),
+                (s, r) => s + (es.find((e) => e.row === r._id)?.amount ?? recurringAmountForMonth(r, m) ?? 0),
                 0
             )
     }
@@ -1247,7 +1247,7 @@ export default function SavingsForecast() {
         )
         return groupRows.reduce((sum, row) => {
             const entry = entries.find((e) => e.row === row._id)
-            return sum + (entry?.amount ?? row.recurringAmount ?? 0)
+            return sum + (entry?.amount ?? recurringAmountForMonth(row, month) ?? 0)
         }, 0)
     }
 
@@ -1265,7 +1265,7 @@ export default function SavingsForecast() {
             .reduce((sum, row) => {
                 const override =
                     m === month ? entries.find((e) => e.row === row._id)?.amount : undefined
-                return sum + (override ?? row.recurringAmount ?? 0)
+                return sum + (override ?? recurringAmountForMonth(row, m) ?? 0)
             }, 0)
     }
 

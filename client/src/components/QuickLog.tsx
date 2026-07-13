@@ -15,6 +15,7 @@ import {
     createBudgetSpend,
 } from '../services/finances'
 import { monthOf } from '../lib/budget'
+import { recurringAmountForMonth } from '../lib/finance'
 import { todayKey } from '../lib/calendar'
 import { formatMoney, formatAmount } from '../lib/money'
 import { useMoneyHidden } from './useMoneyHidden'
@@ -82,7 +83,7 @@ export default function QuickLog() {
         () =>
             trackedRowsInMonth(groups, rows, month).filter((r) => {
                 const entry = data.entries.find((e) => e.row === r._id)
-                return (entry?.amount ?? r.recurringAmount ?? 0) > 0
+                return (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0) > 0
             }),
         [groups, rows, data, month]
     )

@@ -13,7 +13,7 @@ import {
     listBudgetExclusions,
 } from '../../services/finances'
 import { computeBudgetDay, computeBudgetWeek, monthOf, clampedWeekRange } from '../../lib/budget'
-import { rowVisibleInMonth } from '../../lib/finance'
+import { rowVisibleInMonth, recurringAmountForMonth } from '../../lib/finance'
 import { addDays } from '../../lib/calendar'
 import { formatMoney } from '../../lib/money'
 import { useMoneyHidden } from '../useMoneyHidden'
@@ -111,11 +111,11 @@ function budgetInsight(
 
     const weeklyRows = visibleBudgeted('weekly').filter((r) => {
         const entry = entries.find((e) => e.row === r._id)
-        return (entry?.amount ?? r.recurringAmount ?? 0) > 0
+        return (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0) > 0
     })
     const dailyRows = visibleBudgeted('daily').filter((r) => {
         const entry = entries.find((e) => e.row === r._id)
-        return (entry?.amount ?? r.recurringAmount ?? 0) > 0
+        return (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0) > 0
     })
 
     // Prefer weekly budgets as the primary signal; fall back to daily.

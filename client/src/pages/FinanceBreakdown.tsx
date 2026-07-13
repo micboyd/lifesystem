@@ -14,6 +14,7 @@ import {
     deleteSubItem,
 } from '../services/finances'
 import { formatAmount } from '../lib/money'
+import { recurringAmountForMonth } from '../lib/finance'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
 import type { FinanceGroup, FinanceRow, FinanceEntry, FinanceSubItem } from '../types'
@@ -280,7 +281,7 @@ export default function FinanceBreakdown() {
     const entry = row ? entries.find((e) => e.row === row._id) : undefined
     const isRecurring = row?.recurring !== false // default true for existing rows
 
-    const totalAmount = entry?.amount ?? row?.recurringAmount ?? 0
+    const totalAmount = entry?.amount ?? (row ? recurringAmountForMonth(row, month) : undefined) ?? 0
     const breakdownTotal = items.reduce((s, i) => s + i.amount, 0)
     const paidTotal = items.filter((i) => i.paid).reduce((s, i) => s + i.amount, 0)
     const leftToPay = breakdownTotal - paidTotal
@@ -424,7 +425,7 @@ export default function FinanceBreakdown() {
                         >
                             £{fmt(totalAmount)}
                         </p>
-                        {row.recurringAmount !== undefined && entry?.amount === undefined && (
+                        {recurringAmountForMonth(row, month) !== undefined && entry?.amount === undefined && (
                             <p className="mt-1 text-xs text-neutral-400">
                                 Recurring amount — no override set for this month
                             </p>

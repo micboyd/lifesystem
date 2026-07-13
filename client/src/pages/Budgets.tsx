@@ -23,7 +23,7 @@ import {
     createBudgetTopUp,
     deleteBudgetTopUp,
 } from '../services/finances'
-import { rowVisibleInMonth } from '../lib/finance'
+import { rowVisibleInMonth, recurringAmountForMonth } from '../lib/finance'
 import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange } from '../lib/budget'
 import { formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
@@ -348,7 +348,7 @@ function MonthlyOverview({ rows, groups, entries, spends, topUps, excludedDates,
         const topUpTotal = topUps
             .filter((t) => t.row === row._id && t.date >= monthStart && t.date <= monthEnd)
             .reduce((sum, t) => sum + t.amount, 0)
-        const budget = (entry?.amount ?? row.recurringAmount ?? 0) + topUpTotal
+        const budget = (entry?.amount ?? recurringAmountForMonth(row, month) ?? 0) + topUpTotal
         const spent = spends
             .filter((s) => s.row === row._id && s.date >= monthStart && s.date <= monthEnd && !excludedDates.has(s.date))
             .reduce((sum, s) => sum + s.amount, 0)

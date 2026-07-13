@@ -15,6 +15,7 @@ import Event, {
 import FinanceRow from '../models/FinanceRow'
 import FinanceEntry from '../models/FinanceEntry'
 import { expandRecurring } from '../lib/recurrence'
+import { recurringAmountForMonth } from '../lib/rowAmounts'
 
 function isValidDate(value: unknown): value is string {
     return typeof value === 'string' && DATE_PATTERN.test(value)
@@ -175,7 +176,7 @@ async function resolveLinkedBudgets(userId: string, events: ResolvableEvent[]): 
         }
         const month = e.startDate.slice(0, 7)
         const amount = entryMap.get(`${String(e.budgetRow)}:${month}`)
-        e.budget = amount !== undefined ? amount : (row.recurringAmount ?? 0)
+        e.budget = amount !== undefined ? amount : (recurringAmountForMonth(row, month) ?? 0)
         e.budgetRowName = row.name
     }
 }
