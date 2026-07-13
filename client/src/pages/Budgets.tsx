@@ -527,8 +527,10 @@ function LinkSpaceModal({ row, spaces, loading, error, onClose, onChoose }: Link
 interface ReconcileDrawerProps {
     row: FinanceRow
     monthlyRemaining: number
-    /** This row's spends dated on excluded (day-off) days — they left the space
-     * but count toward the day-off pot, so they explain part of any mismatch. */
+    /** This row's Starling-imported spends dated on excluded (day-off) days —
+     * they left the space but count toward the day-off pot, so they explain part
+     * of any mismatch. Manual day-off logs are left out: they may not have been
+     * paid from the space at all. */
     excludedDaySpends: BudgetSpend[]
     fallbackBalance: number | undefined
     loading: boolean
@@ -569,23 +571,24 @@ function ReconcileDrawer({
                     </div>
                 </div>
 
-                {diff !== null && Math.abs(diff) > RECONCILE_EPSILON && (
-                    <div
-                        className={[
-                            'rounded-xl px-4 py-3 text-sm font-semibold',
-                            diff > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600',
-                        ].join(' ')}
-                    >
-                        {diff > 0
-                            ? `The space has £${fmt(diff)} more than the budget expects.`
-                            : `The space has £${fmt(Math.abs(diff))} less than the budget expects.`}
-                        {excludedTotal > RECONCILE_EPSILON &&
-                            unexplained !== null &&
-                            (Math.abs(unexplained) <= RECONCILE_EPSILON
-                                ? ' All of that is day-off spending — nothing is actually adrift.'
-                                : ` £${fmt(excludedTotal)} of that is day-off spending.`)}
-                    </div>
-                )}
+                {diff !== null &&
+                    unexplained !== null &&
+                    (Math.abs(diff) > RECONCILE_EPSILON || Math.abs(unexplained) > RECONCILE_EPSILON) && (
+                        <div
+                            className={[
+                                'rounded-xl px-4 py-3 text-sm font-semibold',
+                                unexplained >= -RECONCILE_EPSILON
+                                    ? 'bg-emerald-50 text-emerald-700'
+                                    : 'bg-red-50 text-red-600',
+                            ].join(' ')}
+                        >
+                            {Math.abs(unexplained) <= RECONCILE_EPSILON
+                                ? `The space is £${fmt(Math.abs(diff))} ${diff < 0 ? 'below' : 'above'} the budget figure, but all of that is day-off spending that left the space — nothing is actually adrift.`
+                                : unexplained > 0
+                                    ? `The space has £${fmt(unexplained)} more than the budget expects${excludedTotal > RECONCILE_EPSILON ? ` (after allowing for £${fmt(excludedTotal)} of day-off spending that left the space)` : ''}.`
+                                    : `The space has £${fmt(Math.abs(unexplained))} less than the budget expects${excludedTotal > RECONCILE_EPSILON ? ` (after allowing for £${fmt(excludedTotal)} of day-off spending that left the space)` : ''}.`}
+                        </div>
+                    )}
 
                 {/* Day-off spending — left the space, but counts toward the pot */}
                 {excludedDaySpends.length > 0 && (
@@ -868,18 +871,24 @@ function BudgetCard({
     const { monthlyAmount, monthlyRemaining } = monthRef
 
     // Spending logged on excluded (day-off) days counts toward the day-off pot,
-    // not this budget — but it still left the linked space, so the balance sits
-    // below what the budget expects by exactly this amount.
-    const excludedDaySpendTotal = spends
-        .filter((s) => excludedDates.has(s.date))
+    // not this budget. Only Starling-imported spends (they carry a feed item id)
+    // verifiably left the linked space — a manual log may have been paid in cash
+    // or from another account, so it can't explain a balance gap.
+    const excludedDaySpends = spends.filter((s) => excludedDates.has(s.date))
+    const excludedDaySpendTotal = excludedDaySpends.reduce((sum, s) => sum + s.amount, 0)
+    const excludedFromSpaceTotal = excludedDaySpends
+        .filter((s) => s.starlingFeedItemUid)
         .reduce((sum, s) => sum + s.amount, 0)
 
-    // Space balance vs budget remaining — only meaningful once linked and budgeted.
-    // Day-off spends are a known, explained difference, so they don't count as drift.
-    const canReconcile = isLinked && !!linkedSpace && monthlyAmount > 0
+    // Space balance vs budget remaining — only meaningful once linked and budgeted,
+    // and only for the current month (a past month's remaining says nothing about
+    // what the space holds today). Day-off spends that left the space are a known,
+    // explained difference, so they don't count as drift.
+    const canReconcile =
+        isLinked && !!linkedSpace && monthlyAmount > 0 && today.slice(0, 7) === weekStart.slice(0, 7)
     const outOfSync =
         canReconcile &&
-        Math.abs(linkedSpace!.balance - (monthlyRemaining - excludedDaySpendTotal)) > RECONCILE_EPSILON
+        Math.abs(linkedSpace!.balance - (monthlyRemaining - excludedFromSpaceTotal)) > RECONCILE_EPSILON
 
     // ── Weekly row maths ────────────────────────────────────────────────────
     const weeklyBudget = isWeeklySpend
@@ -966,7 +975,11 @@ function BudgetCard({
                     <span>
                         £{fmt(excludedDaySpendTotal)} was spent on day-off days this month. It counts
                         toward your day-off pot, not this budget
-                        {isLinked ? ' — the money still left the linked space, which is expected' : ''}.
+                        {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON
+                            ? excludedFromSpaceTotal >= excludedDaySpendTotal - RECONCILE_EPSILON
+                                ? ' — the money still left the linked space, which is expected'
+                                : ` — £${fmt(excludedFromSpaceTotal)} of it left the linked space, which is expected`
+                            : ''}.
                     </span>
                 </div>
             )}
@@ -1663,11 +1676,15 @@ export default function Budgets() {
                             entries.find((e) => e.row === reconcileRow._id),
                             spends.filter((s) => s.row === reconcileRow._id),
                             weekStart,
-                            excludedDates
+                            excludedDates,
+                            topUps.filter((t) => t.row === reconcileRow._id)
                         ).monthlyRemaining
                     }
                     excludedDaySpends={spends.filter(
-                        (s) => s.row === reconcileRow._id && excludedDates.has(s.date)
+                        (s) =>
+                            s.row === reconcileRow._id &&
+                            excludedDates.has(s.date) &&
+                            !!s.starlingFeedItemUid
                     )}
                     fallbackBalance={spaces.find((s) => s.id === reconcileRow.starlingCategoryUid)?.balance}
                     loading={reconcileLoading}
