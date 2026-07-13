@@ -527,6 +527,9 @@ function LinkSpaceModal({ row, spaces, loading, error, onClose, onChoose }: Link
 interface ReconcileDrawerProps {
     row: FinanceRow
     monthlyRemaining: number
+    /** This row's spends dated on excluded (day-off) days — they left the space
+     * but count toward the day-off pot, so they explain part of any mismatch. */
+    excludedDaySpends: BudgetSpend[]
     fallbackBalance: number | undefined
     loading: boolean
     error: boolean
@@ -535,10 +538,14 @@ interface ReconcileDrawerProps {
 }
 
 function ReconcileDrawer({
-    row, monthlyRemaining, fallbackBalance, loading, error, data, onClose,
+    row, monthlyRemaining, excludedDaySpends, fallbackBalance, loading, error, data, onClose,
 }: ReconcileDrawerProps) {
     const balance = data?.balance ?? fallbackBalance ?? null
     const diff = balance !== null ? balance - monthlyRemaining : null
+    const excludedTotal = excludedDaySpends.reduce((sum, s) => sum + s.amount, 0)
+    // Day-off spends lower the balance without touching the budget, so add them
+    // back to see what's left over once that known difference is accounted for.
+    const unexplained = diff !== null ? diff + excludedTotal : null
 
     return (
         <Drawer open onClose={onClose} title={`"${row.name}" out of sync`} size="md">
@@ -572,6 +579,42 @@ function ReconcileDrawer({
                         {diff > 0
                             ? `The space has £${fmt(diff)} more than the budget expects.`
                             : `The space has £${fmt(Math.abs(diff))} less than the budget expects.`}
+                        {excludedTotal > RECONCILE_EPSILON &&
+                            unexplained !== null &&
+                            (Math.abs(unexplained) <= RECONCILE_EPSILON
+                                ? ' All of that is day-off spending — nothing is actually adrift.'
+                                : ` £${fmt(excludedTotal)} of that is day-off spending.`)}
+                    </div>
+                )}
+
+                {/* Day-off spending — left the space, but counts toward the pot */}
+                {excludedDaySpends.length > 0 && (
+                    <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                            Day-off spending
+                        </p>
+                        <p className="mb-2 text-sm text-neutral-500">
+                            These were paid from the space on excluded days, so they count toward
+                            your day-off pot instead of this budget.
+                        </p>
+                        <ul className="flex flex-col gap-1.5">
+                            {excludedDaySpends.map((s) => (
+                                <li
+                                    key={s._id}
+                                    className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3 py-2"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-neutral-800">
+                                            {s.note || row.name}
+                                        </p>
+                                        <p className="text-xs text-neutral-400">{s.date}</p>
+                                    </div>
+                                    <span className="shrink-0 text-sm tabular-nums text-neutral-700">
+                                        -£{fmt(s.amount)}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 )}
 
@@ -824,9 +867,19 @@ function BudgetCard({
     const monthRef = computeBudgetDay(row, entry, spends, weekStart, excludedDates, topUps)
     const { monthlyAmount, monthlyRemaining } = monthRef
 
+    // Spending logged on excluded (day-off) days counts toward the day-off pot,
+    // not this budget — but it still left the linked space, so the balance sits
+    // below what the budget expects by exactly this amount.
+    const excludedDaySpendTotal = spends
+        .filter((s) => excludedDates.has(s.date))
+        .reduce((sum, s) => sum + s.amount, 0)
+
     // Space balance vs budget remaining — only meaningful once linked and budgeted.
+    // Day-off spends are a known, explained difference, so they don't count as drift.
     const canReconcile = isLinked && !!linkedSpace && monthlyAmount > 0
-    const outOfSync = canReconcile && Math.abs(linkedSpace!.balance - monthlyRemaining) > RECONCILE_EPSILON
+    const outOfSync =
+        canReconcile &&
+        Math.abs(linkedSpace!.balance - (monthlyRemaining - excludedDaySpendTotal)) > RECONCILE_EPSILON
 
     // ── Weekly row maths ────────────────────────────────────────────────────
     const weeklyBudget = isWeeklySpend
@@ -904,6 +957,19 @@ function BudgetCard({
                     )}
                 </div>
             </div>
+
+            {/* Day-off spending notice — spends on excluded days skip this budget and
+                count toward the day-off pot, but still leave the linked space. */}
+            {excludedDaySpendTotal > RECONCILE_EPSILON && (
+                <div className="flex items-start gap-2.5 rounded-2xl bg-sky-50 px-4 py-3 text-xs text-sky-800">
+                    <i className="fa-solid fa-umbrella-beach mt-0.5 text-sky-500" aria-hidden="true" />
+                    <span>
+                        £{fmt(excludedDaySpendTotal)} was spent on day-off days this month. It counts
+                        toward your day-off pot, not this budget
+                        {isLinked ? ' — the money still left the linked space, which is expected' : ''}.
+                    </span>
+                </div>
+            )}
 
             {/* Top up — add extra money to this budget, boosting what's left from today onward */}
             {monthlyAmount > 0 && !isIncome && (
@@ -1600,6 +1666,9 @@ export default function Budgets() {
                             excludedDates
                         ).monthlyRemaining
                     }
+                    excludedDaySpends={spends.filter(
+                        (s) => s.row === reconcileRow._id && excludedDates.has(s.date)
+                    )}
                     fallbackBalance={spaces.find((s) => s.id === reconcileRow.starlingCategoryUid)?.balance}
                     loading={reconcileLoading}
                     error={reconcileError}
