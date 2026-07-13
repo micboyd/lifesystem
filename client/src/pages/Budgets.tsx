@@ -954,9 +954,24 @@ function BudgetCard({
                         {effectiveMonthlyAmount > 0 ? `£${fmt(effectiveMonthlyAmount)}` : '—'}
                     </p>
                     {effectiveMonthlyAmount > 0 && (
-                        <p className={['mt-0.5 text-xs font-semibold tabular-nums', monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400'].join(' ')}>
-                            £{fmt(Math.abs(monthlyRemaining))} {monthlyRemaining < 0 ? 'over' : 'left'}
-                        </p>
+                        canReconcile ? (
+                            // Linked budgets defer to the bank: the space balance is the
+                            // money that's actually left, the ledger is just the plan.
+                            <>
+                                <p className="mt-0.5 text-xs font-semibold tabular-nums text-neutral-400">
+                                    £{fmt(linkedSpace!.balance)} left in space
+                                </p>
+                                {outOfSync && (
+                                    <p className="mt-0.5 text-[10px] tabular-nums text-neutral-400">
+                                        budget expects £{fmt(monthlyRemaining - excludedFromSpaceTotal)}
+                                    </p>
+                                )}
+                            </>
+                        ) : (
+                            <p className={['mt-0.5 text-xs font-semibold tabular-nums', monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400'].join(' ')}>
+                                £{fmt(Math.abs(monthlyRemaining))} {monthlyRemaining < 0 ? 'over' : 'left'}
+                            </p>
+                        )
                     )}
                     {outOfSync && (
                         <button
@@ -1212,11 +1227,7 @@ function BudgetCard({
                                 title="Change or unlink the bank space"
                             >
                                 <i className="fa-solid fa-building-columns text-[10px]" aria-hidden="true" />
-                                <span className="truncate">
-                                    {linkedSpace
-                                        ? `${linkedSpace.name} · £${fmt(linkedSpace.balance)}`
-                                        : 'Linked space'}
-                                </span>
+                                <span className="truncate">{linkedSpace?.name ?? 'Linked space'}</span>
                             </button>
                             <button
                                 type="button"
