@@ -864,6 +864,7 @@ function BudgetCard({
     const isWeeklySpend = row.budgetType === 'weekly'
     const isIncome = group.type === 'income'
     const today = todayKey()
+    const [dayOffInfoOpen, setDayOffInfoOpen] = useState(false)
 
     // Monthly overview — always based on the month the week sits in.
     // computeBudgetDay gives monthlyAmount / monthlyRemaining regardless of the day param.
@@ -987,19 +988,33 @@ function BudgetCard({
             </div>
 
             {/* Day-off spending notice — spends on excluded days skip this budget and
-                count toward the day-off pot, but still leave the linked space. */}
+                count toward the day-off pot, but still leave the linked space.
+                Collapsed to a chip by default; the explanation expands on demand. */}
             {excludedDaySpendTotal > RECONCILE_EPSILON && (
-                <div className="flex items-start gap-2.5 rounded-2xl bg-sky-50 px-4 py-3 text-xs text-sky-800">
-                    <i className="fa-solid fa-umbrella-beach mt-0.5 text-sky-500" aria-hidden="true" />
-                    <span>
-                        £{fmt(excludedDaySpendTotal)} was spent on day-off days this month. It counts
-                        toward your day-off pot, not this budget
-                        {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON
-                            ? excludedFromSpaceTotal >= excludedDaySpendTotal - RECONCILE_EPSILON
-                                ? ' — the money still left the linked space, which is expected'
-                                : ` — £${fmt(excludedFromSpaceTotal)} of it left the linked space, which is expected`
-                            : ''}.
-                    </span>
+                <div className="flex flex-col gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setDayOffInfoOpen((v) => !v)}
+                        aria-expanded={dayOffInfoOpen}
+                        className="inline-flex items-center gap-1.5 self-start rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-sky-700 transition-colors hover:bg-sky-100"
+                    >
+                        <i className="fa-solid fa-umbrella-beach text-[10px] text-sky-500" aria-hidden="true" />
+                        £{fmt(excludedDaySpendTotal)} day-off spend
+                        <i className="fa-solid fa-circle-info text-[10px] text-sky-400" aria-hidden="true" />
+                    </button>
+                    {dayOffInfoOpen && (
+                        <div className="flex items-start gap-2.5 rounded-2xl bg-sky-50 px-4 py-3 text-xs text-sky-800">
+                            <span>
+                                £{fmt(excludedDaySpendTotal)} was spent on day-off days this month. It counts
+                                toward your day-off pot, not this budget
+                                {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON
+                                    ? excludedFromSpaceTotal >= excludedDaySpendTotal - RECONCILE_EPSILON
+                                        ? ' — the money still left the linked space, which is expected'
+                                        : ` — £${fmt(excludedFromSpaceTotal)} of it left the linked space, which is expected`
+                                    : ''}.
+                            </span>
+                        </div>
+                    )}
                 </div>
             )}
 
