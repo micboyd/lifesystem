@@ -4,11 +4,14 @@ import EmptyState from '../components/EmptyState'
 import DatePicker from '../components/DatePicker'
 import Tabs from '../components/Tabs'
 import { listGroups, listRows, listEntries, updateGroup, deleteGroup } from '../services/finances'
+import {
+    listSavingsTargets, createSavingsTarget, updateSavingsTarget, deleteSavingsTarget,
+} from '../services/savingsTargets'
 import { groupVisibleInMonth, rowVisibleInMonth, addMonths } from '../lib/finance'
 import { formatAmount, formatMoneyCompact } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
-import type { FinanceGroup, FinanceRow, FinanceEntry } from '../types'
+import type { FinanceGroup, FinanceRow, FinanceEntry, SavingsTarget } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -595,6 +598,548 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
     )
 }
 
+// ── Target planner ──────────────────────────────────────────────────────────
+
+interface TargetPlan {
+    error?: string
+    onTrack: boolean
+    requiredMonthly: number
+    contributionMonths: number
+    firstContribMonth: string
+    growthOnly: number
+    totalContributions: number
+    interestEarned: number
+}
+
+/**
+ * Solve for the flat monthly contribution needed to reach `target` by
+ * `targetMonth`. Interest compounds monthly from now on the whole balance;
+ * contributions land at month-end (same convention as the projection) from
+ * `startMonth` through `targetMonth` inclusive. Uses the simulated growth
+ * factors, so required = (target − balance·G) / F.
+ */
+function computeTargetPlan(
+    balance: number,
+    target: number,
+    annualRate: number,
+    startMonth: string,
+    targetMonth: string,
+    nowMonth: string
+): TargetPlan {
+    const empty = {
+        onTrack: false,
+        requiredMonthly: 0,
+        contributionMonths: 0,
+        firstContribMonth: startMonth,
+        growthOnly: balance,
+        totalContributions: 0,
+        interestEarned: 0,
+    }
+    if (targetMonth < nowMonth) return { ...empty, error: 'The target date is in the past.' }
+    if (target <= 0) return { ...empty, error: 'Set a target amount to plan towards.' }
+
+    const r = monthlyRate(annualRate)
+    const firstContrib = startMonth < nowMonth ? nowMonth : startMonth
+
+    let growthOnly = balance // balance compounded with no further saving
+    let factor = 0 // what £1/month in the window grows to by the target
+    let contributionMonths = 0
+    let m = nowMonth
+    while (m <= targetMonth) {
+        growthOnly *= 1 + r
+        factor *= 1 + r
+        if (m >= firstContrib) {
+            factor += 1
+            contributionMonths++
+        }
+        m = addMonths(m, 1)
+    }
+
+    if (growthOnly >= target) {
+        return { ...empty, onTrack: true, growthOnly, firstContribMonth: firstContrib }
+    }
+    if (contributionMonths === 0) {
+        return {
+            ...empty,
+            growthOnly,
+            error: 'Your start date is after the target date, so there are no months to save in.',
+        }
+    }
+
+    const requiredMonthly = (target - growthOnly) / factor
+    const totalContributions = requiredMonthly * contributionMonths
+    return {
+        onTrack: false,
+        requiredMonthly,
+        contributionMonths,
+        firstContribMonth: firstContrib,
+        growthOnly,
+        totalContributions,
+        interestEarned: Math.max(0, target - balance - totalContributions),
+    }
+}
+
+function monthLabelLong(ym: string) {
+    const [y, m] = ym.split('-').map(Number)
+    return new Date(y, m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
+}
+
+function SavedTargetCard({
+    target,
+    onUpdate,
+    onDelete,
+}: {
+    target: SavingsTarget
+    onUpdate: (id: string, fields: { name?: string; notes?: string | null }) => Promise<void>
+    onDelete: (id: string) => Promise<void>
+}) {
+    const [editing, setEditing] = useState(false)
+    const [name, setName] = useState(target.name)
+    const [editingNotes, setEditingNotes] = useState(false)
+    const [notesDraft, setNotesDraft] = useState('')
+    const [confirming, setConfirming] = useState(false)
+    const [busy, setBusy] = useState(false)
+
+    async function commitRename() {
+        const trimmed = name.trim()
+        setEditing(false)
+        if (!trimmed || trimmed === target.name) {
+            setName(target.name)
+            return
+        }
+        await onUpdate(target._id, { name: trimmed })
+    }
+
+    async function commitNotes() {
+        const trimmed = notesDraft.trim()
+        setEditingNotes(false)
+        if (trimmed === (target.notes ?? '')) return
+        await onUpdate(target._id, { notes: trimmed || null })
+    }
+
+    function openNotesEditor() {
+        setNotesDraft(target.notes ?? '')
+        setEditingNotes(true)
+    }
+
+    async function handleDelete() {
+        setBusy(true)
+        try {
+            await onDelete(target._id)
+        } finally {
+            setBusy(false)
+            setConfirming(false)
+        }
+    }
+
+    const savedOn = new Date(target.createdAt).toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric',
+    })
+
+    return (
+        <div className="rounded-3xl border border-neutral-200 bg-white p-6 transition-colors duration-200 hover:border-neutral-300">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    {editing ? (
+                        <input
+                            autoFocus
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            onBlur={commitRename}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.currentTarget.blur()
+                                if (e.key === 'Escape') {
+                                    setName(target.name)
+                                    setEditing(false)
+                                }
+                            }}
+                            className="w-full rounded-lg border border-neutral-200 px-2 py-1 text-lg font-bold tracking-tight text-neutral-900 outline-none focus:border-neutral-950"
+                        />
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setName(target.name)
+                                setEditing(true)
+                            }}
+                            title="Rename"
+                            className="group flex items-center gap-2 text-left"
+                        >
+                            <span className="truncate text-lg font-bold tracking-tight text-neutral-900">
+                                {target.name}
+                            </span>
+                            <i
+                                className="fa-solid fa-pen text-[10px] text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100"
+                                aria-hidden="true"
+                            />
+                        </button>
+                    )}
+                    <p className="mt-0.5 text-xs text-neutral-400">Saved {savedOn}</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setConfirming(true)}
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
+                >
+                    <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                </button>
+            </div>
+
+            {confirming ? (
+                <div className="mt-4 rounded-2xl bg-red-50 p-4">
+                    <p className="text-sm font-semibold text-red-700">Delete {target.name}?</p>
+                    <div className="mt-3 flex gap-2">
+                        <button
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={busy}
+                            className="rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                        >
+                            {busy ? 'Deleting…' : 'Yes, delete'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setConfirming(false)}
+                            className="rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-50"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <p className="mt-4 text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
+                        {target.onTrack ? (
+                            <span className="text-emerald-600">On track — £0 / month</span>
+                        ) : (
+                            <>£{fmt(target.requiredMonthly)} <span className="text-sm font-semibold text-neutral-400">/ month</span></>
+                        )}
+                    </p>
+                    <p className="mt-1 text-xs text-neutral-500 tabular-nums">
+                        £{fmt(target.targetAmount, 0)} by {monthLabelLong(target.targetMonth)}
+                        {!target.onTrack && (
+                            <> · {target.contributionMonths}{' '}
+                            {target.contributionMonths === 1 ? 'month' : 'months'} from{' '}
+                            {monthLabelLong(target.startMonth)}</>
+                        )}
+                    </p>
+                    <p className="mt-3 border-t border-neutral-100 pt-3 text-xs text-neutral-400 tabular-nums">
+                        From £{fmt(target.startingBalance, 0)} at {fmt(target.annualInterestRate, 2)}% ·
+                        contributions £{fmt(target.totalContributions, 0)} · interest £
+                        {fmt(target.interestEarned, 0)}
+                    </p>
+                    {editingNotes ? (
+                        <textarea
+                            autoFocus
+                            value={notesDraft}
+                            onChange={(e) => setNotesDraft(e.target.value)}
+                            onBlur={commitNotes}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Escape') setEditingNotes(false)
+                            }}
+                            rows={3}
+                            placeholder="Notes…"
+                            className="mt-3 w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-xs text-neutral-700 outline-none transition-all placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
+                        />
+                    ) : target.notes ? (
+                        <button
+                            type="button"
+                            onClick={openNotesEditor}
+                            title="Edit notes"
+                            className="group mt-3 w-full text-left"
+                        >
+                            <p className="whitespace-pre-wrap text-xs text-neutral-500">
+                                {target.notes}
+                                <i
+                                    className="fa-solid fa-pen ml-2 text-[9px] text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100"
+                                    aria-hidden="true"
+                                />
+                            </p>
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={openNotesEditor}
+                            className="mt-3 text-xs font-semibold text-neutral-300 transition-colors hover:text-neutral-500"
+                        >
+                            <i className="fa-solid fa-plus mr-1 text-[9px]" aria-hidden="true" />
+                            Add notes
+                        </button>
+                    )}
+                </>
+            )}
+        </div>
+    )
+}
+
+function TargetPlannerSection({
+    defaultBalance,
+    defaultRate,
+}: {
+    defaultBalance: number
+    defaultRate: number
+}) {
+    const toast = useToast()
+    const now = currentMonth()
+    const [targetAmount, setTargetAmount] = useState('10000')
+    const [balance, setBalance] = useState(String(Math.round(defaultBalance)))
+    const [rate, setRate] = useState(String(Math.round(defaultRate * 100) / 100))
+    const [startDate, setStartDate] = useState(`${now}-01`)
+    const [targetDate, setTargetDate] = useState(`${addMonths(now, 12)}-01`)
+
+    const [snapshots, setSnapshots] = useState<SavingsTarget[]>([])
+    const [snapshotsLoading, setSnapshotsLoading] = useState(true)
+    const [snapshotName, setSnapshotName] = useState('')
+    const [snapshotNotes, setSnapshotNotes] = useState('')
+    const [saving, setSaving] = useState(false)
+
+    useEffect(() => {
+        let active = true
+        listSavingsTargets()
+            .then((t) => active && setSnapshots(t))
+            .finally(() => active && setSnapshotsLoading(false))
+        return () => {
+            active = false
+        }
+    }, [])
+
+    const parse = (s: string) => {
+        const n = parseFloat(s.replace(/,/g, ''))
+        return Number.isNaN(n) ? 0 : n
+    }
+
+    const plan = computeTargetPlan(
+        parse(balance),
+        parse(targetAmount),
+        parse(rate),
+        startDate.slice(0, 7),
+        targetDate.slice(0, 7),
+        now
+    )
+
+    async function handleSave() {
+        const defaultName = `£${parse(targetAmount).toLocaleString('en-GB')} by ${monthLabelLong(targetDate.slice(0, 7))}`
+        setSaving(true)
+        try {
+            const created = await createSavingsTarget({
+                name: snapshotName.trim() || defaultName,
+                notes: snapshotNotes.trim() || undefined,
+                targetAmount: parse(targetAmount),
+                startingBalance: parse(balance),
+                annualInterestRate: parse(rate),
+                startMonth: plan.firstContribMonth,
+                targetMonth: targetDate.slice(0, 7),
+                savedMonth: now,
+                onTrack: plan.onTrack,
+                requiredMonthly: plan.requiredMonthly,
+                contributionMonths: plan.contributionMonths,
+                totalContributions: plan.totalContributions,
+                interestEarned: plan.interestEarned,
+                growthOnly: plan.growthOnly,
+            })
+            setSnapshots((prev) => [created, ...prev])
+            setSnapshotName('')
+            setSnapshotNotes('')
+            toast.show('Plan saved.', 'success')
+        } catch {
+            toast.error("Couldn't save that plan.")
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    async function handleUpdate(id: string, fields: { name?: string; notes?: string | null }) {
+        try {
+            const updated = await updateSavingsTarget(id, fields)
+            setSnapshots((prev) => prev.map((t) => (t._id === id ? updated : t)))
+        } catch {
+            toast.error("Couldn't update that plan.")
+        }
+    }
+
+    async function handleDelete(id: string) {
+        try {
+            await deleteSavingsTarget(id)
+            setSnapshots((prev) => prev.filter((t) => t._id !== id))
+        } catch {
+            toast.error("Couldn't delete that plan.")
+        }
+    }
+
+    return (
+        <section>
+            <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                Target planner
+            </h2>
+            <div className="rounded-3xl border border-neutral-200 bg-white p-6">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <SettingField
+                        label="Target amount"
+                        prefix="£"
+                        value={targetAmount}
+                        onChange={setTargetAmount}
+                        onCommit={(v) => setTargetAmount(String(v))}
+                    />
+                    <SettingField
+                        label="Starting balance"
+                        prefix="£"
+                        value={balance}
+                        onChange={setBalance}
+                        onCommit={(v) => setBalance(String(v))}
+                    />
+                    <SettingField
+                        label="Annual interest rate"
+                        suffix="%"
+                        value={rate}
+                        onChange={setRate}
+                        onCommit={(v) => setRate(String(v))}
+                    />
+                    <MonthField
+                        label="Start saving from"
+                        value={startDate}
+                        minDate={`${now}-01`}
+                        maxDate={targetDate}
+                        onChange={setStartDate}
+                    />
+                    <MonthField
+                        label="Reach target by"
+                        value={targetDate}
+                        minDate={startDate}
+                        onChange={setTargetDate}
+                    />
+                    <p className="self-end pb-1 text-xs text-neutral-400">
+                        Balance and rate are pre-filled from your savings accounts — adjust them
+                        freely; nothing here changes your sheet.
+                    </p>
+                </div>
+
+                <div className="mt-6">
+                    {plan.error ? (
+                        <p className="text-sm text-neutral-400">{plan.error}</p>
+                    ) : plan.onTrack ? (
+                        <div className="rounded-2xl bg-emerald-600 px-5 py-5 text-white">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-200">
+                                Already on track
+                            </p>
+                            <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
+                                £0 / month
+                            </p>
+                            <p className="mt-1 text-xs text-emerald-100 tabular-nums">
+                                Interest alone takes your balance to £{fmt(plan.growthOnly, 0)} by{' '}
+                                {monthLabelLong(targetDate.slice(0, 7))} — £
+                                {fmt(plan.growthOnly - parse(targetAmount), 0)} over target.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            <div className="rounded-2xl bg-neutral-950 px-5 py-5 text-white">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                                    You need to save
+                                </p>
+                                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
+                                    £{fmt(plan.requiredMonthly)} / month
+                                </p>
+                                <p className="mt-1 text-xs text-neutral-500 tabular-nums">
+                                    {plan.contributionMonths}{' '}
+                                    {plan.contributionMonths === 1 ? 'month' : 'months'} ·{' '}
+                                    {monthLabelLong(plan.firstContribMonth)} to{' '}
+                                    {monthLabelLong(targetDate.slice(0, 7))} · ≈ £
+                                    {fmt((plan.requiredMonthly * 12) / 52)} / week
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                                <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                        Total contributions
+                                    </p>
+                                    <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
+                                        £{fmt(plan.totalContributions, 0)}
+                                    </p>
+                                </div>
+                                <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                        Interest earned
+                                    </p>
+                                    <p className="mt-1 text-base font-bold tabular-nums text-emerald-600">
+                                        +£{fmt(plan.interestEarned, 0)}
+                                    </p>
+                                </div>
+                                <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                        Balance if you save nothing
+                                    </p>
+                                    <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
+                                        £{fmt(plan.growthOnly, 0)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {!plan.error && (
+                        <div className="mt-4 flex flex-col gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <input
+                                    value={snapshotName}
+                                    onChange={(e) => setSnapshotName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !saving) handleSave()
+                                    }}
+                                    placeholder="Name this plan (e.g. House deposit)"
+                                    className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm font-semibold text-neutral-900 outline-none transition-all placeholder:font-normal placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="rounded-full bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-50"
+                                >
+                                    {saving ? 'Saving…' : 'Save plan'}
+                                </button>
+                            </div>
+                            <textarea
+                                value={snapshotNotes}
+                                onChange={(e) => setSnapshotNotes(e.target.value)}
+                                rows={2}
+                                placeholder="Notes (optional) — why this target, what it's for…"
+                                className="w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-700 outline-none transition-all placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
+                            />
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="mt-8">
+                <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                    Saved plans
+                </h2>
+                {snapshotsLoading ? (
+                    <div className="grid place-items-center py-8">
+                        <Spinner />
+                    </div>
+                ) : snapshots.length === 0 ? (
+                    <p className="text-sm text-neutral-400">
+                        No saved plans yet — set up a target above and hit “Save plan” to keep a
+                        snapshot of it.
+                    </p>
+                ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {snapshots.map((t) => (
+                            <SavedTargetCard
+                                key={t._id}
+                                target={t}
+                                onUpdate={handleUpdate}
+                                onDelete={handleDelete}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+        </section>
+    )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SavingsForecast() {
@@ -605,7 +1150,7 @@ export default function SavingsForecast() {
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [horizon, setHorizon] = useState<Horizon>(10)
-    const [view, setView] = useState<'Projection' | 'Savings to date'>('Projection')
+    const [view, setView] = useState<'Projection' | 'Savings to date' | 'Target planner'>('Projection')
     const [openYear, setOpenYear] = useState<number | null>(null)
 
     const month = currentMonth()
@@ -788,7 +1333,7 @@ export default function SavingsForecast() {
                 <div className="flex flex-col gap-8">
                     <div className="overflow-x-auto">
                         <Tabs
-                            tabs={['Projection', 'Savings to date']}
+                            tabs={['Projection', 'Savings to date', 'Target planner']}
                             value={view}
                             onChange={(t) => setView(t as typeof view)}
                         />
@@ -796,6 +1341,11 @@ export default function SavingsForecast() {
 
                     {view === 'Savings to date' ? (
                         <LiveSavingsSection groups={groups} rows={rows} />
+                    ) : view === 'Target planner' ? (
+                        <TargetPlannerSection
+                            defaultBalance={totalCurrentBalance}
+                            defaultRate={blendedRate}
+                        />
                     ) : (
                         <>
                             {/* Headline: milestones + horizon control */}

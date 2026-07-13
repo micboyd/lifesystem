@@ -161,6 +161,30 @@ export interface Goal {
     updatedAt: string
 }
 
+/** A named, immutable snapshot of the savings target planner. */
+export interface SavingsTarget {
+    _id: string
+    name: string
+    notes?: string
+    targetAmount: number
+    startingBalance: number
+    annualInterestRate: number
+    /** YYYY-MM */
+    startMonth: string
+    /** YYYY-MM */
+    targetMonth: string
+    /** YYYY-MM the plan was computed against */
+    savedMonth: string
+    onTrack: boolean
+    requiredMonthly: number
+    contributionMonths: number
+    totalContributions: number
+    interestEarned: number
+    growthOnly: number
+    createdAt: string
+    updatedAt: string
+}
+
 export interface Birthday {
     _id: string
     name: string
