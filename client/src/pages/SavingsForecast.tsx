@@ -762,25 +762,57 @@ function monthsUntil(from: string, to: string): number {
     return (ty - fy) * 12 + (tm - fm)
 }
 
-function CountdownPill({ targetMonth }: { targetMonth: string }) {
-    const left = monthsUntil(currentMonth(), targetMonth)
-    const label =
-        left < 0
-            ? `${Math.abs(left)} ${Math.abs(left) === 1 ? 'month' : 'months'} overdue`
-            : left === 0
-              ? 'Due this month'
-              : `${left} ${left === 1 ? 'month' : 'months'} to go`
-    const tone =
-        left < 0
-            ? 'bg-red-50 text-red-600'
-            : left <= 3
-              ? 'bg-amber-50 text-amber-600'
-              : 'bg-neutral-100 text-neutral-500'
+/** "month"/"months" for a count. */
+function mo(n: number): string {
+    return Math.abs(n) === 1 ? 'month' : 'months'
+}
+
+/** Start and finish dates side by side, each with a months-away countdown. */
+function PlanDatesGrid({ target }: { target: SavingsTarget }) {
+    const now = currentMonth()
+    const untilStart = monthsUntil(now, target.startMonth)
+    const untilFinish = monthsUntil(now, target.targetMonth)
+
+    const startLabel =
+        untilStart > 0
+            ? `in ${untilStart} ${mo(untilStart)}`
+            : untilStart === 0
+              ? 'this month'
+              : `started ${-untilStart} ${mo(untilStart)} ago`
+    const finishLabel =
+        untilFinish > 0
+            ? `in ${untilFinish} ${mo(untilFinish)}`
+            : untilFinish === 0
+              ? 'due this month'
+              : `${-untilFinish} ${mo(untilFinish)} overdue`
+    const finishTone =
+        untilFinish < 0
+            ? 'text-red-500'
+            : untilFinish <= 3
+              ? 'text-amber-600'
+              : 'text-neutral-400'
+
     return (
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${tone}`}>
-            <i className="fa-regular fa-clock text-[9px]" aria-hidden="true" />
-            {label}
-        </span>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-neutral-50 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                    Starts
+                </p>
+                <p className="mt-0.5 truncate text-xs font-bold text-neutral-900">
+                    {monthLabelLong(target.startMonth)}
+                </p>
+                <p className="text-[11px] text-neutral-400">{startLabel}</p>
+            </div>
+            <div className="rounded-xl bg-neutral-50 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                    Finishes
+                </p>
+                <p className="mt-0.5 truncate text-xs font-bold text-neutral-900">
+                    {monthLabelLong(target.targetMonth)}
+                </p>
+                <p className={`text-[11px] font-semibold ${finishTone}`}>{finishLabel}</p>
+            </div>
+        </div>
     )
 }
 
@@ -857,10 +889,6 @@ function SavedTargetCard({
             setConfirming(false)
         }
     }
-
-    const savedOn = new Date(target.createdAt).toLocaleDateString('en-GB', {
-        day: 'numeric', month: 'short', year: 'numeric',
-    })
 
     return (
         <div
@@ -942,10 +970,6 @@ function SavedTargetCard({
                             />
                         </button>
                     )}
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <p className="text-xs text-neutral-400">Saved {savedOn}</p>
-                        <CountdownPill targetMonth={target.targetMonth} />
-                    </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                     <button
@@ -1008,19 +1032,18 @@ function SavedTargetCard({
                     </p>
                     <p className="mt-1 text-xs text-neutral-500 tabular-nums">
                         {target.mode === 'contribution' ? (
-                            <>Saving £{fmt(target.requiredMonthly)} / month until{' '}
-                            {monthLabelLong(target.targetMonth)} · {target.contributionMonths}{' '}
-                            {target.contributionMonths === 1 ? 'month' : 'months'} from{' '}
-                            {monthLabelLong(target.startMonth)}</>
+                            <>Saving £{fmt(target.requiredMonthly)} / month ·{' '}
+                            {target.contributionMonths} {mo(target.contributionMonths)} of saving</>
                         ) : (
-                            <>£{fmt(target.targetAmount, 0)} by {monthLabelLong(target.targetMonth)}
+                            <>£{fmt(target.targetAmount, 0)} target
                             {!target.onTrack && (
                                 <> · {target.contributionMonths}{' '}
-                                {target.contributionMonths === 1 ? 'month' : 'months'} from{' '}
-                                {monthLabelLong(target.startMonth)}</>
+                                {mo(target.contributionMonths)} of saving</>
                             )}</>
                         )}
                     </p>
+
+                    <PlanDatesGrid target={target} />
                     <p className="mt-3 border-t border-neutral-100 pt-3 text-xs text-neutral-400 tabular-nums">
                         From £{fmt(target.startingBalance, 0)} at {fmt(target.annualInterestRate, 2)}% ·
                         contributions £{fmt(target.totalContributions, 0)} · interest £
