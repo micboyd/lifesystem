@@ -1249,8 +1249,50 @@ function TargetPlannerSection({
 
     return (
         <section>
+            <div className="mb-8">
+                <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                    Saved plans
+                </h2>
+                {snapshotsLoading ? (
+                    <div className="grid place-items-center py-8">
+                        <Spinner />
+                    </div>
+                ) : snapshots.length === 0 ? (
+                    <p className="text-sm text-neutral-400">
+                        No saved plans yet — create one below and hit “Save plan” to keep a
+                        snapshot of it.
+                    </p>
+                ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {snapshots.map((t, i) => (
+                            <SavedTargetCard
+                                key={t._id}
+                                target={t}
+                                isDragging={dragIndex === i}
+                                isDragOver={
+                                    dragIndex !== null && overIndex === i && dragIndex !== i
+                                }
+                                onUpdate={handleUpdate}
+                                onDelete={handleDelete}
+                                onDragStart={() => setDragIndex(i)}
+                                onDragOver={() => setOverIndex(i)}
+                                onDrop={() => {
+                                    if (dragIndex !== null) handleReorder(dragIndex, i)
+                                    setDragIndex(null)
+                                    setOverIndex(null)
+                                }}
+                                onDragEnd={() => {
+                                    setDragIndex(null)
+                                    setOverIndex(null)
+                                }}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+
             <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-                Target planner
+                Create a savings plan
             </h2>
             <div className="rounded-3xl border border-neutral-200 bg-white p-6">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -1456,48 +1498,6 @@ function TargetPlannerSection({
                         </div>
                     )}
                 </div>
-            </div>
-
-            <div className="mt-8">
-                <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-                    Saved plans
-                </h2>
-                {snapshotsLoading ? (
-                    <div className="grid place-items-center py-8">
-                        <Spinner />
-                    </div>
-                ) : snapshots.length === 0 ? (
-                    <p className="text-sm text-neutral-400">
-                        No saved plans yet — set up a target above and hit “Save plan” to keep a
-                        snapshot of it.
-                    </p>
-                ) : (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {snapshots.map((t, i) => (
-                            <SavedTargetCard
-                                key={t._id}
-                                target={t}
-                                isDragging={dragIndex === i}
-                                isDragOver={
-                                    dragIndex !== null && overIndex === i && dragIndex !== i
-                                }
-                                onUpdate={handleUpdate}
-                                onDelete={handleDelete}
-                                onDragStart={() => setDragIndex(i)}
-                                onDragOver={() => setOverIndex(i)}
-                                onDrop={() => {
-                                    if (dragIndex !== null) handleReorder(dragIndex, i)
-                                    setDragIndex(null)
-                                    setOverIndex(null)
-                                }}
-                                onDragEnd={() => {
-                                    setDragIndex(null)
-                                    setOverIndex(null)
-                                }}
-                            />
-                        ))}
-                    </div>
-                )}
             </div>
         </section>
     )
