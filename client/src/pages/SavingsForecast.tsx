@@ -684,6 +684,35 @@ function monthLabelLong(ym: string) {
     return new Date(y, m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
 }
 
+/** Whole months from `from` to `to` (both "YYYY-MM"); negative when `to` is in the past. */
+function monthsUntil(from: string, to: string): number {
+    const [fy, fm] = from.split('-').map(Number)
+    const [ty, tm] = to.split('-').map(Number)
+    return (ty - fy) * 12 + (tm - fm)
+}
+
+function CountdownPill({ targetMonth }: { targetMonth: string }) {
+    const left = monthsUntil(currentMonth(), targetMonth)
+    const label =
+        left < 0
+            ? `${Math.abs(left)} ${Math.abs(left) === 1 ? 'month' : 'months'} overdue`
+            : left === 0
+              ? 'Due this month'
+              : `${left} ${left === 1 ? 'month' : 'months'} to go`
+    const tone =
+        left < 0
+            ? 'bg-red-50 text-red-600'
+            : left <= 3
+              ? 'bg-amber-50 text-amber-600'
+              : 'bg-neutral-100 text-neutral-500'
+    return (
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${tone}`}>
+            <i className="fa-regular fa-clock text-[9px]" aria-hidden="true" />
+            {label}
+        </span>
+    )
+}
+
 function SavedTargetCard({
     target,
     onUpdate,
@@ -774,7 +803,10 @@ function SavedTargetCard({
                             />
                         </button>
                     )}
-                    <p className="mt-0.5 text-xs text-neutral-400">Saved {savedOn}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <p className="text-xs text-neutral-400">Saved {savedOn}</p>
+                        <CountdownPill targetMonth={target.targetMonth} />
+                    </div>
                 </div>
                 <button
                     type="button"
