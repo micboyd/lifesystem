@@ -166,6 +166,12 @@ export interface SavingsTarget {
     _id: string
     name: string
     notes?: string
+    /**
+     * 'target' solves for the monthly amount needed to reach targetAmount;
+     * 'contribution' fixes the monthly amount (requiredMonthly) and projects
+     * the end balance into targetAmount. Absent on older plans — treat as 'target'.
+     */
+    mode?: 'target' | 'contribution'
     targetAmount: number
     startingBalance: number
     annualInterestRate: number

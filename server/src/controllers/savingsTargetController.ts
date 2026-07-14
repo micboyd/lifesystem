@@ -34,6 +34,7 @@ export async function createSavingsTarget(req: AuthRequest, res: Response) {
         user: req.userId,
         name,
         notes: typeof req.body.notes === 'string' ? req.body.notes.trim() || undefined : undefined,
+        mode: req.body.mode === 'contribution' ? 'contribution' : 'target',
         targetAmount,
         startingBalance: num(req.body.startingBalance) ?? 0,
         annualInterestRate: num(req.body.annualInterestRate) ?? 0,

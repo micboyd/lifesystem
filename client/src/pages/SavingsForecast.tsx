@@ -679,6 +679,77 @@ function computeTargetPlan(
     }
 }
 
+interface ContributionPlan {
+    error?: string
+    finalBalance: number
+    contributionMonths: number
+    firstContribMonth: string
+    growthOnly: number
+    totalContributions: number
+    interestEarned: number
+}
+
+/**
+ * The inverse of computeTargetPlan: fix the monthly contribution and project
+ * the end balance instead. Same conventions — interest compounds monthly from
+ * now on the whole balance; contributions land at month-end from `startMonth`
+ * through `endMonth` inclusive.
+ */
+function computeContributionPlan(
+    balance: number,
+    monthly: number,
+    annualRate: number,
+    startMonth: string,
+    endMonth: string,
+    nowMonth: string
+): ContributionPlan {
+    const empty = {
+        finalBalance: balance,
+        contributionMonths: 0,
+        firstContribMonth: startMonth,
+        growthOnly: balance,
+        totalContributions: 0,
+        interestEarned: 0,
+    }
+    if (endMonth < nowMonth) return { ...empty, error: 'The end date is in the past.' }
+    if (monthly <= 0) return { ...empty, error: 'Set a monthly amount to project with.' }
+
+    const r = monthlyRate(annualRate)
+    const firstContrib = startMonth < nowMonth ? nowMonth : startMonth
+
+    let bal = balance
+    let growthOnly = balance
+    let contributionMonths = 0
+    let m = nowMonth
+    while (m <= endMonth) {
+        bal *= 1 + r
+        growthOnly *= 1 + r
+        if (m >= firstContrib) {
+            bal += monthly
+            contributionMonths++
+        }
+        m = addMonths(m, 1)
+    }
+
+    if (contributionMonths === 0) {
+        return {
+            ...empty,
+            growthOnly,
+            error: 'Your start date is after the end date, so there are no months to save in.',
+        }
+    }
+
+    const totalContributions = monthly * contributionMonths
+    return {
+        finalBalance: bal,
+        contributionMonths,
+        firstContribMonth: firstContrib,
+        growthOnly,
+        totalContributions,
+        interestEarned: bal - balance - totalContributions,
+    }
+}
+
 function monthLabelLong(ym: string) {
     const [y, m] = ym.split('-').map(Number)
     return new Date(y, m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
@@ -841,18 +912,27 @@ function SavedTargetCard({
             ) : (
                 <>
                     <p className="mt-4 text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
-                        {target.onTrack ? (
+                        {target.mode === 'contribution' ? (
+                            <>£{fmt(target.targetAmount, 0)} <span className="text-sm font-semibold text-neutral-400">projected</span></>
+                        ) : target.onTrack ? (
                             <span className="text-emerald-600">On track — £0 / month</span>
                         ) : (
                             <>£{fmt(target.requiredMonthly)} <span className="text-sm font-semibold text-neutral-400">/ month</span></>
                         )}
                     </p>
                     <p className="mt-1 text-xs text-neutral-500 tabular-nums">
-                        £{fmt(target.targetAmount, 0)} by {monthLabelLong(target.targetMonth)}
-                        {!target.onTrack && (
-                            <> · {target.contributionMonths}{' '}
+                        {target.mode === 'contribution' ? (
+                            <>Saving £{fmt(target.requiredMonthly)} / month until{' '}
+                            {monthLabelLong(target.targetMonth)} · {target.contributionMonths}{' '}
                             {target.contributionMonths === 1 ? 'month' : 'months'} from{' '}
                             {monthLabelLong(target.startMonth)}</>
+                        ) : (
+                            <>£{fmt(target.targetAmount, 0)} by {monthLabelLong(target.targetMonth)}
+                            {!target.onTrack && (
+                                <> · {target.contributionMonths}{' '}
+                                {target.contributionMonths === 1 ? 'month' : 'months'} from{' '}
+                                {monthLabelLong(target.startMonth)}</>
+                            )}</>
                         )}
                     </p>
                     <p className="mt-3 border-t border-neutral-100 pt-3 text-xs text-neutral-400 tabular-nums">
@@ -913,7 +993,9 @@ function TargetPlannerSection({
 }) {
     const toast = useToast()
     const now = currentMonth()
+    const [mode, setMode] = useState<'target' | 'contribution'>('target')
     const [targetAmount, setTargetAmount] = useState('10000')
+    const [monthlyAmount, setMonthlyAmount] = useState('250')
     const [balance, setBalance] = useState(String(Math.round(defaultBalance)))
     const [rate, setRate] = useState(String(Math.round(defaultRate * 100) / 100))
     const [startDate, setStartDate] = useState(`${now}-01`)
@@ -948,27 +1030,62 @@ function TargetPlannerSection({
         targetDate.slice(0, 7),
         now
     )
+    const contribPlan = computeContributionPlan(
+        parse(balance),
+        parse(monthlyAmount),
+        parse(rate),
+        startDate.slice(0, 7),
+        targetDate.slice(0, 7),
+        now
+    )
+    const activeError = mode === 'target' ? plan.error : contribPlan.error
 
     async function handleSave() {
-        const defaultName = `£${parse(targetAmount).toLocaleString('en-GB')} by ${monthLabelLong(targetDate.slice(0, 7))}`
+        const endLabel = monthLabelLong(targetDate.slice(0, 7))
+        const defaultName =
+            mode === 'target'
+                ? `£${parse(targetAmount).toLocaleString('en-GB')} by ${endLabel}`
+                : `£${parse(monthlyAmount).toLocaleString('en-GB')}/month until ${endLabel}`
         setSaving(true)
         try {
-            const created = await createSavingsTarget({
-                name: snapshotName.trim() || defaultName,
-                notes: snapshotNotes.trim() || undefined,
-                targetAmount: parse(targetAmount),
-                startingBalance: parse(balance),
-                annualInterestRate: parse(rate),
-                startMonth: plan.firstContribMonth,
-                targetMonth: targetDate.slice(0, 7),
-                savedMonth: now,
-                onTrack: plan.onTrack,
-                requiredMonthly: plan.requiredMonthly,
-                contributionMonths: plan.contributionMonths,
-                totalContributions: plan.totalContributions,
-                interestEarned: plan.interestEarned,
-                growthOnly: plan.growthOnly,
-            })
+            const created = await createSavingsTarget(
+                mode === 'target'
+                    ? {
+                          name: snapshotName.trim() || defaultName,
+                          notes: snapshotNotes.trim() || undefined,
+                          mode: 'target',
+                          targetAmount: parse(targetAmount),
+                          startingBalance: parse(balance),
+                          annualInterestRate: parse(rate),
+                          startMonth: plan.firstContribMonth,
+                          targetMonth: targetDate.slice(0, 7),
+                          savedMonth: now,
+                          onTrack: plan.onTrack,
+                          requiredMonthly: plan.requiredMonthly,
+                          contributionMonths: plan.contributionMonths,
+                          totalContributions: plan.totalContributions,
+                          interestEarned: plan.interestEarned,
+                          growthOnly: plan.growthOnly,
+                      }
+                    : {
+                          name: snapshotName.trim() || defaultName,
+                          notes: snapshotNotes.trim() || undefined,
+                          mode: 'contribution',
+                          // In contribution mode the projected pot is the "target".
+                          targetAmount: contribPlan.finalBalance,
+                          startingBalance: parse(balance),
+                          annualInterestRate: parse(rate),
+                          startMonth: contribPlan.firstContribMonth,
+                          targetMonth: targetDate.slice(0, 7),
+                          savedMonth: now,
+                          onTrack: false,
+                          requiredMonthly: parse(monthlyAmount),
+                          contributionMonths: contribPlan.contributionMonths,
+                          totalContributions: contribPlan.totalContributions,
+                          interestEarned: contribPlan.interestEarned,
+                          growthOnly: contribPlan.growthOnly,
+                      }
+            )
             setSnapshots((prev) => [created, ...prev])
             setSnapshotName('')
             setSnapshotNotes('')
@@ -1004,14 +1121,36 @@ function TargetPlannerSection({
                 Target planner
             </h2>
             <div className="rounded-3xl border border-neutral-200 bg-white p-6">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <SettingField
-                        label="Target amount"
-                        prefix="£"
-                        value={targetAmount}
-                        onChange={setTargetAmount}
-                        onCommit={(v) => setTargetAmount(String(v))}
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                    <Tabs
+                        tabs={['Reach a target', 'Save a set amount']}
+                        value={mode === 'target' ? 'Reach a target' : 'Save a set amount'}
+                        onChange={(t) => setMode(t === 'Reach a target' ? 'target' : 'contribution')}
                     />
+                    <p className="max-w-xs text-xs text-neutral-400">
+                        {mode === 'target'
+                            ? 'Work out the monthly amount needed to hit a target.'
+                            : 'Fix a monthly amount and see how much you end up with.'}
+                    </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {mode === 'target' ? (
+                        <SettingField
+                            label="Target amount"
+                            prefix="£"
+                            value={targetAmount}
+                            onChange={setTargetAmount}
+                            onCommit={(v) => setTargetAmount(String(v))}
+                        />
+                    ) : (
+                        <SettingField
+                            label="Monthly amount"
+                            prefix="£"
+                            value={monthlyAmount}
+                            onChange={setMonthlyAmount}
+                            onCommit={(v) => setMonthlyAmount(String(v))}
+                        />
+                    )}
                     <SettingField
                         label="Starting balance"
                         prefix="£"
@@ -1034,7 +1173,7 @@ function TargetPlannerSection({
                         onChange={setStartDate}
                     />
                     <MonthField
-                        label="Reach target by"
+                        label={mode === 'target' ? 'Reach target by' : 'Save until'}
                         value={targetDate}
                         minDate={startDate}
                         onChange={setTargetDate}
@@ -1046,8 +1185,53 @@ function TargetPlannerSection({
                 </div>
 
                 <div className="mt-6">
-                    {plan.error ? (
-                        <p className="text-sm text-neutral-400">{plan.error}</p>
+                    {activeError ? (
+                        <p className="text-sm text-neutral-400">{activeError}</p>
+                    ) : mode === 'contribution' ? (
+                        <div className="flex flex-col gap-4">
+                            <div className="rounded-2xl bg-neutral-950 px-5 py-5 text-white">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                                    You'll have saved
+                                </p>
+                                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
+                                    £{fmt(contribPlan.finalBalance, 0)}
+                                </p>
+                                <p className="mt-1 text-xs text-neutral-500 tabular-nums">
+                                    by {monthLabelLong(targetDate.slice(0, 7))} · £
+                                    {fmt(parse(monthlyAmount))} / month ·{' '}
+                                    {contribPlan.contributionMonths}{' '}
+                                    {contribPlan.contributionMonths === 1 ? 'month' : 'months'} from{' '}
+                                    {monthLabelLong(contribPlan.firstContribMonth)}
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                                <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                        Total contributions
+                                    </p>
+                                    <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
+                                        £{fmt(contribPlan.totalContributions, 0)}
+                                    </p>
+                                </div>
+                                <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                        Interest earned
+                                    </p>
+                                    <p className="mt-1 text-base font-bold tabular-nums text-emerald-600">
+                                        +£{fmt(contribPlan.interestEarned, 0)}
+                                    </p>
+                                </div>
+                                <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                        Balance if you save nothing
+                                    </p>
+                                    <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
+                                        £{fmt(contribPlan.growthOnly, 0)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     ) : plan.onTrack ? (
                         <div className="rounded-2xl bg-emerald-600 px-5 py-5 text-white">
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-200">
@@ -1109,7 +1293,7 @@ function TargetPlannerSection({
                         </div>
                     )}
 
-                    {!plan.error && (
+                    {!activeError && (
                         <div className="mt-4 flex flex-col gap-2">
                             <div className="flex flex-wrap items-center gap-2">
                                 <input
