@@ -1,4 +1,5 @@
 import type { ElementType, ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 
 interface CardProps {
     children: ReactNode
@@ -45,6 +46,30 @@ export function CardTitle({ children, className = '' }: CardProps) {
         <h3 className={`text-lg font-bold tracking-tight text-neutral-900 ${className}`}>
             {children}
         </h3>
+    )
+}
+
+interface CardActionProps extends CardProps {
+    to: string
+    /** Optional router state to pass through to the destination. */
+    state?: unknown
+}
+
+/**
+ * The standard header action for widget-style cards: a quiet label with a
+ * trailing arrow that darkens on hover. Keeps every card's "go to the full
+ * page" affordance identical.
+ */
+export function CardAction({ to, state, children, className = '' }: CardActionProps) {
+    return (
+        <Link
+            to={to}
+            state={state}
+            className={`inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900 ${className}`}
+        >
+            {children}
+            <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
+        </Link>
     )
 }
 

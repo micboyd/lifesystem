@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardTitle } from '../Card'
+import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { listReminders } from '../../services/reminders'
 import { useDataVersion } from '../../context/DataSyncContext'
@@ -57,12 +57,7 @@ export default function RemindersWidget({ date }: { date: string }) {
         <Card>
             <CardHeader className="flex items-center justify-between gap-4">
                 <CardTitle>Reminders</CardTitle>
-                <Link
-                    to="/calendar"
-                    className="text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    View calendar
-                </Link>
+                <CardAction to="/calendar">Calendar</CardAction>
             </CardHeader>
 
             {loading ? (

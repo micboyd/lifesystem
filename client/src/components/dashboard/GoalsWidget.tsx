@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
+import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { listGoals } from '../../services/goals'
 import type { Goal } from '../../types'
@@ -34,13 +34,9 @@ export default function GoalsWidget() {
                         </p>
                     )}
                 </div>
-                <Link
-                    to="/goals"
-                    className="mt-1 inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
+                <CardAction to="/goals" className="mt-1">
                     All goals
-                    <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
-                </Link>
+                </CardAction>
             </CardHeader>
 
             {loading ? (
@@ -94,15 +90,6 @@ export default function GoalsWidget() {
                 </ul>
             )}
 
-            <CardFooter>
-                <Link
-                    to="/goals"
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    <i className="fa-solid fa-bullseye text-xs" aria-hidden="true" />
-                    Manage goals
-                </Link>
-            </CardFooter>
         </Card>
     )
 }

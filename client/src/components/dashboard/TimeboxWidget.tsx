@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
+import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { listTimeboxes } from '../../services/timeboxes'
 import { todayKey } from '../../lib/calendar'
@@ -31,13 +30,9 @@ export default function TimeboxWidget({ date = todayKey() }: { date?: string }) 
         <Card>
             <CardHeader className="flex items-center justify-between gap-4">
                 <CardTitle>Timebox</CardTitle>
-                <Link
-                    to="/timebox"
-                    state={{ date }}
-                    className="text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
+                <CardAction to="/timebox" state={{ date }}>
                     Plan day
-                </Link>
+                </CardAction>
             </CardHeader>
 
             {loading ? (
@@ -73,16 +68,6 @@ export default function TimeboxWidget({ date = todayKey() }: { date?: string }) 
                 </ul>
             )}
 
-            <CardFooter>
-                <Link
-                    to="/timebox"
-                    state={{ date }}
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
-                    Add a block
-                </Link>
-            </CardFooter>
         </Card>
     )
 }

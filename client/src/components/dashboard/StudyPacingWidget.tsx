@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
+import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
 import { listValues } from '../../services/totals'
@@ -131,13 +131,9 @@ export default function StudyPacingWidget() {
                             : 'Are you on track for your targets?'}
                     </p>
                 </div>
-                <Link
-                    to="/study"
-                    className="mt-1 inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    Open
-                    <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
-                </Link>
+                <CardAction to="/study" className="mt-1">
+                    Study plan
+                </CardAction>
             </CardHeader>
 
             {loading ? (
@@ -183,15 +179,6 @@ export default function StudyPacingWidget() {
                 </>
             )}
 
-            <CardFooter>
-                <Link
-                    to="/study"
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    <i className="fa-solid fa-graduation-cap text-xs" aria-hidden="true" />
-                    View study plan
-                </Link>
-            </CardFooter>
         </Card>
     )
 }

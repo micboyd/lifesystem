@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
+import { Card, CardAction, CardHeader, CardTitle, CardFooter } from '../Card'
 import Spinner from '../Spinner'
 import {
     PERIODS,
@@ -42,13 +42,9 @@ export default function TodayWidget({ date = todayKey() }: { date?: string }) {
                     <CardTitle>{isToday ? 'Today' : weekday}</CardTitle>
                     <p className="mt-0.5 text-sm text-neutral-400">{formatDateLong(date)}</p>
                 </div>
-                <Link
-                    to={`/day/${date}`}
-                    className="mt-1 inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    Open
-                    <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
-                </Link>
+                <CardAction to={`/day/${date}`} className="mt-1">
+                    Open day
+                </CardAction>
             </CardHeader>
 
             {loading ? (

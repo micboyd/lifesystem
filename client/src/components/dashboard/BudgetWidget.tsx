@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
+import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { useDataVersion } from '../../context/DataSyncContext'
 import {
@@ -308,13 +308,9 @@ export default function BudgetWidget({ date }: { date: string }) {
                             : 'Spend tracker'}
                     </p>
                 </div>
-                <Link
-                    to="/finances/budgets"
-                    className="mt-1 inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    Open
-                    <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
-                </Link>
+                <CardAction to="/finances/budgets" className="mt-1">
+                    Budgets
+                </CardAction>
             </CardHeader>
 
             {loading ? (
@@ -435,15 +431,6 @@ export default function BudgetWidget({ date }: { date: string }) {
                 </div>
             )}
 
-            <CardFooter>
-                <Link
-                    to="/finances/budgets"
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    <i className="fa-solid fa-piggy-bank text-xs" aria-hidden="true" />
-                    View budgets
-                </Link>
-            </CardFooter>
         </Card>
     )
 }

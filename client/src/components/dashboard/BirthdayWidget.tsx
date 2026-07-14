@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardTitle } from '../Card'
+import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { listBirthdays } from '../../services/birthdays'
 import type { Birthday } from '../../types'
@@ -60,12 +59,7 @@ export default function BirthdayWidget({ date }: { date: string }) {
         <Card>
             <CardHeader className="flex items-center justify-between gap-4">
                 <CardTitle>Upcoming birthdays</CardTitle>
-                <Link
-                    to="/birthdays"
-                    className="text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    Manage
-                </Link>
+                <CardAction to="/birthdays">All birthdays</CardAction>
             </CardHeader>
 
             {loading ? (

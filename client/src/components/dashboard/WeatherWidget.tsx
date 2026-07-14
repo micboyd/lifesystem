@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardTitle } from '../Card'
+import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
 import { fetchForecast, weatherInfo, whatToWear, planningInsight, weatherWarnings, type Forecast } from '../../lib/weather'
@@ -71,13 +71,7 @@ export default function WeatherWidget() {
         <Card>
             <CardHeader className="flex items-center justify-between gap-4">
                 <CardTitle>Weather</CardTitle>
-                <Link
-                    to="/weather"
-                    className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    Full forecast
-                    <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
-                </Link>
+                <CardAction to="/weather">Full forecast</CardAction>
             </CardHeader>
 
             {pending ? (

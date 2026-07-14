@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardTitle } from '../Card'
+import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { listDaysSince } from '../../services/daysSince'
 import { daysBetween, bestDays, isMilestoneDay, milestoneLabel } from '../../lib/daysSince'
@@ -27,12 +27,7 @@ export default function DaysSinceWidget() {
         <Card>
             <CardHeader className="flex items-center justify-between gap-4">
                 <CardTitle>Days since</CardTitle>
-                <Link
-                    to="/days-since"
-                    className="text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    Manage
-                </Link>
+                <CardAction to="/days-since">All counters</CardAction>
             </CardHeader>
 
             {loading ? (

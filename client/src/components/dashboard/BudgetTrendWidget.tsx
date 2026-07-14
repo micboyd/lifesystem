@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardTitle, CardFooter } from '../Card'
+import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { useDataVersion } from '../../context/DataSyncContext'
 import {
@@ -85,13 +85,9 @@ export default function BudgetTrendWidget({ date }: { date: string }) {
                         Spend against target over the last {MONTHS_BACK} months
                     </p>
                 </div>
-                <Link
-                    to="/finances/daily-log"
-                    className="mt-1 inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    Logs
-                    <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
-                </Link>
+                <CardAction to="/finances/daily-log" className="mt-1">
+                    Daily log
+                </CardAction>
             </CardHeader>
 
             {loading ? (
@@ -198,15 +194,6 @@ export default function BudgetTrendWidget({ date }: { date: string }) {
                 </>
             )}
 
-            <CardFooter>
-                <Link
-                    to="/finances/budgets"
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    <i className="fa-solid fa-chart-column text-xs" aria-hidden="true" />
-                    Manage budgets
-                </Link>
-            </CardFooter>
         </Card>
     )
 }
