@@ -15,7 +15,7 @@ export async function createSavingsTarget(input: SavingsTargetInput): Promise<Sa
 
 export async function updateSavingsTarget(
     id: string,
-    fields: { name?: string; notes?: string | null }
+    fields: { name?: string; notes?: string | null; order?: number; priority?: boolean }
 ): Promise<SavingsTarget> {
     const res = await api.put<ApiResponse<SavingsTarget>>(`/savings-targets/${id}`, fields)
     return res.data.data

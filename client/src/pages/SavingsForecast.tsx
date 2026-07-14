@@ -786,12 +786,27 @@ function CountdownPill({ targetMonth }: { targetMonth: string }) {
 
 function SavedTargetCard({
     target,
+    isDragging,
+    isDragOver,
     onUpdate,
     onDelete,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
 }: {
     target: SavingsTarget
-    onUpdate: (id: string, fields: { name?: string; notes?: string | null }) => Promise<void>
+    isDragging: boolean
+    isDragOver: boolean
+    onUpdate: (
+        id: string,
+        fields: { name?: string; notes?: string | null; priority?: boolean }
+    ) => Promise<void>
     onDelete: (id: string) => Promise<void>
+    onDragStart: () => void
+    onDragOver: () => void
+    onDrop: () => void
+    onDragEnd: () => void
 }) {
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(target.name)
@@ -799,6 +814,17 @@ function SavedTargetCard({
     const [notesDraft, setNotesDraft] = useState('')
     const [confirming, setConfirming] = useState(false)
     const [busy, setBusy] = useState(false)
+    // The card is only draggable once a drag is initiated from the grip handle,
+    // so clicks/selection elsewhere in the card behave normally.
+    const dragReady = useRef(false)
+
+    // Disarm the handle on any plain click release. A real drag ends with
+    // 'dragend' (no trailing 'mouseup'), so this only fires when no drag started.
+    useEffect(() => {
+        const disarm = () => (dragReady.current = false)
+        window.addEventListener('mouseup', disarm)
+        return () => window.removeEventListener('mouseup', disarm)
+    }, [])
 
     async function commitRename() {
         const trimmed = name.trim()
@@ -837,9 +863,51 @@ function SavedTargetCard({
     })
 
     return (
-        <div className="rounded-3xl border border-neutral-200 bg-white p-6 transition-colors duration-200 hover:border-neutral-300">
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+        <div
+            draggable
+            onDragStart={(e) => {
+                if (!dragReady.current) {
+                    e.preventDefault()
+                    return
+                }
+                e.dataTransfer.effectAllowed = 'move'
+                onDragStart()
+            }}
+            onDragOver={(e) => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+                onDragOver()
+            }}
+            onDrop={(e) => {
+                e.preventDefault()
+                onDrop()
+            }}
+            onDragEnd={() => {
+                dragReady.current = false
+                onDragEnd()
+            }}
+            className={[
+                'rounded-3xl border bg-white p-6 transition-colors duration-200',
+                target.priority
+                    ? 'border-amber-300 hover:border-amber-400'
+                    : 'border-neutral-200 hover:border-neutral-300',
+                isDragging ? 'opacity-40' : '',
+                isDragOver ? 'ring-2 ring-neutral-300' : '',
+            ]
+                .filter(Boolean)
+                .join(' ')}
+        >
+            <div className="flex items-start gap-2">
+                <button
+                    type="button"
+                    aria-label="Drag to reorder"
+                    onMouseDown={() => (dragReady.current = true)}
+                    onTouchStart={() => (dragReady.current = true)}
+                    className="mt-1 -ml-1 grid h-8 w-5 shrink-0 cursor-grab touch-none place-items-center rounded text-neutral-300 transition-colors hover:text-neutral-500 active:cursor-grabbing"
+                >
+                    <i className="fa-solid fa-grip-vertical text-xs" aria-hidden="true" />
+                </button>
+                <div className="min-w-0 flex-1">
                     {editing ? (
                         <input
                             autoFocus
@@ -879,13 +947,31 @@ function SavedTargetCard({
                         <CountdownPill targetMonth={target.targetMonth} />
                     </div>
                 </div>
-                <button
-                    type="button"
-                    onClick={() => setConfirming(true)}
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
-                >
-                    <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                    <button
+                        type="button"
+                        title={target.priority ? 'Remove priority' : 'Mark as priority'}
+                        onClick={() => onUpdate(target._id, { priority: !target.priority })}
+                        className={[
+                            'grid h-7 w-7 place-items-center rounded-full transition-colors',
+                            target.priority
+                                ? 'text-amber-500 hover:bg-amber-50 hover:text-amber-600'
+                                : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500',
+                        ].join(' ')}
+                    >
+                        <i
+                            className={`${target.priority ? 'fa-solid' : 'fa-regular'} fa-flag text-xs`}
+                            aria-hidden="true"
+                        />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setConfirming(true)}
+                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
+                    >
+                        <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                    </button>
+                </div>
             </div>
 
             {confirming ? (
@@ -1006,6 +1092,9 @@ function TargetPlannerSection({
     const [snapshotName, setSnapshotName] = useState('')
     const [snapshotNotes, setSnapshotNotes] = useState('')
     const [saving, setSaving] = useState(false)
+    // Drag-to-reorder: the card being dragged and the card it's hovering over.
+    const [dragIndex, setDragIndex] = useState<number | null>(null)
+    const [overIndex, setOverIndex] = useState<number | null>(null)
 
     useEffect(() => {
         let active = true
@@ -1097,13 +1186,33 @@ function TargetPlannerSection({
         }
     }
 
-    async function handleUpdate(id: string, fields: { name?: string; notes?: string | null }) {
+    async function handleUpdate(
+        id: string,
+        fields: { name?: string; notes?: string | null; priority?: boolean }
+    ) {
         try {
             const updated = await updateSavingsTarget(id, fields)
             setSnapshots((prev) => prev.map((t) => (t._id === id ? updated : t)))
         } catch {
             toast.error("Couldn't update that plan.")
         }
+    }
+
+    // Move a plan to a new position (drag and drop), then persist the sequential
+    // order of every plan whose position changed.
+    async function handleReorder(from: number, to: number) {
+        if (from === to || from < 0 || to < 0 || from >= snapshots.length || to >= snapshots.length)
+            return
+        const reordered = [...snapshots]
+        const [moved] = reordered.splice(from, 1)
+        reordered.splice(to, 0, moved)
+        const withOrder = reordered.map((t, i) => ({ ...t, order: i }))
+        const prevById = new Map(snapshots.map((t) => [t._id, t.order]))
+        setSnapshots(withOrder)
+        const changed = withOrder.filter((t) => prevById.get(t._id) !== t.order)
+        await Promise.all(
+            changed.map((t) => updateSavingsTarget(t._id, { order: t.order }))
+        ).catch(() => listSavingsTargets().then(setSnapshots))
     }
 
     async function handleDelete(id: string) {
@@ -1341,12 +1450,27 @@ function TargetPlannerSection({
                     </p>
                 ) : (
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {snapshots.map((t) => (
+                        {snapshots.map((t, i) => (
                             <SavedTargetCard
                                 key={t._id}
                                 target={t}
+                                isDragging={dragIndex === i}
+                                isDragOver={
+                                    dragIndex !== null && overIndex === i && dragIndex !== i
+                                }
                                 onUpdate={handleUpdate}
                                 onDelete={handleDelete}
+                                onDragStart={() => setDragIndex(i)}
+                                onDragOver={() => setOverIndex(i)}
+                                onDrop={() => {
+                                    if (dragIndex !== null) handleReorder(dragIndex, i)
+                                    setDragIndex(null)
+                                    setOverIndex(null)
+                                }}
+                                onDragEnd={() => {
+                                    setDragIndex(null)
+                                    setOverIndex(null)
+                                }}
                             />
                         ))}
                     </div>

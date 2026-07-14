@@ -16,6 +16,10 @@ export interface ISavingsTarget extends Document {
      * the end balance into targetAmount.
      */
     mode: 'target' | 'contribution'
+    /** Manual display position among the user's saved plans (lower first). */
+    order: number
+    /** User-set flag to mark the plan as a priority. */
+    priority: boolean
     // Inputs
     targetAmount: number
     startingBalance: number
@@ -40,6 +44,8 @@ const savingsTargetSchema = new Schema<ISavingsTarget>(
         name: { type: String, required: true, trim: true },
         notes: { type: String, trim: true },
         mode: { type: String, enum: ['target', 'contribution'], default: 'target' },
+        order: { type: Number, default: 0 },
+        priority: { type: Boolean, default: false },
         targetAmount: { type: Number, required: true },
         startingBalance: { type: Number, default: 0 },
         annualInterestRate: { type: Number, default: 0 },

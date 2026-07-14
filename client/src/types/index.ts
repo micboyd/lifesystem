@@ -172,6 +172,10 @@ export interface SavingsTarget {
      * the end balance into targetAmount. Absent on older plans — treat as 'target'.
      */
     mode?: 'target' | 'contribution'
+    /** Manual display position among saved plans (lower first). */
+    order?: number
+    /** User-set flag marking the plan as a priority. */
+    priority?: boolean
     targetAmount: number
     startingBalance: number
     annualInterestRate: number

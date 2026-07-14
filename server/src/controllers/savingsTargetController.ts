@@ -13,7 +13,9 @@ function month(v: unknown): string | undefined {
 }
 
 export async function listSavingsTargets(req: AuthRequest, res: Response) {
-    const targets = await SavingsTarget.find({ user: req.userId }).sort({ createdAt: -1 })
+    // Manual order first; ties (legacy plans and fresh saves all default to 0)
+    // fall back to newest-first, matching the old behaviour.
+    const targets = await SavingsTarget.find({ user: req.userId }).sort({ order: 1, createdAt: -1 })
     res.json({ message: 'OK', data: targets })
 }
 
@@ -52,7 +54,8 @@ export async function createSavingsTarget(req: AuthRequest, res: Response) {
 }
 
 export async function updateSavingsTarget(req: AuthRequest, res: Response) {
-    // A snapshot is immutable apart from its name and notes.
+    // A snapshot is immutable apart from its name, notes, display order and
+    // priority flag — the computed plan itself never changes.
     const set: Record<string, unknown> = {}
     const unset: Record<string, unknown> = {}
     if (typeof req.body.name === 'string' && req.body.name.trim()) set.name = req.body.name.trim()
@@ -62,6 +65,8 @@ export async function updateSavingsTarget(req: AuthRequest, res: Response) {
         else unset.notes = 1
     }
     if (req.body.notes === null) unset.notes = 1
+    if (num(req.body.order) !== undefined) set.order = num(req.body.order)
+    if (typeof req.body.priority === 'boolean') set.priority = req.body.priority
     if (Object.keys(set).length === 0 && Object.keys(unset).length === 0) {
         res.status(400).json({ message: 'nothing to update' })
         return
