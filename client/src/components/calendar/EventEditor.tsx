@@ -9,6 +9,7 @@ import Switch from '../Switch'
 import TimePicker from '../TimePicker'
 import RecurrencePicker from './RecurrencePicker'
 import { slotOrdinal } from '../../lib/calendar'
+import { recurringAmountForMonth } from '../../lib/finance'
 import {
     EVENT_TYPES,
     EVENT_TYPE_LABELS,
@@ -395,7 +396,7 @@ export default function EventEditor({
 
     const resolvedAmount = selectedRow
         ? (linkedEntries.find((e) => e.row === selectedRow._id)?.amount ??
-          selectedRow.recurringAmount ??
+          recurringAmountForMonth(selectedRow, startMonth) ??
           0)
         : undefined
 

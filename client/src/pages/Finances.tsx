@@ -23,13 +23,21 @@ import {
     deletePot,
     type AddScope,
 } from '../services/finances'
-import { addMonths, rowVisibleInMonth, groupVisibleInMonth, type DeleteMode } from '../lib/finance'
+import {
+    addMonths,
+    rowVisibleInMonth,
+    groupVisibleInMonth,
+    recurringAmountForMonth,
+    type DeleteMode,
+    type AmountScope,
+} from '../lib/finance'
 import { formatMoney, formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
 import { useInvalidate } from '../context/DataSyncContext'
 import { useAuth } from '../context/AuthContext'
 import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
+import AmountScopeDialog from '../components/finance/AmountScopeDialog'
 import Tabs from '../components/Tabs'
 import type { FinanceGroup, FinancePot, FinanceRow, FinanceEntry } from '../types'
 
@@ -181,7 +189,7 @@ function PotCard({
         setDraftName(row.name)
         const current = row.recurring === false
             ? (entries.find((e) => e.row === row._id)?.amount ?? row.recurringAmount)
-            : row.recurringAmount
+            : recurringAmountForMonth(row, month)
         setDraftAmount(current !== undefined ? String(current) : '')
     }
 
@@ -241,6 +249,7 @@ function PotCard({
                 <div className="flex flex-col divide-y divide-neutral-200/70">
                     {rows.map((row) => {
                         const amt = entries.find((e) => e.row === row._id)?.amount
+                        const monthlyDefault = recurringAmountForMonth(row, month)
                         const rowVal = effectiveAmount(row)
                         const pct = total !== 0 ? Math.min(100, Math.abs(rowVal / total) * 100) : 0
                         const barCls = totalCls.includes('emerald')
@@ -299,9 +308,9 @@ function PotCard({
                                         <div className="h-1 w-full max-w-[120px] overflow-hidden rounded-full bg-neutral-200/70">
                                             <div className={`h-full rounded-full ${barCls}`} style={{ width: `${pct}%` }} />
                                         </div>
-                                        {row.recurring !== false && row.recurringAmount !== undefined && (
+                                        {row.recurring !== false && monthlyDefault !== undefined && (
                                             <span className="shrink-0 text-[11px] tabular-nums text-neutral-400">
-                                                £{formatAmount(row.recurringAmount)}/mo
+                                                £{formatAmount(monthlyDefault)}/mo
                                             </span>
                                         )}
                                     </div>
@@ -309,7 +318,7 @@ function PotCard({
 
                                 <div className="flex shrink-0 items-center justify-end">
                                 <div className="w-28 text-right">
-                                    <AmountCell large value={amt} placeholder={row.recurringAmount} onSave={(v) => onSetEntry(row._id, v)} />
+                                    <AmountCell large value={amt} placeholder={monthlyDefault} onSave={(v) => onSetEntry(row._id, v)} />
                                 </div>
 
                                 <div className="flex items-center gap-0.5 overflow-hidden max-w-[160px] opacity-100 transition-all duration-200 sm:max-w-0 sm:opacity-0 sm:group-hover/row:max-w-[160px] sm:group-hover/row:opacity-100">
@@ -546,6 +555,14 @@ export default function Finances() {
         scoped: boolean
     } | null>(null)
 
+    // Recurring-amount scope dialog: a pending row update waiting on the user to
+    // pick "all months" vs "from this month onwards".
+    const [pendingAmountEdit, setPendingAmountEdit] = useState<{
+        id: string
+        name: string
+        fields: { name?: string; recurringAmount: number | null }
+    } | null>(null)
+
     // Editing
     const [editingGroup, setEditingGroup] = useState<string | null>(null)
     const [editGroupName, setEditGroupName] = useState('')
@@ -592,7 +609,7 @@ export default function Finances() {
 
     function effectiveAmount(row: FinanceRow): number {
         const e = entryAmount(row._id)
-        return e !== undefined ? e : (row.recurringAmount ?? 0)
+        return e !== undefined ? e : (recurringAmountForMonth(row, month) ?? 0)
     }
 
     // Groups active in the viewed month. Totals are derived only from these so a
@@ -760,23 +777,61 @@ export default function Finances() {
         }
     }
 
+    // Save a recurring row's name/amount. When the amount changed and the row has
+    // earlier months, stash the update and ask for a scope (all / onward) first.
+    async function saveRecurringRowEdit(row: FinanceRow, name: string, parsed: number | null) {
+        const fields: Parameters<typeof updateRow>[1] = {}
+        if (name.trim() && name.trim() !== row.name) fields.name = name.trim()
+        const current = recurringAmountForMonth(row, month) ?? null
+        if (parsed !== current) {
+            fields.recurringAmount = parsed
+            const hasEarlierMonths = !row.startMonth || row.startMonth < month
+            if (hasEarlierMonths) {
+                setPendingAmountEdit({
+                    id: row._id,
+                    name: row.name,
+                    fields: { ...fields, recurringAmount: parsed },
+                })
+                return
+            }
+            // No months before this one — nothing to scope.
+            fields.amountScope = 'all'
+        }
+        if (Object.keys(fields).length === 0) return
+        const updated = await updateRow(row._id, fields)
+        setRows((prev) => prev.map((x) => (x._id === row._id ? updated : x)))
+    }
+
+    async function handleConfirmAmountScope(scope: AmountScope) {
+        const pending = pendingAmountEdit
+        if (!pending) return
+        setPendingAmountEdit(null)
+        try {
+            const updated = await updateRow(pending.id, {
+                ...pending.fields,
+                amountScope: scope,
+                month,
+            })
+            setRows((prev) => prev.map((x) => (x._id === pending.id ? updated : x)))
+        } catch {
+            toast.error("Couldn't save the row.")
+        }
+    }
+
     async function handleSaveRowFromPot(id: string, name: string, amountStr: string) {
         const row = rows.find((x) => x._id === id)
+        if (!row) return
         const trimmed = amountStr.trim()
         const parsed = trimmed !== '' && !Number.isNaN(parseFloat(trimmed)) ? parseFloat(trimmed) : null
         try {
-            if (row && row.recurring === false) {
+            if (row.recurring === false) {
                 if (name.trim() && name.trim() !== row.name) {
                     const updated = await updateRow(id, { name: name.trim() })
                     setRows((prev) => prev.map((x) => (x._id === id ? updated : x)))
                 }
                 await handleSetEntry(id, parsed)
             } else {
-                const fields: Parameters<typeof updateRow>[1] = {}
-                if (name.trim()) fields.name = name.trim()
-                fields.recurringAmount = parsed
-                const updated = await updateRow(id, fields)
-                setRows((prev) => prev.map((x) => (x._id === id ? updated : x)))
+                await saveRecurringRowEdit(row, name, parsed)
             }
         } catch {
             toast.error("Couldn't save the row.")
@@ -797,12 +852,8 @@ export default function Finances() {
                     setRows((prev) => prev.map((x) => (x._id === id ? updated : x)))
                 }
                 await handleSetEntry(id, parsed)
-            } else {
-                const fields: Parameters<typeof updateRow>[1] = {}
-                if (editRowName.trim()) fields.name = editRowName.trim()
-                fields.recurringAmount = parsed
-                const updated = await updateRow(id, fields)
-                setRows((prev) => prev.map((x) => (x._id === id ? updated : x)))
+            } else if (row) {
+                await saveRecurringRowEdit(row, editRowName, parsed)
             }
             setEditingRow(null)
         } catch {
@@ -1186,6 +1237,7 @@ export default function Finances() {
                                     <div className="flex flex-col divide-y divide-neutral-100 border-b border-neutral-100">
                                         {groupRows.map((row) => {
                                             const amt = entryAmount(row._id)
+                                            const monthlyDefault = recurringAmountForMonth(row, month)
                                             const rowVal = effectiveAmount(row)
                                             const pct =
                                                 total !== 0
@@ -1282,11 +1334,11 @@ export default function Finances() {
                                                                 />
                                                             </div>
                                                             {row.recurring !== false &&
-                                                                row.recurringAmount !== undefined && (
+                                                                monthlyDefault !== undefined && (
                                                                     <span className="shrink-0 text-[11px] tabular-nums text-neutral-400">
                                                                         £
                                                                         {formatAmount(
-                                                                            row.recurringAmount
+                                                                            monthlyDefault
                                                                         )}
                                                                         /mo
                                                                     </span>
@@ -1300,7 +1352,7 @@ export default function Finances() {
                                                         <AmountCell
                                                             large
                                                             value={amt}
-                                                            placeholder={row.recurringAmount}
+                                                            placeholder={monthlyDefault}
                                                             onSave={(v) =>
                                                                 handleSetEntry(row._id, v)
                                                             }
@@ -1358,7 +1410,7 @@ export default function Finances() {
                                                                     row.recurring === false
                                                                         ? (amt ??
                                                                           row.recurringAmount)
-                                                                        : row.recurringAmount
+                                                                        : monthlyDefault
                                                                 setEditRowAmount(
                                                                     current !== undefined
                                                                         ? String(current)
@@ -1513,7 +1565,7 @@ export default function Finances() {
                                                     onNavigate={(rowId) => navigate(`/finances/breakdown/${rowId}?month=${month}&recurring=${(rows.find((r) => r._id === rowId)?.recurring ?? true) !== false}`)}
                                                     effectiveAmount={(row) => {
                                                         const e = entries.find((en) => en.row === row._id)?.amount
-                                                        return e !== undefined ? e : (row.recurringAmount ?? 0)
+                                                        return e !== undefined ? e : (recurringAmountForMonth(row, month) ?? 0)
                                                     }}
                                                     onRename={handleRenamePot}
                                                     onDelete={handleDeletePot}
@@ -1583,6 +1635,15 @@ export default function Finances() {
                     scoped={pendingDelete.scoped}
                     onClose={() => setPendingDelete(null)}
                     onConfirm={handleConfirmDelete}
+                />
+            )}
+
+            {pendingAmountEdit && (
+                <AmountScopeDialog
+                    name={pendingAmountEdit.name}
+                    monthLabel={formatMonth(month)}
+                    onClose={() => setPendingAmountEdit(null)}
+                    onConfirm={handleConfirmAmountScope}
                 />
             )}
         </>

@@ -1,10 +1,19 @@
 import { Schema, model, Document, Types } from 'mongoose'
 
+/** A superseded recurring amount: months strictly before `beforeMonth` use
+ *  `amount` (unless an earlier entry covers them). `recurringAmount` stays the
+ *  current value, so consumers without month context read the latest amount. */
+export interface IPastAmount {
+    beforeMonth: string // YYYY-MM exclusive upper bound
+    amount?: number
+}
+
 export interface IFinanceRow extends Document {
     user: Types.ObjectId
     group: Types.ObjectId
     name: string
     recurringAmount?: number
+    pastAmounts: IPastAmount[]
     order: number
     recurring: boolean
     month?: string // YYYY-MM — set for non-recurring rows, absent for recurring
@@ -26,6 +35,18 @@ const financeRowSchema = new Schema<IFinanceRow>(
         group: { type: Schema.Types.ObjectId, ref: 'FinanceGroup', required: true, index: true },
         name: { type: String, required: true, trim: true },
         recurringAmount: { type: Number },
+        pastAmounts: {
+            type: [
+                new Schema<IPastAmount>(
+                    {
+                        beforeMonth: { type: String, required: true, match: /^\d{4}-\d{2}$/ },
+                        amount: { type: Number },
+                    },
+                    { _id: false }
+                ),
+            ],
+            default: [],
+        },
         order: { type: Number, default: 0 },
         recurring: { type: Boolean, default: true },
         month: { type: String, default: null },

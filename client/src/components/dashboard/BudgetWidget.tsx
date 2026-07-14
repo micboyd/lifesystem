@@ -12,7 +12,7 @@ import {
 } from '../../services/finances'
 import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, clampedWeekRange } from '../../lib/budget'
 import Select from '../Select'
-import { rowVisibleInMonth } from '../../lib/finance'
+import { rowVisibleInMonth, recurringAmountForMonth } from '../../lib/finance'
 import { formatAmount } from '../../lib/money'
 import { useMoneyHidden } from '../useMoneyHidden'
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
@@ -253,7 +253,7 @@ export default function BudgetWidget({ date }: { date: string }) {
     const trackedRows = [...weeklyRows, ...dailyRows]
     const hasAmounts = trackedRows.some((r) => {
         const entry = entries.find((e) => e.row === r._id)
-        return (entry?.amount ?? r.recurringAmount ?? 0) > 0
+        return (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0) > 0
     })
 
     // Pooled totals across every tracked budget for the current period (this week

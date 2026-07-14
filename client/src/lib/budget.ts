@@ -1,4 +1,5 @@
 import type { FinanceRow, FinanceEntry, BudgetSpend, BudgetTopUp, ExclusionBudget } from '../types'
+import { recurringAmountForMonth } from './finance'
 
 /** "YYYY-MM-DD" → "YYYY-MM". */
 export function monthOf(date: string): string {
@@ -128,7 +129,7 @@ export function computeBudgetDay(
     rowTopUps: BudgetTopUp[] = []
 ): BudgetDay {
     const month = monthOf(date)
-    const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
+    const monthlyAmount = entry?.amount ?? recurringAmountForMonth(row, month) ?? 0
     const totalActiveDays = activeDaysInMonth(month, excluded)
     const straightDailyRate = totalActiveDays > 0 ? monthlyAmount / totalActiveDays : 0
 
@@ -233,7 +234,7 @@ export function computeBudgetWeek(
     const month = weekStart.slice(0, 7)
     const monthStart = `${month}-01`
     const monthEnd = dateKey(month, daysInMonth(month))
-    const monthlyAmount = entry?.amount ?? row.recurringAmount ?? 0
+    const monthlyAmount = entry?.amount ?? recurringAmountForMonth(row, month) ?? 0
     const totalActiveDays = activeDaysInMonth(month, excluded)
     const dailyRate = totalActiveDays > 0 ? monthlyAmount / totalActiveDays : 0
 

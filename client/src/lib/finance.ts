@@ -3,6 +3,26 @@ import type { FinanceGroup, FinanceRow } from '../types'
 /** Delete scope for groups and recurring rows. */
 export type DeleteMode = 'all' | 'onward' | 'month'
 
+/** Scope for recurring-amount edits: every month, or only from a month onwards. */
+export type AmountScope = 'all' | 'onward'
+
+/**
+ * The recurring amount a row plans for a given month. `recurringAmount` is the
+ * current value; `pastAmounts` boundaries record superseded values ("from this
+ * month onwards" edits) — the first boundary strictly after `month` holds the
+ * amount that month used. Per-month entry overrides still take precedence at
+ * call sites.
+ */
+export function recurringAmountForMonth(row: FinanceRow, month: string): number | undefined {
+    if (row.pastAmounts?.length) {
+        const boundary = [...row.pastAmounts]
+            .sort((a, b) => (a.beforeMonth < b.beforeMonth ? -1 : 1))
+            .find((p) => month < p.beforeMonth)
+        if (boundary) return boundary.amount
+    }
+    return row.recurringAmount
+}
+
 /** Shift a "YYYY-MM" string by a number of months. */
 export function addMonths(ym: string, delta: number): string {
     const [y, m] = ym.split('-').map(Number)

@@ -7,7 +7,7 @@ import { listGroups, listRows, listEntries, updateGroup, deleteGroup } from '../
 import {
     listSavingsTargets, createSavingsTarget, updateSavingsTarget, deleteSavingsTarget,
 } from '../services/savingsTargets'
-import { groupVisibleInMonth, rowVisibleInMonth, addMonths } from '../lib/finance'
+import { groupVisibleInMonth, rowVisibleInMonth, addMonths, recurringAmountForMonth } from '../lib/finance'
 import { formatAmount, formatMoneyCompact } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
@@ -490,7 +490,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
         return rows
             .filter((r) => r.group === group._id && rowVisibleInMonth(r, m, group))
             .reduce(
-                (s, r) => s + (es.find((e) => e.row === r._id)?.amount ?? r.recurringAmount ?? 0),
+                (s, r) => s + (es.find((e) => e.row === r._id)?.amount ?? recurringAmountForMonth(r, m) ?? 0),
                 0
             )
     }
@@ -1273,6 +1273,9 @@ export default function SavingsForecast() {
     // Steady monthly contribution per group: each recurring row's amount — this
     // month's override if one is set, otherwise the recurring amount. A skipped
     // current month no longer zeroes this out. Used for the per-group settings card.
+    // Deliberately reads the latest recurringAmount rather than the month-resolved
+    // value: this is the go-forward assumption driving the projection, so a
+    // "from next month onwards" change should show here immediately.
     function monthlyContribution(group: FinanceGroup): number {
         const groupRows = rows.filter(
             (r) => r.group === group._id && r.recurring !== false && liveFromNow(r)
@@ -1297,7 +1300,7 @@ export default function SavingsForecast() {
             .reduce((sum, row) => {
                 const override =
                     m === month ? entries.find((e) => e.row === row._id)?.amount : undefined
-                return sum + (override ?? row.recurringAmount ?? 0)
+                return sum + (override ?? recurringAmountForMonth(row, m) ?? 0)
             }, 0)
     }
 

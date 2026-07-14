@@ -1,5 +1,5 @@
 import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../types'
-import { rowVisibleInMonth } from './finance'
+import { rowVisibleInMonth, recurringAmountForMonth } from './finance'
 import { MONTHS } from './calendar'
 
 export interface MonthBudgetTrend {
@@ -49,7 +49,7 @@ export function monthTrend(
 
     const budget = dailyRows.reduce((sum, r) => {
         const entry = entries.find((e) => e.row === r._id)
-        return sum + (entry?.amount ?? r.recurringAmount ?? 0)
+        return sum + (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0)
     }, 0)
 
     const spent = spends

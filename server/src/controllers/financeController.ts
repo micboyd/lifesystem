@@ -5,6 +5,7 @@ import FinanceRow from '../models/FinanceRow'
 import FinancePot from '../models/FinancePot'
 import FinanceEntry, { MONTH_PATTERN } from '../models/FinanceEntry'
 import FinancePaid from '../models/FinancePaid'
+import { recurringAmountForMonth } from '../lib/rowAmounts'
 
 function isValidMonth(v: unknown): v is string {
     return typeof v === 'string' && MONTH_PATTERN.test(v)
@@ -194,6 +195,29 @@ export async function updateRow(req: AuthRequest, res: Response) {
     if (typeof req.body.recurringAmount === 'number')
         fields.recurringAmount = req.body.recurringAmount
     if (req.body.recurringAmount === null) fields.recurringAmount = undefined
+
+    // Scoped amount edits. 'onward' preserves what past months showed by
+    // recording the superseded amount as a pastAmounts boundary; 'all' rewrites
+    // history so every month uses the new value.
+    if ('recurringAmount' in fields && req.body.amountScope === 'onward' && isValidMonth(req.body.month)) {
+        const existing = await FinanceRow.findOne({ _id: req.params.id, user: req.userId })
+        if (!existing) {
+            res.status(404).json({ message: 'Row not found' })
+            return
+        }
+        const month = req.body.month as string
+        const prevEffective = recurringAmountForMonth(existing, addMonths(month, -1))
+        // Boundaries at or before the edit month still describe months this edit
+        // doesn't touch; later ones are superseded by "from this month onwards".
+        const kept = (existing.pastAmounts ?? []).filter((p) => p.beforeMonth <= month)
+        if (prevEffective !== fields.recurringAmount) {
+            kept.push({ beforeMonth: month, amount: prevEffective })
+        }
+        fields.pastAmounts = kept
+    } else if ('recurringAmount' in fields && req.body.amountScope === 'all') {
+        fields.pastAmounts = []
+    }
+
     if (typeof req.body.recurring === 'boolean') fields.recurring = req.body.recurring
     if (typeof req.body.budgeted === 'boolean') fields.budgeted = req.body.budgeted
     if (req.body.budgetType === 'daily' || req.body.budgetType === 'weekly') fields.budgetType = req.body.budgetType

@@ -22,7 +22,7 @@ import {
     deleteExclusionBudget,
     type ExclusionBudgetPayload,
 } from '../services/finances'
-import { rowVisibleInMonth } from '../lib/finance'
+import { rowVisibleInMonth, recurringAmountForMonth } from '../lib/finance'
 import {
     computeBudgetDay,
     computeBudgetWeek,
@@ -655,7 +655,7 @@ function WeekModal({
 
     const monthlyTotal = dailyRows.reduce((sum, row) => {
         const entry = entries.find((e) => e.row === row._id)
-        return sum + (entry?.amount ?? row.recurringAmount ?? 0)
+        return sum + (entry?.amount ?? recurringAmountForMonth(row, activeDate.slice(0, 7)) ?? 0)
     }, 0)
     const activeDaysInMonth_ = activeDaysInMonth(activeDate.slice(0, 7), excludedDates)
     const dailyRate = activeDaysInMonth_ > 0 ? monthlyTotal / activeDaysInMonth_ : 0
@@ -1788,7 +1788,7 @@ export default function BudgetCalendar() {
         )
         .map((row) => ({
             row,
-            monthlyAmount: entries.find((e) => e.row === row._id)?.amount ?? row.recurringAmount ?? 0,
+            monthlyAmount: entries.find((e) => e.row === row._id)?.amount ?? recurringAmountForMonth(row, month) ?? 0,
         }))
     const rowNameOf = (id: string) => rows.find((r) => r._id === id)?.name ?? '—'
     const potRowOf = (g?: ExclusionBudget) =>
