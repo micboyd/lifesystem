@@ -6,6 +6,12 @@ function isValidDate(v: unknown): v is string {
     return typeof v === 'string' && DATE_PATTERN.test(v)
 }
 
+/** Parse a duration in minutes; undefined when invalid. */
+function parseDuration(v: unknown): number | undefined {
+    if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return undefined
+    return Math.min(1440, Math.round(v))
+}
+
 /** GET /api/tasks?from=YYYY-MM-DD&to=YYYY-MM-DD */
 export async function listTasks(req: AuthRequest, res: Response) {
     const { from, to } = req.query
@@ -39,7 +45,14 @@ export async function createTask(req: AuthRequest, res: Response) {
     const last = await Task.findOne({ user: req.userId, date: req.body.date }).sort({ order: -1 })
     const order = last ? last.order + 1 : 0
 
-    const task = await Task.create({ user: req.userId, date: req.body.date, title, order })
+    const duration = parseDuration(req.body.duration)
+    const task = await Task.create({
+        user: req.userId,
+        date: req.body.date,
+        title,
+        order,
+        ...(duration ? { duration } : {}),
+    })
     res.status(201).json({ message: 'Created', data: task })
 }
 
@@ -50,12 +63,16 @@ export async function updateTask(req: AuthRequest, res: Response) {
         fields.title = req.body.title.trim()
     if (typeof req.body.completed === 'boolean') fields.completed = req.body.completed
     if (typeof req.body.order === 'number') fields.order = req.body.order
+    const duration = parseDuration(req.body.duration)
+    if (duration) fields.duration = duration
 
-    const task = await Task.findOneAndUpdate(
-        { _id: req.params.id, user: req.userId },
-        { $set: fields },
-        { new: true }
-    )
+    // duration: null clears the estimate
+    const update: Record<string, unknown> = { $set: fields }
+    if (req.body.duration === null) update.$unset = { duration: 1 }
+
+    const task = await Task.findOneAndUpdate({ _id: req.params.id, user: req.userId }, update, {
+        new: true,
+    })
     if (!task) {
         res.status(404).json({ message: 'Task not found' })
         return

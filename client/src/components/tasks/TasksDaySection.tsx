@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import Spinner from '../Spinner'
+import DropdownMenu, { type MenuEntry } from '../DropdownMenu'
 import { listTasks, createTask, updateTask, deleteTask } from '../../services/tasks'
 import { useInvalidate } from '../../context/DataSyncContext'
+import { formatDuration } from '../../lib/time'
 import type { Task } from '../../types'
+
+const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120, 180, 240]
 
 interface Props {
     date: string
@@ -74,6 +78,26 @@ export default function TasksDaySection({ date }: Props) {
         }
     }
 
+    async function setDuration(task: Task, minutes: number | null) {
+        if (busy.has(task._id)) return
+        mark(task._id, true)
+        const previous = task.duration
+        // Optimistic
+        setTasks((prev) =>
+            prev.map((t) => (t._id === task._id ? { ...t, duration: minutes ?? undefined } : t))
+        )
+        try {
+            await updateTask(task._id, { duration: minutes })
+            invalidate('tasks')
+        } catch {
+            setTasks((prev) =>
+                prev.map((t) => (t._id === task._id ? { ...t, duration: previous } : t))
+            )
+        } finally {
+            mark(task._id, false)
+        }
+    }
+
     async function remove(id: string) {
         setTasks((prev) => prev.filter((t) => t._id !== id))
         try {
@@ -86,6 +110,7 @@ export default function TasksDaySection({ date }: Props) {
 
     const done = tasks.filter((t) => t.completed).length
     const total = tasks.length
+    const totalMin = tasks.reduce((sum, t) => sum + (t.duration ?? 0), 0)
 
     if (loading)
         return (
@@ -101,6 +126,12 @@ export default function TasksDaySection({ date }: Props) {
                 <div className="mb-1 flex items-center justify-between">
                     <span className="text-xs font-semibold text-neutral-400">
                         {done}/{total} done
+                        {totalMin > 0 && (
+                            <span className="font-medium text-neutral-300">
+                                {' '}
+                                · {formatDuration(totalMin)} total
+                            </span>
+                        )}
                     </span>
                     <div className="h-1.5 w-32 overflow-hidden rounded-full bg-neutral-100">
                         <div
@@ -145,6 +176,42 @@ export default function TasksDaySection({ date }: Props) {
                     >
                         {task.title}
                     </span>
+
+                    <DropdownMenu
+                        align="right"
+                        trigger={
+                            <button
+                                type="button"
+                                className={[
+                                    'flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold transition-all',
+                                    task.duration
+                                        ? 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                                        : 'text-neutral-300 opacity-0 hover:bg-neutral-200 hover:text-neutral-600 group-hover:opacity-100',
+                                ].join(' ')}
+                                aria-label="Set duration"
+                            >
+                                <i className="fa-regular fa-clock" aria-hidden="true" />
+                                {task.duration ? formatDuration(task.duration) : ''}
+                            </button>
+                        }
+                        items={[
+                            ...DURATION_OPTIONS.map((m) => ({
+                                label: formatDuration(m),
+                                onClick: () => setDuration(task, m),
+                            })),
+                            ...(task.duration
+                                ? ([
+                                      'divider',
+                                      {
+                                          label: 'Clear duration',
+                                          icon: 'fa-solid fa-xmark',
+                                          danger: true,
+                                          onClick: () => setDuration(task, null),
+                                      },
+                                  ] as MenuEntry[])
+                                : []),
+                        ]}
+                    />
 
                     <button
                         type="button"

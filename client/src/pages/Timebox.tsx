@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Container from '../components/Container'
@@ -15,6 +15,7 @@ import {
     deleteTimebox,
     type TimeboxInput,
 } from '../services/timeboxes'
+import { listTasks } from '../services/tasks'
 import { todayKey, formatDateLong } from '../lib/calendar'
 import {
     timeToMinutes,
@@ -24,9 +25,10 @@ import {
     DEFAULT_BED,
 } from '../lib/time'
 import { TIMEBOX_CATEGORY_COLORS, TIMEBOX_DEFAULT_COLORS } from '../types'
-import type { Timebox } from '../types'
+import type { Task, Timebox } from '../types'
 
 const PX_PER_MIN = 2.5 // 150px per hour
+const DEFAULT_TASK_DURATION = 60 // minutes, when a dragged task has no estimate
 
 export default function Timebox() {
     const { user } = useAuth()
@@ -38,10 +40,19 @@ export default function Timebox() {
 
     const [editorOpen, setEditorOpen] = useState(false)
     const [editing, setEditing] = useState<Timebox | null>(null)
-    const [defaults, setDefaults] = useState({ startTime: '09:00', endTime: '10:00' })
+    const [defaults, setDefaults] = useState<{
+        startTime: string
+        endTime: string
+        title?: string
+    }>({ startTime: '09:00', endTime: '10:00' })
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
     const [deleteScope, setDeleteScope] = useState<'prompt' | null>(null)
+
+    // Tasks that can be dragged onto the timeline
+    const [tasks, setTasks] = useState<Task[]>([])
+    const dragTaskRef = useRef<Task | null>(null)
+    const [dragPreview, setDragPreview] = useState<{ top: number; height: number } | null>(null)
 
     // Bounds from settings (fallback to sensible defaults)
     const s = user?.settings ?? {}
@@ -89,6 +100,16 @@ export default function Timebox() {
         }
     }, [date])
 
+    useEffect(() => {
+        let active = true
+        listTasks(date, date)
+            .then((list) => active && setTasks(list))
+            .catch(() => active && setTasks([]))
+        return () => {
+            active = false
+        }
+    }, [date])
+
     const hourLines = useMemo(() => {
         const lines: number[] = []
         for (let m = Math.ceil(wakeMin / 60) * 60; m <= bedMin; m += 60) lines.push(m)
@@ -120,6 +141,58 @@ export default function Timebox() {
         const rect = e.currentTarget.getBoundingClientRect()
         const y = e.clientY - rect.top
         openNew(wakeMin + y / PX_PER_MIN)
+    }
+
+    // ── Drag tasks onto the timeline ─────────────────────────────────────────
+    /** Snapped, clamped drop slot for the task currently being dragged. */
+    function dropSlot(e: DragEvent<HTMLDivElement>, task: Task) {
+        const rect = e.currentTarget.getBoundingClientRect()
+        const dur = Math.min(task.duration ?? DEFAULT_TASK_DURATION, bedMin - wakeMin)
+        const raw = wakeMin + (e.clientY - rect.top) / PX_PER_MIN
+        const start = Math.max(wakeMin, Math.min(bedMin - dur, Math.round(raw / 15) * 15))
+        return { start, dur }
+    }
+
+    function handleDragOver(e: DragEvent<HTMLDivElement>) {
+        const task = dragTaskRef.current
+        if (!task) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+        const { start, dur } = dropSlot(e, task)
+        setDragPreview({ top: (start - wakeMin) * PX_PER_MIN, height: dur * PX_PER_MIN })
+    }
+
+    function handleDragLeave(e: DragEvent<HTMLDivElement>) {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragPreview(null)
+    }
+
+    async function handleDrop(e: DragEvent<HTMLDivElement>) {
+        const task = dragTaskRef.current
+        dragTaskRef.current = null
+        setDragPreview(null)
+        if (!task) return
+        e.preventDefault()
+        const { start, dur } = dropSlot(e, task)
+        const input: TimeboxInput = {
+            title: task.title,
+            startTime: minutesToTime(start),
+            endTime: minutesToTime(start + dur),
+        }
+        setSaving(true)
+        try {
+            await createTimebox(date, input)
+            await reload()
+        } catch (err: unknown) {
+            if ((err as { response?: { status?: number } })?.response?.status === 409) {
+                // Slot taken — open the editor so a free time can be picked
+                setDefaults({ ...input })
+                setEditing(null)
+                setConflict(true)
+                setEditorOpen(true)
+            }
+        } finally {
+            setSaving(false)
+        }
     }
 
     async function handleSave(input: TimeboxInput) {
@@ -225,122 +298,191 @@ export default function Timebox() {
                     <Spinner />
                 </div>
             ) : (
-                <div>
-                    <div className="relative flex">
-                        {/* Hour labels */}
-                        <div className="relative w-14 shrink-0" style={{ height: totalHeight }}>
-                            {hourLines.map((m) => (
-                                <span
-                                    key={m}
-                                    className="absolute right-2 -translate-y-1/2 text-[11px] font-semibold tabular-nums text-neutral-400"
-                                    style={{ top: (m - wakeMin) * PX_PER_MIN }}
-                                >
-                                    {minutesToTime(m)}
-                                </span>
-                            ))}
-                        </div>
-
-                        {/* Timeline */}
-                        <div
-                            onClick={handleBackgroundClick}
-                            className="relative flex-1 cursor-copy rounded-lg border-l border-neutral-100"
-                            style={{ height: totalHeight }}
-                        >
-                            {/* Working hours band */}
-                            {isWorkingDay &&
-                                workStart &&
-                                workEnd &&
-                                timeToMinutes(workEnd) > timeToMinutes(workStart) && (
-                                    <div
-                                        className="absolute inset-x-0 bg-blue-50"
-                                        style={{
-                                            top: (timeToMinutes(workStart) - wakeMin) * PX_PER_MIN,
-                                            height:
-                                                (timeToMinutes(workEnd) -
-                                                    timeToMinutes(workStart)) *
-                                                PX_PER_MIN,
-                                        }}
+                <div className="flex flex-col gap-6 lg:flex-row">
+                    <div className="min-w-0 flex-1">
+                        <div className="relative flex">
+                            {/* Hour labels */}
+                            <div className="relative w-14 shrink-0" style={{ height: totalHeight }}>
+                                {hourLines.map((m) => (
+                                    <span
+                                        key={m}
+                                        className="absolute right-2 -translate-y-1/2 text-[11px] font-semibold tabular-nums text-neutral-400"
+                                        style={{ top: (m - wakeMin) * PX_PER_MIN }}
                                     >
-                                        <span className="absolute right-2 top-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
-                                            Working hours
-                                        </span>
+                                        {minutesToTime(m)}
+                                    </span>
+                                ))}
+                            </div>
+
+                            {/* Timeline */}
+                            <div
+                                onClick={handleBackgroundClick}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                className="relative flex-1 cursor-copy rounded-lg border-l border-neutral-100"
+                                style={{ height: totalHeight }}
+                            >
+                                {/* Working hours band */}
+                                {isWorkingDay &&
+                                    workStart &&
+                                    workEnd &&
+                                    timeToMinutes(workEnd) > timeToMinutes(workStart) && (
+                                        <div
+                                            className="absolute inset-x-0 bg-blue-50"
+                                            style={{
+                                                top:
+                                                    (timeToMinutes(workStart) - wakeMin) *
+                                                    PX_PER_MIN,
+                                                height:
+                                                    (timeToMinutes(workEnd) -
+                                                        timeToMinutes(workStart)) *
+                                                    PX_PER_MIN,
+                                            }}
+                                        >
+                                            <span className="absolute right-2 top-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
+                                                Working hours
+                                            </span>
+                                        </div>
+                                    )}
+
+                                {/* Hour gridlines */}
+                                {hourLines.map((m) => (
+                                    <div
+                                        key={m}
+                                        className="absolute inset-x-0 border-t border-neutral-100"
+                                        style={{ top: (m - wakeMin) * PX_PER_MIN }}
+                                    />
+                                ))}
+
+                                {/* Drop preview */}
+                                {dragPreview && (
+                                    <div
+                                        className="pointer-events-none absolute left-1.5 right-1.5 z-20 rounded-lg border-2 border-dashed border-neutral-400 bg-neutral-200/60"
+                                        style={dragPreview}
+                                    />
+                                )}
+
+                                {/* Now indicator */}
+                                {showNow && (
+                                    <div
+                                        className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
+                                        style={{ top: nowTop }}
+                                    >
+                                        <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
+                                        <div className="h-px flex-1 bg-rose-400/50" />
                                     </div>
                                 )}
 
-                            {/* Hour gridlines */}
-                            {hourLines.map((m) => (
-                                <div
-                                    key={m}
-                                    className="absolute inset-x-0 border-t border-neutral-100"
-                                    style={{ top: (m - wakeMin) * PX_PER_MIN }}
-                                />
-                            ))}
-
-                            {/* Now indicator */}
-                            {showNow && (
-                                <div
-                                    className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
-                                    style={{ top: nowTop }}
-                                >
-                                    <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
-                                    <div className="h-px flex-1 bg-rose-400/50" />
-                                </div>
-                            )}
-
-                            {/* Items */}
-                            {items.map((item) => {
-                                const top = (timeToMinutes(item.startTime) - wakeMin) * PX_PER_MIN
-                                const height = Math.max(
-                                    22,
-                                    (timeToMinutes(item.endTime) - timeToMinutes(item.startTime)) *
-                                        PX_PER_MIN
-                                )
-                                const dur = formatDuration(
-                                    timeToMinutes(item.endTime) - timeToMinutes(item.startTime)
-                                )
-                                const compact = height < 44
-                                const c = item.category
-                                    ? TIMEBOX_CATEGORY_COLORS[item.category]
-                                    : TIMEBOX_DEFAULT_COLORS
-                                return (
-                                    <button
-                                        key={item._id}
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            openEdit(item)
-                                        }}
-                                        className={`absolute left-1.5 right-1.5 flex flex-col items-center justify-center overflow-hidden rounded-lg border px-2 py-1 text-center transition-opacity hover:opacity-75 ${c.bg} ${c.border}`}
-                                        style={{ top, height }}
-                                    >
-                                        <div
-                                            className={`w-full ${compact ? 'flex items-center justify-center gap-2' : ''}`}
+                                {/* Items */}
+                                {items.map((item) => {
+                                    const top =
+                                        (timeToMinutes(item.startTime) - wakeMin) * PX_PER_MIN
+                                    const height = Math.max(
+                                        22,
+                                        (timeToMinutes(item.endTime) -
+                                            timeToMinutes(item.startTime)) *
+                                            PX_PER_MIN
+                                    )
+                                    const dur = formatDuration(
+                                        timeToMinutes(item.endTime) - timeToMinutes(item.startTime)
+                                    )
+                                    const compact = height < 44
+                                    const c = item.category
+                                        ? TIMEBOX_CATEGORY_COLORS[item.category]
+                                        : TIMEBOX_DEFAULT_COLORS
+                                    return (
+                                        <button
+                                            key={item._id}
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                openEdit(item)
+                                            }}
+                                            className={`absolute left-1.5 right-1.5 flex flex-col items-center justify-center overflow-hidden rounded-lg border px-2 py-1 text-center transition-opacity hover:opacity-75 ${c.bg} ${c.border}`}
+                                            style={{ top, height }}
                                         >
-                                            <span
-                                                className={`block truncate text-xs font-semibold leading-tight ${c.text}`}
+                                            <div
+                                                className={`w-full ${compact ? 'flex items-center justify-center gap-2' : ''}`}
                                             >
-                                                {(item.recurrence || item.isRecurringInstance) && (
-                                                    <i className="fa-solid fa-rotate mr-1 text-[9px] opacity-60" aria-hidden="true" />
-                                                )}
-                                                {item.title}
-                                            </span>
-                                            <span
-                                                className={`${compact ? '' : 'mt-0.5 block'} truncate text-[10px] font-medium ${c.sub}`}
-                                            >
-                                                {item.startTime} – {item.endTime} · {dur}
-                                            </span>
-                                        </div>
-                                    </button>
-                                )
-                            })}
+                                                <span
+                                                    className={`block truncate text-xs font-semibold leading-tight ${c.text}`}
+                                                >
+                                                    {(item.recurrence ||
+                                                        item.isRecurringInstance) && (
+                                                        <i
+                                                            className="fa-solid fa-rotate mr-1 text-[9px] opacity-60"
+                                                            aria-hidden="true"
+                                                        />
+                                                    )}
+                                                    {item.title}
+                                                </span>
+                                                <span
+                                                    className={`${compact ? '' : 'mt-0.5 block'} truncate text-[10px] font-medium ${c.sub}`}
+                                                >
+                                                    {item.startTime} – {item.endTime} · {dur}
+                                                </span>
+                                            </div>
+                                        </button>
+                                    )
+                                })}
+                            </div>
                         </div>
+
+                        {items.length === 0 && (
+                            <p className="mt-3 text-center text-xs text-neutral-300">
+                                Click anywhere on the timeline to add a block
+                            </p>
+                        )}
                     </div>
 
-                    {items.length === 0 && (
-                        <p className="mt-3 text-center text-xs text-neutral-300">
-                            Click anywhere on the timeline to add a block
-                        </p>
-                    )}
+                    {/* Task panel */}
+                    <aside className="lg:w-64 lg:shrink-0">
+                        <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4 lg:sticky lg:top-6">
+                            <h2 className="text-sm font-bold text-neutral-800">Tasks</h2>
+                            <p className="mt-0.5 text-xs text-neutral-400">
+                                Drag a task onto the timeline to schedule it.
+                            </p>
+                            <div className="mt-3 flex flex-col gap-1.5">
+                                {tasks.filter((t) => !t.completed).length === 0 && (
+                                    <p className="py-2 text-center text-xs text-neutral-300">
+                                        No open tasks for this day
+                                    </p>
+                                )}
+                                {tasks
+                                    .filter((t) => !t.completed)
+                                    .map((task) => (
+                                        <div
+                                            key={task._id}
+                                            draggable
+                                            onDragStart={(e) => {
+                                                dragTaskRef.current = task
+                                                e.dataTransfer.effectAllowed = 'copy'
+                                                e.dataTransfer.setData('text/plain', task.title)
+                                            }}
+                                            onDragEnd={() => {
+                                                dragTaskRef.current = null
+                                                setDragPreview(null)
+                                            }}
+                                            className="flex cursor-grab items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 transition-colors hover:border-neutral-300 active:cursor-grabbing"
+                                        >
+                                            <i
+                                                className="fa-solid fa-grip-vertical text-xs text-neutral-300"
+                                                aria-hidden="true"
+                                            />
+                                            <span className="flex-1 truncate text-xs font-semibold text-neutral-700">
+                                                {task.title}
+                                            </span>
+                                            <span className="shrink-0 text-[10px] font-semibold text-neutral-400">
+                                                {formatDuration(
+                                                    task.duration ?? DEFAULT_TASK_DURATION
+                                                )}
+                                            </span>
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+                    </aside>
                 </div>
             )}
 
@@ -368,7 +510,11 @@ export default function Timebox() {
                     title="Remove recurring block"
                     size="sm"
                     footer={
-                        <Button variant="ghost" onClick={() => setDeleteScope(null)} disabled={saving}>
+                        <Button
+                            variant="ghost"
+                            onClick={() => setDeleteScope(null)}
+                            disabled={saving}
+                        >
                             Cancel
                         </Button>
                     }
