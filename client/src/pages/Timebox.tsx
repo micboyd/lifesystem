@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react'
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type DragEvent,
+    type MouseEvent,
+    type PointerEvent,
+} from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Container from '../components/Container'
@@ -53,6 +61,23 @@ export default function Timebox() {
     const [tasks, setTasks] = useState<Task[]>([])
     const dragTaskRef = useRef<Task | null>(null)
     const [dragPreview, setDragPreview] = useState<{ top: number; height: number } | null>(null)
+
+    // Existing blocks being dragged to a new time
+    const [blockDrag, setBlockDrag] = useState<{
+        id: string
+        startMin: number
+        valid: boolean
+    } | null>(null)
+    const blockDragRef = useRef<{
+        item: Timebox
+        pointerStartY: number
+        origStart: number
+        durMin: number
+        moved: boolean
+        lastStart: number
+        lastValid: boolean
+    } | null>(null)
+    const suppressClickRef = useRef(false)
 
     // Bounds from settings (fallback to sensible defaults)
     const s = user?.settings ?? {}
@@ -193,6 +218,79 @@ export default function Timebox() {
         } finally {
             setSaving(false)
         }
+    }
+
+    // ── Drag existing blocks to a new time ───────────────────────────────────
+    /** True when [startMin, endMin) collides with any other block on the day. */
+    function overlapsOther(id: string, startMin: number, endMin: number) {
+        return items.some(
+            (o) =>
+                o._id !== id &&
+                timeToMinutes(o.startTime) < endMin &&
+                timeToMinutes(o.endTime) > startMin
+        )
+    }
+
+    function handleBlockPointerDown(e: PointerEvent<HTMLButtonElement>, item: Timebox) {
+        // Recurring blocks apply to many days — move those via the editor
+        if (item.recurrence || item.isRecurringInstance) return
+        if (e.button !== 0) return
+        e.currentTarget.setPointerCapture(e.pointerId)
+        const origStart = timeToMinutes(item.startTime)
+        blockDragRef.current = {
+            item,
+            pointerStartY: e.clientY,
+            origStart,
+            durMin: timeToMinutes(item.endTime) - origStart,
+            moved: false,
+            lastStart: origStart,
+            lastValid: true,
+        }
+    }
+
+    function handleBlockPointerMove(e: PointerEvent<HTMLButtonElement>) {
+        const d = blockDragRef.current
+        if (!d) return
+        const deltaPx = e.clientY - d.pointerStartY
+        // Small threshold so plain clicks still open the editor
+        if (!d.moved && Math.abs(deltaPx) < 5) return
+        d.moved = true
+        const raw = d.origStart + deltaPx / PX_PER_MIN
+        const start = Math.max(wakeMin, Math.min(bedMin - d.durMin, Math.round(raw / 15) * 15))
+        const valid = !overlapsOther(d.item._id, start, start + d.durMin)
+        d.lastStart = start
+        d.lastValid = valid
+        setBlockDrag({ id: d.item._id, startMin: start, valid })
+    }
+
+    async function handleBlockPointerUp() {
+        const d = blockDragRef.current
+        blockDragRef.current = null
+        setBlockDrag(null)
+        if (!d || !d.moved) return // plain click → onClick opens the editor
+        suppressClickRef.current = true
+        if (!d.lastValid || d.lastStart === d.origStart) return // snap back
+        const startTime = minutesToTime(d.lastStart)
+        const endTime = minutesToTime(d.lastStart + d.durMin)
+        // Optimistic move
+        setItems((prev) =>
+            prev.map((i) => (i._id === d.item._id ? { ...i, startTime, endTime } : i))
+        )
+        try {
+            await updateTimebox(d.item._id, {
+                title: d.item.title,
+                category: d.item.category,
+                startTime,
+                endTime,
+            })
+        } catch {
+            await reload() // rejected (e.g. overlap race) — snap back
+        }
+    }
+
+    function handleBlockPointerCancel() {
+        blockDragRef.current = null
+        setBlockDrag(null)
     }
 
     async function handleSave(input: TimeboxInput) {
@@ -376,18 +474,17 @@ export default function Timebox() {
 
                                 {/* Items */}
                                 {items.map((item) => {
-                                    const top =
-                                        (timeToMinutes(item.startTime) - wakeMin) * PX_PER_MIN
-                                    const height = Math.max(
-                                        22,
-                                        (timeToMinutes(item.endTime) -
-                                            timeToMinutes(item.startTime)) *
-                                            PX_PER_MIN
-                                    )
-                                    const dur = formatDuration(
+                                    const durMin =
                                         timeToMinutes(item.endTime) - timeToMinutes(item.startTime)
-                                    )
+                                    const dragging = blockDrag?.id === item._id
+                                    const startMin = dragging
+                                        ? blockDrag.startMin
+                                        : timeToMinutes(item.startTime)
+                                    const top = (startMin - wakeMin) * PX_PER_MIN
+                                    const height = Math.max(22, durMin * PX_PER_MIN)
+                                    const dur = formatDuration(durMin)
                                     const compact = height < 44
+                                    const movable = !item.recurrence && !item.isRecurringInstance
                                     const c = item.category
                                         ? TIMEBOX_CATEGORY_COLORS[item.category]
                                         : TIMEBOX_DEFAULT_COLORS
@@ -397,9 +494,27 @@ export default function Timebox() {
                                             type="button"
                                             onClick={(e) => {
                                                 e.stopPropagation()
+                                                if (suppressClickRef.current) {
+                                                    suppressClickRef.current = false
+                                                    return
+                                                }
                                                 openEdit(item)
                                             }}
-                                            className={`absolute left-1.5 right-1.5 flex flex-col items-center justify-center overflow-hidden rounded-lg border px-2 py-1 text-center transition-opacity hover:opacity-75 ${c.bg} ${c.border}`}
+                                            onPointerDown={(e) => handleBlockPointerDown(e, item)}
+                                            onPointerMove={handleBlockPointerMove}
+                                            onPointerUp={handleBlockPointerUp}
+                                            onPointerCancel={handleBlockPointerCancel}
+                                            className={[
+                                                'absolute left-1.5 right-1.5 flex flex-col items-center justify-center overflow-hidden rounded-lg border px-2 py-1 text-center',
+                                                movable
+                                                    ? 'cursor-grab touch-none select-none active:cursor-grabbing'
+                                                    : '',
+                                                dragging
+                                                    ? `z-30 shadow-lg ring-2 ${blockDrag.valid ? 'ring-neutral-400' : 'ring-red-400'}`
+                                                    : 'transition-opacity hover:opacity-75',
+                                                c.bg,
+                                                c.border,
+                                            ].join(' ')}
                                             style={{ top, height }}
                                         >
                                             <div
@@ -420,7 +535,8 @@ export default function Timebox() {
                                                 <span
                                                     className={`${compact ? '' : 'mt-0.5 block'} truncate text-[10px] font-medium ${c.sub}`}
                                                 >
-                                                    {item.startTime} – {item.endTime} · {dur}
+                                                    {minutesToTime(startMin)} –{' '}
+                                                    {minutesToTime(startMin + durMin)} · {dur}
                                                 </span>
                                             </div>
                                         </button>
