@@ -8,6 +8,8 @@ export interface ITask extends Document {
     title: string
     completed: boolean
     order: number
+    /** Estimated duration in minutes. */
+    duration?: number
     createdAt: Date
     updatedAt: Date
 }
@@ -19,6 +21,7 @@ const taskSchema = new Schema<ITask>(
         title: { type: String, required: true, trim: true },
         completed: { type: Boolean, default: false },
         order: { type: Number, default: 0 },
+        duration: { type: Number, min: 1, max: 1440 },
     },
     { timestamps: true }
 )

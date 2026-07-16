@@ -13,7 +13,10 @@ export async function createTask(date: string, title: string): Promise<Task> {
 
 export async function updateTask(
     id: string,
-    fields: Partial<Pick<Task, 'title' | 'completed' | 'order'>>
+    fields: Partial<Pick<Task, 'title' | 'completed' | 'order'>> & {
+        /** Minutes; null clears the estimate. */
+        duration?: number | null
+    }
 ): Promise<Task> {
     const res = await api.put<ApiResponse<Task>>(`/tasks/${id}`, fields)
     return res.data.data

@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react'
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type DragEvent,
+    type MouseEvent,
+    type PointerEvent,
+} from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Container from '../components/Container'
@@ -15,6 +23,7 @@ import {
     deleteTimebox,
     type TimeboxInput,
 } from '../services/timeboxes'
+import { listTasks } from '../services/tasks'
 import { todayKey, formatDateLong } from '../lib/calendar'
 import {
     timeToMinutes,
@@ -24,9 +33,10 @@ import {
     DEFAULT_BED,
 } from '../lib/time'
 import { TIMEBOX_CATEGORY_COLORS, TIMEBOX_DEFAULT_COLORS } from '../types'
-import type { Timebox } from '../types'
+import type { Task, Timebox } from '../types'
 
 const PX_PER_MIN = 2.5 // 150px per hour
+const DEFAULT_TASK_DURATION = 60 // minutes, when a dragged task has no estimate
 
 export default function Timebox() {
     const { user } = useAuth()
@@ -38,10 +48,36 @@ export default function Timebox() {
 
     const [editorOpen, setEditorOpen] = useState(false)
     const [editing, setEditing] = useState<Timebox | null>(null)
-    const [defaults, setDefaults] = useState({ startTime: '09:00', endTime: '10:00' })
+    const [defaults, setDefaults] = useState<{
+        startTime: string
+        endTime: string
+        title?: string
+    }>({ startTime: '09:00', endTime: '10:00' })
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
     const [deleteScope, setDeleteScope] = useState<'prompt' | null>(null)
+
+    // Tasks that can be dragged onto the timeline
+    const [tasks, setTasks] = useState<Task[]>([])
+    const dragTaskRef = useRef<Task | null>(null)
+    const [dragPreview, setDragPreview] = useState<{ top: number; height: number } | null>(null)
+
+    // Existing blocks being dragged to a new time
+    const [blockDrag, setBlockDrag] = useState<{
+        id: string
+        startMin: number
+        valid: boolean
+    } | null>(null)
+    const blockDragRef = useRef<{
+        item: Timebox
+        pointerStartY: number
+        origStart: number
+        durMin: number
+        moved: boolean
+        lastStart: number
+        lastValid: boolean
+    } | null>(null)
+    const suppressClickRef = useRef(false)
 
     // Bounds from settings (fallback to sensible defaults)
     const s = user?.settings ?? {}
@@ -89,6 +125,16 @@ export default function Timebox() {
         }
     }, [date])
 
+    useEffect(() => {
+        let active = true
+        listTasks(date, date)
+            .then((list) => active && setTasks(list))
+            .catch(() => active && setTasks([]))
+        return () => {
+            active = false
+        }
+    }, [date])
+
     const hourLines = useMemo(() => {
         const lines: number[] = []
         for (let m = Math.ceil(wakeMin / 60) * 60; m <= bedMin; m += 60) lines.push(m)
@@ -120,6 +166,131 @@ export default function Timebox() {
         const rect = e.currentTarget.getBoundingClientRect()
         const y = e.clientY - rect.top
         openNew(wakeMin + y / PX_PER_MIN)
+    }
+
+    // ── Drag tasks onto the timeline ─────────────────────────────────────────
+    /** Snapped, clamped drop slot for the task currently being dragged. */
+    function dropSlot(e: DragEvent<HTMLDivElement>, task: Task) {
+        const rect = e.currentTarget.getBoundingClientRect()
+        const dur = Math.min(task.duration ?? DEFAULT_TASK_DURATION, bedMin - wakeMin)
+        const raw = wakeMin + (e.clientY - rect.top) / PX_PER_MIN
+        const start = Math.max(wakeMin, Math.min(bedMin - dur, Math.round(raw / 15) * 15))
+        return { start, dur }
+    }
+
+    function handleDragOver(e: DragEvent<HTMLDivElement>) {
+        const task = dragTaskRef.current
+        if (!task) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+        const { start, dur } = dropSlot(e, task)
+        setDragPreview({ top: (start - wakeMin) * PX_PER_MIN, height: dur * PX_PER_MIN })
+    }
+
+    function handleDragLeave(e: DragEvent<HTMLDivElement>) {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragPreview(null)
+    }
+
+    async function handleDrop(e: DragEvent<HTMLDivElement>) {
+        const task = dragTaskRef.current
+        dragTaskRef.current = null
+        setDragPreview(null)
+        if (!task) return
+        e.preventDefault()
+        const { start, dur } = dropSlot(e, task)
+        const input: TimeboxInput = {
+            title: task.title,
+            startTime: minutesToTime(start),
+            endTime: minutesToTime(start + dur),
+        }
+        setSaving(true)
+        try {
+            await createTimebox(date, input)
+            await reload()
+        } catch (err: unknown) {
+            if ((err as { response?: { status?: number } })?.response?.status === 409) {
+                // Slot taken — open the editor so a free time can be picked
+                setDefaults({ ...input })
+                setEditing(null)
+                setConflict(true)
+                setEditorOpen(true)
+            }
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    // ── Drag existing blocks to a new time ───────────────────────────────────
+    /** True when [startMin, endMin) collides with any other block on the day. */
+    function overlapsOther(id: string, startMin: number, endMin: number) {
+        return items.some(
+            (o) =>
+                o._id !== id &&
+                timeToMinutes(o.startTime) < endMin &&
+                timeToMinutes(o.endTime) > startMin
+        )
+    }
+
+    function handleBlockPointerDown(e: PointerEvent<HTMLButtonElement>, item: Timebox) {
+        // Recurring blocks apply to many days — move those via the editor
+        if (item.recurrence || item.isRecurringInstance) return
+        if (e.button !== 0) return
+        e.currentTarget.setPointerCapture(e.pointerId)
+        const origStart = timeToMinutes(item.startTime)
+        blockDragRef.current = {
+            item,
+            pointerStartY: e.clientY,
+            origStart,
+            durMin: timeToMinutes(item.endTime) - origStart,
+            moved: false,
+            lastStart: origStart,
+            lastValid: true,
+        }
+    }
+
+    function handleBlockPointerMove(e: PointerEvent<HTMLButtonElement>) {
+        const d = blockDragRef.current
+        if (!d) return
+        const deltaPx = e.clientY - d.pointerStartY
+        // Small threshold so plain clicks still open the editor
+        if (!d.moved && Math.abs(deltaPx) < 5) return
+        d.moved = true
+        const raw = d.origStart + deltaPx / PX_PER_MIN
+        const start = Math.max(wakeMin, Math.min(bedMin - d.durMin, Math.round(raw / 15) * 15))
+        const valid = !overlapsOther(d.item._id, start, start + d.durMin)
+        d.lastStart = start
+        d.lastValid = valid
+        setBlockDrag({ id: d.item._id, startMin: start, valid })
+    }
+
+    async function handleBlockPointerUp() {
+        const d = blockDragRef.current
+        blockDragRef.current = null
+        setBlockDrag(null)
+        if (!d || !d.moved) return // plain click → onClick opens the editor
+        suppressClickRef.current = true
+        if (!d.lastValid || d.lastStart === d.origStart) return // snap back
+        const startTime = minutesToTime(d.lastStart)
+        const endTime = minutesToTime(d.lastStart + d.durMin)
+        // Optimistic move
+        setItems((prev) =>
+            prev.map((i) => (i._id === d.item._id ? { ...i, startTime, endTime } : i))
+        )
+        try {
+            await updateTimebox(d.item._id, {
+                title: d.item.title,
+                category: d.item.category,
+                startTime,
+                endTime,
+            })
+        } catch {
+            await reload() // rejected (e.g. overlap race) — snap back
+        }
+    }
+
+    function handleBlockPointerCancel() {
+        blockDragRef.current = null
+        setBlockDrag(null)
     }
 
     async function handleSave(input: TimeboxInput) {
@@ -225,122 +396,209 @@ export default function Timebox() {
                     <Spinner />
                 </div>
             ) : (
-                <div>
-                    <div className="relative flex">
-                        {/* Hour labels */}
-                        <div className="relative w-14 shrink-0" style={{ height: totalHeight }}>
-                            {hourLines.map((m) => (
-                                <span
-                                    key={m}
-                                    className="absolute right-2 -translate-y-1/2 text-[11px] font-semibold tabular-nums text-neutral-400"
-                                    style={{ top: (m - wakeMin) * PX_PER_MIN }}
-                                >
-                                    {minutesToTime(m)}
-                                </span>
-                            ))}
-                        </div>
-
-                        {/* Timeline */}
-                        <div
-                            onClick={handleBackgroundClick}
-                            className="relative flex-1 cursor-copy rounded-lg border-l border-neutral-100"
-                            style={{ height: totalHeight }}
-                        >
-                            {/* Working hours band */}
-                            {isWorkingDay &&
-                                workStart &&
-                                workEnd &&
-                                timeToMinutes(workEnd) > timeToMinutes(workStart) && (
-                                    <div
-                                        className="absolute inset-x-0 bg-blue-50"
-                                        style={{
-                                            top: (timeToMinutes(workStart) - wakeMin) * PX_PER_MIN,
-                                            height:
-                                                (timeToMinutes(workEnd) -
-                                                    timeToMinutes(workStart)) *
-                                                PX_PER_MIN,
-                                        }}
+                <div className="flex flex-col gap-6 lg:flex-row">
+                    <div className="min-w-0 flex-1">
+                        <div className="relative flex">
+                            {/* Hour labels */}
+                            <div className="relative w-14 shrink-0" style={{ height: totalHeight }}>
+                                {hourLines.map((m) => (
+                                    <span
+                                        key={m}
+                                        className="absolute right-2 -translate-y-1/2 text-[11px] font-semibold tabular-nums text-neutral-400"
+                                        style={{ top: (m - wakeMin) * PX_PER_MIN }}
                                     >
-                                        <span className="absolute right-2 top-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
-                                            Working hours
-                                        </span>
+                                        {minutesToTime(m)}
+                                    </span>
+                                ))}
+                            </div>
+
+                            {/* Timeline */}
+                            <div
+                                onClick={handleBackgroundClick}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                className="relative flex-1 cursor-copy rounded-lg border-l border-neutral-100"
+                                style={{ height: totalHeight }}
+                            >
+                                {/* Working hours band */}
+                                {isWorkingDay &&
+                                    workStart &&
+                                    workEnd &&
+                                    timeToMinutes(workEnd) > timeToMinutes(workStart) && (
+                                        <div
+                                            className="absolute inset-x-0 bg-blue-50"
+                                            style={{
+                                                top:
+                                                    (timeToMinutes(workStart) - wakeMin) *
+                                                    PX_PER_MIN,
+                                                height:
+                                                    (timeToMinutes(workEnd) -
+                                                        timeToMinutes(workStart)) *
+                                                    PX_PER_MIN,
+                                            }}
+                                        >
+                                            <span className="absolute right-2 top-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
+                                                Working hours
+                                            </span>
+                                        </div>
+                                    )}
+
+                                {/* Hour gridlines */}
+                                {hourLines.map((m) => (
+                                    <div
+                                        key={m}
+                                        className="absolute inset-x-0 border-t border-neutral-100"
+                                        style={{ top: (m - wakeMin) * PX_PER_MIN }}
+                                    />
+                                ))}
+
+                                {/* Drop preview */}
+                                {dragPreview && (
+                                    <div
+                                        className="pointer-events-none absolute left-1.5 right-1.5 z-20 rounded-lg border-2 border-dashed border-neutral-400 bg-neutral-200/60"
+                                        style={dragPreview}
+                                    />
+                                )}
+
+                                {/* Now indicator */}
+                                {showNow && (
+                                    <div
+                                        className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
+                                        style={{ top: nowTop }}
+                                    >
+                                        <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
+                                        <div className="h-px flex-1 bg-rose-400/50" />
                                     </div>
                                 )}
 
-                            {/* Hour gridlines */}
-                            {hourLines.map((m) => (
-                                <div
-                                    key={m}
-                                    className="absolute inset-x-0 border-t border-neutral-100"
-                                    style={{ top: (m - wakeMin) * PX_PER_MIN }}
-                                />
-                            ))}
-
-                            {/* Now indicator */}
-                            {showNow && (
-                                <div
-                                    className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
-                                    style={{ top: nowTop }}
-                                >
-                                    <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
-                                    <div className="h-px flex-1 bg-rose-400/50" />
-                                </div>
-                            )}
-
-                            {/* Items */}
-                            {items.map((item) => {
-                                const top = (timeToMinutes(item.startTime) - wakeMin) * PX_PER_MIN
-                                const height = Math.max(
-                                    22,
-                                    (timeToMinutes(item.endTime) - timeToMinutes(item.startTime)) *
-                                        PX_PER_MIN
-                                )
-                                const dur = formatDuration(
-                                    timeToMinutes(item.endTime) - timeToMinutes(item.startTime)
-                                )
-                                const compact = height < 44
-                                const c = item.category
-                                    ? TIMEBOX_CATEGORY_COLORS[item.category]
-                                    : TIMEBOX_DEFAULT_COLORS
-                                return (
-                                    <button
-                                        key={item._id}
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            openEdit(item)
-                                        }}
-                                        className={`absolute left-1.5 right-1.5 flex flex-col items-center justify-center overflow-hidden rounded-lg border px-2 py-1 text-center transition-opacity hover:opacity-75 ${c.bg} ${c.border}`}
-                                        style={{ top, height }}
-                                    >
-                                        <div
-                                            className={`w-full ${compact ? 'flex items-center justify-center gap-2' : ''}`}
+                                {/* Items */}
+                                {items.map((item) => {
+                                    const durMin =
+                                        timeToMinutes(item.endTime) - timeToMinutes(item.startTime)
+                                    const dragging = blockDrag?.id === item._id
+                                    const startMin = dragging
+                                        ? blockDrag.startMin
+                                        : timeToMinutes(item.startTime)
+                                    const top = (startMin - wakeMin) * PX_PER_MIN
+                                    const height = Math.max(22, durMin * PX_PER_MIN)
+                                    const dur = formatDuration(durMin)
+                                    const compact = height < 44
+                                    const movable = !item.recurrence && !item.isRecurringInstance
+                                    const c = item.category
+                                        ? TIMEBOX_CATEGORY_COLORS[item.category]
+                                        : TIMEBOX_DEFAULT_COLORS
+                                    return (
+                                        <button
+                                            key={item._id}
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                if (suppressClickRef.current) {
+                                                    suppressClickRef.current = false
+                                                    return
+                                                }
+                                                openEdit(item)
+                                            }}
+                                            onPointerDown={(e) => handleBlockPointerDown(e, item)}
+                                            onPointerMove={handleBlockPointerMove}
+                                            onPointerUp={handleBlockPointerUp}
+                                            onPointerCancel={handleBlockPointerCancel}
+                                            className={[
+                                                'absolute left-1.5 right-1.5 flex flex-col items-center justify-center overflow-hidden rounded-lg border px-2 py-1 text-center',
+                                                movable
+                                                    ? 'cursor-grab touch-none select-none active:cursor-grabbing'
+                                                    : '',
+                                                dragging
+                                                    ? `z-30 shadow-lg ring-2 ${blockDrag.valid ? 'ring-neutral-400' : 'ring-red-400'}`
+                                                    : 'transition-opacity hover:opacity-75',
+                                                c.bg,
+                                                c.border,
+                                            ].join(' ')}
+                                            style={{ top, height }}
                                         >
-                                            <span
-                                                className={`block truncate text-xs font-semibold leading-tight ${c.text}`}
+                                            <div
+                                                className={`w-full ${compact ? 'flex items-center justify-center gap-2' : ''}`}
                                             >
-                                                {(item.recurrence || item.isRecurringInstance) && (
-                                                    <i className="fa-solid fa-rotate mr-1 text-[9px] opacity-60" aria-hidden="true" />
-                                                )}
-                                                {item.title}
-                                            </span>
-                                            <span
-                                                className={`${compact ? '' : 'mt-0.5 block'} truncate text-[10px] font-medium ${c.sub}`}
-                                            >
-                                                {item.startTime} – {item.endTime} · {dur}
-                                            </span>
-                                        </div>
-                                    </button>
-                                )
-                            })}
+                                                <span
+                                                    className={`block truncate text-xs font-semibold leading-tight ${c.text}`}
+                                                >
+                                                    {(item.recurrence ||
+                                                        item.isRecurringInstance) && (
+                                                        <i
+                                                            className="fa-solid fa-rotate mr-1 text-[9px] opacity-60"
+                                                            aria-hidden="true"
+                                                        />
+                                                    )}
+                                                    {item.title}
+                                                </span>
+                                                <span
+                                                    className={`${compact ? '' : 'mt-0.5 block'} truncate text-[10px] font-medium ${c.sub}`}
+                                                >
+                                                    {minutesToTime(startMin)} –{' '}
+                                                    {minutesToTime(startMin + durMin)} · {dur}
+                                                </span>
+                                            </div>
+                                        </button>
+                                    )
+                                })}
+                            </div>
                         </div>
+
+                        {items.length === 0 && (
+                            <p className="mt-3 text-center text-xs text-neutral-300">
+                                Click anywhere on the timeline to add a block
+                            </p>
+                        )}
                     </div>
 
-                    {items.length === 0 && (
-                        <p className="mt-3 text-center text-xs text-neutral-300">
-                            Click anywhere on the timeline to add a block
-                        </p>
-                    )}
+                    {/* Task panel */}
+                    <aside className="lg:w-64 lg:shrink-0">
+                        <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4 lg:sticky lg:top-6">
+                            <h2 className="text-sm font-bold text-neutral-800">Tasks</h2>
+                            <p className="mt-0.5 text-xs text-neutral-400">
+                                Drag a task onto the timeline to schedule it.
+                            </p>
+                            <div className="mt-3 flex flex-col gap-1.5">
+                                {tasks.filter((t) => !t.completed).length === 0 && (
+                                    <p className="py-2 text-center text-xs text-neutral-300">
+                                        No open tasks for this day
+                                    </p>
+                                )}
+                                {tasks
+                                    .filter((t) => !t.completed)
+                                    .map((task) => (
+                                        <div
+                                            key={task._id}
+                                            draggable
+                                            onDragStart={(e) => {
+                                                dragTaskRef.current = task
+                                                e.dataTransfer.effectAllowed = 'copy'
+                                                e.dataTransfer.setData('text/plain', task.title)
+                                            }}
+                                            onDragEnd={() => {
+                                                dragTaskRef.current = null
+                                                setDragPreview(null)
+                                            }}
+                                            className="flex cursor-grab items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 transition-colors hover:border-neutral-300 active:cursor-grabbing"
+                                        >
+                                            <i
+                                                className="fa-solid fa-grip-vertical text-xs text-neutral-300"
+                                                aria-hidden="true"
+                                            />
+                                            <span className="flex-1 truncate text-xs font-semibold text-neutral-700">
+                                                {task.title}
+                                            </span>
+                                            <span className="shrink-0 text-[10px] font-semibold text-neutral-400">
+                                                {formatDuration(
+                                                    task.duration ?? DEFAULT_TASK_DURATION
+                                                )}
+                                            </span>
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+                    </aside>
                 </div>
             )}
 
@@ -368,7 +626,11 @@ export default function Timebox() {
                     title="Remove recurring block"
                     size="sm"
                     footer={
-                        <Button variant="ghost" onClick={() => setDeleteScope(null)} disabled={saving}>
+                        <Button
+                            variant="ghost"
+                            onClick={() => setDeleteScope(null)}
+                            disabled={saving}
+                        >
                             Cancel
                         </Button>
                     }

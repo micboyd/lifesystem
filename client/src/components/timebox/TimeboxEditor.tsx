@@ -29,8 +29,8 @@ const DAY_DOW = [1, 2, 3, 4, 5, 6, 0]
 interface Props {
     open: boolean
     item: Timebox | null
-    /** Pre-filled times when adding (e.g. from clicking a slot). */
-    defaults: { startTime: string; endTime: string }
+    /** Pre-filled values when adding (e.g. from clicking a slot or dropping a task). */
+    defaults: { startTime: string; endTime: string; title?: string }
     /** Bounds from the user's wake/bed settings. */
     minTime: string
     maxTime: string
@@ -64,7 +64,7 @@ export default function TimeboxEditor({
 
     useEffect(() => {
         if (!open) return
-        setTitle(item?.title ?? '')
+        setTitle(item?.title ?? defaults.title ?? '')
         setCategory(item?.category ?? undefined)
         setStartTime(item?.startTime ?? defaults.startTime)
         setEndTime(item?.endTime ?? defaults.endTime)
@@ -216,7 +216,10 @@ export default function TimeboxEditor({
 
                 {duration && (
                     <p className="text-sm font-medium text-neutral-500">
-                        <i className="fa-regular fa-clock mr-1.5 text-neutral-400" aria-hidden="true" />
+                        <i
+                            className="fa-regular fa-clock mr-1.5 text-neutral-400"
+                            aria-hidden="true"
+                        />
                         Duration: <span className="font-semibold text-neutral-700">{duration}</span>
                     </p>
                 )}

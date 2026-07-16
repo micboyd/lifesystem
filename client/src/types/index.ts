@@ -432,6 +432,8 @@ export interface Task {
     title: string
     completed: boolean
     order: number
+    /** Estimated duration in minutes. */
+    duration?: number
     createdAt: string
     updatedAt: string
 }
