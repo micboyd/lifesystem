@@ -1348,6 +1348,8 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                         const color = colorFor.get(plan._id) ?? PLAN_BAR_COLORS[0]
                         const span = end - start + 1
                         const wideEnough = span / totalMonths >= 0.18
+                        // Full plan length, start month through target month inclusive.
+                        const durationMonths = monthsUntil(plan.startMonth, plan.targetMonth) + 1
                         return (
                             <div key={plan._id} className="flex items-center gap-3">
                                 <div className="w-40 shrink-0">
@@ -1363,6 +1365,9 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                         {plan.onTrack || plan.requiredMonthly <= 0
                                             ? 'nothing to save monthly'
                                             : `save £${fmt(plan.requiredMonthly, 0)} / month`}
+                                    </p>
+                                    <p className="ml-[18px] text-[11px] text-neutral-400 tabular-nums">
+                                        {durationMonths} {mo(durationMonths)} start to finish
                                     </p>
                                 </div>
                                 <div className="relative h-7 flex-1 overflow-hidden rounded-lg bg-neutral-50">
@@ -1382,7 +1387,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                                 left: `${(start / totalMonths) * 100}%`,
                                                 width: `${(span / totalMonths) * 100}%`,
                                             }}
-                                            title={`${monthLabelShort(plan.startMonth)} – ${monthLabelShort(plan.targetMonth)} · £${fmt(plan.requiredMonthly)} / month`}
+                                            title={`${monthLabelShort(plan.startMonth)} – ${monthLabelShort(plan.targetMonth)} · ${durationMonths} ${mo(durationMonths)} · £${fmt(plan.requiredMonthly)} / month`}
                                         >
                                             {wideEnough && plan.requiredMonthly > 0 && (
                                                 <span className="truncate px-2 text-[10px] font-bold tabular-nums text-white">
