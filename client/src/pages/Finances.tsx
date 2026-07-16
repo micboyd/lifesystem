@@ -657,7 +657,11 @@ export default function Finances() {
             month <= t.targetMonth
     )
     const plannedSavings = activePlans.reduce((s, t) => s + t.requiredMonthly, 0)
+    // requiredMonthly is a solved division, so it's almost always fractional.
+    // Only warn when the gap survives whole-pound rounding — otherwise a 30p
+    // gap shows an amber "£0 short".
     const savingsShortfall = plannedSavings - totalSavings
+    const savingsShort = savingsShortfall >= 0.5
 
     function togglePaid(rowId: string) {
         setPaidRows((prev) => {
@@ -1026,7 +1030,7 @@ export default function Finances() {
                 <div
                     className={[
                         'mb-8 rounded-2xl border px-5 py-4',
-                        savingsShortfall > 0
+                        savingsShort
                             ? 'border-amber-200 bg-amber-50'
                             : 'border-neutral-200 bg-white',
                     ].join(' ')}
@@ -1035,7 +1039,7 @@ export default function Finances() {
                         <i
                             className={[
                                 'fa-solid mt-0.5 text-sm',
-                                savingsShortfall > 0
+                                savingsShort
                                     ? 'fa-triangle-exclamation text-amber-500'
                                     : 'fa-piggy-bank text-neutral-400',
                             ].join(' ')}
@@ -1059,7 +1063,7 @@ export default function Finances() {
                                 )}
                             </p>
                             <p className="mt-0.5 text-xs text-neutral-500 tabular-nums">
-                                {savingsShortfall > 0 ? (
+                                {savingsShort ? (
                                     <>
                                         This sheet has £{formatAmount(totalSavings, 0)} of savings —
                                         £{formatAmount(savingsShortfall, 0)} short of the plan.
