@@ -35,9 +35,6 @@ export interface IEvent extends Document {
     recurrence?: IRecurrence
     /** YYYY-MM-DD occurrence dates removed from a recurring series ("this event only" deletes). */
     exdates?: string[]
-    budget?: number
-    /** Optional link to a finance row; when set, the budget is pulled from that row for the event's month. */
-    budgetRow?: Types.ObjectId
     createdAt: Date
     updatedAt: Date
 }
@@ -65,8 +62,6 @@ const eventSchema = new Schema<IEvent>(
         endPart: { type: String, required: true, enum: PARTS },
         recurrence: { type: recurrenceSchema, default: undefined },
         exdates: { type: [String], default: undefined },
-        budget: { type: Number, min: 0 },
-        budgetRow: { type: Schema.Types.ObjectId, ref: 'FinanceRow' },
     },
     { timestamps: true }
 )

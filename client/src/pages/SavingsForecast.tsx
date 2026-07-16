@@ -3,6 +3,7 @@ import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import DatePicker from '../components/DatePicker'
 import Tabs from '../components/Tabs'
+import Checkbox from '../components/Checkbox'
 import { listGroups, listRows, listEntries, updateGroup, deleteGroup } from '../services/finances'
 import {
     listSavingsTargets, createSavingsTarget, updateSavingsTarget, deleteSavingsTarget,
@@ -820,6 +821,8 @@ function SavedTargetCard({
     target,
     isDragging,
     isDragOver,
+    selected,
+    onToggleSelect,
     onUpdate,
     onDelete,
     onDragStart,
@@ -830,6 +833,8 @@ function SavedTargetCard({
     target: SavingsTarget
     isDragging: boolean
     isDragOver: boolean
+    selected: boolean
+    onToggleSelect: () => void
     onUpdate: (
         id: string,
         fields: { name?: string; notes?: string | null; priority?: boolean }
@@ -1087,9 +1092,333 @@ function SavedTargetCard({
                             Add notes
                         </button>
                     )}
+                    <div className="mt-4 border-t border-neutral-100 pt-3">
+                        <Checkbox
+                            checked={selected}
+                            onChange={onToggleSelect}
+                            label="Include in long-term view"
+                        />
+                    </div>
                 </>
             )}
         </div>
+    )
+}
+
+// ── Long-term outlook (combined plans) ───────────────────────────────────────
+
+const OUTLOOK_HORIZONS = [1, 3, 5, 10] as const
+type OutlookHorizon = (typeof OUTLOOK_HORIZONS)[number]
+
+const PLAN_BAR_COLORS = [
+    'bg-blue-500',
+    'bg-emerald-500',
+    'bg-amber-500',
+    'bg-violet-500',
+    'bg-rose-500',
+    'bg-cyan-500',
+]
+
+/** What a plan asks you to put away in a given month — £0 outside its window. */
+function planMonthlyFor(plan: SavingsTarget, m: string): number {
+    if (plan.onTrack) return 0
+    return m >= plan.startMonth && m <= plan.targetMonth ? plan.requiredMonthly : 0
+}
+
+interface OutlookYearRow {
+    index: number
+    firstMonth: string
+    lastMonth: string
+    /** Contributions per plan id within this year. */
+    perPlan: Map<string, number>
+    contributions: number
+    cumulative: number
+    peakMonthly: number
+}
+
+/**
+ * Bucket the selected plans' monthly commitments into Year 1..N from
+ * `startMonth`. Overlapping plans stack; sequential plans hand over — the
+ * per-year rows and the overall peak make both cases readable.
+ */
+function buildOutlook(plans: SavingsTarget[], startMonth: string, years: number) {
+    const rows: OutlookYearRow[] = []
+    let m = startMonth
+    let cumulative = 0
+    let peakMonthly = 0
+    let peakMonth = startMonth
+    for (let y = 1; y <= years; y++) {
+        const firstMonth = m
+        let lastMonth = m
+        const perPlan = new Map<string, number>()
+        let yearPeak = 0
+        for (let i = 0; i < 12; i++) {
+            let monthTotal = 0
+            for (const p of plans) {
+                const c = planMonthlyFor(p, m)
+                if (c > 0) perPlan.set(p._id, (perPlan.get(p._id) ?? 0) + c)
+                monthTotal += c
+            }
+            yearPeak = Math.max(yearPeak, monthTotal)
+            if (monthTotal > peakMonthly) {
+                peakMonthly = monthTotal
+                peakMonth = m
+            }
+            lastMonth = m
+            m = addMonths(m, 1)
+        }
+        const contributions = [...perPlan.values()].reduce((s, v) => s + v, 0)
+        cumulative += contributions
+        rows.push({
+            index: y,
+            firstMonth,
+            lastMonth,
+            perPlan,
+            contributions,
+            cumulative,
+            peakMonthly: yearPeak,
+        })
+    }
+    return { rows, peakMonthly, peakMonth }
+}
+
+function monthLabelShort(ym: string) {
+    const [y, m] = ym.split('-').map(Number)
+    return new Date(y, m - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' })
+}
+
+function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
+    const now = currentMonth()
+    const [horizon, setHorizon] = useState<OutlookHorizon>(5)
+    const totalMonths = horizon * 12
+
+    const { rows, peakMonthly, peakMonth } = buildOutlook(plans, now, horizon)
+    const colorFor = new Map(
+        plans.map((p, i) => [p._id, PLAN_BAR_COLORS[i % PLAN_BAR_COLORS.length]])
+    )
+
+    const currentMonthly = plans.reduce((s, p) => s + planMonthlyFor(p, now), 0)
+    const totalContributions = rows.reduce((s, r) => s + r.contributions, 0)
+    const combinedPots = plans.reduce((s, p) => s + p.targetAmount, 0)
+
+    // Timeline geometry: month index 0 = this month.
+    const bars = plans.map((p) => {
+        const rawStart = monthsUntil(now, p.startMonth)
+        const rawEnd = monthsUntil(now, p.targetMonth)
+        const start = Math.max(0, rawStart)
+        const end = Math.min(totalMonths - 1, rawEnd)
+        return {
+            plan: p,
+            start,
+            end,
+            visible: rawEnd >= 0 && rawStart <= totalMonths - 1,
+            endedBeforeNow: rawEnd < 0,
+        }
+    })
+
+    return (
+        <section className="mt-8">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                        Long-term outlook
+                    </h2>
+                    <p className="mt-0.5 text-xs text-neutral-400">
+                        {plans.length} {plans.length === 1 ? 'plan' : 'plans'} combined — overlapping
+                        plans stack, sequential ones hand over.
+                    </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {OUTLOOK_HORIZONS.map((y) => (
+                        <button
+                            key={y}
+                            type="button"
+                            onClick={() => setHorizon(y)}
+                            className={[
+                                'rounded-full px-4 py-2 text-sm font-semibold tracking-tight transition-all duration-150 active:scale-[0.97]',
+                                horizon === y
+                                    ? 'bg-neutral-950 text-white'
+                                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200',
+                            ].join(' ')}
+                        >
+                            {y}
+                            {y === 1 ? ' yr' : ' yrs'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Headline stats */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+                <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                        Saving this month
+                    </p>
+                    <p className="text-2xl font-bold tabular-nums tracking-tight">
+                        £{fmt(currentMonthly, 0)}
+                    </p>
+                    <p className="text-xs text-neutral-500">across selected plans</p>
+                </div>
+                <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                        Peak monthly
+                    </p>
+                    <p className="text-2xl font-bold tabular-nums tracking-tight">
+                        £{fmt(peakMonthly, 0)}
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                        {peakMonthly > 0 ? monthLabelShort(peakMonth) : 'no saving in this window'}
+                    </p>
+                </div>
+                <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                        Contributed over {horizon} {horizon === 1 ? 'yr' : 'yrs'}
+                    </p>
+                    <p className="text-2xl font-bold tabular-nums tracking-tight">
+                        {fmtCompact(totalContributions)}
+                    </p>
+                    <p className="text-xs text-neutral-500 tabular-nums">
+                        £{fmt(totalContributions, 0)}
+                    </p>
+                </div>
+                <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                        Combined plan pots
+                    </p>
+                    <p className="text-2xl font-bold tabular-nums tracking-tight">
+                        {fmtCompact(combinedPots)}
+                    </p>
+                    <p className="text-xs text-neutral-500">each pot at its own end date</p>
+                </div>
+            </div>
+
+            {/* Timeline */}
+            <div className="mt-4 rounded-3xl border border-neutral-200 bg-white p-6">
+                <div className="flex flex-col gap-3">
+                    {bars.map(({ plan, start, end, visible, endedBeforeNow }) => {
+                        const color = colorFor.get(plan._id) ?? PLAN_BAR_COLORS[0]
+                        const span = end - start + 1
+                        const wideEnough = span / totalMonths >= 0.18
+                        return (
+                            <div key={plan._id} className="flex items-center gap-3">
+                                <div className="flex w-36 shrink-0 items-center gap-2">
+                                    <span
+                                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`}
+                                    />
+                                    <span className="truncate text-xs font-semibold text-neutral-700">
+                                        {plan.name}
+                                    </span>
+                                </div>
+                                <div className="relative h-7 flex-1 overflow-hidden rounded-lg bg-neutral-50">
+                                    {Array.from({ length: horizon - 1 }, (_, i) => (
+                                        <div
+                                            key={i}
+                                            className="absolute inset-y-0 w-px bg-neutral-200"
+                                            style={{
+                                                left: `${(((i + 1) * 12) / totalMonths) * 100}%`,
+                                            }}
+                                        />
+                                    ))}
+                                    {visible ? (
+                                        <div
+                                            className={`absolute inset-y-1 flex items-center justify-center rounded-md ${color}`}
+                                            style={{
+                                                left: `${(start / totalMonths) * 100}%`,
+                                                width: `${(span / totalMonths) * 100}%`,
+                                            }}
+                                            title={`${monthLabelShort(plan.startMonth)} – ${monthLabelShort(plan.targetMonth)} · £${fmt(plan.requiredMonthly)} / month`}
+                                        >
+                                            {wideEnough && plan.requiredMonthly > 0 && (
+                                                <span className="truncate px-2 text-[10px] font-bold tabular-nums text-white">
+                                                    £{fmt(plan.requiredMonthly, 0)}/mo
+                                                </span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <span className="absolute inset-0 grid place-items-center text-[11px] text-neutral-400">
+                                            {endedBeforeNow
+                                                ? `finished ${monthLabelShort(plan.targetMonth)}`
+                                                : `starts ${monthLabelShort(plan.startMonth)} — beyond this horizon`}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    })}
+                    <div className="flex items-center gap-3">
+                        <div className="w-36 shrink-0" />
+                        <div className="flex flex-1">
+                            {Array.from({ length: horizon }, (_, i) => (
+                                <div
+                                    key={i}
+                                    className="flex-1 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400"
+                                >
+                                    {horizon > 5 ? `Yr ${i + 1}` : `Year ${i + 1}`}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Year-by-year table */}
+            <div className="mt-4 overflow-x-auto overflow-hidden rounded-3xl border border-neutral-200 bg-white">
+                <table className="w-full min-w-[520px]">
+                    <thead>
+                        <tr className="border-b border-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <th className="py-3 pl-5 pr-3 text-left">Year</th>
+                            <th className="py-3 px-3 text-left">Plans saving</th>
+                            <th className="py-3 px-3 text-right">Peak monthly</th>
+                            <th className="py-3 px-3 text-right">Contributions</th>
+                            <th className="py-3 pl-3 pr-5 text-right">Total saved</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100">
+                        {rows.map((row) => {
+                            const activePlans = plans.filter((p) => row.perPlan.has(p._id))
+                            const idle = row.contributions === 0
+                            return (
+                                <tr key={row.index} className="transition-colors hover:bg-neutral-50">
+                                    <td className="py-3 pl-5 pr-3">
+                                        <span className="text-sm font-semibold text-neutral-900">
+                                            Year {row.index}
+                                        </span>
+                                        <span className="ml-2 text-xs text-neutral-400">
+                                            {monthLabelShort(row.firstMonth)} –{' '}
+                                            {monthLabelShort(row.lastMonth)}
+                                        </span>
+                                    </td>
+                                    <td className="py-3 px-3">
+                                        {activePlans.length === 0 ? (
+                                            <span className="text-xs text-neutral-300">—</span>
+                                        ) : (
+                                            <span className="flex items-center gap-1.5">
+                                                {activePlans.map((p) => (
+                                                    <span
+                                                        key={p._id}
+                                                        title={`${p.name}: £${fmt(row.perPlan.get(p._id) ?? 0, 0)} this year`}
+                                                        className={`h-2.5 w-2.5 rounded-full ${colorFor.get(p._id)}`}
+                                                    />
+                                                ))}
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className={`py-3 px-3 text-right text-sm tabular-nums ${idle ? 'text-neutral-300' : 'text-neutral-600'}`}>
+                                        £{fmt(row.peakMonthly, 0)}
+                                    </td>
+                                    <td className={`py-3 px-3 text-right text-sm tabular-nums ${idle ? 'text-neutral-300' : 'text-neutral-600'}`}>
+                                        £{fmt(row.contributions, 0)}
+                                    </td>
+                                    <td className={`py-3 pl-3 pr-5 text-right text-sm font-bold tabular-nums ${idle ? 'text-neutral-300' : 'text-neutral-900'}`}>
+                                        £{fmt(row.cumulative, 0)}
+                                    </td>
+                                </tr>
+                            )
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </section>
     )
 }
 
@@ -1118,6 +1447,8 @@ function TargetPlannerSection({
     // Drag-to-reorder: the card being dragged and the card it's hovering over.
     const [dragIndex, setDragIndex] = useState<number | null>(null)
     const [overIndex, setOverIndex] = useState<number | null>(null)
+    // Plans picked for the combined long-term view.
+    const [selectedIds, setSelectedIds] = useState<string[]>([])
 
     useEffect(() => {
         let active = true
@@ -1242,10 +1573,20 @@ function TargetPlannerSection({
         try {
             await deleteSavingsTarget(id)
             setSnapshots((prev) => prev.filter((t) => t._id !== id))
+            setSelectedIds((prev) => prev.filter((x) => x !== id))
         } catch {
             toast.error("Couldn't delete that plan.")
         }
     }
+
+    function toggleSelect(id: string) {
+        setSelectedIds((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        )
+    }
+
+    // Keep the outlook's plan order (and colours) stable by following card order.
+    const selectedPlans = snapshots.filter((t) => selectedIds.includes(t._id))
 
     return (
         <section>
@@ -1272,6 +1613,8 @@ function TargetPlannerSection({
                                 isDragOver={
                                     dragIndex !== null && overIndex === i && dragIndex !== i
                                 }
+                                selected={selectedIds.includes(t._id)}
+                                onToggleSelect={() => toggleSelect(t._id)}
                                 onUpdate={handleUpdate}
                                 onDelete={handleDelete}
                                 onDragStart={() => setDragIndex(i)}
@@ -1289,6 +1632,8 @@ function TargetPlannerSection({
                         ))}
                     </div>
                 )}
+
+                {selectedPlans.length > 0 && <LongTermOutlook plans={selectedPlans} />}
             </div>
 
             <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">

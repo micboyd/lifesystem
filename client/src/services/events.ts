@@ -13,8 +13,6 @@ export interface EventInput {
     endDate: string
     endPart: Part
     recurrence?: Recurrence
-    budget?: number
-    budgetRow?: string
 }
 
 export async function listEvents(from: string, to: string): Promise<Event[]> {

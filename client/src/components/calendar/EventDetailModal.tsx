@@ -10,8 +10,6 @@ import {
 } from '../../types'
 import { MONTHS, WEEKDAYS_LONG } from '../../lib/calendar'
 import type { Event } from '../../types'
-import { formatAmount } from '../../lib/money'
-import { useMoneyHidden } from '../useMoneyHidden'
 
 interface Props {
     event: Event | null
@@ -73,7 +71,6 @@ export default function EventDetailModal({
     const [editingNotes, setEditingNotes] = useState(false)
     const [notesDraft, setNotesDraft] = useState('')
     const [savingNotes, setSavingNotes] = useState(false)
-    useMoneyHidden() // re-render when money is hidden/shown
 
     // Reset the inline notes editor whenever the viewed event changes.
     useEffect(() => {
@@ -189,19 +186,6 @@ export default function EventDetailModal({
                 {/* Location */}
                 {event.location && (
                     <DetailRow icon="fa-solid fa-location-dot">{event.location}</DetailRow>
-                )}
-
-                {/* Budget */}
-                {event.budget != null && (
-                    <DetailRow icon="fa-solid fa-wallet">
-                        £{formatAmount(event.budget)}
-                        {event.budgetRow && event.budgetRowName && (
-                            <span className="ml-1.5 inline-flex items-center gap-1 text-neutral-400">
-                                <i className="fa-solid fa-link text-[10px]" aria-hidden="true" />
-                                {event.budgetRowName}
-                            </span>
-                        )}
-                    </DetailRow>
                 )}
 
                 {/* Notes — inline-editable when onSaveNotes is provided */}

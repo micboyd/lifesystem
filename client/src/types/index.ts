@@ -306,12 +306,6 @@ export interface Event {
     recurrence?: Recurrence
     /** YYYY-MM-DD occurrence dates removed from a recurring series. */
     exdates?: string[]
-    /** Money set aside for this event — entered manually or resolved from a linked finance row. */
-    budget?: number
-    /** Optional linked finance row id; when set, budget is pulled from that row for the event's month. */
-    budgetRow?: string
-    /** Name of the linked finance row, attached by the server for display. */
-    budgetRowName?: string
     createdAt: string
     updatedAt: string
 }

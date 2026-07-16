@@ -16,7 +16,6 @@ _Reviewed: June 2026. Covers every surface that touches money in the app._
 | `BudgetSpend`     | Actual spend logged on a date against a daily-budget row                                         | `row`, `date`, `amount`                                                                                                                         |
 | `BudgetExclusion` | A date excluded from daily budgeting (global, not per-row)                                       | `date`                                                                                                                                          |
 | `FinanceSubItem`  | Itemised breakdown of a row (per month for recurring rows)                                       | `row`, `month?`, `name`, `amount`                                                                                                               |
-| `Event.budgetRow` | Calendar event linked to a finance row; budget resolved server-side from the event's start month | —                                                                                                                                               |
 
 The **effective amount** of a row in a month is `entry.amount ?? row.recurringAmount ?? 0`. Visibility is governed by the lifecycle window (`lib/finance.ts: visibleInMonth`), which is consistently applied — this part of the system is solid.
 
