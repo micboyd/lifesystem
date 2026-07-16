@@ -1131,8 +1131,6 @@ interface OutlookYearRow {
     lastMonth: string
     /** Contributions per plan id within this year. */
     perPlan: Map<string, number>
-    /** Running total saved per plan id up to the end of this year. */
-    perPlanCumulative: Map<string, number>
     contributions: number
     cumulative: number
     peakMonthly: number
@@ -1149,7 +1147,6 @@ function buildOutlook(plans: SavingsTarget[], startMonth: string, years: number)
     let cumulative = 0
     let peakMonthly = 0
     let peakMonth = startMonth
-    const runningPerPlan = new Map<string, number>()
     for (let y = 1; y <= years; y++) {
         const firstMonth = m
         let lastMonth = m
@@ -1172,15 +1169,11 @@ function buildOutlook(plans: SavingsTarget[], startMonth: string, years: number)
         }
         const contributions = [...perPlan.values()].reduce((s, v) => s + v, 0)
         cumulative += contributions
-        for (const [id, c] of perPlan) {
-            runningPerPlan.set(id, (runningPerPlan.get(id) ?? 0) + c)
-        }
         rows.push({
             index: y,
             firstMonth,
             lastMonth,
             perPlan,
-            perPlanCumulative: new Map(runningPerPlan),
             contributions,
             cumulative,
             peakMonthly: yearPeak,
@@ -1194,12 +1187,49 @@ function monthLabelShort(ym: string) {
     return new Date(y, m - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' })
 }
 
+/** One entry per plan completion, in date order — "by this month you'll have…". */
+interface PlanMilestone {
+    plan: SavingsTarget
+    monthsAway: number
+    /** Everything put in across ALL selected plans from now through this month. */
+    contributedByThen: number
+    /** Combined value of every pot finished by this month (incl. this one). */
+    potsCompleted: number
+    /** Combined monthly saving in this plan's final month / the month after. */
+    monthlyBefore: number
+    monthlyAfter: number
+}
+
+function buildMilestones(plans: SavingsTarget[], now: string): PlanMilestone[] {
+    const sorted = [...plans].sort((a, b) => (a.targetMonth < b.targetMonth ? -1 : 1))
+    return sorted.map((p) => {
+        let contributed = 0
+        for (let m = now; m <= p.targetMonth; m = addMonths(m, 1)) {
+            for (const q of plans) contributed += planMonthlyFor(q, m)
+        }
+        return {
+            plan: p,
+            monthsAway: monthsUntil(now, p.targetMonth),
+            contributedByThen: contributed,
+            potsCompleted: sorted
+                .filter((q) => q.targetMonth <= p.targetMonth)
+                .reduce((s, q) => s + q.targetAmount, 0),
+            monthlyBefore: plans.reduce((s, q) => s + planMonthlyFor(q, p.targetMonth), 0),
+            monthlyAfter: plans.reduce(
+                (s, q) => s + planMonthlyFor(q, addMonths(p.targetMonth, 1)),
+                0
+            ),
+        }
+    })
+}
+
 function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
     const now = currentMonth()
     const [horizon, setHorizon] = useState<OutlookHorizon>(5)
     const totalMonths = horizon * 12
 
     const { rows, peakMonthly, peakMonth } = buildOutlook(plans, now, horizon)
+    const milestones = buildMilestones(plans, now)
     const colorFor = new Map(
         plans.map((p, i) => [p._id, PLAN_BAR_COLORS[i % PLAN_BAR_COLORS.length]])
     )
@@ -1368,86 +1398,87 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                 </div>
             </div>
 
-            {/* Year-by-year table */}
-            <div className="mt-4 overflow-x-auto overflow-hidden rounded-3xl border border-neutral-200 bg-white">
-                <table className="w-full min-w-[520px]">
-                    <thead>
-                        <tr className="border-b border-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                            <th className="py-3 pl-5 pr-3 text-left">Year</th>
-                            <th className="py-3 px-3 text-left">Plans saving</th>
-                            <th className="py-3 px-3 text-right">Peak monthly</th>
-                            <th className="py-3 px-3 text-right">Contributions</th>
-                            {plans.map((p) => (
-                                <th key={p._id} className="py-3 px-3 text-right normal-case">
-                                    <span className="flex items-center justify-end gap-1.5">
-                                        <span
-                                            className={`h-2 w-2 shrink-0 rounded-full ${colorFor.get(p._id)}`}
-                                        />
-                                        <span className="max-w-[8rem] truncate" title={p.name}>
-                                            {p.name}
-                                        </span>
-                                    </span>
-                                </th>
-                            ))}
-                            <th className="py-3 pl-3 pr-5 text-right">Total saved</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-100">
-                        {rows.map((row) => {
-                            const activePlans = plans.filter((p) => row.perPlan.has(p._id))
-                            const idle = row.contributions === 0
-                            return (
-                                <tr key={row.index} className="transition-colors hover:bg-neutral-50">
-                                    <td className="py-3 pl-5 pr-3">
-                                        <span className="text-sm font-semibold text-neutral-900">
-                                            Year {row.index}
-                                        </span>
-                                        <span className="ml-2 text-xs text-neutral-400">
-                                            {monthLabelShort(row.firstMonth)} –{' '}
-                                            {monthLabelShort(row.lastMonth)}
-                                        </span>
-                                    </td>
-                                    <td className="py-3 px-3">
-                                        {activePlans.length === 0 ? (
-                                            <span className="text-xs text-neutral-300">—</span>
-                                        ) : (
-                                            <span className="flex items-center gap-1.5">
-                                                {activePlans.map((p) => (
-                                                    <span
-                                                        key={p._id}
-                                                        title={`${p.name}: £${fmt(row.perPlan.get(p._id) ?? 0, 0)} this year`}
-                                                        className={`h-2.5 w-2.5 rounded-full ${colorFor.get(p._id)}`}
-                                                    />
-                                                ))}
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className={`py-3 px-3 text-right text-sm tabular-nums ${idle ? 'text-neutral-300' : 'text-neutral-600'}`}>
-                                        £{fmt(row.peakMonthly, 0)}
-                                    </td>
-                                    <td className={`py-3 px-3 text-right text-sm tabular-nums ${idle ? 'text-neutral-300' : 'text-neutral-600'}`}>
-                                        £{fmt(row.contributions, 0)}
-                                    </td>
-                                    {plans.map((p) => {
-                                        const saved = row.perPlanCumulative.get(p._id) ?? 0
-                                        return (
-                                            <td
-                                                key={p._id}
-                                                title={`${p.name}: £${fmt(row.perPlan.get(p._id) ?? 0, 0)} this year`}
-                                                className={`py-3 px-3 text-right text-sm tabular-nums ${saved === 0 ? 'text-neutral-300' : 'text-neutral-600'}`}
+            {/* Milestones — how much you'll have, by when */}
+            <div className="mt-4 rounded-3xl border border-neutral-200 bg-white p-6">
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    How much, by when
+                </p>
+                <ol className="mt-5">
+                    {/* Today */}
+                    <li className="relative flex gap-4 pb-7">
+                        {milestones.length > 0 && (
+                            <span className="absolute bottom-0 left-[5px] top-4 w-px bg-neutral-200" />
+                        )}
+                        <span className="relative mt-1 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-neutral-950 bg-white" />
+                        <div className="min-w-0">
+                            <p className="text-sm font-bold text-neutral-900">Today</p>
+                            <p className="mt-0.5 text-xs text-neutral-400 tabular-nums">
+                                {currentMonthly > 0
+                                    ? `putting away £${fmt(currentMonthly, 0)} a month across ${plans.length} ${plans.length === 1 ? 'plan' : 'plans'}`
+                                    : 'nothing to put away this month'}
+                            </p>
+                        </div>
+                    </li>
+
+                    {milestones.map((ms, i) => {
+                        const reached = ms.monthsAway < 0
+                        const when = reached
+                            ? 'already reached'
+                            : ms.monthsAway === 0
+                              ? 'this month'
+                              : `in ${ms.monthsAway} ${mo(ms.monthsAway)}`
+                        const monthlyChange =
+                            ms.monthlyAfter === ms.monthlyBefore
+                                ? null
+                                : ms.monthlyAfter === 0
+                                  ? 'nothing left to save each month'
+                                  : `monthly saving becomes £${fmt(ms.monthlyAfter, 0)}`
+                        return (
+                            <li key={ms.plan._id} className="relative flex gap-4 pb-7 last:pb-0">
+                                {i < milestones.length - 1 && (
+                                    <span className="absolute bottom-0 left-[5px] top-4 w-px bg-neutral-200" />
+                                )}
+                                <span
+                                    className={`relative mt-1 h-[11px] w-[11px] shrink-0 rounded-full ${colorFor.get(ms.plan._id)} ${reached ? 'opacity-40' : ''}`}
+                                />
+                                <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-x-6 gap-y-2">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-neutral-900">
+                                            {monthLabelLong(ms.plan.targetMonth)}
+                                            <span
+                                                className={`ml-2 text-xs font-semibold ${reached ? 'text-emerald-600' : 'text-neutral-400'}`}
                                             >
-                                                £{fmt(saved, 0)}
-                                            </td>
-                                        )
-                                    })}
-                                    <td className={`py-3 pl-3 pr-5 text-right text-sm font-bold tabular-nums ${idle && row.cumulative === 0 ? 'text-neutral-300' : 'text-neutral-900'}`}>
-                                        £{fmt(row.cumulative, 0)}
-                                    </td>
-                                </tr>
-                            )
-                        })}
-                    </tbody>
-                </table>
+                                                {when}
+                                            </span>
+                                        </p>
+                                        <p className="mt-0.5 truncate text-sm text-neutral-600">
+                                            <span className="font-semibold text-neutral-900">
+                                                {ms.plan.name}
+                                            </span>{' '}
+                                            done — worth £{fmt(ms.plan.targetAmount, 0)}
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-neutral-400 tabular-nums">
+                                            £{fmt(ms.contributedByThen, 0)} put in across all plans
+                                            by then
+                                            {monthlyChange && <> · {monthlyChange}</>}
+                                        </p>
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                            You'll have
+                                        </p>
+                                        <p className="text-lg font-bold tabular-nums tracking-tight text-neutral-900">
+                                            £{fmt(ms.potsCompleted, 0)}
+                                        </p>
+                                        <p className="text-[11px] text-neutral-400">
+                                            in finished pots
+                                        </p>
+                                    </div>
+                                </div>
+                            </li>
+                        )
+                    })}
+                </ol>
             </div>
         </section>
     )
