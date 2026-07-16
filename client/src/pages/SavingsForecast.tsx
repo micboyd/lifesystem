@@ -1187,39 +1187,66 @@ function monthLabelShort(ym: string) {
     return new Date(y, m - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' })
 }
 
-/** One entry per plan completion, in date order — "by this month you'll have…". */
-interface PlanMilestone {
+/** A moment worth marking on the outlook: a plan starting or finishing. */
+interface OutlookEventBase {
     plan: SavingsTarget
+    month: string
     monthsAway: number
+    /** Combined monthly saving across all plans once this event happens. */
+    monthlyAfter: number
+}
+interface StartEvent extends OutlookEventBase {
+    kind: 'start'
+}
+interface FinishEvent extends OutlookEventBase {
+    kind: 'finish'
     /** Everything put in across ALL selected plans from now through this month. */
     contributedByThen: number
     /** Combined value of every pot finished by this month (incl. this one). */
     potsCompleted: number
-    /** Combined monthly saving in this plan's final month / the month after. */
+    /** Combined monthly saving in this plan's final month. */
     monthlyBefore: number
-    monthlyAfter: number
 }
+type OutlookEvent = StartEvent | FinishEvent
 
-function buildMilestones(plans: SavingsTarget[], now: string): PlanMilestone[] {
-    const sorted = [...plans].sort((a, b) => (a.targetMonth < b.targetMonth ? -1 : 1))
-    return sorted.map((p) => {
-        let contributed = 0
-        for (let m = now; m <= p.targetMonth; m = addMonths(m, 1)) {
-            for (const q of plans) contributed += planMonthlyFor(q, m)
+function buildTimelineEvents(plans: SavingsTarget[], now: string): OutlookEvent[] {
+    const byFinish = [...plans].sort((a, b) => (a.targetMonth < b.targetMonth ? -1 : 1))
+    const combined = (m: string) => plans.reduce((s, q) => s + planMonthlyFor(q, m), 0)
+
+    const events: OutlookEvent[] = []
+    // Future starts only — plans already underway are covered by the Today node.
+    for (const p of plans) {
+        if (p.startMonth > now && !p.onTrack && p.requiredMonthly > 0) {
+            events.push({
+                kind: 'start',
+                plan: p,
+                month: p.startMonth,
+                monthsAway: monthsUntil(now, p.startMonth),
+                monthlyAfter: combined(p.startMonth),
+            })
         }
-        return {
+    }
+    for (const p of byFinish) {
+        let contributed = 0
+        for (let m = now; m <= p.targetMonth; m = addMonths(m, 1)) contributed += combined(m)
+        events.push({
+            kind: 'finish',
             plan: p,
+            month: p.targetMonth,
             monthsAway: monthsUntil(now, p.targetMonth),
             contributedByThen: contributed,
-            potsCompleted: sorted
+            potsCompleted: byFinish
                 .filter((q) => q.targetMonth <= p.targetMonth)
                 .reduce((s, q) => s + q.targetAmount, 0),
-            monthlyBefore: plans.reduce((s, q) => s + planMonthlyFor(q, p.targetMonth), 0),
-            monthlyAfter: plans.reduce(
-                (s, q) => s + planMonthlyFor(q, addMonths(p.targetMonth, 1)),
-                0
-            ),
-        }
+            monthlyBefore: combined(p.targetMonth),
+            monthlyAfter: combined(addMonths(p.targetMonth, 1)),
+        })
+    }
+    // Chronological; same-month ties read finish-then-start (the natural handover).
+    return events.sort((a, b) => {
+        if (a.month !== b.month) return a.month < b.month ? -1 : 1
+        if (a.kind === b.kind) return 0
+        return a.kind === 'finish' ? -1 : 1
     })
 }
 
@@ -1229,7 +1256,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
     const totalMonths = horizon * 12
 
     const { rows, peakMonthly, peakMonth } = buildOutlook(plans, now, horizon)
-    const milestones = buildMilestones(plans, now)
+    const timelineEvents = buildTimelineEvents(plans, now)
     const colorFor = new Map(
         plans.map((p, i) => [p._id, PLAN_BAR_COLORS[i % PLAN_BAR_COLORS.length]])
     )
@@ -1406,7 +1433,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                 <ol className="mt-5">
                     {/* Today */}
                     <li className="relative flex gap-4 pb-7">
-                        {milestones.length > 0 && (
+                        {timelineEvents.length > 0 && (
                             <span className="absolute bottom-0 left-[5px] top-4 w-px bg-neutral-200" />
                         )}
                         <span className="relative mt-1 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-neutral-950 bg-white" />
@@ -1420,31 +1447,72 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                         </div>
                     </li>
 
-                    {milestones.map((ms, i) => {
-                        const reached = ms.monthsAway < 0
+                    {timelineEvents.map((ev, i) => {
+                        const reached = ev.monthsAway < 0
                         const when = reached
                             ? 'already reached'
-                            : ms.monthsAway === 0
+                            : ev.monthsAway === 0
                               ? 'this month'
-                              : `in ${ms.monthsAway} ${mo(ms.monthsAway)}`
+                              : `in ${ev.monthsAway} ${mo(ev.monthsAway)}`
+                        const color = colorFor.get(ev.plan._id)
+                        const line = i < timelineEvents.length - 1 && (
+                            <span className="absolute bottom-0 left-[5px] top-4 w-px bg-neutral-200" />
+                        )
+
+                        if (ev.kind === 'start') {
+                            return (
+                                <li
+                                    key={`${ev.plan._id}-start`}
+                                    className="relative flex gap-4 pb-7 last:pb-0"
+                                >
+                                    {line}
+                                    {/* Hollow dot — saving begins here, pot not finished yet. */}
+                                    <span
+                                        className={`relative mt-1 grid h-[11px] w-[11px] shrink-0 place-items-center rounded-full ${color}`}
+                                    >
+                                        <span className="h-[5px] w-[5px] rounded-full bg-white" />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-bold text-neutral-900">
+                                            {monthLabelLong(ev.month)}
+                                            <span className="ml-2 text-xs font-semibold text-neutral-400">
+                                                {when}
+                                            </span>
+                                        </p>
+                                        <p className="mt-0.5 truncate text-sm text-neutral-600">
+                                            Start saving for{' '}
+                                            <span className="font-semibold text-neutral-900">
+                                                {ev.plan.name}
+                                            </span>{' '}
+                                            — £{fmt(ev.plan.requiredMonthly, 0)}/month
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-neutral-400 tabular-nums">
+                                            monthly saving becomes £{fmt(ev.monthlyAfter, 0)}
+                                        </p>
+                                    </div>
+                                </li>
+                            )
+                        }
+
                         const monthlyChange =
-                            ms.monthlyAfter === ms.monthlyBefore
+                            ev.monthlyAfter === ev.monthlyBefore
                                 ? null
-                                : ms.monthlyAfter === 0
+                                : ev.monthlyAfter === 0
                                   ? 'nothing left to save each month'
-                                  : `monthly saving becomes £${fmt(ms.monthlyAfter, 0)}`
+                                  : `monthly saving becomes £${fmt(ev.monthlyAfter, 0)}`
                         return (
-                            <li key={ms.plan._id} className="relative flex gap-4 pb-7 last:pb-0">
-                                {i < milestones.length - 1 && (
-                                    <span className="absolute bottom-0 left-[5px] top-4 w-px bg-neutral-200" />
-                                )}
+                            <li
+                                key={`${ev.plan._id}-finish`}
+                                className="relative flex gap-4 pb-7 last:pb-0"
+                            >
+                                {line}
                                 <span
-                                    className={`relative mt-1 h-[11px] w-[11px] shrink-0 rounded-full ${colorFor.get(ms.plan._id)} ${reached ? 'opacity-40' : ''}`}
+                                    className={`relative mt-1 h-[11px] w-[11px] shrink-0 rounded-full ${color} ${reached ? 'opacity-40' : ''}`}
                                 />
                                 <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-x-6 gap-y-2">
                                     <div className="min-w-0">
                                         <p className="text-sm font-bold text-neutral-900">
-                                            {monthLabelLong(ms.plan.targetMonth)}
+                                            {monthLabelLong(ev.month)}
                                             <span
                                                 className={`ml-2 text-xs font-semibold ${reached ? 'text-emerald-600' : 'text-neutral-400'}`}
                                             >
@@ -1453,12 +1521,12 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                         </p>
                                         <p className="mt-0.5 truncate text-sm text-neutral-600">
                                             <span className="font-semibold text-neutral-900">
-                                                {ms.plan.name}
+                                                {ev.plan.name}
                                             </span>{' '}
-                                            done — worth £{fmt(ms.plan.targetAmount, 0)}
+                                            done — worth £{fmt(ev.plan.targetAmount, 0)}
                                         </p>
                                         <p className="mt-0.5 text-xs text-neutral-400 tabular-nums">
-                                            £{fmt(ms.contributedByThen, 0)} put in across all plans
+                                            £{fmt(ev.contributedByThen, 0)} put in across all plans
                                             by then
                                             {monthlyChange && <> · {monthlyChange}</>}
                                         </p>
@@ -1468,7 +1536,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                             You'll have
                                         </p>
                                         <p className="text-lg font-bold tabular-nums tracking-tight text-neutral-900">
-                                            £{fmt(ms.potsCompleted, 0)}
+                                            £{fmt(ev.potsCompleted, 0)}
                                         </p>
                                         <p className="text-[11px] text-neutral-400">
                                             in finished pots
