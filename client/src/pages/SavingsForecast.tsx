@@ -1271,6 +1271,8 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
             end,
             visible: rawEnd >= 0 && rawStart <= totalMonths - 1,
             endedBeforeNow: rawEnd < 0,
+            // The plan runs past the right edge of this horizon.
+            runsBeyondHorizon: rawEnd > totalMonths - 1,
         }
     })
 
@@ -1344,12 +1346,27 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
             {/* Timeline */}
             <div className="mt-4 rounded-3xl border border-neutral-200 bg-white p-6">
                 <div className="flex flex-col gap-3">
-                    {bars.map(({ plan, start, end, visible, endedBeforeNow }) => {
+                    {bars.map(({ plan, start, end, visible, endedBeforeNow, runsBeyondHorizon }) => {
                         const color = colorFor.get(plan._id) ?? PLAN_BAR_COLORS[0]
                         const span = end - start + 1
-                        const wideEnough = span / totalMonths >= 0.18
                         // Full plan length, start month through target month inclusive.
                         const durationMonths = monthsUntil(plan.startMonth, plan.targetMonth) + 1
+                        // Label the bar with as much as its width can carry: monthly
+                        // amount + duration, then monthly only, then a bare month count.
+                        const frac = span / totalMonths
+                        const monthlyLabel =
+                            plan.requiredMonthly > 0
+                                ? `£${fmt(plan.requiredMonthly, 0)} / month`
+                                : ''
+                        const durationLabel = `${durationMonths} ${mo(durationMonths)}`
+                        const barLabel =
+                            frac >= 0.3
+                                ? [monthlyLabel, durationLabel].filter(Boolean).join(' · ')
+                                : frac >= 0.18
+                                  ? monthlyLabel || durationLabel
+                                  : frac >= 0.08
+                                    ? `${durationMonths} mo`
+                                    : ''
                         return (
                             <div key={plan._id} className="flex items-center gap-3">
                                 <div className="w-40 shrink-0">
@@ -1382,17 +1399,23 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                     ))}
                                     {visible ? (
                                         <div
-                                            className={`absolute inset-y-1 flex items-center justify-center rounded-md ${color}`}
+                                            className={`absolute inset-y-1 flex items-center justify-center rounded-md ${color} ${runsBeyondHorizon ? 'rounded-r-none' : ''}`}
                                             style={{
                                                 left: `${(start / totalMonths) * 100}%`,
                                                 width: `${(span / totalMonths) * 100}%`,
                                             }}
-                                            title={`${monthLabelShort(plan.startMonth)} – ${monthLabelShort(plan.targetMonth)} · ${durationMonths} ${mo(durationMonths)} · £${fmt(plan.requiredMonthly)} / month`}
+                                            title={`${monthLabelShort(plan.startMonth)} – ${monthLabelShort(plan.targetMonth)} · ${durationMonths} ${mo(durationMonths)} · £${fmt(plan.requiredMonthly)} / month${runsBeyondHorizon ? ' · continues past this horizon' : ''}`}
                                         >
-                                            {wideEnough && plan.requiredMonthly > 0 && (
+                                            {barLabel && (
                                                 <span className="truncate px-2 text-[10px] font-bold tabular-nums text-white">
-                                                    £{fmt(plan.requiredMonthly, 0)} / month
+                                                    {barLabel}
                                                 </span>
+                                            )}
+                                            {runsBeyondHorizon && (
+                                                <i
+                                                    className="fa-solid fa-angles-right absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-white/80"
+                                                    aria-hidden="true"
+                                                />
                                             )}
                                         </div>
                                     ) : (
