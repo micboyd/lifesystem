@@ -1131,6 +1131,8 @@ interface OutlookYearRow {
     lastMonth: string
     /** Contributions per plan id within this year. */
     perPlan: Map<string, number>
+    /** Running total saved per plan id up to the end of this year. */
+    perPlanCumulative: Map<string, number>
     contributions: number
     cumulative: number
     peakMonthly: number
@@ -1147,6 +1149,7 @@ function buildOutlook(plans: SavingsTarget[], startMonth: string, years: number)
     let cumulative = 0
     let peakMonthly = 0
     let peakMonth = startMonth
+    const runningPerPlan = new Map<string, number>()
     for (let y = 1; y <= years; y++) {
         const firstMonth = m
         let lastMonth = m
@@ -1169,11 +1172,15 @@ function buildOutlook(plans: SavingsTarget[], startMonth: string, years: number)
         }
         const contributions = [...perPlan.values()].reduce((s, v) => s + v, 0)
         cumulative += contributions
+        for (const [id, c] of perPlan) {
+            runningPerPlan.set(id, (runningPerPlan.get(id) ?? 0) + c)
+        }
         rows.push({
             index: y,
             firstMonth,
             lastMonth,
             perPlan,
+            perPlanCumulative: new Map(runningPerPlan),
             contributions,
             cumulative,
             peakMonthly: yearPeak,
@@ -1370,6 +1377,18 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                             <th className="py-3 px-3 text-left">Plans saving</th>
                             <th className="py-3 px-3 text-right">Peak monthly</th>
                             <th className="py-3 px-3 text-right">Contributions</th>
+                            {plans.map((p) => (
+                                <th key={p._id} className="py-3 px-3 text-right normal-case">
+                                    <span className="flex items-center justify-end gap-1.5">
+                                        <span
+                                            className={`h-2 w-2 shrink-0 rounded-full ${colorFor.get(p._id)}`}
+                                        />
+                                        <span className="max-w-[8rem] truncate" title={p.name}>
+                                            {p.name}
+                                        </span>
+                                    </span>
+                                </th>
+                            ))}
                             <th className="py-3 pl-3 pr-5 text-right">Total saved</th>
                         </tr>
                     </thead>
@@ -1409,7 +1428,19 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                     <td className={`py-3 px-3 text-right text-sm tabular-nums ${idle ? 'text-neutral-300' : 'text-neutral-600'}`}>
                                         £{fmt(row.contributions, 0)}
                                     </td>
-                                    <td className={`py-3 pl-3 pr-5 text-right text-sm font-bold tabular-nums ${idle ? 'text-neutral-300' : 'text-neutral-900'}`}>
+                                    {plans.map((p) => {
+                                        const saved = row.perPlanCumulative.get(p._id) ?? 0
+                                        return (
+                                            <td
+                                                key={p._id}
+                                                title={`${p.name}: £${fmt(row.perPlan.get(p._id) ?? 0, 0)} this year`}
+                                                className={`py-3 px-3 text-right text-sm tabular-nums ${saved === 0 ? 'text-neutral-300' : 'text-neutral-600'}`}
+                                            >
+                                                £{fmt(saved, 0)}
+                                            </td>
+                                        )
+                                    })}
+                                    <td className={`py-3 pl-3 pr-5 text-right text-sm font-bold tabular-nums ${idle && row.cumulative === 0 ? 'text-neutral-300' : 'text-neutral-900'}`}>
                                         £{fmt(row.cumulative, 0)}
                                     </td>
                                 </tr>
