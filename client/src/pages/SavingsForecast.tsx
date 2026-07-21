@@ -1202,8 +1202,6 @@ interface FinishEvent extends OutlookEventBase {
     kind: 'finish'
     /** Everything put in across ALL selected plans from now through this month. */
     contributedByThen: number
-    /** Combined value of every pot finished by this month (incl. this one). */
-    potsCompleted: number
     /** Combined monthly saving in this plan's final month. */
     monthlyBefore: number
 }
@@ -1235,9 +1233,6 @@ function buildTimelineEvents(plans: SavingsTarget[], now: string): OutlookEvent[
             month: p.targetMonth,
             monthsAway: monthsUntil(now, p.targetMonth),
             contributedByThen: contributed,
-            potsCompleted: byFinish
-                .filter((q) => q.targetMonth <= p.targetMonth)
-                .reduce((s, q) => s + q.targetAmount, 0),
             monthlyBefore: combined(p.targetMonth),
             monthlyAfter: combined(addMonths(p.targetMonth, 1)),
         })
@@ -1263,7 +1258,6 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
 
     const currentMonthly = plans.reduce((s, p) => s + planMonthlyFor(p, now), 0)
     const totalContributions = rows.reduce((s, r) => s + r.contributions, 0)
-    const combinedPots = plans.reduce((s, p) => s + p.targetAmount, 0)
 
     // Timeline geometry: month index 0 = this month.
     const bars = plans.map((p) => {
@@ -1277,6 +1271,8 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
             end,
             visible: rawEnd >= 0 && rawStart <= totalMonths - 1,
             endedBeforeNow: rawEnd < 0,
+            // The plan runs past the right edge of this horizon.
+            runsBeyondHorizon: rawEnd > totalMonths - 1,
         }
     })
 
@@ -1313,7 +1309,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
             </div>
 
             {/* Headline stats */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
                 <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                         Saving this month
@@ -1345,33 +1341,51 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                         £{fmt(totalContributions, 0)}
                     </p>
                 </div>
-                <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                        Combined plan pots
-                    </p>
-                    <p className="text-2xl font-bold tabular-nums tracking-tight">
-                        {fmtCompact(combinedPots)}
-                    </p>
-                    <p className="text-xs text-neutral-500">each pot at its own end date</p>
-                </div>
             </div>
 
             {/* Timeline */}
             <div className="mt-4 rounded-3xl border border-neutral-200 bg-white p-6">
                 <div className="flex flex-col gap-3">
-                    {bars.map(({ plan, start, end, visible, endedBeforeNow }) => {
+                    {bars.map(({ plan, start, end, visible, endedBeforeNow, runsBeyondHorizon }) => {
                         const color = colorFor.get(plan._id) ?? PLAN_BAR_COLORS[0]
                         const span = end - start + 1
-                        const wideEnough = span / totalMonths >= 0.18
+                        // Full plan length, start month through target month inclusive.
+                        const durationMonths = monthsUntil(plan.startMonth, plan.targetMonth) + 1
+                        // Label the bar with as much as its width can carry: monthly
+                        // amount + duration, then monthly only, then a bare month count.
+                        const frac = span / totalMonths
+                        const monthlyLabel =
+                            plan.requiredMonthly > 0
+                                ? `£${fmt(plan.requiredMonthly, 0)} / month`
+                                : ''
+                        const durationLabel = `${durationMonths} ${mo(durationMonths)}`
+                        const barLabel =
+                            frac >= 0.3
+                                ? [monthlyLabel, durationLabel].filter(Boolean).join(' · ')
+                                : frac >= 0.18
+                                  ? monthlyLabel || durationLabel
+                                  : frac >= 0.08
+                                    ? `${durationMonths} mo`
+                                    : ''
                         return (
                             <div key={plan._id} className="flex items-center gap-3">
-                                <div className="flex w-36 shrink-0 items-center gap-2">
-                                    <span
-                                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`}
-                                    />
-                                    <span className="truncate text-xs font-semibold text-neutral-700">
-                                        {plan.name}
-                                    </span>
+                                <div className="w-40 shrink-0">
+                                    <div className="flex items-center gap-2">
+                                        <span
+                                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`}
+                                        />
+                                        <span className="truncate text-xs font-semibold text-neutral-700">
+                                            {plan.name}
+                                        </span>
+                                    </div>
+                                    <p className="ml-[18px] text-[11px] text-neutral-400 tabular-nums">
+                                        {plan.onTrack || plan.requiredMonthly <= 0
+                                            ? 'nothing to save monthly'
+                                            : `save £${fmt(plan.requiredMonthly, 0)} / month`}
+                                    </p>
+                                    <p className="ml-[18px] text-[11px] text-neutral-400 tabular-nums">
+                                        {durationMonths} {mo(durationMonths)} start to finish
+                                    </p>
                                 </div>
                                 <div className="relative h-7 flex-1 overflow-hidden rounded-lg bg-neutral-50">
                                     {Array.from({ length: horizon - 1 }, (_, i) => (
@@ -1385,17 +1399,23 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                     ))}
                                     {visible ? (
                                         <div
-                                            className={`absolute inset-y-1 flex items-center justify-center rounded-md ${color}`}
+                                            className={`absolute inset-y-1 flex items-center justify-center rounded-md ${color} ${runsBeyondHorizon ? 'rounded-r-none' : ''}`}
                                             style={{
                                                 left: `${(start / totalMonths) * 100}%`,
                                                 width: `${(span / totalMonths) * 100}%`,
                                             }}
-                                            title={`${monthLabelShort(plan.startMonth)} – ${monthLabelShort(plan.targetMonth)} · £${fmt(plan.requiredMonthly)} / month`}
+                                            title={`${monthLabelShort(plan.startMonth)} – ${monthLabelShort(plan.targetMonth)} · ${durationMonths} ${mo(durationMonths)} · £${fmt(plan.requiredMonthly)} / month${runsBeyondHorizon ? ' · continues past this horizon' : ''}`}
                                         >
-                                            {wideEnough && plan.requiredMonthly > 0 && (
+                                            {barLabel && (
                                                 <span className="truncate px-2 text-[10px] font-bold tabular-nums text-white">
-                                                    £{fmt(plan.requiredMonthly, 0)}/mo
+                                                    {barLabel}
                                                 </span>
+                                            )}
+                                            {runsBeyondHorizon && (
+                                                <i
+                                                    className="fa-solid fa-angles-right absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-white/80"
+                                                    aria-hidden="true"
+                                                />
                                             )}
                                         </div>
                                     ) : (
@@ -1406,11 +1426,19 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                         </span>
                                     )}
                                 </div>
+                                <div className="w-24 shrink-0 text-right">
+                                    <p className="text-xs font-bold tabular-nums text-neutral-900">
+                                        £{fmt(plan.targetAmount, 0)}
+                                    </p>
+                                    <p className="text-[10px] text-neutral-400">
+                                        in this pot
+                                    </p>
+                                </div>
                             </div>
                         )
                     })}
                     <div className="flex items-center gap-3">
-                        <div className="w-36 shrink-0" />
+                        <div className="w-40 shrink-0" />
                         <div className="flex flex-1">
                             {Array.from({ length: horizon }, (_, i) => (
                                 <div
@@ -1421,6 +1449,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                 </div>
                             ))}
                         </div>
+                        <div className="w-24 shrink-0" />
                     </div>
                 </div>
             </div>
@@ -1523,7 +1552,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                             <span className="font-semibold text-neutral-900">
                                                 {ev.plan.name}
                                             </span>{' '}
-                                            done — worth £{fmt(ev.plan.targetAmount, 0)}
+                                            done
                                         </p>
                                         <p className="mt-0.5 text-xs text-neutral-400 tabular-nums">
                                             £{fmt(ev.contributedByThen, 0)} put in across all plans
@@ -1533,13 +1562,13 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                     </div>
                                     <div className="shrink-0 text-right">
                                         <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                                            You'll have
+                                            This pot
                                         </p>
                                         <p className="text-lg font-bold tabular-nums tracking-tight text-neutral-900">
-                                            £{fmt(ev.potsCompleted, 0)}
+                                            £{fmt(ev.plan.targetAmount, 0)}
                                         </p>
                                         <p className="text-[11px] text-neutral-400">
-                                            in finished pots
+                                            ready to spend
                                         </p>
                                     </div>
                                 </div>

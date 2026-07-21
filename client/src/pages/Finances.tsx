@@ -23,6 +23,7 @@ import {
     deletePot,
     type AddScope,
 } from '../services/finances'
+import { listSavingsTargets } from '../services/savingsTargets'
 import {
     addMonths,
     rowVisibleInMonth,
@@ -39,7 +40,7 @@ import { useAuth } from '../context/AuthContext'
 import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
 import AmountScopeDialog from '../components/finance/AmountScopeDialog'
 import Tabs from '../components/Tabs'
-import type { FinanceGroup, FinancePot, FinanceRow, FinanceEntry } from '../types'
+import type { FinanceGroup, FinancePot, FinanceRow, FinanceEntry, SavingsTarget } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -536,6 +537,7 @@ export default function Finances() {
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [pots, setPots] = useState<FinancePot[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
+    const [savingsTargets, setSavingsTargets] = useState<SavingsTarget[]>([])
     const [loading, setLoading] = useState(true)
     const [paidRows, setPaidRows] = useState<Set<string>>(new Set())
 
@@ -581,6 +583,10 @@ export default function Finances() {
                 setPots(p)
             })
             .finally(() => active && setLoading(false))
+        // Advisory only — the sheet still works if plans fail to load.
+        listSavingsTargets()
+            .then((t) => active && setSavingsTargets(t))
+            .catch(() => {})
         return () => {
             active = false
         }
@@ -640,6 +646,22 @@ export default function Finances() {
         .reduce((sum, g) => sum + groupTotal(g), 0)
 
     const net = totalIncome - totalExpense - totalSavings
+
+    // Savings plans (from the Forecast target planner) that expect a
+    // contribution in the viewed month. Drives the advisory banner below.
+    const activePlans = savingsTargets.filter(
+        (t) =>
+            !t.onTrack &&
+            t.requiredMonthly > 0 &&
+            t.startMonth <= month &&
+            month <= t.targetMonth
+    )
+    const plannedSavings = activePlans.reduce((s, t) => s + t.requiredMonthly, 0)
+    // requiredMonthly is a solved division, so it's almost always fractional.
+    // Only warn when the gap survives whole-pound rounding — otherwise a 30p
+    // gap shows an amber "£0 short".
+    const savingsShortfall = plannedSavings - totalSavings
+    const savingsShort = savingsShortfall >= 0.5
 
     function togglePaid(rowId: string) {
         setPaidRows((prev) => {
@@ -1002,6 +1024,85 @@ export default function Finances() {
                     </div>
                 )
             })()}
+
+            {/* Savings plan advisory — what your saved plans expect this month */}
+            {activePlans.length > 0 && (
+                <div
+                    className={[
+                        'mb-8 rounded-2xl border px-5 py-4',
+                        savingsShort
+                            ? 'border-amber-200 bg-amber-50'
+                            : 'border-neutral-200 bg-white',
+                    ].join(' ')}
+                >
+                    <div className="flex items-start gap-3">
+                        <i
+                            className={[
+                                'fa-solid mt-0.5 text-sm',
+                                savingsShort
+                                    ? 'fa-triangle-exclamation text-amber-500'
+                                    : 'fa-piggy-bank text-neutral-400',
+                            ].join(' ')}
+                            aria-hidden="true"
+                        />
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-neutral-900 tabular-nums">
+                                {activePlans.length === 1 ? (
+                                    <>
+                                        According to your savings plan{' '}
+                                        <span className="font-bold">{activePlans[0].name}</span>,
+                                        you should be saving £{formatAmount(plannedSavings, 0)} this
+                                        month.
+                                    </>
+                                ) : (
+                                    <>
+                                        According to your {activePlans.length} savings plans, you
+                                        should be saving £{formatAmount(plannedSavings, 0)} this
+                                        month.
+                                    </>
+                                )}
+                            </p>
+                            <p className="mt-0.5 text-xs text-neutral-500 tabular-nums">
+                                {savingsShort ? (
+                                    <>
+                                        This sheet has £{formatAmount(totalSavings, 0)} of savings —
+                                        £{formatAmount(savingsShortfall, 0)} short of the plan.
+                                    </>
+                                ) : (
+                                    <>
+                                        Covered — this sheet already has £
+                                        {formatAmount(totalSavings, 0)} of savings.
+                                    </>
+                                )}
+                            </p>
+                            {activePlans.length > 1 && (
+                                <ul className="mt-3 flex flex-col gap-1.5 border-t border-neutral-950/5 pt-3">
+                                    {activePlans.map((t) => (
+                                        <li
+                                            key={t._id}
+                                            className="flex items-baseline justify-between gap-4 text-xs"
+                                        >
+                                            <span className="truncate font-semibold text-neutral-700">
+                                                {t.name}
+                                            </span>
+                                            <span className="shrink-0 tabular-nums text-neutral-500">
+                                                £{formatAmount(t.requiredMonthly, 0)} / month
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => navigate('/finances/forecast')}
+                            className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-950/5 hover:text-neutral-900"
+                        >
+                            View plans
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Add group form */}
             {addingGroup && (
