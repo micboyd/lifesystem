@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import Modal from '../components/Modal'
 import Drawer from '../components/Drawer'
 import Button from '../components/Button'
+import Badge from '../components/Badge'
+import { Card } from '../components/Card'
 import {
     listRows,
     listGroups,
@@ -126,6 +128,15 @@ function formatDayHeader(date: string): string {
     const weekday = d.toLocaleDateString('en-GB', { weekday: 'long' })
     const month = d.toLocaleDateString('en-GB', { month: 'long' })
     return `${weekday} ${ordinal(d.getDate())} of ${month}`
+}
+
+/** e.g. "Sat 19 Jul" — compact, human-readable date for list rows and captions. */
+function formatShortDate(date: string): string {
+    return new Date(`${date}T00:00:00`).toLocaleDateString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+    })
 }
 
 interface DayGroup {
@@ -616,7 +627,7 @@ function ReconcileDrawer({
     function renderUnrecorded(e: ExplainedMovement, key: string) {
         const m = e.movement
         const info = MOVEMENT_INFO[m.reason]
-        const note = `${info.label}${m.counterPartyName ? ` — ${m.counterPartyName}` : ''} · ${m.date}`
+        const note = `${info.label}${m.counterPartyName ? ` — ${m.counterPartyName}` : ''} · ${formatShortDate(m.date)}`
         // A refund restores money the budget already counted as spent, so
         // top-up (budget + cash) is the natural fix; a plain transfer in is
         // usually day-off cover, so refill (cash only) comes first.
@@ -634,7 +645,7 @@ function ReconcileDrawer({
                         <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-neutral-800">{info.label}</p>
                             <p className="text-xs text-neutral-400">
-                                {m.date}
+                                {formatShortDate(m.date)}
                                 {m.counterPartyName ? ` · ${m.counterPartyName}` : ''}
                             </p>
                         </div>
@@ -724,7 +735,7 @@ function ReconcileDrawer({
                         {diagnosis.ghostRecords.map((t) => (
                             <div key={t._id} className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
                                 You recorded a £{fmt(t.amount)} {t.kind === 'refill' ? 'refill' : 'top-up'} on{' '}
-                                {t.date}
+                                {formatShortDate(t.date)}
                                 {t.note ? ` (“${t.note}”)` : ''} but no matching transfer reached the
                                 space — make the transfer, or delete the record from the budget card.
                             </div>
@@ -789,7 +800,7 @@ function ReconcileDrawer({
                                         <p className="truncate text-sm font-semibold text-neutral-800">
                                             {s.note || row.name}
                                         </p>
-                                        <p className="text-xs text-neutral-400">{s.date}</p>
+                                        <p className="text-xs text-neutral-400">{formatShortDate(s.date)}</p>
                                     </div>
                                     <span className="shrink-0 text-sm tabular-nums text-neutral-700">
                                         -£{fmt(s.amount)}
@@ -816,7 +827,7 @@ function ReconcileDrawer({
                                         <p className="truncate text-sm font-semibold text-sky-800">
                                             {t.note || 'Refill'}
                                         </p>
-                                        <p className="text-xs text-sky-600/70">{t.date}</p>
+                                        <p className="text-xs text-sky-600/70">{formatShortDate(t.date)}</p>
                                     </div>
                                     <span className="shrink-0 text-sm font-semibold tabular-nums text-sky-700">
                                         +£{fmt(t.amount)}
@@ -879,7 +890,7 @@ function ReconcileDrawer({
                                                         {info.label}
                                                     </p>
                                                     <p className="text-xs text-neutral-400">
-                                                        {m.date}
+                                                        {formatShortDate(m.date)}
                                                         {m.counterPartyName ? ` · ${m.counterPartyName}` : ''}
                                                     </p>
                                                 </div>
@@ -931,7 +942,7 @@ function RemovedTransactionsDrawer({
                                     {x.note || 'Transaction'}
                                 </p>
                                 <p className="text-xs text-neutral-400">
-                                    {x.date} · £{fmt(x.amount)}
+                                    {formatShortDate(x.date)} · £{fmt(x.amount)}
                                 </p>
                                 <p className="mt-0.5 text-xs text-neutral-400">
                                     {x.reason === 'deleted'
@@ -1068,6 +1079,108 @@ interface BudgetCardProps {
     onDeleteTopUp: (id: string) => Promise<void>
 }
 
+// ── Allowance hero ────────────────────────────────────────────────────────────
+
+interface AllowanceHeroProps {
+    /** e.g. "This week". */
+    periodLabel: string
+    /** Formatted date range, e.g. "Sat 19 – Fri 25 Jul". */
+    rangeLabel: string
+    allowance: number
+    remaining: number
+    spent: number
+    /** Optional footnote under the bar — carry line, daily rate, etc. */
+    subline?: ReactNode
+}
+
+/**
+ * The dark "what's left to spend" panel shared by weekly and daily budgets.
+ * Leads with the remaining figure — the number the user actually acts on — and
+ * relegates the allowance and spend-to-date to a progress bar beneath it.
+ */
+function AllowanceHero({ periodLabel, rangeLabel, allowance, remaining, spent, subline }: AllowanceHeroProps) {
+    const over = remaining < -RECONCILE_EPSILON
+    const pct = Math.min(100, (spent / (allowance || 1)) * 100)
+    return (
+        <div className="rounded-2xl bg-neutral-950 p-5 text-white">
+            <div className="flex items-center justify-between gap-3">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                    {periodLabel}
+                </span>
+                <span className="text-[11px] font-medium tabular-nums text-neutral-400">{rangeLabel}</span>
+            </div>
+
+            <div className="mt-3 flex items-baseline gap-2">
+                <p className={['text-4xl font-bold tabular-nums tracking-tight', over ? 'text-red-400' : 'text-white'].join(' ')}>
+                    £{fmt(Math.abs(remaining))}
+                </p>
+                <span className="text-sm font-medium text-neutral-400">{over ? 'over budget' : 'left to spend'}</span>
+            </div>
+
+            <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                <div
+                    className={['h-full rounded-full transition-all duration-500', over ? 'bg-red-400' : 'bg-emerald-400'].join(' ')}
+                    style={{ width: `${pct}%` }}
+                />
+            </div>
+            <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-400">
+                <span>£{fmt(spent)} spent</span>
+                <span>of £{fmt(allowance)}</span>
+            </div>
+
+            {subline && <div className="mt-3 text-xs font-medium">{subline}</div>}
+        </div>
+    )
+}
+
+/** A credit/planned-spend list row with a formatted date and optional delete. */
+interface LedgerRowProps {
+    title: string
+    date: string
+    /** Extra caption after the date, e.g. "into space, not budget". */
+    caption?: string
+    amount: number
+    /** '+' for credits, '' for plain amounts. */
+    sign?: '+' | ''
+    tone?: 'emerald' | 'sky' | 'neutral'
+    onDelete?: () => void
+    deleteLabel?: string
+}
+
+function LedgerRow({ title, date, caption, amount, sign = '', tone = 'neutral', onDelete, deleteLabel }: LedgerRowProps) {
+    const toneMap = {
+        emerald: { border: 'border-emerald-100 bg-emerald-50/60', title: 'text-emerald-800', sub: 'text-emerald-600/70', amt: 'text-emerald-700', del: 'text-emerald-400 hover:bg-emerald-100 hover:text-emerald-700' },
+        sky: { border: 'border-sky-100 bg-sky-50/60', title: 'text-sky-800', sub: 'text-sky-600/70', amt: 'text-sky-700', del: 'text-sky-400 hover:bg-sky-100 hover:text-sky-700' },
+        neutral: { border: 'border-neutral-100', title: 'text-neutral-800', sub: 'text-neutral-400', amt: 'text-neutral-700', del: 'text-neutral-400 hover:bg-red-50 hover:text-red-500' },
+    }[tone]
+    return (
+        <li className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${toneMap.border}`}>
+            <div className="min-w-0">
+                <p className={`truncate text-sm font-semibold ${toneMap.title}`}>{title}</p>
+                <p className={`text-xs ${toneMap.sub}`}>
+                    {formatShortDate(date)}
+                    {caption ? ` · ${caption}` : ''}
+                </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+                <span className={`text-sm font-semibold tabular-nums ${toneMap.amt}`}>
+                    {sign}£{fmt(amount)}
+                </span>
+                {onDelete && (
+                    <button
+                        type="button"
+                        onClick={onDelete}
+                        aria-label={deleteLabel ?? 'Remove'}
+                        className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${toneMap.del}`}
+                    >
+                        <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                    </button>
+                )}
+            </div>
+        </li>
+    )
+}
+
 function BudgetCard({
     row, group, entry, spends, topUps, excludedDates,
     weekStart, weekEnd, isCurrentWeek, isFutureWeek,
@@ -1152,28 +1265,65 @@ function BudgetCard({
         .filter((s) => s.date === today && !excludedDates.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
 
-    // Week date range label e.g. "1–5 Jul"
+    // Week date range label e.g. "Sat 19 – Fri 25 Jul" (weekday-prefixed, readable).
     const rangeLabel = (() => {
         const s = new Date(`${weekStart}T00:00:00`)
         const e = new Date(`${weekEnd}T00:00:00`)
         const sameMonth = weekStart.slice(0, 7) === weekEnd.slice(0, 7)
-        const startStr = s.toLocaleDateString('en-GB', { day: 'numeric', month: sameMonth ? undefined : 'short' })
-        const endStr = e.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-        return `${startStr}–${endStr}`
+        const startStr = s.toLocaleDateString('en-GB', {
+            weekday: 'short',
+            day: 'numeric',
+            month: sameMonth ? undefined : 'short',
+        })
+        const endStr = e.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+        return `${startStr} – ${endStr}`
     })()
 
+    // Unified tracking view — weekly and daily now feed one hero, removing the
+    // near-identical dark blocks. null when tracking is off.
+    const trackingView: { allowance: number; remaining: number; spent: number; subline?: ReactNode } | null =
+        isWeeklySpend && weeklyBudget
+            ? {
+                  allowance: weeklyAllowance,
+                  remaining: weeklyBudget.remaining,
+                  spent: weeklyBudget.spentThisWeek,
+                  subline:
+                      weeklyBudget.carry !== 0 ? (
+                          <span className={weeklyBudget.carry >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                              {weeklyBudget.carry >= 0
+                                  ? `+£${fmt(weeklyBudget.carry)} carried from earlier weeks`
+                                  : `−£${fmt(Math.abs(weeklyBudget.carry))} deficit from earlier weeks`}
+                          </span>
+                      ) : undefined,
+              }
+            : isDailySpend
+              ? {
+                    allowance: weekTargetDaily,
+                    remaining: weekRemainingDaily,
+                    spent: weekSpentDaily,
+                    subline: (
+                        <span className="text-neutral-500">
+                            £{fmt(dailyRate)}/day · {activeDaysInWeek} active day{activeDaysInWeek !== 1 ? 's' : ''}
+                        </span>
+                    ),
+                }
+              : null
+
+    const plannedSpends = isFutureWeek
+        ? spends.filter((s) => s.date >= weekStart && s.date <= weekEnd)
+        : []
+    const isTracking = isWeeklySpend || isDailySpend
+
     return (
-        <div className="group flex flex-col gap-6 rounded-3xl border border-neutral-200 bg-white p-6 transition-colors duration-200 hover:border-neutral-300">
-            {/* Header */}
+        <Card as="article" hover={false} className="flex h-full flex-col gap-5">
+            {/* Header — category, name, and the monthly figure with its status */}
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                    <span className={['inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider', isIncome ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'].join(' ')}>
-                        {group.name}
-                    </span>
+                    <Badge variant={isIncome ? 'success' : 'danger'}>{group.name}</Badge>
                     <p className="mt-2 truncate text-lg font-bold tracking-tight text-neutral-900">{row.name}</p>
                 </div>
                 <div className="shrink-0 text-right">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Monthly</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Monthly budget</p>
                     <p className="mt-0.5 text-xl font-bold tabular-nums tracking-tight text-neutral-900">
                         {effectiveMonthlyAmount > 0 ? `£${fmt(effectiveMonthlyAmount)}` : '—'}
                     </p>
@@ -1209,6 +1359,56 @@ function BudgetCard({
                     )}
                 </div>
             </div>
+
+            {/* Allowance hero + spend logging — the primary action area */}
+            {trackingView && (
+                <div className="flex flex-col gap-3">
+                    <AllowanceHero
+                        periodLabel="This week"
+                        rangeLabel={rangeLabel}
+                        allowance={trackingView.allowance}
+                        remaining={trackingView.remaining}
+                        spent={trackingView.spent}
+                        subline={trackingView.subline}
+                    />
+
+                    {trackingView.remaining < -RECONCILE_EPSILON && (
+                        <div className="flex items-center gap-2.5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                            <i className="fa-solid fa-triangle-exclamation text-xs" aria-hidden="true" />
+                            £{fmt(Math.abs(trackingView.remaining))} over your weekly budget
+                        </div>
+                    )}
+
+                    {plannedSpends.length > 0 && (
+                        <div className="flex flex-col gap-1.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                                Planned this week
+                            </p>
+                            <ul className="flex flex-col gap-1.5">
+                                {plannedSpends.map((t) => (
+                                    <LedgerRow
+                                        key={t._id}
+                                        title={t.note || row.name}
+                                        date={t.date}
+                                        amount={t.amount}
+                                        onDelete={() => onDeleteSpend(t._id)}
+                                        deleteLabel="Delete planned transaction"
+                                    />
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {(isCurrentWeek || isFutureWeek) && (
+                        <SpendInput
+                            spentToday={isFutureWeek ? 0 : spentToday}
+                            hasLogged={false}
+                            label={isFutureWeek ? 'Plan a spend' : undefined}
+                            onAdd={(a, n) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today, n)}
+                        />
+                    )}
+                </div>
+            )}
 
             {/* Day-off spending notice — spends on excluded days skip this budget and
                 count toward the day-off pot, but still leave the linked space.
@@ -1268,40 +1468,17 @@ function BudgetCard({
                             {topUps.map((t) => {
                                 const isRefill = t.kind === 'refill'
                                 return (
-                                    <li
+                                    <LedgerRow
                                         key={t._id}
-                                        className={[
-                                            'flex items-center justify-between gap-3 rounded-xl border px-3 py-2',
-                                            isRefill ? 'border-sky-100 bg-sky-50/60' : 'border-emerald-100 bg-emerald-50/60',
-                                        ].join(' ')}
-                                    >
-                                        <div className="min-w-0">
-                                            <p className={`truncate text-sm font-semibold ${isRefill ? 'text-sky-800' : 'text-emerald-800'}`}>
-                                                {t.note || (isRefill ? 'Refill from day-off pot' : 'Top up')}
-                                            </p>
-                                            <p className={`text-xs ${isRefill ? 'text-sky-600/70' : 'text-emerald-600/70'}`}>
-                                                {t.date}{isRefill ? ' · into space, not budget' : ''}
-                                            </p>
-                                        </div>
-                                        <div className="flex shrink-0 items-center gap-2">
-                                            <span className={`text-sm font-semibold tabular-nums ${isRefill ? 'text-sky-700' : 'text-emerald-700'}`}>
-                                                +£{fmt(t.amount)}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                onClick={() => onDeleteTopUp(t._id)}
-                                                aria-label={isRefill ? 'Remove refill' : 'Remove top-up'}
-                                                className={[
-                                                    'grid h-7 w-7 place-items-center rounded-full transition-colors',
-                                                    isRefill
-                                                        ? 'text-sky-400 hover:bg-sky-100 hover:text-sky-700'
-                                                        : 'text-emerald-400 hover:bg-emerald-100 hover:text-emerald-700',
-                                                ].join(' ')}
-                                            >
-                                                <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                                            </button>
-                                        </div>
-                                    </li>
+                                        title={t.note || (isRefill ? 'Refill from day-off pot' : 'Top up')}
+                                        date={t.date}
+                                        caption={isRefill ? 'into space, not budget' : undefined}
+                                        amount={t.amount}
+                                        sign="+"
+                                        tone={isRefill ? 'sky' : 'emerald'}
+                                        onDelete={() => onDeleteTopUp(t._id)}
+                                        deleteLabel={isRefill ? 'Remove refill' : 'Remove top-up'}
+                                    />
                                 )
                             })}
                         </ul>
@@ -1309,235 +1486,65 @@ function BudgetCard({
                 </div>
             )}
 
-            {/* Weekly tracking — week slice */}
-            {isWeeklySpend && weeklyBudget && (
-                <>
-                    <div className="rounded-2xl bg-neutral-950 p-5 text-white">
-                        <div className="flex items-end justify-between gap-4">
-                            <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                                    Week allowance
-                                </p>
-                                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
-                                    £{fmt(weeklyAllowance)}
-                                </p>
-                                <p className="mt-0.5 text-[10px] text-neutral-500">{rangeLabel}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                                    Remaining
-                                </p>
-                                <p className={['mt-1 text-xl font-bold tabular-nums', weeklyBudget.remaining >= 0 ? 'text-emerald-400' : 'text-red-400'].join(' ')}>
-                                    £{fmt(Math.abs(weeklyBudget.remaining))}
-                                    {weeklyBudget.remaining < 0 && <span className="ml-1 text-xs font-normal">over</span>}
-                                </p>
-                            </div>
-                        </div>
+            {/* Footer — secondary actions, separated from the money views above */}
+            <div className="mt-auto flex flex-col gap-3 border-t border-neutral-100 pt-4">
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => onOpenTransactions(row)}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200"
+                    >
+                        <i className="fa-solid fa-receipt text-[10px]" aria-hidden="true" />
+                        Transactions
+                    </button>
 
-                        <div className="mt-4">
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                                <div
-                                    className={['h-full rounded-full transition-all duration-300', weeklyBudget.remaining >= 0 ? 'bg-emerald-400' : 'bg-red-400'].join(' ')}
-                                    style={{ width: `${Math.min(100, (weeklyBudget.spentThisWeek / (weeklyAllowance || 1)) * 100)}%` }}
-                                />
-                            </div>
-                            <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-400">
-                                <span>£{fmt(weeklyBudget.spentThisWeek)} spent</span>
-                                <span>£{fmt(weeklyAllowance)}</span>
-                            </div>
-                        </div>
-
-                        {weeklyBudget.carry !== 0 && (
-                            <p className={['mt-3 text-xs font-medium', weeklyBudget.carry >= 0 ? 'text-emerald-400' : 'text-red-400'].join(' ')}>
-                                {weeklyBudget.carry >= 0
-                                    ? `+£${fmt(weeklyBudget.carry)} carry from previous weeks`
-                                    : `-£${fmt(Math.abs(weeklyBudget.carry))} deficit from previous weeks`}
-                            </p>
-                        )}
-                    </div>
-
-                    {weeklyBudget.remaining < -0.005 && (
-                        <div className="flex items-center gap-2.5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-                            <i className="fa-solid fa-triangle-exclamation text-xs" aria-hidden="true" />
-                            Over weekly budget by £{fmt(Math.abs(weeklyBudget.remaining))}
-                        </div>
-                    )}
-
-                    {isFutureWeek && spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).length > 0 && (
-                        <ul className="flex flex-col gap-1.5">
-                            {spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).map((t) => (
-                                <li key={t._id} className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3 py-2">
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-semibold text-neutral-800">{t.note || row.name}</p>
-                                        <p className="text-xs text-neutral-400">{t.date}</p>
-                                    </div>
-                                    <div className="flex shrink-0 items-center gap-2">
-                                        <span className="text-sm tabular-nums text-neutral-700">£{fmt(t.amount)}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => onDeleteSpend(t._id)}
-                                            aria-label="Delete planned transaction"
-                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                                        >
-                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                                        </button>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                    {(isCurrentWeek || isFutureWeek) && (
-                        <SpendInput
-                            spentToday={isFutureWeek ? 0 : spentToday}
-                            hasLogged={false}
-                            label={isFutureWeek ? 'Plan a spend' : undefined}
-                            onAdd={(a, n) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today, n)}
-                        />
-                    )}
-                </>
-            )}
-
-            {/* Daily tracking — week slice */}
-            {isDailySpend && (
-                <>
-                    <div className="rounded-2xl bg-neutral-950 p-5 text-white">
-                        <div className="flex items-end justify-between gap-4">
-                            <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                                    Week allowance
-                                </p>
-                                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
-                                    £{fmt(weekTargetDaily)}
-                                </p>
-                                <p className="mt-0.5 text-[10px] text-neutral-500">{rangeLabel}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                                    Remaining
-                                </p>
-                                <p className={['mt-1 text-xl font-bold tabular-nums', weekRemainingDaily >= 0 ? 'text-emerald-400' : 'text-red-400'].join(' ')}>
-                                    £{fmt(Math.abs(weekRemainingDaily))}
-                                    {weekRemainingDaily < 0 && <span className="ml-1 text-xs font-normal">over</span>}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mt-4">
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                                <div
-                                    className={['h-full rounded-full transition-all duration-300', weekRemainingDaily >= 0 ? 'bg-emerald-400' : 'bg-red-400'].join(' ')}
-                                    style={{ width: `${Math.min(100, (weekSpentDaily / (weekTargetDaily || 1)) * 100)}%` }}
-                                />
-                            </div>
-                            <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-400">
-                                <span>£{fmt(weekSpentDaily)} spent</span>
-                                <span>£{fmt(weekTargetDaily)}</span>
-                            </div>
-                        </div>
-
-                        <p className="mt-2 text-[10px] text-neutral-500">
-                            £{fmt(dailyRate)}/day · {activeDaysInWeek} active day{activeDaysInWeek !== 1 ? 's' : ''}
-                        </p>
-                    </div>
-
-                    {weekRemainingDaily < -0.005 && (
-                        <div className="flex items-center gap-2.5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-                            <i className="fa-solid fa-triangle-exclamation text-xs" aria-hidden="true" />
-                            Over week budget by £{fmt(Math.abs(weekRemainingDaily))}
-                        </div>
-                    )}
-
-                    {isFutureWeek && spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).length > 0 && (
-                        <ul className="flex flex-col gap-1.5">
-                            {spends.filter((s) => s.date >= weekStart && s.date <= weekEnd).map((t) => (
-                                <li key={t._id} className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3 py-2">
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-semibold text-neutral-800">{t.note || row.name}</p>
-                                        <p className="text-xs text-neutral-400">{t.date}</p>
-                                    </div>
-                                    <div className="flex shrink-0 items-center gap-2">
-                                        <span className="text-sm tabular-nums text-neutral-700">£{fmt(t.amount)}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => onDeleteSpend(t._id)}
-                                            aria-label="Delete planned transaction"
-                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                                        >
-                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                                        </button>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                    {(isCurrentWeek || isFutureWeek) && (
-                        <SpendInput
-                            spentToday={isFutureWeek ? 0 : spentToday}
-                            hasLogged={false}
-                            label={isFutureWeek ? 'Plan a spend' : undefined}
-                            onAdd={(a, n) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today, n)}
-                        />
-                    )}
-                </>
-            )}
-
-            <div className="mt-auto flex flex-col gap-3">
-                {/* All this month's transactions, grouped by week */}
-                <button
-                    type="button"
-                    onClick={() => onOpenTransactions(row)}
-                    className="inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
-                >
-                    <i className="fa-solid fa-receipt text-[10px]" aria-hidden="true" />
-                    View all transactions
-                </button>
-
-                {/* Starling Space link — mirror card spending into this budget */}
-                {starlingEnabled && (
-                    isLinked ? (
-                        <div className="flex items-center gap-2">
+                    {/* Starling Space link — mirror card spending into this budget */}
+                    {starlingEnabled && (
+                        isLinked ? (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => onOpenLink(row)}
+                                    className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
+                                    title="Change or unlink the bank space"
+                                >
+                                    <i className="fa-solid fa-building-columns text-[10px]" aria-hidden="true" />
+                                    <span className="max-w-[8rem] truncate">{linkedSpace?.name ?? 'Linked space'}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onSync(row)}
+                                    disabled={syncing}
+                                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200 disabled:opacity-50"
+                                >
+                                    <i className={`fa-solid fa-arrows-rotate text-[10px] ${syncing ? 'animate-spin' : ''}`} aria-hidden="true" />
+                                    {syncing ? 'Syncing…' : 'Sync'}
+                                </button>
+                            </>
+                        ) : (
                             <button
                                 type="button"
                                 onClick={() => onOpenLink(row)}
-                                className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
-                                title="Change or unlink the bank space"
+                                className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
                             >
                                 <i className="fa-solid fa-building-columns text-[10px]" aria-hidden="true" />
-                                <span className="truncate">{linkedSpace?.name ?? 'Linked space'}</span>
+                                Link a bank space
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => onSync(row)}
-                                disabled={syncing}
-                                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200 disabled:opacity-50"
-                            >
-                                <i className={`fa-solid fa-arrows-rotate text-[10px] ${syncing ? 'animate-spin' : ''}`} aria-hidden="true" />
-                                {syncing ? 'Syncing…' : 'Sync'}
-                            </button>
-                        </div>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => onOpenLink(row)}
-                            className="inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
-                        >
-                            <i className="fa-solid fa-building-columns text-[10px]" aria-hidden="true" />
-                            Link a bank space
-                        </button>
-                    )
-                )}
+                        )
+                    )}
+                </div>
 
                 {/* Tracking toggle — cycles: off → weekly → daily → off */}
                 <button
                     type="button"
                     onClick={() => onToggleDailySpend(row)}
-                    className={['inline-flex items-center gap-2 self-start rounded-full px-4 py-2 text-xs font-semibold tracking-tight transition-all duration-150 active:scale-[0.97]', isWeeklySpend || isDailySpend ? 'bg-neutral-950 text-white hover:bg-neutral-800' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700'].join(' ')}
+                    className={['inline-flex items-center gap-2 self-start rounded-full px-4 py-2 text-xs font-semibold tracking-tight transition-all duration-150 active:scale-[0.97]', isTracking ? 'bg-neutral-950 text-white hover:bg-neutral-800' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700'].join(' ')}
                 >
-                    <i className={`fa-solid fa-${isWeeklySpend || isDailySpend ? 'check' : 'toggle-off'}`} aria-hidden="true" />
+                    <i className={`fa-solid fa-${isTracking ? 'check' : 'toggle-off'}`} aria-hidden="true" />
                     {isWeeklySpend ? 'Weekly tracking on' : isDailySpend ? 'Daily tracking on' : 'Enable tracking'}
                 </button>
             </div>
-        </div>
+        </Card>
     )
 }
 
