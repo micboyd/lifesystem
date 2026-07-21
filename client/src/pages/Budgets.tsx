@@ -24,7 +24,7 @@ import {
     deleteBudgetTopUp,
 } from '../services/finances'
 import { rowVisibleInMonth, recurringAmountForMonth } from '../lib/finance'
-import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange } from '../lib/budget'
+import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange, spendingTopUps, refillTotal } from '../lib/budget'
 import { formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
@@ -237,15 +237,42 @@ function SpendInput({ spentToday, hasLogged, label, onAdd }: SpendInputProps) {
 
 interface TopUpInputProps {
     onAdd: (amount: number, note?: string) => Promise<void>
+    /** 'topup' adds spendable budget; 'refill' records money moved back into the
+     * linked space (e.g. from the day-off pot) without raising the budget. */
+    variant?: 'topup' | 'refill'
+    /** Prefill for the amount field — for refills, the amount still owed. */
+    suggestedAmount?: number
 }
 
-/** Inline "add extra money to this budget" form — a credit, not a spend. Boosts
- * what's left from today onward without touching days already elapsed. */
-function TopUpInput({ onAdd }: TopUpInputProps) {
+const TOP_UP_VARIANTS = {
+    topup: {
+        pill: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
+        pillIcon: 'fa-plus',
+        pillLabel: 'Top up',
+        input: 'focus:border-emerald-500 focus:ring-emerald-500/10',
+        submit: 'bg-emerald-600 hover:bg-emerald-700',
+        notePlaceholder: 'Label (optional) — e.g. birthday money',
+    },
+    refill: {
+        pill: 'bg-sky-50 text-sky-700 hover:bg-sky-100',
+        pillIcon: 'fa-rotate-left',
+        pillLabel: 'Refill space',
+        input: 'focus:border-sky-500 focus:ring-sky-500/10',
+        submit: 'bg-sky-600 hover:bg-sky-700',
+        notePlaceholder: "Label (optional) — e.g. covering Saturday's day off",
+    },
+} as const
+
+/** Inline "add extra money" form — a credit, not a spend. The topup variant
+ * boosts what's left from today onward without touching days already elapsed;
+ * the refill variant squares the linked space after day-off spending without
+ * raising the budget. */
+function TopUpInput({ onAdd, variant = 'topup', suggestedAmount }: TopUpInputProps) {
     const [open, setOpen] = useState(false)
     const [draft, setDraft] = useState('')
     const [note, setNote] = useState('')
     const [saving, setSaving] = useState(false)
+    const styles = TOP_UP_VARIANTS[variant]
 
     async function submit(e: FormEvent) {
         e.preventDefault()
@@ -266,17 +293,20 @@ function TopUpInput({ onAdd }: TopUpInputProps) {
         return (
             <button
                 type="button"
-                onClick={() => setOpen(true)}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                onClick={() => {
+                    if (suggestedAmount && suggestedAmount > 0) setDraft(suggestedAmount.toFixed(2))
+                    setOpen(true)
+                }}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${styles.pill}`}
             >
-                <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
-                Top up
+                <i className={`fa-solid ${styles.pillIcon} text-[10px]`} aria-hidden="true" />
+                {styles.pillLabel}
             </button>
         )
     }
 
     return (
-        <form onSubmit={submit} className="flex flex-col gap-2">
+        <form onSubmit={submit} className="flex w-full flex-col gap-2">
             <div className="flex gap-2">
                 <div className="relative min-w-0 flex-1">
                     <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-400">£</span>
@@ -288,13 +318,13 @@ function TopUpInput({ onAdd }: TopUpInputProps) {
                         placeholder="0.00"
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
-                        className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10"
+                        className={`w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:outline-none focus:ring-4 ${styles.input}`}
                     />
                 </div>
                 <button
                     type="submit"
                     disabled={saving || draft.trim() === ''}
-                    className="shrink-0 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-semibold tracking-tight text-white transition-all duration-150 hover:bg-emerald-700 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
+                    className={`shrink-0 rounded-xl px-5 py-2.5 text-xs font-semibold tracking-tight text-white transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100 ${styles.submit}`}
                 >
                     {saving ? '…' : 'Add'}
                 </button>
@@ -309,11 +339,11 @@ function TopUpInput({ onAdd }: TopUpInputProps) {
             </div>
             <input
                 type="text"
-                placeholder="Label (optional) — e.g. birthday money"
+                placeholder={styles.notePlaceholder}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={200}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-neutral-300 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10"
+                className={`w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-neutral-300 transition-colors focus:outline-none focus:ring-4 ${styles.input}`}
             />
         </form>
     )
@@ -345,7 +375,8 @@ function MonthlyOverview({ rows, groups, entries, spends, topUps, excludedDates,
 
     const stats: MonthRowStat[] = rows.map((row) => {
         const entry = entries.find((e) => e.row === row._id)
-        const topUpTotal = topUps
+        // Refills square the bank space, not the budget, so they're left out here.
+        const topUpTotal = spendingTopUps(topUps)
             .filter((t) => t.row === row._id && t.date >= monthStart && t.date <= monthEnd)
             .reduce((sum, t) => sum + t.amount, 0)
         const budget = (entry?.amount ?? recurringAmountForMonth(row, month) ?? 0) + topUpTotal
@@ -532,6 +563,9 @@ interface ReconcileDrawerProps {
      * of any mismatch. Manual day-off logs are left out: they may not have been
      * paid from the space at all. */
     excludedDaySpends: BudgetSpend[]
+    /** Refills recorded this month — money put back into the space (e.g. from the
+     * day-off pot) that doesn't raise the budget. */
+    refills: BudgetTopUp[]
     fallbackBalance: number | undefined
     loading: boolean
     error: boolean
@@ -540,14 +574,17 @@ interface ReconcileDrawerProps {
 }
 
 function ReconcileDrawer({
-    row, monthlyRemaining, excludedDaySpends, fallbackBalance, loading, error, data, onClose,
+    row, monthlyRemaining, excludedDaySpends, refills, fallbackBalance, loading, error, data, onClose,
 }: ReconcileDrawerProps) {
     const balance = data?.balance ?? fallbackBalance ?? null
     const diff = balance !== null ? balance - monthlyRemaining : null
     const excludedTotal = excludedDaySpends.reduce((sum, s) => sum + s.amount, 0)
-    // Day-off spends lower the balance without touching the budget, so add them
-    // back to see what's left over once that known difference is accounted for.
-    const unexplained = diff !== null ? diff + excludedTotal : null
+    const refilledTotal = refills.reduce((sum, t) => sum + t.amount, 0)
+    // Day-off spends lower the balance without touching the budget, and refills
+    // raise it back without touching the budget either — net both off to see
+    // what's left over once those known differences are accounted for.
+    const unexplained = diff !== null ? diff + excludedTotal - refilledTotal : null
+    const refillOwed = Math.max(0, excludedTotal - refilledTotal)
 
     return (
         <Drawer open onClose={onClose} title={`"${row.name}" out of sync`} size="md">
@@ -583,10 +620,10 @@ function ReconcileDrawer({
                             ].join(' ')}
                         >
                             {Math.abs(unexplained) <= RECONCILE_EPSILON
-                                ? `The space is £${fmt(Math.abs(diff))} ${diff < 0 ? 'below' : 'above'} the budget figure, but all of that is day-off spending that left the space — nothing is actually adrift.`
+                                ? `The space is £${fmt(Math.abs(diff))} ${diff < 0 ? 'below' : 'above'} the budget figure, but all of that is day-off spending that left the space${refilledTotal > RECONCILE_EPSILON ? ' (less what you’ve refilled)' : ''} — nothing is actually adrift.`
                                 : unexplained > 0
-                                    ? `The space has £${fmt(unexplained)} more than the budget expects${excludedTotal > RECONCILE_EPSILON ? ` (after allowing for £${fmt(excludedTotal)} of day-off spending that left the space)` : ''}.`
-                                    : `The space has £${fmt(Math.abs(unexplained))} less than the budget expects${excludedTotal > RECONCILE_EPSILON ? ` (after allowing for £${fmt(excludedTotal)} of day-off spending that left the space)` : ''}.`}
+                                    ? `The space has £${fmt(unexplained)} more than the budget expects${excludedTotal > RECONCILE_EPSILON ? ` (after allowing for £${fmt(excludedTotal)} of day-off spending that left the space${refilledTotal > RECONCILE_EPSILON ? ` and £${fmt(refilledTotal)} refilled` : ''})` : ''}.`
+                                    : `The space has £${fmt(Math.abs(unexplained))} less than the budget expects${excludedTotal > RECONCILE_EPSILON ? ` (after allowing for £${fmt(excludedTotal)} of day-off spending that left the space${refilledTotal > RECONCILE_EPSILON ? ` and £${fmt(refilledTotal)} refilled` : ''})` : ''}.`}
                         </div>
                     )}
 
@@ -618,6 +655,43 @@ function ReconcileDrawer({
                                 </li>
                             ))}
                         </ul>
+                    </div>
+                )}
+
+                {/* Refills — money put back into the space, doesn't raise the budget */}
+                {refills.length > 0 && (
+                    <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                            Refilled from day-off pot
+                        </p>
+                        <ul className="flex flex-col gap-1.5">
+                            {refills.map((t) => (
+                                <li
+                                    key={t._id}
+                                    className="flex items-center justify-between gap-3 rounded-xl border border-sky-100 bg-sky-50/60 px-3 py-2"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-sky-800">
+                                            {t.note || 'Refill'}
+                                        </p>
+                                        <p className="text-xs text-sky-600/70">{t.date}</p>
+                                    </div>
+                                    <span className="shrink-0 text-sm font-semibold tabular-nums text-sky-700">
+                                        +£{fmt(t.amount)}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {/* Suggested refill — square the space without touching the budget */}
+                {refillOwed > RECONCILE_EPSILON && (
+                    <div className="rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                        £{fmt(refillOwed)} of day-off spending hasn't been refilled yet. Move
+                        £{fmt(refillOwed)} from your day-off pot into the space, then record it
+                        with "Refill space" on the budget card — it squares the balance without
+                        raising the budget.
                     </div>
                 )}
 
@@ -848,7 +922,7 @@ interface BudgetCardProps {
     onSync: (row: FinanceRow) => void
     onOpenReconcile: (row: FinanceRow) => void
     onOpenTransactions: (row: FinanceRow) => void
-    onTopUp: (rowId: string, amount: number, note?: string) => Promise<void>
+    onTopUp: (rowId: string, amount: number, kind: 'topup' | 'refill', note?: string) => Promise<void>
     onDeleteTopUp: (id: string) => Promise<void>
 }
 
@@ -871,8 +945,11 @@ function BudgetCard({
     const monthRef = computeBudgetDay(row, entry, spends, weekStart, excludedDates, topUps)
     const { monthlyAmount, monthlyRemaining } = monthRef
 
-    // This row's top-ups logged so far this month (already scoped to the row by the caller).
-    const rowTopUpTotal = topUps.reduce((sum, t) => sum + t.amount, 0)
+    // This row's top-ups logged so far this month (already scoped to the row by the
+    // caller). Refills go back into the bank space, not the budget, so only true
+    // top-ups raise the monthly amount.
+    const rowTopUpTotal = spendingTopUps(topUps).reduce((sum, t) => sum + t.amount, 0)
+    const rowRefillTotal = refillTotal(topUps)
     const effectiveMonthlyAmount = monthlyAmount + rowTopUpTotal
 
     // Spending logged on excluded (day-off) days counts toward the day-off pot,
@@ -884,20 +961,24 @@ function BudgetCard({
     const excludedFromSpaceTotal = excludedDaySpends
         .filter((s) => s.starlingFeedItemUid)
         .reduce((sum, s) => sum + s.amount, 0)
+    // Day-off spending that left the space and hasn't been refilled yet — the
+    // suggested refill amount.
+    const refillOwed = Math.max(0, excludedFromSpaceTotal - rowRefillTotal)
 
     // Space balance vs budget remaining — only meaningful once linked and funded
     // (a monthly amount or a top-up), and only for the current month (a past
     // month's remaining says nothing about what the space holds today). Day-off
     // spends that left the space are a known, explained difference, so they don't
-    // count as drift.
+    // count as drift; refills put that money back without raising the budget.
     const canReconcile =
         isLinked &&
         !!linkedSpace &&
         effectiveMonthlyAmount > 0 &&
         today.slice(0, 7) === weekStart.slice(0, 7)
+    const expectedBalance = monthlyRemaining - excludedFromSpaceTotal + rowRefillTotal
     const outOfSync =
         canReconcile &&
-        Math.abs(linkedSpace!.balance - (monthlyRemaining - excludedFromSpaceTotal)) > RECONCILE_EPSILON
+        Math.abs(linkedSpace!.balance - expectedBalance) > RECONCILE_EPSILON
 
     // ── Weekly row maths ────────────────────────────────────────────────────
     const weeklyBudget = isWeeklySpend
@@ -915,7 +996,7 @@ function BudgetCard({
         if (!excludedDates.has(d)) activeDaysInWeek++
         d = addDays(d, 1)
     }
-    const topUpsThisWeek = topUps
+    const topUpsThisWeek = spendingTopUps(topUps)
         .filter((t) => t.date >= weekStart && t.date <= weekEnd)
         .reduce((sum, t) => sum + t.amount, 0)
     const weekTargetDaily = dailyRate * activeDaysInWeek + topUpsThisWeek
@@ -964,7 +1045,7 @@ function BudgetCard({
                                 </p>
                                 {outOfSync && (
                                     <p className="mt-0.5 text-[10px] tabular-nums text-neutral-400">
-                                        budget expects £{fmt(monthlyRemaining - excludedFromSpaceTotal)}
+                                        budget expects £{fmt(expectedBalance)}
                                     </p>
                                 )}
                             </>
@@ -1012,37 +1093,75 @@ function BudgetCard({
                                         ? ' — the money still left the linked space, which is expected'
                                         : ` — £${fmt(excludedFromSpaceTotal)} of it left the linked space, which is expected`
                                     : ''}.
+                                {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON && (
+                                    refillOwed > RECONCILE_EPSILON
+                                        ? ` £${fmt(refillOwed)} still needs refilling from the day-off pot to square the space.`
+                                        : rowRefillTotal > RECONCILE_EPSILON
+                                            ? ' The space has been fully refilled from the day-off pot.'
+                                            : ''
+                                )}
                             </span>
                         </div>
                     )}
                 </div>
             )}
 
-            {/* Top up — add extra money to this budget, boosting what's left from today onward */}
+            {/* Top up — add extra money to this budget, boosting what's left from today
+                onward. Refill — put money back into the linked space (e.g. from the
+                day-off pot) without raising the budget. */}
             {monthlyAmount > 0 && !isIncome && (
                 <div className="flex flex-col gap-2">
-                    <TopUpInput onAdd={(amount, note) => onTopUp(row._id, amount, note)} />
-                    {rowTopUpTotal > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        <TopUpInput onAdd={(amount, note) => onTopUp(row._id, amount, 'topup', note)} />
+                        {isLinked && (
+                            <TopUpInput
+                                variant="refill"
+                                suggestedAmount={refillOwed > RECONCILE_EPSILON ? refillOwed : undefined}
+                                onAdd={(amount, note) => onTopUp(row._id, amount, 'refill', note)}
+                            />
+                        )}
+                    </div>
+                    {topUps.length > 0 && (
                         <ul className="flex flex-col gap-1.5">
-                            {topUps.map((t) => (
-                                <li key={t._id} className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2">
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-semibold text-emerald-800">{t.note || 'Top up'}</p>
-                                        <p className="text-xs text-emerald-600/70">{t.date}</p>
-                                    </div>
-                                    <div className="flex shrink-0 items-center gap-2">
-                                        <span className="text-sm font-semibold tabular-nums text-emerald-700">+£{fmt(t.amount)}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => onDeleteTopUp(t._id)}
-                                            aria-label="Remove top-up"
-                                            className="grid h-7 w-7 place-items-center rounded-full text-emerald-400 transition-colors hover:bg-emerald-100 hover:text-emerald-700"
-                                        >
-                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                                        </button>
-                                    </div>
-                                </li>
-                            ))}
+                            {topUps.map((t) => {
+                                const isRefill = t.kind === 'refill'
+                                return (
+                                    <li
+                                        key={t._id}
+                                        className={[
+                                            'flex items-center justify-between gap-3 rounded-xl border px-3 py-2',
+                                            isRefill ? 'border-sky-100 bg-sky-50/60' : 'border-emerald-100 bg-emerald-50/60',
+                                        ].join(' ')}
+                                    >
+                                        <div className="min-w-0">
+                                            <p className={`truncate text-sm font-semibold ${isRefill ? 'text-sky-800' : 'text-emerald-800'}`}>
+                                                {t.note || (isRefill ? 'Refill from day-off pot' : 'Top up')}
+                                            </p>
+                                            <p className={`text-xs ${isRefill ? 'text-sky-600/70' : 'text-emerald-600/70'}`}>
+                                                {t.date}{isRefill ? ' · into space, not budget' : ''}
+                                            </p>
+                                        </div>
+                                        <div className="flex shrink-0 items-center gap-2">
+                                            <span className={`text-sm font-semibold tabular-nums ${isRefill ? 'text-sky-700' : 'text-emerald-700'}`}>
+                                                +£{fmt(t.amount)}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => onDeleteTopUp(t._id)}
+                                                aria-label={isRefill ? 'Remove refill' : 'Remove top-up'}
+                                                className={[
+                                                    'grid h-7 w-7 place-items-center rounded-full transition-colors',
+                                                    isRefill
+                                                        ? 'text-sky-400 hover:bg-sky-100 hover:text-sky-700'
+                                                        : 'text-emerald-400 hover:bg-emerald-100 hover:text-emerald-700',
+                                                ].join(' ')}
+                                            >
+                                                <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                            </button>
+                                        </div>
+                                    </li>
+                                )
+                            })}
                         </ul>
                     )}
                 </div>
@@ -1541,14 +1660,19 @@ export default function Budgets() {
         }
     }
 
-    async function handleTopUp(rowId: string, amount: number, note?: string) {
+    async function handleTopUp(rowId: string, amount: number, kind: 'topup' | 'refill', note?: string) {
         try {
-            const result = await createBudgetTopUp(rowId, todayDate, amount, note)
+            const result = await createBudgetTopUp(rowId, todayDate, amount, kind, note)
             setTopUps((prev) => [...prev, result])
             invalidate('budget')
-            toast.show(`Added £${formatAmount(amount)} to this budget.`, 'success')
+            toast.show(
+                kind === 'refill'
+                    ? `Recorded £${formatAmount(amount)} refilled into the space.`
+                    : `Added £${formatAmount(amount)} to this budget.`,
+                'success'
+            )
         } catch {
-            toast.error("Couldn't add that top-up.")
+            toast.error(kind === 'refill' ? "Couldn't record that refill." : "Couldn't add that top-up.")
         }
     }
 
@@ -1720,6 +1844,7 @@ export default function Budgets() {
                             excludedDates.has(s.date) &&
                             !!s.starlingFeedItemUid
                     )}
+                    refills={topUps.filter((t) => t.row === reconcileRow._id && t.kind === 'refill')}
                     fallbackBalance={spaces.find((s) => s.id === reconcileRow.starlingCategoryUid)?.balance}
                     loading={reconcileLoading}
                     error={reconcileError}

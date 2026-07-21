@@ -599,6 +599,9 @@ export interface BudgetTopUp {
     row: string
     date: string
     amount: number
+    /** 'topup' adds spendable budget; 'refill' records money moved back into the
+     * linked space without raising the budget. Absent on older records = 'topup'. */
+    kind?: 'topup' | 'refill'
     note?: string
 }
 

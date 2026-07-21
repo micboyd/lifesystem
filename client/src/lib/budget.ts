@@ -90,6 +90,20 @@ function activeDaysBefore(date: string, excluded: Set<string>): number {
     return n
 }
 
+/**
+ * Top-ups that raise the spendable budget. Refills (kind 'refill') record money
+ * moved back into the linked bank space to cover day-off spending — cash
+ * movements only, so they never enter the allowance maths.
+ */
+export function spendingTopUps(topUps: BudgetTopUp[]): BudgetTopUp[] {
+    return topUps.filter((t) => t.kind !== 'refill')
+}
+
+/** Total of refill top-ups — money returned to the space, not extra budget. */
+export function refillTotal(topUps: BudgetTopUp[]): number {
+    return topUps.filter((t) => t.kind === 'refill').reduce((sum, t) => sum + t.amount, 0)
+}
+
 export interface BudgetDay {
     /** Budget amount for the month (entry override, else the recurring amount). */
     monthlyAmount: number
@@ -118,7 +132,8 @@ export interface BudgetDay {
  *
  * Top-ups (`rowTopUps`) are forward-only: a top-up dated on or before `date`
  * boosts carry/monthlyRemaining, but never changes the figures for a date
- * before the top-up happened.
+ * before the top-up happened. Refills are ignored here — they refill the bank
+ * space, not the budget.
  */
 export function computeBudgetDay(
     row: FinanceRow,
@@ -126,8 +141,9 @@ export function computeBudgetDay(
     rowSpends: BudgetSpend[],
     date: string,
     excluded: Set<string> = new Set(),
-    rowTopUps: BudgetTopUp[] = []
+    allTopUps: BudgetTopUp[] = []
 ): BudgetDay {
+    const rowTopUps = spendingTopUps(allTopUps)
     const month = monthOf(date)
     const monthlyAmount = entry?.amount ?? recurringAmountForMonth(row, month) ?? 0
     const totalActiveDays = activeDaysInMonth(month, excluded)
@@ -219,7 +235,8 @@ export function activeDaysBetween(start: string, end: string, excluded: Set<stri
  *
  * Top-ups (`rowTopUps`) are forward-only: only top-ups whose date falls on or
  * before the slice/date being evaluated count, so a top-up never changes a week
- * that had already closed before it was added.
+ * that had already closed before it was added. Refills are ignored here — they
+ * refill the bank space, not the budget.
  */
 export function computeBudgetWeek(
     row: FinanceRow,
@@ -229,8 +246,9 @@ export function computeBudgetWeek(
     weekEnd: string,
     today: string,
     excluded: Set<string> = new Set(),
-    rowTopUps: BudgetTopUp[] = []
+    allTopUps: BudgetTopUp[] = []
 ): BudgetWeek {
+    const rowTopUps = spendingTopUps(allTopUps)
     const month = weekStart.slice(0, 7)
     const monthStart = `${month}-01`
     const monthEnd = dateKey(month, daysInMonth(month))

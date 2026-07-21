@@ -312,17 +312,21 @@ export async function listBudgetTopUps(month: string): Promise<BudgetTopUp[]> {
     return res.data.data
 }
 
-/** Add extra money to a budget, dated today — boosts what's left from today onward. */
+/** Add extra money to a budget, dated today — boosts what's left from today onward.
+ * kind 'refill' instead records money moved back into the linked space (e.g. from
+ * the day-off pot): it squares the bank balance without raising the budget. */
 export async function createBudgetTopUp(
     rowId: string,
     date: string,
     amount: number,
+    kind: 'topup' | 'refill' = 'topup',
     note?: string
 ): Promise<BudgetTopUp> {
     const res = await api.post<ApiResponse<BudgetTopUp>>('/finances/budget-topups', {
         row: rowId,
         date,
         amount,
+        kind,
         ...(note && { note }),
     })
     return res.data.data

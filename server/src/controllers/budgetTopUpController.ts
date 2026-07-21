@@ -25,9 +25,15 @@ function parseNote(raw: unknown): string | undefined {
     return typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, 200) : undefined
 }
 
-/** POST /budget-topups — add extra money to a budget, dated today (forward-only). */
+/** POST /budget-topups — add extra money to a budget, dated today (forward-only).
+ * kind 'refill' records money moved back into the linked space (e.g. from the
+ * day-off pot) — it squares the bank balance without raising the budget. */
 export async function createBudgetTopUp(req: AuthRequest, res: Response) {
-    const { row: rowId, date } = req.body
+    const { row: rowId, date, kind } = req.body
+    if (kind !== undefined && kind !== 'topup' && kind !== 'refill') {
+        res.status(400).json({ message: "kind must be 'topup' or 'refill'" })
+        return
+    }
     if (typeof date !== 'string' || !DATE_RE.test(date)) {
         res.status(400).json({ message: 'date must be YYYY-MM-DD' })
         return
@@ -50,6 +56,7 @@ export async function createBudgetTopUp(req: AuthRequest, res: Response) {
         row: rowId,
         date,
         amount,
+        kind: kind ?? 'topup',
         note: parseNote(req.body.note),
     })
     res.status(201).json({ message: 'Created', data: topUp })
