@@ -25,6 +25,7 @@ import {
 } from '../services/finances'
 import { rowVisibleInMonth, recurringAmountForMonth } from '../lib/finance'
 import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange, spendingTopUps, refillTotal } from '../lib/budget'
+import { diagnoseGap, type ExplainedMovement } from '../lib/reconcile'
 import { formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
@@ -563,19 +564,25 @@ interface ReconcileDrawerProps {
      * of any mismatch. Manual day-off logs are left out: they may not have been
      * paid from the space at all. */
     excludedDaySpends: BudgetSpend[]
-    /** Refills recorded this month — money put back into the space (e.g. from the
-     * day-off pot) that doesn't raise the budget. */
-    refills: BudgetTopUp[]
+    /** The row's base budget for the month — used to recognise the funding transfer. */
+    monthlyAmount: number
+    /** Every top-up and refill recorded for this row this month. */
+    topUps: BudgetTopUp[]
     fallbackBalance: number | undefined
     loading: boolean
     error: boolean
     data: StarlingReconciliation | null
+    /** Record an unaccounted credit straight from the diagnosis list. */
+    onRecordCredit: (amount: number, kind: 'topup' | 'refill', note?: string) => Promise<void>
     onClose: () => void
 }
 
 function ReconcileDrawer({
-    row, monthlyRemaining, excludedDaySpends, refills, fallbackBalance, loading, error, data, onClose,
+    row, monthlyRemaining, excludedDaySpends, monthlyAmount, topUps, fallbackBalance,
+    loading, error, data, onRecordCredit, onClose,
 }: ReconcileDrawerProps) {
+    const [recordingKey, setRecordingKey] = useState<string | null>(null)
+    const refills = topUps.filter((t) => t.kind === 'refill')
     const balance = data?.balance ?? fallbackBalance ?? null
     const diff = balance !== null ? balance - monthlyRemaining : null
     const excludedTotal = excludedDaySpends.reduce((sum, s) => sum + s.amount, 0)
@@ -585,6 +592,85 @@ function ReconcileDrawer({
     // what's left over once those known differences are accounted for.
     const unexplained = diff !== null ? diff + excludedTotal - refilledTotal : null
     const refillOwed = Math.max(0, excludedTotal - refilledTotal)
+
+    // Hunt for the movements behind a real gap: match bank movements against the
+    // ledger (funding, top-ups, refills), then search the unrecorded remainder
+    // for the combination that adds up to the gap exactly.
+    const diagnosis =
+        unexplained !== null && Math.abs(unexplained) > RECONCILE_EPSILON && data
+            ? diagnoseGap(unexplained, data.movements, monthlyAmount, topUps)
+            : null
+
+    async function record(key: string, amount: number, kind: 'topup' | 'refill', note: string) {
+        setRecordingKey(key)
+        try {
+            await onRecordCredit(amount, kind, note)
+        } finally {
+            setRecordingKey(null)
+        }
+    }
+
+    /** One unrecorded movement with its fix actions: credits can be recorded as
+     * a refill (cash back into the space) or a top-up (extra budget); debits
+     * can only be fixed at the bank, so they get advice instead of buttons. */
+    function renderUnrecorded(e: ExplainedMovement, key: string) {
+        const m = e.movement
+        const info = MOVEMENT_INFO[m.reason]
+        const note = `${info.label}${m.counterPartyName ? ` — ${m.counterPartyName}` : ''} · ${m.date}`
+        // A refund restores money the budget already counted as spent, so
+        // top-up (budget + cash) is the natural fix; a plain transfer in is
+        // usually day-off cover, so refill (cash only) comes first.
+        const actions: { kind: 'topup' | 'refill'; label: string }[] =
+            m.reason === 'refund'
+                ? [{ kind: 'topup', label: 'Record as top-up' }, { kind: 'refill', label: 'Record as refill' }]
+                : [{ kind: 'refill', label: 'Record as refill' }, { kind: 'topup', label: 'Record as top-up' }]
+        return (
+            <li key={key} className="flex flex-col gap-2 rounded-xl border border-neutral-100 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs ${info.tone}`}>
+                            <i className={`fa-solid ${info.icon}`} aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-neutral-800">{info.label}</p>
+                            <p className="text-xs text-neutral-400">
+                                {m.date}
+                                {m.counterPartyName ? ` · ${m.counterPartyName}` : ''}
+                            </p>
+                        </div>
+                    </div>
+                    <span className="shrink-0 text-sm tabular-nums text-neutral-700">
+                        {e.effect > 0 ? '+' : '-'}£{fmt(Math.abs(e.effect))}
+                    </span>
+                </div>
+                {e.effect > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 pl-9">
+                        {actions.map((a) => (
+                            <button
+                                key={a.kind}
+                                type="button"
+                                disabled={recordingKey !== null}
+                                onClick={() => record(key, e.effect, a.kind, note)}
+                                className={[
+                                    'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-40',
+                                    a.kind === 'refill'
+                                        ? 'bg-sky-50 text-sky-700 hover:bg-sky-100'
+                                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
+                                ].join(' ')}
+                            >
+                                {recordingKey === key ? '…' : a.label}
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="pl-9 text-xs text-neutral-400">
+                        The budget doesn't know this money left the space — move it back in, or
+                        delete a matching top-up if one exists.
+                    </p>
+                )}
+            </li>
+        )
+    }
 
     return (
         <Drawer open onClose={onClose} title={`"${row.name}" out of sync`} size="md">
@@ -626,6 +712,62 @@ function ReconcileDrawer({
                                     : `The space has £${fmt(Math.abs(unexplained))} less than the budget expects${excludedTotal > RECONCILE_EPSILON ? ` (after allowing for £${fmt(excludedTotal)} of day-off spending that left the space${refilledTotal > RECONCILE_EPSILON ? ` and £${fmt(refilledTotal)} refilled` : ''})` : ''}.`}
                         </div>
                     )}
+
+                {/* Automatic diagnosis — pin the gap on specific movements */}
+                {diagnosis && (
+                    <div className="flex flex-col gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                            Where the difference comes from
+                        </p>
+
+                        {/* Recorded credits that never arrived at the bank */}
+                        {diagnosis.ghostRecords.map((t) => (
+                            <div key={t._id} className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                                You recorded a £{fmt(t.amount)} {t.kind === 'refill' ? 'refill' : 'top-up'} on{' '}
+                                {t.date}
+                                {t.note ? ` (“${t.note}”)` : ''} but no matching transfer reached the
+                                space — make the transfer, or delete the record from the budget card.
+                            </div>
+                        ))}
+
+                        {diagnosis.culprits ? (
+                            <>
+                                <p className="text-sm text-neutral-500">
+                                    {diagnosis.culprits.length === 1
+                                        ? `This movement isn't recorded in the budget and accounts for the £${fmt(Math.abs(unexplained!))} difference exactly:`
+                                        : `These ${diagnosis.culprits.length} movements aren't recorded in the budget and add up to the £${fmt(Math.abs(unexplained!))} difference exactly:`}
+                                </p>
+                                <ul className="flex flex-col gap-1.5">
+                                    {diagnosis.culprits.map((e, i) => renderUnrecorded(e, `culprit-${i}`))}
+                                </ul>
+                            </>
+                        ) : diagnosis.unaccounted.length > 0 ? (
+                            <>
+                                <p className="text-sm text-neutral-500">
+                                    No combination of movements matches the gap exactly, but these
+                                    aren't recorded in the budget and are the likely cause:
+                                </p>
+                                <ul className="flex flex-col gap-1.5">
+                                    {diagnosis.unaccounted.map((e, i) => renderUnrecorded(e, `unaccounted-${i}`))}
+                                </ul>
+                                {Math.abs(diagnosis.residualAfterAll) > RECONCILE_EPSILON && (
+                                    <p className="text-xs text-neutral-400">
+                                        Even counting all of these, £{fmt(Math.abs(diagnosis.residualAfterAll))}{' '}
+                                        remains unexplained — most likely money that was already in the
+                                        space before this month, or a transaction that was edited or
+                                        deleted after import.
+                                    </p>
+                                )}
+                            </>
+                        ) : diagnosis.ghostRecords.length === 0 ? (
+                            <p className="text-sm text-neutral-500">
+                                Every movement this month is already reflected in the budget, so the
+                                difference predates this month — most likely money that was already in
+                                the space on the 1st, or a transaction edited or deleted after import.
+                            </p>
+                        ) : null}
+                    </div>
+                )}
 
                 {/* Day-off spending — left the space, but counts toward the pot */}
                 {excludedDaySpends.length > 0 && (
@@ -1825,33 +1967,37 @@ export default function Budgets() {
                 />
             )}
 
-            {reconcileRow && (
-                <ReconcileDrawer
-                    row={reconcileRow}
-                    monthlyRemaining={
-                        computeBudgetDay(
-                            reconcileRow,
-                            entries.find((e) => e.row === reconcileRow._id),
-                            spends.filter((s) => s.row === reconcileRow._id),
-                            weekStart,
-                            excludedDates,
-                            topUps.filter((t) => t.row === reconcileRow._id)
-                        ).monthlyRemaining
-                    }
-                    excludedDaySpends={spends.filter(
-                        (s) =>
-                            s.row === reconcileRow._id &&
-                            excludedDates.has(s.date) &&
-                            !!s.starlingFeedItemUid
-                    )}
-                    refills={topUps.filter((t) => t.row === reconcileRow._id && t.kind === 'refill')}
-                    fallbackBalance={spaces.find((s) => s.id === reconcileRow.starlingCategoryUid)?.balance}
-                    loading={reconcileLoading}
-                    error={reconcileError}
-                    data={reconcileData}
-                    onClose={() => setReconcileRow(null)}
-                />
-            )}
+            {reconcileRow && (() => {
+                const rowTopUps = topUps.filter((t) => t.row === reconcileRow._id)
+                const day = computeBudgetDay(
+                    reconcileRow,
+                    entries.find((e) => e.row === reconcileRow._id),
+                    spends.filter((s) => s.row === reconcileRow._id),
+                    weekStart,
+                    excludedDates,
+                    rowTopUps
+                )
+                return (
+                    <ReconcileDrawer
+                        row={reconcileRow}
+                        monthlyRemaining={day.monthlyRemaining}
+                        monthlyAmount={day.monthlyAmount}
+                        topUps={rowTopUps}
+                        excludedDaySpends={spends.filter(
+                            (s) =>
+                                s.row === reconcileRow._id &&
+                                excludedDates.has(s.date) &&
+                                !!s.starlingFeedItemUid
+                        )}
+                        fallbackBalance={spaces.find((s) => s.id === reconcileRow.starlingCategoryUid)?.balance}
+                        loading={reconcileLoading}
+                        error={reconcileError}
+                        data={reconcileData}
+                        onRecordCredit={(amount, kind, note) => handleTopUp(reconcileRow._id, amount, kind, note)}
+                        onClose={() => setReconcileRow(null)}
+                    />
+                )
+            })()}
 
             {txRow && (
                 <AllTransactionsDrawer
