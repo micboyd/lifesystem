@@ -195,6 +195,50 @@ export interface SavingsTarget {
     updatedAt: string
 }
 
+export const NOTE_CATEGORY_COLORS = [
+    'neutral',
+    'emerald',
+    'sky',
+    'violet',
+    'amber',
+    'rose',
+    'teal',
+] as const
+export type NoteCategoryColor = (typeof NOTE_CATEGORY_COLORS)[number]
+
+/** Tailwind classes per accent. Keys are bare classes — no dynamic construction. */
+export const NOTE_CATEGORY_COLOR_CLASSES: Record<
+    NoteCategoryColor,
+    { dot: string; text: string; soft: string; ring: string }
+> = {
+    neutral: { dot: 'bg-neutral-400', text: 'text-neutral-600', soft: 'bg-neutral-100', ring: 'ring-neutral-300' },
+    emerald: { dot: 'bg-emerald-500', text: 'text-emerald-700', soft: 'bg-emerald-50', ring: 'ring-emerald-400' },
+    sky: { dot: 'bg-sky-500', text: 'text-sky-700', soft: 'bg-sky-50', ring: 'ring-sky-400' },
+    violet: { dot: 'bg-violet-500', text: 'text-violet-700', soft: 'bg-violet-50', ring: 'ring-violet-400' },
+    amber: { dot: 'bg-amber-500', text: 'text-amber-700', soft: 'bg-amber-50', ring: 'ring-amber-400' },
+    rose: { dot: 'bg-rose-500', text: 'text-rose-700', soft: 'bg-rose-50', ring: 'ring-rose-400' },
+    teal: { dot: 'bg-teal-500', text: 'text-teal-700', soft: 'bg-teal-50', ring: 'ring-teal-400' },
+}
+
+export interface NoteCategory {
+    _id: string
+    name: string
+    color: NoteCategoryColor
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+export interface Note {
+    _id: string
+    title: string
+    body: string
+    /** Owning category id, or null for an uncategorised note. */
+    category: string | null
+    createdAt: string
+    updatedAt: string
+}
+
 export interface Birthday {
     _id: string
     name: string
