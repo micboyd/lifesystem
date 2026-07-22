@@ -9,13 +9,15 @@ import {
     listEntries,
     listBudgetSpends,
     listBudgetExclusions,
+    listBudgetTopUps,
 } from '../../services/finances'
 import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, clampedWeekRange } from '../../lib/budget'
+import { spendSummary } from '../../lib/budgetDiscipline'
 import Select from '../Select'
 import { rowVisibleInMonth, recurringAmountForMonth } from '../../lib/finance'
 import { formatAmount } from '../../lib/money'
 import { useMoneyHidden } from '../useMoneyHidden'
-import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend } from '../../types'
+import type { FinanceGroup, FinanceRow, FinanceEntry, BudgetSpend, BudgetTopUp } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -30,14 +32,15 @@ interface BudgetColProps {
     row: FinanceRow
     entry: FinanceEntry | undefined
     rowSpends: BudgetSpend[]
+    rowTopUps: BudgetTopUp[]
     date: string
     excludedDates: Set<string>
 }
 
-function BudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProps) {
+function BudgetCol({ row, entry, rowSpends, rowTopUps, date, excludedDates }: BudgetColProps) {
     const dayNum = dayNumOf(date)
     const { monthlyAmount, straightDailyRate, carry, spentToday, remaining, monthlyRemaining } =
-        computeBudgetDay(row, entry, rowSpends, date, excludedDates)
+        computeBudgetDay(row, entry, rowSpends, date, excludedDates, rowTopUps)
 
     return (
         <div className="flex flex-1 basis-64 flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
@@ -124,10 +127,10 @@ function BudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProp
 
 // ── Weekly budget column ──────────────────────────────────────────────────────
 
-function WeeklyBudgetCol({ row, entry, rowSpends, date, excludedDates }: BudgetColProps) {
+function WeeklyBudgetCol({ row, entry, rowSpends, rowTopUps, date, excludedDates }: BudgetColProps) {
     const { weekStart: wStart, weekEnd: wEnd } = clampedWeekRange(date)
     const { monthlyAmount, weeklyRate, carry, spentThisWeek, remaining, monthlyRemaining } =
-        computeBudgetWeek(row, entry, rowSpends, wStart, wEnd, date, excludedDates)
+        computeBudgetWeek(row, entry, rowSpends, wStart, wEnd, date, excludedDates, rowTopUps)
     const weekLabel = (() => {
         const s = new Date(`${wStart}T00:00:00`)
         const e = new Date(`${wEnd}T00:00:00`)
@@ -201,6 +204,7 @@ export default function BudgetWidget({ date }: { date: string }) {
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
+    const [topUps, setTopUps] = useState<BudgetTopUp[]>([])
     const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
     // Derive loading from which month finished loading — avoids a synchronous
     // setState inside the fetch effect (flagged as cascading renders).
@@ -220,14 +224,16 @@ export default function BudgetWidget({ date }: { date: string }) {
             listEntries(month),
             listBudgetSpends({ month }),
             listBudgetExclusions(month),
+            listBudgetTopUps(month),
         ])
-            .then(([g, r, e, s, x]) => {
+            .then(([g, r, e, s, x, t]) => {
                 if (!active) return
                 setGroups(g)
                 setRows(r)
                 setEntries(e)
                 setSpends(s)
                 setExcludedDates(new Set(x.map((d) => d.date)))
+                setTopUps(t)
             })
             .finally(() => {
                 if (active) setLoadedMonth(month)
@@ -256,36 +262,26 @@ export default function BudgetWidget({ date }: { date: string }) {
         return (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0) > 0
     })
 
-    // Pooled totals across every tracked budget for the current period (this week
-    // for weekly rows, today for daily rows) — the headline figure on the widget.
-    const totals = trackedRows.reduce(
-        (acc, row) => {
-            const entry = entries.find((e) => e.row === row._id)
-            const rowSpends = spends.filter((s) => s.row === row._id)
-            if (row.budgetType === 'weekly') {
-                const { weekStart, weekEnd } = clampedWeekRange(date)
-                const bw = computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, date, excludedDates)
-                acc.allowance += bw.weeklyRate + bw.carry
-                acc.spent += bw.spentThisWeek
-                acc.remaining += bw.remaining
-                acc.monthlyRemaining += bw.monthlyRemaining
-            } else {
-                const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates)
-                acc.allowance += bd.straightDailyRate + bd.carry
-                acc.spent += bd.spentToday
-                acc.remaining += bd.remaining
-                acc.monthlyRemaining += bd.monthlyRemaining
-            }
-            return acc
-        },
-        { allowance: 0, spent: 0, remaining: 0, monthlyRemaining: 0 }
-    )
+    // Pooled headline via the shared engine, so this widget agrees with the pill,
+    // the insights strip and the Daily Report. Weekly budgets pull the whole
+    // headline onto the week lens (a single cadence — never mixing today + week);
+    // with only daily budgets it's the today lens.
+    const summary = spendSummary(groups, rows, { entries, spends, excluded: excludedDates, topUps }, date)
+    const lens = weeklyRows.length > 0 ? summary.week : summary.today
+    const totals = {
+        allowance: lens.allowance,
+        spent: lens.spent,
+        remaining: lens.safe,
+        monthlyRemaining: summary.monthlyRemaining,
+    }
     const allowanceLabel =
         weeklyRows.length > 0 && dailyRows.length === 0
             ? 'Weekly allowance'
             : dailyRows.length > 0 && weeklyRows.length === 0
               ? 'Daily allowance'
-              : 'Allowance'
+              : weeklyRows.length > 0
+                ? 'Allowance this week'
+                : 'Allowance'
 
     // Filter options — "all budgets" plus one entry per tracked row. Fall back to
     // the total if the selected row isn't present this month.
@@ -414,6 +410,7 @@ export default function BudgetWidget({ date }: { date: string }) {
                                     row={selectedRow}
                                     entry={entries.find((e) => e.row === selectedRow._id)}
                                     rowSpends={spends.filter((s) => s.row === selectedRow._id)}
+                                    rowTopUps={topUps.filter((t) => t.row === selectedRow._id)}
                                     date={date}
                                     excludedDates={excludedDates}
                                 />
@@ -422,6 +419,7 @@ export default function BudgetWidget({ date }: { date: string }) {
                                     row={selectedRow}
                                     entry={entries.find((e) => e.row === selectedRow._id)}
                                     rowSpends={spends.filter((s) => s.row === selectedRow._id)}
+                                    rowTopUps={topUps.filter((t) => t.row === selectedRow._id)}
                                     date={date}
                                     excludedDates={excludedDates}
                                 />

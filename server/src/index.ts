@@ -16,6 +16,7 @@ import eventRoutes from './routes/eventRoutes'
 import express from 'express'
 import financeRoutes from './routes/financeRoutes'
 import habitRoutes from './routes/habitRoutes'
+import noteRoutes from './routes/noteRoutes'
 import path from 'path'
 import reminderRoutes from './routes/reminderRoutes'
 import savingsTargetRoutes from './routes/savingsTargetRoutes'
@@ -60,6 +61,7 @@ app.use('/api/finances', financeRoutes)
 app.use('/api/birthdays', birthdayRoutes)
 app.use('/api/days-since', daysSinceRoutes)
 app.use('/api/goals', goalRoutes)
+app.use('/api/notes', noteRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
 
 app.get('/api/health', (_req, res) => {

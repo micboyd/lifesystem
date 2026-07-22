@@ -22,6 +22,7 @@ export function pageNameForPath(pathname: string): string | null {
     if (pathname.startsWith('/finances/spaces')) return 'Spaces'
     if (pathname.startsWith('/finances')) return 'Finances'
     if (pathname === '/days-since') return 'Days Since'
+    if (pathname === '/notes') return 'Notes'
     if (pathname === '/weather') return 'Weather'
     if (pathname === '/profile') return 'Profile'
     if (pathname === '/styleguide') return 'Style Guide'
