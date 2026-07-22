@@ -74,12 +74,13 @@ export interface ApiResponse<T> {
 export const PARTS = ['morning', 'afternoon', 'evening', 'na'] as const
 export type Part = (typeof PARTS)[number]
 
-export const EVENT_TYPES = ['trip', 'social', 'general'] as const
+export const EVENT_TYPES = ['trip', 'social', 'hobby', 'general'] as const
 export type EventType = (typeof EVENT_TYPES)[number]
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
     trip: 'Trip',
     social: 'Social',
+    hobby: 'Hobby',
     general: 'General Event',
 }
 
@@ -99,6 +100,12 @@ export const EVENT_TYPE_COLORS: Record<
         hover: 'hover:bg-amber-200',
         text: 'text-amber-700',
         light: 'bg-amber-50',
+    },
+    hobby: {
+        bg: 'bg-emerald-100',
+        hover: 'hover:bg-emerald-200',
+        text: 'text-emerald-700',
+        light: 'bg-emerald-50',
     },
     general: {
         bg: 'bg-neutral-100',

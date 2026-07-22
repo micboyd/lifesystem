@@ -379,7 +379,7 @@ export default function EventEditor({
                     <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                         Type
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                         {EVENT_TYPES.map((t) => {
                             const c = EVENT_TYPE_COLORS[t]
                             const selected = eventType === t

@@ -26,6 +26,7 @@ import { useAuth } from '../context/AuthContext'
 import { DAY_STATUS_OPTIONS } from '../types'
 import type { Event, Part, DayStatus, TotalRow, Reminder } from '../types'
 import Container from '../components/Container'
+import Checkbox from '../components/Checkbox'
 import Tabs from '../components/Tabs'
 import EventDetailModal from '../components/calendar/EventDetailModal'
 import EventEditor from '../components/calendar/EventEditor'
@@ -81,6 +82,7 @@ export default function Calendar() {
     const nav = useNavigate()
     const { user } = useAuth()
     const [view, setView] = useState<CalendarView>('Year')
+    const [showPastMonths, setShowPastMonths] = useState(false)
     const [focusDate, setFocusDate] = useState(todayKey())
     const [events, setEvents] = useState<Event[]>([])
     const [statuses, setStatuses] = useState<DayStatus[]>([])
@@ -442,10 +444,15 @@ export default function Calendar() {
         },
     }
 
-    // Year view: hide past months
+    // Year view: hide past months unless the user opts in.
     const yearNum = parseInt(focusDate.slice(0, 4))
-    const firstMonth =
-        yearNum > today.getFullYear() ? 0 : yearNum === today.getFullYear() ? today.getMonth() : 12
+    const firstMonth = showPastMonths
+        ? 0
+        : yearNum > today.getFullYear()
+          ? 0
+          : yearNum === today.getFullYear()
+            ? today.getMonth()
+            : 12
     const visibleMonths = MONTHS.map((_, m) => m).filter((m) => m >= firstMonth)
 
     return (
@@ -482,6 +489,14 @@ export default function Calendar() {
                             >
                                 Today
                             </button>
+                        )}
+                        {view === 'Year' && (
+                            <Checkbox
+                                checked={showPastMonths}
+                                onChange={setShowPastMonths}
+                                label="View previous months"
+                                className="ml-2"
+                            />
                         )}
                     </div>
 
