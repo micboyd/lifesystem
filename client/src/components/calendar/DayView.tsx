@@ -16,7 +16,7 @@ import {
     deleteEvent,
     type EventInput,
 } from '../../services/events'
-import { EVENT_TYPE_COLORS, NA_EVENT_COLORS } from '../../types'
+import { EVENT_TYPE_COLORS, EVENT_TYPE_ICONS, NA_EVENT_COLORS } from '../../types'
 import type { Event, Part } from '../../types'
 
 interface DayViewProps {
@@ -243,6 +243,12 @@ function AllDayChip({ event, date, onClick }: { event: Event; date: string; onCl
             onClick={onClick}
             className={`flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm font-semibold transition-colors ${colors.bg} ${colors.hover} ${colors.text}`}
         >
+            {EVENT_TYPE_ICONS[event.eventType] && (
+                <i
+                    className={`${EVENT_TYPE_ICONS[event.eventType]} shrink-0 text-xs opacity-80`}
+                    aria-hidden="true"
+                />
+            )}
             <span className="truncate">{event.title}</span>
             {isMultiDay && (
                 <span className="ml-auto shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">

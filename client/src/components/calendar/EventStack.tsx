@@ -1,4 +1,4 @@
-import { EVENT_TYPE_COLORS, NA_EVENT_COLORS } from '../../types'
+import { EVENT_TYPE_COLORS, EVENT_TYPE_ICONS, NA_EVENT_COLORS } from '../../types'
 import type { Event } from '../../types'
 
 interface EventStackProps {
@@ -31,6 +31,12 @@ function Chip({
         <>
             {isBirthday && (
                 <i className="fa-solid fa-cake-candles shrink-0 text-[9px] opacity-70" />
+            )}
+            {EVENT_TYPE_ICONS[event.eventType] && (
+                <i
+                    className={`${EVENT_TYPE_ICONS[event.eventType]} shrink-0 text-[9px] opacity-80`}
+                    aria-hidden="true"
+                />
             )}
             <span
                 className={`truncate font-semibold leading-tight ${mini ? 'text-[10px]' : 'text-[11px]'}`}

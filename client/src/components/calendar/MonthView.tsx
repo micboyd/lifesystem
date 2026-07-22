@@ -1,5 +1,5 @@
 import { todayKey, addDays, getWeekStart, parseDateKey } from '../../lib/calendar'
-import { EVENT_TYPE_COLORS, NA_EVENT_COLORS, DAY_STATUS_OPTIONS } from '../../types'
+import { EVENT_TYPE_COLORS, EVENT_TYPE_ICONS, NA_EVENT_COLORS, DAY_STATUS_OPTIONS } from '../../types'
 import type { Event, DayStatus, Part, Reminder } from '../../types'
 import { Card } from '../Card'
 import ReminderChip from '../reminders/ReminderChip'
@@ -176,6 +176,12 @@ export default function MonthView({
                                             }}
                                             className={`flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[11px] font-semibold transition-colors ${colors.bg} ${colors.text} ${colors.hover}`}
                                         >
+                                            {EVENT_TYPE_ICONS[e.eventType] && (
+                                                <i
+                                                    className={`${EVENT_TYPE_ICONS[e.eventType]} shrink-0 text-[9px] opacity-80`}
+                                                    aria-hidden="true"
+                                                />
+                                            )}
                                             {e.recurrence && (
                                                 <i className="fa-solid fa-repeat text-[8px] shrink-0 opacity-60" />
                                             )}
