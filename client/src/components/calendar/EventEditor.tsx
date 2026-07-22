@@ -392,7 +392,7 @@ export default function EventEditor({
                                         'rounded-xl border px-3 py-2 text-sm font-semibold transition-colors',
                                         selected
                                             ? `${c.bg} border-transparent ${c.text}`
-                                            : `border-neutral-200 ${c.onLight} hover:${c.light}`,
+                                            : `border-neutral-200 ${c.text} hover:${c.light}`,
                                     ].join(' ')}
                                 >
                                     {EVENT_TYPE_LABELS[t]}

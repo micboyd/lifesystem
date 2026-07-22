@@ -84,45 +84,35 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
     general: 'General Event',
 }
 
-/**
- * Tailwind classes for each event type. Keys are bare classes — no dynamic construction.
- *
- * `text` is only legible on top of `bg`; use `onLight` for the type's colour on a
- * white/neutral surface. They differ for solid-filled types like `hobby`.
- */
+/** Tailwind classes for each event type. Keys are bare classes — no dynamic construction. */
 export const EVENT_TYPE_COLORS: Record<
     EventType,
-    { bg: string; hover: string; text: string; onLight: string; light: string }
+    { bg: string; hover: string; text: string; light: string }
 > = {
     trip: {
         bg: 'bg-blue-100',
         hover: 'hover:bg-blue-200',
         text: 'text-blue-700',
-        onLight: 'text-blue-700',
         light: 'bg-blue-50',
     },
     social: {
         bg: 'bg-amber-100',
         hover: 'hover:bg-amber-200',
         text: 'text-amber-700',
-        onLight: 'text-amber-700',
         light: 'bg-amber-50',
     },
-    // Deliberately the only solid-filled type: every other chip on the calendar
-    // (events, reminders, leave, bank holidays) is a pale -100 tint, so a solid
-    // fill separates hobby by weight rather than by an already-crowded hue.
+    // Indigo is close to trip's blue by hue; the icon below is what actually
+    // tells hobby chips apart, which lets the tint stay as quiet as the rest.
     hobby: {
-        bg: 'bg-indigo-600',
-        hover: 'hover:bg-indigo-700',
-        text: 'text-white',
-        onLight: 'text-indigo-700',
+        bg: 'bg-indigo-100',
+        hover: 'hover:bg-indigo-200',
+        text: 'text-indigo-700',
         light: 'bg-indigo-50',
     },
     general: {
         bg: 'bg-neutral-100',
         hover: 'hover:bg-neutral-200',
         text: 'text-neutral-600',
-        onLight: 'text-neutral-600',
         light: 'bg-neutral-50',
     },
 }
@@ -137,7 +127,6 @@ export const NA_EVENT_COLORS = {
     bg: 'bg-purple-100',
     hover: 'hover:bg-purple-200',
     text: 'text-purple-700',
-    onLight: 'text-purple-700',
     light: 'bg-purple-50',
 }
 
