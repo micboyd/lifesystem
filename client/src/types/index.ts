@@ -102,10 +102,10 @@ export const EVENT_TYPE_COLORS: Record<
         light: 'bg-amber-50',
     },
     hobby: {
-        bg: 'bg-emerald-100',
-        hover: 'hover:bg-emerald-200',
-        text: 'text-emerald-700',
-        light: 'bg-emerald-50',
+        bg: 'bg-fuchsia-100',
+        hover: 'hover:bg-fuchsia-200',
+        text: 'text-fuchsia-700',
+        light: 'bg-fuchsia-50',
     },
     general: {
         bg: 'bg-neutral-100',
