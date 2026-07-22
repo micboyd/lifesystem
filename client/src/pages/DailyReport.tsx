@@ -16,6 +16,7 @@ import {
     todayKey,
     formatDateLong,
     parseDateKey,
+    addDays,
     WEEKDAYS_LONG,
     PERIODS,
     eventCoversSlot,
@@ -33,7 +34,8 @@ import {
 import { listTasks, updateTask } from '../services/tasks'
 import { listEvents } from '../services/events'
 import { listReminders } from '../services/reminders'
-import { EVENT_TYPE_LABELS } from '../types'
+import { listStatuses } from '../services/dayStatus'
+import { DAY_STATUS_OPTIONS, EVENT_TYPE_LABELS } from '../types'
 import { useCalendars } from '../context/CalendarsContext'
 import { colorsForEvent } from '../lib/eventColors'
 import type {
@@ -47,6 +49,8 @@ import type {
     Event,
     Reminder,
     Part,
+    DayStatus,
+    Calendar as CalendarLayer,
 } from '../types'
 
 const fmt = formatAmount
@@ -151,6 +155,230 @@ function WeatherBrief({ date, forecast }: { date: string; forecast: Forecast | n
     )
 }
 
+// ── Tomorrow section ──────────────────────────────────────────────────────────
+
+/** From this hour onwards, "today" is basically done and tomorrow is the useful view. */
+const EVENING_HOUR = 19
+
+interface TomorrowData {
+    events: Event[]
+    tasks: Task[]
+    reminders: Reminder[]
+    statuses: DayStatus[]
+}
+
+/**
+ * The evening counterpart to the rest of the page: once today is effectively
+ * over, what matters is what you need to have ready. Weather and clothing come
+ * first because they're the things you act on before bed (washing, bag, alarm).
+ */
+function TomorrowBrief({
+    date,
+    forecast,
+    data,
+    calendarsById,
+}: {
+    date: string
+    forecast: Forecast | null
+    data: TomorrowData | null
+    calendarsById: Map<string, CalendarLayer>
+}) {
+    const day = forecast?.daily.find((d) => d.date === date)
+    const info = day ? weatherInfo(day.code) : null
+
+    const events = data?.events ?? []
+    const allDay = events.filter((e) => eventCoversAllDay(e, date))
+    const parts = PERIODS.map((period) => ({
+        period,
+        event: events.find((e) => eventCoversSlot(e, date, period.key as Part)) ?? null,
+    })).filter((p) => p.event !== null)
+    const openTasks = (data?.tasks ?? []).filter((t) => !t.completed)
+    const reminders = data?.reminders ?? []
+    const status = (data?.statuses ?? []).find((s) => s.startDate <= date && s.endDate >= date)
+    const statusOption = status
+        ? DAY_STATUS_OPTIONS.find((o) => o.value === status.status)
+        : undefined
+
+    // The earliest thing with a clock time — the one detail that decides an alarm.
+    const firstTimed = [...events]
+        .filter((e) => e.time && e.startDate === date)
+        .sort((a, b) => (a.time! < b.time! ? -1 : 1))[0]
+
+    const nothingOn =
+        allDay.length + parts.length + reminders.length + openTasks.length === 0 && !statusOption
+
+    return (
+        <Card>
+            <CardHeader className="flex items-center justify-between gap-4">
+                <CardTitle>
+                    <span className="flex items-center gap-2">
+                        <i className="fa-solid fa-moon text-sm text-indigo-400" aria-hidden="true" />
+                        Prepare for tomorrow
+                    </span>
+                </CardTitle>
+                <Link
+                    to={`/day/${date}`}
+                    className="text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
+                >
+                    Open day
+                </Link>
+            </CardHeader>
+
+            <p className="-mt-1 mb-4 text-sm text-neutral-500">{formatDateLong(date)}</p>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+                {/* Weather + clothing */}
+                <div className="flex flex-col gap-3">
+                    {day && info ? (
+                        <>
+                            <div className="flex items-center gap-4">
+                                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-sky-50 text-2xl text-sky-500">
+                                    <i className={info.icon} aria-hidden="true" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-2xl font-bold tracking-tight text-neutral-900">
+                                            {day.tempMax}&deg;
+                                        </span>
+                                        <span className="truncate text-sm font-medium text-neutral-500">
+                                            {info.label}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-neutral-400">
+                                        Low {day.tempMin}&deg;
+                                        {day.precipitationProbability > 0 && (
+                                            <> · {day.precipitationProbability}% rain</>
+                                        )}
+                                        {` · wind ${day.windMax} mph`}
+                                    </p>
+                                </div>
+                            </div>
+                            <p className="rounded-xl bg-neutral-50 px-3 py-2.5 text-xs text-neutral-600">
+                                <i
+                                    className="fa-solid fa-shirt mr-1.5 text-neutral-400"
+                                    aria-hidden="true"
+                                />
+                                {whatToWear(day)}
+                            </p>
+                        </>
+                    ) : (
+                        <p className="text-sm text-neutral-400">
+                            No forecast for tomorrow yet.{' '}
+                            <Link
+                                to="/weather"
+                                className="font-semibold text-neutral-600 underline underline-offset-2"
+                            >
+                                Open weather
+                            </Link>
+                        </p>
+                    )}
+                </div>
+
+                {/* What's coming up */}
+                <div className="flex flex-col gap-1">
+                    {statusOption && (
+                        <div
+                            className={`mb-1 flex items-center gap-2 rounded-xl px-3 py-2 ${statusOption.bg} ${statusOption.text}`}
+                        >
+                            <i
+                                className="fa-solid fa-umbrella-beach w-4 shrink-0 text-center text-sm opacity-70"
+                                aria-hidden="true"
+                            />
+                            <span className="truncate text-sm font-semibold">
+                                {statusOption.label}
+                            </span>
+                        </div>
+                    )}
+
+                    {firstTimed && (
+                        <p className="mb-1 text-xs font-semibold text-neutral-400">
+                            First thing: {firstTimed.title} at {firstTimed.time}
+                        </p>
+                    )}
+
+                    {allDay.map((e) => {
+                        const colors = colorsForEvent(e, calendarsById)
+                        return (
+                            <div
+                                key={e._id}
+                                className={`flex items-center gap-3 rounded-xl px-3 py-2 ${colors.bg}`}
+                            >
+                                <i
+                                    className="fa-regular fa-calendar w-4 shrink-0 text-center text-sm opacity-60"
+                                    aria-hidden="true"
+                                />
+                                <p
+                                    className={`min-w-0 flex-1 truncate text-sm font-semibold ${colors.text}`}
+                                >
+                                    {e.title}
+                                </p>
+                                <span
+                                    className={`shrink-0 text-xs font-medium opacity-60 ${colors.text}`}
+                                >
+                                    all day
+                                </span>
+                            </div>
+                        )
+                    })}
+
+                    {parts.map(({ period, event }) => (
+                        <div key={period.key} className="flex items-center gap-3 rounded-xl px-3 py-2">
+                            <i
+                                className={`${period.icon} w-4 shrink-0 text-center text-sm text-neutral-300`}
+                                aria-hidden="true"
+                            />
+                            <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                {period.label}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-800">
+                                {event!.title}
+                            </span>
+                            {event!.time && (
+                                <span className="shrink-0 text-xs tabular-nums text-neutral-400">
+                                    {event!.time}
+                                </span>
+                            )}
+                        </div>
+                    ))}
+
+                    {reminders.map((r) => (
+                        <div
+                            key={`${r._id}-${r.date}`}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2"
+                        >
+                            <i
+                                className="fa-solid fa-bell w-4 shrink-0 text-center text-sm text-amber-400"
+                                aria-hidden="true"
+                            />
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800">
+                                {r.text}
+                            </span>
+                        </div>
+                    ))}
+
+                    {openTasks.length > 0 && (
+                        <div className="flex items-center gap-3 rounded-xl px-3 py-2">
+                            <i
+                                className="fa-solid fa-list-check w-4 shrink-0 text-center text-sm text-neutral-300"
+                                aria-hidden="true"
+                            />
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800">
+                                {openTasks.length} task{openTasks.length !== 1 ? 's' : ''} lined up
+                            </span>
+                        </div>
+                    )}
+
+                    {nothingOn && (
+                        <p className="text-sm text-neutral-400">
+                            Nothing scheduled — a clear day ahead.
+                        </p>
+                    )}
+                </div>
+            </div>
+        </Card>
+    )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DailyReport() {
@@ -243,6 +471,38 @@ export default function DailyReport() {
 
     const loading = loadedMonth !== month || loadedDate !== date
 
+    // ── Tomorrow ────────────────────────────────────────────────────────────
+    // Tracked as state, and re-checked each minute, so 7pm arriving reveals the
+    // section on a page that's been sitting open all evening.
+    const [hour, setHour] = useState(() => new Date().getHours())
+    useEffect(() => {
+        const id = setInterval(() => setHour(new Date().getHours()), 60_000)
+        return () => clearInterval(id)
+    }, [])
+
+    // Only meaningful while looking at today — "tomorrow" relative to a date
+    // you're browsing in the past isn't something you can prepare for.
+    const viewingToday = date === todayKey()
+    const showTomorrow = viewingToday && hour >= EVENING_HOUR
+    const tomorrow = addDays(date, 1)
+
+    const [tomorrowData, setTomorrowData] = useState<TomorrowData | null>(null)
+    useEffect(() => {
+        if (!showTomorrow) return
+        let active = true
+        Promise.all([
+            listEvents(tomorrow, tomorrow).catch(() => [] as Event[]),
+            listTasks(tomorrow, tomorrow).catch(() => [] as Task[]),
+            listReminders(tomorrow, tomorrow).catch(() => [] as Reminder[]),
+            listStatuses(tomorrow, tomorrow).catch(() => [] as DayStatus[]),
+        ]).then(([events, tasks, reminders, statuses]) => {
+            if (active) setTomorrowData({ events, tasks, reminders, statuses })
+        })
+        return () => {
+            active = false
+        }
+    }, [showTomorrow, tomorrow, tasksVersion])
+
     async function toggleTask(task: Task) {
         if (togglingId) return
         setTogglingId(task._id)
@@ -313,7 +573,7 @@ export default function DailyReport() {
         event: events.find((e) => eventCoversSlot(e, date, period.key as Part)) ?? null,
     })).filter((p) => p.event !== null)
     const openTasks = tasks.filter((t) => !t.completed)
-    const isToday = date === todayKey()
+    const isToday = viewingToday
     const { year, month: m, day: d } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, m, d).getDay()]
 
@@ -562,6 +822,16 @@ export default function DailyReport() {
                                 ))}
                             </div>
                         </Card>
+                    )}
+
+                    {/* Evening wind-down — today's report ends, tomorrow's prep begins. */}
+                    {showTomorrow && (
+                        <TomorrowBrief
+                            date={tomorrow}
+                            forecast={forecast}
+                            data={tomorrowData}
+                            calendarsById={calendarsById}
+                        />
                     )}
                 </div>
             )}
