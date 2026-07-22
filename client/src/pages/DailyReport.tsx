@@ -7,14 +7,8 @@ import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import { useAuth } from '../context/AuthContext'
 import { useDataVersion, useInvalidate } from '../context/DataSyncContext'
 import { fetchForecast, weatherInfo, whatToWear, type Forecast } from '../lib/weather'
-import {
-    computeBudgetDay,
-    computeBudgetWeek,
-    computeExclusionPot,
-    clampedWeekRange,
-    activeDaysBetween,
-    monthOf,
-} from '../lib/budget'
+import { computeExclusionPot, monthOf } from '../lib/budget'
+import { rowSafeToSpendToday } from '../lib/budgetDiscipline'
 import { rowVisibleInMonth } from '../lib/finance'
 import { formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
@@ -66,11 +60,10 @@ interface BudgetToday {
 }
 
 /**
- * One "you can spend X today" figure per tracked budget. Daily rows use the
- * self-correcting daily remaining (rate + carry − spent today). Weekly rows
- * spread what's left of the week evenly across its remaining active days, so
- * the figure answers the same question: "what can I spend today and stay on
- * track?".
+ * One "you can spend X today" figure per tracked budget. The figure itself comes
+ * from the shared {@link rowSafeToSpendToday} engine (the same maths the dashboard
+ * safe-to-spend pill uses), so the two surfaces always agree; this wrapper only
+ * adds the presentation context line.
  */
 function computeBudgetToday(
     row: FinanceRow,
@@ -84,24 +77,18 @@ function computeBudgetToday(
         return { row, canSpendToday: 0, context: 'Day off budget — no allowance today' }
     }
 
-    if (row.budgetType === 'weekly') {
-        const { weekStart, weekEnd } = clampedWeekRange(date)
-        const bw = computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, date, excluded, rowTopUps)
-        const spentToday = rowSpends
-            .filter((s) => s.date === date)
-            .reduce((sum, s) => sum + s.amount, 0)
-        const daysLeft = activeDaysBetween(date, weekEnd, excluded)
-        // Even share of the week's pot as it stood this morning, minus today's spend.
-        const potBeforeToday = bw.remaining + spentToday
-        const canSpendToday = daysLeft > 0 ? potBeforeToday / daysLeft - spentToday : bw.remaining
+    const safe = rowSafeToSpendToday(row, entry, rowSpends, rowTopUps, date, excluded)
+
+    if (safe.week) {
+        const bw = safe.week
         return {
             row,
-            canSpendToday,
+            canSpendToday: safe.canSpendToday,
             context: `£${fmt(Math.abs(bw.remaining))} ${bw.remaining < 0 ? 'over' : 'left'} this week · £${fmt(Math.abs(bw.monthlyRemaining))} ${bw.monthlyRemaining < 0 ? 'over' : 'left'} this month`,
         }
     }
 
-    const bd = computeBudgetDay(row, entry, rowSpends, date, excluded, rowTopUps)
+    const bd = safe.day!
     const carryNote =
         Math.abs(bd.carry) > 0.005
             ? bd.carry > 0
@@ -110,7 +97,7 @@ function computeBudgetToday(
             : ''
     return {
         row,
-        canSpendToday: bd.remaining,
+        canSpendToday: safe.canSpendToday,
         context: `£${fmt(bd.straightDailyRate)}/day${carryNote} · £${fmt(Math.abs(bd.monthlyRemaining))} ${bd.monthlyRemaining < 0 ? 'over' : 'left'} this month`,
     }
 }

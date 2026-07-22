@@ -12,6 +12,7 @@ import {
     listEntries,
     listBudgetSpends,
     listBudgetExclusions,
+    listBudgetTopUps,
     createBudgetSpend,
 } from '../services/finances'
 import { monthOf } from '../lib/budget'
@@ -60,12 +61,13 @@ export default function QuickLog() {
             listEntries(month),
             listBudgetSpends({ month }),
             listBudgetExclusions(month),
+            listBudgetTopUps(month),
         ])
-            .then(([g, r, e, s, x]) => {
+            .then(([g, r, e, s, x, t]) => {
                 if (!active) return
                 setGroups(g)
                 setRows(r)
-                setData({ entries: e, spends: s, excluded: new Set(x.map((d) => d.date)) })
+                setData({ entries: e, spends: s, excluded: new Set(x.map((d) => d.date)), topUps: t })
             })
             .finally(() => active && setLoadedKey(month))
         return () => {
