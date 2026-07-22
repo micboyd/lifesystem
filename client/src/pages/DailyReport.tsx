@@ -6,7 +6,17 @@ import Spinner from '../components/Spinner'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import { useAuth } from '../context/AuthContext'
 import { useDataVersion, useInvalidate } from '../context/DataSyncContext'
-import { fetchForecast, weatherInfo, whatToWear, type Forecast } from '../lib/weather'
+import {
+    fetchForecast,
+    weatherInfo,
+    whatToWear,
+    partOfDaySummary,
+    planningInsight,
+    weatherWarnings,
+    SEVERITY_STYLES,
+    SEVERITY_ICON_STYLES,
+    type Forecast,
+} from '../lib/weather'
 import { computeExclusionPot, monthOf } from '../lib/budget'
 import { rowSpendSummary } from '../lib/budgetDiscipline'
 import { rowVisibleInMonth } from '../lib/finance'
@@ -160,6 +170,11 @@ function WeatherBrief({ date, forecast }: { date: string; forecast: Forecast | n
 /** From this hour onwards, "today" is basically done and tomorrow is the useful view. */
 const EVENING_HOUR = 19
 
+/** ISO timestamp → "07:42". */
+function formatClock(stamp: string): string {
+    return new Date(stamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
+
 interface TomorrowData {
     events: Event[]
     tasks: Task[]
@@ -185,6 +200,14 @@ function TomorrowBrief({
 }) {
     const day = forecast?.daily.find((d) => d.date === date)
     const info = day ? weatherInfo(day.code) : null
+    const hourly = forecast?.hourlyByDate[date] ?? []
+    const bands = partOfDaySummary(hourly)
+    const warnings = day && hourly.length > 0 ? weatherWarnings(hourly, day) : []
+    const insight = hourly.length > 0 ? planningInsight(hourly) : ''
+    const maxGust = hourly.length > 0 ? Math.max(...hourly.map((h) => h.windGust)) : 0
+    // The evening band runs to 10pm, which is still daylight in midsummer —
+    // pick sun or moon glyphs from the actual sunset rather than the clock.
+    const eveningIsDay = day?.sunset ? new Date(day.sunset).getHours() >= 20 : false
 
     const events = data?.events ?? []
     const allDay = events.filter((e) => eventCoversAllDay(e, date))
@@ -226,6 +249,27 @@ function TomorrowBrief({
 
             <p className="-mt-1 mb-4 text-sm text-neutral-500">{formatDateLong(date)}</p>
 
+            {/* Warnings lead — they change what "prepared" means. */}
+            {warnings.length > 0 && (
+                <div className="mb-4 flex flex-col gap-1.5">
+                    {warnings.map((w) => (
+                        <div
+                            key={w.id}
+                            className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 ${SEVERITY_STYLES[w.severity]}`}
+                        >
+                            <i
+                                className={`${w.icon} mt-0.5 shrink-0 text-sm ${SEVERITY_ICON_STYLES[w.severity]}`}
+                                aria-hidden="true"
+                            />
+                            <div className="min-w-0">
+                                <p className="text-xs font-semibold leading-tight">{w.title}</p>
+                                <p className="mt-0.5 text-[11px] opacity-80">{w.detail}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             <div className="grid gap-5 sm:grid-cols-2">
                 {/* Weather + clothing */}
                 <div className="flex flex-col gap-3">
@@ -253,6 +297,58 @@ function TomorrowBrief({
                                     </p>
                                 </div>
                             </div>
+
+                            {/* Morning / afternoon / evening — the app's own day model,
+                                so a band lines up with the events sitting in it. */}
+                            {bands.length > 0 && (
+                                <div className="grid grid-cols-3 gap-1.5">
+                                    {bands.map((band) => {
+                                        const bandInfo = weatherInfo(
+                                            band.code,
+                                            band.key !== 'evening' || eveningIsDay
+                                        )
+                                        const rainy = band.precipitationProbability >= 50
+                                        return (
+                                            <div
+                                                key={band.key}
+                                                className="flex flex-col items-center gap-1.5 rounded-xl border border-neutral-100 px-1 py-3"
+                                                title={`${band.label}: ${bandInfo.label}, ${band.tempMin}–${band.tempMax}°, ${band.precipitationProbability}% rain, gusts ${band.windGust} mph`}
+                                            >
+                                                <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                                    {band.label}
+                                                </span>
+                                                <i
+                                                    className={`${bandInfo.icon} text-base text-sky-500`}
+                                                    aria-hidden="true"
+                                                />
+                                                <span className="text-xs font-semibold text-neutral-700">
+                                                    {band.tempMax}&deg;
+                                                </span>
+                                                <span
+                                                    className={
+                                                        rainy
+                                                            ? 'rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-600'
+                                                            : 'text-[9px] text-neutral-300'
+                                                    }
+                                                >
+                                                    {band.precipitationProbability}%
+                                                </span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+
+                            {insight && (
+                                <p className="rounded-xl bg-neutral-50 px-3 py-2.5 text-xs text-neutral-600">
+                                    <i
+                                        className="fa-solid fa-lightbulb mr-1.5 text-neutral-400"
+                                        aria-hidden="true"
+                                    />
+                                    {insight}
+                                </p>
+                            )}
+
                             <p className="rounded-xl bg-neutral-50 px-3 py-2.5 text-xs text-neutral-600">
                                 <i
                                     className="fa-solid fa-shirt mr-1.5 text-neutral-400"
@@ -260,6 +356,46 @@ function TomorrowBrief({
                                 />
                                 {whatToWear(day)}
                             </p>
+
+                            {/* Numbers worth knowing the night before. */}
+                            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-neutral-500">
+                                {day.sunrise && (
+                                    <span>
+                                        <i
+                                            className="fa-solid fa-arrow-up mr-1 text-neutral-300"
+                                            aria-hidden="true"
+                                        />
+                                        Sunrise {formatClock(day.sunrise)}
+                                    </span>
+                                )}
+                                {day.sunset && (
+                                    <span>
+                                        <i
+                                            className="fa-solid fa-arrow-down mr-1 text-neutral-300"
+                                            aria-hidden="true"
+                                        />
+                                        Sunset {formatClock(day.sunset)}
+                                    </span>
+                                )}
+                                {day.uvIndexMax != null && (
+                                    <span>
+                                        <i
+                                            className="fa-solid fa-sun mr-1 text-neutral-300"
+                                            aria-hidden="true"
+                                        />
+                                        UV {Math.round(day.uvIndexMax)}
+                                    </span>
+                                )}
+                                {maxGust > day.windMax + 5 && (
+                                    <span>
+                                        <i
+                                            className="fa-solid fa-wind mr-1 text-neutral-300"
+                                            aria-hidden="true"
+                                        />
+                                        Gusts {maxGust} mph
+                                    </span>
+                                )}
+                            </div>
                         </>
                     ) : (
                         <p className="text-sm text-neutral-400">

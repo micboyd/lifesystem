@@ -3,19 +3,16 @@ import { Link } from 'react-router-dom'
 import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
-import { fetchForecast, weatherInfo, whatToWear, planningInsight, weatherWarnings, type Forecast } from '../../lib/weather'
-
-const SEVERITY_STYLES = {
-    red: 'bg-red-50 border-red-200 text-red-700',
-    amber: 'bg-amber-50 border-amber-200 text-amber-700',
-    yellow: 'bg-yellow-50 border-yellow-200 text-yellow-700',
-}
-
-const SEVERITY_ICON_STYLES = {
-    red: 'text-red-500',
-    amber: 'text-amber-500',
-    yellow: 'text-yellow-500',
-}
+import {
+    fetchForecast,
+    weatherInfo,
+    whatToWear,
+    planningInsight,
+    weatherWarnings,
+    SEVERITY_STYLES,
+    SEVERITY_ICON_STYLES,
+    type Forecast,
+} from '../../lib/weather'
 
 export default function WeatherWidget() {
     const { user } = useAuth()

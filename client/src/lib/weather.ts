@@ -28,6 +28,8 @@ export interface DailyForecast {
 }
 
 export interface HourlySlot {
+    /** YYYY-MM-DD the slot belongs to. */
+    date: string
     hour: number
     temperature: number
     precipitationProbability: number
@@ -49,8 +51,10 @@ export interface Forecast {
     current: CurrentWeather
     /** Today plus the next three days (four entries). */
     daily: DailyForecast[]
-    /** Today's hourly slots (hours 0–23). */
+    /** Today's hourly slots (hours 0–23), indexable by hour. */
     hourly: HourlySlot[]
+    /** Every fetched day's hourly slots, keyed by YYYY-MM-DD. */
+    hourlyByDate: Record<string, HourlySlot[]>
 }
 
 interface OpenMeteoForecastResponse {
@@ -115,10 +119,12 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
         uvIndexMax: d.uv_index_max?.[i] ?? undefined,
     }))
 
-    // Only keep today's 24 hours (first 24 slots)
+    // Keep every fetched hour, not just today's — the daily report needs
+    // tomorrow at the same depth it shows today.
     const h = data.hourly
-    const hourly: HourlySlot[] = h.time.slice(0, 24).map((_, i) => ({
-        hour: i,
+    const allHours: HourlySlot[] = h.time.map((stamp, i) => ({
+        date: stamp.slice(0, 10),
+        hour: Number(stamp.slice(11, 13)),
         temperature: Math.round(h.temperature_2m[i]),
         precipitationProbability: h.precipitation_probability[i] ?? 0,
         precipitation: h.precipitation[i] ?? 0,
@@ -126,6 +132,11 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
         visibility: Math.round((h.visibility[i] ?? 10000) / 1000), // km
         code: h.weather_code[i],
     }))
+
+    const hourlyByDate: Record<string, HourlySlot[]> = {}
+    for (const slot of allHours) {
+        ;(hourlyByDate[slot.date] ??= []).push(slot)
+    }
 
     const c = data.current
     return {
@@ -138,7 +149,9 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
             isDay: c.is_day === 1,
         },
         daily,
-        hourly,
+        // Callers index this by hour, so it must stay exactly one day long.
+        hourly: hourlyByDate[daily[0]?.date] ?? [],
+        hourlyByDate,
     }
 }
 
@@ -262,6 +275,67 @@ export function whatToWear(day: WearInput): string {
     if (day.windMax >= 25) parts.push('it’s windy, add a windproof layer')
 
     return parts.join('; ')
+}
+
+/** Tailwind classes per warning severity, shared by every surface that shows them. */
+export const SEVERITY_STYLES: Record<WeatherWarning['severity'], string> = {
+    red: 'bg-red-50 border-red-200 text-red-700',
+    amber: 'bg-amber-50 border-amber-200 text-amber-700',
+    yellow: 'bg-yellow-50 border-yellow-200 text-yellow-700',
+}
+
+export const SEVERITY_ICON_STYLES: Record<WeatherWarning['severity'], string> = {
+    red: 'text-red-500',
+    amber: 'text-amber-500',
+    yellow: 'text-yellow-500',
+}
+
+export interface PartSummary {
+    key: 'morning' | 'afternoon' | 'evening'
+    label: string
+    /** The band's most notable condition. */
+    code: number
+    tempMin: number
+    tempMax: number
+    /** Peak chance of precipitation across the band, %. */
+    precipitationProbability: number
+    /** Strongest gust in the band, mph. */
+    windGust: number
+}
+
+// Bands match the app's own morning/afternoon/evening model (see isPartPast in
+// lib/calendar), so a forecast row lines up with the events sitting in that slot.
+const PART_BANDS = [
+    { key: 'morning', label: 'Morning', from: 6, to: 11 },
+    { key: 'afternoon', label: 'Afternoon', from: 12, to: 17 },
+    { key: 'evening', label: 'Evening', from: 18, to: 22 },
+] as const
+
+/**
+ * Collapses a day's hourly slots into morning / afternoon / evening.
+ *
+ * The band's condition is the highest WMO code it contains: the codes ascend
+ * roughly by severity, so this surfaces the hour worth planning around rather
+ * than averaging a downpour away into "cloudy".
+ */
+export function partOfDaySummary(hourly: HourlySlot[]): PartSummary[] {
+    return PART_BANDS.flatMap(({ key, label, from, to }) => {
+        const slots = hourly.filter((h) => h.hour >= from && h.hour <= to)
+        if (slots.length === 0) return []
+        return [
+            {
+                key,
+                label,
+                code: Math.max(...slots.map((s) => s.code)),
+                tempMin: Math.min(...slots.map((s) => s.temperature)),
+                tempMax: Math.max(...slots.map((s) => s.temperature)),
+                precipitationProbability: Math.max(
+                    ...slots.map((s) => s.precipitationProbability)
+                ),
+                windGust: Math.max(...slots.map((s) => s.windGust)),
+            },
+        ]
+    })
 }
 
 function fmt12(hour: number): string {
@@ -440,7 +514,7 @@ export function planningInsight(hourly: HourlySlot[]): string {
         }
     }
 
-    return 'Mixed conditions today — keep an eye on the forecast'
+    return 'Mixed conditions — keep an eye on the forecast'
 }
 
 /** "Today", "Tomorrow", else a short weekday like "Thu". */

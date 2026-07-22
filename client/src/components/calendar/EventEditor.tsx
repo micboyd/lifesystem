@@ -262,10 +262,9 @@ export default function EventEditor({
     }, [open, event, defaultSlot])
 
     // Calendars load asynchronously, so a new event may open before the default
-    // is known. Fill it in when it arrives rather than resetting the whole form.
-    useEffect(() => {
-        if (open && !calendarId && defaultCalendar) setCalendarId(defaultCalendar._id)
-    }, [open, calendarId, defaultCalendar])
+    // is known. Deriving the fallback (rather than storing it once it arrives)
+    // means a late-loading list can't reset a form the user is already filling in.
+    const activeCalendarId = calendarId || defaultCalendar?._id || ''
 
     /**
      * Events on *other* layers that already occupy the slot being edited.
@@ -286,7 +285,7 @@ export default function EventEditor({
 
         return knownEvents.filter((other) => {
             if (other._id === event?._id) return false
-            if (!other.calendar || other.calendar === calendarId) return false
+            if (!other.calendar || other.calendar === activeCalendarId) return false
             if (other.startPart === 'na') return false
             return (
                 slotOrdinal(other.startDate, other.startPart) <= endOrd &&
@@ -301,7 +300,7 @@ export default function EventEditor({
         endDate,
         startPart,
         endPart,
-        calendarId,
+        activeCalendarId,
         knownEvents,
         event?._id,
     ])
@@ -347,7 +346,7 @@ export default function EventEditor({
         }
 
         onSave({
-            calendar: calendarId || undefined,
+            calendar: activeCalendarId || undefined,
             title: title.trim(),
             notes: notes.trim() || undefined,
             location: location.trim() || undefined,
@@ -418,7 +417,7 @@ export default function EventEditor({
                         <div className="flex flex-wrap gap-1.5">
                             {calendars.map((c) => {
                                 const cls = CALENDAR_COLOR_CLASSES[c.color]
-                                const selected = calendarId === c._id
+                                const selected = activeCalendarId === c._id
                                 return (
                                     <button
                                         key={c._id}
