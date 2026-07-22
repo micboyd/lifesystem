@@ -1,4 +1,6 @@
-import { EVENT_TYPE_COLORS, EVENT_TYPE_ICONS, NA_EVENT_COLORS } from '../../types'
+import { EVENT_TYPE_ICONS } from '../../types'
+import { useCalendars } from '../../context/CalendarsContext'
+import { colorsForEvent } from '../../lib/eventColors'
 import type { Event } from '../../types'
 
 interface EventStackProps {
@@ -7,10 +9,6 @@ interface EventStackProps {
     onEventClick: (event: Event) => void
     onAdd: () => void
     onPick: (events: Event[]) => void
-}
-
-function colorsFor(e: Event) {
-    return e.startPart === 'na' ? NA_EVENT_COLORS : EVENT_TYPE_COLORS[e.eventType]
 }
 
 function Chip({
@@ -24,7 +22,8 @@ function Chip({
     disabled?: boolean
     onClick: () => void
 }) {
-    const { bg, hover, text } = colorsFor(event)
+    const { byId } = useCalendars()
+    const { bg, hover, text } = colorsForEvent(event, byId)
     const base = `flex w-full items-center gap-1 overflow-hidden rounded-md px-1.5 text-left ${bg} ${text} ${mini ? 'min-h-0 flex-1' : 'h-full'}`
     const isBirthday = event._id.startsWith('birthday-')
     const title = (

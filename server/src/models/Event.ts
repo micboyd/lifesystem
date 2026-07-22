@@ -22,6 +22,8 @@ export type IRecurrence = RecurrenceSpec
 
 export interface IEvent extends Document {
     user: Types.ObjectId
+    /** Which calendar (layer) this event lives on. Slot exclusivity is scoped to it. */
+    calendar: Types.ObjectId
     title: string
     notes?: string
     location?: string
@@ -50,6 +52,7 @@ const recurrenceSchema = new Schema<IRecurrence>(
 const eventSchema = new Schema<IEvent>(
     {
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+        calendar: { type: Schema.Types.ObjectId, ref: 'Calendar', required: true, index: true },
         title: { type: String, required: true, trim: true },
         notes: { type: String, trim: true },
         location: { type: String, trim: true },

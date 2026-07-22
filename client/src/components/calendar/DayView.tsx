@@ -16,7 +16,9 @@ import {
     deleteEvent,
     type EventInput,
 } from '../../services/events'
-import { EVENT_TYPE_COLORS, EVENT_TYPE_ICONS, NA_EVENT_COLORS } from '../../types'
+import { EVENT_TYPE_ICONS } from '../../types'
+import { useCalendars } from '../../context/CalendarsContext'
+import { colorsForEvent } from '../../lib/eventColors'
 import type { Event, Part } from '../../types'
 
 interface DayViewProps {
@@ -68,19 +70,15 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
         }
     }, [load, date, initialOpenPart])
 
-    function findEventForPart(list: Event[], part: Part | 'allday'): Event | null {
-        if (part === 'allday') return list.find((e) => eventCoversAllDay(e, date)) ?? null
-        if (part === 'na')
-            return (
-                list.find(
-                    (e) => e.startPart === 'na' && date >= e.startDate && date <= e.endDate
-                ) ?? null
-            )
-        return list.find((e) => eventCoversSlot(e, date, part)) ?? null
+    /** Open the editor on a blank event in the given slot. */
+    function openNew(part: Part | 'allday') {
+        setEditing({ event: null, part })
+        setConflict(false)
     }
 
-    function openSlot(part: Part | 'allday') {
-        setEditing({ event: findEventForPart(events, part), part })
+    /** Open the editor on one specific existing event. */
+    function openExisting(event: Event, part: Part | 'allday') {
+        setEditing({ event, part })
         setConflict(false)
     }
 
@@ -147,7 +145,8 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
             <AllDaySection
                 events={allDayEvents}
                 date={date}
-                onAdd={() => openSlot('allday')}
+                onAdd={() => openNew('allday')}
+                onEdit={(event) => openExisting(event, 'allday')}
                 isPastDay={date < todayKey()}
             />
 
@@ -157,10 +156,11 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
                     key={period.key}
                     label={period.label}
                     icon={period.icon}
-                    event={events.find((e) => eventCoversSlot(e, date, period.key)) ?? null}
+                    events={events.filter((e) => eventCoversSlot(e, date, period.key))}
                     date={date}
                     past={isPartPast(date, period.key, new Date())}
-                    onClick={() => openSlot(period.key)}
+                    onEdit={(event) => openExisting(event, period.key)}
+                    onAdd={() => openNew(period.key)}
                 />
             ))}
 
@@ -173,6 +173,7 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
                 }}
                 saving={saving}
                 conflict={conflict}
+                knownEvents={events}
                 onClose={() => {
                     setEditing(null)
                     setConflict(false)
@@ -196,11 +197,13 @@ function AllDaySection({
     events,
     date,
     onAdd,
+    onEdit,
     isPastDay = false,
 }: {
     events: Event[]
     date: string
     onAdd: () => void
+    onEdit: (event: Event) => void
     isPastDay?: boolean
 }) {
     return (
@@ -226,7 +229,7 @@ function AllDaySection({
                     <p className="py-1 text-center text-xs text-neutral-300">Nothing here</p>
                 ) : (
                     events.map((e) => (
-                        <AllDayChip key={e._id} event={e} date={date} onClick={onAdd} />
+                        <AllDayChip key={e._id} event={e} date={date} onClick={() => onEdit(e)} />
                     ))
                 )}
             </div>
@@ -235,7 +238,8 @@ function AllDaySection({
 }
 
 function AllDayChip({ event, date, onClick }: { event: Event; date: string; onClick: () => void }) {
-    const colors = event.startPart === 'na' ? NA_EVENT_COLORS : EVENT_TYPE_COLORS[event.eventType]
+    const { byId } = useCalendars()
+    const colors = colorsForEvent(event, byId)
     const isMultiDay = event.startDate !== event.endDate
     return (
         <button
@@ -266,29 +270,22 @@ function AllDayChip({ event, date, onClick }: { event: Event; date: string; onCl
 interface PartRowProps {
     label: string
     icon: string
-    event: Event | null
+    /** Every event occupying this part — layers can share a slot, so this is a list. */
+    events: Event[]
     date: string
     past?: boolean
-    onClick: () => void
+    onEdit: (event: Event) => void
+    onAdd: () => void
 }
 
-function PartRow({ label, icon, event, date, past = false, onClick }: PartRowProps) {
-    const isMultiDay = event ? event.startDate !== event.endDate : false
-    const colors = event
-        ? event.startPart === 'na'
-            ? NA_EVENT_COLORS
-            : EVENT_TYPE_COLORS[event.eventType]
-        : null
+function PartRow({ label, icon, events, date, past = false, onEdit, onAdd }: PartRowProps) {
+    const { byId } = useCalendars()
 
-    const Tag = past ? 'div' : 'button'
     return (
-        <Tag
-            {...(!past ? { type: 'button' as const, onClick } : {})}
+        <div
             className={[
-                'group flex w-full items-start gap-4 rounded-2xl border p-4 text-left',
-                past
-                    ? 'border-red-200 bg-red-100/60 cursor-default'
-                    : 'border-neutral-200 bg-white transition-colors hover:border-neutral-300 hover:bg-neutral-50',
+                'flex w-full items-start gap-4 rounded-2xl border p-4 text-left',
+                past ? 'border-red-200 bg-red-100/60' : 'border-neutral-200 bg-white',
             ].join(' ')}
         >
             <span
@@ -304,48 +301,68 @@ function PartRow({ label, icon, event, date, past = false, onClick }: PartRowPro
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                     {label}
                 </p>
-                {event ? (
-                    <>
-                        <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-neutral-900">
-                            <span
-                                className={`inline-block h-2 w-2 shrink-0 rounded-full ${colors?.bg}`}
-                            />
-                            <span className="truncate">{event.title}</span>
-                            {event.time && (
-                                <span className="shrink-0 font-medium tabular-nums text-neutral-400">
-                                    {event.time}
-                                </span>
-                            )}
-                            {isMultiDay && (
-                                <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-                                    {event.startDate === date
-                                        ? 'starts'
-                                        : event.endDate === date
-                                          ? 'ends'
-                                          : 'continues'}
-                                </span>
-                            )}
-                        </p>
-                        {event.notes && (
-                            <p className="mt-0.5 line-clamp-2 text-sm text-neutral-500">
-                                {event.notes}
+
+                {events.map((event) => {
+                    const colors = colorsForEvent(event, byId)
+                    const calendar = event.calendar ? byId.get(event.calendar) : undefined
+                    const isMultiDay = event.startDate !== event.endDate
+                    return (
+                        <button
+                            key={event._id}
+                            type="button"
+                            disabled={past}
+                            onClick={() => onEdit(event)}
+                            className="group -mx-2 mt-1 block w-[calc(100%+1rem)] rounded-lg px-2 py-1 text-left transition-colors enabled:hover:bg-neutral-100 disabled:cursor-default"
+                        >
+                            <p className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                                <span
+                                    className={`inline-block h-2 w-2 shrink-0 rounded-full ${colors.bg}`}
+                                />
+                                <span className="truncate">{event.title}</span>
+                                {event.time && (
+                                    <span className="shrink-0 font-medium tabular-nums text-neutral-400">
+                                        {event.time}
+                                    </span>
+                                )}
+                                {calendar && !calendar.isDefault && (
+                                    <span
+                                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${colors.bg} ${colors.text}`}
+                                    >
+                                        {calendar.name}
+                                    </span>
+                                )}
+                                {isMultiDay && (
+                                    <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                                        {event.startDate === date
+                                            ? 'starts'
+                                            : event.endDate === date
+                                              ? 'ends'
+                                              : 'continues'}
+                                    </span>
+                                )}
                             </p>
-                        )}
-                    </>
-                ) : (
-                    <p className={`mt-1 text-sm ${past ? 'text-red-400' : 'text-neutral-400'}`}>
+                            {event.notes && (
+                                <p className="mt-0.5 line-clamp-2 text-sm text-neutral-500">
+                                    {event.notes}
+                                </p>
+                            )}
+                        </button>
+                    )
+                })}
+
+                {past && events.length === 0 && <p className="mt-1 text-sm text-red-400">In the past</p>}
+
+                {!past && (
+                    <button
+                        type="button"
+                        onClick={onAdd}
+                        className="-mx-2 mt-1 rounded-lg px-2 py-1 text-sm text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
+                    >
                         <i className="fa-solid fa-plus mr-1.5 text-[10px]" aria-hidden="true" />
-                        {past ? 'In the past' : 'Add event'}
-                    </p>
+                        Add event
+                    </button>
                 )}
             </div>
-
-            {!past && (
-                <i
-                    className="fa-solid fa-chevron-right mt-1 text-xs text-neutral-300 transition-colors group-hover:text-neutral-500"
-                    aria-hidden="true"
-                />
-            )}
-        </Tag>
+        </div>
     )
 }

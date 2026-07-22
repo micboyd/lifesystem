@@ -1,5 +1,7 @@
 import Modal from '../Modal'
-import { EVENT_TYPE_COLORS, NA_EVENT_COLORS, EVENT_TYPE_LABELS } from '../../types'
+import { EVENT_TYPE_LABELS } from '../../types'
+import { useCalendars } from '../../context/CalendarsContext'
+import { colorsForEvent } from '../../lib/eventColors'
 import type { Event } from '../../types'
 
 interface Props {
@@ -9,12 +11,14 @@ interface Props {
 }
 
 export default function EventPickerModal({ events, onClose, onSelect }: Props) {
+    const { byId } = useCalendars()
     return (
         <Modal open={events !== null} onClose={onClose} title="Events" size="sm">
             <div className="flex flex-col gap-2">
                 {events?.map((event) => {
                     const isNa = event.startPart === 'na'
-                    const colors = isNa ? NA_EVENT_COLORS : EVENT_TYPE_COLORS[event.eventType]
+                    const colors = colorsForEvent(event, byId)
+                    const calendar = event.calendar ? byId.get(event.calendar) : undefined
                     return (
                         <button
                             key={event._id}
@@ -28,6 +32,7 @@ export default function EventPickerModal({ events, onClose, onSelect }: Props) {
                                     {event.title}
                                 </span>
                                 <span className="text-xs text-neutral-400">
+                                    {calendar && !calendar.isDefault && `${calendar.name} · `}
                                     {isNa ? 'Other' : EVENT_TYPE_LABELS[event.eventType]}
                                     {event.recurrence && ' · recurring'}
                                 </span>

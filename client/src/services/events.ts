@@ -2,6 +2,8 @@ import api from './api'
 import type { ApiResponse, Event, EventType, Part, Recurrence } from '../types'
 
 export interface EventInput {
+    /** Calendar (layer) to file the event under. Omitted means "leave it where it is". */
+    calendar?: string
     title: string
     notes?: string
     location?: string

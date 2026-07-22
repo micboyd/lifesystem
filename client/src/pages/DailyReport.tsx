@@ -33,7 +33,9 @@ import {
 import { listTasks, updateTask } from '../services/tasks'
 import { listEvents } from '../services/events'
 import { listReminders } from '../services/reminders'
-import { EVENT_TYPE_COLORS, EVENT_TYPE_LABELS } from '../types'
+import { EVENT_TYPE_LABELS } from '../types'
+import { useCalendars } from '../context/CalendarsContext'
+import { colorsForEvent } from '../lib/eventColors'
 import type {
     FinanceGroup,
     FinanceRow,
@@ -156,6 +158,7 @@ export default function DailyReport() {
     const { user } = useAuth()
     const location = user?.settings?.weatherLocation ?? null
     const invalidate = useInvalidate()
+    const { byId: calendarsById } = useCalendars()
 
     const [date, setDate] = useState(todayKey())
     const month = monthOf(date)
@@ -491,7 +494,7 @@ export default function DailyReport() {
                             </CardHeader>
                             <div className="flex flex-col gap-1">
                                 {allDayEvents.map((e) => {
-                                    const colors = EVENT_TYPE_COLORS[e.eventType]
+                                    const colors = colorsForEvent(e, calendarsById)
                                     return (
                                         <div
                                             key={e._id}
@@ -511,7 +514,7 @@ export default function DailyReport() {
                                     )
                                 })}
                                 {partEvents.map(({ period, event }) => {
-                                    const colors = EVENT_TYPE_COLORS[event!.eventType]
+                                    const colors = colorsForEvent(event!, calendarsById)
                                     return (
                                         <div
                                             key={period.key}

@@ -4,9 +4,12 @@ import type { NextFunction, Request, Response } from 'express'
 
 import DayStatus from './models/DayStatus'
 import BudgetSpend from './models/BudgetSpend'
+import EventModel from './models/Event'
+import { ensureDefaultCalendar } from './lib/calendars'
 import { connectDB } from './config/db'
 import cors from 'cors'
 import birthdayRoutes from './routes/birthdayRoutes'
+import calendarRoutes from './routes/calendarRoutes'
 import daysSinceRoutes from './routes/daysSinceRoutes'
 import goalRoutes from './routes/goalRoutes'
 import courseRoutes from './routes/courseRoutes'
@@ -50,6 +53,7 @@ app.use(express.json())
 
 app.use('/api/users', userRoutes)
 app.use('/api/events', eventRoutes)
+app.use('/api/calendars', calendarRoutes)
 app.use('/api/habits', habitRoutes)
 app.use('/api/day-status', dayStatusRoutes)
 app.use('/api/reminders', reminderRoutes)
@@ -110,6 +114,25 @@ connectDB()
             console.log('BudgetSpend: dropped stale sparse starlingFeedItemUid index')
         } catch {
             // Already dropped or never existed.
+        }
+
+        // One-time migration: events predate calendars. Every event now belongs
+        // to exactly one, and slot-conflict checks match on it, so anything left
+        // unassigned would sit outside the exclusivity rule entirely.
+        try {
+            const userIds = await EventModel.distinct('user', { calendar: { $exists: false } })
+            for (const userId of userIds) {
+                const fallback = await ensureDefaultCalendar(userId)
+                const { modifiedCount } = await EventModel.updateMany(
+                    { user: userId, calendar: { $exists: false } },
+                    { $set: { calendar: fallback._id } }
+                )
+                console.log(
+                    `Event: assigned ${modifiedCount} event(s) to the "${fallback.name}" calendar`
+                )
+            }
+        } catch (err) {
+            console.error('Event calendar backfill failed:', err)
         }
 
         app.listen(PORT, () => console.log(`Server running on port ${PORT}`))

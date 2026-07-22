@@ -12,7 +12,9 @@ import {
     eventCoversAllDay,
 } from '../../lib/calendar'
 import { listEvents } from '../../services/events'
-import { EVENT_TYPE_COLORS, EVENT_TYPE_LABELS } from '../../types'
+import { EVENT_TYPE_LABELS } from '../../types'
+import { useCalendars } from '../../context/CalendarsContext'
+import { colorsForEvent } from '../../lib/eventColors'
 import type { Event, Part } from '../../types'
 
 export default function TodayWidget({ date = todayKey() }: { date?: string }) {
@@ -88,7 +90,8 @@ export default function TodayWidget({ date = todayKey() }: { date?: string }) {
 }
 
 function AllDayRow({ event, date }: { event: Event; date: string }) {
-    const colors = EVENT_TYPE_COLORS[event.eventType]
+    const { byId } = useCalendars()
+    const colors = colorsForEvent(event, byId)
     const isMultiDay = event.startDate !== event.endDate
     return (
         <div className={`flex items-center gap-3 rounded-xl px-3 py-2 ${colors.bg}`}>
@@ -113,7 +116,8 @@ function AllDayRow({ event, date }: { event: Event; date: string }) {
 }
 
 function PartRow({ label, icon, event }: { label: string; icon: string; event: Event | null }) {
-    const colors = event ? EVENT_TYPE_COLORS[event.eventType] : null
+    const { byId } = useCalendars()
+    const colors = event ? colorsForEvent(event, byId) : null
 
     return (
         <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-neutral-50">

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     MONTHS,
@@ -23,6 +23,7 @@ import { listStatuses } from '../services/dayStatus'
 import { listReminders } from '../services/reminders'
 import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from '../services/totals'
 import { useAuth } from '../context/AuthContext'
+import { useCalendars } from '../context/CalendarsContext'
 import { DAY_STATUS_OPTIONS } from '../types'
 import type { Event, Part, DayStatus, TotalRow, Reminder } from '../types'
 import Container from '../components/Container'
@@ -37,6 +38,8 @@ import DeleteRecurringEventDialog, {
 } from '../components/calendar/DeleteRecurringEventDialog'
 import MonthView from '../components/calendar/MonthView'
 import WeekView from '../components/calendar/WeekView'
+import CalendarFilterBar from '../components/calendar/CalendarFilterBar'
+import HiddenCalendarDots from '../components/calendar/HiddenCalendarDots'
 import Drawer from '../components/Drawer'
 import DayStatusSection from '../components/calendar/DayStatusSection'
 import RemindersDaySection from '../components/reminders/RemindersDaySection'
@@ -81,6 +84,7 @@ export default function Calendar() {
     const today = new Date()
     const nav = useNavigate()
     const { user } = useAuth()
+    const { byId: calendarsById, setVisible } = useCalendars()
     const [view, setView] = useState<CalendarView>('Year')
     const [showPastMonths, setShowPastMonths] = useState(false)
     const [focusDate, setFocusDate] = useState(todayKey())
@@ -420,12 +424,46 @@ export default function Calendar() {
         return () => document.removeEventListener('keydown', onKey)
     }, [totalsOn, selection, copySelection, pasteSelection, clearSelectionValues])
 
+    // An event is drawn when its calendar is visible. Synthetic events (birthdays)
+    // carry no calendar and are always shown — they aren't a layer you manage.
+    const isShown = useCallback(
+        (event: Event) => {
+            if (!event.calendar) return true
+            return calendarsById.get(event.calendar)?.visible ?? true
+        },
+        [calendarsById]
+    )
+
+    const visibleEvents = useMemo(() => events.filter(isShown), [events, isShown])
+
+    // Everything on a hidden layer, indexed by every date it touches, so each
+    // day cell can show a presence dot without re-scanning the whole list.
+    const hiddenByDate = useMemo(() => {
+        const map = new Map<string, Event[]>()
+        for (const event of events) {
+            if (isShown(event)) continue
+            for (let d = event.startDate; d <= event.endDate; d = addDays(d, 1)) {
+                const bucket = map.get(d)
+                if (bucket) bucket.push(event)
+                else map.set(d, [event])
+            }
+        }
+        return map
+    }, [events, isShown])
+
+    const revealCalendar = useCallback(
+        (calendarId: string) => void setVisible(calendarId, true),
+        [setVisible]
+    )
+
     const sharedProps = {
         focusDate,
-        events,
+        events: visibleEvents,
         statuses,
         reminders,
         today,
+        hiddenByDate,
+        onRevealCalendar: revealCalendar,
         onOpenDay: (date: string) => nav(`/day/${date}`),
         onOpenReminders: (date: string) => setReminderDate(date),
         // Adding an event from a slot opens the editor in place — only the day
@@ -500,7 +538,8 @@ export default function Calendar() {
                         )}
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <CalendarFilterBar onChanged={reload} />
                         <Tabs
                             tabs={VIEWS}
                             value={view}
@@ -531,7 +570,9 @@ export default function Calendar() {
                                     year={yearNum}
                                     month={month}
                                     today={today}
-                                    events={events}
+                                    events={visibleEvents}
+                                    hiddenByDate={hiddenByDate}
+                                    onRevealCalendar={revealCalendar}
                                     statuses={statuses}
                                     reminders={reminders}
                                     totalsOn={totalsOn}
@@ -582,6 +623,7 @@ export default function Calendar() {
                         ? async (notes) => {
                               const ev = detailEvent
                               await updateEvent(ev._id, {
+                                  calendar: ev.calendar,
                                   title: ev.title,
                                   notes: notes || undefined,
                                   location: ev.location,
@@ -617,6 +659,8 @@ export default function Calendar() {
                 }
                 saving={saving}
                 conflict={conflict}
+                knownEvents={events}
+                onRevealCalendar={revealCalendar}
                 onClose={() => {
                     setEditorOpen(false)
                     setEditingEvent(null)
@@ -725,6 +769,9 @@ interface MonthBlockProps {
     month: number
     today: Date
     events: Event[]
+    /** Events on hidden calendars, keyed by date — drawn as presence dots. */
+    hiddenByDate: Map<string, Event[]>
+    onRevealCalendar: (calendarId: string) => void
     statuses: DayStatus[]
     reminders: Reminder[]
     totalsOn: boolean
@@ -752,6 +799,8 @@ function MonthBlock({
     month,
     today,
     events,
+    hiddenByDate,
+    onRevealCalendar,
     statuses,
     reminders,
     totalsOn,
@@ -875,6 +924,11 @@ function MonthBlock({
                                                     </span>
                                                 )}
                                             </button>
+                                            <HiddenCalendarDots
+                                                size="sm"
+                                                events={hiddenByDate.get(key) ?? []}
+                                                onReveal={onRevealCalendar}
+                                            />
                                         </div>
                                     </th>
                                 )

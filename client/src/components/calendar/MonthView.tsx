@@ -1,8 +1,11 @@
 import { todayKey, addDays, getWeekStart, parseDateKey } from '../../lib/calendar'
-import { EVENT_TYPE_COLORS, EVENT_TYPE_ICONS, NA_EVENT_COLORS, DAY_STATUS_OPTIONS } from '../../types'
+import { EVENT_TYPE_ICONS, DAY_STATUS_OPTIONS } from '../../types'
+import { useCalendars } from '../../context/CalendarsContext'
+import { colorsForEvent } from '../../lib/eventColors'
 import type { Event, DayStatus, Part, Reminder } from '../../types'
 import { Card } from '../Card'
 import ReminderChip from '../reminders/ReminderChip'
+import HiddenCalendarDots from './HiddenCalendarDots'
 
 interface Props {
     focusDate: string
@@ -15,6 +18,9 @@ interface Props {
     onOpenReminders: (date: string) => void
     onEventClick: (event: Event) => void
     onCreateEvent?: (date: string) => void
+    /** Events on hidden calendars, keyed by date — drawn as presence dots. */
+    hiddenByDate: Map<string, Event[]>
+    onRevealCalendar: (calendarId: string) => void
 }
 
 const WEEKDAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -29,7 +35,10 @@ export default function MonthView({
     onOpenReminders,
     onEventClick,
     onCreateEvent,
+    hiddenByDate,
+    onRevealCalendar,
 }: Props) {
+    const { byId } = useCalendars()
     const tk = todayKey()
     const { year, month } = parseDateKey(focusDate)
 
@@ -131,6 +140,10 @@ export default function MonthView({
                                         </span>
                                     )}
                                 </button>
+                                <HiddenCalendarDots
+                                    events={hiddenByDate.get(date) ?? []}
+                                    onReveal={onRevealCalendar}
+                                />
                                 <span
                                     onClick={(ev) => {
                                         ev.stopPropagation()
@@ -162,10 +175,7 @@ export default function MonthView({
                             {/* Event chips */}
                             <div className="flex flex-col gap-0.5">
                                 {visible.map((e) => {
-                                    const colors =
-                                        e.startPart === 'na'
-                                            ? NA_EVENT_COLORS
-                                            : EVENT_TYPE_COLORS[e.eventType]
+                                    const colors = colorsForEvent(e, byId)
                                     return (
                                         <button
                                             key={e._id + date}

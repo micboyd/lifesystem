@@ -122,6 +122,101 @@ export const EVENT_TYPE_ICONS: Partial<Record<EventType, string>> = {
     hobby: 'fa-solid fa-football',
 }
 
+// ─── Calendars (layers) ───────────────────────────────────────────────────────
+
+export const CALENDAR_COLORS = [
+    'neutral',
+    'blue',
+    'amber',
+    'indigo',
+    'emerald',
+    'rose',
+    'purple',
+    'teal',
+] as const
+export type CalendarColor = (typeof CALENDAR_COLORS)[number]
+
+/**
+ * A calendar is a layer, not a category: it decides what is *drawn*, while
+ * eventType still says what an event *is*. Hiding one keeps the grid quiet
+ * without deleting anything.
+ */
+export interface Calendar {
+    _id: string
+    name: string
+    color: CalendarColor
+    /** New events land here when no calendar is chosen. Exactly one per user. */
+    isDefault: boolean
+    /** Hidden calendars are drawn as per-day presence dots instead of chips. */
+    visible: boolean
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+/** Bare Tailwind classes per palette key — no dynamic construction. */
+export const CALENDAR_COLOR_CLASSES: Record<
+    CalendarColor,
+    { bg: string; hover: string; text: string; light: string; dot: string }
+> = {
+    neutral: {
+        bg: 'bg-neutral-100',
+        hover: 'hover:bg-neutral-200',
+        text: 'text-neutral-600',
+        light: 'bg-neutral-50',
+        dot: 'bg-neutral-400',
+    },
+    blue: {
+        bg: 'bg-blue-100',
+        hover: 'hover:bg-blue-200',
+        text: 'text-blue-700',
+        light: 'bg-blue-50',
+        dot: 'bg-blue-400',
+    },
+    amber: {
+        bg: 'bg-amber-100',
+        hover: 'hover:bg-amber-200',
+        text: 'text-amber-700',
+        light: 'bg-amber-50',
+        dot: 'bg-amber-400',
+    },
+    indigo: {
+        bg: 'bg-indigo-100',
+        hover: 'hover:bg-indigo-200',
+        text: 'text-indigo-700',
+        light: 'bg-indigo-50',
+        dot: 'bg-indigo-400',
+    },
+    emerald: {
+        bg: 'bg-emerald-100',
+        hover: 'hover:bg-emerald-200',
+        text: 'text-emerald-700',
+        light: 'bg-emerald-50',
+        dot: 'bg-emerald-400',
+    },
+    rose: {
+        bg: 'bg-rose-100',
+        hover: 'hover:bg-rose-200',
+        text: 'text-rose-700',
+        light: 'bg-rose-50',
+        dot: 'bg-rose-400',
+    },
+    purple: {
+        bg: 'bg-purple-100',
+        hover: 'hover:bg-purple-200',
+        text: 'text-purple-700',
+        light: 'bg-purple-50',
+        dot: 'bg-purple-400',
+    },
+    teal: {
+        bg: 'bg-teal-100',
+        hover: 'hover:bg-teal-200',
+        text: 'text-teal-700',
+        light: 'bg-teal-50',
+        dot: 'bg-teal-400',
+    },
+}
+
 /** Default pastel colour for N/A (Other) events. */
 export const NA_EVENT_COLORS = {
     bg: 'bg-purple-100',
@@ -350,6 +445,8 @@ export interface DaysSinceItem {
 
 export interface Event {
     _id: string
+    /** Id of the calendar (layer) this event lives on. Absent on synthetic events. */
+    calendar?: string
     title: string
     notes?: string
     location?: string

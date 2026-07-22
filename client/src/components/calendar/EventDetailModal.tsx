@@ -2,13 +2,10 @@ import { useEffect, useState } from 'react'
 import Modal from '../Modal'
 import Button from '../Button'
 import Textarea from '../Textarea'
-import {
-    EVENT_TYPE_LABELS,
-    EVENT_TYPE_COLORS,
-    NA_EVENT_COLORS,
-    RECURRENCE_LABELS,
-} from '../../types'
+import { EVENT_TYPE_LABELS, RECURRENCE_LABELS } from '../../types'
 import { MONTHS, WEEKDAYS_LONG } from '../../lib/calendar'
+import { useCalendars } from '../../context/CalendarsContext'
+import { colorsForEvent } from '../../lib/eventColors'
 import type { Event } from '../../types'
 
 interface Props {
@@ -67,6 +64,7 @@ export default function EventDetailModal({
     onDeleteOccurrence,
     onSaveNotes,
 }: Props) {
+    const { byId } = useCalendars()
     const [deletingOccurrence, setDeletingOccurrence] = useState(false)
     const [editingNotes, setEditingNotes] = useState(false)
     const [notesDraft, setNotesDraft] = useState('')
@@ -102,7 +100,8 @@ export default function EventDetailModal({
     }
 
     const isNa = event.startPart === 'na'
-    const colors = isNa ? NA_EVENT_COLORS : EVENT_TYPE_COLORS[event.eventType]
+    const colors = colorsForEvent(event, byId)
+    const calendar = event.calendar ? byId.get(event.calendar) : undefined
     const isMultiDay = event.startDate !== event.endDate
 
     return (
@@ -139,6 +138,9 @@ export default function EventDetailModal({
                 >
                     {isNa ? 'N/A' : EVENT_TYPE_LABELS[event.eventType]}
                 </span>
+                {calendar && !calendar.isDefault && (
+                    <span className="text-xs font-semibold text-neutral-500">{calendar.name}</span>
+                )}
                 <span className="text-xs font-medium text-neutral-400">
                     {daysUntilLabel(event.startDate)}
                 </span>

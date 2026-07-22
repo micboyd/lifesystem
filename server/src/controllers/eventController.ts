@@ -1,5 +1,8 @@
 import { Response } from 'express'
+import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
+import Calendar from '../models/Calendar'
+import { ensureDefaultCalendar } from '../lib/calendars'
 import Event, {
     DATE_PATTERN,
     TIME_PATTERN,
@@ -35,6 +38,20 @@ function isFrequency(value: unknown): value is RecurrenceFrequency {
 function slotOrdinal(date: string, part: Part) {
     const [y, m, d] = date.split('-').map(Number)
     return (Date.UTC(y, m - 1, d) / 86_400_000) * 4 + PARTS.indexOf(part)
+}
+
+/**
+ * Resolves the calendar an event should land on: the requested one when it
+ * belongs to this user, otherwise their default. Returning the default rather
+ * than erroring keeps older clients (which send no calendar) working.
+ */
+async function resolveCalendarId(userId: string, requested: unknown): Promise<Types.ObjectId> {
+    if (typeof requested === 'string' && Types.ObjectId.isValid(requested)) {
+        const owned = await Calendar.findOne({ _id: requested, user: userId }).select('_id')
+        if (owned) return owned._id as Types.ObjectId
+    }
+    const fallback = await ensureDefaultCalendar(userId)
+    return fallback._id as Types.ObjectId
 }
 
 interface EventFields {
@@ -110,11 +127,22 @@ function parseBody(body: Record<string, unknown>): EventFields | string {
     }
 }
 
-async function hasConflict(userId: string, fields: EventFields, excludeId?: string) {
+/**
+ * Slot exclusivity is scoped to a single calendar. Two events may share a slot
+ * when they sit on different layers — a gym session and a dinner are not in
+ * competition — but a calendar still owns each of its own slots outright.
+ */
+async function hasConflict(
+    userId: string,
+    calendarId: Types.ObjectId,
+    fields: EventFields,
+    excludeId?: string
+) {
     if (fields.startPart === 'na' || fields.recurrence) return false // skip for na + recurring
 
     const candidates = await Event.find({
         user: userId,
+        calendar: calendarId,
         startDate: { $lte: fields.endDate },
         endDate: { $gte: fields.startDate },
         startPart: { $ne: 'na' },
@@ -181,11 +209,12 @@ export async function createEvent(req: AuthRequest, res: Response) {
         res.status(400).json({ message: fields })
         return
     }
-    if (await hasConflict(req.userId!, fields)) {
+    const calendarId = await resolveCalendarId(req.userId!, req.body?.calendar)
+    if (await hasConflict(req.userId!, calendarId, fields)) {
         res.status(409).json({ message: 'Another event already occupies one of those slots' })
         return
     }
-    const event = await Event.create({ user: req.userId, ...fields })
+    const event = await Event.create({ user: req.userId, calendar: calendarId, ...fields })
     res.status(201).json({ message: 'Created', data: event })
 }
 
@@ -196,7 +225,20 @@ export async function updateEvent(req: AuthRequest, res: Response) {
         res.status(400).json({ message: fields })
         return
     }
-    if (await hasConflict(req.userId!, fields, req.params.id)) {
+    const current = await Event.findOne({ _id: req.params.id, user: req.userId }).select('calendar')
+    if (!current) {
+        res.status(404).json({ message: 'Event not found' })
+        return
+    }
+    // Only move the event when a calendar is explicitly named. Callers that save
+    // a subset of fields (the inline notes editor, say) omit it, and must not
+    // drag the event back onto the default layer as a side effect.
+    const calendarId =
+        req.body?.calendar === undefined
+            ? current.calendar
+            : await resolveCalendarId(req.userId!, req.body.calendar)
+
+    if (await hasConflict(req.userId!, calendarId, fields, req.params.id)) {
         res.status(409).json({ message: 'Another event already occupies one of those slots' })
         return
     }
@@ -204,6 +246,7 @@ export async function updateEvent(req: AuthRequest, res: Response) {
     // fields that were removed so stale values don't persist).
     const $set: Record<string, unknown> = {
         title: fields.title,
+        calendar: calendarId,
         eventType: fields.eventType,
         allDay: fields.allDay,
         startDate: fields.startDate,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
@@ -8,10 +8,12 @@ import Switch from '../Switch'
 import TimePicker from '../TimePicker'
 import RecurrencePicker from './RecurrencePicker'
 import { slotOrdinal } from '../../lib/calendar'
+import { useCalendars } from '../../context/CalendarsContext'
 import {
     EVENT_TYPES,
     EVENT_TYPE_LABELS,
     EVENT_TYPE_COLORS,
+    CALENDAR_COLOR_CLASSES,
     type Event,
     type EventType,
     type Part,
@@ -28,6 +30,13 @@ interface EventEditorProps {
     onClose: () => void
     onSave: (input: EventInput) => void
     onDelete: () => void
+    /**
+     * Everything already loaded for the surrounding range, used to warn about
+     * slots another layer occupies. Omitted where the caller has no such list.
+     */
+    knownEvents?: Event[]
+    /** Turn a hidden layer back on from the warning notice. */
+    onRevealCalendar?: (calendarId: string) => void
 }
 
 // ── Days-until helper ─────────────────────────────────────────────────────────
@@ -207,7 +216,11 @@ export default function EventEditor({
     onClose,
     onSave,
     onDelete,
+    knownEvents = [],
+    onRevealCalendar,
 }: EventEditorProps) {
+    const { calendars, byId, defaultCalendar } = useCalendars()
+    const [calendarId, setCalendarId] = useState('')
     const [title, setTitle] = useState('')
     const [location, setLocation] = useState('')
     const [eventType, setEventType] = useState<EventType>('general')
@@ -229,6 +242,7 @@ export default function EventEditor({
 
     useEffect(() => {
         if (!open) return
+        setCalendarId(event?.calendar ?? '')
         setTitle(event?.title ?? '')
         setLocation(event?.location ?? '')
         setEventType(event?.eventType ?? 'general')
@@ -246,6 +260,51 @@ export default function EventEditor({
         setRecurrenceFrequency(rec?.frequency ?? 'weekly')
         setRecurrenceEndsOn(rec?.endsOn ?? '')
     }, [open, event, defaultSlot])
+
+    // Calendars load asynchronously, so a new event may open before the default
+    // is known. Fill it in when it arrives rather than resetting the whole form.
+    useEffect(() => {
+        if (open && !calendarId && defaultCalendar) setCalendarId(defaultCalendar._id)
+    }, [open, calendarId, defaultCalendar])
+
+    /**
+     * Events on *other* layers that already occupy the slot being edited.
+     *
+     * These are not errors — separate calendars are allowed to overlap, and the
+     * server only rejects a clash within one calendar. This is the one moment
+     * where an overlap is worth mentioning: you're claiming the slot right now,
+     * and the thing you'd collide with may be hidden from the grid.
+     */
+    const overlaps = useMemo(() => {
+        if (!open || isNa || !startDate) return []
+        const finalEnd = multiDay ? endDate || startDate : startDate
+        // Same span comparison the server runs, just across calendars instead
+        // of within one.
+        const startOrd = slotOrdinal(startDate, startPart)
+        const endOrd = slotOrdinal(finalEnd, endPart)
+        if (startOrd > endOrd) return []
+
+        return knownEvents.filter((other) => {
+            if (other._id === event?._id) return false
+            if (!other.calendar || other.calendar === calendarId) return false
+            if (other.startPart === 'na') return false
+            return (
+                slotOrdinal(other.startDate, other.startPart) <= endOrd &&
+                startOrd <= slotOrdinal(other.endDate, other.endPart)
+            )
+        })
+    }, [
+        open,
+        isNa,
+        multiDay,
+        startDate,
+        endDate,
+        startPart,
+        endPart,
+        calendarId,
+        knownEvents,
+        event?._id,
+    ])
 
     function handleTimeOfDayChange(newStart: Part, newEnd: Part) {
         setStartPart(newStart)
@@ -288,6 +347,7 @@ export default function EventEditor({
         }
 
         onSave({
+            calendar: calendarId || undefined,
             title: title.trim(),
             notes: notes.trim() || undefined,
             location: location.trim() || undefined,
@@ -349,6 +409,74 @@ export default function EventEditor({
             }
         >
             <div className="flex flex-col gap-6">
+                {/* Calendar (layer) — only worth showing once there's a choice. */}
+                {calendars.length > 1 && (
+                    <div className="flex flex-col gap-2">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Calendar
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                            {calendars.map((c) => {
+                                const cls = CALENDAR_COLOR_CLASSES[c.color]
+                                const selected = calendarId === c._id
+                                return (
+                                    <button
+                                        key={c._id}
+                                        type="button"
+                                        onClick={() => setCalendarId(c._id)}
+                                        className={[
+                                            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
+                                            selected
+                                                ? `border-transparent ${cls.bg} ${cls.text}`
+                                                : 'border-neutral-200 text-neutral-500 hover:bg-neutral-50',
+                                        ].join(' ')}
+                                    >
+                                        <span className={`h-2 w-2 rounded-full ${cls.dot}`} />
+                                        {c.name}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Cross-calendar overlap — information, not a blocker. */}
+                {overlaps.length > 0 && (
+                    <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Also in this slot
+                        </p>
+                        {overlaps.map((other) => {
+                            const cal = other.calendar ? byId.get(other.calendar) : undefined
+                            return (
+                                <div
+                                    key={other._id}
+                                    className="flex items-center gap-2 text-sm text-neutral-600"
+                                >
+                                    {cal && (
+                                        <span
+                                            className={`h-2 w-2 shrink-0 rounded-full ${CALENDAR_COLOR_CLASSES[cal.color].dot}`}
+                                        />
+                                    )}
+                                    <span className="min-w-0 truncate font-medium">
+                                        {cal ? `${cal.name} · ` : ''}
+                                        {other.title}
+                                    </span>
+                                    {cal && !cal.visible && onRevealCalendar && (
+                                        <button
+                                            type="button"
+                                            onClick={() => onRevealCalendar(cal._id)}
+                                            className="ml-auto shrink-0 text-xs font-semibold text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
+                                        >
+                                            Show
+                                        </button>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
+
                 {/* Title */}
                 <Input
                     label="Title"
@@ -360,7 +488,9 @@ export default function EventEditor({
                     }}
                     error={
                         error ||
-                        (conflict ? 'That slot is already taken — adjust the dates or parts.' : '')
+                        (conflict
+                            ? 'This calendar already has an event in that slot — adjust the dates, the parts, or the calendar.'
+                            : '')
                     }
                     autoFocus
                 />

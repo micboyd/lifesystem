@@ -11,6 +11,7 @@ import {
 import { DAY_STATUS_OPTIONS } from '../../types'
 import type { Event, DayStatus, Part, Reminder } from '../../types'
 import EventStack from './EventStack'
+import HiddenCalendarDots from './HiddenCalendarDots'
 
 interface Props {
     focusDate: string
@@ -23,6 +24,9 @@ interface Props {
     onOpenReminders: (date: string) => void
     onEventClick: (event: Event) => void
     onPickEvents: (events: Event[]) => void
+    /** Events on hidden calendars, keyed by date — drawn as presence dots. */
+    hiddenByDate: Map<string, Event[]>
+    onRevealCalendar: (calendarId: string) => void
 }
 
 const CELL_H = 'h-20'
@@ -38,6 +42,8 @@ export default function WeekView({
     onOpenReminders,
     onEventClick,
     onPickEvents,
+    hiddenByDate,
+    onRevealCalendar,
 }: Props) {
     const tk = todayKey()
     const weekStart = getWeekStart(focusDate)
@@ -106,6 +112,10 @@ export default function WeekView({
                                                     </span>
                                                 )}
                                             </button>
+                                            <HiddenCalendarDots
+                                                events={hiddenByDate.get(date) ?? []}
+                                                onReveal={onRevealCalendar}
+                                            />
                                         </div>
                                     </th>
                                 )
