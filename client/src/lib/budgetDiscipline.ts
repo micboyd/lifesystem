@@ -275,104 +275,136 @@ export function summariseDiscipline(
     }
 }
 
-export interface SafeToSpend {
-    /** Pooled allowance left across all tracked budgets today (rate + carry + top-ups − spent). */
-    remaining: number
-    /** Logged across tracked budgets today. */
-    spentToday: number
-    /** Pooled straight daily target. */
-    target: number
-    /** Whether any tracked budgets with amounts exist. */
-    hasBudgets: boolean
+/** One period's safe-to-spend triple. `safe = allowance − spent`. */
+export interface SpendLens {
+    /** What can still be safely spent in this period and stay on track. */
+    safe: number
+    /** Total available for the period (safe + spent), carry + top-ups included. */
+    allowance: number
+    /** Logged in this period so far (excluded days count as 0). */
+    spent: number
 }
 
-export interface RowSafeToday {
+export interface RowSpendSummary {
     row: FinanceRow
-    /** What can still be spent against this row on `date`, carry + top-ups included. */
-    canSpendToday: number
-    /** Logged against this row on `date` (excluded days count as 0). */
-    spentToday: number
-    /** Straight daily target for this row (daily rate, or weekly rate ÷ 7). */
-    target: number
-    /** Underlying daily maths — present for daily rows, for context lines. */
-    day?: BudgetDay
-    /** Underlying weekly maths — present for weekly rows, for context lines. */
-    week?: BudgetWeek
+    /** Safe-to-spend lens for `date` itself. */
+    today: SpendLens
+    /** Safe-to-spend lens for the month-clamped ISO week containing `date`. */
+    week: SpendLens
+    /** Underlying daily maths — straight rate, carry, monthly remaining. */
+    day: BudgetDay
+    /** Underlying weekly maths — weekly rate, carry, monthly remaining. */
+    weekMaths: BudgetWeek
 }
 
 /**
- * Single "safe to spend on `date`" figure for one tracked row — the shared engine
- * behind both the dashboard pill and the Daily Report, so the two can't drift.
+ * The two safe-to-spend lenses (today + this week) for a single tracked row — the
+ * shared per-row engine behind every finance surface, so no two screens can drift.
+ * Both lenses are projections of the *same* envelope:
  *
- * Daily rows use the rolling daily allowance (rate + carry − spent today). Weekly
- * rows spread the week's pot *as it stood this morning* evenly across the week's
- * remaining active days, then subtract today's spend — the same shape as the daily
- * figure. Top-ups are applied for both.
+ *   • today — daily rows use the rolling daily allowance (rate + carry − spent);
+ *     weekly rows spread the week's pot *as it stood this morning* over the
+ *     remaining active days, then subtract today's spend.
+ *   • week — every row (daily or weekly) is assessed by {@link computeBudgetWeek}
+ *     over the month-clamped week, so a daily row's "this week" is just its daily
+ *     rate summed across the week's active days plus carry.
+ *
+ * Carry and (spending) top-ups are included throughout.
  */
-export function rowSafeToSpendToday(
+export function rowSpendSummary(
     row: FinanceRow,
     entry: FinanceEntry | undefined,
     rowSpends: BudgetSpend[],
     rowTopUps: BudgetTopUp[],
     date: string,
     excluded: Set<string>
-): RowSafeToday {
+): RowSpendSummary {
+    const { weekStart, weekEnd } = clampedWeekRange(date)
+    const day = computeBudgetDay(row, entry, rowSpends, date, excluded, rowTopUps)
+    const weekMaths = computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, date, excluded, rowTopUps)
+
+    let todaySafe: number
+    let todaySpent: number
     if (row.budgetType === 'weekly') {
-        const { weekStart, weekEnd } = clampedWeekRange(date)
-        const bw = computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, date, excluded, rowTopUps)
-        const spentToday = excluded.has(date)
+        todaySpent = excluded.has(date)
             ? 0
             : rowSpends.filter((s) => s.date === date).reduce((sum, s) => sum + s.amount, 0)
         const daysLeft = activeDaysBetween(date, weekEnd, excluded)
         // Even share of the week's pot as it stood this morning, minus today's spend.
-        const potBeforeToday = bw.remaining + spentToday
-        const canSpendToday = daysLeft > 0 ? potBeforeToday / daysLeft - spentToday : bw.remaining
-        return { row, canSpendToday, spentToday, target: bw.weeklyRate / 7, week: bw }
+        const potBeforeToday = weekMaths.remaining + todaySpent
+        todaySafe = daysLeft > 0 ? potBeforeToday / daysLeft - todaySpent : weekMaths.remaining
+    } else {
+        todaySafe = day.remaining
+        todaySpent = day.spentToday
     }
 
-    const bd = computeBudgetDay(row, entry, rowSpends, date, excluded, rowTopUps)
     return {
         row,
-        canSpendToday: bd.remaining,
-        spentToday: bd.spentToday,
-        target: bd.straightDailyRate,
-        day: bd,
+        today: { safe: todaySafe, spent: todaySpent, allowance: todaySafe + todaySpent },
+        week: {
+            safe: weekMaths.remaining,
+            spent: weekMaths.spentThisWeek,
+            allowance: weekMaths.remaining + weekMaths.spentThisWeek,
+        },
+        day,
+        weekMaths,
     }
 }
 
-/** Today's pooled safe-to-spend across every tracked (daily + weekly) budget.
- *
- * Sums {@link rowSafeToSpendToday} over each tracked row with an amount set, so the
- * dashboard pill and the Daily Report always agree — same maths, carry and
- * (spending) top-ups included. Pass `data.topUps` for the top-ups to be applied.
+export interface SpendSummary {
+    /** Pooled safe-to-spend for `date` across every tracked budget. */
+    today: SpendLens
+    /** Pooled safe-to-spend for this week across every tracked budget. */
+    week: SpendLens
+    /** What's left of the whole month across every tracked budget. */
+    monthlyRemaining: number
+    /** Per-row breakdown (rows with an amount set) — for cards and context lines. */
+    perRow: RowSpendSummary[]
+    /** Whether any tracked budget with an amount exists. */
+    hasBudgets: boolean
+}
+
+/**
+ * Pooled safe-to-spend across every tracked (daily + weekly) budget, in both the
+ * *today* and *this-week* lenses. The single source of truth for the dashboard
+ * budget widget, the insights strip, the safe-to-spend pill and the Daily Report —
+ * pass `data.topUps` so top-ups are counted.
  */
-export function safeToSpendToday(
+export function spendSummary(
     groups: FinanceGroup[],
     rows: FinanceRow[],
     data: MonthBudgetData,
-    today: string
-): SafeToSpend {
-    const month = monthOf(today)
+    date: string
+): SpendSummary {
+    const month = monthOf(date)
     const topUps = data.topUps ?? []
     const tracked = trackedRowsInMonth(groups, rows, month).filter((r) => {
         const entry = data.entries.find((e) => e.row === r._id)
         return (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0) > 0
     })
 
-    let remaining = 0
-    let spentToday = 0
-    let target = 0
+    const today: SpendLens = { safe: 0, allowance: 0, spent: 0 }
+    const week: SpendLens = { safe: 0, allowance: 0, spent: 0 }
+    let monthlyRemaining = 0
+    const perRow: RowSpendSummary[] = []
+
     for (const row of tracked) {
         const entry = data.entries.find((e) => e.row === row._id)
         const rowSpends = data.spends.filter((s) => s.row === row._id)
         const rowTopUps = topUps.filter((t) => t.row === row._id)
-        const r = rowSafeToSpendToday(row, entry, rowSpends, rowTopUps, today, data.excluded)
-        remaining += r.canSpendToday
-        spentToday += r.spentToday
-        target += r.target
+        const r = rowSpendSummary(row, entry, rowSpends, rowTopUps, date, data.excluded)
+        today.safe += r.today.safe
+        today.allowance += r.today.allowance
+        today.spent += r.today.spent
+        week.safe += r.week.safe
+        week.allowance += r.week.allowance
+        week.spent += r.week.spent
+        // Both maths agree on the monthly figure; take it from the daily view.
+        monthlyRemaining += r.day.monthlyRemaining
+        perRow.push(r)
     }
 
-    return { remaining, spentToday, target, hasBudgets: tracked.length > 0 }
+    return { today, week, monthlyRemaining, perRow, hasBudgets: tracked.length > 0 }
 }
 
 /** Non-excluded days left in this month after `today` — used for overspend knock-on. */

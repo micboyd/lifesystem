@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useDataVersion, useInvalidate } from '../context/DataSyncContext'
 import { fetchForecast, weatherInfo, whatToWear, type Forecast } from '../lib/weather'
 import { computeExclusionPot, monthOf } from '../lib/budget'
-import { rowSafeToSpendToday } from '../lib/budgetDiscipline'
+import { rowSpendSummary } from '../lib/budgetDiscipline'
 import { rowVisibleInMonth } from '../lib/finance'
 import { formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
@@ -61,9 +61,9 @@ interface BudgetToday {
 
 /**
  * One "you can spend X today" figure per tracked budget. The figure itself comes
- * from the shared {@link rowSafeToSpendToday} engine (the same maths the dashboard
- * safe-to-spend pill uses), so the two surfaces always agree; this wrapper only
- * adds the presentation context line.
+ * from the shared {@link rowSpendSummary} engine (the same maths the dashboard
+ * safe-to-spend pill and budget widget use), so every surface agrees; this wrapper
+ * only adds the presentation context line.
  */
 function computeBudgetToday(
     row: FinanceRow,
@@ -77,18 +77,18 @@ function computeBudgetToday(
         return { row, canSpendToday: 0, context: 'Day off budget — no allowance today' }
     }
 
-    const safe = rowSafeToSpendToday(row, entry, rowSpends, rowTopUps, date, excluded)
+    const s = rowSpendSummary(row, entry, rowSpends, rowTopUps, date, excluded)
 
-    if (safe.week) {
-        const bw = safe.week
+    if (row.budgetType === 'weekly') {
+        const bw = s.weekMaths
         return {
             row,
-            canSpendToday: safe.canSpendToday,
+            canSpendToday: s.today.safe,
             context: `£${fmt(Math.abs(bw.remaining))} ${bw.remaining < 0 ? 'over' : 'left'} this week · £${fmt(Math.abs(bw.monthlyRemaining))} ${bw.monthlyRemaining < 0 ? 'over' : 'left'} this month`,
         }
     }
 
-    const bd = safe.day!
+    const bd = s.day
     const carryNote =
         Math.abs(bd.carry) > 0.005
             ? bd.carry > 0
@@ -97,7 +97,7 @@ function computeBudgetToday(
             : ''
     return {
         row,
-        canSpendToday: safe.canSpendToday,
+        canSpendToday: s.today.safe,
         context: `£${fmt(bd.straightDailyRate)}/day${carryNote} · £${fmt(Math.abs(bd.monthlyRemaining))} ${bd.monthlyRemaining < 0 ? 'over' : 'left'} this month`,
     }
 }

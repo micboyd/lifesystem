@@ -22,7 +22,7 @@ import { formatMoney, formatAmount } from '../lib/money'
 import { useMoneyHidden } from './useMoneyHidden'
 import {
     trackedRowsInMonth,
-    safeToSpendToday,
+    spendSummary,
     remainingActiveDays,
     type MonthBudgetData,
 } from '../lib/budgetDiscipline'
@@ -75,10 +75,11 @@ export default function QuickLog() {
         }
     }, [month, budgetVersion])
 
-    const safe = useMemo(
-        () => safeToSpendToday(groups, rows, data, today),
+    const summary = useMemo(
+        () => spendSummary(groups, rows, data, today),
         [groups, rows, data, today]
     )
+    const { safe: safeToday, spent: spentToday, allowance } = summary.today
 
     // Tracked budgets (weekly + daily) with amounts, for the picker.
     const loggableRows = useMemo(
@@ -95,15 +96,15 @@ export default function QuickLog() {
         if (!rowId && loggableRows.length > 0) setRowId(loggableRows[0]._id)
     }, [loggableRows, rowId])
 
-    if (loading || !safe.hasBudgets) return null
+    if (loading || !summary.hasBudgets) return null
 
     const amountNum = parseFloat(amount)
     const validAmount = Number.isFinite(amountNum) && amountNum > 0
-    const over = validAmount ? amountNum - safe.remaining : 0
+    const over = validAmount ? amountNum - safeToday : 0
     const isOver = over > 0.005
     const daysLeft = remainingActiveDays(today, data.excluded)
     const perDayHit = daysLeft > 0 ? over / daysLeft : over
-    const overShort = safe.remaining < -0.005
+    const overShort = safeToday < -0.005
 
     async function submit(e: FormEvent) {
         e.preventDefault()
@@ -140,10 +141,10 @@ export default function QuickLog() {
                     </span>
                     <span
                         className={`text-sm font-bold tabular-nums ${
-                            safe.remaining >= 0 ? 'text-emerald-400' : 'text-red-400'
+                            safeToday >= 0 ? 'text-emerald-400' : 'text-red-400'
                         }`}
                     >
-                        {formatMoney(safe.remaining)}
+                        {formatMoney(safeToday)}
                     </span>
                 </span>
                 <span className="ml-1 grid h-7 w-7 place-items-center rounded-full bg-white/10">
@@ -176,14 +177,14 @@ export default function QuickLog() {
                                 </p>
                                 <p
                                     className={`mt-1 text-3xl font-bold tabular-nums tracking-tight ${
-                                        safe.remaining >= 0 ? 'text-white' : 'text-red-400'
+                                        safeToday >= 0 ? 'text-white' : 'text-red-400'
                                     }`}
                                 >
-                                    {formatMoney(safe.remaining)}
+                                    {formatMoney(safeToday)}
                                 </p>
                                 <p className="mt-1 text-xs text-neutral-500 tabular-nums">
-                                    £{formatAmount(safe.spentToday)} spent of £
-                                    {formatAmount(safe.spentToday + safe.remaining)} allowance
+                                    £{formatAmount(spentToday)} spent of £{formatAmount(allowance)}{' '}
+                                    allowance
                                 </p>
                             </div>
 

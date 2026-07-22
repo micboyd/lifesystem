@@ -11,9 +11,10 @@ import {
     listEntries,
     listBudgetSpends,
     listBudgetExclusions,
+    listBudgetTopUps,
 } from '../../services/finances'
-import { computeBudgetDay, computeBudgetWeek, monthOf, clampedWeekRange } from '../../lib/budget'
-import { rowVisibleInMonth, recurringAmountForMonth } from '../../lib/finance'
+import { monthOf, clampedWeekRange } from '../../lib/budget'
+import { spendSummary, type SpendSummary } from '../../lib/budgetDiscipline'
 import { addDays } from '../../lib/calendar'
 import { formatMoney } from '../../lib/money'
 import { useMoneyHidden } from '../useMoneyHidden'
@@ -28,6 +29,7 @@ import type {
     FinanceRow,
     FinanceEntry,
     BudgetSpend,
+    BudgetTopUp,
 } from '../../types'
 
 /** How far back to look when computing the habit streak. */
@@ -92,54 +94,21 @@ function timeboxInsight(boxes: Timebox[], wake: string, bed: string): Insight {
     }
 }
 
-function budgetInsight(
-    groups: FinanceGroup[],
-    rows: FinanceRow[],
-    entries: FinanceEntry[],
-    spends: BudgetSpend[],
-    excludedDates: Set<string>,
-    date: string
-): Insight {
-    const month = monthOf(date)
-    const visibleBudgeted = (type: 'daily' | 'weekly') =>
-        rows.filter(
-            (r) =>
-                r.budgeted &&
-                r.budgetType === type &&
-                rowVisibleInMonth(r, month, groups.find((g) => g._id === r.group))
-        )
-
-    const weeklyRows = visibleBudgeted('weekly').filter((r) => {
-        const entry = entries.find((e) => e.row === r._id)
-        return (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0) > 0
-    })
-    const dailyRows = visibleBudgeted('daily').filter((r) => {
-        const entry = entries.find((e) => e.row === r._id)
-        return (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0) > 0
-    })
-
-    // Prefer weekly budgets as the primary signal; fall back to daily.
-    const isWeekly = weeklyRows.length > 0
-    const trackedRows = isWeekly ? weeklyRows : dailyRows
-
-    if (trackedRows.length === 0) {
+function budgetInsight(summary: SpendSummary, date: string): Insight {
+    if (!summary.hasBudgets) {
         return { label: 'Allowance left', value: '—', icon: 'fa-solid fa-wallet' }
     }
 
+    // Prefer weekly budgets as the primary signal; fall back to the today lens
+    // when everything tracked is daily. Both figures come from the shared engine,
+    // so this card agrees with the pill, the budget widget and the Daily Report.
+    const isWeekly = summary.perRow.some((p) => p.row.budgetType === 'weekly')
+
     if (isWeekly) {
-        // Weekly: show remaining for this week (rate + carry − spent so far).
-        // Clamp to the month so the week resets on the 1st, matching the Budgets page.
-        const { weekStart: wStart, weekEnd: wEnd } = clampedWeekRange(date)
-        const { remaining, carry } = weeklyRows.reduce(
-            (acc, row) => {
-                const entry = entries.find((e) => e.row === row._id)
-                const rowSpends = spends.filter((s) => s.row === row._id)
-                const bw = computeBudgetWeek(row, entry, rowSpends, wStart, wEnd, date, excludedDates)
-                return { remaining: acc.remaining + bw.remaining, carry: acc.carry + bw.carry }
-            },
-            { remaining: 0, carry: 0 }
-        )
+        const remaining = summary.week.safe
+        const carry = summary.perRow.reduce((sum, p) => sum + p.weekMaths.carry, 0)
         const roundedCarry = Math.round(carry * 100) / 100
+        const { weekStart: wStart, weekEnd: wEnd } = clampedWeekRange(date)
         const s = new Date(`${wStart}T00:00:00`)
         const e = new Date(`${wEnd}T00:00:00`)
         const weekLabel = `${s.getDate()}–${e.getDate()} ${e.toLocaleString('default', { month: 'short' })}`
@@ -158,16 +127,9 @@ function budgetInsight(
         }
     }
 
-    // Daily fallback
-    const { remaining, carry } = dailyRows.reduce(
-        (acc, row) => {
-            const entry = entries.find((e) => e.row === row._id)
-            const rowSpends = spends.filter((s) => s.row === row._id)
-            const day = computeBudgetDay(row, entry, rowSpends, date, excludedDates)
-            return { remaining: acc.remaining + day.remaining, carry: acc.carry + day.carry }
-        },
-        { remaining: 0, carry: 0 }
-    )
+    // Daily fallback — today's pooled safe-to-spend.
+    const remaining = summary.today.safe
+    const carry = summary.perRow.reduce((sum, p) => sum + p.day.carry, 0)
     const roundedCarry = Math.round(carry * 100) / 100
     const sub =
         roundedCarry > 0
@@ -203,6 +165,7 @@ interface StripData {
     rows: FinanceRow[]
     entries: FinanceEntry[]
     spends: BudgetSpend[]
+    topUps: BudgetTopUp[]
     excludedDates: Set<string>
 }
 
@@ -239,8 +202,9 @@ export default function InsightsStrip({ date }: { date: string }) {
             listEntries(month),
             listBudgetSpends({ month }),
             listBudgetExclusions(month),
+            listBudgetTopUps(month),
         ])
-            .then(([habits, logs, tasks, boxes, groups, rows, entries, spends, exclusions]) => {
+            .then(([habits, logs, tasks, boxes, groups, rows, entries, spends, exclusions, topUps]) => {
                 if (!active) return
                 setData({
                     habits,
@@ -251,6 +215,7 @@ export default function InsightsStrip({ date }: { date: string }) {
                     rows,
                     entries,
                     spends,
+                    topUps,
                     excludedDates: new Set(exclusions.map((d) => d.date)),
                 })
             })
@@ -283,11 +248,17 @@ export default function InsightsStrip({ date }: { date: string }) {
                   taskInsight(data.tasks),
                   timeboxInsight(data.boxes, wake, bed),
                   budgetInsight(
-                      data.groups,
-                      data.rows,
-                      data.entries,
-                      data.spends,
-                      data.excludedDates,
+                      spendSummary(
+                          data.groups,
+                          data.rows,
+                          {
+                              entries: data.entries,
+                              spends: data.spends,
+                              excluded: data.excludedDates,
+                              topUps: data.topUps,
+                          },
+                          date
+                      ),
                       date
                   ),
               ]
