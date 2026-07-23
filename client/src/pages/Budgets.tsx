@@ -12,7 +12,6 @@ import {
     listEntries,
     updateRow,
     listBudgetSpends,
-    createBudgetSpend,
     deleteBudgetSpend,
     listBudgetExclusions,
     listStarlingSpaces,
@@ -171,79 +170,6 @@ function groupSpendsByWeek(month: string, spends: BudgetSpend[]): WeekGroup[] {
 }
 
 const fmt = formatAmount
-
-// ── Spend input ───────────────────────────────────────────────────────────────
-
-interface SpendInputProps {
-    spentToday: number
-    hasLogged: boolean
-    label?: string
-    onAdd: (amount: number, note?: string) => Promise<void>
-}
-
-function SpendInput({ spentToday, hasLogged, label, onAdd }: SpendInputProps) {
-    const [draft, setDraft] = useState('')
-    const [note, setNote] = useState('')
-    const [saving, setSaving] = useState(false)
-
-    async function submit(e: FormEvent) {
-        e.preventDefault()
-        const n = parseFloat(draft.trim())
-        if (Number.isNaN(n) || n < 0) return
-        setSaving(true)
-        try {
-            await onAdd(n, note.trim() || undefined)
-            setDraft('')
-            setNote('')
-        } finally {
-            setSaving(false)
-        }
-    }
-
-    return (
-        <div className="flex flex-col gap-2.5">
-            <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-                    {label ?? 'Spent today'}
-                </span>
-                <span className={`text-sm tabular-nums ${hasLogged ? 'text-neutral-900' : 'text-neutral-300'}`}>
-                    {hasLogged ? `£${fmt(spentToday)}` : '—'}
-                </span>
-            </div>
-            <form onSubmit={submit} className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                    <div className="relative min-w-0 flex-1">
-                        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-400">£</span>
-                        <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="0.00"
-                            value={draft}
-                            onChange={(e) => setDraft(e.target.value)}
-                            className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        disabled={saving || draft.trim() === ''}
-                        className="shrink-0 rounded-xl bg-neutral-950 px-5 py-2.5 text-xs font-semibold tracking-tight text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
-                    >
-                        {saving ? '…' : 'Log'}
-                    </button>
-                </div>
-                <input
-                    type="text"
-                    placeholder="Label (optional)"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    maxLength={200}
-                    className="w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
-                />
-            </form>
-        </div>
-    )
-}
 
 // ── Top up ────────────────────────────────────────────────────────────────────
 
@@ -1106,14 +1032,10 @@ interface BudgetCardProps {
     excludedDates: Set<string>
     weekStart: string
     weekEnd: string
-    isCurrentWeek: boolean
-    isFutureWeek: boolean
     starlingEnabled: boolean
     linkedSpace: StarlingSpace | undefined
     syncing: boolean
     onToggleDailySpend: (row: FinanceRow) => void
-    onLogSpend: (rowId: string, amount: number, date: string, note?: string) => Promise<void>
-    onDeleteSpend: (id: string) => Promise<void>
     onOpenLink: (row: FinanceRow) => void
     onSync: (row: FinanceRow) => void
     onOpenReconcile: (row: FinanceRow) => void
@@ -1226,9 +1148,9 @@ function LedgerRow({ title, date, caption, amount, sign = '', tone = 'neutral', 
 
 function BudgetCard({
     row, group, entry, spends, topUps, excludedDates,
-    weekStart, weekEnd, isCurrentWeek, isFutureWeek,
+    weekStart, weekEnd,
     starlingEnabled, linkedSpace, syncing,
-    onToggleDailySpend, onLogSpend, onDeleteSpend, onOpenLink, onSync, onOpenReconcile, onOpenTransactions,
+    onToggleDailySpend, onOpenLink, onSync, onOpenReconcile, onOpenTransactions,
     onTopUp,
 }: BudgetCardProps) {
     const isLinked = !!row.starlingCategoryUid
@@ -1305,11 +1227,6 @@ function BudgetCard({
         .reduce((sum, s) => sum + s.amount, 0)
     const weekRemainingDaily = weekTargetDaily - weekSpentDaily
 
-    // For the SpendInput (current week only)
-    const spentToday = spends
-        .filter((s) => s.date === today && !excludedDates.has(s.date))
-        .reduce((sum, s) => sum + s.amount, 0)
-
     // Week date range label e.g. "Sat 19 – Fri 25 Jul" (weekday-prefixed, readable).
     const rangeLabel = (() => {
         const s = new Date(`${weekStart}T00:00:00`)
@@ -1354,16 +1271,13 @@ function BudgetCard({
                 }
               : null
 
-    const plannedSpends = isFutureWeek
-        ? spends.filter((s) => s.date >= weekStart && s.date <= weekEnd)
-        : []
     const isTracking = isWeeklySpend || isDailySpend
     const canAdjust = monthlyAmount > 0 && !isIncome
     const trackingLabel = isWeeklySpend ? 'Tracking: weekly' : isDailySpend ? 'Tracking: daily' : 'Tracking: off'
 
     // One menu for every occasional action, so the card face carries only the
-    // hero, the log input, and two quiet footer links. Sections are joined by
-    // dividers only when both sides are present.
+    // hero and two quiet footer links. Sections are joined by dividers only when
+    // both sides are present.
     const menuItems: MenuEntry[] = []
     if (canAdjust) {
         menuItems.push({ label: 'Top up', icon: 'fa-solid fa-plus', onClick: () => setMenuAction('topup') })
@@ -1420,47 +1334,16 @@ function BudgetCard({
                 </div>
             </div>
 
-            {/* Allowance hero + spend logging — the primary action area */}
+            {/* Allowance hero — the week's spending against target, fed by bank sync */}
             {trackingView && (
-                <div className="flex flex-col gap-3">
-                    <AllowanceHero
-                        periodLabel="This week"
-                        rangeLabel={rangeLabel}
-                        allowance={trackingView.allowance}
-                        remaining={trackingView.remaining}
-                        spent={trackingView.spent}
-                        subline={trackingView.subline}
-                    />
-
-                    {plannedSpends.length > 0 && (
-                        <div className="flex flex-col gap-1.5">
-                            <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-                                Planned this week
-                            </p>
-                            <ul className="flex flex-col gap-1.5">
-                                {plannedSpends.map((t) => (
-                                    <LedgerRow
-                                        key={t._id}
-                                        title={t.note || row.name}
-                                        date={t.date}
-                                        amount={t.amount}
-                                        onDelete={() => onDeleteSpend(t._id)}
-                                        deleteLabel="Delete planned transaction"
-                                    />
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    {(isCurrentWeek || isFutureWeek) && (
-                        <SpendInput
-                            spentToday={isFutureWeek ? 0 : spentToday}
-                            hasLogged={false}
-                            label={isFutureWeek ? 'Plan a spend' : undefined}
-                            onAdd={(a, n) => onLogSpend(row._id, a, isFutureWeek ? weekStart : today, n)}
-                        />
-                    )}
-                </div>
+                <AllowanceHero
+                    periodLabel="This week"
+                    rangeLabel={rangeLabel}
+                    allowance={trackingView.allowance}
+                    remaining={trackingView.remaining}
+                    spent={trackingView.spent}
+                    subline={trackingView.subline}
+                />
             )}
 
             {/* Money-adjustment form — opened from the actions menu, one at a time */}
@@ -1798,16 +1681,6 @@ export default function Budgets() {
         }
     }
 
-    async function handleLogSpend(rowId: string, amount: number, date: string, note?: string) {
-        try {
-            const result = await createBudgetSpend(rowId, date, amount, note)
-            setSpends((prev) => [...prev, result])
-            invalidate('budget')
-        } catch {
-            toast.error("Couldn't log that spend.")
-        }
-    }
-
     async function handleDeleteSpend(id: string) {
         try {
             await deleteBudgetSpend(id)
@@ -1965,14 +1838,10 @@ export default function Budgets() {
                                 excludedDates={excludedDates}
                                 weekStart={weekStart}
                                 weekEnd={weekEnd}
-                                isCurrentWeek={isCurrentWeek}
-                                isFutureWeek={weekStart > todayDate}
                                 starlingEnabled={starlingEnabled}
                                 linkedSpace={spaces.find((s) => s.id === row.starlingCategoryUid)}
                                 syncing={syncingRowId === row._id}
                                 onToggleDailySpend={handleToggleDailySpend}
-                                onLogSpend={handleLogSpend}
-                                onDeleteSpend={handleDeleteSpend}
                                 onOpenLink={setLinkModalRow}
                                 onSync={handleSync}
                                 onOpenReconcile={openReconcile}
