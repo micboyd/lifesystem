@@ -14,6 +14,7 @@ import Accordion from '../components/Accordion'
 import EmptyState from '../components/EmptyState'
 import Drawer from '../components/Drawer'
 import DropdownMenu from '../components/DropdownMenu'
+import LineIcon, { type LineIconName } from '../components/LineIcon'
 import { useAuth } from '../context/AuthContext'
 import { listRows, listValues } from '../services/totals'
 import { updateSettings } from '../services/users'
@@ -266,7 +267,7 @@ export default function Study() {
                                 Nothing in “{filter}”.
                             </p>
                         ) : (
-                            <div className="flex flex-col gap-2">
+                            <div className="-mx-6 -mb-6 flex flex-col divide-y divide-neutral-100 border-t border-neutral-100">
                                 {visible.map((p) => {
                                     const i = projection.courses.indexOf(p)
                                     return (
@@ -376,11 +377,11 @@ function BankSummary({
 
 function Stat({ label, value }: { label: string; value: string }) {
     return (
-        <div className="flex-1 rounded-xl bg-neutral-950 px-4 py-2.5 text-white">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/50">
+        <div className="flex-1 rounded-xl border border-neutral-200 bg-white px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
                 {label}
             </p>
-            <p className="text-lg font-bold tabular-nums">{value}</p>
+            <p className="mt-0.5 text-lg font-semibold tabular-nums text-neutral-900">{value}</p>
         </div>
     )
 }
@@ -463,9 +464,9 @@ function CourseRow({
                 onDragEnd()
             }}
             className={[
-                'rounded-2xl border bg-white p-4 transition-colors',
-                isDragging ? 'border-neutral-300 opacity-40' : 'border-neutral-200',
-                isDragOver ? 'ring-2 ring-neutral-300' : '',
+                'bg-white px-6 py-4 transition-colors',
+                isDragging ? 'opacity-40' : '',
+                isDragOver ? 'bg-neutral-50' : 'hover:bg-neutral-50/70',
             ]
                 .filter(Boolean)
                 .join(' ')}
@@ -480,7 +481,7 @@ function CourseRow({
                         onTouchStart={() => (dragReady.current = true)}
                         className="grid h-8 w-5 shrink-0 cursor-grab touch-none place-items-center rounded text-neutral-300 transition-colors hover:text-neutral-500 active:cursor-grabbing"
                     >
-                        <i className="fa-solid fa-grip-vertical text-xs" aria-hidden="true" />
+                        <LineIcon name="grip" className="h-4 w-4" />
                     </button>
                 )}
 
@@ -488,7 +489,7 @@ function CourseRow({
                 <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <p className="truncate font-semibold text-neutral-900">
+                            <p className="truncate font-medium text-neutral-900">
                                 {course.name ?? (isBlock ? 'Untitled block' : 'Untitled course')}
                             </p>
                             {isBlock && (
@@ -506,7 +507,7 @@ function CourseRow({
                                     aria-label="Course actions"
                                     className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                 >
-                                    <i className="fa-solid fa-ellipsis" aria-hidden="true" />
+                                    <LineIcon name="more" className="h-4 w-4" />
                                 </button>
                             }
                             items={[
@@ -567,10 +568,7 @@ function CourseRow({
                                     rel="noopener noreferrer"
                                     className="inline-flex w-fit items-center gap-1.5 text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
                                 >
-                                    <i
-                                        className="fa-solid fa-arrow-up-right-from-square text-xs"
-                                        aria-hidden="true"
-                                    />
+                                    <LineIcon name="external-link" className="h-3.5 w-3.5" />
                                     Open link
                                 </a>
                             )}
@@ -604,16 +602,16 @@ function RowStatus({
     const pacingActive = pacing && pacing.targetDate && pacing.status !== 'done'
 
     if (pacingActive && pacing.status === 'overdue') {
-        return <Chip cls="bg-red-50 text-red-600" icon="fa-solid fa-triangle-exclamation" title={`Target ${formatDateLong(pacing.targetDate!)}`}>Past target</Chip>
+        return <Chip cls="bg-red-50 text-red-600" icon="alert" title={`Target ${formatDateLong(pacing.targetDate!)}`}>Past target</Chip>
     }
     if (pacingActive && pacing.status === 'behind') {
         const label = Number.isFinite(pacing.neededPacePerDay)
             ? `Behind · need ${pacing.neededPacePerDay.toFixed(1)}h/day`
             : 'Behind'
-        return <Chip cls="bg-amber-50 text-amber-700" icon="fa-solid fa-arrow-trend-down" title={`Target ${formatDateLong(pacing.targetDate!)}`}>{label}</Chip>
+        return <Chip cls="bg-amber-50 text-amber-700" icon="trending-down" title={`Target ${formatDateLong(pacing.targetDate!)}`}>{label}</Chip>
     }
     if (projection.status === 'insufficient') {
-        return <Chip cls="bg-amber-50 text-amber-700" icon="fa-solid fa-triangle-exclamation">{fmtHours(projection.shortByHours)} short</Chip>
+        return <Chip cls="bg-amber-50 text-amber-700" icon="alert">{fmtHours(projection.shortByHours)} short</Chip>
     }
     if (!projection.finishDate) {
         return <span className="text-neutral-400">Not scheduled yet</span>
@@ -624,7 +622,8 @@ function RowStatus({
     return (
         <Chip
             cls="bg-neutral-100 text-neutral-700"
-            icon={onTrack ? 'fa-solid fa-check text-emerald-600' : 'fa-solid fa-flag-checkered text-neutral-400'}
+            icon={onTrack ? 'check' : 'flag'}
+            iconClassName={onTrack ? 'text-emerald-600' : 'text-neutral-400'}
             title={projection.startDate ? `Starts ${formatDateLong(projection.startDate)}` : undefined}
         >
             Finishes {formatDateLong(projection.finishDate)}
@@ -636,11 +635,13 @@ function RowStatus({
 function Chip({
     cls,
     icon,
+    iconClassName = '',
     title,
     children,
 }: {
     cls: string
-    icon: string
+    icon: LineIconName
+    iconClassName?: string
     title?: string
     children: ReactNode
 }) {
@@ -649,7 +650,7 @@ function Chip({
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium ${cls}`}
             title={title}
         >
-            <i className={icon} aria-hidden="true" />
+            <LineIcon name={icon} className={`h-3.5 w-3.5 ${iconClassName}`} />
             {children}
         </span>
     )
