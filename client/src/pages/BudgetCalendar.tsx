@@ -1,6 +1,7 @@
 import type {
     BudgetExclusion,
     BudgetSpend,
+    BudgetTopUp,
     ExclusionBudget,
     FinanceEntry,
     FinanceGroup,
@@ -9,6 +10,7 @@ import type {
 import {
     listBudgetExclusions,
     listBudgetSpends,
+    listBudgetTopUps,
     listEntries,
     listGroups,
     listRows,
@@ -131,7 +133,8 @@ function groupByWeek(
     trackedRows: FinanceRow[],
     entries: FinanceEntry[],
     spends: BudgetSpend[],
-    excludedDates: Set<string>
+    excludedDates: Set<string>,
+    topUps: BudgetTopUp[]
 ): WeekGroup[] {
     const weeklyRows = trackedRows.filter((r) => r.budgetType === 'weekly')
     const dailyRows = trackedRows.filter((r) => r.budgetType === 'daily')
@@ -166,7 +169,7 @@ function groupByWeek(
                     const entry = entries.find((e) => e.row === row._id)
                     const wStart = w.days[0].date
                     const wEnd = w.days[w.days.length - 1].date
-                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), wStart, wEnd, today, excludedDates)
+                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), wStart, wEnd, today, excludedDates, topUps.filter((t) => t.row === row._id))
                     weeklyRate += bw.weeklyRate
                 }
                 w.target = weeklyRate
@@ -176,7 +179,7 @@ function groupByWeek(
                     const entry = entries.find((e) => e.row === row._id)
                     const wStart = w.days[0].date
                     const wEnd = w.days[w.days.length - 1].date
-                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), wStart, wEnd, today, excludedDates)
+                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), wStart, wEnd, today, excludedDates, topUps.filter((t) => t.row === row._id))
                     weeklyAllowance += bw.weeklyRate + bw.carry
                 }
                 w.target = weeklyAllowance
@@ -228,7 +231,8 @@ function buildDayData(
     spends: BudgetSpend[],
     excludedDates: Set<string>,
     dateToGroup: Map<string, ExclusionBudget>,
-    potByGroup: Map<string, ExclusionPot>
+    potByGroup: Map<string, ExclusionPot>,
+    topUps: BudgetTopUp[]
 ): DayData[] {
     const total = daysInMonth(month)
     const days: DayData[] = []
@@ -252,7 +256,7 @@ function buildDayData(
         for (const row of trackedRows) {
             const entry = entries.find((e) => e.row === row._id)
             const rowSpends = spends.filter((s) => s.row === row._id)
-            const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates)
+            const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates, topUps.filter((t) => t.row === row._id))
             dailyRate += bd.straightDailyRate
             carry += bd.carry
         }
@@ -898,6 +902,7 @@ interface DayModalProps {
     allRows: FinanceRow[]
     entries: FinanceEntry[]
     spends: BudgetSpend[]
+    topUps: BudgetTopUp[]
     excluded: boolean
     excludedDates: Set<string>
     /** The exclusion-budget pot this day belongs to, if any. */
@@ -922,6 +927,7 @@ function DayModal({
     allRows,
     entries,
     spends,
+    topUps,
     excluded,
     excludedDates,
     potGroup,
@@ -958,7 +964,7 @@ function DayModal({
         (acc, row) => {
             const entry = entries.find((e) => e.row === row._id)
             const rowSpends = spends.filter((s) => s.row === row._id)
-            const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates)
+            const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates, topUps.filter((t) => t.row === row._id))
             return { rate: acc.rate + bd.straightDailyRate, carry: acc.carry + bd.carry }
         },
         { rate: 0, carry: 0 }
@@ -978,7 +984,7 @@ function DayModal({
                   const rowSpends = spends.filter((s) => s.row === row._id)
                   return {
                       row,
-                      ...computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, todayKey(), excludedDates),
+                      ...computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, todayKey(), excludedDates, topUps.filter((t) => t.row === row._id)),
                   }
               })
           })()
@@ -1326,7 +1332,8 @@ function DayModal({
                                         entry,
                                         rowSpends,
                                         date,
-                                        excludedDates
+                                        excludedDates,
+                                        topUps.filter((t) => t.row === row._id)
                                     )
                                     const rowSpent = dayTx
                                         .filter((t) => t.row === row._id)
@@ -1602,6 +1609,7 @@ export default function BudgetCalendar() {
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
+    const [topUps, setTopUps] = useState<BudgetTopUp[]>([])
     const [exclusions, setExclusions] = useState<BudgetExclusion[]>([])
     const [exclusionBudgets, setExclusionBudgets] = useState<ExclusionBudget[]>([])
     /** Other-month spends for pots that span a month boundary — pot math only. */
@@ -1624,13 +1632,15 @@ export default function BudgetCalendar() {
             listBudgetSpends({ month }),
             listBudgetExclusions(month),
             listExclusionBudgets(month),
+            listBudgetTopUps(month),
         ])
-            .then(([g, r, e, s, x, eb]) => {
+            .then(([g, r, e, s, x, eb, t]) => {
                 if (!active) return
                 setGroups(g)
                 setRows(r)
                 setEntries(e)
                 setSpends(s)
+                setTopUps(t)
                 setExclusions(x)
                 setExclusionBudgets(eb)
                 // Pots can span a month boundary; fetch the other months' spends
@@ -1794,9 +1804,9 @@ export default function BudgetCalendar() {
     const potRowOf = (g?: ExclusionBudget) =>
         g?.row ? rows.find((r) => r._id === g.row) : undefined
 
-    const dayData = buildDayData(month, dailyRows, entries, spends, excludedDates, dateToGroup, potByGroup)
+    const dayData = buildDayData(month, dailyRows, entries, spends, excludedDates, dateToGroup, potByGroup, topUps)
     const offset = startOffset(month)
-    const weekGroups = groupByWeek(dayData, today, dailyRows, entries, spends, excludedDates)
+    const weekGroups = groupByWeek(dayData, today, dailyRows, entries, spends, excludedDates, topUps)
 
     const pastDays = dayData.filter((d) => d.date <= today && !d.excluded)
     const totalSpent = pastDays.reduce((s, d) => s + d.spent, 0)
@@ -1960,6 +1970,7 @@ export default function BudgetCalendar() {
                     allRows={allDailyRows}
                     entries={entries}
                     spends={spends}
+                    topUps={topUps}
                     excluded={excludedDates.has(selectedDate)}
                     excludedDates={excludedDates}
                     potGroup={dateToGroup.get(selectedDate)}
