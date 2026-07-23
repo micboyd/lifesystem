@@ -4,7 +4,7 @@ import EmptyState from '../components/EmptyState'
 import Modal from '../components/Modal'
 import Drawer from '../components/Drawer'
 import Button from '../components/Button'
-import Badge from '../components/Badge'
+import DropdownMenu, { type MenuEntry } from '../components/DropdownMenu'
 import { Card } from '../components/Card'
 import {
     listRows,
@@ -247,55 +247,46 @@ function SpendInput({ spentToday, hasLogged, label, onAdd }: SpendInputProps) {
 
 // ── Top up ────────────────────────────────────────────────────────────────────
 
-interface TopUpInputProps {
-    onAdd: (amount: number, note?: string) => Promise<void>
+type AdjustVariant = 'topup' | 'refill' | 'withdrawal'
+
+interface AdjustFormProps {
     /** 'topup' adds spendable budget; 'refill' records money moved back into the
      * linked space (e.g. from the day-off pot) without raising the budget;
      * 'withdrawal' takes money out of the budget for something else, lowering
      * what's left (and the daily/weekly allowance) from today onward. */
-    variant?: 'topup' | 'refill' | 'withdrawal'
+    variant: AdjustVariant
     /** Prefill for the amount field — for refills, the amount still owed. */
     suggestedAmount?: number
+    onAdd: (amount: number, note?: string) => Promise<void>
+    onCancel: () => void
 }
 
-const TOP_UP_VARIANTS = {
+const ADJUST_VARIANTS: Record<AdjustVariant, { title: string; hint: string; notePlaceholder: string }> = {
     topup: {
-        pill: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
-        pillIcon: 'fa-plus',
-        pillLabel: 'Top up',
-        input: 'focus:border-emerald-500 focus:ring-emerald-500/10',
-        submit: 'bg-emerald-600 hover:bg-emerald-700',
+        title: 'Top up',
+        hint: 'Adds spendable budget from today onward.',
         notePlaceholder: 'Label (optional) — e.g. birthday money',
     },
     refill: {
-        pill: 'bg-sky-50 text-sky-700 hover:bg-sky-100',
-        pillIcon: 'fa-rotate-left',
-        pillLabel: 'Refill space',
-        input: 'focus:border-sky-500 focus:ring-sky-500/10',
-        submit: 'bg-sky-600 hover:bg-sky-700',
+        title: 'Refill space',
+        hint: 'Puts money back into the linked space without raising the budget.',
         notePlaceholder: "Label (optional) — e.g. covering Saturday's day off",
     },
     withdrawal: {
-        pill: 'bg-amber-50 text-amber-700 hover:bg-amber-100',
-        pillIcon: 'fa-arrow-up-from-bracket',
-        pillLabel: 'Withdraw',
-        input: 'focus:border-amber-500 focus:ring-amber-500/10',
-        submit: 'bg-amber-600 hover:bg-amber-700',
+        title: 'Withdraw',
+        hint: 'Takes money out of the budget, lowering what’s left from today onward.',
         notePlaceholder: 'Label (optional) — e.g. moved to holiday fund',
     },
-} as const
+}
 
-/** Inline "add extra money" form — a credit, not a spend. The topup variant
- * boosts what's left from today onward without touching days already elapsed;
- * the refill variant squares the linked space after day-off spending without
- * raising the budget; the withdrawal variant takes money out of the budget for
- * something else, lowering what's left from today onward (the mirror of a top-up). */
-function TopUpInput({ onAdd, variant = 'topup', suggestedAmount }: TopUpInputProps) {
-    const [open, setOpen] = useState(false)
-    const [draft, setDraft] = useState('')
+/** Inline money-adjustment form — a credit or debit, not a spend. Opened from
+ * the card's actions menu; the variant only changes the copy, not the colour, so
+ * the card stays monochrome. The submitted `kind` carries the meaning instead. */
+function AdjustForm({ variant, suggestedAmount, onAdd, onCancel }: AdjustFormProps) {
+    const [draft, setDraft] = useState(suggestedAmount && suggestedAmount > 0 ? suggestedAmount.toFixed(2) : '')
     const [note, setNote] = useState('')
     const [saving, setSaving] = useState(false)
-    const styles = TOP_UP_VARIANTS[variant]
+    const copy = ADJUST_VARIANTS[variant]
 
     async function submit(e: FormEvent) {
         e.preventDefault()
@@ -304,32 +295,25 @@ function TopUpInput({ onAdd, variant = 'topup', suggestedAmount }: TopUpInputPro
         setSaving(true)
         try {
             await onAdd(n, note.trim() || undefined)
-            setDraft('')
-            setNote('')
-            setOpen(false)
+            onCancel()
         } finally {
             setSaving(false)
         }
     }
 
-    if (!open) {
-        return (
-            <button
-                type="button"
-                onClick={() => {
-                    if (suggestedAmount && suggestedAmount > 0) setDraft(suggestedAmount.toFixed(2))
-                    setOpen(true)
-                }}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${styles.pill}`}
-            >
-                <i className={`fa-solid ${styles.pillIcon} text-[10px]`} aria-hidden="true" />
-                {styles.pillLabel}
-            </button>
-        )
-    }
-
     return (
-        <form onSubmit={submit} className="flex w-full flex-col gap-2">
+        <form onSubmit={submit} className="flex w-full flex-col gap-2 rounded-2xl border border-neutral-200 bg-neutral-50/60 p-3">
+            <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-neutral-700">{copy.title}</span>
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    aria-label="Cancel"
+                    className="grid h-6 w-6 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+                >
+                    <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
+                </button>
+            </div>
             <div className="flex gap-2">
                 <div className="relative min-w-0 flex-1">
                     <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-400">£</span>
@@ -341,33 +325,26 @@ function TopUpInput({ onAdd, variant = 'topup', suggestedAmount }: TopUpInputPro
                         placeholder="0.00"
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
-                        className={`w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:outline-none focus:ring-4 ${styles.input}`}
+                        className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
                     />
                 </div>
                 <button
                     type="submit"
                     disabled={saving || draft.trim() === ''}
-                    className={`shrink-0 rounded-xl px-5 py-2.5 text-xs font-semibold tracking-tight text-white transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100 ${styles.submit}`}
+                    className="shrink-0 rounded-xl bg-neutral-950 px-5 py-2.5 text-xs font-semibold tracking-tight text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
                 >
                     {saving ? '…' : 'Add'}
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    aria-label="Cancel"
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                >
-                    <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
                 </button>
             </div>
             <input
                 type="text"
-                placeholder={styles.notePlaceholder}
+                placeholder={copy.notePlaceholder}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={200}
-                className={`w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-neutral-300 transition-colors focus:outline-none focus:ring-4 ${styles.input}`}
+                className="w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
             />
+            <p className="text-[11px] text-neutral-400">{copy.hint}</p>
         </form>
     )
 }
@@ -1003,20 +980,57 @@ interface AllTransactionsDrawerProps {
     row: FinanceRow
     month: string
     spends: BudgetSpend[]
+    topUps: BudgetTopUp[]
     onClose: () => void
     onDelete: (id: string) => Promise<void>
+    onDeleteTopUp: (id: string) => Promise<void>
 }
 
-function AllTransactionsDrawer({ row, month, spends, onClose, onDelete }: AllTransactionsDrawerProps) {
+function AllTransactionsDrawer({ row, month, spends, topUps, onClose, onDelete, onDeleteTopUp }: AllTransactionsDrawerProps) {
     const weeks = groupSpendsByWeek(month, spends)
     const bounds = monthWeekBounds(month)
     const monthTotal = weeks.reduce(
         (sum, w) => sum + w.days.reduce((s, d) => s + d.items.reduce((s2, t) => s2 + t.amount, 0), 0),
         0
     )
+    // Adjustments (top-ups, withdrawals, refills) moved off the card face into
+    // here — they're history, not a live action. Newest first.
+    const adjustments = [...topUps].sort((a, b) => b.date.localeCompare(a.date))
 
     return (
         <Drawer open onClose={onClose} title={row.name} badge={`£${fmt(monthTotal)}`} size="md">
+            {adjustments.length > 0 && (
+                <div className="mb-6">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                        Adjustments
+                    </p>
+                    <ul className="flex flex-col gap-1.5">
+                        {adjustments.map((t) => {
+                            const isRefill = t.kind === 'refill'
+                            const isWithdrawal = t.kind === 'withdrawal'
+                            const title = t.note
+                                ? t.note
+                                : isRefill
+                                    ? 'Refill from day-off pot'
+                                    : isWithdrawal
+                                        ? 'Withdrawn for something else'
+                                        : 'Top up'
+                            return (
+                                <LedgerRow
+                                    key={t._id}
+                                    title={title}
+                                    date={t.date}
+                                    caption={isRefill ? 'into space, not budget' : isWithdrawal ? 'out of budget' : 'added to budget'}
+                                    amount={t.amount}
+                                    sign={isWithdrawal ? '−' : '+'}
+                                    onDelete={() => onDeleteTopUp(t._id)}
+                                    deleteLabel={isRefill ? 'Remove refill' : isWithdrawal ? 'Remove withdrawal' : 'Remove top-up'}
+                                />
+                            )
+                        })}
+                    </ul>
+                </div>
+            )}
             {weeks.length === 0 ? (
                 <p className="text-sm text-neutral-500">No transactions logged this month.</p>
             ) : (
@@ -1224,6 +1238,8 @@ function BudgetCard({
     const isIncome = group.type === 'income'
     const today = todayKey()
     const [dayOffInfoOpen, setDayOffInfoOpen] = useState(false)
+    // Which money-adjustment form is open, if any — chosen from the actions menu.
+    const [menuAction, setMenuAction] = useState<AdjustVariant | null>(null)
 
     // Monthly overview — always based on the month the week sits in.
     // computeBudgetDay gives monthlyAmount / monthlyRemaining regardless of the day param.
@@ -1343,14 +1359,36 @@ function BudgetCard({
         ? spends.filter((s) => s.date >= weekStart && s.date <= weekEnd)
         : []
     const isTracking = isWeeklySpend || isDailySpend
+    const canAdjust = monthlyAmount > 0 && !isIncome
+    const trackingLabel = isWeeklySpend ? 'Tracking: weekly' : isDailySpend ? 'Tracking: daily' : 'Tracking: off'
+
+    // One menu for every occasional action, so the card face carries only the
+    // hero, the log input, and two quiet footer links. Sections are joined by
+    // dividers only when both sides are present.
+    const menuItems: MenuEntry[] = []
+    if (canAdjust) {
+        menuItems.push({ label: 'Top up', icon: 'fa-solid fa-plus', onClick: () => setMenuAction('topup') })
+        menuItems.push({ label: 'Withdraw', icon: 'fa-solid fa-arrow-up-from-bracket', onClick: () => setMenuAction('withdrawal') })
+        if (isLinked) menuItems.push({ label: 'Refill space', icon: 'fa-solid fa-rotate-left', onClick: () => setMenuAction('refill') })
+    }
+    if (starlingEnabled) {
+        if (menuItems.length) menuItems.push('divider')
+        menuItems.push({
+            label: isLinked ? 'Change bank space' : 'Link a bank space',
+            icon: 'fa-solid fa-building-columns',
+            onClick: () => onOpenLink(row),
+        })
+    }
+    if (menuItems.length) menuItems.push('divider')
+    menuItems.push({ label: trackingLabel, icon: 'fa-solid fa-repeat', onClick: () => onToggleDailySpend(row) })
 
     return (
         <Card as="article" hover={false} className="flex h-full flex-col gap-5">
             {/* Header — category, name, and the monthly figure with its status */}
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                    <Badge variant={isIncome ? 'success' : 'danger'}>{group.name}</Badge>
-                    <p className="mt-2 truncate text-lg font-bold tracking-tight text-neutral-900">{row.name}</p>
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-400">{group.name}</p>
+                    <p className="mt-1 truncate text-lg font-bold tracking-tight text-neutral-900">{row.name}</p>
                 </div>
                 <div className="shrink-0 text-right">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Monthly budget</p>
@@ -1361,16 +1399,9 @@ function BudgetCard({
                         canReconcile ? (
                             // Linked budgets defer to the bank: the space balance is the
                             // money that's actually left, the ledger is just the plan.
-                            <>
-                                <p className="mt-0.5 text-xs font-semibold tabular-nums text-neutral-400">
-                                    £{fmt(linkedSpace!.balance)} left in space
-                                </p>
-                                {outOfSync && (
-                                    <p className="mt-0.5 text-[10px] tabular-nums text-neutral-400">
-                                        budget expects £{fmt(expectedBalance)}
-                                    </p>
-                                )}
-                            </>
+                            <p className="mt-0.5 text-xs font-semibold tabular-nums text-neutral-400">
+                                £{fmt(linkedSpace!.balance)} in space
+                            </p>
                         ) : (
                             <p className={['mt-0.5 text-xs font-semibold tabular-nums', monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400'].join(' ')}>
                                 £{fmt(Math.abs(monthlyRemaining))} {monthlyRemaining < 0 ? 'over' : 'left'}
@@ -1381,7 +1412,7 @@ function BudgetCard({
                         <button
                             type="button"
                             onClick={() => onOpenReconcile(row)}
-                            className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 transition-colors hover:bg-amber-200"
+                            className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
                         >
                             <i className="fa-solid fa-triangle-exclamation text-[9px]" aria-hidden="true" />
                             Out of sync
@@ -1401,13 +1432,6 @@ function BudgetCard({
                         spent={trackingView.spent}
                         subline={trackingView.subline}
                     />
-
-                    {trackingView.remaining < -RECONCILE_EPSILON && (
-                        <div className="flex items-center gap-2.5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-                            <i className="fa-solid fa-triangle-exclamation text-xs" aria-hidden="true" />
-                            £{fmt(Math.abs(trackingView.remaining))} over your weekly budget
-                        </div>
-                    )}
 
                     {plannedSpends.length > 0 && (
                         <div className="flex flex-col gap-1.5">
@@ -1440,165 +1464,96 @@ function BudgetCard({
                 </div>
             )}
 
-            {/* Day-off spending notice — spends on excluded days skip this budget and
-                count toward the day-off pot, but still leave the linked space.
-                Collapsed to a chip by default; the explanation expands on demand. */}
-            {excludedDaySpendTotal > RECONCILE_EPSILON && (
-                <div className="flex flex-col gap-2">
+            {/* Money-adjustment form — opened from the actions menu, one at a time */}
+            {menuAction && (
+                <AdjustForm
+                    variant={menuAction}
+                    suggestedAmount={menuAction === 'refill' && refillOwed > RECONCILE_EPSILON ? refillOwed : undefined}
+                    onAdd={(amount, note) => onTopUp(row._id, amount, menuAction, note)}
+                    onCancel={() => setMenuAction(null)}
+                />
+            )}
+
+            {/* Footer — a quiet status line, two links, and the actions menu. All the
+                colour and button clutter that used to live here now sits behind the
+                menu or inside the Transactions drawer. */}
+            <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-neutral-100 pt-4 text-xs">
+                <button
+                    type="button"
+                    onClick={() => onOpenTransactions(row)}
+                    className="inline-flex items-center gap-1.5 font-semibold text-neutral-500 transition-colors hover:text-neutral-900"
+                >
+                    <i className="fa-solid fa-receipt text-[10px]" aria-hidden="true" />
+                    Transactions
+                </button>
+
+                {starlingEnabled && isLinked && (
+                    <button
+                        type="button"
+                        onClick={() => onSync(row)}
+                        disabled={syncing}
+                        className="inline-flex items-center gap-1.5 font-semibold text-neutral-500 transition-colors hover:text-neutral-900 disabled:opacity-50"
+                    >
+                        <i className={`fa-solid fa-arrows-rotate text-[10px] ${syncing ? 'animate-spin' : ''}`} aria-hidden="true" />
+                        {syncing ? 'Syncing…' : 'Sync'}
+                    </button>
+                )}
+
+                {excludedDaySpendTotal > RECONCILE_EPSILON && (
                     <button
                         type="button"
                         onClick={() => setDayOffInfoOpen((v) => !v)}
                         aria-expanded={dayOffInfoOpen}
-                        className="inline-flex items-center gap-1.5 self-start rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-sky-700 transition-colors hover:bg-sky-100"
+                        className="inline-flex items-center gap-1 font-semibold tabular-nums text-neutral-400 transition-colors hover:text-neutral-700"
                     >
-                        <i className="fa-solid fa-umbrella-beach text-[10px] text-sky-500" aria-hidden="true" />
-                        £{fmt(excludedDaySpendTotal)} day-off spend
-                        <i className="fa-solid fa-circle-info text-[10px] text-sky-400" aria-hidden="true" />
+                        <i className="fa-solid fa-umbrella-beach text-[10px]" aria-hidden="true" />
+                        £{fmt(excludedDaySpendTotal)} day-off
                     </button>
-                    {dayOffInfoOpen && (
-                        <div className="flex items-start gap-2.5 rounded-2xl bg-sky-50 px-4 py-3 text-xs text-sky-800">
-                            <span>
-                                £{fmt(excludedDaySpendTotal)} was spent on day-off days this month. It counts
-                                toward your day-off pot, not this budget
-                                {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON
-                                    ? excludedFromSpaceTotal >= excludedDaySpendTotal - RECONCILE_EPSILON
-                                        ? ' — the money still left the linked space, which is expected'
-                                        : ` — £${fmt(excludedFromSpaceTotal)} of it left the linked space, which is expected`
-                                    : ''}.
-                                {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON && (
-                                    refillOwed > RECONCILE_EPSILON
-                                        ? ` £${fmt(refillOwed)} still needs refilling from the day-off pot to square the space.`
-                                        : rowRefillTotal > RECONCILE_EPSILON
-                                            ? ' The space has been fully refilled from the day-off pot.'
-                                            : ''
-                                )}
-                            </span>
-                        </div>
+                )}
+
+                <div className="ml-auto flex items-center gap-2">
+                    {isTracking && (
+                        <span className="inline-flex items-center gap-1 text-neutral-400">
+                            <i className="fa-solid fa-check text-[9px]" aria-hidden="true" />
+                            {isWeeklySpend ? 'Weekly' : 'Daily'}
+                        </span>
                     )}
-                </div>
-            )}
-
-            {/* Top up — add extra money to this budget, boosting what's left from today
-                onward. Refill — put money back into the linked space (e.g. from the
-                day-off pot) without raising the budget. Withdraw — take money out of
-                this budget for something else, lowering what's left from today onward. */}
-            {monthlyAmount > 0 && !isIncome && (
-                <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap gap-2">
-                        <TopUpInput onAdd={(amount, note) => onTopUp(row._id, amount, 'topup', note)} />
-                        <TopUpInput
-                            variant="withdrawal"
-                            onAdd={(amount, note) => onTopUp(row._id, amount, 'withdrawal', note)}
-                        />
-                        {isLinked && (
-                            <TopUpInput
-                                variant="refill"
-                                suggestedAmount={refillOwed > RECONCILE_EPSILON ? refillOwed : undefined}
-                                onAdd={(amount, note) => onTopUp(row._id, amount, 'refill', note)}
-                            />
-                        )}
-                    </div>
-                    {topUps.length > 0 && (
-                        <ul className="flex flex-col gap-1.5">
-                            {topUps.map((t) => {
-                                const isRefill = t.kind === 'refill'
-                                const isWithdrawal = t.kind === 'withdrawal'
-                                const title = t.note
-                                    ? t.note
-                                    : isRefill
-                                        ? 'Refill from day-off pot'
-                                        : isWithdrawal
-                                            ? 'Withdrawn for something else'
-                                            : 'Top up'
-                                return (
-                                    <LedgerRow
-                                        key={t._id}
-                                        title={title}
-                                        date={t.date}
-                                        caption={
-                                            isRefill
-                                                ? 'into space, not budget'
-                                                : isWithdrawal
-                                                    ? 'out of budget'
-                                                    : undefined
-                                        }
-                                        amount={t.amount}
-                                        sign={isWithdrawal ? '−' : '+'}
-                                        tone={isRefill ? 'sky' : isWithdrawal ? 'amber' : 'emerald'}
-                                        onDelete={() => onDeleteTopUp(t._id)}
-                                        deleteLabel={
-                                            isRefill
-                                                ? 'Remove refill'
-                                                : isWithdrawal
-                                                    ? 'Remove withdrawal'
-                                                    : 'Remove top-up'
-                                        }
-                                    />
-                                )
-                            })}
-                        </ul>
-                    )}
-                </div>
-            )}
-
-            {/* Footer — secondary actions, separated from the money views above */}
-            <div className="mt-auto flex flex-col gap-3 border-t border-neutral-100 pt-4">
-                <div className="flex flex-wrap items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => onOpenTransactions(row)}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200"
-                    >
-                        <i className="fa-solid fa-receipt text-[10px]" aria-hidden="true" />
-                        Transactions
-                    </button>
-
-                    {/* Starling Space link — mirror card spending into this budget */}
-                    {starlingEnabled && (
-                        isLinked ? (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() => onOpenLink(row)}
-                                    className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
-                                    title="Change or unlink the bank space"
-                                >
-                                    <i className="fa-solid fa-building-columns text-[10px]" aria-hidden="true" />
-                                    <span className="max-w-[8rem] truncate">{linkedSpace?.name ?? 'Linked space'}</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => onSync(row)}
-                                    disabled={syncing}
-                                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200 disabled:opacity-50"
-                                >
-                                    <i className={`fa-solid fa-arrows-rotate text-[10px] ${syncing ? 'animate-spin' : ''}`} aria-hidden="true" />
-                                    {syncing ? 'Syncing…' : 'Sync'}
-                                </button>
-                            </>
-                        ) : (
+                    <DropdownMenu
+                        align="right"
+                        items={menuItems}
+                        trigger={
                             <button
                                 type="button"
-                                onClick={() => onOpenLink(row)}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+                                aria-label="More actions"
+                                aria-haspopup="menu"
+                                className="grid h-7 w-7 place-items-center rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                             >
-                                <i className="fa-solid fa-building-columns text-[10px]" aria-hidden="true" />
-                                Link a bank space
+                                <i className="fa-solid fa-ellipsis text-xs" aria-hidden="true" />
                             </button>
-                        )
+                        }
+                    />
+                </div>
+            </div>
+
+            {/* Day-off explanation — expands beneath the footer on demand */}
+            {excludedDaySpendTotal > RECONCILE_EPSILON && dayOffInfoOpen && (
+                <div className="rounded-2xl bg-neutral-50 px-4 py-3 text-xs text-neutral-600">
+                    £{fmt(excludedDaySpendTotal)} was spent on day-off days this month. It counts
+                    toward your day-off pot, not this budget
+                    {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON
+                        ? excludedFromSpaceTotal >= excludedDaySpendTotal - RECONCILE_EPSILON
+                            ? ' — the money still left the linked space, which is expected'
+                            : ` — £${fmt(excludedFromSpaceTotal)} of it left the linked space, which is expected`
+                        : ''}.
+                    {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON && (
+                        refillOwed > RECONCILE_EPSILON
+                            ? ` £${fmt(refillOwed)} still needs refilling from the day-off pot to square the space.`
+                            : rowRefillTotal > RECONCILE_EPSILON
+                                ? ' The space has been fully refilled from the day-off pot.'
+                                : ''
                     )}
                 </div>
-
-                {/* Tracking toggle — cycles: off → weekly → daily → off */}
-                <button
-                    type="button"
-                    onClick={() => onToggleDailySpend(row)}
-                    className={['inline-flex items-center gap-2 self-start rounded-full px-4 py-2 text-xs font-semibold tracking-tight transition-all duration-150 active:scale-[0.97]', isTracking ? 'bg-neutral-950 text-white hover:bg-neutral-800' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700'].join(' ')}
-                >
-                    <i className={`fa-solid fa-${isTracking ? 'check' : 'toggle-off'}`} aria-hidden="true" />
-                    {isWeeklySpend ? 'Weekly tracking on' : isDailySpend ? 'Daily tracking on' : 'Enable tracking'}
-                </button>
-            </div>
+            )}
         </Card>
     )
 }
@@ -2079,8 +2034,10 @@ export default function Budgets() {
                     row={txRow}
                     month={month}
                     spends={spends.filter((s) => s.row === txRow._id)}
+                    topUps={topUps.filter((t) => t.row === txRow._id)}
                     onClose={() => setTxRow(null)}
                     onDelete={handleDeleteSpend}
+                    onDeleteTopUp={handleDeleteTopUp}
                 />
             )}
 

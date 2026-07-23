@@ -14,6 +14,7 @@ import Accordion from '../components/Accordion'
 import EmptyState from '../components/EmptyState'
 import Drawer from '../components/Drawer'
 import DropdownMenu from '../components/DropdownMenu'
+import DatePicker from '../components/DatePicker'
 import LineIcon, { type LineIconName } from '../components/LineIcon'
 import { useAuth } from '../context/AuthContext'
 import { listRows, listValues } from '../services/totals'
@@ -801,13 +802,20 @@ function CourseFormDrawer({
                     />
                 )}
                 {!isBlock && (
-                    <Input
-                        label="Target date (optional)"
-                        hint="Finish-by date for on-track pacing"
-                        type="date"
-                        value={targetDate}
-                        onChange={(e) => setTargetDate(e.target.value)}
-                    />
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Target date (optional)
+                        </label>
+                        <DatePicker
+                            mode="single"
+                            value={targetDate || null}
+                            onChange={(v) => setTargetDate(typeof v === 'string' ? v : '')}
+                            placeholder="No target date"
+                        />
+                        <p className="text-xs text-neutral-500">
+                            Finish-by date for on-track pacing
+                        </p>
+                    </div>
                 )}
             </div>
         </Drawer>
