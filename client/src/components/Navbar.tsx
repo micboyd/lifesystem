@@ -102,7 +102,7 @@ export default function Navbar() {
 
                     {/* Panel */}
                     <div
-                        className={`absolute inset-y-0 left-0 flex w-72 flex-col bg-white transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}
+                        className={`absolute inset-y-0 right-0 flex w-80 max-w-[85vw] flex-col bg-white transition-transform duration-300 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
                     >
                         {/* Drawer header */}
                         <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
@@ -125,7 +125,7 @@ export default function Navbar() {
                         </div>
 
                         {/* Nav links */}
-                        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
+                        <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto p-4">
                             {navLinks.map(({ label, to, icon }) => {
                                 const active = pathname === to
                                 return (
@@ -133,17 +133,26 @@ export default function Navbar() {
                                         key={to}
                                         to={to}
                                         className={[
-                                            'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors',
+                                            'group flex items-center gap-3.5 rounded-xl px-4 py-3.5 text-base font-semibold transition-colors',
                                             active
                                                 ? 'bg-neutral-950 text-white'
-                                                : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
+                                                : 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900',
                                         ].join(' ')}
                                     >
                                         <i
-                                            className={`fa-solid ${icon} w-5 text-center ${active ? 'text-white' : 'text-neutral-400'}`}
+                                            className={`fa-solid ${icon} w-5 text-center text-[15px] ${active ? 'text-white' : 'text-neutral-400'}`}
                                             aria-hidden="true"
                                         />
                                         {label}
+                                        <i
+                                            className={[
+                                                'fa-solid fa-arrow-right-long ml-auto text-sm transition-all duration-200',
+                                                active
+                                                    ? 'text-white/70'
+                                                    : 'text-neutral-300 opacity-0 -translate-x-1 group-hover:translate-x-0 group-hover:opacity-100',
+                                            ].join(' ')}
+                                            aria-hidden="true"
+                                        />
                                     </Link>
                                 )
                             })}
