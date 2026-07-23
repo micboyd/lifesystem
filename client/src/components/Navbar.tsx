@@ -6,16 +6,16 @@ import { useMoneyHidden } from './useMoneyHidden'
 import { toggleMoneyHidden } from '../lib/moneyVisibility'
 
 const navLinks = [
-    { label: 'Home', to: '/' },
-    { label: 'Report', to: '/daily-report' },
-    { label: 'Calendar', to: '/calendar' },
-    { label: 'Finances', to: '/finances' },
-    { label: 'Timebox', to: '/timebox' },
-    { label: 'Habits', to: '/habits' },
-    { label: 'Study', to: '/study' },
-    { label: 'Notes', to: '/notes' },
-    { label: 'Weather', to: '/weather' },
-    { label: 'Profile', to: '/profile' },
+    { label: 'Home', to: '/', icon: 'fa-house' },
+    { label: 'Report', to: '/daily-report', icon: 'fa-file-lines' },
+    { label: 'Calendar', to: '/calendar', icon: 'fa-calendar-days' },
+    { label: 'Finances', to: '/finances', icon: 'fa-wallet' },
+    { label: 'Timebox', to: '/timebox', icon: 'fa-clock' },
+    { label: 'Habits', to: '/habits', icon: 'fa-repeat' },
+    { label: 'Study', to: '/study', icon: 'fa-graduation-cap' },
+    { label: 'Notes', to: '/notes', icon: 'fa-note-sticky' },
+    { label: 'Weather', to: '/weather', icon: 'fa-cloud-sun' },
+    { label: 'Profile', to: '/profile', icon: 'fa-user' },
 ]
 
 export default function Navbar() {
@@ -51,29 +51,8 @@ export default function Navbar() {
                             </span>
                         </Link>
 
-                        {/* Right cluster: links, money toggle, mobile menu */}
+                        {/* Right cluster: money toggle, menu */}
                         <div className="flex items-center gap-1">
-                            {/* Desktop links */}
-                            <div className="hidden items-center gap-1 lg:flex">
-                                {navLinks.map(({ label, to }) => {
-                                    const active = pathname === to
-                                    return (
-                                        <Link
-                                            key={to}
-                                            to={to}
-                                            className={[
-                                                'rounded-full px-4 py-2 text-sm font-semibold transition-all duration-150',
-                                                active
-                                                    ? 'bg-neutral-950 text-white'
-                                                    : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900',
-                                            ].join(' ')}
-                                        >
-                                            {label}
-                                        </Link>
-                                    )
-                                })}
-                            </div>
-
                             {/* Master hide-money toggle */}
                             <button
                                 type="button"
@@ -94,24 +73,25 @@ export default function Navbar() {
                                 />
                             </button>
 
-                            {/* Mobile menu button */}
+                            {/* Menu button */}
                             <button
                                 type="button"
                                 onClick={() => setOpen(true)}
                                 aria-label="Open menu"
-                                className="grid h-9 w-9 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-neutral-100 lg:hidden"
+                                className="flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                             >
                                 <i className="fa-solid fa-bars text-sm" aria-hidden="true" />
+                                Menu
                             </button>
                         </div>
                     </nav>
                 </Container>
             </div>
 
-            {/* Mobile drawer */}
+            {/* Side drawer */}
             {createPortal(
                 <div
-                    className={`fixed inset-0 z-50 lg:hidden ${open ? '' : 'pointer-events-none'}`}
+                    className={`fixed inset-0 z-50 ${open ? '' : 'pointer-events-none'}`}
                 >
                     {/* Backdrop */}
                     <div
@@ -145,20 +125,24 @@ export default function Navbar() {
                         </div>
 
                         {/* Nav links */}
-                        <nav className="flex flex-col gap-1 p-3">
-                            {navLinks.map(({ label, to }) => {
+                        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
+                            {navLinks.map(({ label, to, icon }) => {
                                 const active = pathname === to
                                 return (
                                     <Link
                                         key={to}
                                         to={to}
                                         className={[
-                                            'rounded-xl px-4 py-3 text-sm font-semibold transition-colors',
+                                            'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors',
                                             active
                                                 ? 'bg-neutral-950 text-white'
                                                 : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
                                         ].join(' ')}
                                     >
+                                        <i
+                                            className={`fa-solid ${icon} w-5 text-center ${active ? 'text-white' : 'text-neutral-400'}`}
+                                            aria-hidden="true"
+                                        />
                                         {label}
                                     </Link>
                                 )
