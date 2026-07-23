@@ -26,7 +26,7 @@ import {
     deleteBudgetTopUp,
 } from '../services/finances'
 import { rowVisibleInMonth, recurringAmountForMonth } from '../lib/finance'
-import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange, spendingTopUps, refillTotal } from '../lib/budget'
+import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange, netBudgetAdjustment, refillTotal } from '../lib/budget'
 import { diagnoseGap, type ExplainedMovement } from '../lib/reconcile'
 import { formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
@@ -250,8 +250,10 @@ function SpendInput({ spentToday, hasLogged, label, onAdd }: SpendInputProps) {
 interface TopUpInputProps {
     onAdd: (amount: number, note?: string) => Promise<void>
     /** 'topup' adds spendable budget; 'refill' records money moved back into the
-     * linked space (e.g. from the day-off pot) without raising the budget. */
-    variant?: 'topup' | 'refill'
+     * linked space (e.g. from the day-off pot) without raising the budget;
+     * 'withdrawal' takes money out of the budget for something else, lowering
+     * what's left (and the daily/weekly allowance) from today onward. */
+    variant?: 'topup' | 'refill' | 'withdrawal'
     /** Prefill for the amount field — for refills, the amount still owed. */
     suggestedAmount?: number
 }
@@ -273,12 +275,21 @@ const TOP_UP_VARIANTS = {
         submit: 'bg-sky-600 hover:bg-sky-700',
         notePlaceholder: "Label (optional) — e.g. covering Saturday's day off",
     },
+    withdrawal: {
+        pill: 'bg-amber-50 text-amber-700 hover:bg-amber-100',
+        pillIcon: 'fa-arrow-up-from-bracket',
+        pillLabel: 'Withdraw',
+        input: 'focus:border-amber-500 focus:ring-amber-500/10',
+        submit: 'bg-amber-600 hover:bg-amber-700',
+        notePlaceholder: 'Label (optional) — e.g. moved to holiday fund',
+    },
 } as const
 
 /** Inline "add extra money" form — a credit, not a spend. The topup variant
  * boosts what's left from today onward without touching days already elapsed;
  * the refill variant squares the linked space after day-off spending without
- * raising the budget. */
+ * raising the budget; the withdrawal variant takes money out of the budget for
+ * something else, lowering what's left from today onward (the mirror of a top-up). */
 function TopUpInput({ onAdd, variant = 'topup', suggestedAmount }: TopUpInputProps) {
     const [open, setOpen] = useState(false)
     const [draft, setDraft] = useState('')
@@ -387,10 +398,11 @@ function MonthlyOverview({ rows, groups, entries, spends, topUps, excludedDates,
 
     const stats: MonthRowStat[] = rows.map((row) => {
         const entry = entries.find((e) => e.row === row._id)
-        // Refills square the bank space, not the budget, so they're left out here.
-        const topUpTotal = spendingTopUps(topUps)
-            .filter((t) => t.row === row._id && t.date >= monthStart && t.date <= monthEnd)
-            .reduce((sum, t) => sum + t.amount, 0)
+        // Top-ups add and withdrawals subtract; refills square the bank space, not
+        // the budget, so they're left out here.
+        const topUpTotal = netBudgetAdjustment(
+            topUps.filter((t) => t.row === row._id && t.date >= monthStart && t.date <= monthEnd)
+        )
         const budget = (entry?.amount ?? recurringAmountForMonth(row, month) ?? 0) + topUpTotal
         const spent = spends
             .filter((s) => s.row === row._id && s.date >= monthStart && s.date <= monthEnd && !excludedDates.has(s.date))
@@ -583,8 +595,9 @@ interface ReconcileDrawerProps {
     loading: boolean
     error: boolean
     data: StarlingReconciliation | null
-    /** Record an unaccounted credit straight from the diagnosis list. */
-    onRecordCredit: (amount: number, kind: 'topup' | 'refill', note?: string) => Promise<void>
+    /** Record an unaccounted movement straight from the diagnosis list — a credit
+     * as a top-up/refill, or an outbound transfer as a withdrawal. */
+    onRecordCredit: (amount: number, kind: 'topup' | 'refill' | 'withdrawal', note?: string) => Promise<void>
     onClose: () => void
 }
 
@@ -612,7 +625,7 @@ function ReconcileDrawer({
             ? diagnoseGap(unexplained, data.movements, monthlyAmount, topUps)
             : null
 
-    async function record(key: string, amount: number, kind: 'topup' | 'refill', note: string) {
+    async function record(key: string, amount: number, kind: 'topup' | 'refill' | 'withdrawal', note: string) {
         setRecordingKey(key)
         try {
             await onRecordCredit(amount, kind, note)
@@ -622,8 +635,9 @@ function ReconcileDrawer({
     }
 
     /** One unrecorded movement with its fix actions: credits can be recorded as
-     * a refill (cash back into the space) or a top-up (extra budget); debits
-     * can only be fixed at the bank, so they get advice instead of buttons. */
+     * a refill (cash back into the space) or a top-up (extra budget); an outbound
+     * transfer can be recorded as a withdrawal (money taken out of the budget for
+     * something else), which lowers the budget to match the space. */
     function renderUnrecorded(e: ExplainedMovement, key: string) {
         const m = e.movement
         const info = MOVEMENT_INFO[m.reason]
@@ -674,10 +688,21 @@ function ReconcileDrawer({
                         ))}
                     </div>
                 ) : (
-                    <p className="pl-9 text-xs text-neutral-400">
-                        The budget doesn't know this money left the space — move it back in, or
-                        delete a matching top-up if one exists.
-                    </p>
+                    <div className="flex flex-col gap-1.5 pl-9">
+                        <button
+                            type="button"
+                            disabled={recordingKey !== null}
+                            onClick={() => record(key, Math.abs(e.effect), 'withdrawal', note)}
+                            className="self-start rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-40"
+                        >
+                            {recordingKey === key ? '…' : 'Record as withdrawal'}
+                        </button>
+                        <p className="text-xs text-neutral-400">
+                            Records money you took out of this budget for something else, lowering
+                            what's left to match the space. Or move it back in at the bank, or delete
+                            a matching top-up if one exists.
+                        </p>
+                    </div>
                 )}
             </li>
         )
@@ -731,15 +756,19 @@ function ReconcileDrawer({
                             Where the difference comes from
                         </p>
 
-                        {/* Recorded credits that never arrived at the bank */}
-                        {diagnosis.ghostRecords.map((t) => (
-                            <div key={t._id} className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                                You recorded a £{fmt(t.amount)} {t.kind === 'refill' ? 'refill' : 'top-up'} on{' '}
-                                {formatShortDate(t.date)}
-                                {t.note ? ` (“${t.note}”)` : ''} but no matching transfer reached the
-                                space — make the transfer, or delete the record from the budget card.
-                            </div>
-                        ))}
+                        {/* Recorded top-ups/withdrawals with no matching bank transfer */}
+                        {diagnosis.ghostRecords.map((t) => {
+                            const kindLabel =
+                                t.kind === 'refill' ? 'refill' : t.kind === 'withdrawal' ? 'withdrawal' : 'top-up'
+                            return (
+                                <div key={t._id} className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                                    You recorded a £{fmt(t.amount)} {kindLabel} on {formatShortDate(t.date)}
+                                    {t.note ? ` (“${t.note}”)` : ''} but no matching transfer{' '}
+                                    {t.kind === 'withdrawal' ? 'left' : 'reached'} the space — make the transfer,
+                                    or delete the record from the budget card.
+                                </div>
+                            )
+                        })}
 
                         {diagnosis.culprits ? (
                             <>
@@ -1075,7 +1104,7 @@ interface BudgetCardProps {
     onSync: (row: FinanceRow) => void
     onOpenReconcile: (row: FinanceRow) => void
     onOpenTransactions: (row: FinanceRow) => void
-    onTopUp: (rowId: string, amount: number, kind: 'topup' | 'refill', note?: string) => Promise<void>
+    onTopUp: (rowId: string, amount: number, kind: 'topup' | 'refill' | 'withdrawal', note?: string) => Promise<void>
     onDeleteTopUp: (id: string) => Promise<void>
 }
 
@@ -1140,9 +1169,9 @@ interface LedgerRowProps {
     /** Extra caption after the date, e.g. "into space, not budget". */
     caption?: string
     amount: number
-    /** '+' for credits, '' for plain amounts. */
-    sign?: '+' | ''
-    tone?: 'emerald' | 'sky' | 'neutral'
+    /** '+' for credits, '−' for debits, '' for plain amounts. */
+    sign?: '+' | '−' | ''
+    tone?: 'emerald' | 'sky' | 'neutral' | 'amber'
     onDelete?: () => void
     deleteLabel?: string
 }
@@ -1151,6 +1180,7 @@ function LedgerRow({ title, date, caption, amount, sign = '', tone = 'neutral', 
     const toneMap = {
         emerald: { border: 'border-emerald-100 bg-emerald-50/60', title: 'text-emerald-800', sub: 'text-emerald-600/70', amt: 'text-emerald-700', del: 'text-emerald-400 hover:bg-emerald-100 hover:text-emerald-700' },
         sky: { border: 'border-sky-100 bg-sky-50/60', title: 'text-sky-800', sub: 'text-sky-600/70', amt: 'text-sky-700', del: 'text-sky-400 hover:bg-sky-100 hover:text-sky-700' },
+        amber: { border: 'border-amber-100 bg-amber-50/60', title: 'text-amber-800', sub: 'text-amber-600/70', amt: 'text-amber-700', del: 'text-amber-400 hover:bg-amber-100 hover:text-amber-700' },
         neutral: { border: 'border-neutral-100', title: 'text-neutral-800', sub: 'text-neutral-400', amt: 'text-neutral-700', del: 'text-neutral-400 hover:bg-red-50 hover:text-red-500' },
     }[tone]
     return (
@@ -1200,10 +1230,10 @@ function BudgetCard({
     const monthRef = computeBudgetDay(row, entry, spends, weekStart, excludedDates, topUps)
     const { monthlyAmount, monthlyRemaining } = monthRef
 
-    // This row's top-ups logged so far this month (already scoped to the row by the
-    // caller). Refills go back into the bank space, not the budget, so only true
-    // top-ups raise the monthly amount.
-    const rowTopUpTotal = spendingTopUps(topUps).reduce((sum, t) => sum + t.amount, 0)
+    // This row's net budget adjustments so far this month (already scoped to the
+    // row by the caller): top-ups raise the monthly amount, withdrawals lower it.
+    // Refills go back into the bank space, not the budget, so they're excluded.
+    const rowTopUpTotal = netBudgetAdjustment(topUps)
     const rowRefillTotal = refillTotal(topUps)
     const effectiveMonthlyAmount = monthlyAmount + rowTopUpTotal
 
@@ -1251,9 +1281,9 @@ function BudgetCard({
         if (!excludedDates.has(d)) activeDaysInWeek++
         d = addDays(d, 1)
     }
-    const topUpsThisWeek = spendingTopUps(topUps)
-        .filter((t) => t.date >= weekStart && t.date <= weekEnd)
-        .reduce((sum, t) => sum + t.amount, 0)
+    const topUpsThisWeek = netBudgetAdjustment(
+        topUps.filter((t) => t.date >= weekStart && t.date <= weekEnd)
+    )
     const weekTargetDaily = dailyRate * activeDaysInWeek + topUpsThisWeek
     const weekSpentDaily = spends
         .filter((s) => s.date >= weekStart && s.date <= weekEnd && !excludedDates.has(s.date))
@@ -1450,11 +1480,16 @@ function BudgetCard({
 
             {/* Top up — add extra money to this budget, boosting what's left from today
                 onward. Refill — put money back into the linked space (e.g. from the
-                day-off pot) without raising the budget. */}
+                day-off pot) without raising the budget. Withdraw — take money out of
+                this budget for something else, lowering what's left from today onward. */}
             {monthlyAmount > 0 && !isIncome && (
                 <div className="flex flex-col gap-2">
                     <div className="flex flex-wrap gap-2">
                         <TopUpInput onAdd={(amount, note) => onTopUp(row._id, amount, 'topup', note)} />
+                        <TopUpInput
+                            variant="withdrawal"
+                            onAdd={(amount, note) => onTopUp(row._id, amount, 'withdrawal', note)}
+                        />
                         {isLinked && (
                             <TopUpInput
                                 variant="refill"
@@ -1467,17 +1502,37 @@ function BudgetCard({
                         <ul className="flex flex-col gap-1.5">
                             {topUps.map((t) => {
                                 const isRefill = t.kind === 'refill'
+                                const isWithdrawal = t.kind === 'withdrawal'
+                                const title = t.note
+                                    ? t.note
+                                    : isRefill
+                                        ? 'Refill from day-off pot'
+                                        : isWithdrawal
+                                            ? 'Withdrawn for something else'
+                                            : 'Top up'
                                 return (
                                     <LedgerRow
                                         key={t._id}
-                                        title={t.note || (isRefill ? 'Refill from day-off pot' : 'Top up')}
+                                        title={title}
                                         date={t.date}
-                                        caption={isRefill ? 'into space, not budget' : undefined}
+                                        caption={
+                                            isRefill
+                                                ? 'into space, not budget'
+                                                : isWithdrawal
+                                                    ? 'out of budget'
+                                                    : undefined
+                                        }
                                         amount={t.amount}
-                                        sign="+"
-                                        tone={isRefill ? 'sky' : 'emerald'}
+                                        sign={isWithdrawal ? '−' : '+'}
+                                        tone={isRefill ? 'sky' : isWithdrawal ? 'amber' : 'emerald'}
                                         onDelete={() => onDeleteTopUp(t._id)}
-                                        deleteLabel={isRefill ? 'Remove refill' : 'Remove top-up'}
+                                        deleteLabel={
+                                            isRefill
+                                                ? 'Remove refill'
+                                                : isWithdrawal
+                                                    ? 'Remove withdrawal'
+                                                    : 'Remove top-up'
+                                        }
                                     />
                                 )
                             })}
@@ -1809,7 +1864,12 @@ export default function Budgets() {
         }
     }
 
-    async function handleTopUp(rowId: string, amount: number, kind: 'topup' | 'refill', note?: string) {
+    async function handleTopUp(
+        rowId: string,
+        amount: number,
+        kind: 'topup' | 'refill' | 'withdrawal',
+        note?: string
+    ) {
         try {
             const result = await createBudgetTopUp(rowId, todayDate, amount, kind, note)
             setTopUps((prev) => [...prev, result])
@@ -1817,11 +1877,19 @@ export default function Budgets() {
             toast.show(
                 kind === 'refill'
                     ? `Recorded £${formatAmount(amount)} refilled into the space.`
-                    : `Added £${formatAmount(amount)} to this budget.`,
+                    : kind === 'withdrawal'
+                        ? `Withdrew £${formatAmount(amount)} from this budget.`
+                        : `Added £${formatAmount(amount)} to this budget.`,
                 'success'
             )
         } catch {
-            toast.error(kind === 'refill' ? "Couldn't record that refill." : "Couldn't add that top-up.")
+            toast.error(
+                kind === 'refill'
+                    ? "Couldn't record that refill."
+                    : kind === 'withdrawal'
+                        ? "Couldn't record that withdrawal."
+                        : "Couldn't add that top-up."
+            )
         }
     }
 

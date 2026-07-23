@@ -314,12 +314,14 @@ export async function listBudgetTopUps(month: string): Promise<BudgetTopUp[]> {
 
 /** Add extra money to a budget, dated today — boosts what's left from today onward.
  * kind 'refill' instead records money moved back into the linked space (e.g. from
- * the day-off pot): it squares the bank balance without raising the budget. */
+ * the day-off pot): it squares the bank balance without raising the budget.
+ * kind 'withdrawal' is the mirror of a top-up: money taken out of the budget for
+ * something else, lowering what's left (and the daily/weekly allowance) forward. */
 export async function createBudgetTopUp(
     rowId: string,
     date: string,
     amount: number,
-    kind: 'topup' | 'refill' = 'topup',
+    kind: 'topup' | 'refill' | 'withdrawal' = 'topup',
     note?: string
 ): Promise<BudgetTopUp> {
     const res = await api.post<ApiResponse<BudgetTopUp>>('/finances/budget-topups', {

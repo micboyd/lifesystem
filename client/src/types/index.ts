@@ -755,8 +755,10 @@ export interface BudgetTopUp {
     date: string
     amount: number
     /** 'topup' adds spendable budget; 'refill' records money moved back into the
-     * linked space without raising the budget. Absent on older records = 'topup'. */
-    kind?: 'topup' | 'refill'
+     * linked space without raising the budget; 'withdrawal' takes money out of the
+     * budget for something else, lowering the remaining (and daily/weekly allowance)
+     * forward. Absent on older records = 'topup'. */
+    kind?: 'topup' | 'refill' | 'withdrawal'
     note?: string
 }
 

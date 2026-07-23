@@ -91,12 +91,24 @@ function activeDaysBefore(date: string, excluded: Set<string>): number {
 }
 
 /**
- * Top-ups that raise the spendable budget. Refills (kind 'refill') record money
- * moved back into the linked bank space to cover day-off spending — cash
- * movements only, so they never enter the allowance maths.
+ * Adjustments that change the spendable budget, as signed records: a top-up adds
+ * (+amount), a withdrawal takes money out for something else (−amount). Refills
+ * (kind 'refill') record money moved back into the linked bank space to cover
+ * day-off spending — cash movements only — so they never enter the allowance maths.
+ *
+ * Every budget figure (carry, monthly remaining, weekly allowance) sums these, so
+ * a withdrawal self-corrects the daily/weekly allowance downward from its date the
+ * same way a top-up corrects it upward.
  */
-export function spendingTopUps(topUps: BudgetTopUp[]): BudgetTopUp[] {
-    return topUps.filter((t) => t.kind !== 'refill')
+export function budgetAdjustments(topUps: BudgetTopUp[]): { date: string; amount: number }[] {
+    return topUps
+        .filter((t) => t.kind !== 'refill')
+        .map((t) => ({ date: t.date, amount: t.kind === 'withdrawal' ? -t.amount : t.amount }))
+}
+
+/** Net signed effect of all top-ups/withdrawals on the budget (refills excluded). */
+export function netBudgetAdjustment(topUps: BudgetTopUp[]): number {
+    return budgetAdjustments(topUps).reduce((sum, a) => sum + a.amount, 0)
 }
 
 /** Total of refill top-ups — money returned to the space, not extra budget. */
@@ -130,10 +142,10 @@ export interface BudgetDay {
  * dashboard widget, and the insights strip). Pass the month's excluded dates so
  * all surfaces agree; omit them and it behaves as a plain even split.
  *
- * Top-ups (`rowTopUps`) are forward-only: a top-up dated on or before `date`
- * boosts carry/monthlyRemaining, but never changes the figures for a date
- * before the top-up happened. Refills are ignored here — they refill the bank
- * space, not the budget.
+ * Adjustments (`rowTopUps`) are forward-only: a top-up (+) or withdrawal (−)
+ * dated on or before `date` shifts carry/monthlyRemaining, but never changes the
+ * figures for a date before it happened. Refills are ignored here — they refill
+ * the bank space, not the budget.
  */
 export function computeBudgetDay(
     row: FinanceRow,
@@ -143,7 +155,7 @@ export function computeBudgetDay(
     excluded: Set<string> = new Set(),
     allTopUps: BudgetTopUp[] = []
 ): BudgetDay {
-    const rowTopUps = spendingTopUps(allTopUps)
+    const rowTopUps = budgetAdjustments(allTopUps)
     const month = monthOf(date)
     const monthlyAmount = entry?.amount ?? recurringAmountForMonth(row, month) ?? 0
     const totalActiveDays = activeDaysInMonth(month, excluded)
@@ -233,10 +245,10 @@ export function activeDaysBetween(start: string, end: string, excluded: Set<stri
  * Carry logic: daily rate × days in each prior week's slice − spend in that slice.
  * With zero spend, the last week of the month carries the full monthly budget.
  *
- * Top-ups (`rowTopUps`) are forward-only: only top-ups whose date falls on or
- * before the slice/date being evaluated count, so a top-up never changes a week
- * that had already closed before it was added. Refills are ignored here — they
- * refill the bank space, not the budget.
+ * Adjustments (`rowTopUps`) are forward-only: only top-ups/withdrawals whose date
+ * falls on or before the slice/date being evaluated count, so one never changes a
+ * week that had already closed before it was added. Refills are ignored here —
+ * they refill the bank space, not the budget.
  */
 export function computeBudgetWeek(
     row: FinanceRow,
@@ -248,7 +260,7 @@ export function computeBudgetWeek(
     excluded: Set<string> = new Set(),
     allTopUps: BudgetTopUp[] = []
 ): BudgetWeek {
-    const rowTopUps = spendingTopUps(allTopUps)
+    const rowTopUps = budgetAdjustments(allTopUps)
     const month = weekStart.slice(0, 7)
     const monthStart = `${month}-01`
     const monthEnd = dateKey(month, daysInMonth(month))

@@ -27,11 +27,13 @@ function parseNote(raw: unknown): string | undefined {
 
 /** POST /budget-topups — add extra money to a budget, dated today (forward-only).
  * kind 'refill' records money moved back into the linked space (e.g. from the
- * day-off pot) — it squares the bank balance without raising the budget. */
+ * day-off pot) — it squares the bank balance without raising the budget.
+ * kind 'withdrawal' is the mirror of a top-up: money taken out of the budget for
+ * something else, lowering the remaining (and daily/weekly allowance) forward. */
 export async function createBudgetTopUp(req: AuthRequest, res: Response) {
     const { row: rowId, date, kind } = req.body
-    if (kind !== undefined && kind !== 'topup' && kind !== 'refill') {
-        res.status(400).json({ message: "kind must be 'topup' or 'refill'" })
+    if (kind !== undefined && kind !== 'topup' && kind !== 'refill' && kind !== 'withdrawal') {
+        res.status(400).json({ message: "kind must be 'topup', 'refill' or 'withdrawal'" })
         return
     }
     if (typeof date !== 'string' || !DATE_RE.test(date)) {

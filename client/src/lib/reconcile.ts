@@ -14,7 +14,7 @@ export function movementEffect(m: StarlingMovement): number {
 }
 
 /** What a movement was matched against in the ledger. */
-export type MovementMatch = 'monthly-funding' | 'top-up' | 'refill'
+export type MovementMatch = 'monthly-funding' | 'top-up' | 'refill' | 'withdrawal'
 
 export interface ExplainedMovement {
     movement: StarlingMovement
@@ -26,10 +26,10 @@ export interface ExplainedMovement {
 
 export interface GapDiagnosis {
     /** Movements the ledger already expects — the monthly funding transfer plus
-     * recorded top-ups and refills. These can't be the cause of a gap. */
+     * recorded top-ups, refills and withdrawals. These can't be the cause of a gap. */
     accounted: ExplainedMovement[]
-    /** Recorded top-ups/refills with no matching bank transfer — the record
-     * exists but the money never reached the space. */
+    /** Recorded top-ups/refills/withdrawals with no matching bank transfer — the
+     * record exists but the money never actually moved on the space. */
     ghostRecords: BudgetTopUp[]
     /** Smallest set of unrecorded movements whose net effect equals the gap
      * exactly, or null when no combination matches. */
@@ -60,19 +60,26 @@ export function diagnoseGap(
         .map((m) => ({ movement: m, effect: movementEffect(m), matchedTo: null as MovementMatch | null }))
         .filter((e) => Math.abs(e.effect) > EPSILON)
 
-    // Credits the ledger expects to have reached the space: the monthly funding
-    // transfer plus every recorded top-up and refill. Each expected credit
-    // claims at most one movement of the same amount, nearest date first.
+    // Transfers the ledger expects to see on the space, as signed amounts: the
+    // monthly funding transfer plus recorded top-ups and refills are credits (+);
+    // a recorded withdrawal is a debit (−) — money moved out of the space for
+    // something else. Each expected transfer claims at most one movement of the
+    // same signed amount, nearest date first.
     const expected: { key: MovementMatch; amount: number; date: string; record?: BudgetTopUp }[] = []
     if (monthlyAmount > EPSILON) expected.push({ key: 'monthly-funding', amount: monthlyAmount, date: '' })
     for (const t of topUps) {
-        expected.push({ key: t.kind === 'refill' ? 'refill' : 'top-up', amount: t.amount, date: t.date, record: t })
+        if (t.kind === 'refill') expected.push({ key: 'refill', amount: t.amount, date: t.date, record: t })
+        else if (t.kind === 'withdrawal')
+            expected.push({ key: 'withdrawal', amount: -t.amount, date: t.date, record: t })
+        else expected.push({ key: 'top-up', amount: t.amount, date: t.date, record: t })
     }
 
     const ghostRecords: BudgetTopUp[] = []
     for (const exp of expected) {
+        // Signed match, so a credit expectation only claims an inbound movement and
+        // a withdrawal only claims an outbound one of the same magnitude.
         const candidates = entries.filter(
-            (e) => e.matchedTo === null && e.effect > 0 && Math.abs(e.effect - exp.amount) <= EPSILON
+            (e) => e.matchedTo === null && Math.abs(e.effect - exp.amount) <= EPSILON
         )
         if (candidates.length === 0) {
             if (exp.record) ghostRecords.push(exp.record)
