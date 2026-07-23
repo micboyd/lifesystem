@@ -1271,7 +1271,6 @@ function BudgetCard({
                 }
               : null
 
-    const isTracking = isWeeklySpend || isDailySpend
     const canAdjust = monthlyAmount > 0 && !isIncome
     const trackingLabel = isWeeklySpend ? 'Tracking: weekly' : isDailySpend ? 'Tracking: daily' : 'Tracking: off'
 
@@ -1356,10 +1355,45 @@ function BudgetCard({
                 />
             )}
 
-            {/* Footer — a quiet status line, two links, and the actions menu. All the
-                colour and button clutter that used to live here now sits behind the
-                menu or inside the Transactions drawer. */}
-            <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-neutral-100 pt-4 text-xs">
+            {/* Day-off context — spends on excluded days count toward the day-off pot,
+                not this budget. It's information, not an action, so it sits with the
+                money content rather than in the toolbar. Quiet until expanded. */}
+            {excludedDaySpendTotal > RECONCILE_EPSILON && (
+                <div className="flex flex-col gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setDayOffInfoOpen((v) => !v)}
+                        aria-expanded={dayOffInfoOpen}
+                        className="flex items-center gap-1.5 self-start text-xs font-medium tabular-nums text-neutral-400 transition-colors hover:text-neutral-700"
+                    >
+                        <i className="fa-solid fa-umbrella-beach text-[10px]" aria-hidden="true" />
+                        £{fmt(excludedDaySpendTotal)} spent on day off
+                        <i className={`fa-solid fa-chevron-down text-[9px] transition-transform ${dayOffInfoOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                    </button>
+                    {dayOffInfoOpen && (
+                        <div className="rounded-2xl bg-neutral-50 px-4 py-3 text-xs text-neutral-600">
+                            £{fmt(excludedDaySpendTotal)} was spent on day-off days this month. It counts
+                            toward your day-off pot, not this budget
+                            {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON
+                                ? excludedFromSpaceTotal >= excludedDaySpendTotal - RECONCILE_EPSILON
+                                    ? ' — the money still left the linked space, which is expected'
+                                    : ` — £${fmt(excludedFromSpaceTotal)} of it left the linked space, which is expected`
+                                : ''}.
+                            {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON && (
+                                refillOwed > RECONCILE_EPSILON
+                                    ? ` £${fmt(refillOwed)} still needs refilling from the day-off pot to square the space.`
+                                    : rowRefillTotal > RECONCILE_EPSILON
+                                        ? ' The space has been fully refilled from the day-off pot.'
+                                        : ''
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Footer — an action toolbar: quiet links on the left, the actions menu on
+                the right. Only things you click to do something live here. */}
+            <div className="mt-auto flex items-center gap-4 border-t border-neutral-100 pt-4 text-xs">
                 <button
                     type="button"
                     onClick={() => onOpenTransactions(row)}
@@ -1381,61 +1415,22 @@ function BudgetCard({
                     </button>
                 )}
 
-                {excludedDaySpendTotal > RECONCILE_EPSILON && (
-                    <button
-                        type="button"
-                        onClick={() => setDayOffInfoOpen((v) => !v)}
-                        aria-expanded={dayOffInfoOpen}
-                        className="inline-flex items-center gap-1 font-semibold tabular-nums text-neutral-400 transition-colors hover:text-neutral-700"
-                    >
-                        <i className="fa-solid fa-umbrella-beach text-[10px]" aria-hidden="true" />
-                        £{fmt(excludedDaySpendTotal)} day-off
-                    </button>
-                )}
-
-                <div className="ml-auto flex items-center gap-2">
-                    {isTracking && (
-                        <span className="inline-flex items-center gap-1 text-neutral-400">
-                            <i className="fa-solid fa-check text-[9px]" aria-hidden="true" />
-                            {isWeeklySpend ? 'Weekly' : 'Daily'}
-                        </span>
-                    )}
-                    <DropdownMenu
-                        align="right"
-                        items={menuItems}
-                        trigger={
-                            <button
-                                type="button"
-                                aria-label="More actions"
-                                aria-haspopup="menu"
-                                className="grid h-7 w-7 place-items-center rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                            >
-                                <i className="fa-solid fa-ellipsis text-xs" aria-hidden="true" />
-                            </button>
-                        }
-                    />
-                </div>
+                <DropdownMenu
+                    align="right"
+                    className="ml-auto"
+                    items={menuItems}
+                    trigger={
+                        <button
+                            type="button"
+                            aria-label="More actions"
+                            aria-haspopup="menu"
+                            className="grid h-7 w-7 place-items-center rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                        >
+                            <i className="fa-solid fa-ellipsis text-xs" aria-hidden="true" />
+                        </button>
+                    }
+                />
             </div>
-
-            {/* Day-off explanation — expands beneath the footer on demand */}
-            {excludedDaySpendTotal > RECONCILE_EPSILON && dayOffInfoOpen && (
-                <div className="rounded-2xl bg-neutral-50 px-4 py-3 text-xs text-neutral-600">
-                    £{fmt(excludedDaySpendTotal)} was spent on day-off days this month. It counts
-                    toward your day-off pot, not this budget
-                    {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON
-                        ? excludedFromSpaceTotal >= excludedDaySpendTotal - RECONCILE_EPSILON
-                            ? ' — the money still left the linked space, which is expected'
-                            : ` — £${fmt(excludedFromSpaceTotal)} of it left the linked space, which is expected`
-                        : ''}.
-                    {isLinked && excludedFromSpaceTotal > RECONCILE_EPSILON && (
-                        refillOwed > RECONCILE_EPSILON
-                            ? ` £${fmt(refillOwed)} still needs refilling from the day-off pot to square the space.`
-                            : rowRefillTotal > RECONCILE_EPSILON
-                                ? ' The space has been fully refilled from the day-off pot.'
-                                : ''
-                    )}
-                </div>
-            )}
         </Card>
     )
 }
