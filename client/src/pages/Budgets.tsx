@@ -1119,7 +1119,6 @@ interface BudgetCardProps {
     onOpenReconcile: (row: FinanceRow) => void
     onOpenTransactions: (row: FinanceRow) => void
     onTopUp: (rowId: string, amount: number, kind: 'topup' | 'refill' | 'withdrawal', note?: string) => Promise<void>
-    onDeleteTopUp: (id: string) => Promise<void>
 }
 
 // ── Allowance hero ────────────────────────────────────────────────────────────
@@ -1230,7 +1229,7 @@ function BudgetCard({
     weekStart, weekEnd, isCurrentWeek, isFutureWeek,
     starlingEnabled, linkedSpace, syncing,
     onToggleDailySpend, onLogSpend, onDeleteSpend, onOpenLink, onSync, onOpenReconcile, onOpenTransactions,
-    onTopUp, onDeleteTopUp,
+    onTopUp,
 }: BudgetCardProps) {
     const isLinked = !!row.starlingCategoryUid
     const isDailySpend = row.budgetType === 'daily'
@@ -1979,7 +1978,6 @@ export default function Budgets() {
                                 onOpenReconcile={openReconcile}
                                 onOpenTransactions={setTxRow}
                                 onTopUp={handleTopUp}
-                                onDeleteTopUp={handleDeleteTopUp}
                             />
                         )
                     })}
