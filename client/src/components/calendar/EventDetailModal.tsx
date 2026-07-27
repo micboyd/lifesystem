@@ -12,7 +12,10 @@ interface Props {
     event: Event | null
     onClose: () => void
     onEdit: () => void
-    onDeleteOccurrence?: (event: Event) => Promise<void>
+    /** Delete the event. Non-recurring events go straight out; recurring ones are
+     * expected to open a this-one / whole-series dialog. Omitted for events that
+     * can't be deleted (e.g. synthetic birthdays). */
+    onDelete?: (event: Event) => void | Promise<void>
     /** Persist an inline notes edit. When omitted, notes are shown read-only. */
     onSaveNotes?: (notes: string) => Promise<void>
 }
@@ -61,11 +64,11 @@ export default function EventDetailModal({
     event,
     onClose,
     onEdit,
-    onDeleteOccurrence,
+    onDelete,
     onSaveNotes,
 }: Props) {
     const { byId } = useCalendars()
-    const [deletingOccurrence, setDeletingOccurrence] = useState(false)
+    const [deleting, setDeleting] = useState(false)
     const [editingNotes, setEditingNotes] = useState(false)
     const [notesDraft, setNotesDraft] = useState('')
     const [savingNotes, setSavingNotes] = useState(false)
@@ -78,13 +81,13 @@ export default function EventDetailModal({
 
     if (!event) return null
 
-    async function handleDeleteOccurrence() {
-        if (!onDeleteOccurrence) return
-        setDeletingOccurrence(true)
+    async function handleDelete() {
+        if (!onDelete) return
+        setDeleting(true)
         try {
-            await onDeleteOccurrence(event!)
+            await onDelete(event!)
         } finally {
-            setDeletingOccurrence(false)
+            setDeleting(false)
         }
     }
 
@@ -111,20 +114,21 @@ export default function EventDetailModal({
             size="sm"
             footer={
                 <>
-                    <Button variant="ghost" size="sm" onClick={onClose}>
-                        Close
-                    </Button>
-                    {event.recurrence && onDeleteOccurrence && (
+                    {onDelete && (
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={handleDeleteOccurrence}
-                            disabled={deletingOccurrence}
-                            className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                            icon="fa-solid fa-trash-can"
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="mr-auto text-red-500 hover:bg-red-50 hover:text-red-600"
                         >
-                            Remove this occurrence
+                            {deleting ? 'Deleting…' : 'Delete'}
                         </Button>
                     )}
+                    <Button variant="ghost" size="sm" onClick={onClose}>
+                        Close
+                    </Button>
                     <Button size="sm" icon="fa-solid fa-pen" onClick={onEdit}>
                         Edit
                     </Button>

@@ -257,6 +257,7 @@ export default function Calendar() {
             setEditorOpen(false)
             setEditingEvent(null)
             setScopeEvent(null)
+            setDetailEvent(null)
         } finally {
             setSaving(false)
         }
@@ -608,11 +609,21 @@ export default function Calendar() {
                 event={detailEvent}
                 onClose={() => setDetailEvent(null)}
                 onEdit={() => detailEvent && openEdit(detailEvent)}
-                onDeleteOccurrence={async (event) => {
-                    await deleteEvent(event._id, event.startDate)
-                    setDetailEvent(null)
-                    reload()
-                }}
+                onDelete={
+                    // Synthetic birthdays have no underlying event to delete.
+                    detailEvent && !detailEvent._id.startsWith('birthday-')
+                        ? (event) => {
+                              // Recurring events offer this-one / whole-series; the
+                              // scope dialog takes over from the closing detail modal.
+                              if (event.recurrence) {
+                                  setScopeEvent(event)
+                                  setDetailEvent(null)
+                                  return
+                              }
+                              return removeEvent(event, 'series')
+                          }
+                        : undefined
+                }
                 onSaveNotes={
                     // Inline notes only for real, non-recurring events. Recurring
                     // instances carry an occurrence date (saving would move the
