@@ -10,6 +10,7 @@ import {
     fetchForecast,
     weatherInfo,
     whatToWear,
+    dayCondition,
     partOfDaySummary,
     planningInsight,
     weatherWarnings,
@@ -134,7 +135,9 @@ function WeatherBrief({ date, forecast }: { date: string; forecast: Forecast | n
     }
 
     const isToday = date === todayKey()
-    const info = isToday ? weatherInfo(forecast.current.code, forecast.current.isDay) : weatherInfo(day.code)
+    const info = isToday
+        ? weatherInfo(forecast.current.code, forecast.current.isDay)
+        : weatherInfo(dayCondition(day, forecast.hourlyByDate[date] ?? []))
     const headlineTemp = isToday ? forecast.current.temperature : day.tempMax
 
     return (
@@ -199,8 +202,8 @@ function TomorrowBrief({
     calendarsById: Map<string, CalendarLayer>
 }) {
     const day = forecast?.daily.find((d) => d.date === date)
-    const info = day ? weatherInfo(day.code) : null
     const hourly = forecast?.hourlyByDate[date] ?? []
+    const info = day ? weatherInfo(dayCondition(day, hourly)) : null
     const bands = partOfDaySummary(hourly)
     const warnings = day && hourly.length > 0 ? weatherWarnings(hourly, day) : []
     const insight = hourly.length > 0 ? planningInsight(hourly) : ''

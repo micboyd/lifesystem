@@ -15,6 +15,7 @@ import {
     weatherInfo,
     whatToWear,
     dayLabel,
+    dayCondition,
     type Forecast,
     type GeocodeResult,
 } from '../lib/weather'
@@ -326,7 +327,7 @@ export default function Weather() {
                         </p>
                         <div className="grid gap-4 sm:grid-cols-2">
                             {forecast.daily.map((d) => {
-                                const info = weatherInfo(d.code)
+                                const info = weatherInfo(dayCondition(d, forecast.hourlyByDate[d.date] ?? []))
                                 return (
                                     <Card key={d.date}>
                                         <div className="flex items-center gap-4">

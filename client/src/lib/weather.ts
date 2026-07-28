@@ -243,6 +243,95 @@ export function weatherInfo(code: number, isDay = true): CodeInfo {
     return { label: 'Unsettled', icon: 'fa-solid fa-cloud' }
 }
 
+// ── Reading precipitation out of weather codes ────────────────────────────────
+//
+// Open-Meteo emits a precipitation code for a trace of moisture, so code 51
+// ("light drizzle") routinely appears on days with a 0% chance of rain. Any
+// check that treats "has a rain code" as "it will rain" therefore fires on dry
+// days. Everything below gates the code on the probability/amount actually
+// forecast, which is the field that answers the question directly.
+
+/** At or above this chance of precipitation, it's worth planning around. */
+export const RAIN_LIKELY_PCT = 40
+
+/** Below this hourly total (mm), precipitation isn't something you'd notice. */
+const TRACE_MM = 0.2
+
+export function isPrecipitationCode(code: number): boolean {
+    return (code >= 51 && code <= 67) || (code >= 71 && code <= 86) || code >= 95
+}
+
+/** How much a condition should dominate a summary. Raw code order doesn't track this. */
+function conditionSeverity(code: number): number {
+    if (code >= 95) return 6 // thunderstorm
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 5 // snow
+    if (code === 66 || code === 67) return 5 // freezing rain
+    if ((code >= 61 && code <= 65) || (code >= 80 && code <= 82)) return 4 // rain
+    if (code >= 51 && code <= 57) return 3 // drizzle
+    if (code === 45 || code === 48) return 2 // fog
+    return 1 // dry sky
+}
+
+/** True when this hour carries enough precipitation to be worth showing as wet. */
+function isWetHour(slot: HourlySlot): boolean {
+    return (
+        isPrecipitationCode(slot.code) &&
+        (slot.precipitationProbability >= RAIN_LIKELY_PCT || slot.precipitation >= TRACE_MM)
+    )
+}
+
+/**
+ * The single code that best describes a run of hours.
+ *
+ * Precipitation only represents the run when some hour is genuinely wet — a
+ * drizzle code at 5% probability doesn't get to turn the whole band into rain.
+ * Failing that, the most common dry sky wins, so a mostly sunny stretch reads
+ * as sunny instead of being dragged to "overcast" by one cloudy hour.
+ */
+export function representativeCode(slots: HourlySlot[]): number {
+    if (slots.length === 0) return 0
+
+    const wet = slots.filter(isWetHour)
+    if (wet.length > 0) {
+        return wet.reduce((worst, s) =>
+            conditionSeverity(s.code) > conditionSeverity(worst.code) ? s : worst
+        ).code
+    }
+
+    const dry = slots.filter((s) => !isPrecipitationCode(s.code))
+    // Every hour carries a precipitation code but none is actually wet — report
+    // cloud, not rain. This is also what makes a single trace-drizzle hour
+    // render correctly when this is called with one slot.
+    if (dry.length === 0) return 3
+
+    const counts = new Map<number, number>()
+    for (const s of dry) counts.set(s.code, (counts.get(s.code) ?? 0) + 1)
+
+    let best = dry[0].code
+    let bestCount = 0
+    for (const [code, count] of counts) {
+        // Ties go to the cloudier code — overstating cloud is the cheaper error.
+        if (count > bestCount || (count === bestCount && code > best)) {
+            best = code
+            bestCount = count
+        }
+    }
+    return best
+}
+
+/**
+ * The condition to show for a whole day. Prefers the hour-by-hour picture; falls
+ * back to the API's daily code, which has the same trace-precipitation problem
+ * and so is only trusted when rain is actually likely.
+ */
+export function dayCondition(day: DailyForecast, hourly: HourlySlot[]): number {
+    if (hourly.length > 0) return representativeCode(hourly)
+    if (isPrecipitationCode(day.code) && day.precipitationProbability < RAIN_LIKELY_PCT) {
+        return 3 // dry but unsettled — show cloud rather than rain
+    }
+    return day.code
+}
+
 interface WearInput {
     tempMax: number
     tempMin: number
@@ -265,12 +354,19 @@ export function whatToWear(day: WearInput): string {
     // Bottoms: shorts at 17° or above, otherwise trousers.
     parts.push(t >= 17 ? 'shorts weather' : 'trousers')
 
-    const isSnow = (day.code >= 71 && day.code <= 77) || day.code === 85 || day.code === 86
+    // Both branches need the probability gate: a drizzle code on its own shows up
+    // on days with no realistic chance of rain, and previously sent you out with
+    // an umbrella at 0%.
+    const likely = day.precipitationProbability >= RAIN_LIKELY_PCT
+    const isSnow =
+        likely && ((day.code >= 71 && day.code <= 77) || day.code === 85 || day.code === 86)
     const isRain =
-        (day.code >= 51 && day.code <= 67) || (day.code >= 80 && day.code <= 82) || day.code >= 95
+        likely &&
+        ((day.code >= 51 && day.code <= 67) || (day.code >= 80 && day.code <= 82) || day.code >= 95)
 
     if (isSnow) parts.push('snow likely, wear sturdy boots')
-    else if (isRain || day.precipitationProbability >= 50) parts.push('take a waterproof or umbrella')
+    else if (isRain) parts.push('take a waterproof or umbrella')
+    else if (day.precipitationProbability >= 25) parts.push('maybe pocket an umbrella')
 
     if (day.windMax >= 25) parts.push('it’s windy, add a windproof layer')
 
@@ -314,9 +410,9 @@ const PART_BANDS = [
 /**
  * Collapses a day's hourly slots into morning / afternoon / evening.
  *
- * The band's condition is the highest WMO code it contains: the codes ascend
- * roughly by severity, so this surfaces the hour worth planning around rather
- * than averaging a downpour away into "cloudy".
+ * See {@link representativeCode} for how a band's single condition is chosen —
+ * it deliberately does not take the worst code, which would let one hour of
+ * trace drizzle paint a dry morning as rain.
  */
 export function partOfDaySummary(hourly: HourlySlot[]): PartSummary[] {
     return PART_BANDS.flatMap(({ key, label, from, to }) => {
@@ -326,7 +422,7 @@ export function partOfDaySummary(hourly: HourlySlot[]): PartSummary[] {
             {
                 key,
                 label,
-                code: Math.max(...slots.map((s) => s.code)),
+                code: representativeCode(slots),
                 tempMin: Math.min(...slots.map((s) => s.temperature)),
                 tempMax: Math.max(...slots.map((s) => s.temperature)),
                 precipitationProbability: Math.max(

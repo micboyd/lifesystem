@@ -124,7 +124,7 @@ export default function StudyPacingWidget() {
         <Card>
             <CardHeader className="flex items-start justify-between gap-4">
                 <div>
-                    <CardTitle>Study pacing</CardTitle>
+                    <CardTitle>Training pacing</CardTitle>
                     <p className="mt-0.5 text-sm text-neutral-400">
                         {pacing.pacePerDay > 0
                             ? `${fmtHours(pacing.pacePerDay)}/day over the last 4 weeks`
@@ -132,7 +132,7 @@ export default function StudyPacingWidget() {
                     </p>
                 </div>
                 <CardAction to="/study" className="mt-1">
-                    Study plan
+                    Training plan
                 </CardAction>
             </CardHeader>
 
@@ -147,14 +147,14 @@ export default function StudyPacingWidget() {
                         to="/study"
                         className="font-semibold text-neutral-600 underline underline-offset-2"
                     >
-                        Study page
+                        Training page
                     </Link>{' '}
                     to project pacing.
                 </p>
             ) : active.length === 0 ? (
                 <p className="py-4 text-sm text-neutral-400">
                     {courses.length === 0
-                        ? 'No courses yet. Add one on the Study page.'
+                        ? 'No courses yet. Add one on the Training page.'
                         : 'All courses complete — nothing left to pace.'}
                 </p>
             ) : (
@@ -173,7 +173,7 @@ export default function StudyPacingWidget() {
                     </div>
                     {active.length > shown.length && (
                         <p className="mt-2 text-xs text-neutral-400">
-                            +{active.length - shown.length} more on the Study page
+                            +{active.length - shown.length} more on the Training page
                         </p>
                     )}
                 </>

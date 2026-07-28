@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Routes, Route, Outlet, useLocation } from 'react-router-dom'
 import { documentTitleForPath } from './lib/pageTitle'
-import Navbar from './components/Navbar'
+import Sidebar from './components/Sidebar'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 import QuickLog from './components/QuickLog'
@@ -29,16 +29,19 @@ import Profile from './pages/Profile'
 import StyleGuide from './pages/StyleGuide'
 import NotFound from './pages/NotFound'
 
-/** The signed-in app shell: nav chrome plus the matched page. */
+/** The signed-in app shell: sidebar nav plus the matched page. */
 function AppLayout() {
     return (
-        <div className="flex min-h-screen flex-col">
-            <Navbar />
-            <main className="flex-1">
-                <Outlet />
-            </main>
-            <Footer />
-            <QuickLog />
+        <div className="min-h-screen bg-white">
+            <Sidebar />
+            {/* Offset the content column for the fixed rail on large screens. */}
+            <div className="flex min-h-screen flex-col lg:pl-64">
+                <main className="flex-1">
+                    <Outlet />
+                </main>
+                <Footer />
+                <QuickLog />
+            </div>
         </div>
     )
 }

@@ -6,7 +6,7 @@ const footerLinks = [
     { label: 'Calendar', to: '/calendar' },
     { label: 'Finances', to: '/finances' },
     { label: 'Habits', to: '/habits' },
-    { label: 'Study', to: '/study' },
+    { label: 'Training', to: '/study' },
     { label: 'Profile', to: '/profile' },
 ]
 

@@ -7,6 +7,7 @@ import {
     fetchForecast,
     weatherInfo,
     whatToWear,
+    dayCondition,
     planningInsight,
     weatherWarnings,
     SEVERITY_STYLES,
@@ -172,7 +173,7 @@ export default function WeatherWidget() {
                     {/* Tomorrow */}
                     {forecast.daily[1] && (() => {
                         const tomorrow = forecast.daily[1]
-                        const info = weatherInfo(tomorrow.code)
+                        const info = weatherInfo(dayCondition(tomorrow, forecast.hourlyByDate[tomorrow.date] ?? []))
                         return (
                             <div className="mt-3 flex items-center gap-3 rounded-xl border border-neutral-100 px-3 py-2.5">
                                 <i className={`${info.icon} text-base text-sky-500 w-5 text-center`} aria-hidden="true" />
@@ -292,7 +293,7 @@ export default function WeatherWidget() {
                                     {/* Day after tomorrow */}
                                     {forecast.daily[2] && (() => {
                                         const dat = forecast.daily[2]
-                                        const info = weatherInfo(dat.code)
+                                        const info = weatherInfo(dayCondition(dat, forecast.hourlyByDate[dat.date] ?? []))
                                         const label = new Date(`${dat.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long' })
                                         return (
                                             <div className="mt-1 flex items-center gap-2.5 rounded-lg bg-neutral-50 px-2.5 py-2 text-xs">
