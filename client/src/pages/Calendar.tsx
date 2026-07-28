@@ -497,7 +497,7 @@ export default function Calendar() {
     return (
         <main className="min-h-screen bg-neutral-50">
             {/* Toolbar — the bar is full-bleed; its content uses the fluid container. */}
-            <div className="sticky top-14 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-sm sm:top-16">
+            <div className="sticky top-14 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-sm lg:top-0">
                 <Container fluid className="flex flex-wrap items-center justify-between gap-3 py-3">
                     {/* Title + nav */}
                     <div className="flex items-center gap-2">

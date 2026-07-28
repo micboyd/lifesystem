@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { Routes, Route, Outlet, useLocation } from 'react-router-dom'
 import { documentTitleForPath } from './lib/pageTitle'
 import Sidebar from './components/Sidebar'
-import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 import QuickLog from './components/QuickLog'
 import Home from './pages/Home'
@@ -39,7 +38,6 @@ function AppLayout() {
                 <main className="flex-1">
                     <Outlet />
                 </main>
-                <Footer />
                 <QuickLog />
             </div>
         </div>
