@@ -10,6 +10,7 @@ import {
     dayCondition,
     planningInsight,
     weatherWarnings,
+    upcomingOutlook,
     SEVERITY_STYLES,
     SEVERITY_ICON_STYLES,
     type Forecast,
@@ -124,29 +125,32 @@ export default function WeatherWidget() {
                         </div>
                     </div>
 
-                    {/* Hourly timeline — 4 key slots */}
-                    {forecast.hourly.length > 0 && (() => {
-                        const slots = [8, 12, 16, 20].map((h) => forecast.hourly[h]).filter(Boolean)
-                        const labels: Record<number, string> = { 8: 'Morning', 12: 'Midday', 16: 'Afternoon', 20: 'Evening' }
+                    {/* What's coming up — the next hour, then the next parts of the day */}
+                    {(() => {
+                        const outlook = upcomingOutlook(forecast)
+                        if (outlook.length === 0) return null
+                        const colClass =
+                            { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3' }[outlook.length] ??
+                            'grid-cols-3'
                         return (
-                            <div className="mt-4 grid grid-cols-4 gap-1.5">
-                                {slots.map((slot) => {
-                                    const info = weatherInfo(slot.code, slot.hour >= 6 && slot.hour < 20)
-                                    const rainy = slot.precipitationProbability >= 50
+                            <div className={`mt-4 grid ${colClass} gap-1.5`}>
+                                {outlook.map((seg) => {
+                                    const info = weatherInfo(seg.code, seg.isDay)
+                                    const rainy = seg.precipitationProbability >= 50
                                     return (
-                                        <div key={slot.hour} className="flex flex-col items-center gap-1.5 rounded-xl border border-neutral-100 px-1 py-3">
-                                            <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                                                {labels[slot.hour]}
+                                        <div key={seg.key} className="flex flex-col items-center gap-1.5 rounded-xl border border-neutral-100 px-1 py-3 text-center">
+                                            <span className="flex min-h-[1.6rem] items-center justify-center text-[10px] font-semibold uppercase leading-tight tracking-wide text-neutral-400">
+                                                {seg.label}
                                             </span>
                                             <i className={`${info.icon} text-base text-sky-500`} aria-hidden="true" />
-                                            <span className="text-xs font-semibold text-neutral-700">{slot.temperature}&deg;</span>
+                                            <span className="text-xs font-semibold text-neutral-700">{seg.temperature}&deg;</span>
                                             {rainy ? (
                                                 <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-600">
-                                                    {slot.precipitationProbability}%
+                                                    {seg.precipitationProbability}%
                                                 </span>
                                             ) : (
                                                 <span className="text-[9px] text-neutral-300">
-                                                    {slot.precipitationProbability}%
+                                                    {seg.precipitationProbability}%
                                                 </span>
                                             )}
                                         </div>
@@ -169,26 +173,6 @@ export default function WeatherWidget() {
                         <i className="fa-solid fa-shirt mr-1.5 text-neutral-400" aria-hidden="true" />
                         {whatToWear(todayDay)}
                     </p>
-
-                    {/* Tomorrow */}
-                    {forecast.daily[1] && (() => {
-                        const tomorrow = forecast.daily[1]
-                        const info = weatherInfo(dayCondition(tomorrow, forecast.hourlyByDate[tomorrow.date] ?? []))
-                        return (
-                            <div className="mt-3 flex items-center gap-3 rounded-xl border border-neutral-100 px-3 py-2.5">
-                                <i className={`${info.icon} text-base text-sky-500 w-5 text-center`} aria-hidden="true" />
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-xs font-semibold text-neutral-700">Tomorrow &mdash; {info.label}</p>
-                                    <p className="text-xs text-neutral-400">
-                                        {tomorrow.tempMax}&deg; / {tomorrow.tempMin}&deg;
-                                        {tomorrow.precipitationProbability > 0 && (
-                                            <span className="ml-2">{tomorrow.precipitationProbability}% rain</span>
-                                        )}
-                                    </p>
-                                </div>
-                            </div>
-                        )
-                    })()}
 
                     {/* Details accordion */}
                     <div className="mt-3 rounded-xl border border-neutral-100 overflow-hidden">

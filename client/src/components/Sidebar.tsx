@@ -17,6 +17,12 @@ const navItems = [
     { label: 'Profile', to: '/profile', icon: 'fa-user' },
 ]
 
+/** Shared row styles so nav links and the money toggle stay in lockstep. */
+const rowBase =
+    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors'
+const rowActive = 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25'
+const rowIdle = 'text-neutral-600 hover:bg-indigo-100 hover:text-indigo-900'
+
 /** A link is active for its exact path, and — except Home — any nested route. */
 function isActive(pathname: string, to: string): boolean {
     if (to === '/') return pathname === '/'
@@ -26,7 +32,7 @@ function isActive(pathname: string, to: string): boolean {
 function Brand() {
     return (
         <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-neutral-950 text-sm text-white">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-600 text-sm text-white">
                 <i className="fa-solid fa-layer-group" aria-hidden="true" />
             </span>
             <span className="text-sm font-bold tracking-tight text-neutral-900">AdminLife</span>
@@ -44,12 +50,7 @@ function NavLinks({ pathname }: { pathname: string }) {
                     <Link
                         key={to}
                         to={to}
-                        className={[
-                            'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
-                            active
-                                ? 'bg-neutral-950 text-white'
-                                : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900',
-                        ].join(' ')}
+                        className={`${rowBase} ${active ? rowActive : rowIdle}`}
                     >
                         <i
                             className={`fa-solid ${icon} w-5 shrink-0 text-center text-[0.95rem]`}
@@ -71,12 +72,7 @@ function MoneyToggleRow() {
             type="button"
             onClick={toggleMoneyHidden}
             aria-pressed={moneyHidden}
-            className={[
-                'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
-                moneyHidden
-                    ? 'bg-neutral-950 text-white'
-                    : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900',
-            ].join(' ')}
+            className={`${rowBase} w-full ${moneyHidden ? rowActive : rowIdle}`}
         >
             <i
                 className={`fa-solid ${moneyHidden ? 'fa-eye-slash' : 'fa-eye'} w-5 shrink-0 text-center text-[0.95rem]`}
@@ -107,23 +103,23 @@ export default function Sidebar() {
     return (
         <>
             {/* Desktop rail */}
-            <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-neutral-100 bg-white lg:flex">
-                <div className="flex h-16 shrink-0 items-center border-b border-neutral-100 px-5">
+            <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-indigo-100 bg-indigo-50 lg:flex">
+                <div className="flex h-16 shrink-0 items-center border-b border-indigo-100 px-5">
                     <Brand />
                 </div>
                 <NavLinks pathname={pathname} />
-                <div className="shrink-0 border-t border-neutral-100 p-3">
+                <div className="shrink-0 border-t border-indigo-100 p-3">
                     <MoneyToggleRow />
                 </div>
             </aside>
 
             {/* Mobile top bar */}
-            <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-neutral-100 bg-white/95 px-4 backdrop-blur-sm lg:hidden">
+            <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-indigo-100 bg-indigo-50/95 px-4 backdrop-blur-sm lg:hidden">
                 <button
                     type="button"
                     onClick={() => setOpen(true)}
                     aria-label="Open menu"
-                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-neutral-100"
+                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-indigo-100 hover:text-indigo-900"
                 >
                     <i className="fa-solid fa-bars text-sm" aria-hidden="true" />
                 </button>
@@ -132,7 +128,7 @@ export default function Sidebar() {
                     type="button"
                     onClick={toggleMoneyHidden}
                     aria-label="Toggle money visibility"
-                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-indigo-100 hover:text-indigo-900"
                 >
                     <MobileMoneyIcon />
                 </button>
@@ -150,21 +146,21 @@ export default function Sidebar() {
 
                     {/* Panel */}
                     <div
-                        className={`absolute inset-y-0 left-0 flex w-72 flex-col bg-white transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}
+                        className={`absolute inset-y-0 left-0 flex w-72 flex-col bg-indigo-50 transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}
                     >
-                        <div className="flex h-16 shrink-0 items-center justify-between border-b border-neutral-100 px-5">
+                        <div className="flex h-16 shrink-0 items-center justify-between border-b border-indigo-100 px-5">
                             <Brand />
                             <button
                                 type="button"
                                 onClick={() => setOpen(false)}
                                 aria-label="Close menu"
-                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-indigo-100 hover:text-indigo-900"
                             >
                                 <i className="fa-solid fa-xmark" aria-hidden="true" />
                             </button>
                         </div>
                         <NavLinks pathname={pathname} />
-                        <div className="shrink-0 border-t border-neutral-100 p-3">
+                        <div className="shrink-0 border-t border-indigo-100 p-3">
                             <MoneyToggleRow />
                         </div>
                     </div>

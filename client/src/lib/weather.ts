@@ -434,6 +434,100 @@ export function partOfDaySummary(hourly: HourlySlot[]): PartSummary[] {
     })
 }
 
+/** A single forward-looking tile in the dashboard outlook. */
+export interface OutlookSegment {
+    key: string
+    /** Relative label, e.g. "Next hour", "This afternoon", "Tomorrow morning". */
+    label: string
+    code: number
+    /** Representative temperature to show (°C). */
+    temperature: number
+    precipitationProbability: number
+    isDay: boolean
+}
+
+/**
+ * A "what's coming up" outlook, mirroring the calendar's forward-looking day:
+ * the coming hour, then the next parts of the day that haven't started yet
+ * (relative-labelled — "This afternoon", "This evening", "Tomorrow morning").
+ * Everything already past is skipped. Returns the next hour plus up to `parts`
+ * upcoming bands (default 2).
+ */
+export function upcomingOutlook(
+    forecast: Forecast,
+    now: Date = new Date(),
+    parts = 2
+): OutlookSegment[] {
+    const days = forecast.daily
+    if (days.length === 0) return []
+
+    const dayIndex = new Map(days.map((d, i) => [d.date, i]))
+    const nowHour = now.getHours()
+    // Today is day 0, so "now" collapses to just the current hour.
+    const nowOrdinal = nowHour
+    const ordinal = (date: string, hour: number) => (dayIndex.get(date) ?? 0) * 24 + hour
+
+    const segments: OutlookSegment[] = []
+
+    // 1) The coming hour — the first hourly slot strictly after now.
+    const allHours = days.flatMap((d) => forecast.hourlyByDate[d.date] ?? [])
+    const next = allHours.find((h) => ordinal(h.date, h.hour) > nowOrdinal)
+    if (next) {
+        segments.push({
+            key: 'next-hour',
+            label: 'Next hour',
+            code: next.code,
+            temperature: next.temperature,
+            precipitationProbability: next.precipitationProbability,
+            isDay: next.hour >= 6 && next.hour < 20,
+        })
+    }
+
+    // 2) The next parts of the day that haven't started yet.
+    const summaryCache = new Map<string, PartSummary[]>()
+    const summaryFor = (date: string) => {
+        let s = summaryCache.get(date)
+        if (!s) {
+            s = partOfDaySummary(forecast.hourlyByDate[date] ?? [])
+            summaryCache.set(date, s)
+        }
+        return s
+    }
+    const tomorrowKey = days[1]?.date
+
+    let taken = 0
+    for (let i = 0; i < days.length && taken < parts; i++) {
+        const date = days[i].date
+        for (const band of PART_BANDS) {
+            if (taken >= parts) break
+            // Only bands that begin in the future — the current/ongoing band is
+            // already covered by "Next hour".
+            if (ordinal(date, band.from) <= nowOrdinal) continue
+            const part = summaryFor(date).find((p) => p.key === band.key)
+            if (!part) continue
+            const name = band.label.toLowerCase()
+            const label =
+                date === days[0].date
+                    ? `This ${name}`
+                    : date === tomorrowKey
+                      ? `Tomorrow ${name}`
+                      : `${new Date(`${date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long' })} ${name}`
+            segments.push({
+                key: `${date}-${band.key}`,
+                label,
+                code: part.code,
+                temperature: part.tempMax,
+                precipitationProbability: part.precipitationProbability,
+                // Evening skews dark; morning/afternoon read as day.
+                isDay: band.key !== 'evening',
+            })
+            taken++
+        }
+    }
+
+    return segments
+}
+
 function fmt12(hour: number): string {
     if (hour === 0) return 'midnight'
     if (hour === 12) return 'midday'
