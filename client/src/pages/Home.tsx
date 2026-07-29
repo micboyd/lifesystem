@@ -20,12 +20,8 @@ export default function Home() {
                 <DashboardDateNav date={date} onChange={setDate} />
             </div>
 
-            <p className="mt-4 max-w-2xl text-sm text-neutral-500">
-                A quick look at today — open any module from the sidebar for the full detail.
-            </p>
-
             {/* Today's schedule — the core of the day. */}
-            <div className="mt-6">
+            <div className="mt-8">
                 <TodayWidget date={date} />
             </div>
 

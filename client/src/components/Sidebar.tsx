@@ -3,8 +3,6 @@ import { Link, useLocation } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import Avatar from './Avatar'
 import { useAuth } from '../context/AuthContext'
-import { useMoneyHidden } from './useMoneyHidden'
-import { toggleMoneyHidden } from '../lib/moneyVisibility'
 
 const navItems = [
     { label: 'Home', to: '/', icon: 'fa-house' },
@@ -17,7 +15,7 @@ const navItems = [
     { label: 'Weather', to: '/weather', icon: 'fa-cloud-sun' },
 ]
 
-/** Shared row shape so links and the money toggle stay in lockstep. */
+/** Shared row shape for nav links. */
 const rowBase =
     'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors'
 const rowActive = 'bg-coral-50 text-coral-700 ring-1 ring-coral-100'
@@ -59,25 +57,6 @@ function NavLinks({ pathname }: { pathname: string }) {
                 )
             })}
         </nav>
-    )
-}
-
-/** Full-width row that toggles the master money-visibility switch. */
-function MoneyToggleRow() {
-    const moneyHidden = useMoneyHidden()
-    return (
-        <button
-            type="button"
-            onClick={toggleMoneyHidden}
-            aria-pressed={moneyHidden}
-            className={`${rowBase} w-full ${moneyHidden ? rowActive : rowIdle}`}
-        >
-            <i
-                className={`fa-solid ${moneyHidden ? 'fa-eye-slash' : 'fa-eye'} w-5 shrink-0 text-center text-[0.95rem] ${moneyHidden ? 'text-coral-500' : ''}`}
-                aria-hidden="true"
-            />
-            <span>{moneyHidden ? 'Money hidden' : 'Hide money'}</span>
-        </button>
     )
 }
 
@@ -130,14 +109,13 @@ export default function Sidebar() {
                     <Brand />
                 </div>
                 <NavLinks pathname={pathname} />
-                <div className="shrink-0 space-y-1 border-t border-black/[0.06] p-3">
-                    <MoneyToggleRow />
+                <div className="shrink-0 border-t border-black/[0.06] p-3">
                     <ProfileChip active={profileActive} />
                 </div>
             </aside>
 
             {/* Mobile top bar */}
-            <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-black/[0.06] bg-white/90 px-4 backdrop-blur-md lg:hidden">
+            <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-black/[0.06] bg-white/90 px-4 backdrop-blur-md lg:hidden">
                 <button
                     type="button"
                     onClick={() => setOpen(true)}
@@ -147,14 +125,6 @@ export default function Sidebar() {
                     <i className="fa-solid fa-bars text-sm" aria-hidden="true" />
                 </button>
                 <Brand />
-                <button
-                    type="button"
-                    onClick={toggleMoneyHidden}
-                    aria-label="Toggle money visibility"
-                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                >
-                    <MobileMoneyIcon />
-                </button>
             </div>
 
             {/* Mobile drawer */}
@@ -183,8 +153,7 @@ export default function Sidebar() {
                             </button>
                         </div>
                         <NavLinks pathname={pathname} />
-                        <div className="shrink-0 space-y-1 border-t border-black/[0.06] p-3">
-                            <MoneyToggleRow />
+                        <div className="shrink-0 border-t border-black/[0.06] p-3">
                             <ProfileChip active={profileActive} />
                         </div>
                     </div>
@@ -192,16 +161,5 @@ export default function Sidebar() {
                 document.body
             )}
         </>
-    )
-}
-
-/** Eye icon for the compact mobile top-bar toggle, tracking the shared state. */
-function MobileMoneyIcon() {
-    const moneyHidden = useMoneyHidden()
-    return (
-        <i
-            className={`fa-solid ${moneyHidden ? 'fa-eye-slash' : 'fa-eye'} text-sm`}
-            aria-hidden="true"
-        />
     )
 }

@@ -7,7 +7,10 @@ import { Card, CardHeader, CardTitle, CardBody } from '../components/Card'
 import Input from '../components/Input'
 import Button from '../components/Button'
 import Alert from '../components/Alert'
+import Switch from '../components/Switch'
 import SettingsCard from '../components/profile/SettingsCard'
+import { useMoneyHidden } from '../components/useMoneyHidden'
+import { setMoneyHidden } from '../lib/moneyVisibility'
 
 function errorMessage(err: unknown, fallback: string): string {
     return (
@@ -18,6 +21,7 @@ function errorMessage(err: unknown, fallback: string): string {
 export default function Profile() {
     const { user, logout, updateUser } = useAuth()
     const navigate = useNavigate()
+    const moneyHidden = useMoneyHidden()
 
     // ── Details form ──
     const [name, setName] = useState(user?.name ?? '')
@@ -200,6 +204,27 @@ export default function Profile() {
                 {/* Right column: Settings + quick links */}
                 <div className="flex flex-col gap-6">
                     <SettingsCard />
+
+                    {/* Privacy — instant, device-local toggle (not part of saved settings) */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Privacy</CardTitle>
+                        </CardHeader>
+                        <CardBody>
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <p className="text-sm font-semibold text-neutral-700">
+                                        Hide money
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-neutral-400">
+                                        Mask every money value across the app. Remembered on this
+                                        device.
+                                    </p>
+                                </div>
+                                <Switch checked={moneyHidden} onChange={setMoneyHidden} />
+                            </div>
+                        </CardBody>
+                    </Card>
 
                     {/* Settings pages */}
                     <Card>

@@ -1019,7 +1019,7 @@ function DayModal({
                         {potGroup.label || potRow?.name || 'Other budget'}
                     </p>
                     <p className="mt-0.5 text-sm font-bold text-neutral-900">
-                        £{fmt(potGroup.amount)} over {potGroup.dates.length} day
+                        £{fmt(potGroup.amount)} across {potGroup.dates.length} day
                         {potGroup.dates.length !== 1 ? 's' : ''}
                     </p>
                     {potRow && (
@@ -1395,14 +1395,67 @@ function contiguousRun(date: string, available: Set<string>): string[] {
     return run
 }
 
-/** "Mon 14 Jul" from a "YYYY-MM-DD" key. */
-function shortDayLabel(date: string): string {
-    const [y, m, d] = date.split('-').map(Number)
-    return new Date(y, m - 1, d).toLocaleDateString('en-GB', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-    })
+/**
+ * A compact month grid for picking which excluded days a pot covers. Only
+ * `selectable` days can be toggled; every other day is shown greyed for context
+ * so the picked days read against the real calendar rather than a flat list.
+ */
+function MonthGrid({
+    ym,
+    selectable,
+    selected,
+    onToggle,
+}: {
+    ym: string
+    selectable: Set<string>
+    selected: Set<string>
+    onToggle: (date: string) => void
+}) {
+    const [y, m] = ym.split('-').map(Number)
+    const daysCount = new Date(y, m, 0).getDate()
+    // Monday-first leading blanks (JS getDay has Sunday = 0).
+    const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7
+    const cells: (string | null)[] = Array.from({ length: lead }, () => null)
+    for (let day = 1; day <= daysCount; day++) cells.push(dateKey(ym, day))
+
+    return (
+        <div>
+            <p className="mb-2 text-xs font-semibold text-neutral-600">{formatMonthLabel(ym)}</p>
+            <div className="grid grid-cols-7 gap-1">
+                {WEEKDAYS.map((w) => (
+                    <div
+                        key={w}
+                        className="text-center text-[10px] font-semibold uppercase tracking-wide text-neutral-300"
+                    >
+                        {w[0]}
+                    </div>
+                ))}
+                {cells.map((d, i) => {
+                    if (!d) return <div key={`blank-${i}`} />
+                    const canPick = selectable.has(d)
+                    const isSel = selected.has(d)
+                    return (
+                        <button
+                            key={d}
+                            type="button"
+                            disabled={!canPick}
+                            onClick={() => onToggle(d)}
+                            className={[
+                                'grid h-9 place-items-center rounded-lg text-xs font-semibold tabular-nums transition-colors',
+                                !canPick
+                                    ? 'cursor-default text-neutral-200'
+                                    : isSel
+                                      ? 'bg-coral-500 text-white shadow-sm shadow-coral-500/25'
+                                      : 'text-neutral-600 ring-1 ring-neutral-200 hover:ring-coral-300 hover:text-coral-600',
+                            ].join(' ')}
+                        >
+                            {Number(d.slice(8))}
+                        </button>
+                    )
+                })}
+            </div>
+        </div>
+    )
 }
 
 interface AssignBudgetModalProps {
@@ -1437,6 +1490,9 @@ function AssignBudgetModal({
 
     // Editing merges the pot's own dates back in (including out-of-month ones).
     const options = [...new Set([...availableDates, ...(existing?.dates ?? [])])].sort()
+    const selectableSet = new Set(options)
+    // One mini-calendar per month the selectable days fall in (usually just one).
+    const selectableMonths = [...new Set(options.map((d) => d.slice(0, 7)))].sort()
     const amountNum = parseFloat(amount.trim())
     const valid = !Number.isNaN(amountNum) && amountNum > 0 && selected.size > 0
 
@@ -1498,8 +1554,8 @@ function AssignBudgetModal({
         >
             <form onSubmit={handleSave} className="flex flex-col gap-4">
                 <p className="text-xs text-neutral-400">
-                    One shared pot split across the selected excluded days — under- or overspend
-                    flows between them.
+                    Set one total to spend across the days you pick below. Spend more on one day and
+                    you&apos;ll have less on the others — it&apos;s a single shared pot.
                 </p>
 
                 {fundingOptions.length > 0 && (
@@ -1553,36 +1609,25 @@ function AssignBudgetModal({
                     {options.length === 0 ? (
                         <p className="text-xs text-neutral-400">No excluded days available.</p>
                     ) : (
-                        <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
-                            {options.map((d) => (
-                                <label
-                                    key={d}
-                                    className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-neutral-50"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={selected.has(d)}
-                                        onChange={() => toggle(d)}
-                                        className="h-4 w-4 rounded accent-neutral-950"
-                                    />
-                                    <span className="font-semibold text-neutral-700">
-                                        {shortDayLabel(d)}
-                                    </span>
-                                    {d.slice(0, 7) !== initialDate.slice(0, 7) && (
-                                        <span className="text-xs text-neutral-400">
-                                            ({d.slice(0, 7)})
-                                        </span>
-                                    )}
-                                </label>
+                        <div className="flex max-h-64 flex-col gap-4 overflow-y-auto pt-1">
+                            {selectableMonths.map((ym) => (
+                                <MonthGrid
+                                    key={ym}
+                                    ym={ym}
+                                    selectable={selectableSet}
+                                    selected={selected}
+                                    onToggle={toggle}
+                                />
                             ))}
                         </div>
                     )}
                 </div>
 
                 {valid && (
-                    <p className="rounded-xl bg-neutral-50 px-4 py-2.5 text-xs font-semibold text-neutral-500">
-                        £{fmt(amountNum)} ÷ {selected.size} day{selected.size !== 1 ? 's' : ''} = £
-                        {fmt(amountNum / selected.size)}/day guide
+                    <p className="rounded-xl bg-coral-50 px-4 py-3 text-xs font-semibold text-coral-700">
+                        <span className="text-sm">£{fmt(amountNum / selected.size)} a day</span> to
+                        spend, across {selected.size} day{selected.size !== 1 ? 's' : ''} — £
+                        {fmt(amountNum)} in total.
                     </p>
                 )}
 
