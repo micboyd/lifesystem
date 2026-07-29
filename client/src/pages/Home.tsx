@@ -25,18 +25,17 @@ export default function Home() {
                 <TodayWidget date={date} />
             </div>
 
-            {/* A few essentials: weather, money, tasks. */}
+            {/* A few essentials. Left: weather then money. Right: tomorrow's prep
+                (evening only) above tasks. */}
             <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
-                <WeatherWidget />
                 <div className="grid gap-6">
+                    <WeatherWidget />
                     <BudgetWidget date={date} />
+                </div>
+                <div className="grid gap-6">
+                    <TomorrowWidget date={date} />
                     <TasksWidget date={date} />
                 </div>
-            </div>
-
-            {/* Evening wind-down — appears after 7pm to prep tomorrow. */}
-            <div className="mt-6">
-                <TomorrowWidget date={date} />
             </div>
         </Container>
     )
