@@ -352,9 +352,9 @@ export default function Timebox() {
                 <DashboardDateNav date={date} onChange={setDate} />
             </header>
 
-            {/* Summary bar */}
+            {/* Summary bar — white chips read cleanly on the warm canvas */}
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-neutral-100 bg-neutral-50 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className="bg-white">
                         <i className="fa-regular fa-clock text-neutral-400" aria-hidden="true" />
                         {wake} – {bed}
@@ -398,7 +398,7 @@ export default function Timebox() {
             ) : (
                 <div className="flex flex-col gap-6 lg:flex-row">
                     <div className="min-w-0 flex-1">
-                        <div className="relative flex">
+                        <div className="relative flex rounded-3xl bg-white p-3 ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-4">
                             {/* Hour labels */}
                             <div className="relative w-14 shrink-0" style={{ height: totalHeight }}>
                                 {hourLines.map((m) => (
@@ -418,7 +418,7 @@ export default function Timebox() {
                                 onDragOver={handleDragOver}
                                 onDragLeave={handleDragLeave}
                                 onDrop={handleDrop}
-                                className="relative flex-1 cursor-copy rounded-lg border-l border-neutral-100"
+                                className="relative flex-1 cursor-copy border-l border-neutral-200/70"
                                 style={{ height: totalHeight }}
                             >
                                 {/* Working hours band */}
@@ -448,7 +448,7 @@ export default function Timebox() {
                                 {hourLines.map((m) => (
                                     <div
                                         key={m}
-                                        className="absolute inset-x-0 border-t border-neutral-100"
+                                        className="absolute inset-x-0 border-t border-neutral-200/60"
                                         style={{ top: (m - wakeMin) * PX_PER_MIN }}
                                     />
                                 ))}
@@ -464,10 +464,12 @@ export default function Timebox() {
                                 {/* Now indicator */}
                                 {showNow && (
                                     <div
-                                        className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
+                                        className="pointer-events-none absolute inset-x-0 z-10 flex items-center gap-1.5"
                                         style={{ top: nowTop }}
                                     >
-                                        <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
+                                        <span className="shrink-0 rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-white">
+                                            {minutesToTime(nowMin)}
+                                        </span>
                                         <div className="h-px flex-1 bg-rose-400/50" />
                                     </div>
                                 )}
@@ -554,7 +556,7 @@ export default function Timebox() {
 
                     {/* Task panel */}
                     <aside className="lg:w-64 lg:shrink-0">
-                        <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4 lg:sticky lg:top-6">
+                        <div className="rounded-3xl bg-white p-4 ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04)] lg:sticky lg:top-6">
                             <h2 className="text-sm font-bold text-neutral-800">Tasks</h2>
                             <p className="mt-0.5 text-xs text-neutral-400">
                                 Drag a task onto the timeline to schedule it.
@@ -580,7 +582,7 @@ export default function Timebox() {
                                                 dragTaskRef.current = null
                                                 setDragPreview(null)
                                             }}
-                                            className="flex cursor-grab items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 transition-colors hover:border-neutral-300 active:cursor-grabbing"
+                                            className="flex cursor-grab items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 transition-colors hover:border-neutral-300 hover:bg-neutral-100 active:cursor-grabbing"
                                         >
                                             <i
                                                 className="fa-solid fa-grip-vertical text-xs text-neutral-300"

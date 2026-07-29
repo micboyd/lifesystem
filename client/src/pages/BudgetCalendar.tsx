@@ -1663,7 +1663,7 @@ export default function BudgetCalendar() {
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [selectedWeek, setSelectedWeek] = useState<WeekGroup | null>(null)
     const [selectedRowId, setSelectedRowId] = useState<string>('all')
-    const [view, setView] = useState<'daily' | 'weekly'>('daily')
+    const [view, setView] = useState<'daily' | 'weekly'>('weekly')
     const toast = useToast()
     const invalidate = useInvalidate()
 
@@ -1950,7 +1950,7 @@ export default function BudgetCalendar() {
                             </div>
                         )}
                         <Tabs
-                            tabs={['daily', 'weekly']}
+                            tabs={['weekly', 'daily']}
                             value={view}
                             onChange={(v) => setView(v as 'daily' | 'weekly')}
                             className="shrink-0"
