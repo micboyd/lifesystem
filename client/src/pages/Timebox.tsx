@@ -398,13 +398,13 @@ export default function Timebox() {
             ) : (
                 <div className="flex flex-col gap-6 lg:flex-row">
                     <div className="min-w-0 flex-1">
-                        <div className="relative flex rounded-3xl bg-white p-3 ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-4">
+                        <div className="relative flex rounded-3xl bg-white px-3 py-6 ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:px-4 sm:py-7">
                             {/* Hour labels */}
-                            <div className="relative w-14 shrink-0" style={{ height: totalHeight }}>
+                            <div className="relative w-12 shrink-0 sm:w-14" style={{ height: totalHeight }}>
                                 {hourLines.map((m) => (
                                     <span
                                         key={m}
-                                        className="absolute right-2 -translate-y-1/2 text-[11px] font-semibold tabular-nums text-neutral-400"
+                                        className="absolute right-3 -translate-y-1/2 text-[11px] font-semibold tabular-nums text-neutral-400"
                                         style={{ top: (m - wakeMin) * PX_PER_MIN }}
                                     >
                                         {minutesToTime(m)}
