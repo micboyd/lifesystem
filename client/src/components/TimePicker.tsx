@@ -304,10 +304,10 @@ export default function TimePicker({
     const quickTimes = QUICK_TIMES.filter((t) => !isDisabled(t))
 
     const triggerClasses = [
-        'group flex w-full items-center gap-3 rounded-xl border bg-neutral-50 py-2.5 pl-4 pr-3 text-sm outline-none transition-all duration-150',
+        'group flex w-full items-center gap-3 rounded-xl border bg-white py-2.5 pl-4 pr-3 text-sm outline-none transition-all duration-150',
         open
-            ? 'border-neutral-400 bg-white ring-2 ring-neutral-200'
-            : 'border-neutral-200 hover:border-neutral-300 hover:bg-white',
+            ? 'border-neutral-400 ring-2 ring-neutral-200'
+            : 'border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
     ].join(' ')
 

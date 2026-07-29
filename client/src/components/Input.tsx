@@ -34,9 +34,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
                     ref={ref}
                     id={inputId}
                     className={[
-                        'w-full rounded-xl border bg-neutral-50 py-2.5 pr-4 text-sm text-neutral-900 placeholder:text-neutral-400',
+                        'w-full rounded-xl border bg-white py-2.5 pr-4 text-sm text-neutral-900 placeholder:text-neutral-400',
                         icon ? 'pl-11' : 'pl-4',
-                        'outline-none transition-all duration-150 focus:bg-white focus:ring-2',
+                        'outline-none transition-all duration-150 focus:ring-2',
                         error
                             ? 'border-red-400 focus:border-red-400 focus:ring-red-400/10'
                             : 'border-neutral-200 focus:border-neutral-400 focus:ring-neutral-200',

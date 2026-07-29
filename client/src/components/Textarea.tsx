@@ -31,8 +31,8 @@ export default function Textarea({
                 id={textareaId}
                 rows={rows}
                 className={[
-                    'w-full resize-y rounded-xl border bg-neutral-50 px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400',
-                    'outline-none transition-all duration-150 focus:bg-white focus:ring-2',
+                    'w-full resize-y rounded-xl border bg-white px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400',
+                    'outline-none transition-all duration-150 focus:ring-2',
                     error
                         ? 'border-red-400 focus:border-red-400 focus:ring-red-400/10'
                         : 'border-neutral-200 focus:border-neutral-400 focus:ring-neutral-200',
