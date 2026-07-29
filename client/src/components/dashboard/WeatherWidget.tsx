@@ -11,10 +11,15 @@ import {
     planningInsight,
     weatherWarnings,
     upcomingOutlook,
+    isPrecipitationCode,
     SEVERITY_STYLES,
     SEVERITY_ICON_STYLES,
     type Forecast,
 } from '../../lib/weather'
+
+/** At/above this rain chance (%), an outlook segment reads as rain: blue pill
+ *  and, when the representative glyph is otherwise dry, a rain cloud. */
+const SHOW_RAIN_PCT = 60
 
 export default function WeatherWidget() {
     const { user } = useAuth()
@@ -136,20 +141,34 @@ export default function WeatherWidget() {
                             <div className={`mt-4 grid ${colClass} gap-1.5`}>
                                 {outlook.map((seg) => {
                                     const info = weatherInfo(seg.code, seg.isDay)
-                                    const rainy = seg.precipitationProbability >= 50
+                                    // One shared line: at/above it the segment reads as rain —
+                                    // blue pill and, if the glyph is otherwise dry, a rain cloud.
+                                    const rainy = seg.precipitationProbability >= SHOW_RAIN_PCT
+                                    const icon =
+                                        rainy && !isPrecipitationCode(seg.code)
+                                            ? 'fa-solid fa-cloud-rain'
+                                            : info.icon
                                     return (
                                         <div key={seg.key} className="flex flex-col items-center gap-1.5 rounded-xl border border-neutral-100 px-1 py-3 text-center">
                                             <span className="flex min-h-[1.6rem] items-center justify-center text-[10px] font-semibold uppercase leading-tight tracking-wide text-neutral-400">
                                                 {seg.label}
                                             </span>
-                                            <i className={`${info.icon} text-base text-sky-500`} aria-hidden="true" />
+                                            <i className={`${icon} text-base text-sky-500`} aria-hidden="true" />
                                             <span className="text-xs font-semibold text-neutral-700">{seg.temperature}&deg;</span>
                                             {rainy ? (
-                                                <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-600">
+                                                <span
+                                                    title="Chance of rain"
+                                                    className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-600"
+                                                >
+                                                    <i className="fa-solid fa-umbrella" aria-hidden="true" />
                                                     {seg.precipitationProbability}%
                                                 </span>
                                             ) : (
-                                                <span className="text-[9px] text-neutral-300">
+                                                <span
+                                                    title="Chance of rain"
+                                                    className="inline-flex items-center gap-1 text-[9px] text-neutral-400"
+                                                >
+                                                    <i className="fa-solid fa-umbrella" aria-hidden="true" />
                                                     {seg.precipitationProbability}%
                                                 </span>
                                             )}
