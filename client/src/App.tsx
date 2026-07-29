@@ -5,7 +5,6 @@ import Sidebar from './components/Sidebar'
 import ProtectedRoute from './components/ProtectedRoute'
 import QuickLog from './components/QuickLog'
 import Home from './pages/Home'
-import DailyReport from './pages/DailyReport'
 import Calendar from './pages/Calendar'
 import Day from './pages/Day'
 import Timebox from './pages/Timebox'
@@ -66,7 +65,6 @@ export default function App() {
                 }
             >
                 <Route path="/" element={<Home />} />
-                <Route path="/daily-report" element={<DailyReport />} />
                 <Route path="/calendar" element={<Calendar />} />
                 <Route path="/day/:date" element={<Day />} />
                 <Route path="/timebox" element={<Timebox />} />

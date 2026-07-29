@@ -8,7 +8,6 @@ import { toggleMoneyHidden } from '../lib/moneyVisibility'
 
 const navItems = [
     { label: 'Home', to: '/', icon: 'fa-house' },
-    { label: 'Report', to: '/daily-report', icon: 'fa-clipboard-list' },
     { label: 'Calendar', to: '/calendar', icon: 'fa-calendar-days' },
     { label: 'Finances', to: '/finances', icon: 'fa-wallet' },
     { label: 'Timebox', to: '/timebox', icon: 'fa-table-cells-large' },

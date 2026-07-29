@@ -6,6 +6,7 @@ import TodayWidget from '../components/dashboard/TodayWidget'
 import TasksWidget from '../components/dashboard/TasksWidget'
 import BudgetWidget from '../components/dashboard/BudgetWidget'
 import WeatherWidget from '../components/dashboard/WeatherWidget'
+import TomorrowWidget from '../components/dashboard/TomorrowWidget'
 import { todayKey } from '../lib/calendar'
 
 export default function Home() {
@@ -35,6 +36,11 @@ export default function Home() {
                     <BudgetWidget date={date} />
                     <TasksWidget date={date} />
                 </div>
+            </div>
+
+            {/* Evening wind-down — appears after 7pm to prep tomorrow. */}
+            <div className="mt-6">
+                <TomorrowWidget date={date} />
             </div>
         </Container>
     )
