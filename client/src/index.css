@@ -9,17 +9,31 @@
     --color-herb: #708c69;
     --color-marigold: #f4a258;
     --color-brand: #013d5a;
+
+    /* Coral — the Airbnb-warm accent used for primary actions and active states. */
+    --color-coral-50: #fff1f2;
+    --color-coral-100: #ffe4e7;
+    --color-coral-200: #fecdd3;
+    --color-coral-300: #fda4af;
+    --color-coral-500: #ff385c;
+    --color-coral-600: #e11d48;
+    --color-coral-700: #be123c;
+
+    /* Warm canvas + ink so white cards feel cosy rather than clinical. */
+    --color-canvas: #f7f6f3;
+    --color-ink: #222222;
 }
 
 body {
     font-family: var(--font-sans);
-    background-color: #ffffff;
-    color: #111827;
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-    background: var(--color-marigold);
-    color: #0b0b0b;
+    background: var(--color-coral-500);
+    color: #ffffff;
 }
 
 button {

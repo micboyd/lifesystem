@@ -31,7 +31,7 @@ import NotFound from './pages/NotFound'
 /** The signed-in app shell: sidebar nav plus the matched page. */
 function AppLayout() {
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-canvas">
             <Sidebar />
             {/* Offset the content column for the fixed rail on large screens. */}
             <div className="flex min-h-screen flex-col lg:pl-64">

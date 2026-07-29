@@ -19,11 +19,13 @@ export default function DashboardHeader() {
 
     return (
         <header>
-            <p className="text-sm font-semibold uppercase tracking-wide text-neutral-400">
+            <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-coral-600">
+                <span className="h-1.5 w-1.5 rounded-full bg-coral-500" aria-hidden="true" />
                 {dateLabel}
             </p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
-                {greeting(now)}, {firstName}
+            <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-[2.6rem] sm:leading-[1.05]">
+                {greeting(now)},{' '}
+                <span className="text-coral-500">{firstName}</span>
             </h1>
         </header>
     )
