@@ -49,7 +49,7 @@ export interface WeatherWarning {
 
 export interface Forecast {
     current: CurrentWeather
-    /** Today plus the next three days (four entries). */
+    /** Today plus the next four days (five entries). */
     daily: DailyForecast[]
     /** Today's hourly slots (hours 0–23), indexable by hour. */
     hourly: HourlySlot[]
@@ -99,7 +99,7 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
             'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset,uv_index_max',
         timezone: 'auto',
         wind_speed_unit: 'mph',
-        forecast_days: '3',
+        forecast_days: '5',
     })
 
     const res = await fetch(`${FORECAST_URL}?${params.toString()}`)

@@ -3,23 +3,14 @@ import { Link } from 'react-router-dom'
 import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
-import {
-    fetchForecast,
-    weatherInfo,
-    whatToWear,
-    dayCondition,
-    planningInsight,
-    weatherWarnings,
-    upcomingOutlook,
-    isPrecipitationCode,
-    SEVERITY_STYLES,
-    SEVERITY_ICON_STYLES,
-    type Forecast,
-} from '../../lib/weather'
+import { fetchForecast, weatherInfo, dayCondition, type Forecast } from '../../lib/weather'
 
-/** At/above this rain chance (%), an outlook segment reads as rain: blue pill
- *  and, when the representative glyph is otherwise dry, a rain cloud. */
-const SHOW_RAIN_PCT = 60
+/** "Today" for the first day, otherwise a short weekday ("Mon", "Tue"). */
+function dayLabel(date: string, isFirst: boolean): string {
+    if (isFirst) return 'Today'
+    const [y, m, d] = date.split('-').map(Number)
+    return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short' })
+}
 
 export default function WeatherWidget() {
     const { user } = useAuth()
@@ -28,7 +19,6 @@ export default function WeatherWidget() {
     const [forecast, setForecast] = useState<Forecast | null>(null)
     const [loading, setLoading] = useState(!!location)
     const [error, setError] = useState(false)
-    const [detailsOpen, setDetailsOpen] = useState(false)
 
     useEffect(() => {
         if (!location) return
@@ -58,7 +48,7 @@ export default function WeatherWidget() {
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-neutral-900">Set your location</p>
                         <p className="text-xs text-neutral-400">
-                            Add a location to see today's weather and what to wear
+                            Add a location to see the five-day forecast
                         </p>
                     </div>
                     <i className="fa-solid fa-chevron-right text-xs text-neutral-300" aria-hidden="true" />
@@ -67,14 +57,19 @@ export default function WeatherWidget() {
         )
     }
 
-    const todayDay = forecast?.daily[0]
     const pending = loading || (!forecast && !error)
-    const warnings = forecast && todayDay ? weatherWarnings(forecast.hourly, todayDay) : []
+    const days = forecast?.daily.slice(0, 5) ?? []
 
     return (
         <Card>
-            <CardHeader className="flex items-center justify-between gap-4">
-                <CardTitle>Weather</CardTitle>
+            <CardHeader className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                    <CardTitle>Weather</CardTitle>
+                    <p className="mt-0.5 truncate text-xs text-neutral-400">
+                        <i className="fa-solid fa-location-dot mr-1" aria-hidden="true" />
+                        {location.name}
+                    </p>
+                </div>
                 <CardAction to="/weather">Full forecast</CardAction>
             </CardHeader>
 
@@ -82,240 +77,37 @@ export default function WeatherWidget() {
                 <div className="grid place-items-center py-8">
                     <Spinner />
                 </div>
-            ) : error || !forecast || !todayDay ? (
-                <p className="py-4 text-sm text-neutral-400">Couldn't load the forecast right now.</p>
+            ) : error || days.length === 0 ? (
+                <p className="py-4 text-sm text-neutral-400">Couldn&apos;t load the forecast right now.</p>
             ) : (
-                <>
-                    {/* Warning banners */}
-                    {warnings.length > 0 && (
-                        <div className="flex flex-col gap-1.5 mb-4">
-                            {warnings.map((w) => (
-                                <div
-                                    key={w.id}
-                                    className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 ${SEVERITY_STYLES[w.severity]}`}
-                                >
-                                    <i className={`${w.icon} mt-0.5 text-sm shrink-0 ${SEVERITY_ICON_STYLES[w.severity]}`} aria-hidden="true" />
-                                    <div className="min-w-0">
-                                        <p className="text-xs font-semibold leading-tight">{w.title}</p>
-                                        <p className="mt-0.5 text-[11px] opacity-80">{w.detail}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Current conditions */}
-                    <div className="flex items-center gap-4">
-                        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-sky-50 text-3xl text-sky-500">
-                            <i
-                                className={weatherInfo(forecast.current.code, forecast.current.isDay).icon}
-                                aria-hidden="true"
-                            />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-bold tracking-tight text-neutral-900">
-                                    {forecast.current.temperature}&deg;
-                                </span>
-                                <span className="truncate text-sm font-medium text-neutral-500">
-                                    {weatherInfo(forecast.current.code, forecast.current.isDay).label}
-                                </span>
-                            </div>
-                            <p className="truncate text-xs text-neutral-400">
-                                <i className="fa-solid fa-location-dot mr-1" aria-hidden="true" />
-                                {location.name}
-                                <span className="mx-1.5 text-neutral-200">&middot;</span>
-                                Feels {forecast.current.apparentTemperature}&deg;
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* What's coming up — the next hour, then the next parts of the day */}
-                    {(() => {
-                        const outlook = upcomingOutlook(forecast)
-                        if (outlook.length === 0) return null
-                        const colClass =
-                            { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3' }[outlook.length] ??
-                            'grid-cols-3'
+                <div className="grid grid-cols-5 gap-1.5">
+                    {days.map((day, i) => {
+                        const info = weatherInfo(
+                            dayCondition(day, forecast!.hourlyByDate[day.date] ?? [])
+                        )
                         return (
-                            <div className={`mt-4 grid ${colClass} gap-1.5`}>
-                                {outlook.map((seg) => {
-                                    const info = weatherInfo(seg.code, seg.isDay)
-                                    // One shared line: at/above it the segment reads as rain —
-                                    // blue pill and, if the glyph is otherwise dry, a rain cloud.
-                                    const rainy = seg.precipitationProbability >= SHOW_RAIN_PCT
-                                    const icon =
-                                        rainy && !isPrecipitationCode(seg.code)
-                                            ? 'fa-solid fa-cloud-rain'
-                                            : info.icon
-                                    return (
-                                        <div key={seg.key} className="flex flex-col items-center gap-1.5 rounded-xl border border-neutral-100 px-1 py-3 text-center">
-                                            <span className="flex min-h-[1.6rem] items-center justify-center text-[10px] font-semibold uppercase leading-tight tracking-wide text-neutral-400">
-                                                {seg.label}
-                                            </span>
-                                            <i className={`${icon} text-base text-sky-500`} aria-hidden="true" />
-                                            <span className="text-xs font-semibold text-neutral-700">{seg.temperature}&deg;</span>
-                                            {rainy ? (
-                                                <span
-                                                    title="Chance of rain"
-                                                    className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-600"
-                                                >
-                                                    <i className="fa-solid fa-umbrella" aria-hidden="true" />
-                                                    {seg.precipitationProbability}%
-                                                </span>
-                                            ) : (
-                                                <span
-                                                    title="Chance of rain"
-                                                    className="inline-flex items-center gap-1 text-[9px] text-neutral-400"
-                                                >
-                                                    <i className="fa-solid fa-umbrella" aria-hidden="true" />
-                                                    {seg.precipitationProbability}%
-                                                </span>
-                                            )}
-                                        </div>
-                                    )
-                                })}
+                            <div
+                                key={day.date}
+                                className="flex flex-col items-center gap-1.5 rounded-2xl bg-neutral-50 px-1 py-3"
+                                title={info.label}
+                            >
+                                <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+                                    {dayLabel(day.date, i === 0)}
+                                </span>
+                                <i
+                                    className={`${info.icon} text-lg text-sky-500`}
+                                    aria-hidden="true"
+                                />
+                                <span className="text-sm font-bold tabular-nums text-neutral-900">
+                                    {day.tempMax}&deg;
+                                </span>
+                                <span className="text-[10px] tabular-nums text-neutral-400">
+                                    {day.tempMin}&deg;
+                                </span>
                             </div>
                         )
-                    })()}
-
-                    {/* Planning insight */}
-                    {forecast.hourly.length > 0 && (
-                        <p className="mt-3 rounded-xl bg-neutral-50 px-3 py-2.5 text-xs text-neutral-600">
-                            <i className="fa-solid fa-lightbulb mr-1.5 text-neutral-400" aria-hidden="true" />
-                            {planningInsight(forecast.hourly)}
-                        </p>
-                    )}
-
-                    {/* What to wear today */}
-                    <p className="mt-2 rounded-xl bg-neutral-50 px-3 py-2.5 text-xs text-neutral-600">
-                        <i className="fa-solid fa-shirt mr-1.5 text-neutral-400" aria-hidden="true" />
-                        {whatToWear(todayDay)}
-                    </p>
-
-                    {/* Details accordion */}
-                    <div className="mt-3 rounded-xl border border-neutral-100 overflow-hidden">
-                        <button
-                            type="button"
-                            onClick={() => setDetailsOpen((o) => !o)}
-                            className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-neutral-50"
-                        >
-                            <span className="text-xs font-semibold text-neutral-500">Details</span>
-                            <i
-                                className={`fa-solid fa-chevron-down text-[10px] text-neutral-400 transition-transform duration-200 ${detailsOpen ? 'rotate-180' : ''}`}
-                                aria-hidden="true"
-                            />
-                        </button>
-
-                        {detailsOpen && (() => {
-                            const waking = forecast.hourly.filter((h) => h.hour >= 6 && h.hour <= 22)
-                            const maxGust = Math.max(...waking.map((h) => h.windGust))
-                            const totalRain = waking.reduce((s, h) => s + h.precipitation, 0)
-                            const minVis = Math.min(...waking.map((h) => h.visibility))
-                            const uv = todayDay.uvIndexMax ?? 0
-                            const sunrise = todayDay.sunrise
-                                ? new Date(todayDay.sunrise).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-                                : null
-                            const sunset = todayDay.sunset
-                                ? new Date(todayDay.sunset).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-                                : null
-
-                            return (
-                                <div className="border-t border-neutral-100 px-3 py-3 flex flex-col gap-2">
-                                    {/* Wind */}
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="flex items-center gap-1.5 text-neutral-500">
-                                            <i className="fa-solid fa-wind w-3.5 text-center text-neutral-400" aria-hidden="true" />
-                                            Wind
-                                        </span>
-                                        <span className="font-semibold text-neutral-700">
-                                            {forecast.current.windSpeed}mph
-                                            {maxGust > forecast.current.windSpeed + 5 && (
-                                                <span className="ml-1 font-normal text-neutral-400">gusts {maxGust}mph</span>
-                                            )}
-                                        </span>
-                                    </div>
-
-                                    {/* Humidity */}
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="flex items-center gap-1.5 text-neutral-500">
-                                            <i className="fa-solid fa-droplet w-3.5 text-center text-neutral-400" aria-hidden="true" />
-                                            Humidity
-                                        </span>
-                                        <span className="font-semibold text-neutral-700">{forecast.current.humidity}%</span>
-                                    </div>
-
-                                    {/* Rain */}
-                                    {totalRain > 0 && (
-                                        <div className="flex items-center justify-between text-xs">
-                                            <span className="flex items-center gap-1.5 text-neutral-500">
-                                                <i className="fa-solid fa-cloud-rain w-3.5 text-center text-neutral-400" aria-hidden="true" />
-                                                Rainfall today
-                                            </span>
-                                            <span className="font-semibold text-neutral-700">{Math.round(totalRain * 10) / 10}mm</span>
-                                        </div>
-                                    )}
-
-                                    {/* Visibility */}
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="flex items-center gap-1.5 text-neutral-500">
-                                            <i className="fa-solid fa-eye w-3.5 text-center text-neutral-400" aria-hidden="true" />
-                                            Visibility
-                                        </span>
-                                        <span className="font-semibold text-neutral-700">
-                                            {minVis >= 10 ? '10km+' : minVis < 1 ? `${Math.round(minVis * 1000)}m` : `${minVis}km`}
-                                        </span>
-                                    </div>
-
-                                    {/* UV */}
-                                    {uv > 0 && (
-                                        <div className="flex items-center justify-between text-xs">
-                                            <span className="flex items-center gap-1.5 text-neutral-500">
-                                                <i className="fa-solid fa-sun w-3.5 text-center text-neutral-400" aria-hidden="true" />
-                                                UV index
-                                            </span>
-                                            <span className={`font-semibold ${uv >= 8 ? 'text-red-600' : uv >= 6 ? 'text-amber-600' : uv >= 3 ? 'text-yellow-600' : 'text-neutral-700'}`}>
-                                                {uv} &mdash; {uv >= 8 ? 'Very high' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low'}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Sunrise / Sunset */}
-                                    {(sunrise || sunset) && (
-                                        <div className="flex items-center justify-between text-xs">
-                                            <span className="flex items-center gap-1.5 text-neutral-500">
-                                                <i className="fa-solid fa-circle-half-stroke w-3.5 text-center text-neutral-400" aria-hidden="true" />
-                                                Daylight
-                                            </span>
-                                            <span className="font-semibold text-neutral-700">
-                                                {sunrise} &ndash; {sunset}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Day after tomorrow */}
-                                    {forecast.daily[2] && (() => {
-                                        const dat = forecast.daily[2]
-                                        const info = weatherInfo(dayCondition(dat, forecast.hourlyByDate[dat.date] ?? []))
-                                        const label = new Date(`${dat.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long' })
-                                        return (
-                                            <div className="mt-1 flex items-center gap-2.5 rounded-lg bg-neutral-50 px-2.5 py-2 text-xs">
-                                                <i className={`${info.icon} text-sky-500 w-4 text-center`} aria-hidden="true" />
-                                                <span className="text-neutral-500">{label}</span>
-                                                <span className="ml-auto font-semibold text-neutral-700">
-                                                    {dat.tempMax}&deg; / {dat.tempMin}&deg;
-                                                </span>
-                                                {dat.precipitationProbability > 0 && (
-                                                    <span className="text-neutral-400">{dat.precipitationProbability}% rain</span>
-                                                )}
-                                            </div>
-                                        )
-                                    })()}
-                                </div>
-                            )
-                        })()}
-                    </div>
-                </>
+                    })}
+                </div>
             )}
         </Card>
     )

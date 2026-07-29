@@ -69,7 +69,11 @@ function TomorrowBrief({
     const bands = partOfDaySummary(hourly)
     const warnings = day && hourly.length > 0 ? weatherWarnings(hourly, day) : []
     const insight = hourly.length > 0 ? planningInsight(hourly) : ''
-    const maxGust = hourly.length > 0 ? Math.max(...hourly.map((h) => h.windGust)) : 0
+    // Waking-hours figures for the extra detail line.
+    const waking = hourly.filter((h) => h.hour >= 6 && h.hour <= 22)
+    const maxGust = waking.length > 0 ? Math.max(...waking.map((h) => h.windGust)) : 0
+    const totalRain = waking.reduce((sum, h) => sum + h.precipitation, 0)
+    const minVis = waking.length > 0 ? Math.min(...waking.map((h) => h.visibility)) : Infinity
     // The evening band runs to 10pm, which is still daylight in midsummer —
     // pick sun or moon glyphs from the actual sunset rather than the clock.
     const eveningIsDay = day?.sunset ? new Date(day.sunset).getHours() >= 20 : false
@@ -260,7 +264,33 @@ function TomorrowBrief({
                                         Gusts {maxGust} mph
                                     </span>
                                 )}
+                                {totalRain > 0.2 && (
+                                    <span>
+                                        <i
+                                            className="fa-solid fa-cloud-rain mr-1 text-neutral-300"
+                                            aria-hidden="true"
+                                        />
+                                        {Math.round(totalRain * 10) / 10}mm rain
+                                    </span>
+                                )}
+                                {minVis < 10 && (
+                                    <span>
+                                        <i
+                                            className="fa-solid fa-eye mr-1 text-neutral-300"
+                                            aria-hidden="true"
+                                        />
+                                        Vis {minVis < 1 ? `${Math.round(minVis * 1000)}m` : `${minVis}km`}
+                                    </span>
+                                )}
                             </div>
+
+                            <Link
+                                to="/weather"
+                                className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-sky-600 transition-colors hover:text-sky-700"
+                            >
+                                Full forecast
+                                <i className="fa-solid fa-arrow-right text-[10px]" aria-hidden="true" />
+                            </Link>
                         </>
                     ) : (
                         <p className="text-sm text-neutral-400">
