@@ -7,11 +7,14 @@ import Spinner from '../components/Spinner'
 import DatePicker from '../components/DatePicker'
 import Tabs from '../components/Tabs'
 import EmptyState from '../components/EmptyState'
-import type { Goal, Milestone } from '../types'
+import Switch from '../components/Switch'
+import Select from '../components/Select'
+import type { Goal, Milestone, HabitDef } from '../types'
 import {
     listGoals, createGoal, updateGoal, deleteGoal,
     addMilestone, updateMilestone, deleteMilestone,
 } from '../services/goals'
+import { listHabits } from '../services/habits'
 
 const STATUS_LABELS: Record<Goal['status'], string> = {
     active: 'Active',
@@ -62,7 +65,7 @@ function ProgressBar({ value, onChange }: { value: number; onChange: (v: number)
     )
 }
 
-function GoalCard({ goal, onUpdate }: { goal: Goal; onUpdate: (g: Goal) => void }) {
+function GoalCard({ goal, habits, onUpdate, onDelete }: { goal: Goal; habits: HabitDef[]; onUpdate: (g: Goal) => void; onDelete: (id: string) => void }) {
     const [expanded, setExpanded] = useState(false)
     const [editing, setEditing] = useState(false)
     const [title, setTitle] = useState(goal.title)
@@ -75,6 +78,38 @@ function GoalCard({ goal, onUpdate }: { goal: Goal; onUpdate: (g: Goal) => void 
 
     const milestonesDone = goal.milestones.filter((m) => m.completed).length
     const milestonesTotal = goal.milestones.length
+
+    const isAuto = goal.progressMode === 'auto'
+    const habitName = (id: string) => habits.find((h) => h._id === id)?.name ?? 'Unknown habit'
+    const linkedSet = new Set(goal.linkedHabits)
+    const linkableHabits = habits.filter((h) => h.active && !linkedSet.has(h._id))
+    const derivedFor = (id: string) => goal.derived?.habits.find((h) => h.habit === id)
+
+    async function handleToggleAuto(on: boolean) {
+        const updated = await updateGoal(goal._id, { progressMode: on ? 'auto' : 'manual' })
+        onUpdate(updated)
+    }
+
+    async function handleLinkHabit(habitId: string) {
+        if (!habitId || linkedSet.has(habitId)) return
+        const next = [...goal.linkedHabits, habitId]
+        // Linking the first habit implies you want auto-tracking on.
+        const updated = await updateGoal(goal._id, {
+            linkedHabits: next,
+            ...(goal.linkedHabits.length === 0 ? { progressMode: 'auto' as const } : {}),
+        })
+        onUpdate(updated)
+    }
+
+    async function handleUnlinkHabit(habitId: string) {
+        const next = goal.linkedHabits.filter((id) => id !== habitId)
+        const updated = await updateGoal(goal._id, {
+            linkedHabits: next,
+            // Fall back to manual once nothing is linked, so progress becomes editable again.
+            ...(next.length === 0 ? { progressMode: 'manual' as const } : {}),
+        })
+        onUpdate(updated)
+    }
 
     async function handleSave(e: FormEvent) {
         e.preventDefault()
@@ -126,11 +161,10 @@ function GoalCard({ goal, onUpdate }: { goal: Goal; onUpdate: (g: Goal) => void 
     }
 
     async function handleDelete() {
-        if (!confirm('Delete this goal?')) return
         setDeleting(true)
         try {
             await deleteGoal(goal._id)
-            onUpdate({ ...goal, status: 'abandoned', _id: '' })
+            onDelete(goal._id)
         } finally {
             setDeleting(false)
         }
@@ -229,14 +263,60 @@ function GoalCard({ goal, onUpdate }: { goal: Goal; onUpdate: (g: Goal) => void 
                         {/* Progress */}
                         <div>
                             <div className="mb-2 flex items-center justify-between">
-                                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Progress</span>
+                                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    Progress
+                                    {isAuto && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-violet-700">
+                                            <i className="fa-solid fa-bolt-lightning text-[9px]" aria-hidden="true" />
+                                            AUTO
+                                        </span>
+                                    )}
+                                </span>
                                 {milestonesTotal > 0 && (
                                     <span className="text-xs text-neutral-400">
                                         {milestonesDone}/{milestonesTotal} milestones
                                     </span>
                                 )}
                             </div>
-                            <ProgressBar value={goal.progress} onChange={handleProgress} />
+
+                            {isAuto ? (
+                                <div className="flex items-center gap-3">
+                                    <div className="relative flex-1 h-2 rounded-full bg-neutral-100">
+                                        <div
+                                            className="absolute inset-y-0 left-0 rounded-full bg-violet-500 transition-all"
+                                            style={{ width: `${goal.progress}%` }}
+                                        />
+                                    </div>
+                                    <span className="w-10 text-right text-sm font-bold tabular-nums text-neutral-700">
+                                        {goal.progress}%
+                                    </span>
+                                </div>
+                            ) : (
+                                <ProgressBar value={goal.progress} onChange={handleProgress} />
+                            )}
+
+                            {/* Auto-tracking breakdown */}
+                            {isAuto && goal.derived && (
+                                <div className="mt-3 flex flex-col gap-1.5 rounded-xl bg-neutral-50 p-3">
+                                    {goal.linkedHabits.map((id) => {
+                                        const d = derivedFor(id)
+                                        const done = d?.completedDays ?? 0
+                                        const rate = Math.round((d?.rate ?? 0) * 100)
+                                        return (
+                                            <div key={id} className="flex items-center justify-between gap-3 text-xs">
+                                                <span className="min-w-0 flex-1 truncate text-neutral-600">{habitName(id)}</span>
+                                                <span className="tabular-nums text-neutral-400">
+                                                    {done}/{goal.derived!.windowDays} days
+                                                </span>
+                                                <span className="w-9 text-right font-bold tabular-nums text-neutral-700">{rate}%</span>
+                                            </div>
+                                        )
+                                    })}
+                                    <p className="mt-0.5 text-[11px] text-neutral-400">
+                                        {goal.derived.elapsedDays} of {goal.derived.windowDays} days elapsed
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Status actions */}
@@ -268,6 +348,61 @@ function GoalCard({ goal, onUpdate }: { goal: Goal; onUpdate: (g: Goal) => void 
                                 Reactivate
                             </button>
                         )}
+
+                        {/* Habit auto-tracking */}
+                        <div className="border-t border-neutral-100 pt-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="flex items-center gap-1.5 text-xs font-semibold text-neutral-600">
+                                        <i className="fa-solid fa-link text-[10px] text-neutral-400" aria-hidden="true" />
+                                        Linked habits
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] text-neutral-400">
+                                        Track progress from habit consistency
+                                    </p>
+                                </div>
+                                {goal.linkedHabits.length > 0 && (
+                                    <Switch checked={isAuto} onChange={handleToggleAuto} />
+                                )}
+                            </div>
+
+                            {goal.linkedHabits.length > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {goal.linkedHabits.map((id) => (
+                                        <span
+                                            key={id}
+                                            className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 py-1 pl-3 pr-1.5 text-xs font-medium text-neutral-700"
+                                        >
+                                            {habitName(id)}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleUnlinkHabit(id)}
+                                                aria-label={`Unlink ${habitName(id)}`}
+                                                className="grid h-4 w-4 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+                                            >
+                                                <i className="fa-solid fa-xmark text-[9px]" aria-hidden="true" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {linkableHabits.length > 0 ? (
+                                <div className="mt-3">
+                                    <Select
+                                        options={linkableHabits.map((h) => ({ label: h.name, value: h._id }))}
+                                        value=""
+                                        onChange={handleLinkHabit}
+                                        placeholder={goal.linkedHabits.length ? 'Link another habit…' : 'Link a habit…'}
+                                        icon="fa-solid fa-plus"
+                                    />
+                                </div>
+                            ) : goal.linkedHabits.length === 0 ? (
+                                <p className="mt-3 text-[11px] text-neutral-400">
+                                    No habits to link yet — create some on the Habits page first.
+                                </p>
+                            ) : null}
+                        </div>
 
                         {/* Milestones */}
                         <div>
@@ -327,6 +462,7 @@ function GoalCard({ goal, onUpdate }: { goal: Goal; onUpdate: (g: Goal) => void 
 
 export default function Goals() {
     const [goals, setGoals] = useState<Goal[]>([])
+    const [habits, setHabits] = useState<HabitDef[]>([])
     const [loading, setLoading] = useState(true)
     const [adding, setAdding] = useState(false)
     const [newTitle, setNewTitle] = useState('')
@@ -336,16 +472,17 @@ export default function Goals() {
     const [filter, setFilter] = useState<Goal['status'] | 'all'>('active')
 
     useEffect(() => {
-        listGoals().then(setGoals).finally(() => setLoading(false))
+        Promise.all([listGoals(), listHabits()])
+            .then(([g, h]) => { setGoals(g); setHabits(h) })
+            .finally(() => setLoading(false))
     }, [])
 
     function handleUpdate(updated: Goal) {
-        if (!updated._id) {
-            // Deleted
-            setGoals((prev) => prev.filter((g) => g._id !== updated._id))
-            return
-        }
         setGoals((prev) => prev.map((g) => (g._id === updated._id ? updated : g)))
+    }
+
+    function handleDelete(id: string) {
+        setGoals((prev) => prev.filter((g) => g._id !== id))
     }
 
     async function handleAdd(e: FormEvent) {
@@ -454,7 +591,7 @@ export default function Goals() {
             ) : (
                 <div className="flex flex-col gap-4">
                     {filtered.map((g) => (
-                        <GoalCard key={g._id} goal={g} onUpdate={handleUpdate} />
+                        <GoalCard key={g._id} goal={g} habits={habits} onUpdate={handleUpdate} onDelete={handleDelete} />
                     ))}
                 </div>
             )}

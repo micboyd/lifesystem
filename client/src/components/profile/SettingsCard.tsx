@@ -84,7 +84,7 @@ export default function SettingsCard() {
                     </div>
 
                     {/* Working hours — within the day */}
-                    <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
+                    <div className="rounded-2xl border border-neutral-100 bg-white p-4">
                         <p className="mb-1 text-sm font-semibold text-neutral-700">Working hours</p>
                         <p className="mb-3 text-xs text-neutral-400">
                             Sits within your wake and bed times.

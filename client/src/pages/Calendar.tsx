@@ -983,7 +983,7 @@ function MonthBlock({
                                                     ? 'border-r border-neutral-400'
                                                     : 'border-l border-neutral-100',
                                                 past
-                                                    ? 'bg-red-100/70'
+                                                    ? 'bg-neutral-300/60'
                                                     : weekend
                                                       ? 'bg-neutral-100/60'
                                                       : '',

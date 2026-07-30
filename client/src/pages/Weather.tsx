@@ -326,7 +326,7 @@ export default function Weather() {
                             Next few days
                         </p>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            {forecast.daily.map((d) => {
+                            {forecast.daily.slice(0, 5).map((d) => {
                                 const info = weatherInfo(dayCondition(d, forecast.hourlyByDate[d.date] ?? []))
                                 return (
                                     <Card key={d.date}>

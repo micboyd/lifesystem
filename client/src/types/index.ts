@@ -109,11 +109,15 @@ export const EVENT_TYPE_COLORS: Record<
         text: 'text-indigo-700',
         light: 'bg-indigo-50',
     },
+    // A plain event uses a calm teal — distinct from the grey weekend/past
+    // backgrounds and from the other category hues (trip blue, social amber,
+    // hobby indigo, Other purple), while staying quiet enough for the common
+    // catch-all type.
     general: {
-        bg: 'bg-neutral-100',
-        hover: 'hover:bg-neutral-200',
-        text: 'text-neutral-600',
-        light: 'bg-neutral-50',
+        bg: 'bg-teal-200',
+        hover: 'hover:bg-teal-300',
+        text: 'text-teal-800',
+        light: 'bg-teal-50',
     },
 }
 
@@ -258,6 +262,17 @@ export interface Milestone {
     order: number
 }
 
+export type ProgressMode = 'manual' | 'auto'
+
+/** Per-habit consistency stats for an auto-tracked goal, from the server. */
+export interface GoalDerived {
+    /** Total days in the goal window (start → target date, inclusive). */
+    windowDays: number
+    /** Days elapsed so far (start → today, capped at the window). */
+    elapsedDays: number
+    habits: { habit: string; completedDays: number; rate: number }[]
+}
+
 export interface Goal {
     _id: string
     title: string
@@ -266,6 +281,14 @@ export interface Goal {
     progress: number
     status: GoalStatus
     milestones: Milestone[]
+    /** 'manual' = slider; 'auto' = derived from linked habits' consistency. */
+    progressMode: ProgressMode
+    /** Ids of habits driving progress when progressMode is 'auto'. */
+    linkedHabits: string[]
+    /** Window start (YYYY-MM-DD); defaults to the creation date. */
+    startDate?: string
+    /** Present only for 'auto' goals — the computed consistency breakdown. */
+    derived?: GoalDerived
     createdAt: string
     updatedAt: string
 }

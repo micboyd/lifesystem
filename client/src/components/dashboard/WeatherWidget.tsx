@@ -3,16 +3,49 @@ import { Link } from 'react-router-dom'
 import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
-import { fetchForecast, weatherInfo, dayCondition, type Forecast } from '../../lib/weather'
+import {
+    fetchForecast,
+    weatherInfo,
+    dayCondition,
+    type Forecast,
+    type HourlySlot,
+} from '../../lib/weather'
 
-/** "Today" for the first day, otherwise a short weekday ("Mon", "Tue"). */
-function dayLabel(date: string, isFirst: boolean): string {
-    if (isFirst) return 'Today'
+/** A short weekday ("Mon", "Tue") for an ahead-tile. */
+function dayLabel(date: string): string {
     const [y, m, d] = date.split('-').map(Number)
     return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short' })
 }
 
-export default function WeatherWidget() {
+/** Compact clock label for an hourly tile ("9am", "3pm", "12pm"). */
+function hourLabel(hour: number): string {
+    if (hour === 0) return '12am'
+    if (hour === 12) return '12pm'
+    return hour < 12 ? `${hour}am` : `${hour - 12}pm`
+}
+
+/**
+ * The next five hourly slots after now, walking across midnight into the
+ * following day so the strip stays full late in the evening.
+ */
+function nextHours(forecast: Forecast, count = 5): HourlySlot[] {
+    const days = forecast.daily
+    const dayIndex = new Map(days.map((d, i) => [d.date, i]))
+    const nowOrdinal = new Date().getHours() // today is day 0
+    const ordinal = (slot: HourlySlot) => (dayIndex.get(slot.date) ?? 0) * 24 + slot.hour
+    return days
+        .flatMap((d) => forecast.hourlyByDate[d.date] ?? [])
+        .filter((h) => ordinal(h) > nowOrdinal)
+        .slice(0, count)
+}
+
+/**
+ * `hourly` → today's next few hours (for "Today's outlook").
+ * `daily`  → the five days from tomorrow (for "Looking ahead").
+ */
+type WeatherVariant = 'hourly' | 'daily'
+
+export default function WeatherWidget({ variant = 'daily' }: { variant?: WeatherVariant }) {
     const { user } = useAuth()
     const location = user?.settings?.weatherLocation ?? null
 
@@ -58,13 +91,16 @@ export default function WeatherWidget() {
     }
 
     const pending = loading || (!forecast && !error)
-    const days = forecast?.daily.slice(0, 5) ?? []
+    // Ahead tiles run from tomorrow onwards (today lives in its own hourly strip).
+    const days = forecast?.daily.slice(1, 6) ?? []
+    const hours = forecast ? nextHours(forecast) : []
+    const tiles = variant === 'hourly' ? hours : days
 
     return (
         <Card>
             <CardHeader className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                    <CardTitle>Weather</CardTitle>
+                    <CardTitle>{variant === 'hourly' ? "Today's weather" : 'Weather outlook'}</CardTitle>
                     <p className="mt-0.5 truncate text-xs text-neutral-400">
                         <i className="fa-solid fa-location-dot mr-1" aria-hidden="true" />
                         {location.name}
@@ -77,27 +113,52 @@ export default function WeatherWidget() {
                 <div className="grid place-items-center py-8">
                     <Spinner />
                 </div>
-            ) : error || days.length === 0 ? (
+            ) : error || tiles.length === 0 ? (
                 <p className="py-4 text-sm text-neutral-400">Couldn&apos;t load the forecast right now.</p>
+            ) : variant === 'hourly' ? (
+                <div className="grid grid-cols-5 gap-1.5">
+                    {hours.map((h) => {
+                        const info = weatherInfo(h.code, h.hour >= 6 && h.hour < 20)
+                        return (
+                            <div
+                                key={`${h.date}-${h.hour}`}
+                                className="flex flex-col items-center gap-1.5 rounded-2xl bg-white px-1 py-3 ring-1 ring-black/[0.06]"
+                                title={info.label}
+                            >
+                                <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+                                    {hourLabel(h.hour)}
+                                </span>
+                                <i className={`${info.icon} text-lg text-sky-500`} aria-hidden="true" />
+                                <span className="text-sm font-bold tabular-nums text-neutral-900">
+                                    {h.temperature}&deg;
+                                </span>
+                                {h.precipitationProbability >= 20 ? (
+                                    <span className="text-[10px] font-medium tabular-nums text-sky-500">
+                                        {h.precipitationProbability}%
+                                    </span>
+                                ) : (
+                                    <span className="text-[10px] text-neutral-300">&ndash;</span>
+                                )}
+                            </div>
+                        )
+                    })}
+                </div>
             ) : (
                 <div className="grid grid-cols-5 gap-1.5">
-                    {days.map((day, i) => {
+                    {days.map((day) => {
                         const info = weatherInfo(
                             dayCondition(day, forecast!.hourlyByDate[day.date] ?? [])
                         )
                         return (
                             <div
                                 key={day.date}
-                                className="flex flex-col items-center gap-1.5 rounded-2xl bg-neutral-50 px-1 py-3"
+                                className="flex flex-col items-center gap-1.5 rounded-2xl bg-white px-1 py-3 ring-1 ring-black/[0.06]"
                                 title={info.label}
                             >
                                 <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
-                                    {dayLabel(day.date, i === 0)}
+                                    {dayLabel(day.date)}
                                 </span>
-                                <i
-                                    className={`${info.icon} text-lg text-sky-500`}
-                                    aria-hidden="true"
-                                />
+                                <i className={`${info.icon} text-lg text-sky-500`} aria-hidden="true" />
                                 <span className="text-sm font-bold tabular-nums text-neutral-900">
                                     {day.tempMax}&deg;
                                 </span>

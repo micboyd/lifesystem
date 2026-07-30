@@ -28,12 +28,19 @@ import { listEvents } from '../../services/events'
 import { listTasks } from '../../services/tasks'
 import { listReminders } from '../../services/reminders'
 import { listStatuses } from '../../services/dayStatus'
+import { timeToMinutes, DEFAULT_WAKE } from '../../lib/time'
 import { DAY_STATUS_OPTIONS } from '../../types'
 import { colorsForEvent } from '../../lib/eventColors'
 import type { Event, Task, Reminder, Part, DayStatus, Calendar as CalendarLayer } from '../../types'
 
 /** From this hour onwards, "today" is basically done and tomorrow is the useful view. */
 const EVENING_HOUR = 19
+
+/** Minutes since midnight for the current wall-clock time. */
+function nowMinutes(): number {
+    const d = new Date()
+    return d.getHours() * 60 + d.getMinutes()
+}
 
 /** ISO timestamp → "07:42". */
 function formatClock(stamp: string): string {
@@ -403,8 +410,48 @@ function TomorrowBrief({
 }
 
 /**
- * Evening wind-down for the dashboard. Self-hides until {@link EVENING_HOUR} and
- * only while viewing today, then shows a brief for tomorrow. Fetches its own
+ * Whether the "prepare for tomorrow" brief should show right now, and which day
+ * it targets. Exposed as a hook so the dashboard can know in advance and adjust
+ * its layout — otherwise the brief's column leaves a gap when it's hidden.
+ *
+ * Shows from {@link EVENING_HOUR} in the evening right through midnight until the
+ * timebox day-start time (the user's `wakeTime`), so it stays useful in the
+ * small hours. Only appears while viewing today.
+ */
+export function useTomorrowVisible(date: string = todayKey()): { show: boolean; target: string } {
+    const { user } = useAuth()
+
+    // The day "begins" at the timebox wake time; until then, an evening that ran
+    // past midnight is still winding down toward the day about to start. Bounded
+    // by EVENING_HOUR so a misconfigured wake time can't reveal it mid-afternoon.
+    const eveningMin = EVENING_HOUR * 60
+    const dayStartMin = Math.min(timeToMinutes(user?.settings?.wakeTime ?? DEFAULT_WAKE), eveningMin)
+
+    // Re-checked each minute so crossing 7pm or the morning start reveals/hides
+    // the section on a page that's been sitting open.
+    const [nowMin, setNowMin] = useState(() => nowMinutes())
+    useEffect(() => {
+        const id = setInterval(() => setNowMin(nowMinutes()), 60_000)
+        return () => clearInterval(id)
+    }, [])
+
+    // Pre-dawn: after midnight but before the day has officially begun.
+    const isPreDawn = nowMin < dayStartMin
+    const inWindow = nowMin >= eveningMin || isPreDawn
+
+    // Only meaningful while looking at today — "tomorrow" relative to a date
+    // you're browsing isn't something you can prepare for.
+    const show = date === todayKey() && inWindow
+    // Evening → prepare for the next calendar day. Pre-dawn → the day about to
+    // start *is* the calendar's "today".
+    const target = isPreDawn ? todayKey() : addDays(todayKey(), 1)
+
+    return { show, target }
+}
+
+/**
+ * Evening wind-down for the dashboard. Renders a brief for the day about to
+ * begin — see {@link useTomorrowVisible} for when it appears. Fetches its own
  * forecast and day items so the dashboard can just drop it in.
  */
 export default function TomorrowWidget({ date = todayKey() }: { date?: string }) {
@@ -413,18 +460,7 @@ export default function TomorrowWidget({ date = todayKey() }: { date?: string })
     const { byId: calendarsById } = useCalendars()
     const tasksVersion = useDataVersion('tasks')
 
-    // Re-checked each minute so 7pm arriving reveals the section on a page
-    // that's been sitting open all evening.
-    const [hour, setHour] = useState(() => new Date().getHours())
-    useEffect(() => {
-        const id = setInterval(() => setHour(new Date().getHours()), 60_000)
-        return () => clearInterval(id)
-    }, [])
-
-    // Only meaningful while looking at today — "tomorrow" relative to a date
-    // you're browsing isn't something you can prepare for.
-    const show = date === todayKey() && hour >= EVENING_HOUR
-    const tomorrow = addDays(date, 1)
+    const { show, target } = useTomorrowVisible(date)
 
     const [forecast, setForecast] = useState<Forecast | null>(null)
     useEffect(() => {
@@ -443,23 +479,23 @@ export default function TomorrowWidget({ date = todayKey() }: { date?: string })
         if (!show) return
         let active = true
         Promise.all([
-            listEvents(tomorrow, tomorrow).catch(() => [] as Event[]),
-            listTasks(tomorrow, tomorrow).catch(() => [] as Task[]),
-            listReminders(tomorrow, tomorrow).catch(() => [] as Reminder[]),
-            listStatuses(tomorrow, tomorrow).catch(() => [] as DayStatus[]),
+            listEvents(target, target).catch(() => [] as Event[]),
+            listTasks(target, target).catch(() => [] as Task[]),
+            listReminders(target, target).catch(() => [] as Reminder[]),
+            listStatuses(target, target).catch(() => [] as DayStatus[]),
         ]).then(([events, tasks, reminders, statuses]) => {
             if (active) setData({ events, tasks, reminders, statuses })
         })
         return () => {
             active = false
         }
-    }, [show, tomorrow, tasksVersion])
+    }, [show, target, tasksVersion])
 
     if (!show) return null
 
     return (
         <TomorrowBrief
-            date={tomorrow}
+            date={target}
             forecast={forecast}
             data={data}
             calendarsById={calendarsById}

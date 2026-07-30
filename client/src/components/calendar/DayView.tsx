@@ -285,13 +285,13 @@ function PartRow({ label, icon, events, date, past = false, onEdit, onAdd }: Par
         <div
             className={[
                 'flex w-full items-start gap-4 rounded-2xl border p-4 text-left',
-                past ? 'border-red-200 bg-red-100/60' : 'border-neutral-200 bg-white',
+                past ? 'border-neutral-300 bg-neutral-200/70' : 'border-neutral-200 bg-white',
             ].join(' ')}
         >
             <span
                 className={[
                     'mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl',
-                    past ? 'bg-red-200/60 text-red-400' : 'bg-neutral-100 text-neutral-500',
+                    past ? 'bg-neutral-200 text-neutral-400' : 'bg-neutral-100 text-neutral-500',
                 ].join(' ')}
             >
                 <i className={icon} aria-hidden="true" />
@@ -350,7 +350,7 @@ function PartRow({ label, icon, events, date, past = false, onEdit, onAdd }: Par
                     )
                 })}
 
-                {past && events.length === 0 && <p className="mt-1 text-sm text-red-400">In the past</p>}
+                {past && events.length === 0 && <p className="mt-1 text-sm text-neutral-400">In the past</p>}
 
                 {!past && (
                     <button

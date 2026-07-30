@@ -152,7 +152,7 @@ export default function WeekView({
                                             className={[
                                                 `${CELL_H} border-l border-neutral-100 p-0.5 align-top`,
                                                 past
-                                                    ? 'bg-red-100/60'
+                                                    ? 'bg-neutral-300/60'
                                                     : weekend
                                                       ? 'bg-neutral-100/60'
                                                       : '',

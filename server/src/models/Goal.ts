@@ -3,6 +3,9 @@ import { Schema, model, Document, Types } from 'mongoose'
 export const GOAL_STATUSES = ['active', 'completed', 'abandoned'] as const
 export type GoalStatus = (typeof GOAL_STATUSES)[number]
 
+export const PROGRESS_MODES = ['manual', 'auto'] as const
+export type ProgressMode = (typeof PROGRESS_MODES)[number]
+
 export interface IMilestone {
     _id: Types.ObjectId
     title: string
@@ -18,6 +21,12 @@ export interface IGoal extends Document {
     progress: number // 0–100
     status: GoalStatus
     milestones: IMilestone[]
+    /** How `progress` is determined: 'manual' (slider) or 'auto' (derived from linked habits). */
+    progressMode: ProgressMode
+    /** Habits whose completion rate drives progress when progressMode is 'auto'. */
+    linkedHabits: Types.ObjectId[]
+    /** Window start (YYYY-MM-DD) for the consistency calculation. Defaults to the goal's creation date. */
+    startDate?: string
     createdAt: Date
     updatedAt: Date
 }
@@ -40,6 +49,9 @@ const goalSchema = new Schema<IGoal>(
         progress: { type: Number, default: 0, min: 0, max: 100 },
         status: { type: String, enum: GOAL_STATUSES, default: 'active' },
         milestones: { type: [milestoneSchema], default: [] },
+        progressMode: { type: String, enum: PROGRESS_MODES, default: 'manual' },
+        linkedHabits: { type: [{ type: Schema.Types.ObjectId, ref: 'HabitDef' }], default: [] },
+        startDate: { type: String },
     },
     { timestamps: true }
 )

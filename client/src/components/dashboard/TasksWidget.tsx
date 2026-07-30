@@ -6,7 +6,7 @@ export default function TasksWidget({ date = todayKey() }: { date?: string }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Tasks</CardTitle>
+                <CardTitle>{date === todayKey() ? "Today's tasks" : 'Tasks'}</CardTitle>
             </CardHeader>
             <TasksDaySection date={date} />
         </Card>

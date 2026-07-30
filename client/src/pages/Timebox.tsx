@@ -398,13 +398,14 @@ export default function Timebox() {
             ) : (
                 <div className="flex flex-col gap-6 lg:flex-row">
                     <div className="min-w-0 flex-1">
-                        <div className="relative flex rounded-3xl bg-white px-3 py-6 ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:px-4 sm:py-7">
-                            {/* Hour labels */}
-                            <div className="relative w-12 shrink-0 sm:w-14" style={{ height: totalHeight }}>
-                                {hourLines.map((m) => (
+                        <div className="relative flex gap-3">
+                            {/* Hour labels — sit on the page background, aligned to the
+                                gridlines of the white timeline beside them. */}
+                            <div className="relative w-11 shrink-0" style={{ height: totalHeight }}>
+                                {hourLines.map((m, i) => (
                                     <span
                                         key={m}
-                                        className="absolute right-3 -translate-y-1/2 text-[11px] font-semibold tabular-nums text-neutral-400"
+                                        className={`absolute right-0 text-[11px] font-semibold tabular-nums text-neutral-400 ${i === 0 ? '' : '-translate-y-1/2'}`}
                                         style={{ top: (m - wakeMin) * PX_PER_MIN }}
                                     >
                                         {minutesToTime(m)}
@@ -412,13 +413,13 @@ export default function Timebox() {
                                 ))}
                             </div>
 
-                            {/* Timeline */}
+                            {/* Timeline — the white "timebox" surface */}
                             <div
                                 onClick={handleBackgroundClick}
                                 onDragOver={handleDragOver}
                                 onDragLeave={handleDragLeave}
                                 onDrop={handleDrop}
-                                className="relative flex-1 cursor-copy border-l border-neutral-200/70"
+                                className="relative flex-1 cursor-copy overflow-hidden bg-white ring-1 ring-black/[0.03] shadow-sm"
                                 style={{ height: totalHeight }}
                             >
                                 {/* Working hours band */}
@@ -456,7 +457,7 @@ export default function Timebox() {
                                 {/* Drop preview */}
                                 {dragPreview && (
                                     <div
-                                        className="pointer-events-none absolute left-1.5 right-1.5 z-20 rounded-lg border-2 border-dashed border-neutral-400 bg-neutral-200/60"
+                                        className="pointer-events-none absolute left-2 right-2 z-20 rounded-lg border-2 border-dashed border-neutral-400 bg-neutral-200/60"
                                         style={dragPreview}
                                     />
                                 )}
@@ -507,7 +508,7 @@ export default function Timebox() {
                                             onPointerUp={handleBlockPointerUp}
                                             onPointerCancel={handleBlockPointerCancel}
                                             className={[
-                                                'absolute left-1.5 right-1.5 flex flex-col items-center justify-center overflow-hidden rounded-lg border px-2 py-1 text-center',
+                                                'absolute left-2 right-2 flex flex-col items-center justify-center overflow-hidden rounded-lg border px-2 py-1 text-center',
                                                 movable
                                                     ? 'cursor-grab touch-none select-none active:cursor-grabbing'
                                                     : '',
@@ -582,7 +583,7 @@ export default function Timebox() {
                                                 dragTaskRef.current = null
                                                 setDragPreview(null)
                                             }}
-                                            className="flex cursor-grab items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 transition-colors hover:border-neutral-300 hover:bg-neutral-100 active:cursor-grabbing"
+                                            className="flex cursor-grab items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 transition-colors hover:border-neutral-300 hover:bg-neutral-50 active:cursor-grabbing"
                                         >
                                             <i
                                                 className="fa-solid fa-grip-vertical text-xs text-neutral-300"

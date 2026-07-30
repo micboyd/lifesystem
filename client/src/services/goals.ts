@@ -7,6 +7,9 @@ export interface GoalInput {
     targetDate?: string
     progress?: number
     status?: Goal['status']
+    progressMode?: Goal['progressMode']
+    linkedHabits?: string[]
+    startDate?: string
 }
 
 export async function listGoals(): Promise<Goal[]> {

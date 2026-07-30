@@ -11,7 +11,7 @@ import {
     listBudgetExclusions,
     listBudgetTopUps,
 } from '../../services/finances'
-import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, clampedWeekRange } from '../../lib/budget'
+import { computeBudgetDay, computeBudgetWeek, monthOf, dayNumOf, clampedWeekRange, activeDaysBetween } from '../../lib/budget'
 import { spendSummary } from '../../lib/budgetDiscipline'
 import Select from '../Select'
 import { rowVisibleInMonth, recurringAmountForMonth } from '../../lib/finance'
@@ -25,6 +25,27 @@ const fmt = formatAmount
 
 /** Sentinel filter value for the pooled "all budgets" view. */
 const TOTAL = '__total__'
+
+/**
+ * Day-off state for a budget column — shown when the day (or the whole clamped
+ * week) is excluded. Excluded days carry no allowance by design, so we surface
+ * that plainly instead of a confusing £0 target.
+ */
+function DayOffNotice({ label, scope }: { label: string; scope: 'day' | 'week' }) {
+    return (
+        <div className="flex items-center gap-2.5 rounded-xl bg-neutral-50 px-3 py-3 ring-1 ring-black/[0.04]">
+            <i className="fa-solid fa-plane-departure text-sm text-neutral-400" aria-hidden="true" />
+            <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Day off — no budget
+                </p>
+                <p className="mt-0.5 text-[11px] text-neutral-400">
+                    {scope === 'week' ? `${label} · every day excluded` : label}
+                </p>
+            </div>
+        </div>
+    )
+}
 
 // ── Per-budget column ─────────────────────────────────────────────────────────
 
@@ -41,22 +62,50 @@ function BudgetCol({ row, entry, rowSpends, rowTopUps, date, excludedDates }: Bu
     const dayNum = dayNumOf(date)
     const { monthlyAmount, straightDailyRate, carry, spentToday, remaining, monthlyRemaining } =
         computeBudgetDay(row, entry, rowSpends, date, excludedDates, rowTopUps)
+    // A day off carries no allowance — its spend belongs to the day-off pot, not
+    // this budget — so show the day-off state rather than a bare £0 target.
+    const isExcluded = excludedDates.has(date)
+
+    if (isExcluded) {
+        const dayLabel = new Date(`${date}T00:00:00`).toLocaleDateString('default', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+        })
+        return (
+            <div className="flex flex-1 basis-64 flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.06]">
+                <p className="text-sm font-bold text-neutral-800 truncate">{row.name}</p>
+                <DayOffNotice label={dayLabel} scope="day" />
+                {monthlyAmount > 0 && (
+                    <p
+                        className={[
+                            'text-xs font-semibold',
+                            monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400',
+                        ].join(' ')}
+                    >
+                        £{fmt(Math.abs(monthlyRemaining))}{' '}
+                        {monthlyRemaining < 0 ? 'over monthly budget' : 'left this month'}
+                    </p>
+                )}
+            </div>
+        )
+    }
 
     return (
-        <div className="flex flex-1 basis-64 flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
+        <div className="flex flex-1 basis-64 flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.06]">
             <p className="text-sm font-bold text-neutral-800 truncate">{row.name}</p>
 
-            {/* Dark allowance block — fixed daily rate is the target */}
-            <div className="rounded-xl bg-neutral-950 px-3 py-2.5 text-white">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+            {/* Allowance highlight — fixed daily rate is the target */}
+            <div className="rounded-xl bg-white px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-coral-600">
                     Daily target
                 </p>
-                <p className="mt-0.5 text-xl font-bold tabular-nums">
+                <p className="mt-0.5 text-xl font-bold tabular-nums text-neutral-900">
                     £{fmt(straightDailyRate)}
                 </p>
                 {dayNum > 1 && (
                     <p
-                        className={`mt-1 text-[11px] font-semibold ${carry >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                        className={`mt-1 text-[11px] font-semibold ${carry >= 0 ? 'text-emerald-600' : 'text-red-600'}`}
                     >
                         {carry >= 0 ? `+£${fmt(carry)} carry` : `-£${fmt(Math.abs(carry))} deficit`}
                     </p>
@@ -139,25 +188,43 @@ function WeeklyBudgetCol({ row, entry, rowSpends, rowTopUps, date, excludedDates
         const mon = e.toLocaleString('default', { month: 'short' })
         return `${sDay}–${eDay} ${mon}`
     })()
+    // Every day of this (clamped) week is a day off, so there's no allowance to
+    // spread — a £0 target would just read as broken. Show the day-off state.
+    const allExcluded = activeDaysBetween(wStart, wEnd, excludedDates) === 0
     const spentPct = (weeklyRate + carry) > 0
         ? Math.min(100, (spentThisWeek / (weeklyRate + carry)) * 100)
         : spentThisWeek > 0 ? 100 : 0
 
+    if (allExcluded) {
+        return (
+            <div className="flex flex-1 basis-64 flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.06]">
+                <p className="text-sm font-bold text-neutral-800 truncate">{row.name}</p>
+                <DayOffNotice label={weekLabel} scope="week" />
+                {monthlyAmount > 0 && (
+                    <p className={['text-xs font-semibold', monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400'].join(' ')}>
+                        £{fmt(Math.abs(monthlyRemaining))}{' '}
+                        {monthlyRemaining < 0 ? 'over monthly budget' : 'left this month'}
+                    </p>
+                )}
+            </div>
+        )
+    }
+
     return (
-        <div className="flex flex-1 basis-64 flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
+        <div className="flex flex-1 basis-64 flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.06]">
             <p className="text-sm font-bold text-neutral-800 truncate">{row.name}</p>
 
-            {/* Dark weekly allowance block */}
-            <div className="rounded-xl bg-neutral-950 px-3 py-2.5 text-white">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+            {/* Weekly allowance highlight */}
+            <div className="rounded-xl bg-white px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-coral-600">
                     Weekly target
                 </p>
-                <p className="mt-0.5 text-xl font-bold tabular-nums">
+                <p className="mt-0.5 text-xl font-bold tabular-nums text-neutral-900">
                     £{fmt(weeklyRate)}
                 </p>
-                <p className="mt-1 text-[10px] text-neutral-500">{weekLabel}</p>
+                <p className="mt-1 text-[10px] text-neutral-400">{weekLabel}</p>
                 {carry !== 0 && (
-                    <p className={`mt-1 text-[11px] font-semibold ${carry >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <p className={`mt-1 text-[11px] font-semibold ${carry >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {carry >= 0 ? `+£${fmt(carry)} carry` : `-£${fmt(Math.abs(carry))} deficit`}
                     </p>
                 )}
@@ -198,8 +265,15 @@ function WeeklyBudgetCol({ row, entry, rowSpends, rowTopUps, date, excludedDates
 
 // ── Main widget ───────────────────────────────────────────────────────────────
 
-export default function BudgetWidget({ date }: { date: string }) {
+/**
+ * `cadence` picks the lens: 'today' pools the daily-tracked budgets on their
+ * today allowance; 'week' pools the weekly-tracked budgets on their week
+ * allowance. Splitting them lets the dashboard show "today only" up top and the
+ * weekly outlook lower down.
+ */
+export default function BudgetWidget({ date, cadence = 'today' }: { date: string; cadence?: 'today' | 'week' }) {
     useMoneyHidden() // re-render when money is hidden/shown
+    const isWeek = cadence === 'week'
     const [groups, setGroups] = useState<FinanceGroup[]>([])
     const [rows, setRows] = useState<FinanceRow[]>([])
     const [entries, setEntries] = useState<FinanceEntry[]>([])
@@ -257,50 +331,82 @@ export default function BudgetWidget({ date }: { date: string }) {
     const dailyRows = budgetedRows.filter((r) => r.budgetType === 'daily')
     const weeklyRows = budgetedRows.filter((r) => r.budgetType === 'weekly')
     const trackedRows = [...weeklyRows, ...dailyRows]
-    const hasAmounts = trackedRows.some((r) => {
+    // 'today' is one pooled figure across *every* budget (daily rows on their
+    // daily rate, weekly rows on today's share of the week) — the tracking type
+    // doesn't matter, only "what can I spend today". 'week' is the weekly budgets.
+    const cadenceRows = isWeek ? weeklyRows : trackedRows
+    const hasAmounts = cadenceRows.some((r) => {
         const entry = entries.find((e) => e.row === r._id)
         return (entry?.amount ?? recurringAmountForMonth(r, month) ?? 0) > 0
     })
 
     // Pooled headline via the shared engine, so this widget agrees with the pill,
-    // the insights strip and the Daily Report. Weekly budgets pull the whole
-    // headline onto the week lens (a single cadence — never mixing today + week);
-    // with only daily budgets it's the today lens.
+    // the insights strip and the Daily Report. 'today' pools every budget on its
+    // today lens; 'week' pools the weekly budgets on their week lens.
     const summary = spendSummary(groups, rows, { entries, spends, excluded: excludedDates, topUps }, date)
-    const lens = weeklyRows.length > 0 ? summary.week : summary.today
+    const cadencePerRow = isWeek
+        ? summary.perRow.filter((r) => r.row.budgetType === 'weekly')
+        : summary.perRow
+    const lens = cadencePerRow.reduce(
+        (acc, r) => {
+            const l = isWeek ? r.week : r.today
+            acc.allowance += l.allowance
+            acc.spent += l.spent
+            acc.safe += l.safe
+            return acc
+        },
+        { allowance: 0, spent: 0, safe: 0 }
+    )
     const totals = {
         allowance: lens.allowance,
         spent: lens.spent,
         remaining: lens.safe,
-        monthlyRemaining: summary.monthlyRemaining,
+        monthlyRemaining: cadencePerRow.reduce((a, r) => a + r.day.monthlyRemaining, 0),
     }
-    const allowanceLabel =
-        weeklyRows.length > 0 && dailyRows.length === 0
-            ? 'Weekly allowance'
-            : dailyRows.length > 0 && weeklyRows.length === 0
-              ? 'Daily allowance'
-              : weeklyRows.length > 0
-                ? 'Allowance this week'
-                : 'Allowance'
+    // A day off means the whole clamped week (weekly) or just today (daily) is
+    // excluded, and the £0 allowance needs that context.
+    const pooledAllExcluded = isWeek
+        ? (() => {
+              const { weekStart, weekEnd } = clampedWeekRange(date)
+              return activeDaysBetween(weekStart, weekEnd, excludedDates) === 0
+          })()
+        : excludedDates.has(date)
+    const pooledDayOffLabel = (() => {
+        if (isWeek) {
+            const { weekStart, weekEnd } = clampedWeekRange(date)
+            const s = new Date(`${weekStart}T00:00:00`)
+            const e = new Date(`${weekEnd}T00:00:00`)
+            return `${s.getDate()}–${e.getDate()} ${e.toLocaleString('default', { month: 'short' })}`
+        }
+        return new Date(`${date}T00:00:00`).toLocaleDateString('default', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+        })
+    })()
+    const allowanceLabel = isWeek ? 'Allowance this week' : 'Safe to spend today'
 
-    // Filter options — "all budgets" plus one entry per tracked row. Fall back to
-    // the total if the selected row isn't present this month.
+    // Per-budget drill-down is only offered on the weekly widget — 'today' is a
+    // single pooled figure, so it never filters to one budget.
     const filterOptions = [
         { label: 'All budgets — total', value: TOTAL },
-        ...trackedRows.map((r) => ({ label: r.name, value: r._id })),
+        ...cadenceRows.map((r) => ({ label: r.name, value: r._id })),
     ]
-    const selectedValue =
-        selected !== TOTAL && !trackedRows.some((r) => r._id === selected) ? TOTAL : selected
-    const selectedRow = selectedValue === TOTAL ? null : trackedRows.find((r) => r._id === selectedValue)!
+    const selectedValue = !isWeek
+        ? TOTAL
+        : selected !== TOTAL && !cadenceRows.some((r) => r._id === selected)
+          ? TOTAL
+          : selected
+    const selectedRow = selectedValue === TOTAL ? null : cadenceRows.find((r) => r._id === selectedValue)!
 
     return (
         <Card>
             <CardHeader className="flex items-start justify-between gap-4">
                 <div>
-                    <CardTitle>Budget</CardTitle>
+                    <CardTitle>{isWeek ? 'Weekly budget' : 'Budget'}</CardTitle>
                     <p className="mt-0.5 text-sm text-neutral-400">
-                        {trackedRows.length > 0
-                            ? `${weeklyRows.length > 0 ? 'Weekly' : 'Daily'} spend across ${trackedRows.length} budget${trackedRows.length !== 1 ? 's' : ''}`
+                        {cadenceRows.length > 0
+                            ? `${isWeek ? 'Weekly spend across' : 'Across'} ${cadenceRows.length} budget${cadenceRows.length !== 1 ? 's' : ''}`
                             : 'Spend tracker'}
                     </p>
                 </div>
@@ -323,20 +429,19 @@ export default function BudgetWidget({ date }: { date: string }) {
                         Add some on the Budgets tab.
                     </Link>
                 </p>
-            ) : trackedRows.length === 0 ? (
+            ) : cadenceRows.length === 0 ? (
                 <p className="py-4 text-sm text-neutral-400">
-                    You have {budgetedRows.length} budget{budgetedRows.length !== 1 ? 's' : ''} but
-                    none have weekly or daily tracking on.{' '}
+                    {isWeek ? 'No weekly-tracked budgets for the week ahead.' : 'No tracked budgets for today.'}{' '}
                     <Link
                         to="/finances/budgets"
                         className="font-semibold text-neutral-600 underline underline-offset-2"
                     >
-                        Enable tracking on a card.
+                        {isWeek ? 'Enable weekly tracking on a card.' : 'Turn on tracking for a budget.'}
                     </Link>
                 </p>
             ) : !hasAmounts ? (
                 <p className="py-4 text-sm text-neutral-400">
-                    No amounts set on your daily budgets yet.{' '}
+                    No amounts set on your {isWeek ? 'weekly ' : ''}budgets yet.{' '}
                     <Link
                         to="/finances/budgets"
                         className="font-semibold text-neutral-600 underline underline-offset-2"
@@ -346,8 +451,9 @@ export default function BudgetWidget({ date }: { date: string }) {
                 </p>
             ) : (
                 <div className="flex flex-col gap-4">
-                    {/* Filter — show the pooled total or a single budget */}
-                    {trackedRows.length > 1 && (
+                    {/* Filter — only the weekly widget drills into a single budget;
+                        'today' is always the pooled single figure. */}
+                    {isWeek && cadenceRows.length > 1 && (
                         <Select
                             value={selectedValue}
                             onChange={setSelected}
@@ -356,20 +462,49 @@ export default function BudgetWidget({ date }: { date: string }) {
                         />
                     )}
 
-                    {selectedRow === null ? (
+                    {selectedRow === null && pooledAllExcluded ? (
+                        /* Whole period is a day off — no allowance to pool */
+                        <div className="rounded-2xl bg-white p-5 ring-1 ring-black/[0.06]">
+                            <DayOffNotice
+                                label={pooledDayOffLabel}
+                                scope={isWeek ? 'week' : 'day'}
+                            />
+                            {totals.monthlyRemaining !== 0 && (
+                                <p
+                                    className={`mt-3 text-[11px] font-semibold ${totals.monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400'}`}
+                                >
+                                    £{fmt(Math.abs(totals.monthlyRemaining))}{' '}
+                                    {totals.monthlyRemaining < 0 ? 'over this month' : 'left this month'}
+                                </p>
+                            )}
+                        </div>
+                    ) : selectedRow === null ? (
                         /* Pooled total across every tracked budget */
-                        <div className="rounded-2xl bg-neutral-950 p-5 text-white">
+                        <div className="rounded-2xl bg-white p-5 ring-1 ring-black/[0.06]">
                             <div className="flex items-end justify-between gap-4">
                                 <div>
-                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-coral-600">
                                         {allowanceLabel}
                                     </p>
-                                    <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
-                                        £{fmt(totals.allowance)}
+                                    {/* 'today' leads with what's left to spend — the single
+                                        actionable figure. 'week' leads with the allowance. */}
+                                    <p
+                                        className={`mt-1 text-3xl font-bold tabular-nums tracking-tight ${
+                                            isWeek
+                                                ? 'text-neutral-900'
+                                                : totals.remaining >= 0
+                                                  ? 'text-emerald-600'
+                                                  : 'text-red-500'
+                                        }`}
+                                    >
+                                        £{fmt(Math.abs(isWeek ? totals.allowance : totals.remaining))}
+                                        {!isWeek && totals.remaining < 0 && (
+                                            <span className="ml-1 text-base font-normal">over</span>
+                                        )}
                                     </p>
                                     {totals.monthlyRemaining !== 0 && (
                                         <p
-                                            className={`mt-0.5 text-[11px] font-semibold ${totals.monthlyRemaining < 0 ? 'text-red-400' : 'text-neutral-500'}`}
+                                            className={`mt-0.5 text-[11px] font-semibold ${totals.monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400'}`}
                                         >
                                             £{fmt(Math.abs(totals.monthlyRemaining))}{' '}
                                             {totals.monthlyRemaining < 0 ? 'over this month' : 'left this month'}
@@ -377,26 +512,32 @@ export default function BudgetWidget({ date }: { date: string }) {
                                     )}
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-                                        Remaining
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-coral-600">
+                                        {isWeek ? 'Remaining' : 'Budget today'}
                                     </p>
-                                    <p
-                                        className={`mt-1 text-xl font-bold tabular-nums ${totals.remaining >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
-                                    >
-                                        £{fmt(Math.abs(totals.remaining))}
-                                        {totals.remaining < 0 && <span className="ml-1 text-xs font-normal">over</span>}
-                                    </p>
+                                    {isWeek ? (
+                                        <p
+                                            className={`mt-1 text-xl font-bold tabular-nums ${totals.remaining >= 0 ? 'text-emerald-600' : 'text-red-500'}`}
+                                        >
+                                            £{fmt(Math.abs(totals.remaining))}
+                                            {totals.remaining < 0 && <span className="ml-1 text-xs font-normal">over</span>}
+                                        </p>
+                                    ) : (
+                                        <p className="mt-1 text-xl font-bold tabular-nums text-neutral-700">
+                                            £{fmt(totals.allowance)}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="mt-4">
-                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
                                     <div
-                                        className={`h-full rounded-full transition-all duration-300 ${totals.remaining >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`}
+                                        className={`h-full rounded-full transition-all duration-300 ${totals.remaining >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
                                         style={{ width: `${Math.min(100, (totals.spent / (totals.allowance || 1)) * 100)}%` }}
                                     />
                                 </div>
-                                <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-400">
+                                <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-500">
                                     <span>£{fmt(totals.spent)} spent</span>
                                     <span>£{fmt(totals.allowance)}</span>
                                 </div>
@@ -405,7 +546,7 @@ export default function BudgetWidget({ date }: { date: string }) {
                     ) : (
                         /* Single chosen budget */
                         <div className="flex">
-                            {selectedRow.budgetType === 'weekly' ? (
+                            {isWeek ? (
                                 <WeeklyBudgetCol
                                     row={selectedRow}
                                     entry={entries.find((e) => e.row === selectedRow._id)}

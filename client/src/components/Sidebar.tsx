@@ -10,6 +10,7 @@ const navItems = [
     { label: 'Finances', to: '/finances', icon: 'fa-wallet' },
     { label: 'Timebox', to: '/timebox', icon: 'fa-table-cells-large' },
     { label: 'Habits', to: '/habits', icon: 'fa-repeat' },
+    { label: 'Goals', to: '/goals', icon: 'fa-bullseye' },
     { label: 'Training', to: '/study', icon: 'fa-graduation-cap' },
     { label: 'Notes', to: '/notes', icon: 'fa-note-sticky' },
     { label: 'Weather', to: '/weather', icon: 'fa-cloud-sun' },

@@ -4,10 +4,8 @@ import { Card, CardAction, CardHeader, CardTitle, CardFooter } from '../Card'
 import Spinner from '../Spinner'
 import {
     PERIODS,
-    WEEKDAYS_LONG,
     todayKey,
     formatDateLong,
-    parseDateKey,
     eventCoversSlot,
     eventCoversAllDay,
 } from '../../lib/calendar'
@@ -20,9 +18,6 @@ import type { Event, Part } from '../../types'
 export default function TodayWidget({ date = todayKey() }: { date?: string }) {
     const [events, setEvents] = useState<Event[]>([])
     const [loading, setLoading] = useState(true)
-    const isToday = date === todayKey()
-    const { year, month, day } = parseDateKey(date)
-    const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
 
     useEffect(() => {
         let active = true
@@ -41,7 +36,7 @@ export default function TodayWidget({ date = todayKey() }: { date?: string }) {
         <Card>
             <CardHeader className="flex items-start justify-between gap-4">
                 <div>
-                    <CardTitle>{isToday ? 'Today' : weekday}</CardTitle>
+                    <CardTitle>Events</CardTitle>
                     <p className="mt-0.5 text-sm text-neutral-400">{formatDateLong(date)}</p>
                 </div>
                 <CardAction to={`/day/${date}`} className="mt-1">
