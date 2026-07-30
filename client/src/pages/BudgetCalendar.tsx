@@ -332,6 +332,17 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
     const barTone: BarTone = overBudget ? 'red' : overTarget ? 'amber' : 'emerald'
     const showBar = !data.excluded && !isFuture && allowance > 0
 
+    // Weekday label for the mobile list row (Mon-first), since that layout has no
+    // column headers to lean on.
+    const weekdayShort = WEEKDAYS[(new Date(data.date + 'T00:00:00').getDay() + 6) % 7]
+    const mobileDayTone = isToday
+        ? 'text-neutral-950'
+        : isFuture
+          ? 'text-neutral-400'
+          : data.excluded
+            ? 'text-neutral-400'
+            : 'text-neutral-800'
+
     let bg = 'bg-white'
     if (data.excluded) bg = 'bg-neutral-50'
     else if (!isFuture) {
@@ -351,18 +362,72 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
             type="button"
             onClick={onClick}
             className={[
-                'flex flex-col rounded-xl md:rounded-2xl border text-left w-full transition-all duration-150',
-                'p-1.5 md:p-3 min-h-[56px] md:min-h-[170px] gap-1 md:gap-2',
+                'flex flex-col justify-center md:justify-start rounded-xl md:rounded-2xl border text-left w-full transition-all duration-150',
+                'px-3 py-2.5 md:p-3 min-h-[56px] md:min-h-[170px] gap-1 md:gap-2',
                 isToday ? 'border-neutral-950 ring-2 ring-neutral-950/10' : 'border-neutral-200',
                 bg,
                 'hover:border-neutral-400',
             ].join(' ')}
         >
-            {/* Day number + excluded badge */}
-            <div className="flex items-center justify-between gap-1">
+            {/* Mobile / small-tablet: full-width list row — weekday + date on the
+                left, spend bar and figures on the right. */}
+            <div className="flex md:hidden w-full items-center gap-3">
+                <div className="flex w-16 shrink-0 items-baseline gap-1.5">
+                    <span className={`text-[11px] font-semibold uppercase tracking-wide ${isToday ? 'text-neutral-950' : 'text-neutral-400'}`}>
+                        {weekdayShort}
+                    </span>
+                    <span className={`text-base font-bold leading-none ${mobileDayTone}`}>
+                        {dayNum}
+                    </span>
+                </div>
+
+                {data.excluded ? (
+                    <div className="flex flex-1 items-center justify-between gap-2">
+                        <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                                data.pot ? 'bg-sky-100 text-sky-600' : 'bg-neutral-200 text-neutral-500'
+                            }`}
+                        >
+                            {data.pot ? 'Pot' : 'Excl.'}
+                        </span>
+                        {data.pot ? (
+                            <span className={`text-xs font-semibold tabular-nums ${data.pot.remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                {data.pot.remaining < 0 ? '-' : ''}£{fmt(Math.abs(data.pot.remaining))} left
+                            </span>
+                        ) : (
+                            <span className="text-xs text-neutral-400">Outside budget</span>
+                        )}
+                    </div>
+                ) : isFuture ? (
+                    <div className="flex flex-1 items-center justify-end">
+                        {data.dailyRate > 0 && (
+                            <span className="text-xs font-semibold tabular-nums text-neutral-300">
+                                £{fmt(data.dailyRate)}/day
+                            </span>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex-1">
+                            {showBar && <CellBar pct={spendPct} tone={barTone} />}
+                        </div>
+                        <div className="flex shrink-0 items-baseline gap-3">
+                            <span className="text-xs font-semibold tabular-nums text-neutral-500">
+                                {hasSpend ? `£${fmt(data.spent)}` : '—'}
+                            </span>
+                            <span className={`w-16 text-right text-sm font-bold tabular-nums ${remainingColor}`}>
+                                {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
+                            </span>
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Day number + excluded badge (calendar cell, md+) */}
+            <div className="hidden md:flex items-center justify-between gap-1">
                 <span
                     className={[
-                        'text-xs md:text-sm font-bold leading-none',
+                        'text-sm font-bold leading-none',
                         isToday
                             ? 'text-neutral-950'
                             : isFuture
@@ -376,7 +441,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                 </span>
                 {data.excluded && (
                     <span
-                        className={`hidden md:inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                        className={`inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
                             data.pot ? 'bg-sky-100 text-sky-600' : 'bg-neutral-200 text-neutral-500'
                         }`}
                     >
@@ -384,35 +449,6 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                     </span>
                 )}
             </div>
-
-            {/* Compact (phone / small tablet): bar + spent + remaining — shown even
-                with nothing spent yet, so the carried-forward allowance still reads. */}
-            {!isFuture && !data.excluded && (
-                <div className="flex md:hidden flex-col items-stretch gap-1 mt-auto">
-                    {showBar && <CellBar pct={spendPct} tone={barTone} />}
-                    <div className="flex items-center justify-between gap-1">
-                        <span className="text-[10px] font-semibold tabular-nums text-neutral-500">
-                            {hasSpend ? `£${fmt(data.spent)}` : '—'}
-                        </span>
-                        <span className={`text-[10px] font-semibold tabular-nums ${remainingColor}`}>
-                            {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
-                        </span>
-                    </div>
-                </div>
-            )}
-
-            {/* Compact: pot remaining for excluded days with an assigned budget */}
-            {data.excluded && data.pot && (
-                <div className="flex md:hidden mt-auto">
-                    <span
-                        className={`text-[10px] font-semibold tabular-nums ${
-                            data.pot.remaining < 0 ? 'text-red-500' : 'text-emerald-600'
-                        }`}
-                    >
-                        {data.pot.remaining < 0 ? '-' : ''}£{fmt(Math.abs(data.pot.remaining))}
-                    </span>
-                </div>
-            )}
 
             {/* Detail content — hidden on phones/small tablets, shown on md+ */}
             {!data.excluded && (
@@ -2005,17 +2041,17 @@ export default function BudgetCalendar() {
                     </div>
 
                     {view === 'daily' ? (
-                        <div className="grid grid-cols-7 gap-2">
+                        <div className="flex flex-col gap-2 md:grid md:grid-cols-7 md:gap-2">
                             {WEEKDAYS.map((wd) => (
                                 <div
                                     key={wd}
-                                    className="pb-1 md:pb-2 text-center text-[9px] md:text-xs font-bold uppercase tracking-wide text-neutral-400"
+                                    className="hidden md:block pb-1 md:pb-2 text-center text-[9px] md:text-xs font-bold uppercase tracking-wide text-neutral-400"
                                 >
                                     {wd.slice(0, 1)}<span className="hidden md:inline">{wd.slice(1)}</span>
                                 </div>
                             ))}
                             {Array.from({ length: offset }).map((_, i) => (
-                                <div key={`pad-${i}`} />
+                                <div key={`pad-${i}`} className="hidden md:block" />
                             ))}
                             {dayData.map((data) => (
                                 <DayCell
@@ -2028,7 +2064,7 @@ export default function BudgetCalendar() {
                             ))}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
                             {weekGroups.map((w, i) => (
                                 <WeekCell
                                     key={i}

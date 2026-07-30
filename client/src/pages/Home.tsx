@@ -16,7 +16,7 @@ export default function Home() {
     const { show: showTomorrow } = useTomorrowVisible(date)
 
     return (
-        <Container as="main" fluid className="py-8 sm:py-10">
+        <Container as="main" className="py-8 sm:py-10">
             {/* Greeting + date nav */}
             <div className="flex flex-wrap items-end justify-between gap-4">
                 <DashboardHeader />
