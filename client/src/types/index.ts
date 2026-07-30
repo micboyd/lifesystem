@@ -632,6 +632,8 @@ export interface HabitDef {
     _id: string
     name: string
     description?: string
+    /** Font Awesome class for the tile icon, e.g. "fa-solid fa-dumbbell". */
+    icon?: string
     order: number
     active: boolean
     createdAt: string

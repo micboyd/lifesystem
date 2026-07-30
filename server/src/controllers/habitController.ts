@@ -24,12 +24,14 @@ export async function createHabit(req: AuthRequest, res: Response) {
     }
     const description =
         typeof req.body.description === 'string' ? req.body.description.trim() : undefined
+    const icon =
+        typeof req.body.icon === 'string' && req.body.icon.trim() ? req.body.icon.trim() : undefined
 
     // Place at the end of the current list
     const last = await HabitDef.findOne({ user: req.userId }).sort({ order: -1 })
     const order = last ? last.order + 1 : 0
 
-    const habit = await HabitDef.create({ user: req.userId, name, description, order })
+    const habit = await HabitDef.create({ user: req.userId, name, description, icon, order })
     res.status(201).json({ message: 'Created', data: habit })
 }
 
@@ -41,6 +43,12 @@ export async function updateHabit(req: AuthRequest, res: Response) {
     }
     if (typeof req.body.description === 'string') {
         fields.description = req.body.description.trim() || undefined
+    }
+    if (typeof req.body.icon === 'string') {
+        fields.icon = req.body.icon.trim() || undefined
+    }
+    if (req.body.icon === null) {
+        fields.icon = undefined
     }
     if (typeof req.body.active === 'boolean') {
         fields.active = req.body.active

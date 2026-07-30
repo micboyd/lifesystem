@@ -4,50 +4,11 @@ import Spinner from '../Spinner'
 import { listHabits, listLogs, checkHabit, uncheckHabit } from '../../services/habits'
 import { useInvalidate, useDataVersion } from '../../context/DataSyncContext'
 import { addDays, todayKey } from '../../lib/calendar'
+import { iconForHabit } from '../../lib/habitIcons'
 import type { HabitDef, HabitLog } from '../../types'
 
 /** How far back we pull logs to compute each habit's current streak. */
 const WINDOW_DAYS = 120
-
-/**
- * Best-effort Font Awesome glyph for a habit, matched on keywords in its name.
- * Falls back to a sprout — the "growing a habit" idea — so every tile still
- * reads as an icon rather than a blank.
- */
-const ICON_RULES: { icon: string; keywords: string[] }[] = [
-    { icon: 'fa-solid fa-dumbbell', keywords: ['gym', 'workout', 'exercise', 'train', 'lift', 'weights'] },
-    { icon: 'fa-solid fa-person-running', keywords: ['run', 'jog', 'cardio', '5k', '10k'] },
-    { icon: 'fa-solid fa-person-walking', keywords: ['walk', 'steps', 'stroll'] },
-    { icon: 'fa-solid fa-bicycle', keywords: ['cycle', 'bike', 'cycling'] },
-    { icon: 'fa-solid fa-spa', keywords: ['meditat', 'mindful', 'breath', 'calm'] },
-    { icon: 'fa-solid fa-person-praying', keywords: ['yoga', 'stretch', 'pilates'] },
-    { icon: 'fa-solid fa-book', keywords: ['read', 'book', 'study', 'revise'] },
-    { icon: 'fa-solid fa-pen-nib', keywords: ['journal', 'write', 'diary', 'blog'] },
-    { icon: 'fa-solid fa-language', keywords: ['language', 'spanish', 'french', 'german', 'duolingo', 'learn'] },
-    { icon: 'fa-solid fa-code', keywords: ['code', 'program', 'leetcode', 'dev'] },
-    { icon: 'fa-solid fa-music', keywords: ['music', 'guitar', 'piano', 'practice', 'sing'] },
-    { icon: 'fa-solid fa-droplet', keywords: ['water', 'hydrate', 'drink'] },
-    { icon: 'fa-solid fa-pills', keywords: ['vitamin', 'pill', 'meds', 'medic', 'supplement'] },
-    { icon: 'fa-solid fa-tooth', keywords: ['floss', 'teeth', 'brush', 'dental'] },
-    { icon: 'fa-solid fa-bed', keywords: ['sleep', 'bed', 'wake', 'rest'] },
-    { icon: 'fa-solid fa-utensils', keywords: ['cook', 'meal', 'eat', 'breakfast', 'lunch', 'dinner'] },
-    { icon: 'fa-solid fa-apple-whole', keywords: ['fruit', 'veg', 'healthy', 'diet'] },
-    { icon: 'fa-solid fa-broom', keywords: ['clean', 'tidy', 'chore', 'wash'] },
-    { icon: 'fa-solid fa-piggy-bank', keywords: ['save', 'budget', 'money', 'no spend'] },
-    { icon: 'fa-solid fa-mobile-screen-button', keywords: ['phone', 'screen', 'social', 'scroll'] },
-    { icon: 'fa-solid fa-pump-soap', keywords: ['skin', 'skincare', 'shower', 'groom'] },
-    { icon: 'fa-solid fa-hands-praying', keywords: ['pray', 'gratitude', 'faith', 'church'] },
-    { icon: 'fa-solid fa-mug-hot', keywords: ['coffee', 'tea', 'no caffeine'] },
-    { icon: 'fa-solid fa-sun', keywords: ['sun', 'outside', 'daylight', 'fresh air'] },
-]
-
-function iconForHabit(name: string): string {
-    const n = name.toLowerCase()
-    for (const rule of ICON_RULES) {
-        if (rule.keywords.some((k) => n.includes(k))) return rule.icon
-    }
-    return 'fa-solid fa-seedling'
-}
 
 /**
  * Consecutive completed days ending at `date`. An as-yet-unlogged `date` doesn't
@@ -206,7 +167,7 @@ export default function HabitTiles({ date = todayKey() }: { date?: string }) {
 
                             <i
                                 className={[
-                                    iconForHabit(habit.name),
+                                    iconForHabit(habit.name, habit.icon),
                                     'text-xl transition-transform group-hover:scale-110',
                                     completed ? 'text-white' : 'text-neutral-400',
                                 ].join(' ')}

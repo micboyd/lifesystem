@@ -4,6 +4,8 @@ export interface IHabitDef extends Document {
     user: Types.ObjectId
     name: string
     description?: string
+    /** Font Awesome class for the tile icon, e.g. "fa-solid fa-dumbbell". */
+    icon?: string
     order: number
     active: boolean
     createdAt: Date
@@ -15,6 +17,7 @@ const habitDefSchema = new Schema<IHabitDef>(
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         name: { type: String, required: true, trim: true },
         description: { type: String, trim: true },
+        icon: { type: String, trim: true },
         order: { type: Number, default: 0 },
         active: { type: Boolean, default: true },
     },

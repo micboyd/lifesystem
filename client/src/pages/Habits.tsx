@@ -5,6 +5,8 @@ import Spinner from '../components/Spinner'
 import Input from '../components/Input'
 import Button from '../components/Button'
 import { listHabits, createHabit, updateHabit, deleteHabit } from '../services/habits'
+import HabitIconPicker from '../components/habits/HabitIconPicker'
+import { iconForHabit } from '../lib/habitIcons'
 import type { HabitDef } from '../types'
 
 export default function Habits() {
@@ -13,10 +15,12 @@ export default function Habits() {
     const [adding, setAdding] = useState(false)
     const [newName, setNewName] = useState('')
     const [newDesc, setNewDesc] = useState('')
+    const [newIcon, setNewIcon] = useState<string | undefined>(undefined)
     const [saving, setSaving] = useState(false)
     const [editing, setEditing] = useState<string | null>(null)
     const [editName, setEditName] = useState('')
     const [editDesc, setEditDesc] = useState('')
+    const [editIcon, setEditIcon] = useState<string | undefined>(undefined)
 
     useEffect(() => {
         let active = true
@@ -32,10 +36,11 @@ export default function Habits() {
         if (!newName.trim()) return
         setSaving(true)
         try {
-            const habit = await createHabit(newName.trim(), newDesc.trim() || undefined)
+            const habit = await createHabit(newName.trim(), newDesc.trim() || undefined, newIcon)
             setHabits((prev) => [...prev, habit])
             setNewName('')
             setNewDesc('')
+            setNewIcon(undefined)
             setAdding(false)
         } finally {
             setSaving(false)
@@ -48,6 +53,7 @@ export default function Habits() {
             const updated = await updateHabit(id, {
                 name: editName.trim(),
                 description: editDesc.trim() || undefined,
+                icon: editIcon ?? null,
             })
             setHabits((prev) => prev.map((h) => (h._id === id ? updated : h)))
             setEditing(null)
@@ -105,6 +111,7 @@ export default function Habits() {
                             onChange={(e) => setNewDesc(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                         />
+                        <HabitIconPicker value={newIcon} onChange={setNewIcon} name={newName} />
                         <div className="flex gap-2">
                             <Button onClick={handleAdd} disabled={saving || !newName.trim()}>
                                 {saving ? 'Saving…' : 'Save'}
@@ -136,16 +143,19 @@ export default function Habits() {
                         editing={editing}
                         editName={editName}
                         editDesc={editDesc}
+                        editIcon={editIcon}
                         saving={saving}
                         onEdit={(h) => {
                             setEditing(h._id)
                             setEditName(h.name)
                             setEditDesc(h.description ?? '')
+                            setEditIcon(h.icon)
                         }}
                         onSaveEdit={handleSaveEdit}
                         onCancelEdit={() => setEditing(null)}
                         onEditName={setEditName}
                         onEditDesc={setEditDesc}
+                        onEditIcon={setEditIcon}
                         onToggleActive={handleToggleActive}
                         onDelete={handleDelete}
                         emptyMessage="No active habits yet."
@@ -162,16 +172,19 @@ export default function Habits() {
                                 editing={editing}
                                 editName={editName}
                                 editDesc={editDesc}
+                                editIcon={editIcon}
                                 saving={saving}
                                 onEdit={(h) => {
                                     setEditing(h._id)
                                     setEditName(h.name)
                                     setEditDesc(h.description ?? '')
+                                    setEditIcon(h.icon)
                                 }}
                                 onSaveEdit={handleSaveEdit}
                                 onCancelEdit={() => setEditing(null)}
                                 onEditName={setEditName}
                                 onEditDesc={setEditDesc}
+                                onEditIcon={setEditIcon}
                                 onToggleActive={handleToggleActive}
                                 onDelete={handleDelete}
                                 emptyMessage=""
@@ -189,12 +202,14 @@ interface HabitListProps {
     editing: string | null
     editName: string
     editDesc: string
+    editIcon: string | undefined
     saving: boolean
     onEdit: (h: HabitDef) => void
     onSaveEdit: (id: string) => void
     onCancelEdit: () => void
     onEditName: (v: string) => void
     onEditDesc: (v: string) => void
+    onEditIcon: (v: string | undefined) => void
     onToggleActive: (h: HabitDef) => void
     onDelete: (id: string) => void
     emptyMessage: string
@@ -205,12 +220,14 @@ function HabitList({
     editing,
     editName,
     editDesc,
+    editIcon,
     saving,
     onEdit,
     onSaveEdit,
     onCancelEdit,
     onEditName,
     onEditDesc,
+    onEditIcon,
     onToggleActive,
     onDelete,
     emptyMessage,
@@ -238,6 +255,7 @@ function HabitList({
                                 value={editDesc}
                                 onChange={(e) => onEditDesc(e.target.value)}
                             />
+                            <HabitIconPicker value={editIcon} onChange={onEditIcon} name={editName} />
                             <div className="flex gap-2">
                                 <Button
                                     size="sm"
@@ -253,6 +271,9 @@ function HabitList({
                         </div>
                     ) : (
                         <div className="flex items-start gap-3">
+                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-neutral-100 text-neutral-500">
+                                <i className={iconForHabit(habit.name, habit.icon)} aria-hidden="true" />
+                            </span>
                             <div className="min-w-0 flex-1">
                                 <p className="font-semibold text-neutral-900">{habit.name}</p>
                                 {habit.description && (

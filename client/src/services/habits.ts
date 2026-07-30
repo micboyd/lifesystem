@@ -8,14 +8,21 @@ export async function listHabits(): Promise<HabitDef[]> {
     return res.data.data
 }
 
-export async function createHabit(name: string, description?: string): Promise<HabitDef> {
-    const res = await api.post<ApiResponse<HabitDef>>('/habits', { name, description })
+export async function createHabit(
+    name: string,
+    description?: string,
+    icon?: string
+): Promise<HabitDef> {
+    const res = await api.post<ApiResponse<HabitDef>>('/habits', { name, description, icon })
     return res.data.data
 }
 
 export async function updateHabit(
     id: string,
-    fields: Partial<Pick<HabitDef, 'name' | 'description' | 'active' | 'order'>>
+    // `icon: null` clears a chosen icon (back to the automatic name-based one).
+    fields: Partial<Pick<HabitDef, 'name' | 'description' | 'active' | 'order'>> & {
+        icon?: string | null
+    }
 ): Promise<HabitDef> {
     const res = await api.put<ApiResponse<HabitDef>>(`/habits/${id}`, fields)
     return res.data.data
