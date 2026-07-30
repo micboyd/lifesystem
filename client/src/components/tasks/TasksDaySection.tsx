@@ -186,7 +186,7 @@ export default function TasksDaySection({ date }: Props) {
                                     'flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold transition-all',
                                     task.duration
                                         ? 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
-                                        : 'text-neutral-300 opacity-0 hover:bg-neutral-200 hover:text-neutral-600 group-hover:opacity-100',
+                                        : 'text-neutral-300 opacity-100 hover:bg-neutral-200 hover:text-neutral-600 sm:opacity-0 sm:group-hover:opacity-100',
                                 ].join(' ')}
                                 aria-label="Set duration"
                             >
@@ -216,7 +216,7 @@ export default function TasksDaySection({ date }: Props) {
                     <button
                         type="button"
                         onClick={() => remove(task._id)}
-                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 opacity-0 transition-all hover:bg-neutral-200 hover:text-neutral-600 group-hover:opacity-100"
+                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 opacity-100 transition-all hover:bg-neutral-200 hover:text-neutral-600 sm:opacity-0 sm:group-hover:opacity-100"
                         aria-label="Delete task"
                     >
                         <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />

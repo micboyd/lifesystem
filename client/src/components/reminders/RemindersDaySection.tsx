@@ -164,7 +164,7 @@ export default function RemindersDaySection({
                     <button
                         type="button"
                         onClick={() => handleDelete(reminder)}
-                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 opacity-0 transition-all hover:bg-neutral-200 hover:text-neutral-600 group-hover:opacity-100"
+                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 opacity-100 transition-all hover:bg-neutral-200 hover:text-neutral-600 sm:opacity-0 sm:group-hover:opacity-100"
                         aria-label="Delete reminder"
                     >
                         <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />

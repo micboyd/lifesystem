@@ -925,7 +925,7 @@ function MonthBlock({
                                                     'inline-flex h-5 items-center gap-0.5 rounded-full px-1.5 transition-colors hover:bg-amber-100',
                                                     dayReminders.length
                                                         ? 'text-amber-500'
-                                                        : 'text-neutral-300 opacity-0 group-hover/day:opacity-100',
+                                                        : 'text-neutral-300 opacity-100 sm:opacity-0 sm:group-hover/day:opacity-100',
                                                 ].join(' ')}
                                             >
                                                 <i className="fa-solid fa-bell text-[10px]" aria-hidden="true" />
@@ -1108,7 +1108,7 @@ function MonthBlock({
                                                 onClick={() => onLeaveClick(key)}
                                                 className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100"
                                             >
-                                                <i className="fa-solid fa-plus text-[10px] opacity-0 group-hover:opacity-100" />
+                                                <i className="fa-solid fa-plus text-[10px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100" />
                                             </button>
                                         )}
                                     </td>
@@ -1284,7 +1284,7 @@ function TotalRowCells({
                                 onChangeGranularity(row._id, weekly ? 'daily' : 'weekly')
                             }
                             title={weekly ? 'Switch to daily' : 'Switch to weekly'}
-                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold opacity-0 transition-all group-hover:opacity-100 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600"
+                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold opacity-100 transition-all sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600"
                         >
                             {weekly ? 'W' : 'D'}
                         </button>
@@ -1292,7 +1292,7 @@ function TotalRowCells({
                             type="button"
                             onClick={() => onDelete(row._id)}
                             aria-label="Delete row"
-                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 opacity-0 transition-all hover:bg-neutral-200 hover:text-neutral-600 group-hover:opacity-100"
+                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 opacity-100 transition-all hover:bg-neutral-200 hover:text-neutral-600 sm:opacity-0 sm:group-hover:opacity-100"
                         >
                             <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
                         </button>

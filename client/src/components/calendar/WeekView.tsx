@@ -52,7 +52,7 @@ export default function WeekView({
     return (
         <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
             <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="w-full min-w-[640px] border-collapse">
                     {/* Day headers */}
                     <thead>
                         <tr className="border-b border-neutral-200">
@@ -102,7 +102,7 @@ export default function WeekView({
                                                     'inline-flex h-5 items-center gap-0.5 rounded-full px-1.5 transition-colors hover:bg-amber-100',
                                                     dayReminders.length
                                                         ? 'text-amber-500'
-                                                        : 'text-neutral-300 opacity-0 group-hover/day:opacity-100',
+                                                        : 'text-neutral-300 opacity-100 sm:opacity-0 sm:group-hover/day:opacity-100',
                                                 ].join(' ')}
                                             >
                                                 <i className="fa-solid fa-bell text-[10px]" aria-hidden="true" />
@@ -264,7 +264,7 @@ export default function WeekView({
                                                 onClick={() => onOpenDay(date)}
                                                 className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100"
                                             >
-                                                <i className="fa-solid fa-plus text-[10px] opacity-0 group-hover:opacity-100" />
+                                                <i className="fa-solid fa-plus text-[10px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100" />
                                             </button>
                                         )}
                                     </td>

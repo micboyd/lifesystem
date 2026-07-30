@@ -293,6 +293,20 @@ function buildDayData(
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+type BarTone = 'emerald' | 'amber' | 'red'
+
+/** Thin spent-vs-allowance fill, colour-matched to the day/week status scheme. */
+function CellBar({ pct, tone, className = '' }: { pct: number; tone: BarTone; className?: string }) {
+    const fill = tone === 'red' ? 'bg-red-400' : tone === 'amber' ? 'bg-amber-400' : 'bg-emerald-400'
+    // Give a sliver of width to any non-zero spend so a tiny amount still reads.
+    const width = pct <= 0 ? 0 : Math.max(6, Math.min(100, pct))
+    return (
+        <div className={`h-1.5 w-full overflow-hidden rounded-full bg-neutral-200/70 ${className}`}>
+            <div className={`h-full rounded-full ${fill} transition-all`} style={{ width: `${width}%` }} />
+        </div>
+    )
+}
+
 interface DayCellProps {
     data: DayData
     isToday: boolean
@@ -311,6 +325,12 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
     const overTarget = !data.isWeeklyOnly && hasSpend && data.dailyOnlySpent > data.dailyRate
     const overBudget = !data.isWeeklyOnly && hasSpend && data.dailyOnlySpent > data.effectiveAllowance
     const isPast = !isFuture && !isToday
+
+    // Spent-vs-allowance fill, shown as a bar in both the compact and full layouts.
+    const allowance = data.effectiveAllowance
+    const spendPct = allowance > 0 ? (data.spent / allowance) * 100 : 0
+    const barTone: BarTone = overBudget ? 'red' : overTarget ? 'amber' : 'emerald'
+    const showBar = !data.excluded && !isFuture && allowance > 0
 
     let bg = 'bg-white'
     if (data.excluded) bg = 'bg-neutral-50'
@@ -331,8 +351,8 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
             type="button"
             onClick={onClick}
             className={[
-                'flex flex-col rounded-xl lg:rounded-2xl border text-left w-full transition-all duration-150',
-                'p-1.5 lg:p-3 min-h-[44px] lg:min-h-[170px] gap-1 lg:gap-2',
+                'flex flex-col rounded-xl md:rounded-2xl border text-left w-full transition-all duration-150',
+                'p-1.5 md:p-3 min-h-[56px] md:min-h-[170px] gap-1 md:gap-2',
                 isToday ? 'border-neutral-950 ring-2 ring-neutral-950/10' : 'border-neutral-200',
                 bg,
                 'hover:border-neutral-400',
@@ -342,7 +362,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
             <div className="flex items-center justify-between gap-1">
                 <span
                     className={[
-                        'text-xs lg:text-sm font-bold leading-none',
+                        'text-xs md:text-sm font-bold leading-none',
                         isToday
                             ? 'text-neutral-950'
                             : isFuture
@@ -356,7 +376,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                 </span>
                 {data.excluded && (
                     <span
-                        className={`hidden lg:inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                        className={`hidden md:inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
                             data.pot ? 'bg-sky-100 text-sky-600' : 'bg-neutral-200 text-neutral-500'
                         }`}
                     >
@@ -365,26 +385,27 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                 )}
             </div>
 
-            {/* Mobile: compact spend + remaining — shown even with nothing spent yet,
-                so the day's carried-forward allowance is still visible at a glance. */}
+            {/* Compact (phone / small tablet): bar + spent + remaining — shown even
+                with nothing spent yet, so the carried-forward allowance still reads. */}
             {!isFuture && !data.excluded && (
-                <div className="flex lg:hidden flex-col items-start gap-0.5 mt-0.5">
-                    {hasSpend && (
-                        <span className="text-[9px] font-semibold tabular-nums text-neutral-500">
-                            £{fmt(data.spent)}
+                <div className="flex md:hidden flex-col items-stretch gap-1 mt-auto">
+                    {showBar && <CellBar pct={spendPct} tone={barTone} />}
+                    <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] font-semibold tabular-nums text-neutral-500">
+                            {hasSpend ? `£${fmt(data.spent)}` : '—'}
                         </span>
-                    )}
-                    <span className={`text-[9px] font-semibold tabular-nums ${remainingColor}`}>
-                        {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
-                    </span>
+                        <span className={`text-[10px] font-semibold tabular-nums ${remainingColor}`}>
+                            {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
+                        </span>
+                    </div>
                 </div>
             )}
 
-            {/* Mobile: pot remaining for excluded days with an assigned budget */}
+            {/* Compact: pot remaining for excluded days with an assigned budget */}
             {data.excluded && data.pot && (
-                <div className="flex lg:hidden mt-0.5">
+                <div className="flex md:hidden mt-auto">
                     <span
-                        className={`text-[9px] font-semibold tabular-nums ${
+                        className={`text-[10px] font-semibold tabular-nums ${
                             data.pot.remaining < 0 ? 'text-red-500' : 'text-emerald-600'
                         }`}
                     >
@@ -393,9 +414,9 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                 </div>
             )}
 
-            {/* Detail content — hidden on mobile, shown on sm+ */}
+            {/* Detail content — hidden on phones/small tablets, shown on md+ */}
             {!data.excluded && (
-                <div className="hidden lg:flex flex-col gap-2 flex-1">
+                <div className="hidden md:flex flex-col gap-2 flex-1">
                     {data.dailyRate > 0 && (
                         <div className="flex items-baseline gap-1">
                             <span className={`text-lg font-bold tabular-nums ${isFuture ? 'text-neutral-300' : 'text-neutral-700'}`}>
@@ -428,6 +449,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
 
                     {(!isFuture || hasSpend) && (
                         <>
+                            {showBar && <CellBar pct={spendPct} tone={barTone} />}
                             <div className="flex items-baseline justify-between gap-1">
                                 <span className="text-xs text-neutral-400">{isFuture ? 'planned' : 'spent'}</span>
                                 <span
@@ -455,7 +477,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
             )}
 
             {data.excluded && data.pot ? (
-                <div className="hidden lg:flex flex-col gap-1 mt-auto">
+                <div className="hidden md:flex flex-col gap-1 mt-auto">
                     <span className="text-xs font-semibold text-sky-600">
                         £{fmt(data.pot.guideRate)}/day guide
                     </span>
@@ -468,7 +490,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                     </span>
                 </div>
             ) : data.excluded ? (
-                <p className="hidden lg:block mt-auto text-xs text-neutral-400">Outside budget</p>
+                <p className="hidden md:block mt-auto text-xs text-neutral-400">Outside budget</p>
             ) : null}
         </button>
     )
@@ -490,6 +512,28 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
     const daysLogged = week.days.filter((d) => !d.excluded && d.date <= today && d.spent > 0).length
     const activeDays = week.days.filter((d) => !d.excluded && d.date <= today).length
     const excludedDays = week.days.filter((d) => d.excluded).length
+    // Every day this week is a day off — there's no allowance to spend, so show
+    // the day-off state instead of a bare £0 target.
+    const allExcluded = week.days.length > 0 && excludedDays === week.days.length
+
+    if (allExcluded) {
+        return (
+            <button
+                type="button"
+                onClick={onClick}
+                className="flex w-full flex-col gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 text-left transition-all duration-150 hover:border-neutral-400"
+            >
+                <div className="flex items-baseline gap-1.5">
+                    <span className="text-sm font-bold text-neutral-500">{week.label}</span>
+                    <span className="text-xs text-neutral-300">{week.days.length}d</span>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-neutral-400">
+                    <i className="fa-solid fa-plane-departure text-sm" aria-hidden="true" />
+                    <span className="text-sm font-semibold">Day off — whole week excluded</span>
+                </div>
+            </button>
+        )
+    }
 
     let bg = 'bg-white'
     if (!week.allFuture) {
@@ -499,6 +543,8 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
     }
 
     const remainingColor = overBudget ? 'text-red-500' : overTarget ? 'text-amber-600' : 'text-emerald-600'
+    const weekPct = week.target > 0 ? (week.spent / week.target) * 100 : 0
+    const weekTone: BarTone = overBudget ? 'red' : overTarget ? 'amber' : 'emerald'
 
     return (
         <button
@@ -525,6 +571,7 @@ function WeekCell({ week, today, onClick }: WeekCellProps) {
             {(!week.allFuture || hasSpend) && (
                 <>
                     <div className="mt-auto border-t border-neutral-200" />
+                    {!week.allFuture && week.target > 0 && <CellBar pct={weekPct} tone={weekTone} />}
                     <div className="flex items-baseline justify-between gap-1">
                         <span className="text-sm text-neutral-400">{week.allFuture ? 'planned' : 'spent'}</span>
                         <span className={`text-base font-semibold tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}>
@@ -1962,9 +2009,9 @@ export default function BudgetCalendar() {
                             {WEEKDAYS.map((wd) => (
                                 <div
                                     key={wd}
-                                    className="pb-1 lg:pb-2 text-center text-[9px] lg:text-xs font-bold uppercase tracking-wide text-neutral-400"
+                                    className="pb-1 md:pb-2 text-center text-[9px] md:text-xs font-bold uppercase tracking-wide text-neutral-400"
                                 >
-                                    {wd.slice(0, 1)}<span className="hidden lg:inline">{wd.slice(1)}</span>
+                                    {wd.slice(0, 1)}<span className="hidden md:inline">{wd.slice(1)}</span>
                                 </div>
                             ))}
                             {Array.from({ length: offset }).map((_, i) => (

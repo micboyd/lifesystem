@@ -136,7 +136,7 @@ function SubItemRow({ item, onSave, onDelete, onTogglePaid }: SubItemRowProps) {
                     Paid
                 </span>
             )}
-            <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:opacity-100">
+            <div className="flex items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/item:opacity-100">
                 <button
                     type="button"
                     onClick={() => setEditing(true)}

@@ -970,7 +970,7 @@ function SavedTargetCard({
                                 {target.name}
                             </span>
                             <i
-                                className="fa-solid fa-pen text-[10px] text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100"
+                                className="fa-solid fa-pen text-[10px] text-neutral-300 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                                 aria-hidden="true"
                             />
                         </button>
@@ -1077,7 +1077,7 @@ function SavedTargetCard({
                             <p className="whitespace-pre-wrap text-xs text-neutral-500">
                                 {target.notes}
                                 <i
-                                    className="fa-solid fa-pen ml-2 text-[9px] text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100"
+                                    className="fa-solid fa-pen ml-2 text-[9px] text-neutral-300 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                                     aria-hidden="true"
                                 />
                             </p>

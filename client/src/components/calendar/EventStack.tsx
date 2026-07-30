@@ -91,7 +91,7 @@ export default function EventStack({
                 onClick={onAdd}
                 className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-500"
             >
-                <i className="fa-solid fa-plus text-[10px] opacity-0 transition-opacity group-hover:opacity-100" />
+                <i className="fa-solid fa-plus text-[10px] opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" />
             </button>
         )
     }

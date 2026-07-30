@@ -1218,6 +1218,9 @@ function BudgetCard({
         if (!excludedDates.has(d)) activeDaysInWeek++
         d = addDays(d, 1)
     }
+    // Every day in the shown week is excluded — there's no allowance to spread,
+    // so a "£0 available" hero would just read as broken. Show the day-off state.
+    const allWeekExcluded = activeDaysInWeek === 0
     const topUpsThisWeek = netBudgetAdjustment(
         topUps.filter((t) => t.date >= weekStart && t.date <= weekEnd)
     )
@@ -1333,17 +1336,32 @@ function BudgetCard({
                 </div>
             </div>
 
-            {/* Allowance hero — the week's spending against target, fed by bank sync */}
-            {trackingView && (
-                <AllowanceHero
-                    periodLabel="This week"
-                    rangeLabel={rangeLabel}
-                    allowance={trackingView.allowance}
-                    remaining={trackingView.remaining}
-                    spent={trackingView.spent}
-                    subline={trackingView.subline}
-                />
-            )}
+            {/* Allowance hero — the week's spending against target, fed by bank sync.
+                When every day of the shown week is excluded there's no allowance to
+                spread, so surface the day-off state instead of a bare £0. */}
+            {trackingView &&
+                (allWeekExcluded ? (
+                    <div className="flex items-center gap-3 rounded-2xl bg-neutral-100 p-4 ring-1 ring-black/[0.04]">
+                        <i className="fa-solid fa-plane-departure text-neutral-400" aria-hidden="true" />
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                                Day off — no budget this week
+                            </p>
+                            <p className="mt-0.5 text-xs text-neutral-400">
+                                {rangeLabel} · every day excluded
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    <AllowanceHero
+                        periodLabel="This week"
+                        rangeLabel={rangeLabel}
+                        allowance={trackingView.allowance}
+                        remaining={trackingView.remaining}
+                        spent={trackingView.spent}
+                        subline={trackingView.subline}
+                    />
+                ))}
 
             {/* Money-adjustment form — opened from the actions menu, one at a time */}
             {menuAction && (

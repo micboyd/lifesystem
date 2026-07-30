@@ -130,7 +130,7 @@ export default function MonthView({
                                         'grid h-6 w-6 place-items-center rounded-full text-xs transition-colors hover:bg-amber-100',
                                         dayReminders.length
                                             ? 'text-amber-500'
-                                            : 'text-neutral-300 opacity-0 group-hover/cell:opacity-100',
+                                            : 'text-neutral-300 opacity-100 sm:opacity-0 sm:group-hover/cell:opacity-100',
                                     ].join(' ')}
                                 >
                                     <i className="fa-solid fa-bell text-[11px]" aria-hidden="true" />

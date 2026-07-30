@@ -25,7 +25,7 @@ export default function ReminderChip({
                 aria-label="Add reminder"
                 className="group/rem grid h-full w-full place-items-center rounded-md text-amber-300 transition-colors hover:bg-amber-50"
             >
-                <i className="fa-solid fa-bell text-[10px] opacity-0 transition-opacity group-hover/rem:opacity-100" />
+                <i className="fa-solid fa-bell text-[10px] opacity-100 transition-opacity sm:opacity-0 sm:group-hover/rem:opacity-100" />
             </button>
         )
     }
