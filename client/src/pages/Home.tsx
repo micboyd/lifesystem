@@ -9,6 +9,7 @@ import WeatherWidget from '../components/dashboard/WeatherWidget'
 import TomorrowWidget, { useTomorrowVisible } from '../components/dashboard/TomorrowWidget'
 import NextTimeOffWidget from '../components/dashboard/NextTimeOffWidget'
 import BirthdayWidget from '../components/dashboard/BirthdayWidget'
+import HabitsWidget from '../components/dashboard/HabitsWidget'
 import { todayKey } from '../lib/calendar'
 
 export default function Home() {
@@ -40,6 +41,7 @@ export default function Home() {
                     <WeatherWidget variant="hourly" />
                 </div>
                 <div className="grid gap-6">
+                    <HabitsWidget date={date} />
                     <BudgetWidget date={date} cadence="today" />
                     {showTomorrow && <TomorrowWidget date={date} />}
                 </div>

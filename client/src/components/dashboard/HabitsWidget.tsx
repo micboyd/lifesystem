@@ -1,5 +1,5 @@
 import { Card, CardAction, CardHeader, CardTitle } from '../Card'
-import HabitsDaySection from '../habits/HabitsDaySection'
+import HabitTiles from '../habits/HabitTiles'
 import { todayKey } from '../../lib/calendar'
 
 export default function HabitsWidget({ date = todayKey() }: { date?: string }) {
@@ -9,7 +9,7 @@ export default function HabitsWidget({ date = todayKey() }: { date?: string }) {
                 <CardTitle>Habits</CardTitle>
                 <CardAction to="/habits">All habits</CardAction>
             </CardHeader>
-            <HabitsDaySection date={date} compact />
+            <HabitTiles date={date} />
         </Card>
     )
 }
