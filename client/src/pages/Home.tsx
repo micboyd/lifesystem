@@ -32,9 +32,16 @@ export default function Home() {
                 <TodayWidget date={date} />
             </section>
 
+            {/* In the evening, the tomorrow-prep brief spans full width directly
+                under the day's schedule — it's the natural next thing to act on. */}
+            {showTomorrow && (
+                <div className="mt-6">
+                    <TomorrowWidget date={date} />
+                </div>
+            )}
+
             {/* A few essentials. Left: today's tasks with today's weather beneath.
-                Right: the budget, and in the evening the tomorrow-prep brief below
-                it — so neither column is ever left empty. */}
+                Right: the budget and habits. */}
             <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
                 <div className="grid gap-6">
                     <TasksWidget date={date} />
@@ -43,7 +50,6 @@ export default function Home() {
                 <div className="grid gap-6">
                     <HabitsWidget date={date} />
                     <BudgetWidget date={date} cadence="today" />
-                    {showTomorrow && <TomorrowWidget date={date} />}
                 </div>
             </div>
 

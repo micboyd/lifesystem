@@ -9,12 +9,13 @@ import {
     weatherInfo,
     whatToWear,
     dayCondition,
-    partOfDaySummary,
     planningInsight,
     weatherWarnings,
+    RAIN_LIKELY_PCT,
     SEVERITY_STYLES,
     SEVERITY_ICON_STYLES,
     type Forecast,
+    type DailyForecast,
 } from '../../lib/weather'
 import {
     todayKey,
@@ -54,6 +55,95 @@ interface TomorrowData {
     statuses: DayStatus[]
 }
 
+interface PrepItem {
+    id: string
+    icon: string
+    text: string
+}
+
+/**
+ * Concrete things worth doing tonight, inferred from tomorrow's weather and the
+ * first thing on the calendar. Distinct from {@link whatToWear} — that's what to
+ * put on in the morning; these are actions you take before bed (bag by the door,
+ * alarm set, extra travel time). Ordered by how early in the evening you'd act.
+ */
+function prepChecklist(
+    day: DailyForecast | null | undefined,
+    firstTimed: Event | undefined,
+    metrics: { maxGust: number; minVis: number; dayStartMin: number },
+): PrepItem[] {
+    const items: PrepItem[] = []
+    if (day) {
+        const likely = day.precipitationProbability >= RAIN_LIKELY_PCT
+        const isSnow =
+            likely && ((day.code >= 71 && day.code <= 77) || day.code === 85 || day.code === 86)
+        const isRain =
+            likely &&
+            ((day.code >= 51 && day.code <= 67) ||
+                (day.code >= 80 && day.code <= 82) ||
+                day.code >= 95)
+
+        if (isSnow) {
+            items.push({
+                id: 'snow',
+                icon: 'fa-solid fa-snowflake',
+                text: 'Snow likely — set out boots and allow extra travel time',
+            })
+        } else if (isRain) {
+            items.push({
+                id: 'rain',
+                icon: 'fa-solid fa-umbrella',
+                text: 'Rain likely — put an umbrella or waterproof by the door',
+            })
+        }
+
+        if (day.tempMin <= 2) {
+            items.push({
+                id: 'frost',
+                icon: 'fa-solid fa-icicles',
+                text: 'Frost likely overnight — leave time to de-ice in the morning',
+            })
+        }
+
+        if ((day.uvIndexMax ?? 0) >= 6) {
+            items.push({
+                id: 'uv',
+                icon: 'fa-solid fa-sun',
+                text: 'Strong sun tomorrow — set out sunscreen',
+            })
+        }
+
+        if (day.windMax >= 25 || metrics.maxGust >= 35) {
+            items.push({
+                id: 'wind',
+                icon: 'fa-solid fa-wind',
+                text: 'Windy — bring loose items indoors tonight',
+            })
+        }
+
+        if (metrics.minVis < 1) {
+            items.push({
+                id: 'fog',
+                icon: 'fa-solid fa-smog',
+                text: 'Fog likely — allow extra travel time',
+            })
+        }
+    }
+
+    // An early first commitment is the one thing that changes tonight's alarm —
+    // "early" being before your timebox day-start (wakeTime), the time you'd
+    // otherwise be up.
+    if (firstTimed?.time && timeToMinutes(firstTimed.time) < metrics.dayStartMin) {
+        items.push({
+            id: 'alarm',
+            icon: 'fa-regular fa-clock',
+            text: `Early start — ${firstTimed.title} at ${firstTimed.time}. Set an alarm.`,
+        })
+    }
+
+    return items
+}
+
 /**
  * The evening counterpart to the dashboard: once today is effectively over, what
  * matters is what you need to have ready. Weather and clothing come first because
@@ -64,16 +154,17 @@ function TomorrowBrief({
     forecast,
     data,
     calendarsById,
+    dayStartMin,
 }: {
     date: string
     forecast: Forecast | null
     data: TomorrowData | null
     calendarsById: Map<string, CalendarLayer>
+    dayStartMin: number
 }) {
     const day = forecast?.daily.find((d) => d.date === date)
     const hourly = forecast?.hourlyByDate[date] ?? []
     const info = day ? weatherInfo(dayCondition(day, hourly)) : null
-    const bands = partOfDaySummary(hourly)
     const warnings = day && hourly.length > 0 ? weatherWarnings(hourly, day) : []
     const insight = hourly.length > 0 ? planningInsight(hourly) : ''
     // Waking-hours figures for the extra detail line.
@@ -81,9 +172,6 @@ function TomorrowBrief({
     const maxGust = waking.length > 0 ? Math.max(...waking.map((h) => h.windGust)) : 0
     const totalRain = waking.reduce((sum, h) => sum + h.precipitation, 0)
     const minVis = waking.length > 0 ? Math.min(...waking.map((h) => h.visibility)) : Infinity
-    // The evening band runs to 10pm, which is still daylight in midsummer —
-    // pick sun or moon glyphs from the actual sunset rather than the clock.
-    const eveningIsDay = day?.sunset ? new Date(day.sunset).getHours() >= 20 : false
 
     const events = data?.events ?? []
     const allDay = events.filter((e) => eventCoversAllDay(e, date))
@@ -106,6 +194,8 @@ function TomorrowBrief({
     const nothingOn =
         allDay.length + parts.length + reminders.length + openTasks.length === 0 && !statusOption
 
+    const prep = prepChecklist(day, firstTimed, { maxGust, minVis, dayStartMin })
+
     return (
         <Card>
             <CardHeader className="flex items-center justify-between gap-4">
@@ -117,9 +207,10 @@ function TomorrowBrief({
                 </CardTitle>
                 <Link
                     to={`/day/${date}`}
-                    className="text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
                 >
                     Open day
+                    <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
                 </Link>
             </CardHeader>
 
@@ -174,47 +265,6 @@ function TomorrowBrief({
                                 </div>
                             </div>
 
-                            {/* Morning / afternoon / evening — the app's own day model,
-                                so a band lines up with the events sitting in it. */}
-                            {bands.length > 0 && (
-                                <div className="grid grid-cols-3 gap-1.5">
-                                    {bands.map((band) => {
-                                        const bandInfo = weatherInfo(
-                                            band.code,
-                                            band.key !== 'evening' || eveningIsDay
-                                        )
-                                        const rainy = band.precipitationProbability >= 50
-                                        return (
-                                            <div
-                                                key={band.key}
-                                                className="flex flex-col items-center gap-1.5 rounded-xl border border-neutral-100 px-1 py-3"
-                                                title={`${band.label}: ${bandInfo.label}, ${band.tempMin}–${band.tempMax}°, ${band.precipitationProbability}% rain, gusts ${band.windGust} mph`}
-                                            >
-                                                <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                                                    {band.label}
-                                                </span>
-                                                <i
-                                                    className={`${bandInfo.icon} text-base text-sky-500`}
-                                                    aria-hidden="true"
-                                                />
-                                                <span className="text-xs font-semibold text-neutral-700">
-                                                    {band.tempMax}&deg;
-                                                </span>
-                                                <span
-                                                    className={
-                                                        rainy
-                                                            ? 'rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-600'
-                                                            : 'text-[9px] text-neutral-300'
-                                                    }
-                                                >
-                                                    {band.precipitationProbability}%
-                                                </span>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            )}
-
                             {insight && (
                                 <p className="rounded-xl bg-neutral-50 px-3 py-2.5 text-xs text-neutral-600">
                                     <i
@@ -225,13 +275,41 @@ function TomorrowBrief({
                                 </p>
                             )}
 
-                            <p className="rounded-xl bg-neutral-50 px-3 py-2.5 text-xs text-neutral-600">
-                                <i
-                                    className="fa-solid fa-shirt mr-1.5 text-neutral-400"
-                                    aria-hidden="true"
-                                />
-                                {whatToWear(day)}
-                            </p>
+                            {/* What to wear leads the prep — it's the thing you
+                                sort out the night before. */}
+                            <div className="rounded-xl bg-neutral-50 px-3 py-3">
+                                <p className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                    <i className="fa-solid fa-shirt" aria-hidden="true" />
+                                    What to wear
+                                </p>
+                                <p className="text-sm leading-snug text-neutral-700">
+                                    {whatToWear(day)}
+                                </p>
+                            </div>
+
+                            {/* Tonight's checklist — actions to take before bed, not
+                                what to put on. Only shown when something applies. */}
+                            {prep.length > 0 && (
+                                <div className="rounded-xl border border-neutral-100 px-3 py-3">
+                                    <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                        <i className="fa-solid fa-list-check" aria-hidden="true" />
+                                        Tonight
+                                    </p>
+                                    <ul className="flex flex-col gap-2">
+                                        {prep.map((item) => (
+                                            <li key={item.id} className="flex items-start gap-2.5">
+                                                <i
+                                                    className={`${item.icon} mt-0.5 w-4 shrink-0 text-center text-xs text-indigo-400`}
+                                                    aria-hidden="true"
+                                                />
+                                                <span className="text-xs leading-snug text-neutral-600">
+                                                    {item.text}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
 
                             {/* Numbers worth knowing the night before. */}
                             <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-neutral-500">
@@ -291,13 +369,6 @@ function TomorrowBrief({
                                 )}
                             </div>
 
-                            <Link
-                                to="/weather"
-                                className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-sky-600 transition-colors hover:text-sky-700"
-                            >
-                                Full forecast
-                                <i className="fa-solid fa-arrow-right text-[10px]" aria-hidden="true" />
-                            </Link>
                         </>
                     ) : (
                         <p className="text-sm text-neutral-400">
@@ -353,25 +424,31 @@ function TomorrowBrief({
                         )
                     })}
 
-                    {parts.map(({ period, event }) => (
-                        <div key={period.key} className="flex items-center gap-3 rounded-xl px-3 py-2">
-                            <i
-                                className={`${period.icon} w-4 shrink-0 text-center text-sm text-neutral-300`}
-                                aria-hidden="true"
-                            />
-                            <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                {period.label}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-800">
-                                {event!.title}
-                            </span>
-                            {event!.time && (
-                                <span className="shrink-0 text-xs tabular-nums text-neutral-400">
-                                    {event!.time}
+                    {parts.map(({ period, event }) => {
+                        const colors = colorsForEvent(event!, calendarsById)
+                        return (
+                            <div
+                                key={period.key}
+                                className={`flex items-center gap-3 rounded-xl px-3 py-2 ${colors.bg}`}
+                            >
+                                <i
+                                    className={`${period.icon} w-4 shrink-0 text-center text-sm opacity-60 ${colors.text}`}
+                                    aria-hidden="true"
+                                />
+                                <span className={`w-16 shrink-0 text-xs font-semibold uppercase tracking-wide opacity-70 ${colors.text}`}>
+                                    {period.label}
                                 </span>
-                            )}
-                        </div>
-                    ))}
+                                <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${colors.text}`}>
+                                    {event!.title}
+                                </span>
+                                {event!.time && (
+                                    <span className={`shrink-0 text-xs tabular-nums opacity-70 ${colors.text}`}>
+                                        {event!.time}
+                                    </span>
+                                )}
+                            </div>
+                        )
+                    })}
 
                     {reminders.map((r) => (
                         <div
@@ -493,12 +570,16 @@ export default function TomorrowWidget({ date = todayKey() }: { date?: string })
 
     if (!show) return null
 
+    // The timebox day-start decides what counts as an "early" alarm.
+    const dayStartMin = timeToMinutes(user?.settings?.wakeTime ?? DEFAULT_WAKE)
+
     return (
         <TomorrowBrief
             date={target}
             forecast={forecast}
             data={data}
             calendarsById={calendarsById}
+            dayStartMin={dayStartMin}
         />
     )
 }
