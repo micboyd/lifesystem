@@ -25,6 +25,15 @@ export async function addPlanEntry(
     return res.data.data
 }
 
+/** Move a planned entry to a different slot (morning / afternoon / evening) of its day. */
+export async function updatePlanEntry(
+    id: string,
+    part: FitnessPlanPart
+): Promise<FitnessPlanEntry> {
+    const res = await api.patch<ApiResponse<FitnessPlanEntry>>(`/fitness-plan/${id}`, { part })
+    return res.data.data
+}
+
 export async function deletePlanEntry(id: string): Promise<void> {
     await api.delete(`/fitness-plan/${id}`)
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import { Card } from './Card'
 import Spinner from './Spinner'
 import Button from './Button'
@@ -8,10 +8,13 @@ import Drawer from './Drawer'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
-import { listPlanEntries, addPlanEntry, deletePlanEntry } from '../services/fitnessPlan'
+import { listExercises } from '../services/exercises'
+import { listPlanEntries, addPlanEntry, updatePlanEntry, deletePlanEntry } from '../services/fitnessPlan'
 import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS } from '../types'
 import type {
     Workout,
+    WorkoutExercise,
+    Exercise,
     ConditioningSession,
     ConditioningCategory,
     Recovery,
@@ -77,6 +80,14 @@ const PART_META: Record<FitnessPlanPart, { label: string; icon: string }> = {
     evening: { label: 'Evening', icon: 'fa-solid fa-moon' },
 }
 
+// Solid fills for the mini-calendar slot bands, one per kind (empty slots stay
+// neutral). Matches the coral / sky / emerald coding used by the chips.
+const KIND_BAND: Record<FitnessPlanKind, string> = {
+    workout: 'bg-coral-400',
+    conditioning: 'bg-sky-400',
+    recovery: 'bg-emerald-400',
+}
+
 /** The slot an entry sits in, defaulting legacy entries (no `part`) to morning. */
 function partOf(entry: FitnessPlanEntry): FitnessPlanPart {
     return entry.part ?? 'morning'
@@ -87,6 +98,31 @@ function planItemName(entry: FitnessPlanEntry): string | undefined {
     if (entry.kind === 'workout') return entry.workout?.name
     if (entry.kind === 'conditioning') return entry.session?.name
     return entry.recovery?.name
+}
+
+/** Compact "3 × 8-12" / "3 sets" / "8-12 reps" label, or '' when neither is set. */
+function formatSetsReps(e: { sets?: number; reps?: string }): string {
+    const sets = e.sets && e.sets > 0 ? e.sets : undefined
+    const reps = e.reps?.trim() || undefined
+    if (sets && reps) return `${sets} × ${reps}`
+    if (sets) return `${sets} ${sets === 1 ? 'set' : 'sets'}`
+    if (reps) return `${reps} reps`
+    return ''
+}
+
+// Rough time estimate for a workout — an 8-min warm-up plus working sets
+// (~2 min each), or ~6 min per exercise where sets aren't set. Mirrors the
+// Strength library's estimate so the same workout reads the same everywhere.
+const WARMUP_MIN = 8
+const PER_EXERCISE_MIN = 6
+const PER_SET_MIN = 2
+function estimateWorkoutMinutes(exercises: WorkoutExercise[]): number {
+    if (exercises.length === 0) return 0
+    const work = exercises.reduce(
+        (sum, e) => sum + (e.sets && e.sets > 0 ? e.sets * PER_SET_MIN : PER_EXERCISE_MIN),
+        0
+    )
+    return WARMUP_MIN + work
 }
 
 const CATEGORY_CHIP: Record<ConditioningCategory, string> = {
@@ -211,12 +247,15 @@ export default function FitnessWeeklyPlanner() {
     const [workouts, setWorkouts] = useState<Workout[]>([])
     const [sessions, setSessions] = useState<ConditioningSession[]>([])
     const [recovery, setRecovery] = useState<Recovery[]>([])
+    const [exercises, setExercises] = useState<Exercise[]>([])
     const [libLoading, setLibLoading] = useState(true)
     const [entries, setEntries] = useState<FitnessPlanEntry[]>([])
     const [loading, setLoading] = useState(true)
     // The picker always targets one day + slot; the type (strength / conditioning /
     // recovery) and the slot are then chosen inside the drawer.
     const [picker, setPicker] = useState<{ date: string; part: FitnessPlanPart } | null>(null)
+    // A planned item opened for a read-only look at its full details.
+    const [detail, setDetail] = useState<FitnessPlanEntry | null>(null)
     // The planner opens read-only; Edit reveals the add/remove controls.
     const [editing, setEditing] = useState(false)
 
@@ -235,16 +274,25 @@ export default function FitnessWeeklyPlanner() {
         return { start: firstOfMonth(anchor), end: lastOfMonth(addMonths(firstOfMonth(anchor), 5)) }
     }, [view, anchor])
 
-    // The three libraries — loaded once, for the picker and the "is it empty" check.
+    // The libraries — loaded once, for the picker, the "is it empty" check and
+    // the detail drawer (exercises resolve a workout's exercise names).
     useEffect(() => {
-        Promise.all([listWorkouts(), listSessions(), listRecovery()])
-            .then(([wk, se, re]) => {
+        Promise.all([listWorkouts(), listSessions(), listRecovery(), listExercises()])
+            .then(([wk, se, re, ex]) => {
                 setWorkouts(wk)
                 setSessions(se)
                 setRecovery(re)
+                setExercises(ex)
             })
             .finally(() => setLibLoading(false))
     }, [])
+
+    // Resolve a workout slot's exercise id → the library exercise, for the detail drawer.
+    const exercisesById = useMemo(() => {
+        const m = new Map<string, Exercise>()
+        for (const ex of exercises) m.set(ex._id, ex)
+        return m
+    }, [exercises])
 
     useEffect(() => {
         // Refetch silently on range change — the grid keeps the previous items
@@ -282,6 +330,13 @@ export default function FitnessWeeklyPlanner() {
     async function handleRemove(id: string) {
         setEntries((prev) => prev.filter((e) => e._id !== id))
         await deletePlanEntry(id)
+    }
+
+    // Move a planned item to another slot of its own day (week-view drag-and-drop).
+    // Optimistic: the row jumps immediately, then the server records the new slot.
+    async function handleMove(id: string, part: FitnessPlanPart) {
+        setEntries((prev) => prev.map((e) => (e._id === id ? { ...e, part } : e)))
+        await updatePlanEntry(id, part)
     }
 
     // Month totals count only the month itself, not the grid's spill-over days.
@@ -364,7 +419,9 @@ export default function FitnessWeeklyPlanner() {
                     editing={editing}
                     entries={entries}
                     onAdd={(date, part) => setPicker({ date, part })}
+                    onOpen={setDetail}
                     onRemove={handleRemove}
+                    onMove={handleMove}
                 />
             ) : view === 'month' ? (
                 <MonthView
@@ -395,6 +452,12 @@ export default function FitnessWeeklyPlanner() {
                 onClose={() => setPicker(null)}
                 onAdd={handleAdd}
                 onRemove={handleRemove}
+            />
+
+            <PlannedDetailDrawer
+                entry={detail}
+                exercisesById={exercisesById}
+                onClose={() => setDetail(null)}
             />
         </div>
     )
@@ -440,14 +503,18 @@ function WeekView({
     editing,
     entries,
     onAdd,
+    onOpen,
     onRemove,
+    onMove,
 }: {
     weekStart: string
     today: string
     editing: boolean
     entries: FitnessPlanEntry[]
     onAdd: (date: string, part: FitnessPlanPart) => void
+    onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
+    onMove: (id: string, part: FitnessPlanPart) => void
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
     return (
@@ -460,7 +527,9 @@ function WeekView({
                     editable={editing}
                     entries={entries.filter((e) => e.date === date)}
                     onAdd={(part) => onAdd(date, part)}
+                    onOpen={onOpen}
                     onRemove={onRemove}
+                    onMove={onMove}
                 />
             ))}
         </div>
@@ -613,9 +682,18 @@ function MiniMonth({
     onClick: () => void
 }) {
     const days = monthGridDays(month)
-    const counts = useMemo(() => {
-        const m = new Map<string, number>()
-        for (const e of entries) m.set(e.date, (m.get(e.date) ?? 0) + 1)
+    // date → the entries planned in each slot, so every day cell can show its
+    // morning / afternoon / evening bands and name the items on hover.
+    const byDay = useMemo(() => {
+        const m = new Map<string, Record<FitnessPlanPart, FitnessPlanEntry[]>>()
+        for (const e of entries) {
+            let day = m.get(e.date)
+            if (!day) {
+                day = { morning: [], afternoon: [], evening: [] }
+                m.set(e.date, day)
+            }
+            day[partOf(e)].push(e)
+        }
         return m
     }, [entries])
     const t = tally(entries)
@@ -634,18 +712,14 @@ function MiniMonth({
             </div>
 
             <div className="grid grid-cols-7 gap-1">
-                {days.map((date) => {
-                    const outside = !inSameMonth(date, month)
-                    const count = counts.get(date) ?? 0
-                    return (
-                        <span
-                            key={date}
-                            className={`aspect-square rounded-[3px] ${dotClass(count, outside)} ${
-                                date === today ? 'ring-1 ring-coral-500 ring-offset-1' : ''
-                            }`}
-                        />
-                    )
-                })}
+                {days.map((date) => (
+                    <MiniMonthDay
+                        key={date}
+                        outside={!inSameMonth(date, month)}
+                        isToday={date === today}
+                        slots={byDay.get(date)}
+                    />
+                ))}
             </div>
 
             <div className="flex items-center gap-3 border-t border-neutral-100 pt-2 text-[11px] text-neutral-500">
@@ -659,13 +733,51 @@ function MiniMonth({
     )
 }
 
-/** Heat colour for a mini-calendar day by how many items are planned. */
-function dotClass(count: number, outside: boolean): string {
-    if (outside) return 'bg-transparent'
-    if (count === 0) return 'bg-neutral-100'
-    if (count === 1) return 'bg-coral-200'
-    if (count === 2) return 'bg-coral-300'
-    return 'bg-coral-500'
+/**
+ * A single mini-calendar day, split into three stacked bands (morning /
+ * afternoon / evening). Each band fills with its item's colour when something
+ * is planned in that slot, and the whole day names its items on hover.
+ */
+function MiniMonthDay({
+    outside,
+    isToday,
+    slots,
+}: {
+    outside: boolean
+    isToday: boolean
+    slots?: Record<FitnessPlanPart, FitnessPlanEntry[]>
+}) {
+    if (outside) return <span className="aspect-square" />
+
+    const title = slots
+        ? FITNESS_PLAN_PARTS.filter((p) => slots[p].length > 0)
+              .map(
+                  (p) =>
+                      `${PART_META[p].label}: ${slots[p]
+                          .map((e) => planItemName(e) ?? KIND_META[e.kind].noun)
+                          .join(', ')}`
+              )
+              .join('\n')
+        : ''
+
+    return (
+        <span
+            title={title || undefined}
+            className={`flex aspect-square flex-col gap-px overflow-hidden rounded-[3px] bg-neutral-100 ${
+                isToday ? 'ring-1 ring-coral-500 ring-offset-1' : ''
+            }`}
+        >
+            {FITNESS_PLAN_PARTS.map((part) => {
+                const first = slots?.[part][0]
+                return (
+                    <span
+                        key={part}
+                        className={`flex-1 ${first ? KIND_BAND[first.kind] : ''}`}
+                    />
+                )
+            })}
+        </span>
+    )
 }
 
 function IconButton({
@@ -724,20 +836,35 @@ function DayColumn({
     editable,
     entries,
     onAdd,
+    onOpen,
     onRemove,
+    onMove,
 }: {
     date: string
     isToday: boolean
     editable: boolean
     entries: FitnessPlanEntry[]
     onAdd: (part: FitnessPlanPart) => void
+    onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
+    onMove: (id: string, part: FitnessPlanPart) => void
 }) {
     const { year, month, day } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
     const t = tally(entries)
     const total = t.workouts + t.sessions + t.recovery
     const rest = total === 0
+
+    // The entry being dragged within this day. Held per-column so a drag that
+    // starts here can only be dropped on another slot of this same day — never
+    // on another day's column, whose own state stays null.
+    const [dragId, setDragId] = useState<string | null>(null)
+
+    function handleDrop(part: FitnessPlanPart) {
+        const dragged = dragId && entries.find((e) => e._id === dragId)
+        if (dragged && partOf(dragged) !== part) onMove(dragged._id, part)
+        setDragId(null)
+    }
 
     return (
         <Card as="div" flush hover={false} className="flex flex-col gap-3 p-4">
@@ -769,7 +896,12 @@ function DayColumn({
                         editable={editable}
                         entries={entries.filter((e) => partOf(e) === part)}
                         onAdd={() => onAdd(part)}
+                        onOpen={onOpen}
                         onRemove={onRemove}
+                        dragActive={dragId !== null}
+                        onEntryDragStart={setDragId}
+                        onEntryDragEnd={() => setDragId(null)}
+                        onDropEntry={() => handleDrop(part)}
                     />
                 ))}
             </div>
@@ -806,22 +938,60 @@ function SlotSection({
     editable,
     entries,
     onAdd,
+    onOpen,
     onRemove,
+    dragActive,
+    onEntryDragStart,
+    onEntryDragEnd,
+    onDropEntry,
 }: {
     part: FitnessPlanPart
     editable: boolean
     entries: FitnessPlanEntry[]
     onAdd: () => void
+    onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
+    /** True while an item of this day is being dragged, so slots show as drop targets. */
+    dragActive: boolean
+    onEntryDragStart: (id: string) => void
+    onEntryDragEnd: () => void
+    onDropEntry: () => void
 }) {
     const meta = PART_META[part]
+    // Highlighted while a dragged item hovers over this slot.
+    const [isOver, setIsOver] = useState(false)
 
     if (!editable && entries.length === 0) return null
 
+    // A slot only acts as a drop target while a row from this day is in flight.
+    const dropProps = dragActive
+        ? {
+              onDragOver: (e: DragEvent) => {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  if (!isOver) setIsOver(true)
+              },
+              onDragLeave: (e: DragEvent) => {
+                  // Ignore bubbling from children; only clear when leaving the slot.
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsOver(false)
+              },
+              onDrop: (e: DragEvent) => {
+                  e.preventDefault()
+                  setIsOver(false)
+                  onDropEntry()
+              },
+          }
+        : {}
+
     return (
-        <div className="flex flex-col gap-1.5">
+        <div
+            {...dropProps}
+            className={`flex flex-col gap-1.5 rounded-lg transition-colors ${
+                isOver ? 'bg-coral-50 ring-1 ring-inset ring-coral-300' : ''
+            }`}
+        >
             <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
                     <i className={`${meta.icon} text-[10px] text-neutral-400`} aria-hidden="true" />
                     {meta.label}
                 </span>
@@ -842,7 +1012,11 @@ function SlotSection({
                         <PlannedRow
                             key={e._id}
                             entry={e}
+                            onOpen={() => onOpen(e)}
                             onRemove={editable ? () => onRemove(e._id) : undefined}
+                            draggable={editable}
+                            onDragStart={() => onEntryDragStart(e._id)}
+                            onDragEnd={onEntryDragEnd}
                         />
                     ))}
                 </ul>
@@ -850,9 +1024,13 @@ function SlotSection({
                 <button
                     type="button"
                     onClick={onAdd}
-                    className="rounded-lg border border-dashed border-neutral-200 py-1.5 text-center text-[11px] text-neutral-300 transition-colors hover:border-neutral-300 hover:text-neutral-500"
+                    className={`rounded-lg border border-dashed py-1.5 text-center text-[11px] transition-colors ${
+                        dragActive
+                            ? 'border-coral-300 text-coral-400'
+                            : 'border-neutral-200 text-neutral-300 hover:border-neutral-300 hover:text-neutral-500'
+                    }`}
                 >
-                    Add
+                    {dragActive ? 'Move here' : 'Add'}
                 </button>
             )}
         </div>
@@ -870,39 +1048,101 @@ function KindChip({ kind }: { kind: FitnessPlanKind }) {
     )
 }
 
-function PlannedRow({ entry, onRemove }: { entry: FitnessPlanEntry; onRemove?: () => void }) {
+function PlannedRow({
+    entry,
+    onOpen,
+    onRemove,
+    draggable = false,
+    onDragStart,
+    onDragEnd,
+}: {
+    entry: FitnessPlanEntry
+    onOpen?: () => void
+    onRemove?: () => void
+    /** When true the row can be dragged to another slot of its day (week view). */
+    draggable?: boolean
+    onDragStart?: () => void
+    onDragEnd?: () => void
+}) {
     const name = planItemName(entry)
     const tone = KIND_TONE[entry.kind]
+    const [dragging, setDragging] = useState(false)
+
+    const body = (
+        <>
+            <p className="truncate text-[13px] font-semibold text-neutral-700">{name}</p>
+            {entry.kind === 'workout' && entry.workout ? (
+                <div className="mt-0.5 flex items-center gap-1.5">
+                    <KindChip kind="workout" />
+                    <span className="text-[11px] tabular-nums text-neutral-400">
+                        {entry.workout.exercises.length}{' '}
+                        {entry.workout.exercises.length === 1 ? 'exercise' : 'exercises'}
+                    </span>
+                </div>
+            ) : entry.kind === 'conditioning' && entry.session ? (
+                <div className="mt-0.5 flex items-center gap-1.5">
+                    <CategoryChip category={entry.session.category} />
+                    <span className="text-[11px] tabular-nums text-neutral-400">
+                        {entry.session.duration} min
+                    </span>
+                </div>
+            ) : entry.recovery ? (
+                <div className="mt-0.5 flex items-center gap-1.5">
+                    <KindChip kind="recovery" />
+                    {entry.recovery.duration > 0 && (
+                        <span className="text-[11px] tabular-nums text-neutral-400">
+                            {entry.recovery.duration} min
+                        </span>
+                    )}
+                </div>
+            ) : null}
+        </>
+    )
+
     return (
-        <li className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 ${tone.row}`}>
-            <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium text-neutral-700">{name}</p>
-                {entry.kind === 'workout' && entry.workout ? (
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                        <KindChip kind="workout" />
-                        <span className="text-[10px] tabular-nums text-neutral-400">
-                            {entry.workout.exercises.length}{' '}
-                            {entry.workout.exercises.length === 1 ? 'exercise' : 'exercises'}
-                        </span>
-                    </div>
-                ) : entry.kind === 'conditioning' && entry.session ? (
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                        <CategoryChip category={entry.session.category} />
-                        <span className="text-[10px] tabular-nums text-neutral-400">
-                            {entry.session.duration} min
-                        </span>
-                    </div>
-                ) : entry.recovery ? (
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                        <KindChip kind="recovery" />
-                        {entry.recovery.duration > 0 && (
-                            <span className="text-[10px] tabular-nums text-neutral-400">
-                                {entry.recovery.duration} min
-                            </span>
-                        )}
-                    </div>
-                ) : null}
-            </div>
+        <li
+            draggable={draggable}
+            onDragStart={
+                draggable
+                    ? (e: DragEvent) => {
+                          // A payload is required for the drag to start in Firefox.
+                          e.dataTransfer.setData('text/plain', entry._id)
+                          e.dataTransfer.effectAllowed = 'move'
+                          setDragging(true)
+                          onDragStart?.()
+                      }
+                    : undefined
+            }
+            onDragEnd={
+                draggable
+                    ? () => {
+                          setDragging(false)
+                          onDragEnd?.()
+                      }
+                    : undefined
+            }
+            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-2 ${tone.row} ${
+                draggable ? 'cursor-grab active:cursor-grabbing' : ''
+            } ${dragging ? 'opacity-40' : ''}`}
+        >
+            {draggable && (
+                <i
+                    className="fa-solid fa-grip-vertical shrink-0 text-[11px] text-neutral-300"
+                    aria-hidden="true"
+                />
+            )}
+            {onOpen ? (
+                <button
+                    type="button"
+                    onClick={onOpen}
+                    aria-label={`View ${name ?? 'item'}`}
+                    className="min-w-0 flex-1 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-400"
+                >
+                    {body}
+                </button>
+            ) : (
+                <div className="min-w-0 flex-1">{body}</div>
+            )}
             {onRemove && (
                 <button
                     type="button"
@@ -1237,5 +1477,211 @@ function ItemPicker({
                 )}
             </div>
         </Drawer>
+    )
+}
+
+// ─── Planned item detail drawer ────────────────────────────────────────────────
+
+/**
+ * A read-only look at a planned item, opened by clicking its row in the week
+ * view. Renders the full details of whichever library it came from — a
+ * workout's exercises, a conditioning session's parts, or a recovery item's
+ * notes. All detail data rides along on the populated plan entry; only a
+ * workout's exercise *names* need the exercises library (via `exercisesById`).
+ */
+function PlannedDetailDrawer({
+    entry,
+    exercisesById,
+    onClose,
+}: {
+    entry: FitnessPlanEntry | null
+    exercisesById: Map<string, Exercise>
+    onClose: () => void
+}) {
+    // Retain the last entry while the drawer animates closed.
+    const [view, setView] = useState<FitnessPlanEntry | null>(entry)
+    useEffect(() => {
+        if (entry) setView(entry)
+    }, [entry])
+
+    const e = view
+    const title = e ? planItemName(e) ?? KIND_META[e.kind].label : 'Details'
+
+    return (
+        <Drawer
+            open={!!entry}
+            onClose={onClose}
+            size="xl"
+            title={title}
+            badge={e ? shortDayLabel(e.date) : undefined}
+            footer={
+                <Button variant="ghost" onClick={onClose}>
+                    Done
+                </Button>
+            }
+        >
+            {e &&
+                (e.kind === 'workout' && e.workout ? (
+                    <WorkoutDetail workout={e.workout} exercisesById={exercisesById} />
+                ) : e.kind === 'conditioning' && e.session ? (
+                    <SessionDetail session={e.session} />
+                ) : e.recovery ? (
+                    <RecoveryDetail recovery={e.recovery} />
+                ) : null)}
+        </Drawer>
+    )
+}
+
+function DetailChip({ icon, children }: { icon: string; children: ReactNode }) {
+    return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
+            <i className={`${icon} text-neutral-400`} aria-hidden="true" />
+            {children}
+        </span>
+    )
+}
+
+function DetailSection({ label, children }: { label: string; children: ReactNode }) {
+    return (
+        <section>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                {label}
+            </p>
+            {children}
+        </section>
+    )
+}
+
+function WorkoutDetail({
+    workout,
+    exercisesById,
+}: {
+    workout: Workout
+    exercisesById: Map<string, Exercise>
+}) {
+    // Pair each workout slot with its resolved library exercise, dropping any
+    // that were since deleted from the library.
+    const rows = workout.exercises
+        .map((item) => ({ item, ex: exercisesById.get(item.exercise) }))
+        .filter((r): r is { item: WorkoutExercise; ex: Exercise } => !!r.ex)
+    const est = estimateWorkoutMinutes(workout.exercises)
+
+    return (
+        <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center gap-2">
+                <KindChip kind="workout" />
+                <DetailChip icon="fa-solid fa-dumbbell">
+                    {rows.length} {rows.length === 1 ? 'exercise' : 'exercises'}
+                </DetailChip>
+                {rows.length > 0 && <DetailChip icon="fa-regular fa-clock">~{est} min</DetailChip>}
+            </div>
+
+            {workout.description && (
+                <p className="whitespace-pre-wrap text-sm text-neutral-600">{workout.description}</p>
+            )}
+
+            <DetailSection label="Exercises">
+                {rows.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
+                        No exercises in this workout yet.
+                    </p>
+                ) : (
+                    <ol className="flex flex-col gap-3">
+                        {rows.map(({ item, ex }, i) => (
+                            <li key={`${ex._id}-${i}`} className="flex gap-3 text-sm">
+                                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
+                                    {i + 1}
+                                </span>
+                                <div className="min-w-0 pt-0.5">
+                                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                        <p className="font-semibold text-neutral-900">{ex.name}</p>
+                                        {formatSetsReps(item) && (
+                                            <span className="text-xs font-medium text-coral-600">
+                                                {formatSetsReps(item)}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {ex.description && (
+                                        <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
+                                            {ex.description}
+                                        </p>
+                                    )}
+                                </div>
+                            </li>
+                        ))}
+                    </ol>
+                )}
+            </DetailSection>
+        </div>
+    )
+}
+
+function SessionDetail({ session }: { session: ConditioningSession }) {
+    return (
+        <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center gap-3">
+                <CategoryChip category={session.category} />
+                <span className="text-sm text-neutral-500">{session.duration} min</span>
+            </div>
+
+            {session.purpose && (
+                <DetailSection label="Purpose">
+                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{session.purpose}</p>
+                </DetailSection>
+            )}
+
+            {session.parts.length > 0 && (
+                <DetailSection label="Session parts">
+                    <ol className="flex flex-col gap-3">
+                        {session.parts.map((part, i) => (
+                            <li key={i} className="flex gap-3 text-sm">
+                                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
+                                    {i + 1}
+                                </span>
+                                <div className="min-w-0 pt-0.5">
+                                    <p className="font-semibold text-neutral-900">{part.name}</p>
+                                    {part.detail && (
+                                        <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
+                                            {part.detail}
+                                        </p>
+                                    )}
+                                </div>
+                            </li>
+                        ))}
+                    </ol>
+                </DetailSection>
+            )}
+
+            {session.howToUse && (
+                <DetailSection label="How to use">
+                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{session.howToUse}</p>
+                </DetailSection>
+            )}
+        </div>
+    )
+}
+
+function RecoveryDetail({ recovery }: { recovery: Recovery }) {
+    return (
+        <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center gap-3">
+                <KindChip kind="recovery" />
+                {recovery.duration > 0 && (
+                    <span className="text-sm text-neutral-500">{recovery.duration} min</span>
+                )}
+            </div>
+
+            {recovery.purpose && (
+                <DetailSection label="Purpose">
+                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{recovery.purpose}</p>
+                </DetailSection>
+            )}
+
+            {recovery.notes && (
+                <DetailSection label="Notes">
+                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{recovery.notes}</p>
+                </DetailSection>
+            )}
+        </div>
     )
 }

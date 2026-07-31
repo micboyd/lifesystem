@@ -20,6 +20,10 @@ function isKind(v: unknown): v is FitnessPlanKind {
     return typeof v === 'string' && FITNESS_PLAN_KINDS.includes(v as FitnessPlanKind)
 }
 
+function isPart(v: unknown): v is FitnessPlanPart {
+    return typeof v === 'string' && FITNESS_PLAN_PARTS.includes(v as FitnessPlanPart)
+}
+
 /** Keep the slot if recognised, else fall back to the morning slot. */
 function toPart(v: unknown): FitnessPlanPart {
     return FITNESS_PLAN_PARTS.includes(v as FitnessPlanPart)
@@ -110,6 +114,40 @@ export async function createEntry(req: AuthRequest, res: Response) {
     await entry.populate('session')
     await entry.populate('recovery')
     res.status(201).json({ message: 'Created', data: entry })
+}
+
+/**
+ * PATCH /api/fitness-plan/:id — move an entry to a different slot of its day.
+ * Only the `part` changes; the entry appends to the end of the target slot.
+ */
+export async function updateEntry(req: AuthRequest, res: Response) {
+    const { part } = req.body
+    if (!isPart(part)) {
+        res.status(400).json({ message: 'part (morning|afternoon|evening) is required' })
+        return
+    }
+
+    const entry = await FitnessPlanEntry.findOne({ _id: req.params.id, user: req.userId })
+    if (!entry) {
+        res.status(404).json({ message: 'Entry not found' })
+        return
+    }
+
+    if (entry.part !== part) {
+        const last = await FitnessPlanEntry.findOne({
+            user: req.userId,
+            date: entry.date,
+            part,
+        }).sort({ order: -1 })
+        entry.part = part
+        entry.order = last ? last.order + 1 : 0
+        await entry.save()
+    }
+
+    await entry.populate('workout')
+    await entry.populate('session')
+    await entry.populate('recovery')
+    res.json({ message: 'Updated', data: entry })
 }
 
 /** DELETE /api/fitness-plan/:id — remove a planned item. */
