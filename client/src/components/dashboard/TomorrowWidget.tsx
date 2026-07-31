@@ -435,7 +435,7 @@ function TomorrowBrief({
                                     className={`${period.icon} w-4 shrink-0 text-center text-sm opacity-60 ${colors.text}`}
                                     aria-hidden="true"
                                 />
-                                <span className={`w-16 shrink-0 text-xs font-semibold uppercase tracking-wide opacity-70 ${colors.text}`}>
+                                <span className={`mr-2 w-16 shrink-0 text-xs font-semibold uppercase tracking-wide opacity-70 ${colors.text}`}>
                                     {period.label}
                                 </span>
                                 <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${colors.text}`}>
