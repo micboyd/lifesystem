@@ -14,6 +14,7 @@ import Pagination from '../components/Pagination'
 import LineIcon from '../components/LineIcon'
 import StrengthLibraries from '../components/StrengthLibraries'
 import ConditioningSessionsLog from '../components/ConditioningSessionsLog'
+import RecoveryLibrary from '../components/RecoveryLibrary'
 import FitnessWeeklyPlanner from '../components/FitnessWeeklyPlanner'
 import JsonImportPanel from '../components/JsonImportPanel'
 import {
@@ -59,13 +60,14 @@ const SESSION_TEMPLATE = JSON.stringify(
     2
 )
 
-const TABS = ['Planner', 'Strength', 'Conditioning'] as const
+const TABS = ['Planner', 'Strength', 'Conditioning', 'Recovery'] as const
 type Tab = (typeof TABS)[number]
 
 const SUBTITLE: Record<Tab, string> = {
-    Planner: 'Plan your training — drop workouts and conditioning sessions onto each day.',
+    Planner: 'Plan your training — drop strength, conditioning and recovery into each day.',
     Strength: 'Track your training programmes, sessions and progress.',
     Conditioning: 'Track your training programmes, sessions and progress.',
+    Recovery: 'Build a library of recovery — stretching, mobility, sauna and more.',
 }
 
 export default function Fitness() {
@@ -93,7 +95,13 @@ export default function Fitness() {
                 </Container>
             ) : (
                 <Container className="mt-6">
-                    {tab === 'Strength' ? <StrengthLibraries /> : <ConditioningSection />}
+                    {tab === 'Strength' ? (
+                        <StrengthLibraries />
+                    ) : tab === 'Conditioning' ? (
+                        <ConditioningSection />
+                    ) : (
+                        <RecoveryLibrary />
+                    )}
                 </Container>
             )}
         </main>

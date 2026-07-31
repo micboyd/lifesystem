@@ -1257,6 +1257,220 @@ function ShoppingListModal({
     )
 }
 
+// ─── Week cooking instructions ──────────────────────────────────────────────────
+
+/**
+ * A single meal's recipe within the cooking drawer, with quantities scaled to
+ * the number of servings the week's plan calls for. `servings` is how many times
+ * the meal appears in the visible week, so each ingredient is scaled by
+ * `servings / meal.servings`.
+ */
+function CookingRecipe({
+    meal,
+    servings,
+    onBack,
+}: {
+    meal: Meal
+    servings: number
+    onBack: () => void
+}) {
+    const factor = meal.servings ? servings / meal.servings : 1
+    return (
+        <div className="flex flex-col gap-6">
+            <button
+                type="button"
+                onClick={onBack}
+                className="inline-flex w-fit items-center gap-1.5 text-sm text-neutral-500 transition-colors hover:text-neutral-900"
+            >
+                <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
+                All planned meals
+            </button>
+
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+                Scaled for{' '}
+                <span className="font-semibold text-neutral-800">
+                    {servings} {servings === 1 ? 'serving' : 'servings'}
+                </span>{' '}
+                planned this week
+                {meal.servings ? (
+                    <span className="text-neutral-400"> · recipe makes {meal.servings}</span>
+                ) : null}
+            </div>
+
+            {meal.ingredients.length > 0 && (
+                <section>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        Ingredients
+                    </p>
+                    <ul className="flex flex-col divide-y divide-neutral-100 rounded-xl border border-neutral-200">
+                        {meal.ingredients.map((ing, i) => {
+                            const qty = ing.quantity ? scaleQty(ing.quantity, factor) : ''
+                            return (
+                                <li
+                                    key={i}
+                                    className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                                >
+                                    <span className="text-neutral-700">{ing.name}</span>
+                                    {(qty || ing.unit) && (
+                                        <span className="shrink-0 tabular-nums text-neutral-500">
+                                            {[qty, ing.unit].filter(Boolean).join(' ')}
+                                        </span>
+                                    )}
+                                </li>
+                            )
+                        })}
+                    </ul>
+                </section>
+            )}
+
+            {meal.method.length > 0 && (
+                <section>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        Method
+                    </p>
+                    <ol className="flex flex-col gap-3">
+                        {meal.method.map((step, i) => (
+                            <li key={i} className="flex gap-3 text-sm text-neutral-700">
+                                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
+                                    {i + 1}
+                                </span>
+                                <span className="whitespace-pre-wrap pt-0.5">{step}</span>
+                            </li>
+                        ))}
+                    </ol>
+                </section>
+            )}
+
+            {meal.notes && (
+                <section>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        Notes
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{meal.notes}</p>
+                </section>
+            )}
+
+            {meal.link && (
+                <a
+                    href={meal.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-fit items-center gap-1.5 text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
+                >
+                    <LineIcon name="external-link" className="h-3.5 w-3.5" />
+                    Open link
+                </a>
+            )}
+
+            {meal.ingredients.length === 0 && meal.method.length === 0 && (
+                <p className="py-6 text-center text-sm text-neutral-400">
+                    This meal has no ingredients or method recorded yet.
+                </p>
+            )}
+        </div>
+    )
+}
+
+/**
+ * "Week cooking instructions": a two-layer drawer. Layer one lists every meal
+ * planned in the visible week alongside how many servings the week needs.
+ * Picking one drops into its recipe — quantities pre-scaled to that serving
+ * count — with a back link up to the list.
+ */
+function WeekCookingDrawer({
+    open,
+    onClose,
+    entries,
+}: {
+    open: boolean
+    onClose: () => void
+    entries: MealPlanEntry[]
+}) {
+    // Distinct planned meals for the week, each with the servings the plan calls
+    // for (one per entry), sorted by name.
+    const planned = useMemo(() => {
+        const map = new Map<string, { meal: Meal; count: number }>()
+        for (const entry of entries) {
+            const meal = entry.meal
+            if (!meal) continue
+            const existing = map.get(meal._id)
+            if (existing) existing.count += 1
+            else map.set(meal._id, { meal, count: 1 })
+        }
+        return [...map.values()].sort((a, b) => a.meal.name.localeCompare(b.meal.name))
+    }, [entries])
+
+    const [selectedId, setSelectedId] = useState<string | null>(null)
+    // Return to the picker each time the drawer is (re)opened.
+    useEffect(() => {
+        if (open) setSelectedId(null)
+    }, [open])
+
+    const selected = selectedId ? planned.find((p) => p.meal._id === selectedId) ?? null : null
+
+    return (
+        <Drawer
+            open={open}
+            onClose={onClose}
+            title={selected ? selected.meal.name : 'Week cooking instructions'}
+            size="xl"
+        >
+            {selected ? (
+                <CookingRecipe
+                    meal={selected.meal}
+                    servings={selected.count}
+                    onBack={() => setSelectedId(null)}
+                />
+            ) : planned.length === 0 ? (
+                <p className="py-6 text-center text-sm text-neutral-400">
+                    Nothing planned this week yet — add meals to the planner to see their cooking
+                    instructions.
+                </p>
+            ) : (
+                <div className="flex flex-col gap-3">
+                    <p className="text-xs text-neutral-400">
+                        Pick a meal to see its recipe, scaled to the servings you&rsquo;ve planned
+                        this week.
+                    </p>
+                    <ul className="flex flex-col divide-y divide-neutral-100 rounded-xl border border-neutral-200">
+                        {planned.map(({ meal, count }) => (
+                            <li key={meal._id}>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedId(meal._id)}
+                                    className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-neutral-50"
+                                >
+                                    <span className="flex min-w-0 flex-col gap-1">
+                                        <span className="truncate text-sm font-medium text-neutral-800">
+                                            {meal.name}
+                                        </span>
+                                        {meal.types.length > 0 && (
+                                            <span className="flex flex-wrap gap-1">
+                                                {meal.types.map((t) => (
+                                                    <TypeChip key={t} type={t} />
+                                                ))}
+                                            </span>
+                                        )}
+                                    </span>
+                                    <span className="flex shrink-0 items-center gap-2">
+                                        <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium tabular-nums text-neutral-500">
+                                            {count} {count === 1 ? 'serving' : 'servings'}
+                                        </span>
+                                        <i
+                                            className="fa-solid fa-chevron-right text-xs text-neutral-300"
+                                            aria-hidden="true"
+                                        />
+                                    </span>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </Drawer>
+    )
+}
+
 function WeeklyPlanner({
     meals,
     mealsLoading,
@@ -1271,6 +1485,7 @@ function WeeklyPlanner({
     const [loading, setLoading] = useState(true)
     const [picker, setPicker] = useState<{ date: string; slot: MealType } | null>(null)
     const [showList, setShowList] = useState(false)
+    const [showCooking, setShowCooking] = useState(false)
     // The Monday of a week the user has "copied" for pasting onto another week.
     const [copiedWeek, setCopiedWeek] = useState<string | null>(null)
     // The planner opens read-only; Edit reveals the add/remove/copy controls.
@@ -1424,6 +1639,13 @@ function WeeklyPlanner({
                         >
                             Shopping list
                         </Button>
+                        <Button
+                            variant="secondary"
+                            icon="fa-solid fa-utensils"
+                            onClick={() => setShowCooking(true)}
+                        >
+                            Cooking instructions
+                        </Button>
                     </div>
                     <WeekTotals macros={weekMacros} />
                 </div>
@@ -1473,6 +1695,12 @@ function WeeklyPlanner({
             <ShoppingListModal
                 open={showList}
                 onClose={() => setShowList(false)}
+                entries={entries}
+            />
+
+            <WeekCookingDrawer
+                open={showCooking}
+                onClose={() => setShowCooking(false)}
                 entries={entries}
             />
 

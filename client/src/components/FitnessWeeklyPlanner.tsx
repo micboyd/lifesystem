@@ -7,14 +7,17 @@ import EmptyState from './EmptyState'
 import Drawer from './Drawer'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
+import { listRecovery } from '../services/recovery'
 import { listPlanEntries, addPlanEntry, deletePlanEntry } from '../services/fitnessPlan'
-import { FITNESS_PLAN_KINDS } from '../types'
+import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS } from '../types'
 import type {
     Workout,
     ConditioningSession,
     ConditioningCategory,
+    Recovery,
     FitnessPlanEntry,
     FitnessPlanKind,
+    FitnessPlanPart,
 } from '../types'
 import {
     todayKey,
@@ -37,10 +40,12 @@ const KIND_META: Record<
 > = {
     workout: { label: 'Strength', noun: 'workout', icon: 'fa-solid fa-dumbbell' },
     conditioning: { label: 'Conditioning', noun: 'session', icon: 'fa-solid fa-heart-pulse' },
+    recovery: { label: 'Recovery', noun: 'item', icon: 'fa-solid fa-spa' },
 }
 
-// Each plan kind carries its own colour so strength and cardio read apart at a
-// glance — coral for strength, sky for conditioning (matching the month chips).
+// Each plan kind carries its own colour so the three categories read apart at a
+// glance — coral for strength, sky for conditioning, emerald for recovery
+// (matching the chips used elsewhere in Fitness).
 const KIND_TONE: Record<
     FitnessPlanKind,
     { label: string; icon: string; row: string; chip: string }
@@ -57,6 +62,31 @@ const KIND_TONE: Record<
         row: 'border-l-2 border-sky-300 bg-sky-50/60',
         chip: 'bg-sky-50 text-sky-700',
     },
+    recovery: {
+        label: 'text-emerald-600',
+        icon: 'text-emerald-500',
+        row: 'border-l-2 border-emerald-300 bg-emerald-50/60',
+        chip: 'bg-emerald-50 text-emerald-700',
+    },
+}
+
+// The three slots each day splits into, with a label and icon for the header.
+const PART_META: Record<FitnessPlanPart, { label: string; icon: string }> = {
+    morning: { label: 'Morning', icon: 'fa-solid fa-sun' },
+    afternoon: { label: 'Afternoon', icon: 'fa-solid fa-cloud-sun' },
+    evening: { label: 'Evening', icon: 'fa-solid fa-moon' },
+}
+
+/** The slot an entry sits in, defaulting legacy entries (no `part`) to morning. */
+function partOf(entry: FitnessPlanEntry): FitnessPlanPart {
+    return entry.part ?? 'morning'
+}
+
+/** The display name of a planned item, whichever library it comes from. */
+function planItemName(entry: FitnessPlanEntry): string | undefined {
+    if (entry.kind === 'workout') return entry.workout?.name
+    if (entry.kind === 'conditioning') return entry.session?.name
+    return entry.recovery?.name
 }
 
 const CATEGORY_CHIP: Record<ConditioningCategory, string> = {
@@ -152,6 +182,7 @@ const WEEKDAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 interface WeekTally {
     workouts: number
     sessions: number
+    recovery: number
     /** Total planned conditioning minutes across the range. */
     minutes: number
 }
@@ -160,13 +191,13 @@ function tally(entries: FitnessPlanEntry[]): WeekTally {
     return entries.reduce<WeekTally>(
         (acc, e) => {
             if (e.kind === 'workout') acc.workouts += 1
-            else {
+            else if (e.kind === 'conditioning') {
                 acc.sessions += 1
                 acc.minutes += e.session?.duration ?? 0
-            }
+            } else acc.recovery += 1
             return acc
         },
-        { workouts: 0, sessions: 0, minutes: 0 }
+        { workouts: 0, sessions: 0, recovery: 0, minutes: 0 }
     )
 }
 
@@ -179,14 +210,13 @@ export default function FitnessWeeklyPlanner() {
     const [anchor, setAnchor] = useState(() => todayKey())
     const [workouts, setWorkouts] = useState<Workout[]>([])
     const [sessions, setSessions] = useState<ConditioningSession[]>([])
+    const [recovery, setRecovery] = useState<Recovery[]>([])
     const [libLoading, setLibLoading] = useState(true)
     const [entries, setEntries] = useState<FitnessPlanEntry[]>([])
     const [loading, setLoading] = useState(true)
-    // `kind: null` opens a whole-day drawer (from the month grid); a set kind
-    // jumps straight to that section's add list (from a week column).
-    const [picker, setPicker] = useState<{ date: string; kind: FitnessPlanKind | null } | null>(
-        null
-    )
+    // The picker always targets one day + slot; the type (strength / conditioning /
+    // recovery) and the slot are then chosen inside the drawer.
+    const [picker, setPicker] = useState<{ date: string; part: FitnessPlanPart } | null>(null)
     // The planner opens read-only; Edit reveals the add/remove controls.
     const [editing, setEditing] = useState(false)
 
@@ -205,12 +235,13 @@ export default function FitnessWeeklyPlanner() {
         return { start: firstOfMonth(anchor), end: lastOfMonth(addMonths(firstOfMonth(anchor), 5)) }
     }, [view, anchor])
 
-    // The two libraries — loaded once, for the picker and the "is it empty" check.
+    // The three libraries — loaded once, for the picker and the "is it empty" check.
     useEffect(() => {
-        Promise.all([listWorkouts(), listSessions()])
-            .then(([wk, se]) => {
+        Promise.all([listWorkouts(), listSessions(), listRecovery()])
+            .then(([wk, se, re]) => {
                 setWorkouts(wk)
                 setSessions(se)
+                setRecovery(re)
             })
             .finally(() => setLibLoading(false))
     }, [])
@@ -238,8 +269,13 @@ export default function FitnessWeeklyPlanner() {
         else setAnchor((a) => addMonths(a, dir * 6))
     }
 
-    async function handleAdd(date: string, kind: FitnessPlanKind, itemId: string) {
-        const entry = await addPlanEntry(date, kind, itemId)
+    async function handleAdd(
+        date: string,
+        kind: FitnessPlanKind,
+        itemId: string,
+        part: FitnessPlanPart
+    ) {
+        const entry = await addPlanEntry(date, kind, itemId, part)
         setEntries((prev) => [...prev, entry])
     }
 
@@ -252,7 +288,7 @@ export default function FitnessWeeklyPlanner() {
     const totalsEntries =
         view === 'month' ? entries.filter((e) => inSameMonth(e.date, anchor)) : entries
     const totals = tally(totalsEntries)
-    const libraryEmpty = workouts.length === 0 && sessions.length === 0
+    const libraryEmpty = workouts.length === 0 && sessions.length === 0 && recovery.length === 0
 
     const rangeLabel =
         view === 'week'
@@ -327,7 +363,7 @@ export default function FitnessWeeklyPlanner() {
                     today={today}
                     editing={editing}
                     entries={entries}
-                    onAdd={(date, kind) => setPicker({ date, kind })}
+                    onAdd={(date, part) => setPicker({ date, part })}
                     onRemove={handleRemove}
                 />
             ) : view === 'month' ? (
@@ -335,7 +371,7 @@ export default function FitnessWeeklyPlanner() {
                     anchor={anchor}
                     today={today}
                     entries={entries}
-                    onOpenDay={(date) => setPicker({ date, kind: null })}
+                    onOpenDay={(date) => setPicker({ date, part: 'morning' })}
                 />
             ) : (
                 <SixMonthView
@@ -354,6 +390,7 @@ export default function FitnessWeeklyPlanner() {
                 editable={editing}
                 workouts={workouts}
                 sessions={sessions}
+                recovery={recovery}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
                 onClose={() => setPicker(null)}
                 onAdd={handleAdd}
@@ -409,7 +446,7 @@ function WeekView({
     today: string
     editing: boolean
     entries: FitnessPlanEntry[]
-    onAdd: (date: string, kind: FitnessPlanKind) => void
+    onAdd: (date: string, part: FitnessPlanPart) => void
     onRemove: (id: string) => void
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -422,7 +459,7 @@ function WeekView({
                     isToday={date === today}
                     editable={editing}
                     entries={entries.filter((e) => e.date === date)}
-                    onAdd={(kind) => onAdd(date, kind)}
+                    onAdd={(part) => onAdd(date, part)}
                     onRemove={onRemove}
                 />
             ))}
@@ -524,7 +561,7 @@ function MonthCell({
 
 function MonthChip({ entry }: { entry: FitnessPlanEntry }) {
     const meta = KIND_META[entry.kind]
-    const name = entry.kind === 'workout' ? entry.workout?.name : entry.session?.name
+    const name = planItemName(entry)
     return (
         <span
             className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_TONE[entry.kind].chip}`}
@@ -592,7 +629,7 @@ function MiniMonth({
             <div className="flex items-baseline justify-between">
                 <p className="text-sm font-bold text-neutral-900">{formatMonthYear(month)}</p>
                 <span className="text-[11px] text-neutral-400">
-                    {t.workouts + t.sessions} planned
+                    {t.workouts + t.sessions + t.recovery} planned
                 </span>
             </div>
 
@@ -612,11 +649,11 @@ function MiniMonth({
             </div>
 
             <div className="flex items-center gap-3 border-t border-neutral-100 pt-2 text-[11px] text-neutral-500">
-                <span className="tabular-nums">{t.workouts} workouts</span>
+                <span className="tabular-nums">{t.workouts} strength</span>
                 <span className="text-neutral-300">·</span>
-                <span className="tabular-nums">{t.sessions} sessions</span>
+                <span className="tabular-nums">{t.sessions} cond.</span>
                 <span className="text-neutral-300">·</span>
-                <span className="tabular-nums">{t.minutes} min</span>
+                <span className="tabular-nums">{t.recovery} recovery</span>
             </div>
         </button>
     )
@@ -659,9 +696,11 @@ function IconButton({
 function WeekTotals({ tally }: { tally: WeekTally }) {
     return (
         <div className="flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-4 py-2.5">
-            <Stat label="Workouts" value={tally.workouts} />
+            <Stat label="Strength" value={tally.workouts} />
             <div className="h-8 w-px bg-neutral-200" />
-            <Stat label="Sessions" value={tally.sessions} />
+            <Stat label="Cond." value={tally.sessions} />
+            <div className="h-8 w-px bg-neutral-200" />
+            <Stat label="Recovery" value={tally.recovery} />
             <div className="h-8 w-px bg-neutral-200" />
             <Stat label="Cond. min" value={tally.minutes} />
         </div>
@@ -691,13 +730,14 @@ function DayColumn({
     isToday: boolean
     editable: boolean
     entries: FitnessPlanEntry[]
-    onAdd: (kind: FitnessPlanKind) => void
+    onAdd: (part: FitnessPlanPart) => void
     onRemove: (id: string) => void
 }) {
     const { year, month, day } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
     const t = tally(entries)
-    const rest = entries.length === 0
+    const total = t.workouts + t.sessions + t.recovery
+    const rest = total === 0
 
     return (
         <Card as="div" flush hover={false} className="flex flex-col gap-3 p-4">
@@ -722,13 +762,13 @@ function DayColumn({
             </div>
 
             <div className="flex flex-col gap-3">
-                {FITNESS_PLAN_KINDS.map((kind) => (
-                    <KindSection
-                        key={kind}
-                        kind={kind}
+                {FITNESS_PLAN_PARTS.map((part) => (
+                    <SlotSection
+                        key={part}
+                        part={part}
                         editable={editable}
-                        entries={entries.filter((e) => e.kind === kind)}
-                        onAdd={() => onAdd(kind)}
+                        entries={entries.filter((e) => partOf(e) === part)}
+                        onAdd={() => onAdd(part)}
                         onRemove={onRemove}
                     />
                 ))}
@@ -740,10 +780,14 @@ function DayColumn({
                 ) : (
                     <>
                         <span className="tabular-nums">
-                            {t.workouts} {t.workouts === 1 ? 'workout' : 'workouts'}
+                            {total} {total === 1 ? 'item' : 'items'}
                         </span>
-                        <span className="text-neutral-300">·</span>
-                        <span className="tabular-nums">{t.minutes} min cond.</span>
+                        {t.minutes > 0 && (
+                            <>
+                                <span className="text-neutral-300">·</span>
+                                <span className="tabular-nums">{t.minutes} min cond.</span>
+                            </>
+                        )}
                     </>
                 )}
             </div>
@@ -751,38 +795,40 @@ function DayColumn({
     )
 }
 
-function KindSection({
-    kind,
+/**
+ * One slot (morning / afternoon / evening) of a day column. Holds a flat list
+ * of items of any category, each carrying its own colour. In view mode an empty
+ * slot collapses; in edit mode it shows an add control that opens the picker
+ * pre-targeted to this slot.
+ */
+function SlotSection({
+    part,
     editable,
     entries,
     onAdd,
     onRemove,
 }: {
-    kind: FitnessPlanKind
+    part: FitnessPlanPart
     editable: boolean
     entries: FitnessPlanEntry[]
     onAdd: () => void
     onRemove: (id: string) => void
 }) {
-    const meta = KIND_META[kind]
-    const tone = KIND_TONE[kind]
+    const meta = PART_META[part]
 
-    // In view mode an empty slot is just noise — collapse it so the plan reads clean.
     if (!editable && entries.length === 0) return null
 
     return (
         <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-                <span
-                    className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide ${tone.label}`}
-                >
-                    <i className={`${meta.icon} text-[10px] ${tone.icon}`} aria-hidden="true" />
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    <i className={`${meta.icon} text-[10px] text-neutral-400`} aria-hidden="true" />
                     {meta.label}
                 </span>
                 {editable && (
                     <button
                         type="button"
-                        aria-label={`Add ${meta.noun}`}
+                        aria-label={`Add to ${meta.label.toLowerCase()}`}
                         onClick={onAdd}
                         className="grid h-6 w-6 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                     >
@@ -813,24 +859,47 @@ function KindSection({
     )
 }
 
+/** A small pill naming an item's category, so mixed slots stay legible. */
+function KindChip({ kind }: { kind: FitnessPlanKind }) {
+    return (
+        <span
+            className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${KIND_TONE[kind].chip}`}
+        >
+            {KIND_META[kind].label}
+        </span>
+    )
+}
+
 function PlannedRow({ entry, onRemove }: { entry: FitnessPlanEntry; onRemove?: () => void }) {
-    const name = entry.kind === 'workout' ? entry.workout?.name : entry.session?.name
+    const name = planItemName(entry)
     const tone = KIND_TONE[entry.kind]
     return (
         <li className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 ${tone.row}`}>
             <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-neutral-700">{name}</p>
                 {entry.kind === 'workout' && entry.workout ? (
-                    <p className="text-[10px] tabular-nums text-neutral-400">
-                        {entry.workout.exercises.length}{' '}
-                        {entry.workout.exercises.length === 1 ? 'exercise' : 'exercises'}
-                    </p>
-                ) : entry.session ? (
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                        <KindChip kind="workout" />
+                        <span className="text-[10px] tabular-nums text-neutral-400">
+                            {entry.workout.exercises.length}{' '}
+                            {entry.workout.exercises.length === 1 ? 'exercise' : 'exercises'}
+                        </span>
+                    </div>
+                ) : entry.kind === 'conditioning' && entry.session ? (
                     <div className="mt-0.5 flex items-center gap-1.5">
                         <CategoryChip category={entry.session.category} />
                         <span className="text-[10px] tabular-nums text-neutral-400">
                             {entry.session.duration} min
                         </span>
+                    </div>
+                ) : entry.recovery ? (
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                        <KindChip kind="recovery" />
+                        {entry.recovery.duration > 0 && (
+                            <span className="text-[10px] tabular-nums text-neutral-400">
+                                {entry.recovery.duration} min
+                            </span>
+                        )}
                     </div>
                 ) : null}
             </div>
@@ -849,53 +918,55 @@ function PlannedRow({ entry, onRemove }: { entry: FitnessPlanEntry; onRemove?: (
 }
 
 /**
- * The day drawer. Opened from a week column it targets one kind and jumps
- * straight to that add list; opened from the month grid it targets the whole
- * day, with a Workout/Conditioning toggle. In view mode it's a read-only
- * summary of what's planned; in edit mode items can be added and removed here.
+ * The day drawer. It targets one day + slot; inside, a Slot toggle and a Type
+ * toggle (Strength / Conditioning / Recovery) choose where an added item lands
+ * and which library the add list draws from. In view mode it's a read-only
+ * summary grouped by slot; in edit mode items can be added and removed here.
  */
 function ItemPicker({
     target,
     editable,
     workouts,
     sessions,
+    recovery,
     entries,
     onClose,
     onAdd,
     onRemove,
 }: {
-    target: { date: string; kind: FitnessPlanKind | null } | null
+    target: { date: string; part: FitnessPlanPart } | null
     editable: boolean
     workouts: Workout[]
     sessions: ConditioningSession[]
+    recovery: Recovery[]
     entries: FitnessPlanEntry[]
     onClose: () => void
-    onAdd: (date: string, kind: FitnessPlanKind, itemId: string) => Promise<void>
+    onAdd: (
+        date: string,
+        kind: FitnessPlanKind,
+        itemId: string,
+        part: FitnessPlanPart
+    ) => Promise<void>
     onRemove: (id: string) => void
 }) {
     // Retain the last target so the drawer keeps its content while sliding shut.
     const [view, setView] = useState(target)
     const [query, setQuery] = useState('')
-    // Which library the add list shows. Fixed when the target names a kind
-    // (week column); a toggle when it doesn't (month day).
+    // Which library the add list shows, and which slot an added item lands in.
     const [activeKind, setActiveKind] = useState<FitnessPlanKind>('workout')
+    const [activePart, setActivePart] = useState<FitnessPlanPart>('morning')
     useEffect(() => {
         if (target) {
             setView(target)
             setQuery('')
-            setActiveKind(target.kind ?? 'workout')
+            setActiveKind('workout')
+            setActivePart(target.part)
         }
     }, [target])
 
-    const locked = view?.kind != null
     const kind = activeKind
     const meta = KIND_META[kind]
-
-    const title = !editable
-        ? 'Day plan'
-        : locked
-          ? `Add ${KIND_META[view!.kind as FitnessPlanKind].label.toLowerCase()}`
-          : 'Edit day'
+    const title = editable ? 'Add to day' : 'Day plan'
 
     const workoutResults = useMemo(() => {
         const q = query.trim().toLowerCase()
@@ -924,6 +995,24 @@ function ItemPicker({
         return [...base].sort((a, b) => a.name.localeCompare(b.name))
     }, [sessions, query])
 
+    const recoveryResults = useMemo(() => {
+        const q = query.trim().toLowerCase()
+        const base = q
+            ? recovery.filter(
+                  (r) =>
+                      r.name.toLowerCase().includes(q) ||
+                      (r.purpose ?? '').toLowerCase().includes(q)
+              )
+            : recovery
+        return [...base].sort((a, b) => a.name.localeCompare(b.name))
+    }, [recovery, query])
+
+    // The day's items, grouped by slot for the read-only summary.
+    const slots = FITNESS_PLAN_PARTS.map((part) => ({
+        part,
+        items: entries.filter((e) => partOf(e) === part),
+    })).filter((s) => s.items.length > 0)
+
     return (
         <Drawer
             open={!!target}
@@ -937,20 +1026,31 @@ function ItemPicker({
             }
         >
             <div className="flex flex-col gap-4">
-                {entries.length > 0 ? (
-                    <section className="flex flex-col gap-1.5">
+                {slots.length > 0 ? (
+                    <section className="flex flex-col gap-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                             On this day
                         </p>
-                        <ul className="flex flex-col gap-1">
-                            {entries.map((e) => (
-                                <PlannedRow
-                                    key={e._id}
-                                    entry={e}
-                                    onRemove={editable ? () => onRemove(e._id) : undefined}
-                                />
-                            ))}
-                        </ul>
+                        {slots.map(({ part, items }) => (
+                            <div key={part} className="flex flex-col gap-1.5">
+                                <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                                    <i
+                                        className={`${PART_META[part].icon} text-[10px] text-neutral-400`}
+                                        aria-hidden="true"
+                                    />
+                                    {PART_META[part].label}
+                                </span>
+                                <ul className="flex flex-col gap-1">
+                                    {items.map((e) => (
+                                        <PlannedRow
+                                            key={e._id}
+                                            entry={e}
+                                            onRemove={editable ? () => onRemove(e._id) : undefined}
+                                        />
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
                     </section>
                 ) : (
                     !editable && (
@@ -961,104 +1061,179 @@ function ItemPicker({
                 )}
 
                 {!editable ? null : (
-                  <>
-                {!locked && (
-                    <div className="inline-flex self-start rounded-full border border-neutral-200 bg-neutral-50 p-0.5">
-                        {FITNESS_PLAN_KINDS.map((k) => {
-                            const active = k === activeKind
-                            return (
-                                <button
-                                    key={k}
-                                    type="button"
-                                    onClick={() => setActiveKind(k)}
-                                    className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                                        active
-                                            ? 'bg-white text-neutral-900 shadow-sm'
-                                            : 'text-neutral-500 hover:text-neutral-900'
-                                    }`}
-                                >
-                                    {KIND_META[k].label}
-                                </button>
+                    <>
+                        <div className="flex flex-col gap-1.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                                Slot
+                            </p>
+                            <div className="inline-flex self-start rounded-full border border-neutral-200 bg-neutral-50 p-0.5">
+                                {FITNESS_PLAN_PARTS.map((p) => {
+                                    const active = p === activePart
+                                    return (
+                                        <button
+                                            key={p}
+                                            type="button"
+                                            onClick={() => setActivePart(p)}
+                                            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                                active
+                                                    ? 'bg-white text-neutral-900 shadow-sm'
+                                                    : 'text-neutral-500 hover:text-neutral-900'
+                                            }`}
+                                        >
+                                            {PART_META[p].label}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                                Type
+                            </p>
+                            <div className="inline-flex self-start rounded-full border border-neutral-200 bg-neutral-50 p-0.5">
+                                {FITNESS_PLAN_KINDS.map((k) => {
+                                    const active = k === activeKind
+                                    return (
+                                        <button
+                                            key={k}
+                                            type="button"
+                                            onClick={() => setActiveKind(k)}
+                                            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                                active
+                                                    ? 'bg-white text-neutral-900 shadow-sm'
+                                                    : 'text-neutral-500 hover:text-neutral-900'
+                                            }`}
+                                        >
+                                            {KIND_META[k].label}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        <Input
+                            placeholder={`Search ${meta.noun}s…`}
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                        />
+
+                        {kind === 'workout' ? (
+                            workoutResults.length === 0 ? (
+                                <p className="py-6 text-center text-sm text-neutral-400">
+                                    No workouts found.
+                                </p>
+                            ) : (
+                                <ul className="flex flex-col gap-1.5">
+                                    {workoutResults.map((w) => (
+                                        <li key={w._id}>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    view &&
+                                                    onAdd(view.date, 'workout', w._id, activePart)
+                                                }
+                                                className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <p className="truncate text-sm font-medium text-neutral-800">
+                                                            {w.name}
+                                                        </p>
+                                                        {w.showInPlanner && (
+                                                            <i
+                                                                className="fa-solid fa-thumbtack shrink-0 text-[10px] text-coral-500"
+                                                                aria-hidden="true"
+                                                                title="Pinned"
+                                                            />
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs tabular-nums text-neutral-400">
+                                                        {w.exercises.length}{' '}
+                                                        {w.exercises.length === 1
+                                                            ? 'exercise'
+                                                            : 'exercises'}
+                                                    </p>
+                                                </div>
+                                                <i
+                                                    className="fa-solid fa-plus text-xs text-neutral-400"
+                                                    aria-hidden="true"
+                                                />
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
                             )
-                        })}
-                    </div>
-                )}
-
-                <Input
-                    placeholder={`Search ${meta.noun}s…`}
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                />
-
-                {kind === 'workout' ? (
-                    workoutResults.length === 0 ? (
-                        <p className="py-6 text-center text-sm text-neutral-400">No workouts found.</p>
-                    ) : (
-                        <ul className="flex flex-col gap-1.5">
-                            {workoutResults.map((w) => (
-                                <li key={w._id}>
-                                    <button
-                                        type="button"
-                                        onClick={() => view && onAdd(view.date, 'workout', w._id)}
-                                        className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-                                    >
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-1.5">
+                        ) : kind === 'conditioning' ? (
+                            sessionResults.length === 0 ? (
+                                <p className="py-6 text-center text-sm text-neutral-400">
+                                    No sessions found.
+                                </p>
+                            ) : (
+                                <ul className="flex flex-col gap-1.5">
+                                    {sessionResults.map((s) => (
+                                        <li key={s._id}>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    view &&
+                                                    onAdd(view.date, 'conditioning', s._id, activePart)
+                                                }
+                                                className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-medium text-neutral-800">
+                                                        {s.name}
+                                                    </p>
+                                                    <p className="text-xs tabular-nums text-neutral-400">
+                                                        {s.duration} min
+                                                    </p>
+                                                </div>
+                                                <CategoryChip category={s.category} />
+                                                <i
+                                                    className="fa-solid fa-plus text-xs text-neutral-400"
+                                                    aria-hidden="true"
+                                                />
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )
+                        ) : recoveryResults.length === 0 ? (
+                            <p className="py-6 text-center text-sm text-neutral-400">
+                                No recovery items found.
+                            </p>
+                        ) : (
+                            <ul className="flex flex-col gap-1.5">
+                                {recoveryResults.map((r) => (
+                                    <li key={r._id}>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                view && onAdd(view.date, 'recovery', r._id, activePart)
+                                            }
+                                            className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                                        >
+                                            <div className="min-w-0 flex-1">
                                                 <p className="truncate text-sm font-medium text-neutral-800">
-                                                    {w.name}
+                                                    {r.name}
                                                 </p>
-                                                {w.showInPlanner && (
-                                                    <i
-                                                        className="fa-solid fa-thumbtack shrink-0 text-[10px] text-coral-500"
-                                                        aria-hidden="true"
-                                                        title="Pinned"
-                                                    />
+                                                {r.duration > 0 && (
+                                                    <p className="text-xs tabular-nums text-neutral-400">
+                                                        {r.duration} min
+                                                    </p>
                                                 )}
                                             </div>
-                                            <p className="text-xs tabular-nums text-neutral-400">
-                                                {w.exercises.length}{' '}
-                                                {w.exercises.length === 1 ? 'exercise' : 'exercises'}
-                                            </p>
-                                        </div>
-                                        <i
-                                            className="fa-solid fa-plus text-xs text-neutral-400"
-                                            aria-hidden="true"
-                                        />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    )
-                ) : sessionResults.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-neutral-400">No sessions found.</p>
-                ) : (
-                    <ul className="flex flex-col gap-1.5">
-                        {sessionResults.map((s) => (
-                            <li key={s._id}>
-                                <button
-                                    type="button"
-                                    onClick={() => view && onAdd(view.date, 'conditioning', s._id)}
-                                    className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-                                >
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-medium text-neutral-800">
-                                            {s.name}
-                                        </p>
-                                        <p className="text-xs tabular-nums text-neutral-400">
-                                            {s.duration} min
-                                        </p>
-                                    </div>
-                                    <CategoryChip category={s.category} />
-                                    <i
-                                        className="fa-solid fa-plus text-xs text-neutral-400"
-                                        aria-hidden="true"
-                                    />
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-                  </>
+                                            <i
+                                                className="fa-solid fa-plus text-xs text-neutral-400"
+                                                aria-hidden="true"
+                                            />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </>
                 )}
             </div>
         </Drawer>

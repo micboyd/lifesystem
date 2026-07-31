@@ -10,6 +10,7 @@ import type { FitnessPlanEntry, FitnessPlanKind, ConditioningCategory } from '..
 const KIND_META: Record<FitnessPlanKind, { noun: string; icon: string }> = {
     workout: { noun: 'workout', icon: 'fa-solid fa-dumbbell' },
     conditioning: { noun: 'session', icon: 'fa-solid fa-heart-pulse' },
+    recovery: { noun: 'item', icon: 'fa-solid fa-spa' },
 }
 
 const CATEGORY_CHIP: Record<ConditioningCategory, string> = {
@@ -32,7 +33,13 @@ function CategoryChip({ category }: { category: ConditioningCategory }) {
 
 /** Name + a one-line detail for a single planned item. */
 function planName(entry: FitnessPlanEntry): string {
-    return (entry.kind === 'workout' ? entry.workout?.name : entry.session?.name) ?? 'Untitled'
+    const name =
+        entry.kind === 'workout'
+            ? entry.workout?.name
+            : entry.kind === 'conditioning'
+              ? entry.session?.name
+              : entry.recovery?.name
+    return name ?? 'Untitled'
 }
 
 /** One planned workout or conditioning session, as a row. */
@@ -50,12 +57,23 @@ function PlanRow({ entry }: { entry: FitnessPlanEntry }) {
                         {entry.workout.exercises.length}{' '}
                         {entry.workout.exercises.length === 1 ? 'exercise' : 'exercises'}
                     </p>
-                ) : entry.session ? (
+                ) : entry.kind === 'conditioning' && entry.session ? (
                     <div className="mt-0.5 flex items-center gap-1.5">
                         <CategoryChip category={entry.session.category} />
                         <span className="text-xs tabular-nums text-neutral-400">
                             {entry.session.duration} min
                         </span>
+                    </div>
+                ) : entry.recovery ? (
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                            Recovery
+                        </span>
+                        {entry.recovery.duration > 0 && (
+                            <span className="text-xs tabular-nums text-neutral-400">
+                                {entry.recovery.duration} min
+                            </span>
+                        )}
                     </div>
                 ) : null}
             </div>

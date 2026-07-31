@@ -198,20 +198,46 @@ export interface MealPlanEntry {
     updatedAt: string
 }
 
-export const FITNESS_PLAN_KINDS = ['workout', 'conditioning'] as const
+/**
+ * A reusable recovery item — e.g. a stretch routine, sauna, foam rolling.
+ * Deliberately lightweight: just a name, duration and free-text notes.
+ */
+export interface Recovery {
+    _id: string
+    name: string
+    /** Planned duration in minutes. */
+    duration: number
+    /** What the recovery item is for. */
+    purpose?: string
+    /** Free-text guidance on how / when to use it. */
+    notes?: string
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+export const FITNESS_PLAN_KINDS = ['workout', 'conditioning', 'recovery'] as const
 export type FitnessPlanKind = (typeof FITNESS_PLAN_KINDS)[number]
 
-/** A workout or conditioning session placed on one day of the weekly planner. */
+/** Which slot of the day a planned item sits in. */
+export const FITNESS_PLAN_PARTS = ['morning', 'afternoon', 'evening'] as const
+export type FitnessPlanPart = (typeof FITNESS_PLAN_PARTS)[number]
+
+/** A workout, conditioning session or recovery item placed on one day of the planner. */
 export interface FitnessPlanEntry {
     _id: string
     /** "YYYY-MM-DD" — the day this sits on. */
     date: string
+    /** Which slot of the day it sits in. */
+    part: FitnessPlanPart
     /** Which library the planned item comes from. */
     kind: FitnessPlanKind
     /** Populated for `kind: 'workout'`, otherwise null. */
     workout: Workout | null
     /** Populated for `kind: 'conditioning'`, otherwise null. */
     session: ConditioningSession | null
+    /** Populated for `kind: 'recovery'`, otherwise null. */
+    recovery: Recovery | null
     order: number
     createdAt: string
     updatedAt: string

@@ -27,6 +27,7 @@ import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
 import noteRoutes from './routes/noteRoutes'
 import path from 'path'
+import recoveryRoutes from './routes/recoveryRoutes'
 import reminderRoutes from './routes/reminderRoutes'
 import savingsTargetRoutes from './routes/savingsTargetRoutes'
 import taskRoutes from './routes/taskRoutes'
@@ -36,6 +37,7 @@ import userRoutes from './routes/userRoutes'
 import workoutRoutes from './routes/workoutRoutes'
 import workoutLogRoutes from './routes/workoutLogRoutes'
 import Workout from './models/Workout'
+import FitnessPlanEntry from './models/FitnessPlanEntry'
 
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 
@@ -82,6 +84,7 @@ app.use('/api/workout-logs', workoutLogRoutes)
 app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)
+app.use('/api/recovery', recoveryRoutes)
 app.use('/api/notes', noteRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
 
@@ -157,6 +160,20 @@ connectDB()
             if (migrated > 0) console.log(`Workout: migrated ${migrated} workout(s) to sets/reps shape`)
         } catch (err) {
             console.error('Workout exercises migration failed:', err)
+        }
+
+        // One-time migration: the planner gained morning/afternoon/evening slots.
+        // Plan entries predating that have no `part`; drop them all into the
+        // morning slot so they still show up under the new day layout.
+        try {
+            const { modifiedCount } = await FitnessPlanEntry.updateMany(
+                { part: { $exists: false } },
+                { $set: { part: 'morning' } }
+            )
+            if (modifiedCount > 0)
+                console.log(`FitnessPlanEntry: assigned ${modifiedCount} entr(ies) to the morning slot`)
+        } catch (err) {
+            console.error('FitnessPlanEntry part migration failed:', err)
         }
 
         // One-time migration: events predate calendars. Every event now belongs

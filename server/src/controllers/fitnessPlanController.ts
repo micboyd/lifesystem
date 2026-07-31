@@ -1,8 +1,14 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
-import FitnessPlanEntry, { FITNESS_PLAN_KINDS, FitnessPlanKind } from '../models/FitnessPlanEntry'
+import FitnessPlanEntry, {
+    FITNESS_PLAN_KINDS,
+    FitnessPlanKind,
+    FITNESS_PLAN_PARTS,
+    FitnessPlanPart,
+} from '../models/FitnessPlanEntry'
 import Workout from '../models/Workout'
 import ConditioningSession from '../models/ConditioningSession'
+import Recovery from '../models/Recovery'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -14,9 +20,23 @@ function isKind(v: unknown): v is FitnessPlanKind {
     return typeof v === 'string' && FITNESS_PLAN_KINDS.includes(v as FitnessPlanKind)
 }
 
+/** Keep the slot if recognised, else fall back to the morning slot. */
+function toPart(v: unknown): FitnessPlanPart {
+    return FITNESS_PLAN_PARTS.includes(v as FitnessPlanPart)
+        ? (v as FitnessPlanPart)
+        : FITNESS_PLAN_PARTS[0]
+}
+
 /** True when the entry's referenced library item still exists after populate. */
-function isResolved(e: { kind: FitnessPlanKind; workout: unknown; session: unknown }): boolean {
-    return e.kind === 'workout' ? !!e.workout : !!e.session
+function isResolved(e: {
+    kind: FitnessPlanKind
+    workout: unknown
+    session: unknown
+    recovery: unknown
+}): boolean {
+    if (e.kind === 'workout') return !!e.workout
+    if (e.kind === 'conditioning') return !!e.session
+    return !!e.recovery
 }
 
 /**
@@ -35,20 +55,22 @@ export async function listEntries(req: AuthRequest, res: Response) {
         user: req.userId,
         date: { $gte: start, $lte: end },
     })
-        .sort({ date: 1, kind: 1, order: 1, createdAt: 1 })
+        .sort({ date: 1, order: 1, createdAt: 1 })
         .populate('workout')
         .populate('session')
+        .populate('recovery')
 
     res.json({ message: 'OK', data: entries.filter(isResolved) })
 }
 
-/** POST /api/fitness-plan — place a workout or session onto a day. */
+/** POST /api/fitness-plan — place a workout, session or recovery item onto a day. */
 export async function createEntry(req: AuthRequest, res: Response) {
     const { date, kind, item: itemId } = req.body
     if (!isDate(date) || !isKind(kind) || typeof itemId !== 'string') {
         res.status(400).json({ message: 'date, kind and item are required' })
         return
     }
+    const part = toPart(req.body.part)
 
     // The referenced library item must exist and belong to the requesting user.
     if (kind === 'workout') {
@@ -57,27 +79,36 @@ export async function createEntry(req: AuthRequest, res: Response) {
             res.status(404).json({ message: 'Workout not found' })
             return
         }
-    } else {
+    } else if (kind === 'conditioning') {
         const session = await ConditioningSession.findOne({ _id: itemId, user: req.userId })
         if (!session) {
             res.status(404).json({ message: 'Session not found' })
             return
         }
+    } else {
+        const recovery = await Recovery.findOne({ _id: itemId, user: req.userId })
+        if (!recovery) {
+            res.status(404).json({ message: 'Recovery item not found' })
+            return
+        }
     }
 
-    const last = await FitnessPlanEntry.findOne({ user: req.userId, date, kind }).sort({ order: -1 })
+    const last = await FitnessPlanEntry.findOne({ user: req.userId, date, part }).sort({ order: -1 })
     const order = last ? last.order + 1 : 0
 
     const entry = await FitnessPlanEntry.create({
         user: req.userId,
         date,
+        part,
         kind,
         workout: kind === 'workout' ? itemId : null,
         session: kind === 'conditioning' ? itemId : null,
+        recovery: kind === 'recovery' ? itemId : null,
         order,
     })
     await entry.populate('workout')
     await entry.populate('session')
+    await entry.populate('recovery')
     res.status(201).json({ message: 'Created', data: entry })
 }
 
