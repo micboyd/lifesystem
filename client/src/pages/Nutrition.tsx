@@ -36,11 +36,38 @@ import {
 
 // ─── Meal-type presentation ───────────────────────────────────────────────────
 
-const TYPE_META: Record<MealType, { label: string; chip: string }> = {
-    breakfast: { label: 'Breakfast', chip: 'bg-amber-50 text-amber-700 ring-amber-600/20' },
-    lunch: { label: 'Lunch', chip: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' },
-    dinner: { label: 'Dinner', chip: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20' },
-    snack: { label: 'Snack', chip: 'bg-rose-50 text-rose-700 ring-rose-600/20' },
+const TYPE_META: Record<
+    MealType,
+    { label: string; chip: string; block: string; name: string; sub: string }
+> = {
+    breakfast: {
+        label: 'Breakfast',
+        chip: 'bg-amber-50 text-amber-700 ring-amber-600/20',
+        block: 'bg-amber-50 hover:bg-amber-100/70 ring-1 ring-inset ring-amber-600/15',
+        name: 'text-amber-900',
+        sub: 'text-amber-700/70',
+    },
+    lunch: {
+        label: 'Lunch',
+        chip: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+        block: 'bg-emerald-50 hover:bg-emerald-100/70 ring-1 ring-inset ring-emerald-600/15',
+        name: 'text-emerald-900',
+        sub: 'text-emerald-700/70',
+    },
+    dinner: {
+        label: 'Dinner',
+        chip: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
+        block: 'bg-indigo-50 hover:bg-indigo-100/70 ring-1 ring-inset ring-indigo-600/15',
+        name: 'text-indigo-900',
+        sub: 'text-indigo-700/70',
+    },
+    snack: {
+        label: 'Snack',
+        chip: 'bg-rose-50 text-rose-700 ring-rose-600/20',
+        block: 'bg-rose-50 hover:bg-rose-100/70 ring-1 ring-inset ring-rose-600/15',
+        name: 'text-rose-900',
+        sub: 'text-rose-700/70',
+    },
 }
 
 const FILTERS = ['All', "This Week's Plan", 'Breakfast', 'Lunch', 'Dinner', 'Snack'] as const
@@ -1069,11 +1096,12 @@ function shortDayLabel(date: string): string {
 /** One aggregated line of the week's shopping list. */
 interface ShoppingItem {
     name: string
-    unit: string
-    /** Summed amount across the week, for the numeric contributions. */
-    total: number
-    /** Whether any contribution carried a parseable amount. */
-    hasAmount: boolean
+    /**
+     * Summed amount per unit, keyed by the unit's lowercase form. A single
+     * ingredient can appear with different units across recipes (e.g. "g" in
+     * one, "pcs" in another) — each is totalled separately on the same line.
+     */
+    units: Map<string, { unit: string; total: number }>
     /** How many planned servings needed this with no usable amount. */
     unknownCount: number
 }
@@ -1105,7 +1133,8 @@ function fmtQty(n: number): string {
  * Aggregate the week's planned meals into a shopping list. Ingredients are
  * listed for the whole recipe (which yields `servings`), and each plan entry is
  * one serving — so each entry contributes `quantity / servings` of each
- * ingredient. Items are grouped by name + unit and sorted alphabetically.
+ * ingredient. Duplicate ingredients are merged onto a single line by name
+ * (case-insensitive), with amounts totalled per unit. Sorted alphabetically.
  */
 function buildShoppingList(entries: MealPlanEntry[]): ShoppingItem[] {
     const map = new Map<string, ShoppingItem>()
@@ -1117,16 +1146,18 @@ function buildShoppingList(entries: MealPlanEntry[]): ShoppingItem[] {
             const name = ing.name.trim()
             if (!name) continue
             const unit = (ing.unit ?? '').trim()
-            const key = `${name.toLowerCase()}|${unit.toLowerCase()}`
+            const key = name.toLowerCase()
             let item = map.get(key)
             if (!item) {
-                item = { name, unit, total: 0, hasAmount: false, unknownCount: 0 }
+                item = { name, units: new Map(), unknownCount: 0 }
                 map.set(key, item)
             }
             const qty = parseQty(ing.quantity)
             if (qty != null) {
-                item.total += qty / servings
-                item.hasAmount = true
+                const unitKey = unit.toLowerCase()
+                const bucket = item.units.get(unitKey) ?? { unit, total: 0 }
+                bucket.total += qty / servings
+                item.units.set(unitKey, bucket)
             } else {
                 item.unknownCount += 1
             }
@@ -1135,12 +1166,15 @@ function buildShoppingList(entries: MealPlanEntry[]): ShoppingItem[] {
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
-/** The amount column for a shopping item, e.g. "150 g" or "×3". */
+/** The amount column for a shopping item, e.g. "150 g", "2 pcs + 150 g" or "×3". */
 function amountLabel(item: ShoppingItem): string {
-    const parts: string[] = []
-    if (item.hasAmount) parts.push(item.unit ? `${fmtQty(item.total)} ${item.unit}` : fmtQty(item.total))
-    if (item.unknownCount > 0) parts.push(item.hasAmount ? `(+${item.unknownCount})` : `×${item.unknownCount}`)
-    return parts.join(' ')
+    const amount = [...item.units.values()]
+        .map((u) => (u.unit ? `${fmtQty(u.total)} ${u.unit}` : fmtQty(u.total)))
+        .join(' + ')
+    if (item.unknownCount > 0) {
+        return amount ? `${amount} (+${item.unknownCount})` : `×${item.unknownCount}`
+    }
+    return amount
 }
 
 function ShoppingListModal({
@@ -1205,7 +1239,7 @@ function ShoppingListModal({
                     <ul className="flex flex-col divide-y divide-neutral-100 rounded-xl border border-neutral-200">
                         {items.map((item) => (
                             <li
-                                key={`${item.name}|${item.unit}`}
+                                key={item.name}
                                 className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
                             >
                                 <span className="text-neutral-700">{item.name}</span>
@@ -1699,17 +1733,20 @@ function PlannedMealRow({
     onRemove?: () => void
 }) {
     const m = entry.meal
+    const meta = TYPE_META[entry.slot]
     const details = (
         <>
-            <p className="truncate text-xs font-medium text-neutral-700">{m.name}</p>
-            <p className="text-[10px] tabular-nums text-neutral-400">
+            <p className={`truncate text-[13px] font-semibold ${meta.name}`}>{m.name}</p>
+            <p className={`text-[11px] tabular-nums ${meta.sub}`}>
                 {fmt(m.macros.calories)} kcal · P{fmt(m.macros.protein)} C{fmt(m.macros.carbs)} F
                 {fmt(m.macros.fat)}
             </p>
         </>
     )
     return (
-        <li className="flex items-center gap-1.5 rounded-lg bg-neutral-50 px-2 py-1.5">
+        <li
+            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-2 transition-colors ${meta.block}`}
+        >
             {onView ? (
                 <button
                     type="button"
@@ -1727,7 +1764,7 @@ function PlannedMealRow({
                     type="button"
                     aria-label={`Remove ${m.name}`}
                     onClick={onRemove}
-                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-200 hover:text-red-600"
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-red-600"
                 >
                     <i className="fa-solid fa-xmark text-[11px]" aria-hidden="true" />
                 </button>

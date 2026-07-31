@@ -39,6 +39,26 @@ const KIND_META: Record<
     conditioning: { label: 'Conditioning', noun: 'session', icon: 'fa-solid fa-heart-pulse' },
 }
 
+// Each plan kind carries its own colour so strength and cardio read apart at a
+// glance — coral for strength, sky for conditioning (matching the month chips).
+const KIND_TONE: Record<
+    FitnessPlanKind,
+    { label: string; icon: string; row: string; chip: string }
+> = {
+    workout: {
+        label: 'text-coral-600',
+        icon: 'text-coral-500',
+        row: 'border-l-2 border-coral-300 bg-coral-50/60',
+        chip: 'bg-coral-50 text-coral-700',
+    },
+    conditioning: {
+        label: 'text-sky-600',
+        icon: 'text-sky-500',
+        row: 'border-l-2 border-sky-300 bg-sky-50/60',
+        chip: 'bg-sky-50 text-sky-700',
+    },
+}
+
 const CATEGORY_CHIP: Record<ConditioningCategory, string> = {
     HIIT: 'bg-rose-50 text-rose-700 ring-rose-600/20',
     Cardio: 'bg-sky-50 text-sky-700 ring-sky-600/20',
@@ -505,13 +525,9 @@ function MonthCell({
 function MonthChip({ entry }: { entry: FitnessPlanEntry }) {
     const meta = KIND_META[entry.kind]
     const name = entry.kind === 'workout' ? entry.workout?.name : entry.session?.name
-    const tone =
-        entry.kind === 'workout'
-            ? 'bg-coral-50 text-coral-700'
-            : 'bg-sky-50 text-sky-700'
     return (
         <span
-            className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${tone}`}
+            className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_TONE[entry.kind].chip}`}
         >
             <i className={`${meta.icon} shrink-0 text-[9px]`} aria-hidden="true" />
             <span className="truncate">{name ?? meta.noun}</span>
@@ -749,6 +765,7 @@ function KindSection({
     onRemove: (id: string) => void
 }) {
     const meta = KIND_META[kind]
+    const tone = KIND_TONE[kind]
 
     // In view mode an empty slot is just noise — collapse it so the plan reads clean.
     if (!editable && entries.length === 0) return null
@@ -756,7 +773,10 @@ function KindSection({
     return (
         <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                <span
+                    className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide ${tone.label}`}
+                >
+                    <i className={`${meta.icon} text-[10px] ${tone.icon}`} aria-hidden="true" />
                     {meta.label}
                 </span>
                 {editable && (
@@ -795,8 +815,9 @@ function KindSection({
 
 function PlannedRow({ entry, onRemove }: { entry: FitnessPlanEntry; onRemove?: () => void }) {
     const name = entry.kind === 'workout' ? entry.workout?.name : entry.session?.name
+    const tone = KIND_TONE[entry.kind]
     return (
-        <li className="flex items-center gap-1.5 rounded-lg bg-neutral-50 px-2 py-1.5">
+        <li className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 ${tone.row}`}>
             <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-neutral-700">{name}</p>
                 {entry.kind === 'workout' && entry.workout ? (
