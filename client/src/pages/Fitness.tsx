@@ -59,17 +59,17 @@ const SESSION_TEMPLATE = JSON.stringify(
     2
 )
 
-const TABS = ['Weekly Planner', 'Strength', 'Conditioning'] as const
+const TABS = ['Planner', 'Strength', 'Conditioning'] as const
 type Tab = (typeof TABS)[number]
 
 const SUBTITLE: Record<Tab, string> = {
-    'Weekly Planner': 'Plan your week — drop workouts and conditioning sessions onto each day.',
+    Planner: 'Plan your training — drop workouts and conditioning sessions onto each day.',
     Strength: 'Track your training programmes, sessions and progress.',
     Conditioning: 'Track your training programmes, sessions and progress.',
 }
 
 export default function Fitness() {
-    const [tab, setTab] = useState<Tab>('Weekly Planner')
+    const [tab, setTab] = useState<Tab>('Planner')
 
     return (
         <main className="py-10">
@@ -87,7 +87,7 @@ export default function Fitness() {
                 />
             </Container>
 
-            {tab === 'Weekly Planner' ? (
+            {tab === 'Planner' ? (
                 <Container fluid className="mt-8">
                     <FitnessWeeklyPlanner />
                 </Container>

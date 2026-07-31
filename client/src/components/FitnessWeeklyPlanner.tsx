@@ -19,8 +19,12 @@ import type {
 import {
     todayKey,
     addDays,
+    addMonths,
+    dateKey,
+    daysInMonth,
     parseDateKey,
     formatWeekRange,
+    formatMonthYear,
     WEEKDAYS_LONG,
     MONTHS,
 } from '../lib/calendar'
@@ -69,6 +73,60 @@ function shortDayLabel(date: string): string {
     return `${wd} ${day} ${MONTHS[month].slice(0, 3)}`
 }
 
+/** First day (YYYY-MM-DD) of the month containing `date`. */
+function firstOfMonth(date: string): string {
+    const { year, month } = parseDateKey(date)
+    return dateKey(year, month, 1)
+}
+
+/** Last day (YYYY-MM-DD) of the month containing `date`. */
+function lastOfMonth(date: string): string {
+    const { year, month } = parseDateKey(date)
+    return dateKey(year, month, daysInMonth(year, month))
+}
+
+/** True if `date` falls within the same calendar month as `anchor`. */
+function inSameMonth(date: string, anchor: string): boolean {
+    return date >= firstOfMonth(anchor) && date <= lastOfMonth(anchor)
+}
+
+/**
+ * The Monday-aligned calendar grid for the month containing `anchor`.
+ * Runs from the Monday on/before the 1st through the number of whole weeks
+ * needed to cover the month (5 or 6 rows — never a trailing empty week).
+ */
+function monthGridDays(anchor: string): string[] {
+    const { year, month } = parseDateKey(anchor)
+    const lead = (new Date(year, month, 1).getDay() + 6) % 7 // Mon-start offset
+    const rows = Math.ceil((lead + daysInMonth(year, month)) / 7)
+    const start = mondayOf(firstOfMonth(anchor))
+    return Array.from({ length: rows * 7 }, (_, i) => addDays(start, i))
+}
+
+/** "Jul – Dec 2026" (or spanning years) for the 6 months from `anchor`. */
+function sixMonthLabel(anchor: string): string {
+    const s = parseDateKey(anchor)
+    const e = parseDateKey(addMonths(firstOfMonth(anchor), 5))
+    const sm = MONTHS[s.month].slice(0, 3)
+    const em = MONTHS[e.month].slice(0, 3)
+    return s.year === e.year
+        ? `${sm} – ${em} ${e.year}`
+        : `${sm} ${s.year} – ${em} ${e.year}`
+}
+
+// ─── Views ──────────────────────────────────────────────────────────────────────
+
+type PlannerView = 'week' | 'month' | '6month'
+
+const VIEW_META: { key: PlannerView; label: string }[] = [
+    { key: 'week', label: 'Week' },
+    { key: 'month', label: 'Month' },
+    { key: '6month', label: '6 months' },
+]
+
+/** Monday-start weekday headers for the month grid. */
+const WEEKDAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
 // ─── Week tallies ───────────────────────────────────────────────────────────────
 
 interface WeekTally {
@@ -95,18 +153,37 @@ function tally(entries: FitnessPlanEntry[]): WeekTally {
 // ─── Planner ────────────────────────────────────────────────────────────────────
 
 export default function FitnessWeeklyPlanner() {
-    const [weekStart, setWeekStart] = useState(() => mondayOf(todayKey()))
+    const [view, setView] = useState<PlannerView>('week')
+    // The anchor is any day inside the range on show; each view derives its own
+    // bounds from it (the week's Monday, the anchor's month, six months on).
+    const [anchor, setAnchor] = useState(() => todayKey())
     const [workouts, setWorkouts] = useState<Workout[]>([])
     const [sessions, setSessions] = useState<ConditioningSession[]>([])
     const [libLoading, setLibLoading] = useState(true)
     const [entries, setEntries] = useState<FitnessPlanEntry[]>([])
     const [loading, setLoading] = useState(true)
-    const [picker, setPicker] = useState<{ date: string; kind: FitnessPlanKind } | null>(null)
+    // `kind: null` opens a whole-day drawer (from the month grid); a set kind
+    // jumps straight to that section's add list (from a week column).
+    const [picker, setPicker] = useState<{ date: string; kind: FitnessPlanKind | null } | null>(
+        null
+    )
     // The planner opens read-only; Edit reveals the add/remove controls.
     const [editing, setEditing] = useState(false)
 
-    const weekEnd = addDays(weekStart, 6)
     const today = todayKey()
+
+    // The date range to fetch — and to tally totals over — for the active view.
+    const range = useMemo(() => {
+        if (view === 'week') {
+            const start = mondayOf(anchor)
+            return { start, end: addDays(start, 6) }
+        }
+        if (view === 'month') {
+            const grid = monthGridDays(anchor)
+            return { start: grid[0], end: grid[grid.length - 1] }
+        }
+        return { start: firstOfMonth(anchor), end: lastOfMonth(addMonths(firstOfMonth(anchor), 5)) }
+    }, [view, anchor])
 
     // The two libraries — loaded once, for the picker and the "is it empty" check.
     useEffect(() => {
@@ -119,21 +196,27 @@ export default function FitnessWeeklyPlanner() {
     }, [])
 
     useEffect(() => {
-        // Refetch silently on week change — the grid keeps the previous week's
-        // items until the new ones arrive, so navigation never flashes a spinner.
+        // Refetch silently on range change — the grid keeps the previous items
+        // until the new ones arrive, so navigation never flashes a spinner.
         let active = true
-        listPlanEntries(weekStart, weekEnd)
+        listPlanEntries(range.start, range.end)
             .then((rows) => active && setEntries(rows))
             .finally(() => active && setLoading(false))
         return () => {
             active = false
         }
-    }, [weekStart, weekEnd])
+    }, [range.start, range.end])
 
-    const days = useMemo(
-        () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
-        [weekStart]
-    )
+    function goToView(next: PlannerView) {
+        setPicker(null)
+        setView(next)
+    }
+
+    function step(dir: -1 | 1) {
+        if (view === 'week') setAnchor((a) => addDays(mondayOf(a), dir * 7))
+        else if (view === 'month') setAnchor((a) => addMonths(a, dir))
+        else setAnchor((a) => addMonths(a, dir * 6))
+    }
 
     async function handleAdd(date: string, kind: FitnessPlanKind, itemId: string) {
         const entry = await addPlanEntry(date, kind, itemId)
@@ -145,38 +228,53 @@ export default function FitnessWeeklyPlanner() {
         await deletePlanEntry(id)
     }
 
-    const week = tally(entries)
+    // Month totals count only the month itself, not the grid's spill-over days.
+    const totalsEntries =
+        view === 'month' ? entries.filter((e) => inSameMonth(e.date, anchor)) : entries
+    const totals = tally(totalsEntries)
     const libraryEmpty = workouts.length === 0 && sessions.length === 0
+
+    const rangeLabel =
+        view === 'week'
+            ? formatWeekRange(range.start, range.end)
+            : view === 'month'
+              ? formatMonthYear(anchor)
+              : sixMonthLabel(anchor)
+
+    const resetLabel = view === 'week' ? 'This week' : view === 'month' ? 'This month' : 'Today'
 
     return (
         <div className="flex flex-col gap-6">
-            {/* Week navigation + totals */}
+            {/* View switch + navigation + totals */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-center gap-2">
-                    <IconButton
-                        label="Previous week"
-                        icon="fa-solid fa-chevron-left"
-                        onClick={() => setWeekStart(addDays(weekStart, -7))}
-                    />
-                    <div className="min-w-[10rem] text-center text-sm font-semibold text-neutral-900">
-                        {formatWeekRange(weekStart, weekEnd)}
+                <div className="flex flex-wrap items-center gap-3">
+                    <ViewSwitch view={view} onChange={goToView} />
+                    <div className="flex items-center gap-2">
+                        <IconButton
+                            label="Previous"
+                            icon="fa-solid fa-chevron-left"
+                            onClick={() => step(-1)}
+                        />
+                        <div className="min-w-[10rem] text-center text-sm font-semibold text-neutral-900">
+                            {rangeLabel}
+                        </div>
+                        <IconButton
+                            label="Next"
+                            icon="fa-solid fa-chevron-right"
+                            onClick={() => step(1)}
+                        />
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAnchor(today)}
+                            className="ml-1"
+                        >
+                            {resetLabel}
+                        </Button>
                     </div>
-                    <IconButton
-                        label="Next week"
-                        icon="fa-solid fa-chevron-right"
-                        onClick={() => setWeekStart(addDays(weekStart, 7))}
-                    />
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setWeekStart(mondayOf(today))}
-                        className="ml-1"
-                    >
-                        This week
-                    </Button>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                    {!libraryEmpty && (
+                    {!libraryEmpty && view !== '6month' && (
                         <Button
                             variant={editing ? 'primary' : 'secondary'}
                             size="sm"
@@ -189,7 +287,7 @@ export default function FitnessWeeklyPlanner() {
                             {editing ? 'Done' : 'Edit plan'}
                         </Button>
                     )}
-                    <WeekTotals tally={week} />
+                    <WeekTotals tally={totals} />
                 </div>
             </div>
 
@@ -201,39 +299,320 @@ export default function FitnessWeeklyPlanner() {
                 <EmptyState
                     icon="fa-solid fa-calendar-week"
                     title="Nothing to plan with yet"
-                    description="Build some workouts or conditioning sessions first, then drop them into the week."
+                    description="Build some workouts or conditioning sessions first, then drop them into the plan."
+                />
+            ) : view === 'week' ? (
+                <WeekView
+                    weekStart={range.start}
+                    today={today}
+                    editing={editing}
+                    entries={entries}
+                    onAdd={(date, kind) => setPicker({ date, kind })}
+                    onRemove={handleRemove}
+                />
+            ) : view === 'month' ? (
+                <MonthView
+                    anchor={anchor}
+                    today={today}
+                    entries={entries}
+                    onOpenDay={(date) => setPicker({ date, kind: null })}
                 />
             ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-                    {days.map((date) => (
-                        <DayColumn
-                            key={date}
-                            date={date}
-                            isToday={date === today}
-                            editable={editing}
-                            entries={entries.filter((e) => e.date === date)}
-                            onAdd={(kind) => setPicker({ date, kind })}
-                            onRemove={handleRemove}
-                        />
-                    ))}
-                </div>
+                <SixMonthView
+                    anchor={anchor}
+                    today={today}
+                    entries={entries}
+                    onOpenMonth={(monthAnchor) => {
+                        setAnchor(monthAnchor)
+                        setView('month')
+                    }}
+                />
             )}
 
             <ItemPicker
                 target={picker}
+                editable={editing}
                 workouts={workouts}
                 sessions={sessions}
-                entries={
-                    picker
-                        ? entries.filter((e) => e.date === picker.date && e.kind === picker.kind)
-                        : []
-                }
+                entries={picker ? entries.filter((e) => e.date === picker.date) : []}
                 onClose={() => setPicker(null)}
                 onAdd={handleAdd}
                 onRemove={handleRemove}
             />
         </div>
     )
+}
+
+// ─── View switch ──────────────────────────────────────────────────────────────
+
+function ViewSwitch({
+    view,
+    onChange,
+}: {
+    view: PlannerView
+    onChange: (v: PlannerView) => void
+}) {
+    return (
+        <div className="inline-flex rounded-full border border-neutral-200 bg-neutral-50 p-0.5">
+            {VIEW_META.map(({ key, label }) => {
+                const active = key === view
+                return (
+                    <button
+                        key={key}
+                        type="button"
+                        onClick={() => onChange(key)}
+                        className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                            active
+                                ? 'bg-white text-neutral-900 shadow-sm'
+                                : 'text-neutral-500 hover:text-neutral-900'
+                        }`}
+                    >
+                        {label}
+                    </button>
+                )
+            })}
+        </div>
+    )
+}
+
+// ─── Week view ────────────────────────────────────────────────────────────────
+
+function WeekView({
+    weekStart,
+    today,
+    editing,
+    entries,
+    onAdd,
+    onRemove,
+}: {
+    weekStart: string
+    today: string
+    editing: boolean
+    entries: FitnessPlanEntry[]
+    onAdd: (date: string, kind: FitnessPlanKind) => void
+    onRemove: (id: string) => void
+}) {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+    return (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            {days.map((date) => (
+                <DayColumn
+                    key={date}
+                    date={date}
+                    isToday={date === today}
+                    editable={editing}
+                    entries={entries.filter((e) => e.date === date)}
+                    onAdd={(kind) => onAdd(date, kind)}
+                    onRemove={onRemove}
+                />
+            ))}
+        </div>
+    )
+}
+
+// ─── Month view ───────────────────────────────────────────────────────────────
+
+function MonthView({
+    anchor,
+    today,
+    entries,
+    onOpenDay,
+}: {
+    anchor: string
+    today: string
+    entries: FitnessPlanEntry[]
+    onOpenDay: (date: string) => void
+}) {
+    const days = monthGridDays(anchor)
+    return (
+        <Card as="div" flush hover={false} className="overflow-hidden">
+            <div className="grid grid-cols-7 border-b border-neutral-100 bg-neutral-50">
+                {WEEKDAY_HEADERS.map((wd) => (
+                    <div
+                        key={wd}
+                        className="py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-neutral-400"
+                    >
+                        {wd}
+                    </div>
+                ))}
+            </div>
+            <div className="grid grid-cols-7">
+                {days.map((date) => (
+                    <MonthCell
+                        key={date}
+                        date={date}
+                        inMonth={inSameMonth(date, anchor)}
+                        isToday={date === today}
+                        entries={entries.filter((e) => e.date === date)}
+                        onClick={() => onOpenDay(date)}
+                    />
+                ))}
+            </div>
+        </Card>
+    )
+}
+
+function MonthCell({
+    date,
+    inMonth,
+    isToday,
+    entries,
+    onClick,
+}: {
+    date: string
+    inMonth: boolean
+    isToday: boolean
+    entries: FitnessPlanEntry[]
+    onClick: () => void
+}) {
+    const { day } = parseDateKey(date)
+    const shown = entries.slice(0, 3)
+    const extra = entries.length - shown.length
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`flex min-h-[6.5rem] flex-col gap-1 border-b border-r border-neutral-100 p-2 text-left transition-colors hover:bg-neutral-50 ${
+                inMonth ? '' : 'bg-neutral-50/50'
+            }`}
+        >
+            <span
+                className={`inline-grid h-6 w-6 place-items-center rounded-full text-xs font-semibold ${
+                    isToday
+                        ? 'bg-coral-500 text-white'
+                        : inMonth
+                          ? 'text-neutral-700'
+                          : 'text-neutral-300'
+                }`}
+            >
+                {day}
+            </span>
+            <div className="flex flex-col gap-1">
+                {shown.map((e) => (
+                    <MonthChip key={e._id} entry={e} />
+                ))}
+                {extra > 0 && (
+                    <span className="pl-1 text-[10px] font-medium text-neutral-400">
+                        +{extra} more
+                    </span>
+                )}
+            </div>
+        </button>
+    )
+}
+
+function MonthChip({ entry }: { entry: FitnessPlanEntry }) {
+    const meta = KIND_META[entry.kind]
+    const name = entry.kind === 'workout' ? entry.workout?.name : entry.session?.name
+    const tone =
+        entry.kind === 'workout'
+            ? 'bg-coral-50 text-coral-700'
+            : 'bg-sky-50 text-sky-700'
+    return (
+        <span
+            className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${tone}`}
+        >
+            <i className={`${meta.icon} shrink-0 text-[9px]`} aria-hidden="true" />
+            <span className="truncate">{name ?? meta.noun}</span>
+        </span>
+    )
+}
+
+// ─── Six-month view ───────────────────────────────────────────────────────────
+
+function SixMonthView({
+    anchor,
+    today,
+    entries,
+    onOpenMonth,
+}: {
+    anchor: string
+    today: string
+    entries: FitnessPlanEntry[]
+    onOpenMonth: (monthAnchor: string) => void
+}) {
+    const months = Array.from({ length: 6 }, (_, i) => addMonths(firstOfMonth(anchor), i))
+    return (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {months.map((m) => (
+                <MiniMonth
+                    key={m}
+                    month={m}
+                    today={today}
+                    entries={entries.filter((e) => inSameMonth(e.date, m))}
+                    onClick={() => onOpenMonth(m)}
+                />
+            ))}
+        </div>
+    )
+}
+
+function MiniMonth({
+    month,
+    today,
+    entries,
+    onClick,
+}: {
+    month: string
+    today: string
+    entries: FitnessPlanEntry[]
+    onClick: () => void
+}) {
+    const days = monthGridDays(month)
+    const counts = useMemo(() => {
+        const m = new Map<string, number>()
+        for (const e of entries) m.set(e.date, (m.get(e.date) ?? 0) + 1)
+        return m
+    }, [entries])
+    const t = tally(entries)
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+        >
+            <div className="flex items-baseline justify-between">
+                <p className="text-sm font-bold text-neutral-900">{formatMonthYear(month)}</p>
+                <span className="text-[11px] text-neutral-400">
+                    {t.workouts + t.sessions} planned
+                </span>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+                {days.map((date) => {
+                    const outside = !inSameMonth(date, month)
+                    const count = counts.get(date) ?? 0
+                    return (
+                        <span
+                            key={date}
+                            className={`aspect-square rounded-[3px] ${dotClass(count, outside)} ${
+                                date === today ? 'ring-1 ring-coral-500 ring-offset-1' : ''
+                            }`}
+                        />
+                    )
+                })}
+            </div>
+
+            <div className="flex items-center gap-3 border-t border-neutral-100 pt-2 text-[11px] text-neutral-500">
+                <span className="tabular-nums">{t.workouts} workouts</span>
+                <span className="text-neutral-300">·</span>
+                <span className="tabular-nums">{t.sessions} sessions</span>
+                <span className="text-neutral-300">·</span>
+                <span className="tabular-nums">{t.minutes} min</span>
+            </div>
+        </button>
+    )
+}
+
+/** Heat colour for a mini-calendar day by how many items are planned. */
+function dotClass(count: number, outside: boolean): string {
+    if (outside) return 'bg-transparent'
+    if (count === 0) return 'bg-neutral-100'
+    if (count === 1) return 'bg-coral-200'
+    if (count === 2) return 'bg-coral-300'
+    return 'bg-coral-500'
 }
 
 function IconButton({
@@ -449,12 +828,14 @@ function PlannedRow({ entry, onRemove }: { entry: FitnessPlanEntry; onRemove?: (
 }
 
 /**
- * The add drawer for a single day + kind. Clicking an item adds it and keeps the
- * drawer open so several can be added in a row; what's already on the day is
- * listed at the top and can be removed here too.
+ * The day drawer. Opened from a week column it targets one kind and jumps
+ * straight to that add list; opened from the month grid it targets the whole
+ * day, with a Workout/Conditioning toggle. In view mode it's a read-only
+ * summary of what's planned; in edit mode items can be added and removed here.
  */
 function ItemPicker({
     target,
+    editable,
     workouts,
     sessions,
     entries,
@@ -462,7 +843,8 @@ function ItemPicker({
     onAdd,
     onRemove,
 }: {
-    target: { date: string; kind: FitnessPlanKind } | null
+    target: { date: string; kind: FitnessPlanKind | null } | null
+    editable: boolean
     workouts: Workout[]
     sessions: ConditioningSession[]
     entries: FitnessPlanEntry[]
@@ -473,15 +855,26 @@ function ItemPicker({
     // Retain the last target so the drawer keeps its content while sliding shut.
     const [view, setView] = useState(target)
     const [query, setQuery] = useState('')
+    // Which library the add list shows. Fixed when the target names a kind
+    // (week column); a toggle when it doesn't (month day).
+    const [activeKind, setActiveKind] = useState<FitnessPlanKind>('workout')
     useEffect(() => {
         if (target) {
             setView(target)
             setQuery('')
+            setActiveKind(target.kind ?? 'workout')
         }
     }, [target])
 
-    const kind = view?.kind
-    const meta = kind ? KIND_META[kind] : null
+    const locked = view?.kind != null
+    const kind = activeKind
+    const meta = KIND_META[kind]
+
+    const title = !editable
+        ? 'Day plan'
+        : locked
+          ? `Add ${KIND_META[view!.kind as FitnessPlanKind].label.toLowerCase()}`
+          : 'Edit day'
 
     const workoutResults = useMemo(() => {
         const q = query.trim().toLowerCase()
@@ -514,7 +907,7 @@ function ItemPicker({
         <Drawer
             open={!!target}
             onClose={onClose}
-            title={meta ? `Add ${meta.label.toLowerCase()}` : 'Add to day'}
+            title={title}
             badge={view ? shortDayLabel(view.date) : undefined}
             footer={
                 <Button variant="ghost" onClick={onClose}>
@@ -523,21 +916,55 @@ function ItemPicker({
             }
         >
             <div className="flex flex-col gap-4">
-                {entries.length > 0 && (
+                {entries.length > 0 ? (
                     <section className="flex flex-col gap-1.5">
                         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                             On this day
                         </p>
                         <ul className="flex flex-col gap-1">
                             {entries.map((e) => (
-                                <PlannedRow key={e._id} entry={e} onRemove={() => onRemove(e._id)} />
+                                <PlannedRow
+                                    key={e._id}
+                                    entry={e}
+                                    onRemove={editable ? () => onRemove(e._id) : undefined}
+                                />
                             ))}
                         </ul>
                     </section>
+                ) : (
+                    !editable && (
+                        <p className="py-6 text-center text-sm text-neutral-400">
+                            Nothing planned — a rest day.
+                        </p>
+                    )
+                )}
+
+                {!editable ? null : (
+                  <>
+                {!locked && (
+                    <div className="inline-flex self-start rounded-full border border-neutral-200 bg-neutral-50 p-0.5">
+                        {FITNESS_PLAN_KINDS.map((k) => {
+                            const active = k === activeKind
+                            return (
+                                <button
+                                    key={k}
+                                    type="button"
+                                    onClick={() => setActiveKind(k)}
+                                    className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                                        active
+                                            ? 'bg-white text-neutral-900 shadow-sm'
+                                            : 'text-neutral-500 hover:text-neutral-900'
+                                    }`}
+                                >
+                                    {KIND_META[k].label}
+                                </button>
+                            )
+                        })}
+                    </div>
                 )}
 
                 <Input
-                    placeholder={`Search ${meta ? meta.noun + 's' : ''}…`}
+                    placeholder={`Search ${meta.noun}s…`}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                 />
@@ -609,6 +1036,8 @@ function ItemPicker({
                             </li>
                         ))}
                     </ul>
+                )}
+                  </>
                 )}
             </div>
         </Drawer>
