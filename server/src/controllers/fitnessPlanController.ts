@@ -16,6 +16,15 @@ function isDate(v: unknown): v is string {
     return typeof v === 'string' && DATE_RE.test(v)
 }
 
+/** The seven "YYYY-MM-DD" day keys of the week starting on `start` (inclusive). */
+function weekDays(start: string): string[] {
+    const [y, m, d] = start.split('-').map(Number)
+    return Array.from({ length: 7 }, (_, i) => {
+        const dt = new Date(Date.UTC(y, m - 1, d + i))
+        return dt.toISOString().slice(0, 10)
+    })
+}
+
 function isKind(v: unknown): v is FitnessPlanKind {
     return typeof v === 'string' && FITNESS_PLAN_KINDS.includes(v as FitnessPlanKind)
 }
@@ -158,4 +167,60 @@ export async function deleteEntry(req: AuthRequest, res: Response) {
         return
     }
     res.json({ message: 'Deleted', data: entry })
+}
+
+/**
+ * POST /api/fitness-plan/copy-week — copy one week's plan onto another, for the
+ * chosen categories only. Each item keeps its weekday, slot and order; only the
+ * selected `kinds` in the target week are replaced (other categories untouched).
+ * Body: { from: Monday, to: Monday, kinds: FitnessPlanKind[] }.
+ */
+export async function copyWeek(req: AuthRequest, res: Response) {
+    const { from, to } = req.body
+    const kinds = req.body.kinds
+    if (!isDate(from) || !isDate(to)) {
+        res.status(400).json({ message: 'from and to (YYYY-MM-DD) are required' })
+        return
+    }
+    if (!Array.isArray(kinds) || kinds.length === 0 || !kinds.every(isKind)) {
+        res.status(400).json({ message: 'kinds must be a non-empty array of plan kinds' })
+        return
+    }
+    const uniqueKinds = [...new Set(kinds as FitnessPlanKind[])]
+
+    const fromDays = weekDays(from)
+    const toDays = weekDays(to)
+    // Same week + same day keys → nothing to do (copying onto itself).
+    if (from === to) {
+        res.json({ message: 'OK', data: [] })
+        return
+    }
+
+    // Wipe the selected categories from the target week, then clone the source.
+    await FitnessPlanEntry.deleteMany({
+        user: req.userId,
+        date: { $in: toDays },
+        kind: { $in: uniqueKinds },
+    })
+
+    const source = await FitnessPlanEntry.find({
+        user: req.userId,
+        date: { $in: fromDays },
+        kind: { $in: uniqueKinds },
+    }).sort({ date: 1, order: 1, createdAt: 1 })
+
+    const dateMap = new Map(fromDays.map((d, i) => [d, toDays[i]]))
+    const docs = source.map((e) => ({
+        user: req.userId,
+        date: dateMap.get(e.date),
+        part: e.part,
+        kind: e.kind,
+        workout: e.workout,
+        session: e.session,
+        recovery: e.recovery,
+        order: e.order,
+    }))
+
+    if (docs.length > 0) await FitnessPlanEntry.insertMany(docs)
+    res.json({ message: 'OK', data: { copied: docs.length } })
 }

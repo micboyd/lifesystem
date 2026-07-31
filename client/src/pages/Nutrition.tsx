@@ -123,7 +123,7 @@ type Drawered =
     | { mode: 'edit'; meal: Meal }
     | null
 
-const TOP_TABS = ['Meals', 'Weekly Planner'] as const
+const TOP_TABS = ['Weekly Planner', 'Meals'] as const
 type TopTab = (typeof TOP_TABS)[number]
 
 const SUBTITLE: Record<TopTab, string> = {
@@ -132,7 +132,7 @@ const SUBTITLE: Record<TopTab, string> = {
 }
 
 export default function Nutrition() {
-    const [tab, setTab] = useState<TopTab>('Meals')
+    const [tab, setTab] = useState<TopTab>('Weekly Planner')
     const [drawer, setDrawer] = useState<Drawered>(null)
 
     // The full library — for the planner's picker and the "is it empty" check.

@@ -5,11 +5,19 @@ import Button from './Button'
 import Input from './Input'
 import EmptyState from './EmptyState'
 import Drawer from './Drawer'
+import DropdownMenu, { type MenuEntry } from './DropdownMenu'
+import ConfirmModal from './ConfirmModal'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
 import { listExercises } from '../services/exercises'
-import { listPlanEntries, addPlanEntry, updatePlanEntry, deletePlanEntry } from '../services/fitnessPlan'
+import {
+    listPlanEntries,
+    addPlanEntry,
+    updatePlanEntry,
+    deletePlanEntry,
+    copyPlanWeek,
+} from '../services/fitnessPlan'
 import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS } from '../types'
 import type {
     Workout,
@@ -44,6 +52,21 @@ const KIND_META: Record<
     workout: { label: 'Strength', noun: 'workout', icon: 'fa-solid fa-dumbbell' },
     conditioning: { label: 'Conditioning', noun: 'session', icon: 'fa-solid fa-heart-pulse' },
     recovery: { label: 'Recovery', noun: 'item', icon: 'fa-solid fa-spa' },
+}
+
+// The category choices offered when copying a week — each maps to the plan
+// kinds it overwrites in the target week. "Everything" clones all three.
+const COPY_OPTIONS: { label: string; icon: string; kinds: FitnessPlanKind[] }[] = [
+    { label: 'Strength only', icon: 'fa-solid fa-dumbbell', kinds: ['workout'] },
+    { label: 'Conditioning only', icon: 'fa-solid fa-heart-pulse', kinds: ['conditioning'] },
+    { label: 'Recovery only', icon: 'fa-solid fa-spa', kinds: ['recovery'] },
+    { label: 'Everything', icon: 'fa-solid fa-layer-group', kinds: [...FITNESS_PLAN_KINDS] },
+]
+
+/** A short lower-case description of a set of kinds, e.g. "strength" or "everything". */
+function kindsLabel(kinds: FitnessPlanKind[]): string {
+    if (kinds.length >= FITNESS_PLAN_KINDS.length) return 'everything'
+    return kinds.map((k) => KIND_META[k].label.toLowerCase()).join(' + ')
 }
 
 // Each plan kind carries its own colour so the three categories read apart at a
@@ -258,6 +281,11 @@ export default function FitnessWeeklyPlanner() {
     const [detail, setDetail] = useState<FitnessPlanEntry | null>(null)
     // The planner opens read-only; Edit reveals the add/remove controls.
     const [editing, setEditing] = useState(false)
+    // A copied week held for pasting elsewhere: the source Monday plus which
+    // categories were copied. Only those categories are overwritten on paste.
+    const [clipboard, setClipboard] = useState<{ from: string; kinds: FitnessPlanKind[] } | null>(
+        null
+    )
 
     const today = todayKey()
 
@@ -332,6 +360,20 @@ export default function FitnessWeeklyPlanner() {
         await deletePlanEntry(id)
     }
 
+    // Copy the current week's selected categories to the clipboard for pasting.
+    function handleCopyWeek(kinds: FitnessPlanKind[]) {
+        setClipboard({ from: range.start, kinds })
+    }
+
+    // Paste the clipboard onto the current week — overwriting only the copied
+    // categories — then refetch so the grid shows the pasted plan.
+    async function handlePasteWeek() {
+        if (!clipboard) return
+        await copyPlanWeek(clipboard.from, range.start, clipboard.kinds)
+        const rows = await listPlanEntries(range.start, range.end)
+        setEntries(rows)
+    }
+
     // Move a planned item to another slot of its own day (week-view drag-and-drop).
     // Optimistic: the row jumps immediately, then the server records the new slot.
     async function handleMove(id: string, part: FitnessPlanPart) {
@@ -385,6 +427,16 @@ export default function FitnessWeeklyPlanner() {
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
+                    {!libraryEmpty && view === 'week' && (
+                        <WeekCopyControls
+                            weekStart={range.start}
+                            weekEnd={range.end}
+                            clipboard={clipboard}
+                            onCopy={handleCopyWeek}
+                            onPaste={handlePasteWeek}
+                            onClearClipboard={() => setClipboard(null)}
+                        />
+                    )}
                     {!libraryEmpty && view !== '6month' && (
                         <Button
                             variant={editing ? 'primary' : 'secondary'}
@@ -491,6 +543,101 @@ function ViewSwitch({
                     </button>
                 )
             })}
+        </div>
+    )
+}
+
+// ─── Copy / paste week ──────────────────────────────────────────────────────────
+
+/**
+ * Copy the current week's plan (by category) and paste it onto another week.
+ * "Copy week" drops the chosen categories onto a clipboard; navigating to a
+ * different week reveals "Paste", which overwrites only those categories there.
+ */
+function WeekCopyControls({
+    weekStart,
+    weekEnd,
+    clipboard,
+    onCopy,
+    onPaste,
+    onClearClipboard,
+}: {
+    weekStart: string
+    weekEnd: string
+    clipboard: { from: string; kinds: FitnessPlanKind[] } | null
+    onCopy: (kinds: FitnessPlanKind[]) => void
+    onPaste: () => void
+    onClearClipboard: () => void
+}) {
+    const [confirming, setConfirming] = useState(false)
+    // The clipboard's source week can't be pasted back onto itself.
+    const sameWeek = clipboard?.from === weekStart
+
+    const copyItems: MenuEntry[] = COPY_OPTIONS.map((o) => ({
+        label: o.label,
+        icon: o.icon,
+        onClick: () => onCopy(o.kinds),
+    }))
+
+    return (
+        <div className="flex items-center gap-2">
+            <DropdownMenu
+                align="right"
+                trigger={
+                    <Button variant="secondary" size="sm" icon="fa-solid fa-copy">
+                        Copy week
+                    </Button>
+                }
+                items={copyItems}
+            />
+
+            {clipboard && (
+                <div className="flex items-center gap-1">
+                    <Button
+                        variant="primary"
+                        size="sm"
+                        icon="fa-solid fa-paste"
+                        disabled={sameWeek}
+                        onClick={() => setConfirming(true)}
+                        title={
+                            sameWeek
+                                ? 'This is the week you copied — move to another week to paste'
+                                : undefined
+                        }
+                    >
+                        Paste {kindsLabel(clipboard.kinds)}
+                    </Button>
+                    <IconButton
+                        icon="fa-solid fa-xmark"
+                        label="Clear copied week"
+                        onClick={onClearClipboard}
+                    />
+                </div>
+            )}
+
+            <ConfirmModal
+                open={confirming}
+                title="Paste week plan?"
+                confirmLabel="Paste"
+                message={
+                    clipboard && (
+                        <p className="text-sm text-neutral-600">
+                            Replace <span className="font-semibold">{kindsLabel(clipboard.kinds)}</span>{' '}
+                            for{' '}
+                            <span className="font-semibold">
+                                {formatWeekRange(weekStart, weekEnd)}
+                            </span>{' '}
+                            with the plan copied from{' '}
+                            <span className="font-semibold">
+                                {formatWeekRange(clipboard.from, addDays(clipboard.from, 6))}
+                            </span>
+                            ? Other categories on this week stay as they are.
+                        </p>
+                    )
+                }
+                onConfirm={onPaste}
+                onClose={() => setConfirming(false)}
+            />
         </div>
     )
 }

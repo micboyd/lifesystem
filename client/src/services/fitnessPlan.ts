@@ -37,3 +37,16 @@ export async function updatePlanEntry(
 export async function deletePlanEntry(id: string): Promise<void> {
     await api.delete(`/fitness-plan/${id}`)
 }
+
+/**
+ * Copy one week's plan onto another for the chosen categories only. Each item
+ * keeps its weekday, slot and order; only the selected `kinds` in the target
+ * week are overwritten. `from` and `to` are the Mondays of each week.
+ */
+export async function copyPlanWeek(
+    from: string,
+    to: string,
+    kinds: FitnessPlanKind[]
+): Promise<void> {
+    await api.post('/fitness-plan/copy-week', { from, to, kinds })
+}
