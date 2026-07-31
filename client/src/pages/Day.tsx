@@ -81,11 +81,11 @@ export default function Day() {
                 <HabitsDaySection date={date} />
             </section>
 
-            {/* Training hours */}
+            {/* Studying hours */}
             {studyRowId && (
                 <section className="mb-8">
                     <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-400">
-                        Training
+                        Studying
                     </h2>
                     <StudyDaySection date={date} rowId={studyRowId} />
                 </section>

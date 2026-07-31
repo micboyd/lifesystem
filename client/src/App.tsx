@@ -10,6 +10,9 @@ import Day from './pages/Day'
 import Timebox from './pages/Timebox'
 import Habits from './pages/Habits'
 import Study from './pages/Study'
+import Fitness from './pages/Fitness'
+import Nutrition from './pages/Nutrition'
+import NutritionImport from './pages/NutritionImport'
 import FinanceLayout from './pages/FinanceLayout'
 import Finances from './pages/Finances'
 import Budgets from './pages/Budgets'
@@ -70,6 +73,9 @@ export default function App() {
                 <Route path="/timebox" element={<Timebox />} />
                 <Route path="/habits" element={<Habits />} />
                 <Route path="/study" element={<Study />} />
+                <Route path="/fitness" element={<Fitness />} />
+                <Route path="/nutrition" element={<Nutrition />} />
+                <Route path="/nutrition/import" element={<NutritionImport />} />
                 <Route path="/finances/breakdown/:rowId" element={<FinanceBreakdown />} />
                 <Route path="/finances" element={<FinanceLayout />}>
                     <Route index element={<Finances />} />

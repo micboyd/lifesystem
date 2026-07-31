@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useOverlayBehavior } from './useOverlay'
 
-type DrawerSize = 'sm' | 'md' | 'lg'
+type DrawerSize = 'sm' | 'md' | 'lg' | 'xl'
 
 interface DrawerProps {
     open: boolean
@@ -20,6 +20,9 @@ const sizeClasses: Record<DrawerSize, string> = {
     sm: 'sm:max-w-xs',
     md: 'sm:max-w-sm',
     lg: 'sm:max-w-md',
+    // Extended: a quarter of the viewport on wide screens, never narrower than
+    // `lg` (28rem) so forms stay comfortable on smaller laptops.
+    xl: 'sm:w-1/4 sm:min-w-[28rem] sm:max-w-none',
 }
 
 export default function Drawer({

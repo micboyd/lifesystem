@@ -11,7 +11,9 @@ const navItems = [
     { label: 'Timebox', to: '/timebox', icon: 'fa-table-cells-large' },
     { label: 'Habits', to: '/habits', icon: 'fa-repeat' },
     { label: 'Goals', to: '/goals', icon: 'fa-bullseye' },
-    { label: 'Training', to: '/study', icon: 'fa-graduation-cap' },
+    { label: 'Studying', to: '/study', icon: 'fa-graduation-cap' },
+    { label: 'Fitness', to: '/fitness', icon: 'fa-dumbbell' },
+    { label: 'Nutrition', to: '/nutrition', icon: 'fa-bowl-food' },
     { label: 'Notes', to: '/notes', icon: 'fa-note-sticky' },
     { label: 'Weather', to: '/weather', icon: 'fa-cloud-sun' },
 ]

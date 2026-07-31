@@ -40,6 +40,183 @@ export interface Course {
     updatedAt: string
 }
 
+export const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const
+export type MealType = (typeof MEAL_TYPES)[number]
+
+export interface Ingredient {
+    name: string
+    quantity?: string
+    unit?: string
+}
+
+export interface Macros {
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
+}
+
+export interface Meal {
+    _id: string
+    name: string
+    /** Which meals of the day this fits; a meal can belong to several. */
+    types: MealType[]
+    /** Servings the recipe yields. Macros are stated per serving. */
+    servings: number
+    /** Optional label for one serving, e.g. "1 bowl". */
+    servingLabel?: string
+    macros: Macros
+    ingredients: Ingredient[]
+    /** Ordered method steps. */
+    method: string[]
+    notes?: string
+    link?: string
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+export interface Exercise {
+    _id: string
+    name: string
+    description: string
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+/** One exercise slot in a workout: a library exercise id plus its prescribed volume. */
+export interface WorkoutExercise {
+    /** Exercise id from the library. */
+    exercise: string
+    /** Number of working sets, if prescribed. */
+    sets?: number
+    /** Reps per set — free-form to allow ranges/AMRAP, e.g. "8-12". */
+    reps?: string
+}
+
+export interface Workout {
+    _id: string
+    name: string
+    description: string
+    /** Pin this workout to the top of the week planner. */
+    showInPlanner: boolean
+    /** Ordered exercises drawn from the library, each with optional sets/reps. */
+    exercises: WorkoutExercise[]
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+/** A snapshotted exercise line inside a logged workout. */
+export interface WorkoutLogExercise {
+    name: string
+    sets?: number
+    reps?: string
+}
+
+/** A record that a strength workout was completed on a given day. */
+export interface WorkoutLog {
+    _id: string
+    /** Library workout this came from, if any. Null once that workout is deleted. */
+    workout: string | null
+    /** Snapshot of the workout name at log time. */
+    name: string
+    /** YYYY-MM-DD — the day it was completed. */
+    date: string
+    /** Snapshot of the workout's exercises at log time. */
+    exercises: WorkoutLogExercise[]
+    /** Actual minutes spent, if recorded. */
+    durationMin?: number
+    notes?: string
+    createdAt: string
+    updatedAt: string
+}
+
+export const CONDITIONING_CATEGORIES = [
+    'HIIT',
+    'Cardio',
+    'Endurance',
+    'Mobility',
+    'Recovery',
+] as const
+export type ConditioningCategory = (typeof CONDITIONING_CATEGORIES)[number]
+
+/** One block of a session, e.g. a warm-up, main set or cool-down. */
+export interface SessionPart {
+    name: string
+    detail?: string
+}
+
+export interface ConditioningSession {
+    _id: string
+    name: string
+    /** Planned duration in minutes. */
+    duration: number
+    category: ConditioningCategory
+    /** What the session is for, e.g. "Build aerobic base". */
+    purpose?: string
+    /** Ordered parts making up the session. */
+    parts: SessionPart[]
+    /** Guidance on how / when to run the session. */
+    howToUse?: string
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+/** A record that a conditioning session was completed on a given day. */
+export interface ConditioningLog {
+    _id: string
+    /** Library session this came from, if any. Null once that session is deleted. */
+    session: string | null
+    /** Snapshot of the session name at log time. */
+    name: string
+    category: ConditioningCategory
+    /** YYYY-MM-DD — the day it was completed. */
+    date: string
+    /** Actual minutes spent. */
+    duration: number
+    /** Rate of perceived exertion, 1 (easy) – 10 (max). */
+    rpe?: number
+    notes?: string
+    createdAt: string
+    updatedAt: string
+}
+
+/** A meal placed into one slot of one day in the weekly planner. */
+export interface MealPlanEntry {
+    _id: string
+    /** "YYYY-MM-DD" — the day this sits on. */
+    date: string
+    /** Which slot of the day: breakfast / lunch / dinner / snack. */
+    slot: MealType
+    /** The planned meal, populated by the server (macros read from here). */
+    meal: Meal
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+export const FITNESS_PLAN_KINDS = ['workout', 'conditioning'] as const
+export type FitnessPlanKind = (typeof FITNESS_PLAN_KINDS)[number]
+
+/** A workout or conditioning session placed on one day of the weekly planner. */
+export interface FitnessPlanEntry {
+    _id: string
+    /** "YYYY-MM-DD" — the day this sits on. */
+    date: string
+    /** Which library the planned item comes from. */
+    kind: FitnessPlanKind
+    /** Populated for `kind: 'workout'`, otherwise null. */
+    workout: Workout | null
+    /** Populated for `kind: 'conditioning'`, otherwise null. */
+    session: ConditioningSession | null
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
 export interface TotalRow {
     _id: string
     name: string

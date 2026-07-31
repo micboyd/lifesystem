@@ -1,0 +1,35 @@
+import api from './api'
+import type { ApiResponse, WorkoutLog } from '../types'
+
+/** Fields the create/update endpoints accept. */
+export interface WorkoutLogInput {
+    /** Library workout id to link and snapshot from. */
+    workout?: string
+    name?: string
+    /** YYYY-MM-DD. */
+    date: string
+    durationMin?: number
+    notes?: string
+}
+
+export async function listLogs(): Promise<WorkoutLog[]> {
+    const res = await api.get<ApiResponse<WorkoutLog[]>>('/workout-logs')
+    return res.data.data
+}
+
+export async function createLog(fields: WorkoutLogInput): Promise<WorkoutLog> {
+    const res = await api.post<ApiResponse<WorkoutLog>>('/workout-logs', fields)
+    return res.data.data
+}
+
+export async function updateLog(
+    id: string,
+    fields: Partial<WorkoutLogInput>
+): Promise<WorkoutLog> {
+    const res = await api.put<ApiResponse<WorkoutLog>>(`/workout-logs/${id}`, fields)
+    return res.data.data
+}
+
+export async function deleteLog(id: string): Promise<void> {
+    await api.delete(`/workout-logs/${id}`)
+}

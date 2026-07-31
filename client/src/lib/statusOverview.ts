@@ -119,7 +119,7 @@ export function daysSinceDomainStatus(items: DaysSinceItem[], today: string): Do
 export function studyDomainStatus(pacing: Pacing | null): DomainStatus {
     const base = {
         key: 'study',
-        label: 'Training',
+        label: 'Studying',
         icon: 'fa-solid fa-graduation-cap',
         href: '/study',
     }

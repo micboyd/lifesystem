@@ -10,15 +10,21 @@ import { connectDB } from './config/db'
 import cors from 'cors'
 import birthdayRoutes from './routes/birthdayRoutes'
 import calendarRoutes from './routes/calendarRoutes'
+import conditioningRoutes from './routes/conditioningRoutes'
+import conditioningLogRoutes from './routes/conditioningLogRoutes'
 import daysSinceRoutes from './routes/daysSinceRoutes'
 import goalRoutes from './routes/goalRoutes'
 import courseRoutes from './routes/courseRoutes'
 import dayStatusRoutes from './routes/dayStatusRoutes'
 import dotenv from 'dotenv'
 import eventRoutes from './routes/eventRoutes'
+import exerciseRoutes from './routes/exerciseRoutes'
 import express from 'express'
 import financeRoutes from './routes/financeRoutes'
+import fitnessPlanRoutes from './routes/fitnessPlanRoutes'
 import habitRoutes from './routes/habitRoutes'
+import mealRoutes from './routes/mealRoutes'
+import mealPlanRoutes from './routes/mealPlanRoutes'
 import noteRoutes from './routes/noteRoutes'
 import path from 'path'
 import reminderRoutes from './routes/reminderRoutes'
@@ -27,6 +33,9 @@ import taskRoutes from './routes/taskRoutes'
 import timeboxRoutes from './routes/timeboxRoutes'
 import totalsRoutes from './routes/totalsRoutes'
 import userRoutes from './routes/userRoutes'
+import workoutRoutes from './routes/workoutRoutes'
+import workoutLogRoutes from './routes/workoutLogRoutes'
+import Workout from './models/Workout'
 
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 
@@ -65,6 +74,14 @@ app.use('/api/finances', financeRoutes)
 app.use('/api/birthdays', birthdayRoutes)
 app.use('/api/days-since', daysSinceRoutes)
 app.use('/api/goals', goalRoutes)
+app.use('/api/conditioning', conditioningRoutes)
+app.use('/api/conditioning-logs', conditioningLogRoutes)
+app.use('/api/exercises', exerciseRoutes)
+app.use('/api/workouts', workoutRoutes)
+app.use('/api/workout-logs', workoutLogRoutes)
+app.use('/api/meals', mealRoutes)
+app.use('/api/meal-plan', mealPlanRoutes)
+app.use('/api/fitness-plan', fitnessPlanRoutes)
 app.use('/api/notes', noteRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
 
@@ -114,6 +131,32 @@ connectDB()
             console.log('BudgetSpend: dropped stale sparse starlingFeedItemUid index')
         } catch {
             // Already dropped or never existed.
+        }
+
+        // One-time migration: workout exercises moved from a bare array of exercise
+        // ids to `{ exercise, sets?, reps? }` sub-documents. Convert any workout
+        // still holding raw ids so Mongoose can cast it under the new schema.
+        try {
+            const cursor = Workout.collection.find({ 'exercises.0': { $exists: true } })
+            let migrated = 0
+            for await (const doc of cursor) {
+                const ex = doc.exercises as unknown[]
+                const first = ex[0]
+                const alreadyNew =
+                    first && typeof first === 'object' && 'exercise' in (first as object)
+                if (alreadyNew) continue
+                const converted = ex
+                    .filter((id) => id != null)
+                    .map((id) => ({ exercise: id }))
+                await Workout.collection.updateOne(
+                    { _id: doc._id },
+                    { $set: { exercises: converted } }
+                )
+                migrated++
+            }
+            if (migrated > 0) console.log(`Workout: migrated ${migrated} workout(s) to sets/reps shape`)
+        } catch (err) {
+            console.error('Workout exercises migration failed:', err)
         }
 
         // One-time migration: events predate calendars. Every event now belongs
