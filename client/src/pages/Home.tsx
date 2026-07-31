@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Container from '../components/Container'
+import Tabs from '../components/Tabs'
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import TodayWidget from '../components/dashboard/TodayWidget'
@@ -10,10 +11,16 @@ import TomorrowWidget, { useTomorrowVisible } from '../components/dashboard/Tomo
 import NextTimeOffWidget from '../components/dashboard/NextTimeOffWidget'
 import BirthdayWidget from '../components/dashboard/BirthdayWidget'
 import HabitsWidget from '../components/dashboard/HabitsWidget'
+import NutritionWidget from '../components/dashboard/NutritionWidget'
+import FitnessWidget from '../components/dashboard/FitnessWidget'
 import { todayKey } from '../lib/calendar'
+
+const TABS = ['Today', 'Week ahead'] as const
+type Tab = (typeof TABS)[number]
 
 export default function Home() {
     const [date, setDate] = useState(todayKey())
+    const [tab, setTab] = useState<Tab>('Today')
     const { show: showTomorrow } = useTomorrowVisible(date)
 
     return (
@@ -24,48 +31,51 @@ export default function Home() {
                 <DashboardDateNav date={date} onChange={setDate} />
             </div>
 
-            {/* Today's schedule — the core of the day. */}
-            <section className="mt-8">
-                <h2 className="mb-3 text-base font-semibold uppercase tracking-wide text-neutral-400">
-                    Today&apos;s outlook
-                </h2>
-                <TodayWidget date={date} />
-            </section>
+            <Tabs
+                tabs={[...TABS]}
+                value={tab}
+                onChange={(t) => setTab(t as Tab)}
+                className="mt-6"
+            />
 
-            {/* In the evening, the tomorrow-prep brief spans full width directly
-                under the day's schedule — it's the natural next thing to act on. */}
-            {showTomorrow && (
-                <div className="mt-6">
-                    <TomorrowWidget date={date} />
-                </div>
-            )}
+            {tab === 'Today' ? (
+                <>
+                    {/* Today's schedule — the core of the day. */}
+                    <section className="mt-6">
+                        <TodayWidget date={date} />
+                    </section>
 
-            {/* A few essentials. Left: today's tasks with today's weather beneath.
-                Right: the budget and habits. */}
-            <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
-                <div className="grid gap-6">
-                    <TasksWidget date={date} />
-                    <WeatherWidget variant="hourly" />
-                </div>
-                <div className="grid gap-6">
-                    <HabitsWidget date={date} />
-                    <BudgetWidget date={date} cadence="today" />
-                </div>
-            </div>
+                    {/* In the evening, the tomorrow-prep brief spans full width directly
+                        under the day's schedule — it's the natural next thing to act on. */}
+                    {showTomorrow && (
+                        <div className="mt-6">
+                            <TomorrowWidget date={date} />
+                        </div>
+                    )}
 
-            {/* The week's weather sits at the bottom — a glance ahead, not a
-                thing you act on right now. */}
-            <section className="mt-10">
-                <h2 className="mb-3 text-base font-semibold uppercase tracking-wide text-neutral-400">
-                    Looking ahead
-                </h2>
-                <div className="grid items-start gap-6 lg:grid-cols-2">
+                    {/* A few essentials. A masonry-style flow packs the tiles to balance
+                        the column heights, so short and tall cards fill in around each
+                        other rather than leaving one column stranded with a gap. */}
+                    <div className="mt-6 gap-6 [column-fill:_balance] lg:columns-2 [&>*]:mb-6 [&>*]:break-inside-avoid">
+                        <TasksWidget date={date} />
+                        <HabitsWidget date={date} />
+                        <FitnessWidget date={date} cadence="today" />
+                        <NutritionWidget date={date} cadence="today" />
+                        <BudgetWidget date={date} cadence="today" />
+                        <WeatherWidget variant="hourly" />
+                    </div>
+                </>
+            ) : (
+                /* The week ahead — a glance at what's coming, not what you act on now. */
+                <div className="mt-6 gap-6 [column-fill:_balance] lg:columns-2 [&>*]:mb-6 [&>*]:break-inside-avoid">
                     <BudgetWidget date={date} cadence="week" />
+                    <FitnessWidget date={date} cadence="week" />
+                    <NutritionWidget date={date} cadence="week" />
                     <WeatherWidget variant="daily" />
                     <NextTimeOffWidget date={date} />
                     <BirthdayWidget date={date} />
                 </div>
-            </section>
+            )}
         </Container>
     )
 }
