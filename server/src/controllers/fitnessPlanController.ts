@@ -6,6 +6,12 @@ import FitnessPlanEntry, {
     FITNESS_PLAN_PARTS,
     FitnessPlanPart,
 } from '../models/FitnessPlanEntry'
+import FitnessPlanNote, {
+    FITNESS_NOTE_SCOPES,
+    FitnessNoteScope,
+    FITNESS_FLAG_COLORS,
+    FitnessFlagColor,
+} from '../models/FitnessPlanNote'
 import Workout from '../models/Workout'
 import ConditioningSession from '../models/ConditioningSession'
 import Recovery from '../models/Recovery'
@@ -31,6 +37,14 @@ function isKind(v: unknown): v is FitnessPlanKind {
 
 function isPart(v: unknown): v is FitnessPlanPart {
     return typeof v === 'string' && FITNESS_PLAN_PARTS.includes(v as FitnessPlanPart)
+}
+
+function isScope(v: unknown): v is FitnessNoteScope {
+    return typeof v === 'string' && FITNESS_NOTE_SCOPES.includes(v as FitnessNoteScope)
+}
+
+function isColor(v: unknown): v is FitnessFlagColor {
+    return typeof v === 'string' && FITNESS_FLAG_COLORS.includes(v as FitnessFlagColor)
 }
 
 /** Keep the slot if recognised, else fall back to the morning slot. */
@@ -223,4 +237,60 @@ export async function copyWeek(req: AuthRequest, res: Response) {
 
     if (docs.length > 0) await FitnessPlanEntry.insertMany(docs)
     res.json({ message: 'OK', data: { copied: docs.length } })
+}
+
+/**
+ * GET /api/fitness-plan/notes?start=YYYY-MM-DD&end=YYYY-MM-DD
+ * List the user's day/week flag+label notes whose date falls in the range. Week
+ * notes are keyed by their Monday, so a week view's range includes its own note.
+ */
+export async function listNotes(req: AuthRequest, res: Response) {
+    const { start, end } = req.query
+    if (!isDate(start) || !isDate(end)) {
+        res.status(400).json({ message: 'start and end (YYYY-MM-DD) are required' })
+        return
+    }
+
+    const notes = await FitnessPlanNote.find({
+        user: req.userId,
+        date: { $gte: start, $lte: end },
+    }).sort({ date: 1 })
+
+    res.json({ message: 'OK', data: notes })
+}
+
+/**
+ * PUT /api/fitness-plan/notes — create or update the note for one day or week.
+ * Upserts on (user, scope, date). An empty label with no colour clears the note
+ * instead (nothing left to flag), so toggling a flag off removes it.
+ * Body: { scope: 'day'|'week', date, color, label }.
+ */
+export async function saveNote(req: AuthRequest, res: Response) {
+    const { scope, date, color } = req.body
+    const label = typeof req.body.label === 'string' ? req.body.label.trim() : ''
+    if (!isScope(scope) || !isDate(date)) {
+        res.status(400).json({ message: 'scope (day|week) and date (YYYY-MM-DD) are required' })
+        return
+    }
+    if (!isColor(color)) {
+        res.status(400).json({ message: 'color must be one of the flag colours' })
+        return
+    }
+
+    const note = await FitnessPlanNote.findOneAndUpdate(
+        { user: req.userId, scope, date },
+        { $set: { color, label }, $setOnInsert: { user: req.userId, scope, date } },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+    )
+    res.json({ message: 'Saved', data: note })
+}
+
+/** DELETE /api/fitness-plan/notes/:id — remove a day or week flag. */
+export async function deleteNote(req: AuthRequest, res: Response) {
+    const note = await FitnessPlanNote.findOneAndDelete({ _id: req.params.id, user: req.userId })
+    if (!note) {
+        res.status(404).json({ message: 'Note not found' })
+        return
+    }
+    res.json({ message: 'Deleted', data: note })
 }

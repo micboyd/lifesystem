@@ -11,10 +11,19 @@ export interface MenuItem {
 
 export type MenuEntry = MenuItem | 'divider'
 
+type DropdownSize = 'small' | 'medium' | 'large'
+
+const SIZE_WIDTH: Record<DropdownSize, string> = {
+    small: 'min-w-44',
+    medium: 'min-w-56',
+    large: 'min-w-72',
+}
+
 interface DropdownMenuProps {
     trigger: ReactNode
     items: MenuEntry[]
     align?: 'left' | 'right'
+    size?: DropdownSize
     className?: string
 }
 
@@ -22,6 +31,7 @@ export default function DropdownMenu({
     trigger,
     items,
     align = 'left',
+    size = 'small',
     className = '',
 }: DropdownMenuProps) {
     const [open, setOpen] = useState(false)
@@ -53,7 +63,7 @@ export default function DropdownMenu({
             {open && (
                 <div
                     role="menu"
-                    className={`absolute z-50 mt-2 min-w-44 rounded-xl border border-neutral-100 bg-white p-1.5 shadow-lg ${
+                    className={`absolute z-50 mt-2 ${SIZE_WIDTH[size]} rounded-xl border border-neutral-100 bg-white p-1.5 shadow-lg ${
                         align === 'right' ? 'right-0' : 'left-0'
                     }`}
                 >

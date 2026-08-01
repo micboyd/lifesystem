@@ -243,6 +243,30 @@ export interface FitnessPlanEntry {
     updatedAt: string
 }
 
+/** Whether a planner flag marks a single day or a whole week. */
+export const FITNESS_NOTE_SCOPES = ['day', 'week'] as const
+export type FitnessNoteScope = (typeof FITNESS_NOTE_SCOPES)[number]
+
+/** The flag colours a day or week can be marked with. */
+export const FITNESS_FLAG_COLORS = ['coral', 'amber', 'emerald', 'sky', 'violet', 'slate'] as const
+export type FitnessFlagColor = (typeof FITNESS_FLAG_COLORS)[number]
+
+/**
+ * A flag + label annotation on the planner. Marks either one day or one week
+ * (e.g. "Deload", "Race week") with a colour and short label. At most one per
+ * (scope, date): a day note's `date` is the day key, a week note's is its Monday.
+ */
+export interface FitnessPlanNote {
+    _id: string
+    scope: FitnessNoteScope
+    /** Day key ("YYYY-MM-DD") for a day note; the week's Monday for a week note. */
+    date: string
+    color: FitnessFlagColor
+    label: string
+    createdAt: string
+    updatedAt: string
+}
+
 export interface TotalRow {
     _id: string
     name: string

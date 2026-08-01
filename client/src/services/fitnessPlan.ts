@@ -1,5 +1,13 @@
 import api from './api'
-import type { ApiResponse, FitnessPlanEntry, FitnessPlanKind, FitnessPlanPart } from '../types'
+import type {
+    ApiResponse,
+    FitnessPlanEntry,
+    FitnessPlanKind,
+    FitnessPlanPart,
+    FitnessPlanNote,
+    FitnessNoteScope,
+    FitnessFlagColor,
+} from '../types'
 
 /** List planned training whose date falls in [start, end] (inclusive, YYYY-MM-DD). */
 export async function listPlanEntries(start: string, end: string): Promise<FitnessPlanEntry[]> {
@@ -49,4 +57,38 @@ export async function copyPlanWeek(
     kinds: FitnessPlanKind[]
 ): Promise<void> {
     await api.post('/fitness-plan/copy-week', { from, to, kinds })
+}
+
+// ─── Day / week flag + label notes ──────────────────────────────────────────────
+
+/** List the day/week flag notes whose date falls in [start, end] (inclusive). */
+export async function listPlanNotes(start: string, end: string): Promise<FitnessPlanNote[]> {
+    const res = await api.get<ApiResponse<FitnessPlanNote[]>>('/fitness-plan/notes', {
+        params: { start, end },
+    })
+    return res.data.data
+}
+
+/**
+ * Create or update the flag for one day or week. `date` is the day key for a day
+ * flag, or the week's Monday for a week flag. Returns the saved note.
+ */
+export async function savePlanNote(
+    scope: FitnessNoteScope,
+    date: string,
+    color: FitnessFlagColor,
+    label: string
+): Promise<FitnessPlanNote> {
+    const res = await api.put<ApiResponse<FitnessPlanNote>>('/fitness-plan/notes', {
+        scope,
+        date,
+        color,
+        label,
+    })
+    return res.data.data
+}
+
+/** Remove a day or week flag. */
+export async function deletePlanNote(id: string): Promise<void> {
+    await api.delete(`/fitness-plan/notes/${id}`)
 }

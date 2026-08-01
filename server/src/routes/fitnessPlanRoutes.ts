@@ -5,6 +5,9 @@ import {
     updateEntry,
     deleteEntry,
     copyWeek,
+    listNotes,
+    saveNote,
+    deleteNote,
 } from '../controllers/fitnessPlanController'
 import { requireAuth } from '../middleware/auth'
 
@@ -14,6 +17,12 @@ router.use(requireAuth)
 router.get('/', listEntries)
 router.post('/', createEntry)
 router.post('/copy-week', copyWeek)
+
+// Day / week flag + label notes (kept above the /:id routes so they don't shadow).
+router.get('/notes', listNotes)
+router.put('/notes', saveNote)
+router.delete('/notes/:id', deleteNote)
+
 router.patch('/:id', updateEntry)
 router.delete('/:id', deleteEntry)
 

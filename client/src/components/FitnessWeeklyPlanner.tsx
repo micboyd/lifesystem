@@ -17,8 +17,11 @@ import {
     updatePlanEntry,
     deletePlanEntry,
     copyPlanWeek,
+    listPlanNotes,
+    savePlanNote,
+    deletePlanNote,
 } from '../services/fitnessPlan'
-import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS } from '../types'
+import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS, FITNESS_FLAG_COLORS } from '../types'
 import type {
     Workout,
     WorkoutExercise,
@@ -29,6 +32,9 @@ import type {
     FitnessPlanEntry,
     FitnessPlanKind,
     FitnessPlanPart,
+    FitnessPlanNote,
+    FitnessNoteScope,
+    FitnessFlagColor,
 } from '../types'
 import {
     todayKey,
@@ -103,12 +109,65 @@ const PART_META: Record<FitnessPlanPart, { label: string; icon: string }> = {
     evening: { label: 'Evening', icon: 'fa-solid fa-moon' },
 }
 
-// Solid fills for the mini-calendar slot bands, one per kind (empty slots stay
-// neutral). Matches the coral / sky / emerald coding used by the chips.
-const KIND_BAND: Record<FitnessPlanKind, string> = {
-    workout: 'bg-coral-400',
-    conditioning: 'bg-sky-400',
-    recovery: 'bg-emerald-400',
+// ─── Flag presentation ─────────────────────────────────────────────────────────
+
+// Each flag colour maps to the classes used to render it: a solid swatch (for
+// the picker + dot), a soft chip (day header), a full-width banner (week) and a
+// left accent bar (flagged day card). Names label the swatches in the editor.
+const FLAG_TONE: Record<
+    FitnessFlagColor,
+    { name: string; dot: string; chip: string; banner: string; bar: string }
+> = {
+    coral: {
+        name: 'Coral',
+        dot: 'bg-coral-500',
+        chip: 'bg-coral-50 text-coral-700',
+        banner: 'border-coral-200 bg-coral-50 text-coral-700',
+        bar: 'bg-coral-500',
+    },
+    amber: {
+        name: 'Amber',
+        dot: 'bg-amber-500',
+        chip: 'bg-amber-50 text-amber-700',
+        banner: 'border-amber-200 bg-amber-50 text-amber-700',
+        bar: 'bg-amber-500',
+    },
+    emerald: {
+        name: 'Emerald',
+        dot: 'bg-emerald-500',
+        chip: 'bg-emerald-50 text-emerald-700',
+        banner: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        bar: 'bg-emerald-500',
+    },
+    sky: {
+        name: 'Sky',
+        dot: 'bg-sky-500',
+        chip: 'bg-sky-50 text-sky-700',
+        banner: 'border-sky-200 bg-sky-50 text-sky-700',
+        bar: 'bg-sky-500',
+    },
+    violet: {
+        name: 'Violet',
+        dot: 'bg-violet-500',
+        chip: 'bg-violet-50 text-violet-700',
+        banner: 'border-violet-200 bg-violet-50 text-violet-700',
+        bar: 'bg-violet-500',
+    },
+    slate: {
+        name: 'Slate',
+        dot: 'bg-slate-500',
+        chip: 'bg-slate-100 text-slate-700',
+        banner: 'border-slate-200 bg-slate-50 text-slate-700',
+        bar: 'bg-slate-500',
+    },
+}
+
+// A default flag colour for a fresh flag, and quick-fill label suggestions
+// offered in the editor (tailored to whether a day or a week is being flagged).
+const DEFAULT_FLAG_COLOR: FitnessFlagColor = 'coral'
+const FLAG_SUGGESTIONS: Record<FitnessNoteScope, string[]> = {
+    day: ['Key session', 'Deload', 'Test day', 'Race', 'Rest', 'Travel'],
+    week: ['Build', 'Deload', 'Race week', 'Recovery', 'Taper', 'Test week'],
 }
 
 /** The slot an entry sits in, defaulting legacy entries (no `part`) to morning. */
@@ -273,10 +332,16 @@ export default function FitnessWeeklyPlanner() {
     const [exercises, setExercises] = useState<Exercise[]>([])
     const [libLoading, setLibLoading] = useState(true)
     const [entries, setEntries] = useState<FitnessPlanEntry[]>([])
+    const [notes, setNotes] = useState<FitnessPlanNote[]>([])
     const [loading, setLoading] = useState(true)
     // The picker always targets one day + slot; the type (strength / conditioning /
     // recovery) and the slot are then chosen inside the drawer.
     const [picker, setPicker] = useState<{ date: string; part: FitnessPlanPart } | null>(null)
+    // A day or week whose flag+label is being edited (opens the flag editor).
+    const [flagTarget, setFlagTarget] = useState<{
+        scope: FitnessNoteScope
+        date: string
+    } | null>(null)
     // A planned item opened for a read-only look at its full details.
     const [detail, setDetail] = useState<FitnessPlanEntry | null>(null)
     // The planner opens read-only; Edit reveals the add/remove controls.
@@ -326,8 +391,15 @@ export default function FitnessWeeklyPlanner() {
         // Refetch silently on range change — the grid keeps the previous items
         // until the new ones arrive, so navigation never flashes a spinner.
         let active = true
-        listPlanEntries(range.start, range.end)
-            .then((rows) => active && setEntries(rows))
+        Promise.all([
+            listPlanEntries(range.start, range.end),
+            listPlanNotes(range.start, range.end),
+        ])
+            .then(([rows, noteRows]) => {
+                if (!active) return
+                setEntries(rows)
+                setNotes(noteRows)
+            })
             .finally(() => active && setLoading(false))
         return () => {
             active = false
@@ -381,11 +453,56 @@ export default function FitnessWeeklyPlanner() {
         await updatePlanEntry(id, part)
     }
 
+    // Save (create or update) a day or week flag, then merge it into state so the
+    // planner reflects it without a refetch.
+    async function handleSaveFlag(
+        scope: FitnessNoteScope,
+        date: string,
+        color: FitnessFlagColor,
+        label: string
+    ) {
+        const saved = await savePlanNote(scope, date, color, label)
+        setNotes((prev) => {
+            const rest = prev.filter((n) => !(n.scope === saved.scope && n.date === saved.date))
+            return [...rest, saved]
+        })
+        setFlagTarget(null)
+    }
+
+    async function handleRemoveFlag(id: string) {
+        setNotes((prev) => prev.filter((n) => n._id !== id))
+        setFlagTarget(null)
+        await deletePlanNote(id)
+    }
+
+    // Day flags keyed by day; the week flag is the note on the displayed Monday.
+    const dayNotes = useMemo(() => {
+        const m = new Map<string, FitnessPlanNote>()
+        for (const n of notes) if (n.scope === 'day') m.set(n.date, n)
+        return m
+    }, [notes])
+    const weekNote = useMemo(
+        () => notes.find((n) => n.scope === 'week' && n.date === range.start) ?? null,
+        [notes, range.start]
+    )
+    // The note the editor is currently working on (undefined for a brand-new flag).
+    const flagNote = flagTarget
+        ? notes.find((n) => n.scope === flagTarget.scope && n.date === flagTarget.date) ?? null
+        : null
+
     // Month totals count only the month itself, not the grid's spill-over days.
     const totalsEntries =
         view === 'month' ? entries.filter((e) => inSameMonth(e.date, anchor)) : entries
     const totals = tally(totalsEntries)
     const libraryEmpty = workouts.length === 0 && sessions.length === 0 && recovery.length === 0
+
+    // Which categories the displayed week already holds — a paste only needs
+    // confirmation when it would overwrite one of these.
+    const weekKinds = useMemo(() => {
+        const s = new Set<FitnessPlanKind>()
+        for (const e of entries) s.add(e.kind)
+        return s
+    }, [entries])
 
     const rangeLabel =
         view === 'week'
@@ -432,6 +549,7 @@ export default function FitnessWeeklyPlanner() {
                             weekStart={range.start}
                             weekEnd={range.end}
                             clipboard={clipboard}
+                            presentKinds={weekKinds}
                             onCopy={handleCopyWeek}
                             onPaste={handlePasteWeek}
                             onClearClipboard={() => setClipboard(null)}
@@ -470,10 +588,13 @@ export default function FitnessWeeklyPlanner() {
                     today={today}
                     editing={editing}
                     entries={entries}
+                    weekNote={weekNote}
+                    dayNotes={dayNotes}
                     onAdd={(date, part) => setPicker({ date, part })}
                     onOpen={setDetail}
                     onRemove={handleRemove}
                     onMove={handleMove}
+                    onEditFlag={(scope, date) => setFlagTarget({ scope, date })}
                 />
             ) : view === 'month' ? (
                 <MonthView
@@ -510,6 +631,14 @@ export default function FitnessWeeklyPlanner() {
                 entry={detail}
                 exercisesById={exercisesById}
                 onClose={() => setDetail(null)}
+            />
+
+            <FlagEditorDrawer
+                target={flagTarget}
+                note={flagNote}
+                onClose={() => setFlagTarget(null)}
+                onSave={handleSaveFlag}
+                onRemove={handleRemoveFlag}
             />
         </div>
     )
@@ -558,6 +687,7 @@ function WeekCopyControls({
     weekStart,
     weekEnd,
     clipboard,
+    presentKinds,
     onCopy,
     onPaste,
     onClearClipboard,
@@ -565,6 +695,7 @@ function WeekCopyControls({
     weekStart: string
     weekEnd: string
     clipboard: { from: string; kinds: FitnessPlanKind[] } | null
+    presentKinds: Set<FitnessPlanKind>
     onCopy: (kinds: FitnessPlanKind[]) => void
     onPaste: () => void
     onClearClipboard: () => void
@@ -572,6 +703,9 @@ function WeekCopyControls({
     const [confirming, setConfirming] = useState(false)
     // The clipboard's source week can't be pasted back onto itself.
     const sameWeek = clipboard?.from === weekStart
+    // A paste only overwrites — and so only needs confirming — when this week
+    // already holds one of the categories being pasted. Otherwise paste straight.
+    const wouldReplace = clipboard?.kinds.some((k) => presentKinds.has(k)) ?? false
 
     const copyItems: MenuEntry[] = COPY_OPTIONS.map((o) => ({
         label: o.label,
@@ -583,6 +717,7 @@ function WeekCopyControls({
         <div className="flex items-center gap-2">
             <DropdownMenu
                 align="right"
+                size="medium"
                 trigger={
                     <Button variant="secondary" size="sm" icon="fa-solid fa-copy">
                         Copy week
@@ -598,7 +733,7 @@ function WeekCopyControls({
                         size="sm"
                         icon="fa-solid fa-paste"
                         disabled={sameWeek}
-                        onClick={() => setConfirming(true)}
+                        onClick={() => (wouldReplace ? setConfirming(true) : onPaste())}
                         title={
                             sameWeek
                                 ? 'This is the week you copied — move to another week to paste'
@@ -649,36 +784,107 @@ function WeekView({
     today,
     editing,
     entries,
+    weekNote,
+    dayNotes,
     onAdd,
     onOpen,
     onRemove,
     onMove,
+    onEditFlag,
 }: {
     weekStart: string
     today: string
     editing: boolean
     entries: FitnessPlanEntry[]
+    weekNote: FitnessPlanNote | null
+    dayNotes: Map<string, FitnessPlanNote>
     onAdd: (date: string, part: FitnessPlanPart) => void
     onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
     onMove: (id: string, part: FitnessPlanPart) => void
+    onEditFlag: (scope: FitnessNoteScope, date: string) => void
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
     return (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-            {days.map((date) => (
-                <DayColumn
-                    key={date}
-                    date={date}
-                    isToday={date === today}
-                    editable={editing}
-                    entries={entries.filter((e) => e.date === date)}
-                    onAdd={(part) => onAdd(date, part)}
-                    onOpen={onOpen}
-                    onRemove={onRemove}
-                    onMove={onMove}
-                />
-            ))}
+        <div className="flex flex-col gap-4">
+            <WeekFlagBanner
+                weekStart={weekStart}
+                note={weekNote}
+                editable={editing}
+                onEdit={() => onEditFlag('week', weekStart)}
+            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                {days.map((date) => (
+                    <DayColumn
+                        key={date}
+                        date={date}
+                        isToday={date === today}
+                        editable={editing}
+                        entries={entries.filter((e) => e.date === date)}
+                        note={dayNotes.get(date) ?? null}
+                        onAdd={(part) => onAdd(date, part)}
+                        onOpen={onOpen}
+                        onRemove={onRemove}
+                        onMove={onMove}
+                        onEditFlag={() => onEditFlag('day', date)}
+                    />
+                ))}
+            </div>
+        </div>
+    )
+}
+
+/**
+ * The week's flag + label, shown above the day grid. When a flag is set it reads
+ * as a coloured banner; in edit mode it also exposes a button to set or change
+ * it. With no flag it only appears in edit mode, as a subtle "Flag week" prompt.
+ */
+function WeekFlagBanner({
+    weekStart,
+    note,
+    editable,
+    onEdit,
+}: {
+    weekStart: string
+    note: FitnessPlanNote | null
+    editable: boolean
+    onEdit: () => void
+}) {
+    if (!note && !editable) return null
+
+    if (!note) {
+        return (
+            <button
+                type="button"
+                onClick={onEdit}
+                className="flex items-center gap-2 self-start rounded-full border border-dashed border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-600"
+            >
+                <i className="fa-solid fa-flag text-[11px]" aria-hidden="true" />
+                Flag week
+            </button>
+        )
+    }
+
+    const tone = FLAG_TONE[note.color]
+    return (
+        <div
+            className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 ${tone.banner}`}
+        >
+            <i className="fa-solid fa-flag text-xs" aria-hidden="true" />
+            <span className="text-sm font-semibold">
+                {note.label || 'Flagged week'}
+            </span>
+            <span className="text-xs opacity-70">· {formatWeekRange(weekStart, addDays(weekStart, 6))}</span>
+            {editable && (
+                <button
+                    type="button"
+                    onClick={onEdit}
+                    aria-label="Edit week flag"
+                    className="ml-auto grid h-7 w-7 place-items-center rounded-full opacity-70 transition-colors hover:bg-white/50 hover:opacity-100"
+                >
+                    <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
+                </button>
+            )}
         </div>
     )
 }
@@ -828,20 +1034,23 @@ function MiniMonth({
     entries: FitnessPlanEntry[]
     onClick: () => void
 }) {
-    const days = monthGridDays(month)
-    // date → the entries planned in each slot, so every day cell can show its
-    // morning / afternoon / evening bands and name the items on hover.
-    const byDay = useMemo(() => {
-        const m = new Map<string, Record<FitnessPlanPart, FitnessPlanEntry[]>>()
+    // The days that actually have something planned, in date order, each with
+    // its entries ordered by slot (morning → afternoon → evening) so the agenda
+    // reads down the month the way the day itself runs.
+    const agenda = useMemo(() => {
+        const m = new Map<string, FitnessPlanEntry[]>()
         for (const e of entries) {
-            let day = m.get(e.date)
-            if (!day) {
-                day = { morning: [], afternoon: [], evening: [] }
-                m.set(e.date, day)
-            }
-            day[partOf(e)].push(e)
+            const list = m.get(e.date)
+            if (list) list.push(e)
+            else m.set(e.date, [e])
         }
-        return m
+        const partRank = (e: FitnessPlanEntry) => FITNESS_PLAN_PARTS.indexOf(partOf(e))
+        return Array.from(m.entries())
+            .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+            .map(([date, es]) => ({
+                date,
+                entries: [...es].sort((a, b) => partRank(a) - partRank(b)),
+            }))
     }, [entries])
     const t = tally(entries)
 
@@ -858,16 +1067,20 @@ function MiniMonth({
                 </span>
             </div>
 
-            <div className="grid grid-cols-7 gap-1">
-                {days.map((date) => (
-                    <MiniMonthDay
-                        key={date}
-                        outside={!inSameMonth(date, month)}
-                        isToday={date === today}
-                        slots={byDay.get(date)}
-                    />
-                ))}
-            </div>
+            {agenda.length === 0 ? (
+                <p className="py-3 text-center text-xs text-neutral-300">Nothing planned</p>
+            ) : (
+                <div className="flex flex-col gap-2">
+                    {agenda.map(({ date, entries: dayEntries }) => (
+                        <MiniMonthDay
+                            key={date}
+                            date={date}
+                            isToday={date === today}
+                            entries={dayEntries}
+                        />
+                    ))}
+                </div>
+            )}
 
             <div className="flex items-center gap-3 border-t border-neutral-100 pt-2 text-[11px] text-neutral-500">
                 <span className="tabular-nums">{t.workouts} strength</span>
@@ -881,49 +1094,38 @@ function MiniMonth({
 }
 
 /**
- * A single mini-calendar day, split into three stacked bands (morning /
- * afternoon / evening). Each band fills with its item's colour when something
- * is planned in that slot, and the whole day names its items on hover.
+ * One day in the six-month agenda: a compact "Mon 4" date badge alongside the
+ * named, colour-coded workouts planned that day, so the whole half-year can be
+ * read as actual sessions rather than colour blocks.
  */
 function MiniMonthDay({
-    outside,
+    date,
     isToday,
-    slots,
+    entries,
 }: {
-    outside: boolean
+    date: string
     isToday: boolean
-    slots?: Record<FitnessPlanPart, FitnessPlanEntry[]>
+    entries: FitnessPlanEntry[]
 }) {
-    if (outside) return <span className="aspect-square" />
-
-    const title = slots
-        ? FITNESS_PLAN_PARTS.filter((p) => slots[p].length > 0)
-              .map(
-                  (p) =>
-                      `${PART_META[p].label}: ${slots[p]
-                          .map((e) => planItemName(e) ?? KIND_META[e.kind].noun)
-                          .join(', ')}`
-              )
-              .join('\n')
-        : ''
+    const { year, month, day } = parseDateKey(date)
+    const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()].slice(0, 3)
 
     return (
-        <span
-            title={title || undefined}
-            className={`flex aspect-square flex-col gap-px overflow-hidden rounded-[3px] bg-neutral-100 ${
-                isToday ? 'ring-1 ring-coral-500 ring-offset-1' : ''
-            }`}
-        >
-            {FITNESS_PLAN_PARTS.map((part) => {
-                const first = slots?.[part][0]
-                return (
-                    <span
-                        key={part}
-                        className={`flex-1 ${first ? KIND_BAND[first.kind] : ''}`}
-                    />
-                )
-            })}
-        </span>
+        <div className="flex gap-2">
+            <div
+                className={`w-9 shrink-0 pt-0.5 text-[11px] leading-tight ${
+                    isToday ? 'text-coral-600' : 'text-neutral-400'
+                }`}
+            >
+                <p className="font-semibold">{weekday}</p>
+                <p className="tabular-nums">{day}</p>
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+                {entries.map((e) => (
+                    <MonthChip key={e._id} entry={e} />
+                ))}
+            </div>
+        </div>
     )
 }
 
@@ -982,25 +1184,30 @@ function DayColumn({
     isToday,
     editable,
     entries,
+    note,
     onAdd,
     onOpen,
     onRemove,
     onMove,
+    onEditFlag,
 }: {
     date: string
     isToday: boolean
     editable: boolean
     entries: FitnessPlanEntry[]
+    note: FitnessPlanNote | null
     onAdd: (part: FitnessPlanPart) => void
     onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
     onMove: (id: string, part: FitnessPlanPart) => void
+    onEditFlag: () => void
 }) {
     const { year, month, day } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
     const t = tally(entries)
     const total = t.workouts + t.sessions + t.recovery
     const rest = total === 0
+    const tone = note ? FLAG_TONE[note.color] : null
 
     // The entry being dragged within this day. Held per-column so a drag that
     // starts here can only be dropped on another slot of this same day — never
@@ -1014,7 +1221,9 @@ function DayColumn({
     }
 
     return (
-        <Card as="div" flush hover={false} className="flex flex-col gap-3 p-4">
+        <Card as="div" flush hover={false} className="flex flex-col gap-3 overflow-hidden p-4">
+            {/* A flagged day wears a coloured strip along its top edge. */}
+            {tone && <span className={`-mx-4 -mt-4 h-1 ${tone.bar}`} aria-hidden="true" />}
             <div className="flex items-baseline justify-between">
                 <div>
                     <p
@@ -1034,6 +1243,32 @@ function DayColumn({
                     </span>
                 )}
             </div>
+
+            {/* The day's flag: a coloured label chip, or a prompt to add one in edit mode. */}
+            {note && tone ? (
+                <button
+                    type="button"
+                    onClick={editable ? onEditFlag : undefined}
+                    aria-label={editable ? 'Edit day flag' : undefined}
+                    className={`flex items-center gap-1.5 self-start rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone.chip} ${
+                        editable ? 'transition-opacity hover:opacity-80' : 'cursor-default'
+                    }`}
+                >
+                    <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
+                    <span className="truncate">{note.label || 'Flagged'}</span>
+                </button>
+            ) : (
+                editable && (
+                    <button
+                        type="button"
+                        onClick={onEditFlag}
+                        className="flex items-center gap-1.5 self-start rounded-full px-2 py-0.5 text-[11px] font-semibold text-neutral-300 transition-colors hover:text-neutral-500"
+                    >
+                        <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
+                        Flag day
+                    </button>
+                )
+            )}
 
             <div className="flex flex-col gap-3">
                 {FITNESS_PLAN_PARTS.map((part) => (
@@ -1830,5 +2065,154 @@ function RecoveryDetail({ recovery }: { recovery: Recovery }) {
                 </DetailSection>
             )}
         </div>
+    )
+}
+
+// ─── Flag editor drawer ─────────────────────────────────────────────────────────
+
+/**
+ * The editor for a day or week flag: pick a colour, give it a short label (with
+ * quick suggestions), and save. Editing an existing flag also offers Remove.
+ * `target` decides the scope + date; the drawer keeps its content while closing.
+ */
+function FlagEditorDrawer({
+    target,
+    note,
+    onClose,
+    onSave,
+    onRemove,
+}: {
+    target: { scope: FitnessNoteScope; date: string } | null
+    note: FitnessPlanNote | null
+    onClose: () => void
+    onSave: (
+        scope: FitnessNoteScope,
+        date: string,
+        color: FitnessFlagColor,
+        label: string
+    ) => Promise<void>
+    onRemove: (id: string) => void
+}) {
+    // Retain the last target so the drawer keeps its content while sliding shut.
+    const [view, setView] = useState(target)
+    const [color, setColor] = useState<FitnessFlagColor>(DEFAULT_FLAG_COLOR)
+    const [label, setLabel] = useState('')
+    const [saving, setSaving] = useState(false)
+
+    useEffect(() => {
+        if (target) {
+            setView(target)
+            setColor(note?.color ?? DEFAULT_FLAG_COLOR)
+            setLabel(note?.label ?? '')
+        }
+    }, [target, note])
+
+    const scope = view?.scope ?? 'day'
+    const title = scope === 'week' ? 'Flag week' : 'Flag day'
+    const badge = view
+        ? scope === 'week'
+            ? formatWeekRange(view.date, addDays(view.date, 6))
+            : shortDayLabel(view.date)
+        : undefined
+
+    async function handleSave() {
+        if (!view) return
+        setSaving(true)
+        try {
+            await onSave(view.scope, view.date, color, label.trim())
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    return (
+        <Drawer
+            open={!!target}
+            onClose={onClose}
+            title={title}
+            badge={badge}
+            footer={
+                <div className="flex w-full items-center justify-between">
+                    {note ? (
+                        <Button
+                            variant="ghost"
+                            icon="fa-solid fa-trash"
+                            onClick={() => onRemove(note._id)}
+                            className="text-red-600 hover:bg-red-50"
+                        >
+                            Remove
+                        </Button>
+                    ) : (
+                        <span />
+                    )}
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" onClick={onClose}>
+                            Cancel
+                        </Button>
+                        <Button variant="primary" onClick={handleSave} disabled={saving}>
+                            {note ? 'Save' : 'Add flag'}
+                        </Button>
+                    </div>
+                </div>
+            }
+        >
+            <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                        Colour
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {FITNESS_FLAG_COLORS.map((c) => {
+                            const active = c === color
+                            return (
+                                <button
+                                    key={c}
+                                    type="button"
+                                    aria-label={FLAG_TONE[c].name}
+                                    title={FLAG_TONE[c].name}
+                                    onClick={() => setColor(c)}
+                                    className={`grid h-8 w-8 place-items-center rounded-full ${FLAG_TONE[c].dot} transition-transform hover:scale-105 ${
+                                        active
+                                            ? 'ring-2 ring-neutral-900 ring-offset-2'
+                                            : 'ring-1 ring-inset ring-black/10'
+                                    }`}
+                                >
+                                    {active && (
+                                        <i
+                                            className="fa-solid fa-check text-[11px] text-white"
+                                            aria-hidden="true"
+                                        />
+                                    )}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                        Label
+                    </p>
+                    <Input
+                        placeholder={scope === 'week' ? 'e.g. Deload week' : 'e.g. Key session'}
+                        value={label}
+                        maxLength={80}
+                        onChange={(e) => setLabel(e.target.value)}
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                        {FLAG_SUGGESTIONS[scope].map((s) => (
+                            <button
+                                key={s}
+                                type="button"
+                                onClick={() => setLabel(s)}
+                                className="rounded-full border border-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                            >
+                                {s}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </Drawer>
     )
 }
