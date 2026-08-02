@@ -1,17 +1,19 @@
-import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { Card } from './Card'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
 import EmptyState from './EmptyState'
 import Drawer from './Drawer'
-import DropdownMenu, { type MenuEntry } from './DropdownMenu'
+import Checkbox from './Checkbox'
 import ConfirmModal from './ConfirmModal'
+import Modal from './Modal'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
 import { listMobility } from '../services/mobility'
 import { listExercises } from '../services/exercises'
+import { listEvents } from '../services/events'
 import {
     listPlanEntries,
     addPlanEntry,
@@ -38,18 +40,17 @@ import type {
     FitnessPlanNote,
     FitnessNoteScope,
     FitnessFlagColor,
+    Event,
 } from '../types'
 import {
     todayKey,
     addDays,
-    addMonths,
-    dateKey,
-    daysInMonth,
     parseDateKey,
     formatWeekRange,
-    formatMonthYear,
     WEEKDAYS_LONG,
     MONTHS,
+    eventCoversSlot,
+    eventCoversAllDay,
 } from '../lib/calendar'
 
 // ─── Kind presentation ────────────────────────────────────────────────────────
@@ -63,16 +64,6 @@ const KIND_META: Record<
     mobility: { label: 'Mobility', noun: 'routine', icon: 'fa-solid fa-person-walking' },
     recovery: { label: 'Recovery', noun: 'item', icon: 'fa-solid fa-spa' },
 }
-
-// The category choices offered when copying a week — each maps to the plan
-// kinds it overwrites in the target week. "Everything" clones all three.
-const COPY_OPTIONS: { label: string; icon: string; kinds: FitnessPlanKind[] }[] = [
-    { label: 'Strength only', icon: 'fa-solid fa-dumbbell', kinds: ['workout'] },
-    { label: 'Conditioning only', icon: 'fa-solid fa-heart-pulse', kinds: ['conditioning'] },
-    { label: 'Mobility only', icon: 'fa-solid fa-person-walking', kinds: ['mobility'] },
-    { label: 'Recovery only', icon: 'fa-solid fa-spa', kinds: ['recovery'] },
-    { label: 'Everything', icon: 'fa-solid fa-layer-group', kinds: [...FITNESS_PLAN_KINDS] },
-]
 
 /** A short lower-case description of a set of kinds, e.g. "strength" or "everything". */
 function kindsLabel(kinds: FitnessPlanKind[]): string {
@@ -253,59 +244,35 @@ function shortDayLabel(date: string): string {
     return `${wd} ${day} ${MONTHS[month].slice(0, 3)}`
 }
 
-/** First day (YYYY-MM-DD) of the month containing `date`. */
-function firstOfMonth(date: string): string {
-    const { year, month } = parseDateKey(date)
-    return dateKey(year, month, 1)
-}
-
-/** Last day (YYYY-MM-DD) of the month containing `date`. */
-function lastOfMonth(date: string): string {
-    const { year, month } = parseDateKey(date)
-    return dateKey(year, month, daysInMonth(year, month))
-}
-
-/** True if `date` falls within the same calendar month as `anchor`. */
-function inSameMonth(date: string, anchor: string): boolean {
-    return date >= firstOfMonth(anchor) && date <= lastOfMonth(anchor)
-}
+// ─── Calendar clashes ─────────────────────────────────────────────────────────
 
 /**
- * The Monday-aligned calendar grid for the month containing `anchor`.
- * Runs from the Monday on/before the 1st through the number of whole weeks
- * needed to cover the month (5 or 6 rows — never a trailing empty week).
+ * A planned item that collides with one or more calendar events, because they
+ * share the same day + slot (or the event runs all day). One clash per planned
+ * item, carrying every event it overlaps.
  */
-function monthGridDays(anchor: string): string[] {
-    const { year, month } = parseDateKey(anchor)
-    const lead = (new Date(year, month, 1).getDay() + 6) % 7 // Mon-start offset
-    const rows = Math.ceil((lead + daysInMonth(year, month)) / 7)
-    const start = mondayOf(firstOfMonth(anchor))
-    return Array.from({ length: rows * 7 }, (_, i) => addDays(start, i))
+interface Clash {
+    entry: FitnessPlanEntry
+    events: Event[]
 }
 
-/** "Jul – Dec 2026" (or spanning years) for the 6 months from `anchor`. */
-function sixMonthLabel(anchor: string): string {
-    const s = parseDateKey(anchor)
-    const e = parseDateKey(addMonths(firstOfMonth(anchor), 5))
-    const sm = MONTHS[s.month].slice(0, 3)
-    const em = MONTHS[e.month].slice(0, 3)
-    return s.year === e.year
-        ? `${sm} – ${em} ${e.year}`
-        : `${sm} ${s.year} – ${em} ${e.year}`
+/** The events that occupy the same slot as `entry` — an all-day event clashes with any slot. */
+function eventsClashingWith(entry: FitnessPlanEntry, events: Event[]): Event[] {
+    const part = partOf(entry)
+    return events.filter(
+        (e) => eventCoversAllDay(e, entry.date) || eventCoversSlot(e, entry.date, part)
+    )
 }
 
-// ─── Views ──────────────────────────────────────────────────────────────────────
-
-type PlannerView = 'week' | 'month' | '6month'
-
-const VIEW_META: { key: PlannerView; label: string }[] = [
-    { key: 'week', label: 'Week' },
-    { key: 'month', label: 'Month' },
-    { key: '6month', label: '6 months' },
-]
-
-/** Monday-start weekday headers for the month grid. */
-const WEEKDAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+/** A short "when" label for an event on `date` — "All day", a clock time, or the slots it spans. */
+function eventWhenLabel(event: Event, date: string): string {
+    if (event.allDay || event.startPart === 'na') return 'All day'
+    const parts = (['morning', 'afternoon', 'evening'] as FitnessPlanPart[])
+        .filter((p) => eventCoversSlot(event, date, p))
+        .map((p) => PART_META[p].label)
+        .join(', ')
+    return event.time ? `${parts} · ${event.time}` : parts
+}
 
 // ─── Week tallies ───────────────────────────────────────────────────────────────
 
@@ -336,9 +303,8 @@ function tally(entries: FitnessPlanEntry[]): WeekTally {
 // ─── Planner ────────────────────────────────────────────────────────────────────
 
 export default function FitnessWeeklyPlanner() {
-    const [view, setView] = useState<PlannerView>('week')
-    // The anchor is any day inside the range on show; each view derives its own
-    // bounds from it (the week's Monday, the anchor's month, six months on).
+    // The anchor is any day inside the week on show; the week's Monday is derived
+    // from it. Planning is week by week — one calendar week at a time.
     const [anchor, setAnchor] = useState(() => todayKey())
     const [workouts, setWorkouts] = useState<Workout[]>([])
     const [sessions, setSessions] = useState<ConditioningSession[]>([])
@@ -348,6 +314,8 @@ export default function FitnessWeeklyPlanner() {
     const [libLoading, setLibLoading] = useState(true)
     const [entries, setEntries] = useState<FitnessPlanEntry[]>([])
     const [notes, setNotes] = useState<FitnessPlanNote[]>([])
+    // Calendar events across the displayed week, used to flag slot clashes.
+    const [events, setEvents] = useState<Event[]>([])
     const [loading, setLoading] = useState(true)
     // The picker always targets one day + slot; the type (strength / conditioning /
     // recovery) and the slot are then chosen inside the drawer.
@@ -370,21 +338,16 @@ export default function FitnessWeeklyPlanner() {
     const [clearTarget, setClearTarget] = useState<
         { type: 'day'; date: string } | { type: 'week' } | null
     >(null)
+    // The day whose calendar clashes are open in the clash modal, if any.
+    const [clashDate, setClashDate] = useState<string | null>(null)
 
     const today = todayKey()
 
-    // The date range to fetch — and to tally totals over — for the active view.
+    // The week to fetch — and to tally totals over. Planning is week by week.
     const range = useMemo(() => {
-        if (view === 'week') {
-            const start = mondayOf(anchor)
-            return { start, end: addDays(start, 6) }
-        }
-        if (view === 'month') {
-            const grid = monthGridDays(anchor)
-            return { start: grid[0], end: grid[grid.length - 1] }
-        }
-        return { start: firstOfMonth(anchor), end: lastOfMonth(addMonths(firstOfMonth(anchor), 5)) }
-    }, [view, anchor])
+        const start = mondayOf(anchor)
+        return { start, end: addDays(start, 6) }
+    }, [anchor])
 
     // The libraries — loaded once, for the picker, the "is it empty" check and
     // the detail drawer (exercises resolve a workout's exercise names).
@@ -414,11 +377,13 @@ export default function FitnessWeeklyPlanner() {
         Promise.all([
             listPlanEntries(range.start, range.end),
             listPlanNotes(range.start, range.end),
+            listEvents(range.start, range.end).catch(() => [] as Event[]),
         ])
-            .then(([rows, noteRows]) => {
+            .then(([rows, noteRows, eventRows]) => {
                 if (!active) return
                 setEntries(rows)
                 setNotes(noteRows)
+                setEvents(eventRows)
             })
             .finally(() => active && setLoading(false))
         return () => {
@@ -426,15 +391,8 @@ export default function FitnessWeeklyPlanner() {
         }
     }, [range.start, range.end])
 
-    function goToView(next: PlannerView) {
-        setPicker(null)
-        setView(next)
-    }
-
     function step(dir: -1 | 1) {
-        if (view === 'week') setAnchor((a) => addDays(mondayOf(a), dir * 7))
-        else if (view === 'month') setAnchor((a) => addMonths(a, dir))
-        else setAnchor((a) => addMonths(a, dir * 6))
+        setAnchor((a) => addDays(mondayOf(a), dir * 7))
     }
 
     async function handleAdd(
@@ -535,10 +493,23 @@ export default function FitnessWeeklyPlanner() {
         ? notes.find((n) => n.scope === flagTarget.scope && n.date === flagTarget.date) ?? null
         : null
 
-    // Month totals count only the month itself, not the grid's spill-over days.
-    const totalsEntries =
-        view === 'month' ? entries.filter((e) => inSameMonth(e.date, anchor)) : entries
-    const totals = tally(totalsEntries)
+    const totals = tally(entries)
+
+    // Clashes keyed by day: each planned item that overlaps a calendar event in
+    // its slot (or any all-day event). Days with no clash are absent from the map.
+    const clashesByDate = useMemo(() => {
+        const m = new Map<string, Clash[]>()
+        for (const entry of entries) {
+            const clashing = eventsClashingWith(entry, events)
+            if (clashing.length === 0) continue
+            const list = m.get(entry.date)
+            const clash: Clash = { entry, events: clashing }
+            if (list) list.push(clash)
+            else m.set(entry.date, [clash])
+        }
+        return m
+    }, [entries, events])
+
     const libraryEmpty =
         workouts.length === 0 &&
         sessions.length === 0 &&
@@ -553,14 +524,7 @@ export default function FitnessWeeklyPlanner() {
         return s
     }, [entries])
 
-    const rangeLabel =
-        view === 'week'
-            ? formatWeekRange(range.start, range.end)
-            : view === 'month'
-              ? formatMonthYear(anchor)
-              : sixMonthLabel(anchor)
-
-    const resetLabel = view === 'week' ? 'This week' : view === 'month' ? 'This month' : 'Today'
+    const rangeLabel = formatWeekRange(range.start, range.end)
 
     // Count and label the items a pending clear would remove, for the confirm dialog.
     const clearInfo = useMemo(() => {
@@ -578,10 +542,9 @@ export default function FitnessWeeklyPlanner() {
             {/* View switch + navigation + totals */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-wrap items-center gap-3">
-                    <ViewSwitch view={view} onChange={goToView} />
                     <div className="flex items-center gap-2">
                         <IconButton
-                            label="Previous"
+                            label="Previous week"
                             icon="fa-solid fa-chevron-left"
                             onClick={() => step(-1)}
                         />
@@ -589,7 +552,7 @@ export default function FitnessWeeklyPlanner() {
                             {rangeLabel}
                         </div>
                         <IconButton
-                            label="Next"
+                            label="Next week"
                             icon="fa-solid fa-chevron-right"
                             onClick={() => step(1)}
                         />
@@ -599,12 +562,12 @@ export default function FitnessWeeklyPlanner() {
                             onClick={() => setAnchor(today)}
                             className="ml-1"
                         >
-                            {resetLabel}
+                            This week
                         </Button>
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                    {!libraryEmpty && view === 'week' && (
+                    {!libraryEmpty && editing && (
                         <WeekCopyControls
                             weekStart={range.start}
                             weekEnd={range.end}
@@ -615,7 +578,7 @@ export default function FitnessWeeklyPlanner() {
                             onClearClipboard={() => setClipboard(null)}
                         />
                     )}
-                    {!libraryEmpty && view !== '6month' && (
+                    {!libraryEmpty && (
                         <Button
                             variant={editing ? 'primary' : 'secondary'}
                             size="sm"
@@ -628,7 +591,7 @@ export default function FitnessWeeklyPlanner() {
                             {editing ? 'Done' : 'Edit plan'}
                         </Button>
                     )}
-                    {view === 'week' && editing && entries.length > 0 && (
+                    {editing && entries.length > 0 && (
                         <Button
                             variant="ghost"
                             size="sm"
@@ -653,7 +616,7 @@ export default function FitnessWeeklyPlanner() {
                     title="Nothing to plan with yet"
                     description="Build some workouts or conditioning sessions first, then drop them into the plan."
                 />
-            ) : view === 'week' ? (
+            ) : (
                 <WeekView
                     weekStart={range.start}
                     today={today}
@@ -661,29 +624,14 @@ export default function FitnessWeeklyPlanner() {
                     entries={entries}
                     weekNote={weekNote}
                     dayNotes={dayNotes}
+                    clashesByDate={clashesByDate}
                     onAdd={(date, part) => setPicker({ date, part })}
                     onOpen={setDetail}
                     onRemove={handleRemove}
                     onMove={handleMove}
                     onEditFlag={(scope, date) => setFlagTarget({ scope, date })}
                     onClearDay={(date) => setClearTarget({ type: 'day', date })}
-                />
-            ) : view === 'month' ? (
-                <MonthView
-                    anchor={anchor}
-                    today={today}
-                    entries={entries}
-                    onOpenDay={(date) => setPicker({ date, part: 'morning' })}
-                />
-            ) : (
-                <SixMonthView
-                    anchor={anchor}
-                    today={today}
-                    entries={entries}
-                    onOpenMonth={(monthAnchor) => {
-                        setAnchor(monthAnchor)
-                        setView('month')
-                    }}
+                    onShowClashes={setClashDate}
                 />
             )}
 
@@ -741,48 +689,111 @@ export default function FitnessWeeklyPlanner() {
                 }}
                 onClose={() => setClearTarget(null)}
             />
+
+            <ClashModal
+                date={clashDate}
+                clashes={clashDate ? clashesByDate.get(clashDate) ?? [] : []}
+                onClose={() => setClashDate(null)}
+            />
         </div>
     )
 }
 
-// ─── View switch ──────────────────────────────────────────────────────────────
+// ─── Clash modal ──────────────────────────────────────────────────────────────
 
-function ViewSwitch({
-    view,
-    onChange,
+/**
+ * Lists a day's schedule clashes: each planned item that overlaps a calendar
+ * event, shown alongside the event(s) it collides with and when they fall.
+ */
+function ClashModal({
+    date,
+    clashes,
+    onClose,
 }: {
-    view: PlannerView
-    onChange: (v: PlannerView) => void
+    date: string | null
+    clashes: Clash[]
+    onClose: () => void
 }) {
     return (
-        <div className="inline-flex rounded-full border border-neutral-200 bg-neutral-50 p-0.5">
-            {VIEW_META.map(({ key, label }) => {
-                const active = key === view
-                return (
-                    <button
-                        key={key}
-                        type="button"
-                        onClick={() => onChange(key)}
-                        className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                            active
-                                ? 'bg-white text-neutral-900 shadow-sm'
-                                : 'text-neutral-500 hover:text-neutral-900'
-                        }`}
-                    >
-                        {label}
-                    </button>
-                )
-            })}
-        </div>
+        <Modal
+            open={date !== null}
+            onClose={onClose}
+            title="Schedule clash"
+            size="md"
+            footer={
+                <Button variant="ghost" onClick={onClose}>
+                    Done
+                </Button>
+            }
+        >
+            {date && (
+                <div className="flex flex-col gap-4">
+                    <p className="text-sm text-neutral-500">
+                        On <span className="font-semibold text-neutral-700">{shortDayLabel(date)}</span>{' '}
+                        {clashes.length === 1 ? 'a planned session overlaps' : 'planned sessions overlap'}{' '}
+                        with what&apos;s already on your calendar.
+                    </p>
+                    <ul className="flex flex-col gap-3">
+                        {clashes.map((clash) => {
+                            const tone = KIND_TONE[clash.entry.kind]
+                            const part = partOf(clash.entry)
+                            return (
+                                <li
+                                    key={clash.entry._id}
+                                    className="rounded-xl border border-amber-200 bg-amber-50/50 p-3"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <i
+                                            className={`${KIND_META[clash.entry.kind].icon} text-xs ${tone.icon}`}
+                                            aria-hidden="true"
+                                        />
+                                        <span className="text-sm font-semibold text-neutral-800">
+                                            {planItemName(clash.entry) ?? KIND_META[clash.entry.kind].noun}
+                                        </span>
+                                        <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                                            <i
+                                                className={`${PART_META[part].icon} text-[10px]`}
+                                                aria-hidden="true"
+                                            />
+                                            {PART_META[part].label}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 flex flex-col gap-1.5 border-t border-amber-200/70 pt-2">
+                                        {clash.events.map((event) => (
+                                            <div
+                                                key={event._id}
+                                                className="flex items-center gap-2 text-sm text-neutral-600"
+                                            >
+                                                <i
+                                                    className="fa-regular fa-calendar shrink-0 text-xs text-neutral-400"
+                                                    aria-hidden="true"
+                                                />
+                                                <span className="min-w-0 flex-1 truncate font-medium text-neutral-700">
+                                                    {event.title}
+                                                </span>
+                                                <span className="shrink-0 text-xs text-neutral-400">
+                                                    {eventWhenLabel(event, date)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </li>
+                            )
+                        })}
+                    </ul>
+                </div>
+            )}
+        </Modal>
     )
 }
 
 // ─── Copy / paste week ──────────────────────────────────────────────────────────
 
 /**
- * Copy the current week's plan (by category) and paste it onto another week.
- * "Copy week" drops the chosen categories onto a clipboard; navigating to a
- * different week reveals "Paste", which overwrites only those categories there.
+ * Copy the current week's plan and paste it onto another week. "Copy week"
+ * opens a checklist of categories (tick one, several or all); copying drops the
+ * ticked categories onto a clipboard, and navigating to a different week reveals
+ * "Paste", which overwrites only those categories there. Only shown in edit mode.
  */
 function WeekCopyControls({
     weekStart,
@@ -802,30 +813,97 @@ function WeekCopyControls({
     onClearClipboard: () => void
 }) {
     const [confirming, setConfirming] = useState(false)
+    const [open, setOpen] = useState(false)
+    // Which categories to copy — defaults to all; the checklist can narrow it.
+    const [selected, setSelected] = useState<Set<FitnessPlanKind>>(() => new Set(FITNESS_PLAN_KINDS))
+    const panelRef = useRef<HTMLDivElement>(null)
+
+    // Close the copy checklist on an outside click.
+    useEffect(() => {
+        if (!open) return
+        function handle(e: MouseEvent) {
+            if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', handle)
+        return () => document.removeEventListener('mousedown', handle)
+    }, [open])
+
     // The clipboard's source week can't be pasted back onto itself.
     const sameWeek = clipboard?.from === weekStart
     // A paste only overwrites — and so only needs confirming — when this week
     // already holds one of the categories being pasted. Otherwise paste straight.
     const wouldReplace = clipboard?.kinds.some((k) => presentKinds.has(k)) ?? false
 
-    const copyItems: MenuEntry[] = COPY_OPTIONS.map((o) => ({
-        label: o.label,
-        icon: o.icon,
-        onClick: () => onCopy(o.kinds),
-    }))
+    // The ticked categories, always in canonical order.
+    const chosen = FITNESS_PLAN_KINDS.filter((k) => selected.has(k))
+    const allSelected = chosen.length === FITNESS_PLAN_KINDS.length
+
+    function toggle(kind: FitnessPlanKind) {
+        setSelected((prev) => {
+            const next = new Set(prev)
+            if (next.has(kind)) next.delete(kind)
+            else next.add(kind)
+            return next
+        })
+    }
+
+    function handleCopyClick() {
+        if (chosen.length === 0) return
+        onCopy(chosen)
+        setOpen(false)
+    }
 
     return (
         <div className="flex items-center gap-2">
-            <DropdownMenu
-                align="right"
-                size="medium"
-                trigger={
-                    <Button variant="secondary" size="sm" icon="fa-solid fa-copy">
-                        Copy week
-                    </Button>
-                }
-                items={copyItems}
-            />
+            <div ref={panelRef} className="relative inline-block">
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    icon="fa-solid fa-copy"
+                    onClick={() => setOpen((o) => !o)}
+                >
+                    Copy week
+                </Button>
+                {open && (
+                    <div className="absolute right-0 z-50 mt-2 min-w-56 rounded-xl border border-neutral-100 bg-white p-3 shadow-lg">
+                        <div className="mb-2 flex items-center justify-between">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                Copy which categories
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setSelected(allSelected ? new Set() : new Set(FITNESS_PLAN_KINDS))
+                                }
+                                className="text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-900"
+                            >
+                                {allSelected ? 'Clear' : 'All'}
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                            {FITNESS_PLAN_KINDS.map((k) => (
+                                <Checkbox
+                                    key={k}
+                                    checked={selected.has(k)}
+                                    onChange={() => toggle(k)}
+                                    label={KIND_META[k].label}
+                                    className="rounded-lg px-1.5 py-1 hover:bg-neutral-50"
+                                />
+                            ))}
+                        </div>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            icon="fa-solid fa-copy"
+                            onClick={handleCopyClick}
+                            disabled={chosen.length === 0}
+                            className="mt-3 w-full justify-center"
+                        >
+                            Copy {chosen.length ? kindsLabel(chosen) : ''}
+                        </Button>
+                    </div>
+                )}
+            </div>
 
             {clipboard && (
                 <div className="flex items-center gap-1">
@@ -887,12 +965,14 @@ function WeekView({
     entries,
     weekNote,
     dayNotes,
+    clashesByDate,
     onAdd,
     onOpen,
     onRemove,
     onMove,
     onEditFlag,
     onClearDay,
+    onShowClashes,
 }: {
     weekStart: string
     today: string
@@ -900,12 +980,14 @@ function WeekView({
     entries: FitnessPlanEntry[]
     weekNote: FitnessPlanNote | null
     dayNotes: Map<string, FitnessPlanNote>
+    clashesByDate: Map<string, Clash[]>
     onAdd: (date: string, part: FitnessPlanPart) => void
     onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
     onMove: (id: string, part: FitnessPlanPart) => void
     onEditFlag: (scope: FitnessNoteScope, date: string) => void
     onClearDay: (date: string) => void
+    onShowClashes: (date: string) => void
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
     return (
@@ -925,12 +1007,14 @@ function WeekView({
                         editable={editing}
                         entries={entries.filter((e) => e.date === date)}
                         note={dayNotes.get(date) ?? null}
+                        clashCount={clashesByDate.get(date)?.length ?? 0}
                         onAdd={(part) => onAdd(date, part)}
                         onOpen={onOpen}
                         onRemove={onRemove}
                         onMove={onMove}
                         onEditFlag={() => onEditFlag('day', date)}
                         onClear={() => onClearDay(date)}
+                        onShowClashes={() => onShowClashes(date)}
                     />
                 ))}
             </div>
@@ -993,248 +1077,6 @@ function WeekFlagBanner({
     )
 }
 
-// ─── Month view ───────────────────────────────────────────────────────────────
-
-function MonthView({
-    anchor,
-    today,
-    entries,
-    onOpenDay,
-}: {
-    anchor: string
-    today: string
-    entries: FitnessPlanEntry[]
-    onOpenDay: (date: string) => void
-}) {
-    const days = monthGridDays(anchor)
-    return (
-        <Card as="div" flush hover={false} className="overflow-hidden">
-            <div className="grid grid-cols-7 border-b border-neutral-100 bg-neutral-50">
-                {WEEKDAY_HEADERS.map((wd) => (
-                    <div
-                        key={wd}
-                        className="py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-neutral-400"
-                    >
-                        {wd}
-                    </div>
-                ))}
-            </div>
-            <div className="grid grid-cols-7">
-                {days.map((date) => (
-                    <MonthCell
-                        key={date}
-                        date={date}
-                        inMonth={inSameMonth(date, anchor)}
-                        isToday={date === today}
-                        entries={entries.filter((e) => e.date === date)}
-                        onClick={() => onOpenDay(date)}
-                    />
-                ))}
-            </div>
-        </Card>
-    )
-}
-
-function MonthCell({
-    date,
-    inMonth,
-    isToday,
-    entries,
-    onClick,
-}: {
-    date: string
-    inMonth: boolean
-    isToday: boolean
-    entries: FitnessPlanEntry[]
-    onClick: () => void
-}) {
-    const { day } = parseDateKey(date)
-    const shown = entries.slice(0, 3)
-    const extra = entries.length - shown.length
-
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`flex min-h-[6.5rem] flex-col gap-1 border-b border-r border-neutral-100 p-2 text-left transition-colors hover:bg-neutral-50 ${
-                inMonth ? '' : 'bg-neutral-50/50'
-            }`}
-        >
-            <span
-                className={`inline-grid h-6 w-6 place-items-center rounded-full text-xs font-semibold ${
-                    isToday
-                        ? 'bg-coral-500 text-white'
-                        : inMonth
-                          ? 'text-neutral-700'
-                          : 'text-neutral-300'
-                }`}
-            >
-                {day}
-            </span>
-            <div className="flex flex-col gap-1">
-                {shown.map((e) => (
-                    <MonthChip key={e._id} entry={e} />
-                ))}
-                {extra > 0 && (
-                    <span className="pl-1 text-[10px] font-medium text-neutral-400">
-                        +{extra} more
-                    </span>
-                )}
-            </div>
-        </button>
-    )
-}
-
-function MonthChip({ entry }: { entry: FitnessPlanEntry }) {
-    const meta = KIND_META[entry.kind]
-    const name = planItemName(entry)
-    return (
-        <span
-            className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_TONE[entry.kind].chip}`}
-        >
-            <i className={`${meta.icon} shrink-0 text-[9px]`} aria-hidden="true" />
-            <span className="truncate">{name ?? meta.noun}</span>
-        </span>
-    )
-}
-
-// ─── Six-month view ───────────────────────────────────────────────────────────
-
-function SixMonthView({
-    anchor,
-    today,
-    entries,
-    onOpenMonth,
-}: {
-    anchor: string
-    today: string
-    entries: FitnessPlanEntry[]
-    onOpenMonth: (monthAnchor: string) => void
-}) {
-    const months = Array.from({ length: 6 }, (_, i) => addMonths(firstOfMonth(anchor), i))
-    return (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {months.map((m) => (
-                <MiniMonth
-                    key={m}
-                    month={m}
-                    today={today}
-                    entries={entries.filter((e) => inSameMonth(e.date, m))}
-                    onClick={() => onOpenMonth(m)}
-                />
-            ))}
-        </div>
-    )
-}
-
-function MiniMonth({
-    month,
-    today,
-    entries,
-    onClick,
-}: {
-    month: string
-    today: string
-    entries: FitnessPlanEntry[]
-    onClick: () => void
-}) {
-    // The days that actually have something planned, in date order, each with
-    // its entries ordered by slot (morning → afternoon → evening) so the agenda
-    // reads down the month the way the day itself runs.
-    const agenda = useMemo(() => {
-        const m = new Map<string, FitnessPlanEntry[]>()
-        for (const e of entries) {
-            const list = m.get(e.date)
-            if (list) list.push(e)
-            else m.set(e.date, [e])
-        }
-        const partRank = (e: FitnessPlanEntry) => FITNESS_PLAN_PARTS.indexOf(partOf(e))
-        return Array.from(m.entries())
-            .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-            .map(([date, es]) => ({
-                date,
-                entries: [...es].sort((a, b) => partRank(a) - partRank(b)),
-            }))
-    }, [entries])
-    const t = tally(entries)
-
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-        >
-            <div className="flex items-baseline justify-between">
-                <p className="text-sm font-bold text-neutral-900">{formatMonthYear(month)}</p>
-                <span className="text-[11px] text-neutral-400">
-                    {t.workouts + t.sessions + t.mobility + t.recovery} planned
-                </span>
-            </div>
-
-            {agenda.length === 0 ? (
-                <p className="py-3 text-center text-xs text-neutral-300">Nothing planned</p>
-            ) : (
-                <div className="flex flex-col gap-2">
-                    {agenda.map(({ date, entries: dayEntries }) => (
-                        <MiniMonthDay
-                            key={date}
-                            date={date}
-                            isToday={date === today}
-                            entries={dayEntries}
-                        />
-                    ))}
-                </div>
-            )}
-
-            <div className="flex items-center gap-3 border-t border-neutral-100 pt-2 text-[11px] text-neutral-500">
-                <span className="tabular-nums">{t.workouts} strength</span>
-                <span className="text-neutral-300">·</span>
-                <span className="tabular-nums">{t.sessions} cond.</span>
-                <span className="text-neutral-300">·</span>
-                <span className="tabular-nums">{t.mobility} mobility</span>
-                <span className="text-neutral-300">·</span>
-                <span className="tabular-nums">{t.recovery} recovery</span>
-            </div>
-        </button>
-    )
-}
-
-/**
- * One day in the six-month agenda: a compact "Mon 4" date badge alongside the
- * named, colour-coded workouts planned that day, so the whole half-year can be
- * read as actual sessions rather than colour blocks.
- */
-function MiniMonthDay({
-    date,
-    isToday,
-    entries,
-}: {
-    date: string
-    isToday: boolean
-    entries: FitnessPlanEntry[]
-}) {
-    const { year, month, day } = parseDateKey(date)
-    const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()].slice(0, 3)
-
-    return (
-        <div className="flex gap-2">
-            <div
-                className={`w-9 shrink-0 pt-0.5 text-[11px] leading-tight ${
-                    isToday ? 'text-coral-600' : 'text-neutral-400'
-                }`}
-            >
-                <p className="font-semibold">{weekday}</p>
-                <p className="tabular-nums">{day}</p>
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-                {entries.map((e) => (
-                    <MonthChip key={e._id} entry={e} />
-                ))}
-            </div>
-        </div>
-    )
-}
-
 function IconButton({
     icon,
     label,
@@ -1293,24 +1135,29 @@ function DayColumn({
     editable,
     entries,
     note,
+    clashCount,
     onAdd,
     onOpen,
     onRemove,
     onMove,
     onEditFlag,
     onClear,
+    onShowClashes,
 }: {
     date: string
     isToday: boolean
     editable: boolean
     entries: FitnessPlanEntry[]
     note: FitnessPlanNote | null
+    /** How many of this day's planned items clash with a calendar event. */
+    clashCount: number
     onAdd: (part: FitnessPlanPart) => void
     onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
     onMove: (id: string, part: FitnessPlanPart) => void
     onEditFlag: () => void
     onClear: () => void
+    onShowClashes: () => void
 }) {
     const { year, month, day } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
@@ -1348,6 +1195,20 @@ function DayColumn({
                     </p>
                 </div>
                 <div className="flex items-center gap-1.5">
+                    {clashCount > 0 && (
+                        <button
+                            type="button"
+                            onClick={onShowClashes}
+                            aria-label={`${clashCount} calendar clash${clashCount === 1 ? '' : 'es'} — view`}
+                            title={`${clashCount} calendar clash${clashCount === 1 ? '' : 'es'}`}
+                            className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-amber-500 transition-colors hover:bg-amber-50 hover:text-amber-600"
+                        >
+                            <i
+                                className="fa-solid fa-triangle-exclamation text-[13px]"
+                                aria-hidden="true"
+                            />
+                        </button>
+                    )}
                     {isToday && (
                         <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-semibold text-coral-600">
                             Today

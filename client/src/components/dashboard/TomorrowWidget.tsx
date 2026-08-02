@@ -155,12 +155,14 @@ function TomorrowBrief({
     data,
     calendarsById,
     dayStartMin,
+    isPreDawn,
 }: {
     date: string
     forecast: Forecast | null
     data: TomorrowData | null
     calendarsById: Map<string, CalendarLayer>
     dayStartMin: number
+    isPreDawn: boolean
 }) {
     const day = forecast?.daily.find((d) => d.date === date)
     const hourly = forecast?.hourlyByDate[date] ?? []
@@ -201,8 +203,11 @@ function TomorrowBrief({
             <CardHeader className="flex items-center justify-between gap-4">
                 <CardTitle>
                     <span className="flex items-center gap-2">
-                        <i className="fa-solid fa-moon text-sm text-indigo-400" aria-hidden="true" />
-                        Prepare for tomorrow
+                        <i
+                            className={`text-sm text-indigo-400 ${isPreDawn ? 'fa-solid fa-sun' : 'fa-solid fa-moon'}`}
+                            aria-hidden="true"
+                        />
+                        {isPreDawn ? 'Day Ahead' : 'Time to sleep'}
                     </span>
                 </CardTitle>
                 <Link
@@ -495,7 +500,9 @@ function TomorrowBrief({
  * timebox day-start time (the user's `wakeTime`), so it stays useful in the
  * small hours. Only appears while viewing today.
  */
-export function useTomorrowVisible(date: string = todayKey()): { show: boolean; target: string } {
+export function useTomorrowVisible(
+    date: string = todayKey(),
+): { show: boolean; target: string; isPreDawn: boolean } {
     const { user } = useAuth()
 
     // The day "begins" at the timebox wake time; until then, an evening that ran
@@ -523,7 +530,7 @@ export function useTomorrowVisible(date: string = todayKey()): { show: boolean; 
     // start *is* the calendar's "today".
     const target = isPreDawn ? todayKey() : addDays(todayKey(), 1)
 
-    return { show, target }
+    return { show, target, isPreDawn }
 }
 
 /**
@@ -537,7 +544,7 @@ export default function TomorrowWidget({ date = todayKey() }: { date?: string })
     const { byId: calendarsById } = useCalendars()
     const tasksVersion = useDataVersion('tasks')
 
-    const { show, target } = useTomorrowVisible(date)
+    const { show, target, isPreDawn } = useTomorrowVisible(date)
 
     const [forecast, setForecast] = useState<Forecast | null>(null)
     useEffect(() => {
@@ -580,6 +587,7 @@ export default function TomorrowWidget({ date = todayKey() }: { date?: string })
             data={data}
             calendarsById={calendarsById}
             dayStartMin={dayStartMin}
+            isPreDawn={isPreDawn}
         />
     )
 }
