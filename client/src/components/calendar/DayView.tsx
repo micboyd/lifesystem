@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import EventEditor from './EventEditor'
 import DeleteRecurringEventDialog, { type DeleteScope } from './DeleteRecurringEventDialog'
+import EditRecurringEventDialog, { type EditScope } from './EditRecurringEventDialog'
 import Spinner from '../Spinner'
 import {
     PERIODS,
@@ -13,6 +14,7 @@ import {
     listEvents,
     createEvent,
     updateEvent,
+    updateEventOccurrence,
     deleteEvent,
     type EventInput,
 } from '../../services/events'
@@ -35,6 +37,9 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
         null
     )
     const [scopeEvent, setScopeEvent] = useState<Event | null>(null)
+    // A pending save of a recurring event, held while the this-one / whole-series
+    // chooser is open. Applied once the user picks a scope.
+    const [editScopeInput, setEditScopeInput] = useState<EventInput | null>(null)
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
 
@@ -82,12 +87,29 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
         setConflict(false)
     }
 
-    async function handleSave(input: EventInput) {
+    // Editing an existing recurring event first asks whether the change applies
+    // to this occurrence or the whole series; everything else saves straight away.
+    function handleSave(input: EventInput) {
+        if (editing?.event?.recurrence) {
+            setEditScopeInput(input)
+            return
+        }
+        void commitSave(input, 'series')
+    }
+
+    async function commitSave(input: EventInput, scope: EditScope) {
+        setEditScopeInput(null)
         setSaving(true)
         setConflict(false)
         try {
-            if (editing?.event) await updateEvent(editing.event._id, input)
-            else await createEvent(input)
+            if (!editing?.event) {
+                await createEvent(input)
+            } else if (scope === 'instance') {
+                // Detach just this occurrence into its own standalone event.
+                await updateEventOccurrence(editing.event._id, editing.event.startDate, input)
+            } else {
+                await updateEvent(editing.event._id, input)
+            }
             setEvents(await load())
             setEditing(null)
         } catch (err: unknown) {
@@ -177,6 +199,7 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
                 onClose={() => {
                     setEditing(null)
                     setConflict(false)
+                    setEditScopeInput(null)
                 }}
                 onSave={handleSave}
                 onDelete={handleDelete}
@@ -187,6 +210,14 @@ export default function DayView({ date, initialOpenPart }: DayViewProps) {
                     occurrenceDate={scopeEvent.startDate}
                     onClose={() => setScopeEvent(null)}
                     onConfirm={(scope) => removeEvent(scopeEvent, scope)}
+                />
+            )}
+            {editScopeInput && editing?.event && (
+                <EditRecurringEventDialog
+                    title={editing.event.title}
+                    occurrenceDate={editing.event.startDate}
+                    onClose={() => setEditScopeInput(null)}
+                    onConfirm={(scope) => commitSave(editScopeInput, scope)}
                 />
             )}
         </div>

@@ -260,7 +260,9 @@ interface Clash {
 function eventsClashingWith(entry: FitnessPlanEntry, events: Event[]): Event[] {
     const part = partOf(entry)
     return events.filter(
-        (e) => eventCoversAllDay(e, entry.date) || eventCoversSlot(e, entry.date, part)
+        (e) =>
+            !e.ignoreClash &&
+            (eventCoversAllDay(e, entry.date) || eventCoversSlot(e, entry.date, part))
     )
 }
 

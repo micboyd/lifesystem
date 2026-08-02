@@ -788,6 +788,8 @@ export interface Event {
     startPart: Part
     endDate: string
     endPart: Part
+    /** When true the event is excluded from the Fitness planner's slot-clash warnings. */
+    ignoreClash?: boolean
     recurrence?: Recurrence
     /** YYYY-MM-DD occurrence dates removed from a recurring series. */
     exdates?: string[]

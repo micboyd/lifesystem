@@ -17,7 +17,14 @@ import {
     formatDateLong,
     parseDateKey,
 } from '../lib/calendar'
-import { listEvents, createEvent, updateEvent, deleteEvent, type EventInput } from '../services/events'
+import {
+    listEvents,
+    createEvent,
+    updateEvent,
+    updateEventOccurrence,
+    deleteEvent,
+    type EventInput,
+} from '../services/events'
 import { listBirthdays } from '../services/birthdays'
 import { listStatuses } from '../services/dayStatus'
 import { listReminders } from '../services/reminders'
@@ -36,6 +43,9 @@ import EventPickerModal from '../components/calendar/EventPickerModal'
 import DeleteRecurringEventDialog, {
     type DeleteScope,
 } from '../components/calendar/DeleteRecurringEventDialog'
+import EditRecurringEventDialog, {
+    type EditScope,
+} from '../components/calendar/EditRecurringEventDialog'
 import MonthView from '../components/calendar/MonthView'
 import WeekView from '../components/calendar/WeekView'
 import CalendarFilterBar from '../components/calendar/CalendarFilterBar'
@@ -97,6 +107,9 @@ export default function Calendar() {
     const [pickerEvents, setPickerEvents] = useState<Event[] | null>(null)
     const [editingEvent, setEditingEvent] = useState<Event | null>(null)
     const [scopeEvent, setScopeEvent] = useState<Event | null>(null)
+    // A pending save of a recurring event, held while the this-one / whole-series
+    // chooser is open. Applied once the user picks a scope.
+    const [editScopeInput, setEditScopeInput] = useState<EventInput | null>(null)
     const [editorOpen, setEditorOpen] = useState(false)
     const [defaultSlot, setDefaultSlot] = useState<{ date: string; part: Part } | null>(null)
     const [saving, setSaving] = useState(false)
@@ -226,14 +239,28 @@ export default function Calendar() {
         await deleteRow(id)
     }
 
-    async function handleSave(input: EventInput) {
+    // Editing an existing recurring event first asks whether the change applies
+    // to this occurrence or the whole series; everything else saves straight away.
+    function handleSave(input: EventInput) {
+        if (editingEvent?.recurrence) {
+            setEditScopeInput(input)
+            return
+        }
+        void commitSave(input, 'series')
+    }
+
+    async function commitSave(input: EventInput, scope: EditScope) {
+        setEditScopeInput(null)
         setSaving(true)
         setConflict(false)
         try {
-            if (editingEvent) {
-                await updateEvent(editingEvent._id, input)
-            } else {
+            if (!editingEvent) {
                 await createEvent(input)
+            } else if (scope === 'instance') {
+                // Detach just this occurrence into its own standalone event.
+                await updateEventOccurrence(editingEvent._id, editingEvent.startDate, input)
+            } else {
+                await updateEvent(editingEvent._id, input)
             }
             reload()
             setEditorOpen(false)
@@ -645,6 +672,7 @@ export default function Calendar() {
                                   startPart: ev.startPart,
                                   endDate: ev.endDate,
                                   endPart: ev.endPart,
+                                  ignoreClash: ev.ignoreClash,
                               })
                               setDetailEvent({ ...ev, notes: notes || undefined })
                               reload()
@@ -677,6 +705,7 @@ export default function Calendar() {
                     setEditingEvent(null)
                     setDefaultSlot(null)
                     setConflict(false)
+                    setEditScopeInput(null)
                 }}
                 onSave={handleSave}
                 onDelete={handleDelete}
@@ -687,6 +716,14 @@ export default function Calendar() {
                     occurrenceDate={scopeEvent.startDate}
                     onClose={() => setScopeEvent(null)}
                     onConfirm={(scope) => removeEvent(scopeEvent, scope)}
+                />
+            )}
+            {editScopeInput && editingEvent && (
+                <EditRecurringEventDialog
+                    title={editingEvent.title}
+                    occurrenceDate={editingEvent.startDate}
+                    onClose={() => setEditScopeInput(null)}
+                    onConfirm={(scope) => commitSave(editScopeInput, scope)}
                 />
             )}
 

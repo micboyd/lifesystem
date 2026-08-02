@@ -65,6 +65,7 @@ interface EventFields {
     startPart: Part
     endDate: string
     endPart: Part
+    ignoreClash: boolean
     recurrence?: IRecurrence
 }
 
@@ -123,6 +124,7 @@ function parseBody(body: Record<string, unknown>): EventFields | string {
         startPart,
         endDate: body.endDate as string,
         endPart,
+        ignoreClash: body.ignoreClash === true,
         recurrence,
     }
 }
@@ -253,6 +255,7 @@ export async function updateEvent(req: AuthRequest, res: Response) {
         startPart: fields.startPart,
         endDate: fields.endDate,
         endPart: fields.endPart,
+        ignoreClash: fields.ignoreClash,
     }
     const $unset: Record<string, 1> = {}
 
@@ -279,6 +282,55 @@ export async function updateEvent(req: AuthRequest, res: Response) {
         return
     }
     res.json({ message: 'Saved', data: event })
+}
+
+/**
+ * PUT /api/events/:id/occurrence
+ * Detaches a single occurrence of a recurring series into its own standalone
+ * event carrying the edited fields ("this occurrence only" edits). The original
+ * date is added to the master's exdates so the series no longer generates it.
+ * Body: the full event fields plus `occurrenceDate` (the occurrence's original date).
+ */
+export async function updateEventOccurrence(req: AuthRequest, res: Response) {
+    const occurrenceDate = req.body?.occurrenceDate
+    if (!isValidDate(occurrenceDate)) {
+        res.status(400).json({ message: 'occurrenceDate must be YYYY-MM-DD' })
+        return
+    }
+    const fields = parseBody(req.body ?? {})
+    if (typeof fields === 'string') {
+        res.status(400).json({ message: fields })
+        return
+    }
+
+    const master = await Event.findOne({
+        _id: req.params.id,
+        user: req.userId,
+        recurrence: { $exists: true },
+    }).select('calendar')
+    if (!master) {
+        res.status(404).json({ message: 'Recurring event not found' })
+        return
+    }
+
+    const calendarId =
+        req.body?.calendar === undefined
+            ? (master.calendar as Types.ObjectId)
+            : await resolveCalendarId(req.userId!, req.body.calendar)
+
+    // The detached copy is a standalone (non-recurring) event; drop recurrence.
+    const standalone: EventFields = { ...fields, recurrence: undefined }
+    if (await hasConflict(req.userId!, calendarId, standalone)) {
+        res.status(409).json({ message: 'Another event already occupies one of those slots' })
+        return
+    }
+
+    const created = await Event.create({ user: req.userId, calendar: calendarId, ...standalone })
+    await Event.updateOne(
+        { _id: master._id, user: req.userId },
+        { $addToSet: { exdates: occurrenceDate } }
+    )
+    res.status(201).json({ message: 'Occurrence updated', data: created })
 }
 
 /**

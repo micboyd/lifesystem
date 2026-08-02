@@ -231,6 +231,7 @@ export default function EventEditor({
     const [endPart, setEndPart] = useState<Part>('morning')
     const [time, setTime] = useState<string | null>(null)
     const [notes, setNotes] = useState('')
+    const [ignoreClash, setIgnoreClash] = useState(false)
     const [error, setError] = useState('')
     const [recurring, setRecurring] = useState(false)
     const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('weekly')
@@ -254,6 +255,7 @@ export default function EventEditor({
         setEndPart(event?.endPart ?? event?.startPart ?? defaultSlot?.part ?? 'morning')
         setTime(event?.time ?? null)
         setNotes(event?.notes ?? '')
+        setIgnoreClash(event?.ignoreClash ?? false)
         setError('')
         const rec = event?.recurrence
         setRecurring(!!rec)
@@ -357,6 +359,7 @@ export default function EventEditor({
             startPart: finalStartPart,
             endDate: finalEnd,
             endPart: finalEndPart,
+            ignoreClash,
             recurrence: recurring
                 ? { frequency: recurrenceFrequency, endsOn: recurrenceEndsOn || undefined }
                 : undefined,
@@ -644,6 +647,19 @@ export default function EventEditor({
                     onEndsOnChange={setRecurrenceEndsOn}
                     minEndDate={endDate || startDate || undefined}
                 />
+
+                {/* Planner clashes */}
+                <div className="flex flex-col gap-1.5 rounded-2xl bg-neutral-50 px-4 py-3">
+                    <Switch
+                        checked={ignoreClash}
+                        onChange={setIgnoreClash}
+                        label="Ignore planner clashes"
+                    />
+                    <p className="text-xs text-neutral-400">
+                        Keep this event off the Fitness planner’s clash warnings — it won’t flag
+                        against gym sessions in the same slot.
+                    </p>
+                </div>
 
                 {/* Notes */}
                 <Textarea

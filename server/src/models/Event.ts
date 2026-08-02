@@ -34,6 +34,8 @@ export interface IEvent extends Document {
     startPart: Part
     endDate: string
     endPart: Part
+    /** When true the event is excluded from the Fitness planner's slot-clash warnings. */
+    ignoreClash?: boolean
     recurrence?: IRecurrence
     /** YYYY-MM-DD occurrence dates removed from a recurring series ("this event only" deletes). */
     exdates?: string[]
@@ -63,6 +65,7 @@ const eventSchema = new Schema<IEvent>(
         startPart: { type: String, required: true, enum: PARTS },
         endDate: { type: String, required: true, match: DATE_PATTERN },
         endPart: { type: String, required: true, enum: PARTS },
+        ignoreClash: { type: Boolean, default: false },
         recurrence: { type: recurrenceSchema, default: undefined },
         exdates: { type: [String], default: undefined },
     },
