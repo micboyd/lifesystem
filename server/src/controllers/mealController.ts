@@ -153,11 +153,17 @@ export async function updateMeal(req: AuthRequest, res: Response) {
 }
 
 /**
- * POST /api/meals/import — bulk-create meals from a pasted JSON document.
+ * POST /api/meals/import — bulk-import meals from a pasted JSON document.
  *
- * Accepts either a bare array of meal objects or an object with a `meals` array.
- * Validation is all-or-nothing: if any item is malformed the whole import is
- * rejected with a per-item reason, so a partial import never surprises the user.
+ * Accepts either a bare array of meal objects or an object with a `meals` array
+ * plus an optional `overwrite` list of names. Validation is all-or-nothing: if
+ * any item is malformed the whole import is rejected with a per-item reason, so
+ * a partial import never surprises the user.
+ *
+ * Meals whose (case-insensitive) name already exists in the library are treated
+ * as duplicates. A duplicate whose name is in `overwrite` replaces the existing
+ * meal in place (keeping its id and order); a duplicate not listed is skipped.
+ * Everything else is appended to the end of the library in the pasted order.
  */
 export async function importMeals(req: AuthRequest, res: Response) {
     const body = req.body as unknown
@@ -178,6 +184,17 @@ export async function importMeals(req: AuthRequest, res: Response) {
         return
     }
 
+    // Names the caller has chosen to overwrite (case-insensitive).
+    const overwriteRaw =
+        body && typeof body === 'object' && !Array.isArray(body)
+            ? (body as Record<string, unknown>).overwrite
+            : undefined
+    const overwrite = new Set<string>(
+        Array.isArray(overwriteRaw)
+            ? overwriteRaw.filter((n): n is string => typeof n === 'string').map((n) => n.trim().toLowerCase())
+            : []
+    )
+
     const errors: string[] = []
     const normalised = rawList.map((raw_item, i) => {
         if (!raw_item || typeof raw_item !== 'object') {
@@ -191,7 +208,6 @@ export async function importMeals(req: AuthRequest, res: Response) {
             return null
         }
         return {
-            user: req.userId,
             name,
             types: toTypes(item.types),
             servings: Math.max(1, toAmount(item.servings, 1)),
@@ -208,16 +224,59 @@ export async function importMeals(req: AuthRequest, res: Response) {
         res.status(400).json({ message: `Import failed. ${errors.join('; ')}` })
         return
     }
+    const fields = normalised as NonNullable<(typeof normalised)[number]>[]
 
-    // Append after the current library, preserving the pasted order.
-    const last = await Meal.findOne({ user: req.userId }).sort({ order: -1 })
+    // Map the user's existing library by lowercased name, so we can spot
+    // duplicates and overwrite in place. A name may exist more than once; we
+    // overwrite the first (lowest-order) match.
+    const existing = await Meal.find({ user: req.userId }).sort({ order: 1, createdAt: 1 })
+    const existingByName = new Map<string, (typeof existing)[number]>()
+    for (const m of existing) {
+        const key = m.name.toLowerCase()
+        if (!existingByName.has(key)) existingByName.set(key, m)
+    }
+
+    const last = existing[existing.length - 1]
     let order = last ? last.order + 1 : 0
-    const docs = normalised.map((d) => ({ ...d!, order: order++ }))
 
-    const created = await Meal.insertMany(docs)
+    let created = 0
+    let updated = 0
+    let skipped = 0
+    const affected: (typeof existing)[number][] = []
+
+    for (const f of fields) {
+        const key = f.name.toLowerCase()
+        const match = existingByName.get(key)
+        if (match) {
+            if (!overwrite.has(key)) {
+                skipped++
+                continue
+            }
+            match.set(f)
+            await match.save()
+            updated++
+            affected.push(match)
+        } else {
+            const doc = await Meal.create({ ...f, user: req.userId, order: order++ })
+            created++
+            affected.push(doc)
+            // A later payload item with the same name now clashes with this one.
+            existingByName.set(key, doc)
+        }
+    }
+
+    const parts: string[] = []
+    if (created) parts.push(`imported ${created}`)
+    if (updated) parts.push(`overwrote ${updated}`)
+    if (skipped) parts.push(`skipped ${skipped}`)
+    const summary = parts.length ? parts.join(', ') : 'nothing to import'
+
     res.status(201).json({
-        message: `Imported ${created.length} ${created.length === 1 ? 'meal' : 'meals'}`,
-        data: created,
+        message: `Import complete — ${summary}.`,
+        created,
+        updated,
+        skipped,
+        data: affected,
     })
 }
 

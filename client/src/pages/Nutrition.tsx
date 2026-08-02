@@ -20,6 +20,7 @@ import {
     createMeal,
     updateMeal,
     deleteMeal,
+    mealsToExportJson,
     type MealInput,
 } from '../services/meals'
 import { listPlanEntries, addPlanEntry, copyPlanEntries, deletePlanEntry } from '../services/mealPlan'
@@ -241,6 +242,18 @@ export default function Nutrition() {
         await Promise.all([reloadLibrary(), reloadAll()])
     }
 
+    // Download the whole library as import-ready JSON.
+    function handleExport() {
+        const json = mealsToExportJson(allMeals)
+        const blob = new Blob([json], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `meals-${todayKey()}.json`
+        a.click()
+        URL.revokeObjectURL(url)
+    }
+
     return (
         <main className="py-10">
             <Container>
@@ -265,6 +278,14 @@ export default function Nutrition() {
             ) : (
                 <Container>
                     <div className="mb-6 flex items-center justify-end gap-2">
+                        <Button
+                            variant="secondary"
+                            icon="fa-solid fa-file-export"
+                            onClick={handleExport}
+                            disabled={allMeals.length === 0}
+                        >
+                            Export
+                        </Button>
                         <Link to="/nutrition/import">
                             <Button variant="secondary" icon="fa-solid fa-file-import">
                                 Import

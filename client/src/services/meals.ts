@@ -68,8 +68,60 @@ export async function deleteMeal(id: string): Promise<void> {
     await api.delete(`/meals/${id}`)
 }
 
-/** Bulk-import meals from a parsed JSON document. Returns the created meals. */
-export async function importMeals(meals: unknown): Promise<Meal[]> {
-    const res = await api.post<ApiResponse<Meal[]>>('/meals/import', meals)
-    return res.data.data
+/** Outcome of an import: how many meals were created, overwritten and skipped. */
+export interface ImportResult {
+    created: number
+    updated: number
+    skipped: number
+    /** The meals that were created or overwritten. */
+    meals: Meal[]
+}
+
+/** The import response envelope: the standard data plus per-outcome counts. */
+interface ImportResponse extends ApiResponse<Meal[]> {
+    created: number
+    updated: number
+    skipped: number
+}
+
+/**
+ * Bulk-import meals from a parsed JSON document.
+ *
+ * `overwrite` lists the names (case-insensitive) of duplicate meals that should
+ * replace the existing library entry; duplicates not listed are skipped.
+ */
+export async function importMeals(meals: unknown[], overwrite: string[] = []): Promise<ImportResult> {
+    const res = await api.post<ImportResponse>('/meals/import', { meals, overwrite })
+    const { created, updated, skipped, data } = res.data
+    return { created, updated, skipped, meals: data }
+}
+
+/** The fields worth keeping when exporting a meal — i.e. everything but server bookkeeping. */
+const EXPORT_KEYS = [
+    'name',
+    'types',
+    'servings',
+    'servingLabel',
+    'macros',
+    'ingredients',
+    'method',
+    'notes',
+    'link',
+] as const
+
+/**
+ * Serialise meals into the same shape the importer accepts — a pretty-printed
+ * JSON array, stripped of ids, ordering and timestamps — so an export can be
+ * edited and re-imported cleanly.
+ */
+export function mealsToExportJson(meals: Meal[]): string {
+    const clean = meals.map((m) => {
+        const out: Record<string, unknown> = {}
+        for (const key of EXPORT_KEYS) {
+            const value = (m as unknown as Record<string, unknown>)[key]
+            if (value !== undefined && value !== '') out[key] = value
+        }
+        return out
+    })
+    return JSON.stringify(clean, null, 2)
 }
