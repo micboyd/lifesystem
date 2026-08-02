@@ -240,6 +240,29 @@ export async function copyWeek(req: AuthRequest, res: Response) {
 }
 
 /**
+ * POST /api/fitness-plan/clear — delete every planned entry whose date falls in
+ * [start, end] (inclusive). Clears a single day (start === end) or a whole week.
+ * Flag notes are left untouched. Body: { start: YYYY-MM-DD, end: YYYY-MM-DD }.
+ */
+export async function clearRange(req: AuthRequest, res: Response) {
+    const { start, end } = req.body
+    if (!isDate(start) || !isDate(end)) {
+        res.status(400).json({ message: 'start and end (YYYY-MM-DD) are required' })
+        return
+    }
+    if (end < start) {
+        res.status(400).json({ message: 'end must not be before start' })
+        return
+    }
+    // Dates are zero-padded ISO strings, so a lexicographic range is a date range.
+    const { deletedCount } = await FitnessPlanEntry.deleteMany({
+        user: req.userId,
+        date: { $gte: start, $lte: end },
+    })
+    res.json({ message: 'OK', data: { cleared: deletedCount ?? 0 } })
+}
+
+/**
  * GET /api/fitness-plan/notes?start=YYYY-MM-DD&end=YYYY-MM-DD
  * List the user's day/week flag+label notes whose date falls in the range. Week
  * notes are keyed by their Monday, so a week view's range includes its own note.

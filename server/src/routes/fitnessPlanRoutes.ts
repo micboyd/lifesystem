@@ -5,6 +5,7 @@ import {
     updateEntry,
     deleteEntry,
     copyWeek,
+    clearRange,
     listNotes,
     saveNote,
     deleteNote,
@@ -17,6 +18,7 @@ router.use(requireAuth)
 router.get('/', listEntries)
 router.post('/', createEntry)
 router.post('/copy-week', copyWeek)
+router.post('/clear', clearRange)
 
 // Day / week flag + label notes (kept above the /:id routes so they don't shadow).
 router.get('/notes', listNotes)

@@ -59,6 +59,14 @@ export async function copyPlanWeek(
     await api.post('/fitness-plan/copy-week', { from, to, kinds })
 }
 
+/**
+ * Delete every planned entry whose date falls in [start, end] (inclusive).
+ * Clears a single day (start === end) or a whole week. Flags are left untouched.
+ */
+export async function clearPlanRange(start: string, end: string): Promise<void> {
+    await api.post('/fitness-plan/clear', { start, end })
+}
+
 // ─── Day / week flag + label notes ──────────────────────────────────────────────
 
 /** List the day/week flag notes whose date falls in [start, end] (inclusive). */

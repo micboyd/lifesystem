@@ -17,6 +17,7 @@ import {
     updatePlanEntry,
     deletePlanEntry,
     copyPlanWeek,
+    clearPlanRange,
     listPlanNotes,
     savePlanNote,
     deletePlanNote,
@@ -351,6 +352,10 @@ export default function FitnessWeeklyPlanner() {
     const [clipboard, setClipboard] = useState<{ from: string; kinds: FitnessPlanKind[] } | null>(
         null
     )
+    // A pending "clear" awaiting confirmation: a single day, or the whole week.
+    const [clearTarget, setClearTarget] = useState<
+        { type: 'day'; date: string } | { type: 'week' } | null
+    >(null)
 
     const today = todayKey()
 
@@ -446,6 +451,31 @@ export default function FitnessWeeklyPlanner() {
         setEntries(rows)
     }
 
+    // Clear every planned item from a single day. Optimistic, reverting on failure.
+    async function handleClearDay(date: string) {
+        const removed = entries.filter((e) => e.date === date)
+        if (removed.length === 0) return
+        setEntries((prev) => prev.filter((e) => e.date !== date))
+        try {
+            await clearPlanRange(date, date)
+        } catch {
+            setEntries((prev) => [...prev, ...removed])
+        }
+    }
+
+    // Clear every planned item from the displayed week. Optimistic, reverting on failure.
+    async function handleClearWeek() {
+        const { start, end } = range
+        const removed = entries.filter((e) => e.date >= start && e.date <= end)
+        if (removed.length === 0) return
+        setEntries((prev) => prev.filter((e) => !(e.date >= start && e.date <= end)))
+        try {
+            await clearPlanRange(start, end)
+        } catch {
+            setEntries((prev) => [...prev, ...removed])
+        }
+    }
+
     // Move a planned item to another slot of its own day (week-view drag-and-drop).
     // Optimistic: the row jumps immediately, then the server records the new slot.
     async function handleMove(id: string, part: FitnessPlanPart) {
@@ -513,6 +543,17 @@ export default function FitnessWeeklyPlanner() {
 
     const resetLabel = view === 'week' ? 'This week' : view === 'month' ? 'This month' : 'Today'
 
+    // Count and label the items a pending clear would remove, for the confirm dialog.
+    const clearInfo = useMemo(() => {
+        if (!clearTarget) return null
+        if (clearTarget.type === 'day') {
+            const count = entries.filter((e) => e.date === clearTarget.date).length
+            return { count, where: shortDayLabel(clearTarget.date), scope: 'day' as const }
+        }
+        const count = entries.filter((e) => e.date >= range.start && e.date <= range.end).length
+        return { count, where: formatWeekRange(range.start, range.end), scope: 'week' as const }
+    }, [clearTarget, entries, range.start, range.end])
+
     return (
         <div className="flex flex-col gap-6">
             {/* View switch + navigation + totals */}
@@ -568,6 +609,17 @@ export default function FitnessWeeklyPlanner() {
                             {editing ? 'Done' : 'Edit plan'}
                         </Button>
                     )}
+                    {view === 'week' && editing && entries.length > 0 && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            icon="fa-solid fa-broom"
+                            onClick={() => setClearTarget({ type: 'week' })}
+                            className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                        >
+                            Clear week
+                        </Button>
+                    )}
                     <WeekTotals tally={totals} />
                 </div>
             </div>
@@ -595,6 +647,7 @@ export default function FitnessWeeklyPlanner() {
                     onRemove={handleRemove}
                     onMove={handleMove}
                     onEditFlag={(scope, date) => setFlagTarget({ scope, date })}
+                    onClearDay={(date) => setClearTarget({ type: 'day', date })}
                 />
             ) : view === 'month' ? (
                 <MonthView
@@ -639,6 +692,34 @@ export default function FitnessWeeklyPlanner() {
                 onClose={() => setFlagTarget(null)}
                 onSave={handleSaveFlag}
                 onRemove={handleRemoveFlag}
+            />
+
+            <ConfirmModal
+                open={clearTarget !== null}
+                danger
+                title={clearInfo?.scope === 'week' ? 'Clear this week?' : 'Clear this day?'}
+                message={
+                    clearInfo ? (
+                        <>
+                            Remove{' '}
+                            <span className="font-semibold">
+                                {clearInfo.count} planned item{clearInfo.count !== 1 ? 's' : ''}
+                            </span>{' '}
+                            from <span className="font-semibold">{clearInfo.where}</span>? Flags stay
+                            in place. This can’t be undone.
+                        </>
+                    ) : (
+                        ''
+                    )
+                }
+                confirmLabel="Clear"
+                onConfirm={() => {
+                    if (!clearTarget) return
+                    if (clearTarget.type === 'week') handleClearWeek()
+                    else handleClearDay(clearTarget.date)
+                    setClearTarget(null)
+                }}
+                onClose={() => setClearTarget(null)}
             />
         </div>
     )
@@ -791,6 +872,7 @@ function WeekView({
     onRemove,
     onMove,
     onEditFlag,
+    onClearDay,
 }: {
     weekStart: string
     today: string
@@ -803,6 +885,7 @@ function WeekView({
     onRemove: (id: string) => void
     onMove: (id: string, part: FitnessPlanPart) => void
     onEditFlag: (scope: FitnessNoteScope, date: string) => void
+    onClearDay: (date: string) => void
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
     return (
@@ -827,6 +910,7 @@ function WeekView({
                         onRemove={onRemove}
                         onMove={onMove}
                         onEditFlag={() => onEditFlag('day', date)}
+                        onClear={() => onClearDay(date)}
                     />
                 ))}
             </div>
@@ -1190,6 +1274,7 @@ function DayColumn({
     onRemove,
     onMove,
     onEditFlag,
+    onClear,
 }: {
     date: string
     isToday: boolean
@@ -1201,6 +1286,7 @@ function DayColumn({
     onRemove: (id: string) => void
     onMove: (id: string, part: FitnessPlanPart) => void
     onEditFlag: () => void
+    onClear: () => void
 }) {
     const { year, month, day } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
@@ -1237,11 +1323,24 @@ function DayColumn({
                         {day} {MONTHS[month].slice(0, 3)}
                     </p>
                 </div>
-                {isToday && (
-                    <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-semibold text-coral-600">
-                        Today
-                    </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                    {isToday && (
+                        <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-semibold text-coral-600">
+                            Today
+                        </span>
+                    )}
+                    {editable && total > 0 && (
+                        <button
+                            type="button"
+                            onClick={onClear}
+                            aria-label={`Clear ${weekday}`}
+                            title="Clear day"
+                            className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                        >
+                            <i className="fa-solid fa-broom text-[11px]" aria-hidden="true" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* The day's flag: a coloured label chip, or a prompt to add one in edit mode. */}
