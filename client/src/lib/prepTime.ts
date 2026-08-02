@@ -14,8 +14,13 @@
  * otherwise the global default below applies.
  */
 
-/** Default overhead fraction when a meal doesn't set its own. */
-export const DEFAULT_PREP_OVERHEAD = 0.35
+/**
+ * Default overhead fraction when a meal doesn't set its own. Calibrated so that
+ * cooking 4 servings takes roughly 1.5× a single serving — i.e. most of the
+ * single-serving time is fixed cooking/setup, and each extra serving adds only
+ * ~17% of it. Meals with heavy per-serving work can lower this via `prepOverhead`.
+ */
+export const DEFAULT_PREP_OVERHEAD = 0.83
 
 /** Resolve a meal's overhead fraction, clamped to 0–1, falling back to the default. */
 export function overheadFor(prepOverhead?: number): number {
