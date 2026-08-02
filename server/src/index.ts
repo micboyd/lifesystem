@@ -26,6 +26,7 @@ import fitnessPlanRoutes from './routes/fitnessPlanRoutes'
 import habitRoutes from './routes/habitRoutes'
 import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
+import mobilityRoutes from './routes/mobilityRoutes'
 import noteRoutes from './routes/noteRoutes'
 import path from 'path'
 import recoveryRoutes from './routes/recoveryRoutes'
@@ -86,6 +87,7 @@ app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)
 app.use('/api/recovery', recoveryRoutes)
+app.use('/api/mobility', mobilityRoutes)
 app.use('/api/notes', noteRoutes)
 app.use('/api/checklists', checklistRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)

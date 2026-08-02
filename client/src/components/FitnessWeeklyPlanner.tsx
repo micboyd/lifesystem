@@ -10,6 +10,7 @@ import ConfirmModal from './ConfirmModal'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
+import { listMobility } from '../services/mobility'
 import { listExercises } from '../services/exercises'
 import {
     listPlanEntries,
@@ -30,6 +31,7 @@ import type {
     ConditioningSession,
     ConditioningCategory,
     Recovery,
+    Mobility,
     FitnessPlanEntry,
     FitnessPlanKind,
     FitnessPlanPart,
@@ -58,6 +60,7 @@ const KIND_META: Record<
 > = {
     workout: { label: 'Strength', noun: 'workout', icon: 'fa-solid fa-dumbbell' },
     conditioning: { label: 'Conditioning', noun: 'session', icon: 'fa-solid fa-heart-pulse' },
+    mobility: { label: 'Mobility', noun: 'routine', icon: 'fa-solid fa-person-walking' },
     recovery: { label: 'Recovery', noun: 'item', icon: 'fa-solid fa-spa' },
 }
 
@@ -66,6 +69,7 @@ const KIND_META: Record<
 const COPY_OPTIONS: { label: string; icon: string; kinds: FitnessPlanKind[] }[] = [
     { label: 'Strength only', icon: 'fa-solid fa-dumbbell', kinds: ['workout'] },
     { label: 'Conditioning only', icon: 'fa-solid fa-heart-pulse', kinds: ['conditioning'] },
+    { label: 'Mobility only', icon: 'fa-solid fa-person-walking', kinds: ['mobility'] },
     { label: 'Recovery only', icon: 'fa-solid fa-spa', kinds: ['recovery'] },
     { label: 'Everything', icon: 'fa-solid fa-layer-group', kinds: [...FITNESS_PLAN_KINDS] },
 ]
@@ -76,9 +80,9 @@ function kindsLabel(kinds: FitnessPlanKind[]): string {
     return kinds.map((k) => KIND_META[k].label.toLowerCase()).join(' + ')
 }
 
-// Each plan kind carries its own colour so the three categories read apart at a
-// glance — coral for strength, sky for conditioning, emerald for recovery
-// (matching the chips used elsewhere in Fitness).
+// Each plan kind carries its own colour so the categories read apart at a
+// glance — coral for strength, sky for conditioning, amber for mobility,
+// emerald for recovery (matching the chips used elsewhere in Fitness).
 const KIND_TONE: Record<
     FitnessPlanKind,
     { label: string; icon: string; row: string; chip: string }
@@ -94,6 +98,12 @@ const KIND_TONE: Record<
         icon: 'text-sky-500',
         row: 'border-l-2 border-sky-300 bg-sky-50/60',
         chip: 'bg-sky-50 text-sky-700',
+    },
+    mobility: {
+        label: 'text-amber-600',
+        icon: 'text-amber-500',
+        row: 'border-l-2 border-amber-300 bg-amber-50/60',
+        chip: 'bg-amber-50 text-amber-700',
     },
     recovery: {
         label: 'text-emerald-600',
@@ -180,6 +190,7 @@ function partOf(entry: FitnessPlanEntry): FitnessPlanPart {
 function planItemName(entry: FitnessPlanEntry): string | undefined {
     if (entry.kind === 'workout') return entry.workout?.name
     if (entry.kind === 'conditioning') return entry.session?.name
+    if (entry.kind === 'mobility') return entry.mobility?.name
     return entry.recovery?.name
 }
 
@@ -301,6 +312,7 @@ const WEEKDAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 interface WeekTally {
     workouts: number
     sessions: number
+    mobility: number
     recovery: number
     /** Total planned conditioning minutes across the range. */
     minutes: number
@@ -313,10 +325,11 @@ function tally(entries: FitnessPlanEntry[]): WeekTally {
             else if (e.kind === 'conditioning') {
                 acc.sessions += 1
                 acc.minutes += e.session?.duration ?? 0
-            } else acc.recovery += 1
+            } else if (e.kind === 'mobility') acc.mobility += 1
+            else acc.recovery += 1
             return acc
         },
-        { workouts: 0, sessions: 0, recovery: 0, minutes: 0 }
+        { workouts: 0, sessions: 0, mobility: 0, recovery: 0, minutes: 0 }
     )
 }
 
@@ -330,6 +343,7 @@ export default function FitnessWeeklyPlanner() {
     const [workouts, setWorkouts] = useState<Workout[]>([])
     const [sessions, setSessions] = useState<ConditioningSession[]>([])
     const [recovery, setRecovery] = useState<Recovery[]>([])
+    const [mobility, setMobility] = useState<Mobility[]>([])
     const [exercises, setExercises] = useState<Exercise[]>([])
     const [libLoading, setLibLoading] = useState(true)
     const [entries, setEntries] = useState<FitnessPlanEntry[]>([])
@@ -375,11 +389,12 @@ export default function FitnessWeeklyPlanner() {
     // The libraries — loaded once, for the picker, the "is it empty" check and
     // the detail drawer (exercises resolve a workout's exercise names).
     useEffect(() => {
-        Promise.all([listWorkouts(), listSessions(), listRecovery(), listExercises()])
-            .then(([wk, se, re, ex]) => {
+        Promise.all([listWorkouts(), listSessions(), listRecovery(), listMobility(), listExercises()])
+            .then(([wk, se, re, mo, ex]) => {
                 setWorkouts(wk)
                 setSessions(se)
                 setRecovery(re)
+                setMobility(mo)
                 setExercises(ex)
             })
             .finally(() => setLibLoading(false))
@@ -524,7 +539,11 @@ export default function FitnessWeeklyPlanner() {
     const totalsEntries =
         view === 'month' ? entries.filter((e) => inSameMonth(e.date, anchor)) : entries
     const totals = tally(totalsEntries)
-    const libraryEmpty = workouts.length === 0 && sessions.length === 0 && recovery.length === 0
+    const libraryEmpty =
+        workouts.length === 0 &&
+        sessions.length === 0 &&
+        recovery.length === 0 &&
+        mobility.length === 0
 
     // Which categories the displayed week already holds — a paste only needs
     // confirmation when it would overwrite one of these.
@@ -674,6 +693,7 @@ export default function FitnessWeeklyPlanner() {
                 workouts={workouts}
                 sessions={sessions}
                 recovery={recovery}
+                mobility={mobility}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
                 onClose={() => setPicker(null)}
                 onAdd={handleAdd}
@@ -1147,7 +1167,7 @@ function MiniMonth({
             <div className="flex items-baseline justify-between">
                 <p className="text-sm font-bold text-neutral-900">{formatMonthYear(month)}</p>
                 <span className="text-[11px] text-neutral-400">
-                    {t.workouts + t.sessions + t.recovery} planned
+                    {t.workouts + t.sessions + t.mobility + t.recovery} planned
                 </span>
             </div>
 
@@ -1170,6 +1190,8 @@ function MiniMonth({
                 <span className="tabular-nums">{t.workouts} strength</span>
                 <span className="text-neutral-300">·</span>
                 <span className="tabular-nums">{t.sessions} cond.</span>
+                <span className="text-neutral-300">·</span>
+                <span className="tabular-nums">{t.mobility} mobility</span>
                 <span className="text-neutral-300">·</span>
                 <span className="tabular-nums">{t.recovery} recovery</span>
             </div>
@@ -1245,6 +1267,8 @@ function WeekTotals({ tally }: { tally: WeekTally }) {
             <div className="h-8 w-px bg-neutral-200" />
             <Stat label="Cond." value={tally.sessions} />
             <div className="h-8 w-px bg-neutral-200" />
+            <Stat label="Mobility" value={tally.mobility} />
+            <div className="h-8 w-px bg-neutral-200" />
             <Stat label="Recovery" value={tally.recovery} />
             <div className="h-8 w-px bg-neutral-200" />
             <Stat label="Cond. min" value={tally.minutes} />
@@ -1291,7 +1315,7 @@ function DayColumn({
     const { year, month, day } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
     const t = tally(entries)
-    const total = t.workouts + t.sessions + t.recovery
+    const total = t.workouts + t.sessions + t.mobility + t.recovery
     const rest = total === 0
     const tone = note ? FLAG_TONE[note.color] : null
 
@@ -1567,6 +1591,15 @@ function PlannedRow({
                         {entry.session.duration} min
                     </span>
                 </div>
+            ) : entry.kind === 'mobility' && entry.mobility ? (
+                <div className="mt-0.5 flex items-center gap-1.5">
+                    <KindChip kind="mobility" />
+                    {entry.mobility.duration > 0 && (
+                        <span className="text-[11px] tabular-nums text-neutral-400">
+                            {entry.mobility.duration} min
+                        </span>
+                    )}
+                </div>
             ) : entry.recovery ? (
                 <div className="mt-0.5 flex items-center gap-1.5">
                     <KindChip kind="recovery" />
@@ -1650,6 +1683,7 @@ function ItemPicker({
     workouts,
     sessions,
     recovery,
+    mobility,
     entries,
     onClose,
     onAdd,
@@ -1660,6 +1694,7 @@ function ItemPicker({
     workouts: Workout[]
     sessions: ConditioningSession[]
     recovery: Recovery[]
+    mobility: Mobility[]
     entries: FitnessPlanEntry[]
     onClose: () => void
     onAdd: (
@@ -1727,6 +1762,18 @@ function ItemPicker({
             : recovery
         return [...base].sort((a, b) => a.name.localeCompare(b.name))
     }, [recovery, query])
+
+    const mobilityResults = useMemo(() => {
+        const q = query.trim().toLowerCase()
+        const base = q
+            ? mobility.filter(
+                  (m) =>
+                      m.name.toLowerCase().includes(q) ||
+                      (m.purpose ?? '').toLowerCase().includes(q)
+              )
+            : mobility
+        return [...base].sort((a, b) => a.name.localeCompare(b.name))
+    }, [mobility, query])
 
     // The day's items, grouped by slot for the read-only summary.
     const slots = FITNESS_PLAN_PARTS.map((part) => ({
@@ -1920,6 +1967,42 @@ function ItemPicker({
                                     ))}
                                 </ul>
                             )
+                        ) : kind === 'mobility' ? (
+                            mobilityResults.length === 0 ? (
+                                <p className="py-6 text-center text-sm text-neutral-400">
+                                    No mobility routines found.
+                                </p>
+                            ) : (
+                                <ul className="flex flex-col gap-1.5">
+                                    {mobilityResults.map((m) => (
+                                        <li key={m._id}>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    view && onAdd(view.date, 'mobility', m._id, activePart)
+                                                }
+                                                className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-medium text-neutral-800">
+                                                        {m.name}
+                                                    </p>
+                                                    <p className="text-xs tabular-nums text-neutral-400">
+                                                        {m.duration} min
+                                                        {m.parts.length > 0
+                                                            ? ` · ${m.parts.length} ${m.parts.length === 1 ? 'part' : 'parts'}`
+                                                            : ''}
+                                                    </p>
+                                                </div>
+                                                <i
+                                                    className="fa-solid fa-plus text-xs text-neutral-400"
+                                                    aria-hidden="true"
+                                                />
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )
                         ) : recoveryResults.length === 0 ? (
                             <p className="py-6 text-center text-sm text-neutral-400">
                                 No recovery items found.
@@ -2006,6 +2089,8 @@ function PlannedDetailDrawer({
                     <WorkoutDetail workout={e.workout} exercisesById={exercisesById} />
                 ) : e.kind === 'conditioning' && e.session ? (
                     <SessionDetail session={e.session} />
+                ) : e.kind === 'mobility' && e.mobility ? (
+                    <MobilityDetail mobility={e.mobility} />
                 ) : e.recovery ? (
                     <RecoveryDetail recovery={e.recovery} />
                 ) : null)}
@@ -2136,6 +2221,53 @@ function SessionDetail({ session }: { session: ConditioningSession }) {
             {session.howToUse && (
                 <DetailSection label="How to use">
                     <p className="whitespace-pre-wrap text-sm text-neutral-600">{session.howToUse}</p>
+                </DetailSection>
+            )}
+        </div>
+    )
+}
+
+function MobilityDetail({ mobility }: { mobility: Mobility }) {
+    return (
+        <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center gap-3">
+                <KindChip kind="mobility" />
+                {mobility.duration > 0 && (
+                    <span className="text-sm text-neutral-500">{mobility.duration} min</span>
+                )}
+            </div>
+
+            {mobility.purpose && (
+                <DetailSection label="Purpose">
+                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{mobility.purpose}</p>
+                </DetailSection>
+            )}
+
+            {mobility.parts.length > 0 && (
+                <DetailSection label="Routine parts">
+                    <ol className="flex flex-col gap-3">
+                        {mobility.parts.map((part, i) => (
+                            <li key={i} className="flex gap-3 text-sm">
+                                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
+                                    {i + 1}
+                                </span>
+                                <div className="min-w-0 pt-0.5">
+                                    <p className="font-semibold text-neutral-900">{part.name}</p>
+                                    {part.detail && (
+                                        <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
+                                            {part.detail}
+                                        </p>
+                                    )}
+                                </div>
+                            </li>
+                        ))}
+                    </ol>
+                </DetailSection>
+            )}
+
+            {mobility.howToUse && (
+                <DetailSection label="How to use">
+                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{mobility.howToUse}</p>
                 </DetailSection>
             )}
         </div>

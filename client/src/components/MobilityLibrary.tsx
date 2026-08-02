@@ -1,59 +1,46 @@
 import { useEffect, useMemo, useState } from 'react'
-import Container from '../components/Container'
-import { Card } from '../components/Card'
-import Spinner from '../components/Spinner'
-import Button from '../components/Button'
-import Input from '../components/Input'
-import Textarea from '../components/Textarea'
-import Select from '../components/Select'
-import EmptyState from '../components/EmptyState'
-import DropdownMenu from '../components/DropdownMenu'
-import Drawer from '../components/Drawer'
-import Tabs from '../components/Tabs'
-import Pagination from '../components/Pagination'
-import LineIcon from '../components/LineIcon'
-import StrengthLibraries from '../components/StrengthLibraries'
-import ConditioningSessionsLog from '../components/ConditioningSessionsLog'
-import RecoveryLibrary from '../components/RecoveryLibrary'
-import MobilityLibrary from '../components/MobilityLibrary'
-import FitnessWeeklyPlanner from '../components/FitnessWeeklyPlanner'
-import JsonImportPanel from '../components/JsonImportPanel'
+import { Card } from './Card'
+import Spinner from './Spinner'
+import Button from './Button'
+import Input from './Input'
+import Textarea from './Textarea'
+import EmptyState from './EmptyState'
+import DropdownMenu from './DropdownMenu'
+import Drawer from './Drawer'
+import Pagination from './Pagination'
+import LineIcon from './LineIcon'
+import JsonImportPanel from './JsonImportPanel'
 import {
-    listSessions,
-    createSession,
-    updateSession,
-    deleteSession,
-    importSessions,
-    type ConditioningInput,
-} from '../services/conditioning'
-import { CONDITIONING_CATEGORIES } from '../types'
-import type { ConditioningSession, ConditioningCategory, SessionPart } from '../types'
+    listMobility,
+    createMobility,
+    updateMobility,
+    deleteMobility,
+    importMobility,
+    type MobilityInput,
+} from '../services/mobility'
+import type { Mobility, SessionPart } from '../types'
 
 // ─── Import template ──────────────────────────────────────────────────────────
 
-const SESSION_TEMPLATE = JSON.stringify(
+const MOBILITY_TEMPLATE = JSON.stringify(
     [
         {
-            name: 'Extensive Tempo Runs',
-            duration: 40,
-            category: 'Endurance',
-            purpose: 'Build aerobic base, support recovery, improve work capacity.',
+            name: 'Hip Mobility Flow',
+            duration: 12,
+            purpose: 'Open up tight hips before lower-body training.',
             parts: [
-                { name: 'Warm-up', detail: '10 min easy jog + drills' },
-                { name: 'Main set', detail: '6 x 200m at tempo, 100m walk recovery' },
-                { name: 'Cool-down', detail: '5 min walk + stretch' },
+                { name: '90/90 switches', detail: '2 min, slow and controlled' },
+                { name: 'Deep squat holds', detail: '3 x 30s, prying knees out' },
+                { name: 'Couch stretch', detail: '60s per side' },
             ],
-            howToUse: 'Run 1–2x per week on non-lifting days.',
+            howToUse: 'Run before squats or on rest days.',
         },
         {
-            name: 'HIIT Bike Intervals',
-            duration: 25,
-            category: 'HIIT',
-            purpose: 'Improve anaerobic capacity.',
+            name: 'Shoulder CARs',
+            duration: 8,
+            purpose: 'Maintain healthy shoulder range of motion.',
             parts: [
-                { name: 'Warm-up', detail: '5 min easy spin' },
-                { name: 'Intervals', detail: '8 x 30s hard / 90s easy' },
-                { name: 'Cool-down', detail: '5 min easy spin' },
+                { name: 'Controlled articular rotations', detail: '5 slow reps each direction, per arm' },
             ],
         },
     ],
@@ -61,135 +48,45 @@ const SESSION_TEMPLATE = JSON.stringify(
     2
 )
 
-const TABS = ['Planner', 'Strength', 'Conditioning', 'Mobility', 'Recovery'] as const
-type Tab = (typeof TABS)[number]
-
-const SUBTITLE: Record<Tab, string> = {
-    Planner: 'Plan your training — drop strength, conditioning, mobility and recovery into each day.',
-    Strength: 'Track your training programmes, sessions and progress.',
-    Conditioning: 'Track your training programmes, sessions and progress.',
-    Mobility: 'Build a library of mobility routines — flows, circuits and drills.',
-    Recovery: 'Build a library of recovery — stretching, sauna, foam rolling and more.',
-}
-
-export default function Fitness() {
-    const [tab, setTab] = useState<Tab>('Planner')
-
-    return (
-        <main className="py-10">
-            <Container>
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Fitness</h1>
-                    <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
-                </header>
-
-                <Tabs
-                    tabs={[...TABS]}
-                    value={tab}
-                    onChange={(t) => setTab(t as Tab)}
-                    className="self-start"
-                />
-            </Container>
-
-            {tab === 'Planner' ? (
-                <Container fluid className="mt-8">
-                    <FitnessWeeklyPlanner />
-                </Container>
-            ) : (
-                <Container className="mt-6">
-                    {tab === 'Strength' ? (
-                        <StrengthLibraries />
-                    ) : tab === 'Conditioning' ? (
-                        <ConditioningSection />
-                    ) : tab === 'Mobility' ? (
-                        <MobilityLibrary />
-                    ) : (
-                        <RecoveryLibrary />
-                    )}
-                </Container>
-            )}
-        </main>
-    )
-}
-
-// ─── Conditioning section ───────────────────────────────────────────────────────
-
-const CONDITIONING_SUB_TABS = ['Sessions', 'Session Library'] as const
-type ConditioningSubTab = (typeof CONDITIONING_SUB_TABS)[number]
-
-/** Conditioning splits into logged Sessions and the reusable Session Library. */
-function ConditioningSection() {
-    const [sub, setSub] = useState<ConditioningSubTab>('Sessions')
-
-    return (
-        <div className="flex flex-col gap-6">
-            <Tabs
-                tabs={[...CONDITIONING_SUB_TABS]}
-                value={sub}
-                onChange={(t) => setSub(t as ConditioningSubTab)}
-                className="self-start"
-            />
-
-            {sub === 'Sessions' ? <ConditioningSessionsLog /> : <ConditioningLibrary />}
-        </div>
-    )
-}
-
-// ─── Category presentation ─────────────────────────────────────────────────────
-
-const CATEGORY_META: Record<ConditioningCategory, string> = {
-    HIIT: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-    Cardio: 'bg-sky-50 text-sky-700 ring-sky-600/20',
-    Endurance: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
-    Mobility: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-    Recovery: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-}
-
-function CategoryChip({ category }: { category: ConditioningCategory }) {
-    return (
-        <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${CATEGORY_META[category]}`}
-        >
-            {category}
-        </span>
-    )
-}
-
 // ─── Library ────────────────────────────────────────────────────────────────────
 
-/** Drawer state: viewing a session, adding a new one, or editing an existing one. */
+/** Drawer state: viewing a routine, adding a new one, or editing an existing one. */
 type Drawered =
-    | { mode: 'view'; session: ConditioningSession }
+    | { mode: 'view'; item: Mobility }
     | { mode: 'create' }
-    | { mode: 'edit'; session: ConditioningSession }
+    | { mode: 'edit'; item: Mobility }
     | null
 
 const PAGE_SIZE = 9
 
-function ConditioningLibrary() {
+/**
+ * The Mobility library — reusable mobility routines, structured like conditioning
+ * sessions (ordered parts + how-to-use) but without a category. Items can be
+ * added, edited, bulk-imported from JSON, and dropped into the weekly planner.
+ */
+export default function MobilityLibrary() {
     const [loading, setLoading] = useState(true)
-    const [sessions, setSessions] = useState<ConditioningSession[]>([])
+    const [items, setItems] = useState<Mobility[]>([])
     const [drawer, setDrawer] = useState<Drawered>(null)
     const [importing, setImporting] = useState(false)
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(1)
 
     useEffect(() => {
-        listSessions()
-            .then(setSessions)
+        listMobility()
+            .then(setItems)
             .finally(() => setLoading(false))
     }, [])
 
     // Filter by name/purpose, then paginate the matches 9 at a time.
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase()
-        if (!q) return sessions
-        return sessions.filter(
-            (s) =>
-                s.name.toLowerCase().includes(q) ||
-                (s.purpose ?? '').toLowerCase().includes(q)
+        if (!q) return items
+        return items.filter(
+            (m) =>
+                m.name.toLowerCase().includes(q) || (m.purpose ?? '').toLowerCase().includes(q)
         )
-    }, [sessions, search])
+    }, [items, search])
 
     const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
 
@@ -201,37 +98,37 @@ function ConditioningLibrary() {
     const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
     async function reload() {
-        setSessions(await listSessions())
+        setItems(await listMobility())
     }
 
-    async function handleAdd(fields: ConditioningInput) {
-        const session = await createSession(fields)
-        setSessions((prev) => [...prev, session])
+    async function handleAdd(fields: MobilityInput) {
+        const item = await createMobility(fields)
+        setItems((prev) => [...prev, item])
     }
 
-    async function handleSave(id: string, fields: ConditioningInput) {
-        const updated = await updateSession(id, fields)
-        setSessions((prev) => prev.map((s) => (s._id === id ? updated : s)))
+    async function handleSave(id: string, fields: MobilityInput) {
+        const updated = await updateMobility(id, fields)
+        setItems((prev) => prev.map((m) => (m._id === id ? updated : m)))
         setDrawer((d) =>
-            d && d.mode === 'view' && d.session._id === id ? { mode: 'view', session: updated } : d
+            d && d.mode === 'view' && d.item._id === id ? { mode: 'view', item: updated } : d
         )
     }
 
     async function handleDelete(id: string) {
-        setSessions((prev) => prev.filter((s) => s._id !== id))
-        setDrawer((d) => (d && 'session' in d && d.session._id === id ? null : d))
-        await deleteSession(id)
+        setItems((prev) => prev.filter((m) => m._id !== id))
+        setDrawer((d) => (d && 'item' in d && d.item._id === id ? null : d))
+        await deleteMobility(id)
     }
 
     if (importing) {
         return (
             <JsonImportPanel
-                heading="Import sessions"
-                description="Copy the template, fill it in with your own conditioning sessions, then paste the JSON below to add them all to your library at once."
-                template={SESSION_TEMPLATE}
-                itemNoun="session"
+                heading="Import mobility"
+                description="Copy the template, fill it in with your own mobility routines, then paste the JSON below to add them all to your library at once."
+                template={MOBILITY_TEMPLATE}
+                itemNoun="routine"
                 onBack={() => setImporting(false)}
-                doImport={importSessions}
+                doImport={importMobility}
                 onImported={async () => {
                     await reload()
                     setImporting(false)
@@ -241,10 +138,6 @@ function ConditioningLibrary() {
                         <p>
                             <span className="font-semibold text-neutral-700">name</span> is the only
                             required field. Everything else is optional and defaults sensibly.
-                        </p>
-                        <p>
-                            <span className="font-semibold text-neutral-700">category</span> must be one
-                            of: {CONDITIONING_CATEGORIES.join(', ')}.
                         </p>
                         <p>
                             <span className="font-semibold text-neutral-700">parts</span> each take a{' '}
@@ -259,11 +152,11 @@ function ConditioningLibrary() {
 
     return (
         <>
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
                 <Input
                     icon="fa-solid fa-magnifying-glass"
                     type="search"
-                    placeholder="Search sessions…"
+                    placeholder="Search mobility…"
                     value={search}
                     onChange={(e) => {
                         setSearch(e.target.value)
@@ -280,7 +173,7 @@ function ConditioningLibrary() {
                         Import
                     </Button>
                     <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
-                        New session
+                        New routine
                     </Button>
                 </div>
             </div>
@@ -289,14 +182,14 @@ function ConditioningLibrary() {
                 <div className="grid place-items-center py-16">
                     <Spinner />
                 </div>
-            ) : sessions.length === 0 ? (
+            ) : items.length === 0 ? (
                 <EmptyState
-                    icon="fa-solid fa-heart-pulse"
-                    title="No sessions yet"
-                    description="Add your first conditioning session to start building a library."
+                    icon="fa-solid fa-person-walking"
+                    title="No mobility routines yet"
+                    description="Add your first mobility routine — a hip flow, shoulder circuit, ankle prep — to start building a library."
                     action={
                         <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
-                            New session
+                            New routine
                         </Button>
                     }
                 />
@@ -304,18 +197,18 @@ function ConditioningLibrary() {
                 <EmptyState
                     icon="fa-solid fa-magnifying-glass"
                     title="No matches"
-                    description={`No sessions match “${search.trim()}”.`}
+                    description={`No mobility routines match “${search.trim()}”.`}
                 />
             ) : (
                 <>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {pageItems.map((session) => (
-                            <SessionCard
-                                key={session._id}
-                                session={session}
-                                onOpen={() => setDrawer({ mode: 'view', session })}
-                                onEdit={() => setDrawer({ mode: 'edit', session })}
-                                onDelete={() => handleDelete(session._id)}
+                        {pageItems.map((item) => (
+                            <MobilityCard
+                                key={item._id}
+                                item={item}
+                                onOpen={() => setDrawer({ mode: 'view', item })}
+                                onEdit={() => setDrawer({ mode: 'edit', item })}
+                                onDelete={() => handleDelete(item._id)}
                             />
                         ))}
                     </div>
@@ -328,14 +221,14 @@ function ConditioningLibrary() {
                 </>
             )}
 
-            <SessionViewDrawer
-                session={drawer?.mode === 'view' ? drawer.session : null}
+            <MobilityViewDrawer
+                item={drawer?.mode === 'view' ? drawer.item : null}
                 onClose={() => setDrawer(null)}
-                onEdit={(session) => setDrawer({ mode: 'edit', session })}
+                onEdit={(item) => setDrawer({ mode: 'edit', item })}
                 onDelete={handleDelete}
             />
 
-            <SessionFormDrawer
+            <MobilityFormDrawer
                 form={drawer?.mode === 'create' || drawer?.mode === 'edit' ? drawer : null}
                 onClose={() => setDrawer(null)}
                 onAdd={handleAdd}
@@ -345,15 +238,15 @@ function ConditioningLibrary() {
     )
 }
 
-// ─── Session card ───────────────────────────────────────────────────────────────
+// ─── Card ────────────────────────────────────────────────────────────────────────
 
-function SessionCard({
-    session,
+function MobilityCard({
+    item,
     onOpen,
     onEdit,
     onDelete,
 }: {
-    session: ConditioningSession
+    item: Mobility
     onOpen: () => void
     onEdit: () => void
     onDelete: () => void
@@ -362,18 +255,18 @@ function SessionCard({
         <Card as="div" className="relative flex flex-col gap-3">
             <button
                 type="button"
-                aria-label={`View ${session.name}`}
+                aria-label={`View ${item.name}`}
                 onClick={onOpen}
                 className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
             />
 
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                    <p className="truncate font-semibold text-neutral-900">{session.name}</p>
+                    <p className="truncate font-semibold text-neutral-900">{item.name}</p>
                     <p className="mt-0.5 text-xs text-neutral-400">
-                        {session.duration} min
-                        {session.parts.length > 0
-                            ? ` · ${session.parts.length} ${session.parts.length === 1 ? 'part' : 'parts'}`
+                        {item.duration} min
+                        {item.parts.length > 0
+                            ? ` · ${item.parts.length} ${item.parts.length === 1 ? 'part' : 'parts'}`
                             : ''}
                     </p>
                 </div>
@@ -382,7 +275,7 @@ function SessionCard({
                     className="relative z-20 -mr-1 -mt-1 shrink-0"
                     trigger={
                         <span
-                            aria-label="Session actions"
+                            aria-label="Routine actions"
                             className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                         >
                             <LineIcon name="more" className="h-4 w-4" />
@@ -395,13 +288,9 @@ function SessionCard({
                 />
             </div>
 
-            <div className="flex flex-wrap gap-1.5">
-                <CategoryChip category={session.category} />
-            </div>
-
-            {session.purpose && (
+            {item.purpose && (
                 <p className="mt-auto line-clamp-2 border-t border-neutral-100 pt-3 text-xs text-neutral-500">
-                    {session.purpose}
+                    {item.purpose}
                 </p>
             )}
         </Card>
@@ -410,69 +299,71 @@ function SessionCard({
 
 // ─── View drawer ────────────────────────────────────────────────────────────────
 
-function SessionViewDrawer({
-    session,
+function MobilityViewDrawer({
+    item,
     onClose,
     onEdit,
     onDelete,
 }: {
-    session: ConditioningSession | null
+    item: Mobility | null
     onClose: () => void
-    onEdit: (session: ConditioningSession) => void
+    onEdit: (item: Mobility) => void
     onDelete: (id: string) => void
 }) {
-    // Retain the last session while the drawer animates closed.
-    const [view, setView] = useState<ConditioningSession | null>(session)
+    // Retain the last routine while the drawer animates closed.
+    const [view, setView] = useState<Mobility | null>(item)
     useEffect(() => {
-        if (session) setView(session)
-    }, [session])
+        if (item) setView(item)
+    }, [item])
 
-    const s = view
+    const m = view
     return (
         <Drawer
-            open={!!session}
+            open={!!item}
             onClose={onClose}
-            title={s?.name ?? 'Session'}
+            title={m?.name ?? 'Mobility'}
             footer={
-                s && (
+                m && (
                     <>
                         <Button
                             variant="ghost"
                             icon="fa-solid fa-trash-can"
-                            onClick={() => onDelete(s._id)}
+                            onClick={() => onDelete(m._id)}
                         >
                             Delete
                         </Button>
-                        <Button icon="fa-solid fa-pen" onClick={() => onEdit(s)}>
+                        <Button icon="fa-solid fa-pen" onClick={() => onEdit(m)}>
                             Edit
                         </Button>
                     </>
                 )
             }
         >
-            {s && (
+            {m && (
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-wrap items-center gap-3">
-                        <CategoryChip category={s.category} />
-                        <span className="text-sm text-neutral-500">{s.duration} min</span>
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                            Mobility
+                        </span>
+                        <span className="text-sm text-neutral-500">{m.duration} min</span>
                     </div>
 
-                    {s.purpose && (
+                    {m.purpose && (
                         <section>
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                 Purpose
                             </p>
-                            <p className="whitespace-pre-wrap text-sm text-neutral-600">{s.purpose}</p>
+                            <p className="whitespace-pre-wrap text-sm text-neutral-600">{m.purpose}</p>
                         </section>
                     )}
 
-                    {s.parts.length > 0 && (
+                    {m.parts.length > 0 && (
                         <section>
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                Session parts
+                                Routine parts
                             </p>
                             <ol className="flex flex-col gap-3">
-                                {s.parts.map((part, i) => (
+                                {m.parts.map((part, i) => (
                                     <li key={i} className="flex gap-3 text-sm">
                                         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
                                             {i + 1}
@@ -491,12 +382,12 @@ function SessionViewDrawer({
                         </section>
                     )}
 
-                    {s.howToUse && (
+                    {m.howToUse && (
                         <section>
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                 How to use
                             </p>
-                            <p className="whitespace-pre-wrap text-sm text-neutral-600">{s.howToUse}</p>
+                            <p className="whitespace-pre-wrap text-sm text-neutral-600">{m.howToUse}</p>
                         </section>
                     )}
                 </div>
@@ -507,7 +398,7 @@ function SessionViewDrawer({
 
 // ─── Add / edit drawer ──────────────────────────────────────────────────────────
 
-type FormState = { mode: 'create' } | { mode: 'edit'; session: ConditioningSession }
+type FormState = { mode: 'create' } | { mode: 'edit'; item: Mobility }
 
 /** A part row carries a stable key for React list editing. */
 interface PartRow extends SessionPart {
@@ -517,7 +408,7 @@ interface PartRow extends SessionPart {
 let rowSeq = 0
 const nextKey = () => `row-${rowSeq++}`
 
-function SessionFormDrawer({
+function MobilityFormDrawer({
     form,
     onClose,
     onAdd,
@@ -525,29 +416,27 @@ function SessionFormDrawer({
 }: {
     form: FormState | null
     onClose: () => void
-    onAdd: (fields: ConditioningInput) => Promise<void>
-    onSave: (id: string, fields: ConditioningInput) => Promise<void>
+    onAdd: (fields: MobilityInput) => Promise<void>
+    onSave: (id: string, fields: MobilityInput) => Promise<void>
 }) {
     const [view, setView] = useState<FormState | null>(form)
     useEffect(() => {
         if (form) setView(form)
     }, [form])
 
-    const editing = view?.mode === 'edit' ? view.session : undefined
+    const editing = view?.mode === 'edit' ? view.item : undefined
 
     const [name, setName] = useState('')
     const [duration, setDuration] = useState('0')
-    const [category, setCategory] = useState<ConditioningCategory>('HIIT')
     const [purpose, setPurpose] = useState('')
     const [parts, setParts] = useState<PartRow[]>([])
     const [howToUse, setHowToUse] = useState('')
     const [saving, setSaving] = useState(false)
 
-    // Reset all fields whenever the drawer opens for a different session.
+    // Reset all fields whenever the drawer opens for a different routine.
     useEffect(() => {
         setName(editing?.name ?? '')
         setDuration(editing?.duration != null ? String(editing.duration) : '0')
-        setCategory(editing?.category ?? 'HIIT')
         setPurpose(editing?.purpose ?? '')
         setParts((editing?.parts ?? []).map((p) => ({ ...p, key: nextKey() })))
         setHowToUse(editing?.howToUse ?? '')
@@ -564,10 +453,9 @@ function SessionFormDrawer({
 
     async function submit() {
         if (!view || !valid) return
-        const fields: ConditioningInput = {
+        const fields: MobilityInput = {
             name: name.trim(),
             duration: num(duration),
-            category,
             purpose: purpose.trim() || undefined,
             parts: parts
                 .map((p) => ({ name: p.name.trim(), detail: p.detail?.trim() || undefined }))
@@ -577,7 +465,7 @@ function SessionFormDrawer({
         setSaving(true)
         try {
             if (view.mode === 'create') await onAdd(fields)
-            else await onSave(view.session._id, fields)
+            else await onSave(view.item._id, fields)
             onClose()
         } finally {
             setSaving(false)
@@ -589,7 +477,7 @@ function SessionFormDrawer({
             open={!!form}
             onClose={onClose}
             size="xl"
-            title={view?.mode === 'edit' ? 'Edit session' : 'New session'}
+            title={view?.mode === 'edit' ? 'Edit routine' : 'New routine'}
             footer={
                 <>
                     <Button variant="ghost" onClick={onClose}>
@@ -603,36 +491,27 @@ function SessionFormDrawer({
         >
             <div className="flex flex-col gap-5">
                 <Input
-                    label="Session name *"
+                    label="Routine name *"
                     autoFocus
-                    placeholder="e.g. Extensive Tempo Runs"
+                    placeholder="e.g. Hip Mobility Flow"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                 />
 
-                <div className="flex gap-3">
-                    <Input
-                        label="Duration (min) *"
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={duration}
-                        onChange={(e) => setDuration(e.target.value)}
-                        className="flex-1"
-                    />
-                    <Select
-                        label="Category *"
-                        value={category}
-                        onChange={(v) => setCategory(v as ConditioningCategory)}
-                        options={CONDITIONING_CATEGORIES.map((c) => ({ label: c, value: c }))}
-                        className="flex-1"
-                    />
-                </div>
+                <Input
+                    label="Duration (min)"
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    className="sm:w-40"
+                />
 
                 <Textarea
                     label="Purpose"
                     rows={2}
-                    placeholder="e.g. Build aerobic base, support recovery, improve work capacity"
+                    placeholder="e.g. Open up tight hips before lower-body training"
                     value={purpose}
                     onChange={(e) => setPurpose(e.target.value)}
                 />
@@ -642,7 +521,7 @@ function SessionFormDrawer({
                 <Textarea
                     label="How to use"
                     rows={3}
-                    placeholder="When to run this session, pacing cues, progressions…"
+                    placeholder="When to run this routine, cues, progressions…"
                     value={howToUse}
                     onChange={(e) => setHowToUse(e.target.value)}
                 />
@@ -674,7 +553,7 @@ function PartsEditor({
         <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                    Session parts
+                    Routine parts
                 </label>
                 <Button variant="ghost" size="sm" icon="fa-solid fa-plus" onClick={add}>
                     Add part
@@ -683,7 +562,7 @@ function PartsEditor({
 
             {rows.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
-                    No parts yet — add a warm-up, main set, cool-down, etc.
+                    No parts yet — add a movement, stretch or hold.
                 </p>
             ) : (
                 <div className="flex flex-col gap-2">
@@ -698,7 +577,7 @@ function PartsEditor({
                                 </span>
                                 <input
                                     className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400"
-                                    placeholder="Part name (e.g. Warm-up)"
+                                    placeholder="Part name (e.g. 90/90 switches)"
                                     value={r.name}
                                     onChange={(e) => update(r.key, { name: e.target.value })}
                                 />
@@ -714,7 +593,7 @@ function PartsEditor({
                             <textarea
                                 className="w-full resize-y rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400"
                                 rows={2}
-                                placeholder="Details (sets, reps, distance, pace…)"
+                                placeholder="Details (reps, holds, tempo, cues…)"
                                 value={r.detail ?? ''}
                                 onChange={(e) => update(r.key, { detail: e.target.value })}
                             />

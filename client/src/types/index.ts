@@ -223,7 +223,27 @@ export interface Recovery {
     updatedAt: string
 }
 
-export const FITNESS_PLAN_KINDS = ['workout', 'conditioning', 'recovery'] as const
+/**
+ * A reusable mobility routine — e.g. a hip flow or shoulder circuit. Structured
+ * like a conditioning session (ordered parts + how-to-use) but without a category.
+ */
+export interface Mobility {
+    _id: string
+    name: string
+    /** Planned duration in minutes. */
+    duration: number
+    /** What the routine is for. */
+    purpose?: string
+    /** Ordered parts making up the routine. */
+    parts: SessionPart[]
+    /** Guidance on how / when to run the routine. */
+    howToUse?: string
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+export const FITNESS_PLAN_KINDS = ['workout', 'conditioning', 'recovery', 'mobility'] as const
 export type FitnessPlanKind = (typeof FITNESS_PLAN_KINDS)[number]
 
 /** Which slot of the day a planned item sits in. */
@@ -245,6 +265,8 @@ export interface FitnessPlanEntry {
     session: ConditioningSession | null
     /** Populated for `kind: 'recovery'`, otherwise null. */
     recovery: Recovery | null
+    /** Populated for `kind: 'mobility'`, otherwise null. */
+    mobility: Mobility | null
     order: number
     createdAt: string
     updatedAt: string

@@ -129,7 +129,7 @@ function scaleQty(quantity: string, factor: number): string {
 
 /** Drawer state: viewing a meal, adding a new one, or editing an existing one. */
 type Drawered =
-    | { mode: 'view'; meal: Meal }
+    | { mode: 'view'; meal: Meal; fromPlanner?: boolean }
     | { mode: 'create' }
     | { mode: 'edit'; meal: Meal }
     | null
@@ -242,7 +242,7 @@ export default function Nutrition() {
     async function handleSave(id: string, fields: MealInput) {
         const updated = await updateMeal(id, fields)
         // Keep an open view drawer in sync with the saved data.
-        setDrawer((d) => (d && d.mode === 'view' && d.meal._id === id ? { mode: 'view', meal: updated } : d))
+        setDrawer((d) => (d && d.mode === 'view' && d.meal._id === id ? { ...d, meal: updated } : d))
         await Promise.all([reloadLibrary(), reloadAll()])
     }
 
@@ -282,7 +282,7 @@ export default function Nutrition() {
                     <WeeklyPlanner
                         meals={allMeals}
                         mealsLoading={allLoading}
-                        onViewMeal={(meal) => setDrawer({ mode: 'view', meal })}
+                        onViewMeal={(meal) => setDrawer({ mode: 'view', meal, fromPlanner: true })}
                     />
                 </Container>
             ) : (
@@ -378,6 +378,7 @@ export default function Nutrition() {
 
             <MealViewDrawer
                 meal={drawer?.mode === 'view' ? drawer.meal : null}
+                fromPlanner={drawer?.mode === 'view' ? drawer.fromPlanner ?? false : false}
                 onClose={() => setDrawer(null)}
                 onEdit={(meal) => setDrawer({ mode: 'edit', meal })}
                 onDelete={handleDelete}
@@ -492,11 +493,13 @@ function MacroPill({ label, value }: { label: string; value: number }) {
 
 function MealViewDrawer({
     meal,
+    fromPlanner = false,
     onClose,
     onEdit,
     onDelete,
 }: {
     meal: Meal | null
+    fromPlanner?: boolean
     onClose: () => void
     onEdit: (meal: Meal) => void
     onDelete: (id: string) => void
@@ -516,7 +519,11 @@ function MealViewDrawer({
             setView(meal)
             const today = todayKey()
             setWeekDate(today)
-            applyWeek(today, meal)
+            // Opened from an individual planner item: start the scaler at the
+            // meal's own yield and load the week's context without overwriting it.
+            // From the library, the week's planned count drives the count as before.
+            if (fromPlanner) setServings(meal.servings ?? 1)
+            applyWeek(today, meal, !fromPlanner)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [meal])
@@ -524,7 +531,7 @@ function MealViewDrawer({
     const m = view
     const factor = m && m.servings ? servings / m.servings : 1
 
-    async function applyWeek(date: string, forMeal: Meal | null = m) {
+    async function applyWeek(date: string, forMeal: Meal | null = m, overrideServings = true) {
         setWeekDate(date)
         setWeekMsg(null)
         if (!date || !forMeal) return
@@ -532,7 +539,7 @@ function MealViewDrawer({
         try {
             const entries = await listPlanEntries(start, addDays(start, 6))
             const count = entries.filter((e) => e.meal?._id === forMeal._id).length
-            setServings(count)
+            if (overrideServings) setServings(count)
             setWeekMsg(count > 0 ? `Planned ${count}× that week` : 'Not planned that week')
         } catch {
             setWeekMsg('Could not load that week')

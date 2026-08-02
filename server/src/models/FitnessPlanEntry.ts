@@ -1,6 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose'
 
-export const FITNESS_PLAN_KINDS = ['workout', 'conditioning', 'recovery'] as const
+export const FITNESS_PLAN_KINDS = ['workout', 'conditioning', 'recovery', 'mobility'] as const
 export type FitnessPlanKind = (typeof FITNESS_PLAN_KINDS)[number]
 
 /** Which slot of the day a planned item sits in. */
@@ -25,6 +25,7 @@ export interface IFitnessPlanEntry extends Document {
     workout: Types.ObjectId | null
     session: Types.ObjectId | null
     recovery: Types.ObjectId | null
+    mobility: Types.ObjectId | null
     /** Position within the day+part (lower = sooner). */
     order: number
     createdAt: Date
@@ -40,6 +41,7 @@ const fitnessPlanEntrySchema = new Schema<IFitnessPlanEntry>(
         workout: { type: Schema.Types.ObjectId, ref: 'Workout', default: null },
         session: { type: Schema.Types.ObjectId, ref: 'ConditioningSession', default: null },
         recovery: { type: Schema.Types.ObjectId, ref: 'Recovery', default: null },
+        mobility: { type: Schema.Types.ObjectId, ref: 'Mobility', default: null },
         order: { type: Number, default: 0 },
     },
     { timestamps: true }

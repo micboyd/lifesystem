@@ -15,6 +15,7 @@ import FitnessPlanNote, {
 import Workout from '../models/Workout'
 import ConditioningSession from '../models/ConditioningSession'
 import Recovery from '../models/Recovery'
+import Mobility from '../models/Mobility'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -60,9 +61,11 @@ function isResolved(e: {
     workout: unknown
     session: unknown
     recovery: unknown
+    mobility: unknown
 }): boolean {
     if (e.kind === 'workout') return !!e.workout
     if (e.kind === 'conditioning') return !!e.session
+    if (e.kind === 'mobility') return !!e.mobility
     return !!e.recovery
 }
 
@@ -86,6 +89,7 @@ export async function listEntries(req: AuthRequest, res: Response) {
         .populate('workout')
         .populate('session')
         .populate('recovery')
+        .populate('mobility')
 
     res.json({ message: 'OK', data: entries.filter(isResolved) })
 }
@@ -112,6 +116,12 @@ export async function createEntry(req: AuthRequest, res: Response) {
             res.status(404).json({ message: 'Session not found' })
             return
         }
+    } else if (kind === 'mobility') {
+        const mobility = await Mobility.findOne({ _id: itemId, user: req.userId })
+        if (!mobility) {
+            res.status(404).json({ message: 'Mobility routine not found' })
+            return
+        }
     } else {
         const recovery = await Recovery.findOne({ _id: itemId, user: req.userId })
         if (!recovery) {
@@ -131,11 +141,13 @@ export async function createEntry(req: AuthRequest, res: Response) {
         workout: kind === 'workout' ? itemId : null,
         session: kind === 'conditioning' ? itemId : null,
         recovery: kind === 'recovery' ? itemId : null,
+        mobility: kind === 'mobility' ? itemId : null,
         order,
     })
     await entry.populate('workout')
     await entry.populate('session')
     await entry.populate('recovery')
+    await entry.populate('mobility')
     res.status(201).json({ message: 'Created', data: entry })
 }
 
@@ -170,6 +182,7 @@ export async function updateEntry(req: AuthRequest, res: Response) {
     await entry.populate('workout')
     await entry.populate('session')
     await entry.populate('recovery')
+    await entry.populate('mobility')
     res.json({ message: 'Updated', data: entry })
 }
 
@@ -232,6 +245,7 @@ export async function copyWeek(req: AuthRequest, res: Response) {
         workout: e.workout,
         session: e.session,
         recovery: e.recovery,
+        mobility: e.mobility,
         order: e.order,
     }))
 

@@ -10,6 +10,7 @@ import type { FitnessPlanEntry, FitnessPlanKind, ConditioningCategory } from '..
 const KIND_META: Record<FitnessPlanKind, { noun: string; icon: string }> = {
     workout: { noun: 'workout', icon: 'fa-solid fa-dumbbell' },
     conditioning: { noun: 'session', icon: 'fa-solid fa-heart-pulse' },
+    mobility: { noun: 'routine', icon: 'fa-solid fa-person-walking' },
     recovery: { noun: 'item', icon: 'fa-solid fa-spa' },
 }
 
@@ -38,7 +39,9 @@ function planName(entry: FitnessPlanEntry): string {
             ? entry.workout?.name
             : entry.kind === 'conditioning'
               ? entry.session?.name
-              : entry.recovery?.name
+              : entry.kind === 'mobility'
+                ? entry.mobility?.name
+                : entry.recovery?.name
     return name ?? 'Untitled'
 }
 
@@ -63,6 +66,17 @@ function PlanRow({ entry }: { entry: FitnessPlanEntry }) {
                         <span className="text-xs tabular-nums text-neutral-400">
                             {entry.session.duration} min
                         </span>
+                    </div>
+                ) : entry.kind === 'mobility' && entry.mobility ? (
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                            Mobility
+                        </span>
+                        {entry.mobility.duration > 0 && (
+                            <span className="text-xs tabular-nums text-neutral-400">
+                                {entry.mobility.duration} min
+                            </span>
+                        )}
                     </div>
                 ) : entry.recovery ? (
                     <div className="mt-0.5 flex items-center gap-1.5">
