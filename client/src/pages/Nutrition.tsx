@@ -1533,6 +1533,19 @@ function WeekCookingDrawer({
 
     const selected = selectedId ? planned.find((p) => p.meal._id === selectedId) ?? null : null
 
+    // Whole-week cooking estimate: each meal's batch estimate at its planned
+    // serving count, summed. Meals with no prep time recorded can't be counted.
+    const totalPrep = useMemo(() => {
+        let total = 0
+        let missing = 0
+        for (const { meal, count } of planned) {
+            const est = estimatePrepTime(meal.prepTime, count, meal.prepOverhead)
+            if (est != null) total += est
+            else missing += 1
+        }
+        return { total, missing }
+    }, [planned])
+
     return (
         <Drawer
             open={open}
@@ -1553,6 +1566,27 @@ function WeekCookingDrawer({
                 </p>
             ) : (
                 <div className="flex flex-col gap-3">
+                    {totalPrep.total > 0 && (
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                            <div className="flex items-center gap-2.5">
+                                <i className="fa-regular fa-clock text-neutral-400" aria-hidden="true" />
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                        Est. total cooking time
+                                    </p>
+                                    <p className="text-xs text-neutral-400">
+                                        All meals, at this week&rsquo;s servings
+                                        {totalPrep.missing > 0
+                                            ? ` · ${totalPrep.missing} without a prep time not counted`
+                                            : ''}
+                                    </p>
+                                </div>
+                            </div>
+                            <span className="text-lg font-semibold tabular-nums text-neutral-800">
+                                ~{formatDuration(totalPrep.total)}
+                            </span>
+                        </div>
+                    )}
                     <p className="text-xs text-neutral-400">
                         Pick a meal to see its recipe, scaled to the servings you&rsquo;ve planned
                         this week.
