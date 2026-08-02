@@ -2,6 +2,7 @@ import { Router } from 'express'
 import {
     listRecovery,
     createRecovery,
+    importRecovery,
     updateRecovery,
     deleteRecovery,
 } from '../controllers/recoveryController'
@@ -12,6 +13,7 @@ router.use(requireAuth)
 
 router.get('/', listRecovery)
 router.post('/', createRecovery)
+router.post('/import', importRecovery)
 router.put('/:id', updateRecovery)
 router.delete('/:id', deleteRecovery)
 

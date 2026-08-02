@@ -19,6 +19,12 @@ export async function createRecovery(fields: RecoveryInput): Promise<Recovery> {
     return res.data.data
 }
 
+/** Bulk-import recovery items from a parsed JSON document. */
+export async function importRecovery(recovery: unknown): Promise<Recovery[]> {
+    const res = await api.post<ApiResponse<Recovery[]>>('/recovery/import', recovery)
+    return res.data.data
+}
+
 export async function updateRecovery(
     id: string,
     fields: Partial<RecoveryInput & Pick<Recovery, 'order'>>

@@ -36,6 +36,69 @@ export async function createRecovery(req: AuthRequest, res: Response) {
     res.status(201).json({ message: 'Created', data: item })
 }
 
+/**
+ * POST /api/recovery/import — bulk-import recovery items from a pasted JSON
+ * document. Accepts either a bare array of items or an object with a `recovery`
+ * array. Validation is all-or-nothing: if any item is malformed the whole
+ * import is rejected with a per-item reason, so a partial import never surprises
+ * the user. Everything valid is appended to the end of the library in order.
+ */
+export async function importRecovery(req: AuthRequest, res: Response) {
+    const body = req.body as unknown
+    const rawList = Array.isArray(body)
+        ? body
+        : body && typeof body === 'object' && Array.isArray((body as Record<string, unknown>).recovery)
+          ? ((body as Record<string, unknown>).recovery as unknown[])
+          : null
+
+    if (!rawList) {
+        res.status(400).json({
+            message: 'Expected a JSON array of recovery items, or an object with a "recovery" array.',
+        })
+        return
+    }
+    if (rawList.length === 0) {
+        res.status(400).json({ message: 'No recovery items found to import.' })
+        return
+    }
+
+    const errors: string[] = []
+    const normalised = rawList.map((raw_item, i) => {
+        if (!raw_item || typeof raw_item !== 'object') {
+            errors.push(`Recovery ${i + 1}: must be an object`)
+            return null
+        }
+        const item = raw_item as Record<string, unknown>
+        const name = typeof item.name === 'string' ? item.name.trim() : ''
+        if (!name) {
+            errors.push(`Recovery ${i + 1}: "name" is required`)
+            return null
+        }
+        return {
+            user: req.userId,
+            name,
+            duration: toAmount(item.duration),
+            purpose: typeof item.purpose === 'string' ? item.purpose.trim() || undefined : undefined,
+            notes: typeof item.notes === 'string' ? item.notes.trim() || undefined : undefined,
+        }
+    })
+
+    if (errors.length) {
+        res.status(400).json({ message: `Import failed. ${errors.join('; ')}` })
+        return
+    }
+
+    const last = await Recovery.findOne({ user: req.userId }).sort({ order: -1 })
+    let order = last ? last.order + 1 : 0
+    const docs = normalised.map((d) => ({ ...d!, order: order++ }))
+
+    const created = await Recovery.insertMany(docs)
+    res.status(201).json({
+        message: `Imported ${created.length} ${created.length === 1 ? 'recovery item' : 'recovery items'}`,
+        data: created,
+    })
+}
+
 /** PUT /api/recovery/:id — update fields and/or reorder. */
 export async function updateRecovery(req: AuthRequest, res: Response) {
     const b = req.body

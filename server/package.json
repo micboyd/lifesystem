@@ -5,6 +5,7 @@
     "scripts": {
         "dev": "tsx watch src/index.ts",
         "seed": "tsx src/scripts/seedUser.ts",
+        "meals:clear": "tsx src/scripts/clearMeals.ts",
         "build": "tsc",
         "start": "node dist/index.js",
         "lint": "eslint .",

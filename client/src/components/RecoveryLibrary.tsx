@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Card } from './Card'
 import Spinner from './Spinner'
 import Button from './Button'
@@ -9,14 +9,27 @@ import DropdownMenu from './DropdownMenu'
 import Drawer from './Drawer'
 import Pagination from './Pagination'
 import LineIcon from './LineIcon'
+import JsonImportPanel from './JsonImportPanel'
 import {
     listRecovery,
     createRecovery,
+    importRecovery,
     updateRecovery,
     deleteRecovery,
     type RecoveryInput,
 } from '../services/recovery'
 import type { Recovery } from '../types'
+
+// ─── Import template ──────────────────────────────────────────────────────────
+
+const RECOVERY_TEMPLATE = JSON.stringify(
+    [
+        { name: 'Hip mobility flow', duration: 10, purpose: 'Ease tight hips before training.', notes: 'Run through the full sequence twice, slow and controlled.' },
+        { name: 'Sauna', duration: 20, purpose: 'Wind down and aid recovery after sessions.' },
+    ],
+    null,
+    2
+)
 
 // ─── Library ────────────────────────────────────────────────────────────────────
 
@@ -31,21 +44,22 @@ const PAGE_SIZE = 9
 
 /**
  * The Recovery library — a lightweight sibling of the conditioning library.
- * Items are just a name, duration, purpose and free-text notes; no categories,
- * structured parts or bulk import.
+ * Items are just a name, duration, purpose and free-text notes; no categories
+ * or structured parts, but they can be bulk-imported from JSON.
  */
 export default function RecoveryLibrary() {
     const [loading, setLoading] = useState(true)
     const [items, setItems] = useState<Recovery[]>([])
     const [drawer, setDrawer] = useState<Drawered>(null)
+    const [importing, setImporting] = useState(false)
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(1)
 
+    const reload = useCallback(() => listRecovery().then(setItems), [])
+
     useEffect(() => {
-        listRecovery()
-            .then(setItems)
-            .finally(() => setLoading(false))
-    }, [])
+        reload().finally(() => setLoading(false))
+    }, [reload])
 
     // Filter by name/purpose, then paginate the matches 9 at a time.
     const filtered = useMemo(() => {
@@ -86,6 +100,33 @@ export default function RecoveryLibrary() {
         await deleteRecovery(id)
     }
 
+    if (importing) {
+        return (
+            <JsonImportPanel
+                heading="Import recovery"
+                description="Copy the template, fill it in with your own recovery items, then paste the JSON below to add them all to your library at once."
+                template={RECOVERY_TEMPLATE}
+                itemNoun="recovery item"
+                onBack={() => setImporting(false)}
+                doImport={importRecovery}
+                onImported={async () => {
+                    await reload()
+                    setImporting(false)
+                }}
+                notes={
+                    <>
+                        <p>
+                            <span className="font-semibold text-neutral-700">name</span> is required.{' '}
+                            <span className="font-semibold text-neutral-700">duration</span> (minutes),{' '}
+                            <span className="font-semibold text-neutral-700">purpose</span> and{' '}
+                            <span className="font-semibold text-neutral-700">notes</span> are optional.
+                        </p>
+                    </>
+                }
+            />
+        )
+    }
+
     return (
         <>
             <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
@@ -100,9 +141,18 @@ export default function RecoveryLibrary() {
                     }}
                     className="w-full sm:w-64"
                 />
-                <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
-                    New recovery
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="secondary"
+                        icon="fa-solid fa-file-import"
+                        onClick={() => setImporting(true)}
+                    >
+                        Import
+                    </Button>
+                    <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
+                        New recovery
+                    </Button>
+                </div>
             </div>
 
             {loading ? (
