@@ -24,6 +24,7 @@ import {
     type MealInput,
 } from '../services/meals'
 import { listPlanEntries, addPlanEntry, copyPlanEntries, deletePlanEntry } from '../services/mealPlan'
+import { createTask } from '../services/tasks'
 import { estimatePrepTime, formatDuration, DEFAULT_PREP_OVERHEAD } from '../lib/prepTime'
 import { MEAL_TYPES } from '../types'
 import type { Meal, MealType, Ingredient, Macros, MealPlanEntry } from '../types'
@@ -32,6 +33,7 @@ import {
     addDays,
     parseDateKey,
     formatWeekRange,
+    formatDateLong,
     WEEKDAYS_LONG,
     MONTHS,
 } from '../lib/calendar'
@@ -1506,10 +1508,12 @@ function WeekCookingDrawer({
     open,
     onClose,
     entries,
+    weekStart,
 }: {
     open: boolean
     onClose: () => void
     entries: MealPlanEntry[]
+    weekStart: string
 }) {
     // Distinct planned meals for the week, each with the servings the plan calls
     // for (one per entry), sorted by name.
@@ -1526,10 +1530,18 @@ function WeekCookingDrawer({
     }, [entries])
 
     const [selectedId, setSelectedId] = useState<string | null>(null)
-    // Return to the picker each time the drawer is (re)opened.
+    // The day to drop the cooking task onto; defaults to the week's Monday.
+    const [taskDate, setTaskDate] = useState(weekStart)
+    const [addingTask, setAddingTask] = useState(false)
+    const [addedTo, setAddedTo] = useState<string | null>(null)
+    // Return to the picker and reset the task controls each time the drawer opens.
     useEffect(() => {
-        if (open) setSelectedId(null)
-    }, [open])
+        if (open) {
+            setSelectedId(null)
+            setTaskDate(weekStart)
+            setAddedTo(null)
+        }
+    }, [open, weekStart])
 
     const selected = selectedId ? planned.find((p) => p.meal._id === selectedId) ?? null : null
 
@@ -1545,6 +1557,22 @@ function WeekCookingDrawer({
         }
         return { total, missing }
     }, [planned])
+
+    // Rounded up to the nearest half-hour, to keep the scheduled block tidy.
+    const taskMinutes = Math.ceil(totalPrep.total / 30) * 30
+
+    async function addCookingTask() {
+        if (!taskDate || taskMinutes <= 0) return
+        setAddingTask(true)
+        setAddedTo(null)
+        try {
+            const title = `Meal prep — ${formatWeekRange(weekStart, addDays(weekStart, 6))}`
+            await createTask(taskDate, title, taskMinutes)
+            setAddedTo(taskDate)
+        } finally {
+            setAddingTask(false)
+        }
+    }
 
     return (
         <Drawer
@@ -1567,24 +1595,60 @@ function WeekCookingDrawer({
             ) : (
                 <div className="flex flex-col gap-3">
                     {totalPrep.total > 0 && (
-                        <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-                            <div className="flex items-center gap-2.5">
-                                <i className="fa-regular fa-clock text-neutral-400" aria-hidden="true" />
-                                <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                        Est. total cooking time
-                                    </p>
-                                    <p className="text-xs text-neutral-400">
-                                        All meals, at this week&rsquo;s servings
-                                        {totalPrep.missing > 0
-                                            ? ` · ${totalPrep.missing} without a prep time not counted`
-                                            : ''}
-                                    </p>
+                        <div className="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5">
+                                    <i className="fa-regular fa-clock text-neutral-400" aria-hidden="true" />
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                            Est. total cooking time
+                                        </p>
+                                        <p className="text-xs text-neutral-400">
+                                            All meals, at this week&rsquo;s servings
+                                            {totalPrep.missing > 0
+                                                ? ` · ${totalPrep.missing} without a prep time not counted`
+                                                : ''}
+                                        </p>
+                                    </div>
                                 </div>
+                                <span className="text-lg font-semibold tabular-nums text-neutral-800">
+                                    ~{formatDuration(totalPrep.total)}
+                                </span>
                             </div>
-                            <span className="text-lg font-semibold tabular-nums text-neutral-800">
-                                ~{formatDuration(totalPrep.total)}
-                            </span>
+
+                            <div className="flex flex-col gap-2 border-t border-neutral-200 pt-3">
+                                <div className="flex flex-wrap items-end gap-2">
+                                    <div className="min-w-[12rem] flex-1">
+                                        <DatePicker
+                                            mode="single"
+                                            value={taskDate}
+                                            onChange={(v) => {
+                                                setTaskDate(typeof v === 'string' ? v : '')
+                                                setAddedTo(null)
+                                            }}
+                                            placeholder="Pick a day"
+                                        />
+                                    </div>
+                                    <Button
+                                        icon="fa-solid fa-list-check"
+                                        onClick={addCookingTask}
+                                        disabled={addingTask || !taskDate}
+                                    >
+                                        {addingTask ? 'Adding…' : `Add to day (${formatDuration(taskMinutes)})`}
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-neutral-400">
+                                    {addedTo ? (
+                                        <span className="font-medium text-emerald-600">
+                                            <i className="fa-solid fa-check mr-1" aria-hidden="true" />
+                                            Added a {formatDuration(taskMinutes)} task to{' '}
+                                            {formatDateLong(addedTo)}.
+                                        </span>
+                                    ) : (
+                                        `Creates a task with the total cooking time, rounded up to the nearest 30 min.`
+                                    )}
+                                </p>
+                            </div>
                         </div>
                     )}
                     <p className="text-xs text-neutral-400">
@@ -1861,6 +1925,7 @@ function WeeklyPlanner({
                 open={showCooking}
                 onClose={() => setShowCooking(false)}
                 entries={entries}
+                weekStart={weekStart}
             />
 
             <ConfirmModal

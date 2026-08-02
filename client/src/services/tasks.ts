@@ -6,8 +6,8 @@ export async function listTasks(from: string, to: string): Promise<Task[]> {
     return res.data.data
 }
 
-export async function createTask(date: string, title: string): Promise<Task> {
-    const res = await api.post<ApiResponse<Task>>('/tasks', { date, title })
+export async function createTask(date: string, title: string, duration?: number): Promise<Task> {
+    const res = await api.post<ApiResponse<Task>>('/tasks', { date, title, duration })
     return res.data.data
 }
 
