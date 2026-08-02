@@ -19,6 +19,7 @@ export type SyncTopic =
     | 'dayStatus'
     | 'reminders'
     | 'notes'
+    | 'checklists'
 
 interface DataSyncValue {
     versions: Record<string, number>

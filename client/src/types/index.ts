@@ -605,6 +605,57 @@ export interface Note {
     updatedAt: string
 }
 
+export const CHECKLIST_COLORS = [
+    'neutral',
+    'emerald',
+    'sky',
+    'violet',
+    'amber',
+    'rose',
+    'teal',
+] as const
+export type ChecklistColor = (typeof CHECKLIST_COLORS)[number]
+
+/** Tailwind classes per accent. Keys are bare classes — no dynamic construction. */
+export const CHECKLIST_COLOR_CLASSES: Record<
+    ChecklistColor,
+    { dot: string; text: string; soft: string; ring: string; bar: string }
+> = {
+    neutral: { dot: 'bg-neutral-400', text: 'text-neutral-600', soft: 'bg-neutral-100', ring: 'ring-neutral-300', bar: 'bg-neutral-400' },
+    emerald: { dot: 'bg-emerald-500', text: 'text-emerald-700', soft: 'bg-emerald-50', ring: 'ring-emerald-400', bar: 'bg-emerald-500' },
+    sky: { dot: 'bg-sky-500', text: 'text-sky-700', soft: 'bg-sky-50', ring: 'ring-sky-400', bar: 'bg-sky-500' },
+    violet: { dot: 'bg-violet-500', text: 'text-violet-700', soft: 'bg-violet-50', ring: 'ring-violet-400', bar: 'bg-violet-500' },
+    amber: { dot: 'bg-amber-500', text: 'text-amber-700', soft: 'bg-amber-50', ring: 'ring-amber-400', bar: 'bg-amber-500' },
+    rose: { dot: 'bg-rose-500', text: 'text-rose-700', soft: 'bg-rose-50', ring: 'ring-rose-400', bar: 'bg-rose-500' },
+    teal: { dot: 'bg-teal-500', text: 'text-teal-700', soft: 'bg-teal-50', ring: 'ring-teal-400', bar: 'bg-teal-500' },
+}
+
+export interface ChecklistItem {
+    _id: string
+    text: string
+    done: boolean
+    order: number
+}
+
+export interface ChecklistGroup {
+    _id: string
+    /** Empty string renders as an ungrouped section. */
+    name: string
+    items: ChecklistItem[]
+    order: number
+}
+
+export interface Checklist {
+    _id: string
+    title: string
+    description?: string
+    color: ChecklistColor
+    groups: ChecklistGroup[]
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
 export interface Birthday {
     _id: string
     name: string

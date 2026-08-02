@@ -12,6 +12,7 @@ import Drawer from '../components/Drawer'
 import DatePicker from '../components/DatePicker'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
+import Switch from '../components/Switch'
 import Tabs from '../components/Tabs'
 import LineIcon from '../components/LineIcon'
 import {
@@ -1694,6 +1695,220 @@ function WeekCookingDrawer({
     )
 }
 
+// ─── Random week generator ──────────────────────────────────────────────────────
+
+/** Fisher–Yates shuffle, returning a new array. */
+function shuffle<T>(arr: T[]): T[] {
+    const a = [...arr]
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[a[i], a[j]] = [a[j], a[i]]
+    }
+    return a
+}
+
+interface RandomiseOptions {
+    /** Which slots to fill, in canonical meal order. */
+    slots: MealType[]
+    /** Cap on how many meals to fill per day. */
+    maxPerDay: number
+    /** Overwrite meals already in a slot rather than skipping filled slots. */
+    replace: boolean
+}
+
+/**
+ * "Randomise week": pick random meals from the library to fill the visible week.
+ * Options let you choose which meal types to include, cap the meals per day, and
+ * decide whether to overwrite the existing plan or only fill empty slots.
+ */
+function RandomiseWeekModal({
+    open,
+    onClose,
+    meals,
+    onGenerate,
+}: {
+    open: boolean
+    onClose: () => void
+    meals: Meal[]
+    onGenerate: (opts: RandomiseOptions) => Promise<void>
+}) {
+    // Meal types the library can actually fill — a type with no tagged meals is
+    // offered but disabled so it's clear why nothing lands there.
+    const available = useMemo(
+        () => MEAL_TYPES.filter((t) => meals.some((m) => m.types.includes(t))),
+        [meals]
+    )
+
+    const [slots, setSlots] = useState<MealType[]>([])
+    const [maxPerDay, setMaxPerDay] = useState(3)
+    const [replace, setReplace] = useState(false)
+    const [generating, setGenerating] = useState(false)
+
+    // Reset to sensible defaults each time the modal opens: every fillable type,
+    // fill-empty-only, and a cap of three meals a day.
+    useEffect(() => {
+        if (open) {
+            setSlots(available)
+            setMaxPerDay(3)
+            setReplace(false)
+            setGenerating(false)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open])
+
+    // Order the chosen slots canonically and cap them — this is what actually
+    // gets filled, so preview counts and the button match the generator exactly.
+    const orderedSlots = MEAL_TYPES.filter((t) => slots.includes(t)).slice(0, maxPerDay)
+    const perDay = orderedSlots.length
+    const weekTotal = perDay * 7
+
+    function toggleSlot(t: MealType) {
+        setSlots((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
+    }
+
+    async function generate() {
+        if (perDay === 0) return
+        setGenerating(true)
+        try {
+            await onGenerate({ slots, maxPerDay, replace })
+            onClose()
+        } finally {
+            setGenerating(false)
+        }
+    }
+
+    const canGenerate = perDay > 0 && !generating
+
+    return (
+        <Modal
+            open={open}
+            onClose={onClose}
+            title="Randomise week"
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button icon="fa-solid fa-dice" onClick={generate} disabled={!canGenerate}>
+                        {generating ? 'Filling…' : 'Fill week'}
+                    </Button>
+                </>
+            }
+        >
+            {available.length === 0 ? (
+                <p className="py-6 text-center text-sm text-neutral-400">
+                    Your meals need a meal type (Breakfast, Lunch…) before they can be picked at
+                    random. Tag some meals first.
+                </p>
+            ) : (
+                <div className="flex flex-col gap-6">
+                    <p className="text-sm text-neutral-500">
+                        Picks random meals from your library to fill the week on screen. Each meal
+                        type is dealt from a shuffled list, so days vary and repeats only start once
+                        you run out of options.
+                    </p>
+
+                    {/* Meal types */}
+                    <section className="flex flex-col gap-2">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Meals to include
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                            {MEAL_TYPES.map((t) => {
+                                const has = available.includes(t)
+                                const active = slots.includes(t)
+                                return (
+                                    <button
+                                        key={t}
+                                        type="button"
+                                        onClick={() => has && toggleSlot(t)}
+                                        disabled={!has}
+                                        title={has ? undefined : `No meals tagged ${TYPE_META[t].label}`}
+                                        className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                                            !has
+                                                ? 'cursor-not-allowed bg-neutral-50 text-neutral-300'
+                                                : active
+                                                  ? 'bg-neutral-900 text-white'
+                                                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                        }`}
+                                    >
+                                        {TYPE_META[t].label}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </section>
+
+                    {/* Max meals per day */}
+                    <section className="flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-sm font-semibold text-neutral-700">Max meals per day</p>
+                            <p className="text-xs text-neutral-400">
+                                Fills up to this many of the selected types each day.
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setMaxPerDay((n) => Math.max(1, n - 1))}
+                                disabled={maxPerDay <= 1}
+                                aria-label="Fewer meals per day"
+                                className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <i className="fa-solid fa-minus text-sm" aria-hidden="true" />
+                            </button>
+                            <span className="min-w-[2ch] text-center text-base font-semibold tabular-nums text-neutral-800">
+                                {maxPerDay}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setMaxPerDay((n) => Math.min(MEAL_TYPES.length, n + 1))}
+                                disabled={maxPerDay >= MEAL_TYPES.length}
+                                aria-label="More meals per day"
+                                className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <i className="fa-solid fa-plus text-sm" aria-hidden="true" />
+                            </button>
+                        </div>
+                    </section>
+
+                    {/* Replace existing */}
+                    <section className="flex items-center justify-between gap-3 border-t border-neutral-100 pt-4">
+                        <div>
+                            <p className="text-sm font-semibold text-neutral-700">
+                                Replace existing meals
+                            </p>
+                            <p className="text-xs text-neutral-400">
+                                {replace
+                                    ? 'Overwrites whatever is already planned in those slots.'
+                                    : 'Leaves planned meals alone — only fills empty slots.'}
+                            </p>
+                        </div>
+                        <Switch checked={replace} onChange={setReplace} />
+                    </section>
+
+                    <p className="rounded-xl bg-neutral-50 px-4 py-3 text-xs text-neutral-500">
+                        {perDay === 0 ? (
+                            'Pick at least one meal type to fill.'
+                        ) : (
+                            <>
+                                Fills{' '}
+                                <span className="font-semibold text-neutral-700">
+                                    {perDay} {perDay === 1 ? 'meal' : 'meals'}
+                                </span>{' '}
+                                a day — up to{' '}
+                                <span className="font-semibold text-neutral-700">{weekTotal}</span>{' '}
+                                across the week
+                                {replace ? '' : ', skipping slots already planned'}.
+                            </>
+                        )}
+                    </p>
+                </div>
+            )}
+        </Modal>
+    )
+}
+
 function WeeklyPlanner({
     meals,
     mealsLoading,
@@ -1709,6 +1924,7 @@ function WeeklyPlanner({
     const [picker, setPicker] = useState<{ date: string; slot: MealType } | null>(null)
     const [showList, setShowList] = useState(false)
     const [showCooking, setShowCooking] = useState(false)
+    const [showRandom, setShowRandom] = useState(false)
     // The Monday of a week the user has "copied" for pasting onto another week.
     const [copiedWeek, setCopiedWeek] = useState<string | null>(null)
     // The planner opens read-only; Edit reveals the add/remove/copy controls.
@@ -1742,6 +1958,45 @@ function WeeklyPlanner({
     async function handleRemove(id: string) {
         setEntries((prev) => prev.filter((e) => e._id !== id))
         await deletePlanEntry(id)
+    }
+
+    // Fill the visible week with random meals from the library. Each selected
+    // slot is dealt from its own shuffled list of tagged meals, cycling once the
+    // list runs out, so a week varies as much as the library allows.
+    async function generateRandomWeek({ slots, maxPerDay, replace }: RandomiseOptions) {
+        const orderedSlots = MEAL_TYPES.filter((t) => slots.includes(t)).slice(0, maxPerDay)
+        const queues = new Map<MealType, Meal[]>()
+        for (const slot of orderedSlots) {
+            queues.set(
+                slot,
+                shuffle(meals.filter((m) => m.types.includes(slot)))
+            )
+        }
+
+        const cursor = new Map<MealType, number>()
+        const toDelete: string[] = []
+        const toAdd: { date: string; slot: MealType; mealId: string }[] = []
+        for (const date of days) {
+            for (const slot of orderedSlots) {
+                const queue = queues.get(slot)!
+                if (queue.length === 0) continue
+                const existing = entries.filter((e) => e.date === date && e.slot === slot)
+                if (existing.length > 0) {
+                    if (!replace) continue
+                    toDelete.push(...existing.map((e) => e._id))
+                }
+                const i = cursor.get(slot) ?? 0
+                cursor.set(slot, i + 1)
+                toAdd.push({ date, slot, mealId: queue[i % queue.length]._id })
+            }
+        }
+
+        // Clear overwritten slots first, then add — targeting distinct documents,
+        // so a refetch reflects exactly the new plan regardless of ordering.
+        await Promise.all(toDelete.map((id) => deletePlanEntry(id)))
+        await Promise.all(toAdd.map((a) => addPlanEntry(a.date, a.slot, a.mealId)))
+        const rows = await listPlanEntries(weekStart, weekEnd)
+        setEntries(rows)
     }
 
     // A pending destructive copy/paste awaiting confirmation in the shared modal.
@@ -1857,6 +2112,14 @@ function WeeklyPlanner({
                         )}
                         <Button
                             variant="secondary"
+                            icon="fa-solid fa-dice"
+                            onClick={() => setShowRandom(true)}
+                            disabled={meals.length === 0}
+                        >
+                            Randomise
+                        </Button>
+                        <Button
+                            variant="secondary"
                             icon="fa-solid fa-basket-shopping"
                             onClick={() => setShowList(true)}
                         >
@@ -1926,6 +2189,13 @@ function WeeklyPlanner({
                 onClose={() => setShowCooking(false)}
                 entries={entries}
                 weekStart={weekStart}
+            />
+
+            <RandomiseWeekModal
+                open={showRandom}
+                onClose={() => setShowRandom(false)}
+                meals={meals}
+                onGenerate={generateRandomWeek}
             />
 
             <ConfirmModal

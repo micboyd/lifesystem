@@ -10,6 +10,7 @@ import { connectDB } from './config/db'
 import cors from 'cors'
 import birthdayRoutes from './routes/birthdayRoutes'
 import calendarRoutes from './routes/calendarRoutes'
+import checklistRoutes from './routes/checklistRoutes'
 import conditioningRoutes from './routes/conditioningRoutes'
 import conditioningLogRoutes from './routes/conditioningLogRoutes'
 import daysSinceRoutes from './routes/daysSinceRoutes'
@@ -86,6 +87,7 @@ app.use('/api/meal-plan', mealPlanRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)
 app.use('/api/recovery', recoveryRoutes)
 app.use('/api/notes', noteRoutes)
+app.use('/api/checklists', checklistRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
 
 app.get('/api/health', (_req, res) => {
