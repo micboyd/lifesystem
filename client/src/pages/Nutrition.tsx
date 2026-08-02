@@ -24,7 +24,13 @@ import {
     mealsToExportJson,
     type MealInput,
 } from '../services/meals'
-import { listPlanEntries, addPlanEntry, copyPlanEntries, deletePlanEntry } from '../services/mealPlan'
+import {
+    listPlanEntries,
+    addPlanEntry,
+    copyPlanEntries,
+    clearPlanRange,
+    deletePlanEntry,
+} from '../services/mealPlan'
 import { createTask } from '../services/tasks'
 import { estimatePrepTime, formatDuration, DEFAULT_PREP_OVERHEAD } from '../lib/prepTime'
 import { MEAL_TYPES } from '../types'
@@ -1999,8 +2005,61 @@ function WeeklyPlanner({
         setEntries(rows)
     }
 
-    // A pending destructive copy/paste awaiting confirmation in the shared modal.
-    const [confirm, setConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null)
+    // A pending destructive action awaiting confirmation in the shared modal.
+    const [confirm, setConfirm] = useState<{
+        title?: string
+        message: string
+        confirmLabel?: string
+        danger?: boolean
+        onConfirm: () => void
+    } | null>(null)
+
+    // Clear every planned meal from a single day. Optimistic, reverting on failure.
+    async function clearDay(date: string) {
+        const removed = entries.filter((e) => e.date === date)
+        if (removed.length === 0) return
+        setEntries((prev) => prev.filter((e) => e.date !== date))
+        try {
+            await clearPlanRange(date, date)
+        } catch {
+            setEntries((prev) => [...prev, ...removed])
+        }
+    }
+
+    function handleClearDay(date: string) {
+        const count = entries.filter((e) => e.date === date).length
+        if (count === 0) return
+        setConfirm({
+            title: 'Clear this day?',
+            message: `Remove ${count} planned meal${count !== 1 ? 's' : ''} from ${shortDayLabel(date)}? This can’t be undone.`,
+            confirmLabel: 'Clear',
+            danger: true,
+            onConfirm: () => void clearDay(date),
+        })
+    }
+
+    // Clear every planned meal from the visible week. Optimistic, reverting on failure.
+    async function clearWeek() {
+        const removed = entries
+        if (removed.length === 0) return
+        setEntries([])
+        try {
+            await clearPlanRange(weekStart, weekEnd)
+        } catch {
+            setEntries(removed)
+        }
+    }
+
+    function handleClearWeek() {
+        if (entries.length === 0) return
+        setConfirm({
+            title: 'Clear this week?',
+            message: `Remove all ${entries.length} planned meal${entries.length !== 1 ? 's' : ''} from ${formatWeekRange(weekStart, weekEnd)}? This can’t be undone.`,
+            confirmLabel: 'Clear',
+            danger: true,
+            onConfirm: () => void clearWeek(),
+        })
+    }
 
     // Copy a day's meals onto the following day, overwriting whatever's there.
     async function copyDay(date: string) {
@@ -2108,6 +2167,15 @@ function WeeklyPlanner({
                                         Paste week
                                     </Button>
                                 )}
+                                <Button
+                                    variant="ghost"
+                                    icon="fa-solid fa-broom"
+                                    onClick={handleClearWeek}
+                                    disabled={entries.length === 0}
+                                    className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                                >
+                                    Clear week
+                                </Button>
                             </>
                         )}
                         <Button
@@ -2159,6 +2227,7 @@ function WeeklyPlanner({
                             onAdd={(slot) => setPicker({ date, slot })}
                             onRemove={handleRemove}
                             onCopyDay={() => handleCopyDay(date)}
+                            onClearDay={() => handleClearDay(date)}
                             onViewMeal={onViewMeal}
                         />
                     ))}
@@ -2200,9 +2269,10 @@ function WeeklyPlanner({
 
             <ConfirmModal
                 open={!!confirm}
-                title="Replace planned meals?"
+                title={confirm?.title ?? 'Replace planned meals?'}
                 message={confirm?.message}
-                confirmLabel="Replace"
+                confirmLabel={confirm?.confirmLabel ?? 'Replace'}
+                danger={confirm?.danger}
                 onConfirm={() => confirm?.onConfirm()}
                 onClose={() => setConfirm(null)}
             />
@@ -2305,6 +2375,7 @@ function DayColumn({
     onAdd,
     onRemove,
     onCopyDay,
+    onClearDay,
     onViewMeal,
 }: {
     date: string
@@ -2314,6 +2385,7 @@ function DayColumn({
     onAdd: (slot: MealType) => void
     onRemove: (id: string) => void
     onCopyDay: () => void
+    onClearDay: () => void
     onViewMeal: (meal: Meal) => void
 }) {
     const { year, month, day } = parseDateKey(date)
@@ -2342,15 +2414,26 @@ function DayColumn({
                         </span>
                     )}
                     {editable && entries.length > 0 && (
-                        <button
-                            type="button"
-                            aria-label={`Copy ${weekday} to the next day`}
-                            title="Copy to next day"
-                            onClick={onCopyDay}
-                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                        >
-                            <i className="fa-solid fa-copy text-[11px]" aria-hidden="true" />
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                aria-label={`Copy ${weekday} to the next day`}
+                                title="Copy to next day"
+                                onClick={onCopyDay}
+                                className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                            >
+                                <i className="fa-solid fa-copy text-[11px]" aria-hidden="true" />
+                            </button>
+                            <button
+                                type="button"
+                                aria-label={`Clear ${weekday}`}
+                                title="Clear day"
+                                onClick={onClearDay}
+                                className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                            >
+                                <i className="fa-solid fa-broom text-[11px]" aria-hidden="true" />
+                            </button>
+                        </>
                     )}
                 </div>
             </div>

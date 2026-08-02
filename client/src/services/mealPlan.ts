@@ -29,6 +29,14 @@ export async function copyPlanEntries(from: string[], to: string[]): Promise<Mea
     return res.data.data
 }
 
+/**
+ * Delete every planned meal whose date falls in [start, end] (inclusive).
+ * Clears a single day (start === end) or a whole week.
+ */
+export async function clearPlanRange(start: string, end: string): Promise<void> {
+    await api.post('/meal-plan/clear', { start, end })
+}
+
 export async function deletePlanEntry(id: string): Promise<void> {
     await api.delete(`/meal-plan/${id}`)
 }
