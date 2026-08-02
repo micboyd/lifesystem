@@ -1718,6 +1718,11 @@ interface RandomiseOptions {
     slots: MealType[]
     /** Cap on how many meals to fill per day. */
     maxPerDay: number
+    /**
+     * Cap on the number of *distinct* meals used across the whole week — the plan
+     * repeats within this set. `null` means no limit (full variety).
+     */
+    maxVariety: number | null
     /** Overwrite meals already in a slot rather than skipping filled slots. */
     replace: boolean
 }
@@ -1747,15 +1752,20 @@ function RandomiseWeekModal({
 
     const [slots, setSlots] = useState<MealType[]>([])
     const [maxPerDay, setMaxPerDay] = useState(3)
+    // Cap on distinct meals across the week; capped to the library's ceiling below.
+    const [maxVariety, setMaxVariety] = useState(99)
+    const [limitVariety, setLimitVariety] = useState(false)
     const [replace, setReplace] = useState(false)
     const [generating, setGenerating] = useState(false)
 
     // Reset to sensible defaults each time the modal opens: every fillable type,
-    // fill-empty-only, and a cap of three meals a day.
+    // fill-empty-only, full variety, and a cap of three meals a day.
     useEffect(() => {
         if (open) {
             setSlots(available)
             setMaxPerDay(3)
+            setMaxVariety(99)
+            setLimitVariety(false)
             setReplace(false)
             setGenerating(false)
         }
@@ -1768,15 +1778,35 @@ function RandomiseWeekModal({
     const perDay = orderedSlots.length
     const weekTotal = perDay * 7
 
+    // The most distinct meals a variety cap could ever use — the number of
+    // library meals tagged with at least one selected slot. The stepper can't
+    // exceed this, and asking for it (or more) is effectively "no limit".
+    const varietyCeiling = useMemo(
+        () => meals.filter((m) => orderedSlots.some((s) => m.types.includes(s))).length,
+        [meals, orderedSlots]
+    )
+    const allSelected = available.length > 0 && available.every((t) => slots.includes(t))
+    // What actually gets passed to the generator: null unless the user opted to
+    // limit variety and picked a number below the ceiling.
+    const effectiveVariety = Math.min(maxVariety, Math.max(1, varietyCeiling))
+    const varietyLimit =
+        limitVariety && varietyCeiling > 0 && effectiveVariety < varietyCeiling
+            ? effectiveVariety
+            : null
+
     function toggleSlot(t: MealType) {
         setSlots((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
+    }
+
+    function toggleAll() {
+        setSlots(allSelected ? [] : available)
     }
 
     async function generate() {
         if (perDay === 0) return
         setGenerating(true)
         try {
-            await onGenerate({ slots, maxPerDay, replace })
+            await onGenerate({ slots, maxPerDay, maxVariety: varietyLimit, replace })
             onClose()
         } finally {
             setGenerating(false)
@@ -1820,6 +1850,19 @@ function RandomiseWeekModal({
                             Meals to include
                         </label>
                         <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={toggleAll}
+                                aria-pressed={allSelected}
+                                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                                    allSelected
+                                        ? 'bg-neutral-900 text-white'
+                                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                }`}
+                            >
+                                All
+                            </button>
+                            <span className="w-px self-stretch bg-neutral-200" aria-hidden="true" />
                             {MEAL_TYPES.map((t) => {
                                 const has = available.includes(t)
                                 const active = slots.includes(t)
@@ -1878,6 +1921,57 @@ function RandomiseWeekModal({
                         </div>
                     </section>
 
+                    {/* Meal variety — cap the number of distinct meals this week */}
+                    <section className="flex flex-col gap-3 border-t border-neutral-100 pt-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-sm font-semibold text-neutral-700">
+                                    Limit meal variety
+                                </p>
+                                <p className="text-xs text-neutral-400">
+                                    {limitVariety
+                                        ? 'Reuses a small set of meals across the week.'
+                                        : 'Uses as many different meals as your library allows.'}
+                                </p>
+                            </div>
+                            <Switch
+                                checked={limitVariety}
+                                onChange={setLimitVariety}
+                                disabled={varietyCeiling <= 1}
+                            />
+                        </div>
+                        {limitVariety && varietyCeiling > 1 && (
+                            <div className="flex items-center justify-between gap-3">
+                                <p className="text-sm text-neutral-600">Different meals this week</p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setMaxVariety(Math.max(1, effectiveVariety - 1))}
+                                        disabled={effectiveVariety <= 1}
+                                        aria-label="Fewer meal variations"
+                                        className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                    >
+                                        <i className="fa-solid fa-minus text-sm" aria-hidden="true" />
+                                    </button>
+                                    <span className="min-w-[2ch] text-center text-base font-semibold tabular-nums text-neutral-800">
+                                        {effectiveVariety}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setMaxVariety(Math.min(varietyCeiling, effectiveVariety + 1))
+                                        }
+                                        disabled={effectiveVariety >= varietyCeiling}
+                                        aria-label="More meal variations"
+                                        className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                    >
+                                        <i className="fa-solid fa-plus text-sm" aria-hidden="true" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </section>
+
                     {/* Replace existing */}
                     <section className="flex items-center justify-between gap-3 border-t border-neutral-100 pt-4">
                         <div>
@@ -1905,6 +1999,14 @@ function RandomiseWeekModal({
                                 a day — up to{' '}
                                 <span className="font-semibold text-neutral-700">{weekTotal}</span>{' '}
                                 across the week
+                                {varietyLimit != null && (
+                                    <>
+                                        , drawn from just{' '}
+                                        <span className="font-semibold text-neutral-700">
+                                            {varietyLimit} {varietyLimit === 1 ? 'meal' : 'meals'}
+                                        </span>
+                                    </>
+                                )}
                                 {replace ? '' : ', skipping slots already planned'}.
                             </>
                         )}
@@ -1969,14 +2071,40 @@ function WeeklyPlanner({
     // Fill the visible week with random meals from the library. Each selected
     // slot is dealt from its own shuffled list of tagged meals, cycling once the
     // list runs out, so a week varies as much as the library allows.
-    async function generateRandomWeek({ slots, maxPerDay, replace }: RandomiseOptions) {
+    async function generateRandomWeek({ slots, maxPerDay, maxVariety, replace }: RandomiseOptions) {
         const orderedSlots = MEAL_TYPES.filter((t) => slots.includes(t)).slice(0, maxPerDay)
+
+        // The pool of meals each slot may draw from. With no variety cap that's
+        // every tagged meal; with a cap we first choose a small "working set" of
+        // distinct meals — covering each slot type at least once, then adding
+        // variety up to the budget — and restrict every slot to that set.
+        const pools = new Map<MealType, Meal[]>()
+        for (const slot of orderedSlots) pools.set(slot, meals.filter((m) => m.types.includes(slot)))
+
         const queues = new Map<MealType, Meal[]>()
-        for (const slot of orderedSlots) {
-            queues.set(
-                slot,
-                shuffle(meals.filter((m) => m.types.includes(slot)))
+        if (maxVariety == null) {
+            for (const slot of orderedSlots) queues.set(slot, shuffle(pools.get(slot)!))
+        } else {
+            const chosen = new Map<string, Meal>()
+            // 1) Guarantee coverage: at least one chosen meal per slot type.
+            for (const slot of orderedSlots) {
+                const covered = [...chosen.values()].some((m) => m.types.includes(slot))
+                if (covered || chosen.size >= maxVariety) continue
+                const pick = shuffle(pools.get(slot)!).find((m) => !chosen.has(m._id))
+                if (pick) chosen.set(pick._id, pick)
+            }
+            // 2) Spend any remaining budget on extra variety across the slots.
+            const rest = shuffle(
+                meals.filter((m) => !chosen.has(m._id) && orderedSlots.some((s) => m.types.includes(s)))
             )
+            for (const m of rest) {
+                if (chosen.size >= maxVariety) break
+                chosen.set(m._id, m)
+            }
+            const working = [...chosen.values()]
+            for (const slot of orderedSlots) {
+                queues.set(slot, shuffle(working.filter((m) => m.types.includes(slot))))
+            }
         }
 
         const cursor = new Map<MealType, number>()
@@ -2152,6 +2280,14 @@ function WeeklyPlanner({
                             <>
                                 <Button
                                     variant="secondary"
+                                    icon="fa-solid fa-dice"
+                                    onClick={() => setShowRandom(true)}
+                                    disabled={meals.length === 0}
+                                >
+                                    Randomise
+                                </Button>
+                                <Button
+                                    variant="secondary"
                                     icon={weekCopied ? 'fa-solid fa-check' : 'fa-solid fa-copy'}
                                     onClick={() => setCopiedWeek(weekStart)}
                                     disabled={entries.length === 0}
@@ -2178,14 +2314,6 @@ function WeeklyPlanner({
                                 </Button>
                             </>
                         )}
-                        <Button
-                            variant="secondary"
-                            icon="fa-solid fa-dice"
-                            onClick={() => setShowRandom(true)}
-                            disabled={meals.length === 0}
-                        >
-                            Randomise
-                        </Button>
                         <Button
                             variant="secondary"
                             icon="fa-solid fa-basket-shopping"
