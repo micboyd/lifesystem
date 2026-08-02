@@ -1716,8 +1716,6 @@ function shuffle<T>(arr: T[]): T[] {
 interface RandomiseOptions {
     /** Which slots to fill, in canonical meal order. */
     slots: MealType[]
-    /** Cap on how many meals to fill per day. */
-    maxPerDay: number
     /**
      * Cap on the number of *distinct* meals used across the whole week — the plan
      * repeats within this set. `null` means no limit (full variety).
@@ -1751,7 +1749,6 @@ function RandomiseWeekModal({
     )
 
     const [slots, setSlots] = useState<MealType[]>([])
-    const [maxPerDay, setMaxPerDay] = useState(3)
     // Cap on distinct meals across the week; capped to the library's ceiling below.
     const [maxVariety, setMaxVariety] = useState(99)
     const [limitVariety, setLimitVariety] = useState(false)
@@ -1759,11 +1756,10 @@ function RandomiseWeekModal({
     const [generating, setGenerating] = useState(false)
 
     // Reset to sensible defaults each time the modal opens: every fillable type,
-    // fill-empty-only, full variety, and a cap of three meals a day.
+    // fill-empty-only, and full variety.
     useEffect(() => {
         if (open) {
             setSlots(available)
-            setMaxPerDay(3)
             setMaxVariety(99)
             setLimitVariety(false)
             setReplace(false)
@@ -1772,9 +1768,9 @@ function RandomiseWeekModal({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open])
 
-    // Order the chosen slots canonically and cap them — this is what actually
-    // gets filled, so preview counts and the button match the generator exactly.
-    const orderedSlots = MEAL_TYPES.filter((t) => slots.includes(t)).slice(0, maxPerDay)
+    // The chosen slots in canonical order — one meal per selected type each day,
+    // so preview counts and the button match the generator exactly.
+    const orderedSlots = MEAL_TYPES.filter((t) => slots.includes(t))
     const perDay = orderedSlots.length
     const weekTotal = perDay * 7
 
@@ -1806,7 +1802,7 @@ function RandomiseWeekModal({
         if (perDay === 0) return
         setGenerating(true)
         try {
-            await onGenerate({ slots, maxPerDay, maxVariety: varietyLimit, replace })
+            await onGenerate({ slots, maxVariety: varietyLimit, replace })
             onClose()
         } finally {
             setGenerating(false)
@@ -1885,39 +1881,6 @@ function RandomiseWeekModal({
                                     </button>
                                 )
                             })}
-                        </div>
-                    </section>
-
-                    {/* Max meals per day */}
-                    <section className="flex items-center justify-between gap-3">
-                        <div>
-                            <p className="text-sm font-semibold text-neutral-700">Max meals per day</p>
-                            <p className="text-xs text-neutral-400">
-                                Fills up to this many of the selected types each day.
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setMaxPerDay((n) => Math.max(1, n - 1))}
-                                disabled={maxPerDay <= 1}
-                                aria-label="Fewer meals per day"
-                                className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                                <i className="fa-solid fa-minus text-sm" aria-hidden="true" />
-                            </button>
-                            <span className="min-w-[2ch] text-center text-base font-semibold tabular-nums text-neutral-800">
-                                {maxPerDay}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => setMaxPerDay((n) => Math.min(MEAL_TYPES.length, n + 1))}
-                                disabled={maxPerDay >= MEAL_TYPES.length}
-                                aria-label="More meals per day"
-                                className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                                <i className="fa-solid fa-plus text-sm" aria-hidden="true" />
-                            </button>
                         </div>
                     </section>
 
@@ -2071,8 +2034,8 @@ function WeeklyPlanner({
     // Fill the visible week with random meals from the library. Each selected
     // slot is dealt from its own shuffled list of tagged meals, cycling once the
     // list runs out, so a week varies as much as the library allows.
-    async function generateRandomWeek({ slots, maxPerDay, maxVariety, replace }: RandomiseOptions) {
-        const orderedSlots = MEAL_TYPES.filter((t) => slots.includes(t)).slice(0, maxPerDay)
+    async function generateRandomWeek({ slots, maxVariety, replace }: RandomiseOptions) {
+        const orderedSlots = MEAL_TYPES.filter((t) => slots.includes(t))
 
         // The pool of meals each slot may draw from. With no variety cap that's
         // every tagged meal; with a cap we first choose a small "working set" of
