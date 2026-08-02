@@ -65,6 +65,13 @@ export interface Meal {
     servings: number
     /** Optional label for one serving, e.g. "1 bowl". */
     servingLabel?: string
+    /** Estimated prep time for a single serving, in minutes. */
+    prepTime?: number
+    /**
+     * Fraction (0–1) of the single-serving prep that is one-time setup and so
+     * doesn't repeat per serving. Unset means "use the global default".
+     */
+    prepOverhead?: number
     macros: Macros
     ingredients: Ingredient[]
     /** Ordered method steps. */

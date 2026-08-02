@@ -24,6 +24,7 @@ import {
     type MealInput,
 } from '../services/meals'
 import { listPlanEntries, addPlanEntry, copyPlanEntries, deletePlanEntry } from '../services/mealPlan'
+import { estimatePrepTime, formatDuration, DEFAULT_PREP_OVERHEAD } from '../lib/prepTime'
 import { MEAL_TYPES } from '../types'
 import type { Meal, MealType, Ingredient, Macros, MealPlanEntry } from '../types'
 import {
@@ -414,6 +415,9 @@ function MealCard({
                     <p className="mt-0.5 text-xs text-neutral-400">
                         {meal.servings} {meal.servings === 1 ? 'serving' : 'servings'}
                         {meal.servingLabel ? ` · ${meal.servingLabel}` : ''}
+                        {meal.prepTime != null && meal.prepTime > 0
+                            ? ` · ${formatDuration(meal.prepTime)} prep`
+                            : ''}
                     </p>
                 </div>
                 <DropdownMenu
@@ -578,6 +582,28 @@ function MealViewDrawer({
                         </p>
                     </section>
 
+                    {/* Prep time */}
+                    {m.prepTime != null && m.prepTime > 0 && (
+                        <section className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                            <div className="flex items-center gap-2.5">
+                                <i className="fa-regular fa-clock text-neutral-400" aria-hidden="true" />
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                        Est. prep time
+                                    </p>
+                                    <p className="text-xs text-neutral-400">
+                                        {formatDuration(m.prepTime)} for 1 · scales with servings
+                                    </p>
+                                </div>
+                            </div>
+                            <span className="text-lg font-semibold tabular-nums text-neutral-800">
+                                {formatDuration(
+                                    estimatePrepTime(m.prepTime, servings, m.prepOverhead) ?? m.prepTime
+                                )}
+                            </span>
+                        </section>
+                    )}
+
                     {/* Ingredients */}
                     {m.ingredients.length > 0 && (
                         <section>
@@ -725,6 +751,40 @@ interface MethodRow {
 let rowSeq = 0
 const nextKey = () => `row-${rowSeq++}`
 
+/**
+ * A live read-out under the prep-time inputs: the estimated time to cook a few
+ * batch sizes, so the effect of the setup % is obvious while editing.
+ */
+function PrepEstimatePreview({ prepTime, overheadPct }: { prepTime: string; overheadPct: string }) {
+    const t = Number(prepTime)
+    if (!Number.isFinite(t) || t <= 0) {
+        return (
+            <p className="text-xs text-neutral-400">
+                Add a 1-serving time to estimate how long larger batches take. Setup % is the share
+                that&rsquo;s one-time (preheating, chopping setup, cleanup) — higher means batches scale
+                more gently. Leave it blank to use the {Math.round(DEFAULT_PREP_OVERHEAD * 100)}% default.
+            </p>
+        )
+    }
+    const pct = Number(overheadPct)
+    const overhead = overheadPct.trim() === '' || !Number.isFinite(pct) ? undefined : pct / 100
+    const rows = [2, 4, 6].map((n) => ({
+        n,
+        est: estimatePrepTime(t, n, overhead),
+    }))
+    return (
+        <p className="text-xs text-neutral-500">
+            <span className="font-semibold text-neutral-600">Estimated:</span>{' '}
+            {rows.map((r, i) => (
+                <span key={r.n}>
+                    {i > 0 ? ' · ' : ''}
+                    {r.n}× {r.est != null ? formatDuration(r.est) : '—'}
+                </span>
+            ))}
+        </p>
+    )
+}
+
 function MealFormDrawer({
     form,
     onClose,
@@ -747,6 +807,9 @@ function MealFormDrawer({
     const [types, setTypes] = useState<MealType[]>([])
     const [servings, setServings] = useState('1')
     const [servingLabel, setServingLabel] = useState('')
+    const [prepTime, setPrepTime] = useState('')
+    // Per-meal overhead override, entered as a percentage (blank = global default).
+    const [prepOverheadPct, setPrepOverheadPct] = useState('')
     const [calories, setCalories] = useState('')
     const [protein, setProtein] = useState('')
     const [carbs, setCarbs] = useState('')
@@ -763,6 +826,10 @@ function MealFormDrawer({
         setTypes(editing?.types ?? [])
         setServings(editing?.servings != null ? String(editing.servings) : '1')
         setServingLabel(editing?.servingLabel ?? '')
+        setPrepTime(editing?.prepTime != null ? String(editing.prepTime) : '')
+        setPrepOverheadPct(
+            editing?.prepOverhead != null ? String(Math.round(editing.prepOverhead * 100)) : ''
+        )
         setCalories(editing?.macros.calories ? String(editing.macros.calories) : '')
         setProtein(editing?.macros.protein ? String(editing.macros.protein) : '')
         setCarbs(editing?.macros.carbs ? String(editing.macros.carbs) : '')
@@ -793,6 +860,11 @@ function MealFormDrawer({
             types,
             servings: Math.max(1, num(servings) || 1),
             servingLabel: servingLabel.trim() || undefined,
+            prepTime: prepTime.trim() === '' ? undefined : num(prepTime),
+            prepOverhead:
+                prepOverheadPct.trim() === ''
+                    ? undefined
+                    : Math.min(1, Math.max(0, num(prepOverheadPct) / 100)),
             macros: {
                 calories: num(calories),
                 protein: num(protein),
@@ -888,6 +960,32 @@ function MealFormDrawer({
                         value={servingLabel}
                         onChange={(e) => setServingLabel(e.target.value)}
                     />
+                </div>
+
+                {/* Prep time + batch scaling */}
+                <div className="flex flex-col gap-2">
+                    <div className="flex gap-3">
+                        <Input
+                            label="Prep time — 1 serving (min)"
+                            type="number"
+                            min={0}
+                            step="any"
+                            placeholder="e.g. 20"
+                            value={prepTime}
+                            onChange={(e) => setPrepTime(e.target.value)}
+                        />
+                        <Input
+                            label="Setup % (optional)"
+                            type="number"
+                            min={0}
+                            max={100}
+                            step="any"
+                            placeholder={`${Math.round(DEFAULT_PREP_OVERHEAD * 100)}`}
+                            value={prepOverheadPct}
+                            onChange={(e) => setPrepOverheadPct(e.target.value)}
+                        />
+                    </div>
+                    <PrepEstimatePreview prepTime={prepTime} overheadPct={prepOverheadPct} />
                 </div>
 
                 {/* Macros */}
@@ -1316,6 +1414,12 @@ function CookingRecipe({
                 {meal.servings ? (
                     <span className="text-neutral-400"> · recipe makes {meal.servings}</span>
                 ) : null}
+                {(() => {
+                    const est = estimatePrepTime(meal.prepTime, servings, meal.prepOverhead)
+                    return est != null ? (
+                        <span className="text-neutral-400"> · ~{formatDuration(est)} to cook</span>
+                    ) : null
+                })()}
             </div>
 
             {meal.ingredients.length > 0 && (

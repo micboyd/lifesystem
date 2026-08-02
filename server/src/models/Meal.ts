@@ -27,6 +27,15 @@ export interface IMeal extends Document {
     servings: number
     /** Optional label for one serving, e.g. "1 bowl", "2 pancakes". */
     servingLabel?: string
+    /** Estimated prep time for a single serving, in minutes. */
+    prepTime?: number
+    /**
+     * Fraction (0–1) of the single-serving prep that is one-time setup — tools,
+     * preheating, cleanup — and so doesn't repeat per serving. Left unset, the
+     * scaling uses a global default. Drives the batch estimate:
+     * `estimate(n) = prepTime × (k + (1 − k) × n)`.
+     */
+    prepOverhead?: number
     macros: IMacros
     ingredients: IIngredient[]
     /** Ordered method steps. */
@@ -65,6 +74,8 @@ const mealSchema = new Schema<IMeal>(
         types: [{ type: String, enum: MEAL_TYPES }],
         servings: { type: Number, default: 1, min: 1 },
         servingLabel: { type: String, trim: true },
+        prepTime: { type: Number, min: 0 },
+        prepOverhead: { type: Number, min: 0, max: 1 },
         macros: { type: macrosSchema, default: () => ({}) },
         ingredients: { type: [ingredientSchema], default: [] },
         method: { type: [String], default: [] },

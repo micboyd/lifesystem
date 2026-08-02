@@ -18,6 +18,8 @@ const TEMPLATE = JSON.stringify(
             types: ['lunch', 'dinner'],
             servings: 2,
             servingLabel: '1 bowl',
+            prepTime: 25,
+            prepOverhead: 0.4,
             macros: { calories: 550, protein: 45, carbs: 60, fat: 12 },
             ingredients: [
                 { name: 'Chicken breast', quantity: '300', unit: 'g' },
@@ -37,6 +39,7 @@ const TEMPLATE = JSON.stringify(
             name: 'Overnight oats',
             types: ['breakfast', 'snack'],
             servings: 1,
+            prepTime: 5,
             macros: { calories: 380, protein: 20, carbs: 48, fat: 10 },
             ingredients: [
                 { name: 'Rolled oats', quantity: '60', unit: 'g' },
@@ -275,6 +278,13 @@ export default function NutritionImport() {
                             and <span className="font-semibold text-neutral-700">unit</span> are free
                             text — e.g. 1 and tbsp.
                         </p>
+                        <p>
+                            <span className="font-semibold text-neutral-700">prepTime</span> is minutes
+                            to prep <em>one</em> serving; larger batches are estimated from it.{' '}
+                            <span className="font-semibold text-neutral-700">prepOverhead</span> (0–1,
+                            optional) is the share that&rsquo;s one-time setup — leave it out to use the
+                            default.
+                        </p>
                     </div>
                 </Card>
 
@@ -337,8 +347,9 @@ export default function NutritionImport() {
                     <div className="flex flex-col gap-4">
                         <p className="text-sm text-neutral-500">
                             {dupPrompt.duplicates.length}{' '}
-                            {dupPrompt.duplicates.length === 1 ? 'meal has' : 'meals have'} a name that's
-                            already in your library. Tick the ones you want to overwrite — anything left
+                            {dupPrompt.duplicates.length === 1 ? 'meal has' : 'meals have'} a name
+                            that&rsquo;s already in your library. Tick the ones you want to overwrite —
+                            anything left
                             unticked is skipped. New meals import either way.
                         </p>
 

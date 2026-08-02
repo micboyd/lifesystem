@@ -7,6 +7,8 @@ export interface MealInput {
     types?: Meal['types']
     servings?: number
     servingLabel?: string
+    prepTime?: number
+    prepOverhead?: number
     macros?: Meal['macros']
     ingredients?: Meal['ingredients']
     method?: Meal['method']
@@ -102,6 +104,8 @@ const EXPORT_KEYS = [
     'types',
     'servings',
     'servingLabel',
+    'prepTime',
+    'prepOverhead',
     'macros',
     'ingredients',
     'method',

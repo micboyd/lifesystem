@@ -8,6 +8,21 @@ function toAmount(raw: unknown, fallback = 0): number {
     return Number.isFinite(n) && n >= 0 ? n : fallback
 }
 
+/** Coerce a value to non-negative minutes, or undefined if absent/invalid. */
+function toPrepTime(raw: unknown): number | undefined {
+    if (raw === undefined || raw === null || raw === '') return undefined
+    const n = typeof raw === 'number' ? raw : Number(raw)
+    return Number.isFinite(n) && n >= 0 ? n : undefined
+}
+
+/** Coerce a value to a 0–1 fraction, or undefined if absent/invalid. */
+function toOverhead(raw: unknown): number | undefined {
+    if (raw === undefined || raw === null || raw === '') return undefined
+    const n = typeof raw === 'number' ? raw : Number(raw)
+    if (!Number.isFinite(n)) return undefined
+    return Math.min(1, Math.max(0, n))
+}
+
 /** Keep only the recognised meal-type strings, de-duplicated. */
 function toTypes(raw: unknown): MealType[] {
     if (!Array.isArray(raw)) return []
@@ -115,6 +130,8 @@ export async function createMeal(req: AuthRequest, res: Response) {
         types: toTypes(req.body.types),
         servings: Math.max(1, toAmount(req.body.servings, 1)),
         servingLabel: typeof req.body.servingLabel === 'string' ? req.body.servingLabel.trim() || undefined : undefined,
+        prepTime: toPrepTime(req.body.prepTime),
+        prepOverhead: toOverhead(req.body.prepOverhead),
         macros: toMacros(req.body.macros),
         ingredients: toIngredients(req.body.ingredients),
         method: toMethod(req.body.method),
@@ -129,10 +146,22 @@ export async function createMeal(req: AuthRequest, res: Response) {
 export async function updateMeal(req: AuthRequest, res: Response) {
     const b = req.body
     const fields: Record<string, unknown> = {}
+    // Optional fields the caller can clear by sending an empty/absent value.
+    const unset: Record<string, ''> = {}
     if (typeof b.name === 'string' && b.name.trim()) fields.name = b.name.trim()
     if (Array.isArray(b.types)) fields.types = toTypes(b.types)
     if (b.servings !== undefined) fields.servings = Math.max(1, toAmount(b.servings, 1))
     if (typeof b.servingLabel === 'string') fields.servingLabel = b.servingLabel.trim() || undefined
+    if ('prepTime' in b) {
+        const v = toPrepTime(b.prepTime)
+        if (v === undefined) unset.prepTime = ''
+        else fields.prepTime = v
+    }
+    if ('prepOverhead' in b) {
+        const v = toOverhead(b.prepOverhead)
+        if (v === undefined) unset.prepOverhead = ''
+        else fields.prepOverhead = v
+    }
     if (b.macros !== undefined) fields.macros = toMacros(b.macros)
     if (Array.isArray(b.ingredients)) fields.ingredients = toIngredients(b.ingredients)
     if (Array.isArray(b.method)) fields.method = toMethod(b.method)
@@ -140,9 +169,12 @@ export async function updateMeal(req: AuthRequest, res: Response) {
     if (typeof b.link === 'string') fields.link = b.link.trim() || undefined
     if (typeof b.order === 'number') fields.order = b.order
 
+    const update: Record<string, unknown> = { $set: fields }
+    if (Object.keys(unset).length) update.$unset = unset
+
     const meal = await Meal.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },
-        { $set: fields },
+        update,
         { new: true }
     )
     if (!meal) {
@@ -212,6 +244,8 @@ export async function importMeals(req: AuthRequest, res: Response) {
             types: toTypes(item.types),
             servings: Math.max(1, toAmount(item.servings, 1)),
             servingLabel: typeof item.servingLabel === 'string' ? item.servingLabel.trim() || undefined : undefined,
+            prepTime: toPrepTime(item.prepTime),
+            prepOverhead: toOverhead(item.prepOverhead),
             macros: toMacros(item.macros),
             ingredients: toIngredients(item.ingredients),
             method: toMethod(item.method),
