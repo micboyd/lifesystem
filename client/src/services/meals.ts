@@ -31,6 +31,12 @@ export interface MealsPage {
     total: number
 }
 
+/**
+ * Library sort order: `default` is the manual library order, `recent` is
+ * newest-first, `protein` ranks by protein per serving (high to low).
+ */
+export type MealSort = 'default' | 'recent' | 'protein'
+
 /** The whole library in one go — used where every meal is needed (e.g. the planner). */
 export async function listMeals(): Promise<Meal[]> {
     const res = await api.get<MealListResponse>('/meals', { params: { all: 1 } })
@@ -39,15 +45,21 @@ export async function listMeals(): Promise<Meal[]> {
 
 /**
  * A single page of the library (18 per page), optionally filtered by meal type
- * and/or a name search term (case-insensitive substring).
+ * and/or a name search term (case-insensitive substring), and ordered by `sort`.
  */
 export async function listMealsPage(
     page: number,
     type?: MealType,
-    search?: string
+    search?: string,
+    sort: MealSort = 'default'
 ): Promise<MealsPage> {
     const res = await api.get<MealListResponse>('/meals', {
-        params: { page, type, search: search?.trim() || undefined },
+        params: {
+            page,
+            type,
+            search: search?.trim() || undefined,
+            sort: sort === 'default' ? undefined : sort,
+        },
     })
     const { data, page: p, pages, total } = res.data
     return { meals: data, page: p, pages, total }

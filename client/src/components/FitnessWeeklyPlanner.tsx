@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import {
+    Fragment,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type DragEvent,
+    type ReactNode,
+} from 'react'
 import { Card } from './Card'
 import Spinner from './Spinner'
 import Button from './Button'
@@ -18,6 +26,7 @@ import {
     listPlanEntries,
     addPlanEntry,
     updatePlanEntry,
+    reorderPlanSlot,
     deletePlanEntry,
     copyPlanWeek,
     clearPlanRange,
@@ -488,6 +497,25 @@ export default function FitnessWeeklyPlanner() {
         await updatePlanEntry(id, part)
     }
 
+    // Reorder a slot from a week-view drag — and, when the dragged item came from
+    // another slot or day, move it in at the chosen spot. `ids` is the target
+    // slot's new top-to-bottom order. Optimistic: rewrite the listed entries' date,
+    // part + order, reverting to the snapshot if the save fails.
+    async function handleReorder(date: string, part: FitnessPlanPart, ids: string[]) {
+        const position = new Map(ids.map((id, i) => [id, i]))
+        const snapshot = entries
+        setEntries((prev) =>
+            prev.map((e) =>
+                position.has(e._id) ? { ...e, date, part, order: position.get(e._id)! } : e
+            )
+        )
+        try {
+            await reorderPlanSlot(date, part, ids)
+        } catch {
+            setEntries(snapshot)
+        }
+    }
+
     // Save (create or update) a day or week flag, then merge it into state so the
     // planner reflects it without a refetch.
     async function handleSaveFlag(
@@ -660,7 +688,7 @@ export default function FitnessWeeklyPlanner() {
                     onAdd={(date, part) => setPicker({ date, part })}
                     onOpen={setDetail}
                     onRemove={handleRemove}
-                    onMove={handleMove}
+                    onReorder={handleReorder}
                     onEditFlag={(scope, date) => setFlagTarget({ scope, date })}
                     onClearDay={(date) => setClearTarget({ type: 'day', date })}
                     onShowClashes={setClashDate}
@@ -1072,7 +1100,7 @@ function WeekView({
     onAdd,
     onOpen,
     onRemove,
-    onMove,
+    onReorder,
     onEditFlag,
     onClearDay,
     onShowClashes,
@@ -1087,12 +1115,61 @@ function WeekView({
     onAdd: (date: string, part: FitnessPlanPart) => void
     onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
-    onMove: (id: string, part: FitnessPlanPart) => void
+    onReorder: (date: string, part: FitnessPlanPart, ids: string[]) => void
     onEditFlag: (scope: FitnessNoteScope, date: string) => void
     onClearDay: (date: string) => void
     onShowClashes: (date: string) => void
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+
+    // Drag-and-drop state, held here so a row can be dragged across day columns —
+    // not just between the slots of its own day. `dragId` is the item in flight;
+    // `dropAt` is where it would land: a day + slot, the row to drop before
+    // (`refId`, or null to append) and which half of that row the cursor is in.
+    const [dragId, setDragId] = useState<string | null>(null)
+    const [dropAt, setDropAt] = useState<{
+        date: string
+        part: FitnessPlanPart
+        refId: string | null
+        after: boolean
+    } | null>(null)
+
+    // A slot's items (any day) in display (order) sequence.
+    const slotItems = (date: string, part: FitnessPlanPart) =>
+        entries.filter((e) => e.date === date && partOf(e) === part).sort((a, b) => a.order - b.order)
+
+    function resetDrag() {
+        setDragId(null)
+        setDropAt(null)
+    }
+
+    // Land the dragged item at the pending drop spot, then persist the target
+    // slot's new order. Skips a no-op (dropping back where it already sat).
+    function handleDrop() {
+        const dragged = dragId ? entries.find((e) => e._id === dragId) : null
+        const target = dropAt
+        resetDrag()
+        if (!dragged || !target) return
+
+        const display = slotItems(target.date, target.part).map((e) => e._id)
+        const ids = display.filter((id) => id !== dragged._id)
+        let pos = ids.length
+        if (target.refId !== null) {
+            const ri = ids.indexOf(target.refId)
+            if (ri !== -1) pos = target.after ? ri + 1 : ri
+        }
+        ids.splice(pos, 0, dragged._id)
+
+        // Same day, same slot and unchanged order → nothing to do.
+        if (
+            dragged.date === target.date &&
+            partOf(dragged) === target.part &&
+            ids.join() === display.join()
+        )
+            return
+        onReorder(target.date, target.part, ids)
+    }
+
     return (
         <div className="flex flex-col gap-4">
             <WeekFlagBanner
@@ -1114,7 +1191,18 @@ function WeekView({
                         onAdd={(part) => onAdd(date, part)}
                         onOpen={onOpen}
                         onRemove={onRemove}
-                        onMove={onMove}
+                        dragActive={dragId !== null}
+                        draggedId={dragId}
+                        dropForDay={dropAt && dropAt.date === date ? dropAt : null}
+                        onEntryDragStart={setDragId}
+                        onEntryDragEnd={resetDrag}
+                        onTarget={(part, refId, after) => setDropAt({ date, part, refId, after })}
+                        onClearTarget={(part) =>
+                            setDropAt((d) =>
+                                d && d.date === date && d.part === part ? null : d
+                            )
+                        }
+                        onDropEntry={handleDrop}
                         onEditFlag={() => onEditFlag('day', date)}
                         onClear={() => onClearDay(date)}
                         onShowClashes={() => onShowClashes(date)}
@@ -1242,7 +1330,14 @@ function DayColumn({
     onAdd,
     onOpen,
     onRemove,
-    onMove,
+    dragActive,
+    draggedId,
+    dropForDay,
+    onEntryDragStart,
+    onEntryDragEnd,
+    onTarget,
+    onClearTarget,
+    onDropEntry,
     onEditFlag,
     onClear,
     onShowClashes,
@@ -1257,7 +1352,18 @@ function DayColumn({
     onAdd: (part: FitnessPlanPart) => void
     onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
-    onMove: (id: string, part: FitnessPlanPart) => void
+    /** True while any row (this day's or another's) is being dragged. */
+    dragActive: boolean
+    /** The id of the row in flight, so it never targets itself. */
+    draggedId: string | null
+    /** Where the drop would land in this day, or null when it targets elsewhere. */
+    dropForDay: { part: FitnessPlanPart; refId: string | null; after: boolean } | null
+    onEntryDragStart: (id: string) => void
+    onEntryDragEnd: () => void
+    /** Pin the drop before/after `refId` in this day's `part` (null appends). */
+    onTarget: (part: FitnessPlanPart, refId: string | null, after: boolean) => void
+    onClearTarget: (part: FitnessPlanPart) => void
+    onDropEntry: () => void
     onEditFlag: () => void
     onClear: () => void
     onShowClashes: () => void
@@ -1269,16 +1375,9 @@ function DayColumn({
     const rest = total === 0
     const tone = note ? FLAG_TONE[note.color] : null
 
-    // The entry being dragged within this day. Held per-column so a drag that
-    // starts here can only be dropped on another slot of this same day — never
-    // on another day's column, whose own state stays null.
-    const [dragId, setDragId] = useState<string | null>(null)
-
-    function handleDrop(part: FitnessPlanPart) {
-        const dragged = dragId && entries.find((e) => e._id === dragId)
-        if (dragged && partOf(dragged) !== part) onMove(dragged._id, part)
-        setDragId(null)
-    }
+    // A slot's items in display (order) sequence.
+    const slotItems = (part: FitnessPlanPart) =>
+        entries.filter((e) => partOf(e) === part).sort((a, b) => a.order - b.order)
 
     return (
         <Card as="div" flush hover={false} className="flex flex-col gap-3 overflow-hidden p-4">
@@ -1363,14 +1462,18 @@ function DayColumn({
                         key={part}
                         part={part}
                         editable={editable}
-                        entries={entries.filter((e) => partOf(e) === part)}
+                        entries={slotItems(part)}
                         onAdd={() => onAdd(part)}
                         onOpen={onOpen}
                         onRemove={onRemove}
-                        dragActive={dragId !== null}
-                        onEntryDragStart={setDragId}
-                        onEntryDragEnd={() => setDragId(null)}
-                        onDropEntry={() => handleDrop(part)}
+                        dragActive={dragActive}
+                        draggedId={draggedId}
+                        drop={dropForDay && dropForDay.part === part ? dropForDay : null}
+                        onEntryDragStart={onEntryDragStart}
+                        onEntryDragEnd={onEntryDragEnd}
+                        onTarget={(refId, after) => onTarget(part, refId, after)}
+                        onClearTarget={() => onClearTarget(part)}
+                        onDropEntry={onDropEntry}
                     />
                 ))}
             </div>
@@ -1410,8 +1513,12 @@ function SlotSection({
     onOpen,
     onRemove,
     dragActive,
+    draggedId,
+    drop,
     onEntryDragStart,
     onEntryDragEnd,
+    onTarget,
+    onClearTarget,
     onDropEntry,
 }: {
     part: FitnessPlanPart
@@ -1422,41 +1529,60 @@ function SlotSection({
     onRemove: (id: string) => void
     /** True while an item of this day is being dragged, so slots show as drop targets. */
     dragActive: boolean
+    /** The id of the row in flight, if any — it never acts as its own drop target. */
+    draggedId: string | null
+    /** Where the drop would land in this slot, or null when it targets elsewhere. */
+    drop: { refId: string | null; after: boolean } | null
     onEntryDragStart: (id: string) => void
     onEntryDragEnd: () => void
+    /** Pin the drop before/after `refId` (null appends to the slot's end). */
+    onTarget: (refId: string | null, after: boolean) => void
+    onClearTarget: () => void
     onDropEntry: () => void
 }) {
     const meta = PART_META[part]
-    // Highlighted while a dragged item hovers over this slot.
-    const [isOver, setIsOver] = useState(false)
 
     if (!editable && entries.length === 0) return null
 
-    // A slot only acts as a drop target while a row from this day is in flight.
-    const dropProps = dragActive
+    // While a row is in flight the whole slot is a drop target; hovering it but no
+    // particular row appends to the end. Row-level handlers pin a precise spot.
+    const containerDropProps = dragActive
         ? {
               onDragOver: (e: DragEvent) => {
                   e.preventDefault()
                   e.dataTransfer.dropEffect = 'move'
-                  if (!isOver) setIsOver(true)
+                  onTarget(null, false)
               },
               onDragLeave: (e: DragEvent) => {
                   // Ignore bubbling from children; only clear when leaving the slot.
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsOver(false)
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) onClearTarget()
               },
               onDrop: (e: DragEvent) => {
                   e.preventDefault()
-                  setIsOver(false)
                   onDropEntry()
               },
           }
         : {}
 
+    // Hovering a row drops before or after it, by which half the cursor is in.
+    // Over the dragged row itself there's nothing to do, so the target clears.
+    const rowDragOver = (entry: FitnessPlanEntry) => (e: DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        e.dataTransfer.dropEffect = 'move'
+        if (entry._id === draggedId) {
+            onClearTarget()
+            return
+        }
+        const rect = e.currentTarget.getBoundingClientRect()
+        onTarget(entry._id, e.clientY > rect.top + rect.height / 2)
+    }
+
     return (
         <div
-            {...dropProps}
+            {...containerDropProps}
             className={`flex flex-col gap-1.5 rounded-lg transition-colors ${
-                isOver ? 'bg-coral-50 ring-1 ring-inset ring-coral-300' : ''
+                drop ? 'bg-coral-50 ring-1 ring-inset ring-coral-300' : ''
             }`}
         >
             <div className="flex items-center justify-between">
@@ -1478,16 +1604,21 @@ function SlotSection({
             {entries.length > 0 ? (
                 <ul className="flex flex-col gap-1">
                     {entries.map((e) => (
-                        <PlannedRow
-                            key={e._id}
-                            entry={e}
-                            onOpen={() => onOpen(e)}
-                            onRemove={editable ? () => onRemove(e._id) : undefined}
-                            draggable={editable}
-                            onDragStart={() => onEntryDragStart(e._id)}
-                            onDragEnd={onEntryDragEnd}
-                        />
+                        <Fragment key={e._id}>
+                            {drop && drop.refId === e._id && !drop.after && <DropLine />}
+                            <PlannedRow
+                                entry={e}
+                                onOpen={() => onOpen(e)}
+                                onRemove={editable ? () => onRemove(e._id) : undefined}
+                                draggable={editable}
+                                onDragStart={() => onEntryDragStart(e._id)}
+                                onDragEnd={onEntryDragEnd}
+                                onDragOver={dragActive ? rowDragOver(e) : undefined}
+                            />
+                            {drop && drop.refId === e._id && drop.after && <DropLine />}
+                        </Fragment>
                     ))}
+                    {drop && drop.refId === null && <DropLine />}
                 </ul>
             ) : (
                 <button
@@ -1504,6 +1635,11 @@ function SlotSection({
             )}
         </div>
     )
+}
+
+/** The coral marker showing where a dragged row will drop within a slot. */
+function DropLine() {
+    return <li aria-hidden="true" className="h-0.5 rounded-full bg-coral-400" />
 }
 
 /** A small pill naming an item's category, so mixed slots stay legible. */
@@ -1524,6 +1660,7 @@ function PlannedRow({
     draggable = false,
     onDragStart,
     onDragEnd,
+    onDragOver,
 }: {
     entry: FitnessPlanEntry
     onOpen?: () => void
@@ -1532,6 +1669,8 @@ function PlannedRow({
     draggable?: boolean
     onDragStart?: () => void
     onDragEnd?: () => void
+    /** Fires while another row is dragged over this one, to pin the drop spot. */
+    onDragOver?: (e: DragEvent) => void
 }) {
     const name = planItemName(entry)
     const tone = KIND_TONE[entry.kind]
@@ -1599,6 +1738,7 @@ function PlannedRow({
                       }
                     : undefined
             }
+            onDragOver={onDragOver}
             className={`flex items-center gap-1.5 rounded-xl px-2.5 py-2 ${tone.row} ${
                 draggable ? 'cursor-grab active:cursor-grabbing' : ''
             } ${dragging ? 'opacity-40' : ''}`}

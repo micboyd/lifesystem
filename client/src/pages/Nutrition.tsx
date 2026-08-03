@@ -14,6 +14,7 @@ import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import Switch from '../components/Switch'
 import Tabs from '../components/Tabs'
+import Select from '../components/Select'
 import LineIcon from '../components/LineIcon'
 import {
     listMeals,
@@ -23,6 +24,7 @@ import {
     deleteMeal,
     mealsToExportJson,
     type MealInput,
+    type MealSort,
 } from '../services/meals'
 import {
     listPlanEntries,
@@ -86,6 +88,35 @@ const FILTERS = ['All', "This Week's Plan", 'Breakfast', 'Lunch', 'Dinner', 'Sna
 type Filter = (typeof FILTERS)[number]
 
 const WEEK_FILTER: Filter = "This Week's Plan"
+
+/** Sort options for the library grid, in the order they appear in the dropdown. */
+const SORT_OPTIONS: { label: string; value: MealSort }[] = [
+    { label: 'Library order', value: 'default' },
+    { label: 'Recently added', value: 'recent' },
+    { label: 'Highest protein', value: 'protein' },
+]
+
+/**
+ * Sort meals client-side to match the server's ordering — used for the week
+ * filter, which is derived in the browser rather than fetched as a server page.
+ * Returns a new array; ties fall back to the manual library order.
+ */
+function sortMeals(meals: Meal[], sort: MealSort): Meal[] {
+    const byOrder = (a: Meal, b: Meal) => a.order - b.order
+    const copy = [...meals]
+    switch (sort) {
+        case 'recent':
+            return copy.sort(
+                (a, b) => b.createdAt.localeCompare(a.createdAt) || b.order - a.order
+            )
+        case 'protein':
+            return copy.sort(
+                (a, b) => (b.macros.protein ?? 0) - (a.macros.protein ?? 0) || byOrder(a, b)
+            )
+        default:
+            return copy.sort(byOrder)
+    }
+}
 
 function TypeChip({ type }: { type: MealType }) {
     const meta = TYPE_META[type]
@@ -157,6 +188,7 @@ export default function Nutrition() {
     // The library grid is paginated server-side (18 per page), filtered by type
     // and by a name search that queries the server.
     const [filter, setFilter] = useState<Filter>('All')
+    const [sort, setSort] = useState<MealSort>('default')
     const [search, setSearch] = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
     const [page, setPage] = useState(1)
@@ -208,14 +240,14 @@ export default function Nutrition() {
         // page arrives, so paging and filtering never flash. The first paint is
         // covered by `libLoading` starting true.
         const type = filter === 'All' ? undefined : (filter.toLowerCase() as MealType)
-        return listMealsPage(page, type, debouncedSearch)
+        return listMealsPage(page, type, debouncedSearch, sort)
             .then((r) => {
                 setLib({ meals: r.meals, pages: r.pages })
                 // A page can fall past the end after deletes — step back onto a real one.
                 if (page > r.pages) setPage(r.pages)
             })
             .finally(() => setLibLoading(false))
-    }, [page, filter, debouncedSearch])
+    }, [page, filter, debouncedSearch, sort])
     useEffect(() => {
         reloadLibrary()
     }, [reloadLibrary])
@@ -227,15 +259,23 @@ export default function Nutrition() {
         if (f === WEEK_FILTER) reloadWeek()
     }
 
+    function changeSort(s: MealSort) {
+        setSort(s)
+        // A new order can shorten the visible range, so start from the top.
+        setPage(1)
+    }
+
     const isWeekFilter = filter === WEEK_FILTER
     // For the week filter, derive the grid from the full library intersected
-    // with this week's plan, honouring the search box client-side.
+    // with this week's plan, honouring the search box and sort client-side
+    // (the week list isn't a server page, so it can't lean on the API sort).
     const weekMeals = useMemo(() => {
         const q = debouncedSearch.toLowerCase()
-        return allMeals
+        const filtered = allMeals
             .filter((m) => weekMealIds.has(m._id))
             .filter((m) => !q || m.name.toLowerCase().includes(q))
-    }, [allMeals, weekMealIds, debouncedSearch])
+        return sortMeals(filtered, sort)
+    }, [allMeals, weekMealIds, debouncedSearch, sort])
     const displayMeals = isWeekFilter ? weekMeals : lib.meals
 
     async function handleAdd(fields: MealInput) {
@@ -335,14 +375,24 @@ export default function Nutrition() {
                                     onChange={(t) => changeFilter(t as Filter)}
                                     className="self-start"
                                 />
-                                <div className="w-full sm:w-64">
-                                    <Input
-                                        icon="fa-solid fa-magnifying-glass"
-                                        type="search"
-                                        placeholder="Search meals…"
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                    />
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                    <div className="w-full sm:w-44">
+                                        <Select
+                                            icon="fa-solid fa-arrow-down-wide-short"
+                                            options={SORT_OPTIONS}
+                                            value={sort}
+                                            onChange={(v) => changeSort(v as MealSort)}
+                                        />
+                                    </div>
+                                    <div className="w-full sm:w-64">
+                                        <Input
+                                            icon="fa-solid fa-magnifying-glass"
+                                            type="search"
+                                            placeholder="Search meals…"
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

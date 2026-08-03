@@ -42,6 +42,19 @@ export async function updatePlanEntry(
     return res.data.data
 }
 
+/**
+ * Set the order of a day's slot. `ids` lists the slot's entries top-to-bottom;
+ * each is moved into `part` at its index. Covers both reordering within a slot
+ * and a drag that lands an item in a new slot at a chosen position.
+ */
+export async function reorderPlanSlot(
+    date: string,
+    part: FitnessPlanPart,
+    ids: string[]
+): Promise<void> {
+    await api.put('/fitness-plan/reorder', { date, part, ids })
+}
+
 export async function deletePlanEntry(id: string): Promise<void> {
     await api.delete(`/fitness-plan/${id}`)
 }

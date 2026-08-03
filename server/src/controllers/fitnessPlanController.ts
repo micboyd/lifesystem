@@ -186,6 +186,48 @@ export async function updateEntry(req: AuthRequest, res: Response) {
     res.json({ message: 'Updated', data: entry })
 }
 
+/**
+ * PUT /api/fitness-plan/reorder — set the top-to-bottom order of a day's slot.
+ * Body: { date, part, ids } — `ids` lists the target slot's entries in their new
+ * order. Each listed entry is moved onto `date` + `part` and given order = its
+ * index, so this covers reordering within a slot, a move to another slot, and a
+ * drag across to another day. Only the caller's own entries are touched.
+ */
+export async function reorderSlot(req: AuthRequest, res: Response) {
+    const { date, part } = req.body
+    const ids = req.body.ids
+    if (!isDate(date) || !isPart(part)) {
+        res.status(400).json({
+            message: 'date (YYYY-MM-DD) and part (morning|afternoon|evening) are required',
+        })
+        return
+    }
+    if (!Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) {
+        res.status(400).json({ message: 'ids must be an array of entry ids' })
+        return
+    }
+
+    // Restrict to the caller's own entries, so a stray id can't drag an unrelated
+    // entry into the slot. Non-owned ids are silently skipped.
+    const owned = await FitnessPlanEntry.find({
+        user: req.userId,
+        _id: { $in: ids },
+    }).select('_id')
+    const ownedIds = new Set(owned.map((e) => String(e._id)))
+
+    const ops = ids
+        .filter((id) => ownedIds.has(id))
+        .map((id, index) => ({
+            updateOne: {
+                filter: { _id: id, user: req.userId },
+                update: { $set: { date, part, order: index } },
+            },
+        }))
+
+    if (ops.length > 0) await FitnessPlanEntry.bulkWrite(ops)
+    res.json({ message: 'OK', data: { reordered: ops.length } })
+}
+
 /** DELETE /api/fitness-plan/:id — remove a planned item. */
 export async function deleteEntry(req: AuthRequest, res: Response) {
     const entry = await FitnessPlanEntry.findOneAndDelete({ _id: req.params.id, user: req.userId })

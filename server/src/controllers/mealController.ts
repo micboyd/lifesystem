@@ -76,13 +76,31 @@ function escapeRegExp(s: string): string {
 }
 
 /**
+ * Map a `?sort=` value to a Mongo sort spec. `recent` puts the newest meals
+ * first; `protein` ranks by protein per serving (high to low). Anything else
+ * (including absent) falls back to the manual library order. Ties break on the
+ * library order so results stay stable.
+ */
+function toSort(raw: unknown): Record<string, 1 | -1> {
+    switch (raw) {
+        case 'recent':
+            return { createdAt: -1, order: -1 }
+        case 'protein':
+            return { 'macros.protein': -1, order: 1, createdAt: 1 }
+        default:
+            return { order: 1, createdAt: 1 }
+    }
+}
+
+/**
  * GET /api/meals — list the user's meals in library order.
  *
  * Paginated by default (18 per page): `?page=2&type=breakfast`. A `?search=`
- * term filters by meal name (case-insensitive substring). Pass `?all=1` to get
- * the whole library in one go (the weekly planner's picker needs every meal to
- * search across). The response carries `page`, `pages` and `total` alongside
- * `data`.
+ * term filters by meal name (case-insensitive substring). `?sort=recent` orders
+ * newest-first and `?sort=protein` by protein per serving (high to low); the
+ * default is the manual library order. Pass `?all=1` to get the whole library in
+ * one go (the weekly planner's picker needs every meal to search across). The
+ * response carries `page`, `pages` and `total` alongside `data`.
  */
 export async function listMeals(req: AuthRequest, res: Response) {
     const query: Record<string, unknown> = { user: req.userId }
@@ -96,8 +114,10 @@ export async function listMeals(req: AuthRequest, res: Response) {
         query.name = { $regex: escapeRegExp(search), $options: 'i' }
     }
 
+    const sort = toSort(req.query.sort)
+
     if (req.query.all) {
-        const meals = await Meal.find(query).sort({ order: 1, createdAt: 1 })
+        const meals = await Meal.find(query).sort(sort)
         res.json({ message: 'OK', data: meals, page: 1, pages: 1, total: meals.length })
         return
     }
@@ -106,7 +126,7 @@ export async function listMeals(req: AuthRequest, res: Response) {
     const total = await Meal.countDocuments(query)
     const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
     const meals = await Meal.find(query)
-        .sort({ order: 1, createdAt: 1 })
+        .sort(sort)
         .skip((page - 1) * PAGE_SIZE)
         .limit(PAGE_SIZE)
 
