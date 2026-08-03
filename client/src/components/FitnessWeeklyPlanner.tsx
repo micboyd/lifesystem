@@ -266,6 +266,36 @@ function eventsClashingWith(entry: FitnessPlanEntry, events: Event[]): Event[] {
     )
 }
 
+/**
+ * A slot on the entry's own day it could move to, to escape its calendar clash:
+ * one holding fewer than two planned items and with no event covering it (an
+ * all-day event covers every slot). Slots are tried in natural order — morning →
+ * afternoon → evening — skipping the entry's current slot. Returns null when
+ * every other slot is either full (two sessions) or itself blocked by an event,
+ * i.e. the clash has no resolution.
+ */
+function findResolutionSlot(
+    entry: FitnessPlanEntry,
+    dayEntries: FitnessPlanEntry[],
+    events: Event[]
+): FitnessPlanPart | null {
+    const current = partOf(entry)
+    for (const part of FITNESS_PLAN_PARTS) {
+        if (part === current) continue
+        // Slot capacity: at most two planned sessions share a slot.
+        if (dayEntries.filter((e) => partOf(e) === part).length >= 2) continue
+        // A free slot has no non-ignored event covering it (all-day counts).
+        const blocked = events.some(
+            (e) =>
+                !e.ignoreClash &&
+                (eventCoversAllDay(e, entry.date) || eventCoversSlot(e, entry.date, part))
+        )
+        if (blocked) continue
+        return part
+    }
+    return null
+}
+
 /** A short "when" label for an event on `date` — "All day", a clock time, or the slots it spans. */
 function eventWhenLabel(event: Event, date: string): string {
     if (event.allDay || event.startPart === 'na') return 'All day'
@@ -695,6 +725,9 @@ export default function FitnessWeeklyPlanner() {
             <ClashModal
                 date={clashDate}
                 clashes={clashDate ? clashesByDate.get(clashDate) ?? [] : []}
+                dayEntries={clashDate ? entries.filter((e) => e.date === clashDate) : []}
+                events={events}
+                onMove={handleMove}
                 onClose={() => setClashDate(null)}
             />
         </div>
@@ -710,12 +743,46 @@ export default function FitnessWeeklyPlanner() {
 function ClashModal({
     date,
     clashes,
+    dayEntries,
+    events,
+    onMove,
     onClose,
 }: {
     date: string | null
     clashes: Clash[]
+    /** Every planned item on this day — used to gauge each slot's spare capacity. */
+    dayEntries: FitnessPlanEntry[]
+    /** The week's calendar events, to tell which slots an event already blocks. */
+    events: Event[]
+    onMove: (id: string, part: FitnessPlanPart) => void
     onClose: () => void
 }) {
+    // Entries whose Resolve found nowhere free to go, so we show "No resolution".
+    const [unresolved, setUnresolved] = useState<Set<string>>(new Set())
+
+    // Forget any "No resolution" flags when the modal switches to another day.
+    useEffect(() => {
+        setUnresolved(new Set())
+    }, [date])
+
+    // Try to move a clashing item to a free slot of the same day. On success it
+    // lands there and drops out of the clash list; on failure it's flagged as
+    // having no resolution.
+    function handleResolve(entry: FitnessPlanEntry) {
+        const slot = findResolutionSlot(entry, dayEntries, events)
+        if (slot) {
+            onMove(entry._id, slot)
+            setUnresolved((prev) => {
+                if (!prev.has(entry._id)) return prev
+                const next = new Set(prev)
+                next.delete(entry._id)
+                return next
+            })
+        } else {
+            setUnresolved((prev) => new Set(prev).add(entry._id))
+        }
+    }
+
     return (
         <Modal
             open={date !== null}
@@ -728,7 +795,18 @@ function ClashModal({
                 </Button>
             }
         >
-            {date && (
+            {date && clashes.length === 0 && (
+                <div className="flex flex-col items-center gap-2 py-4 text-center">
+                    <i className="fa-solid fa-circle-check text-2xl text-emerald-500" aria-hidden="true" />
+                    <p className="text-sm font-semibold text-neutral-700">Nothing clashing</p>
+                    <p className="text-sm text-neutral-500">
+                        Every session on{' '}
+                        <span className="font-semibold text-neutral-700">{shortDayLabel(date)}</span> sits
+                        in a clear slot.
+                    </p>
+                </div>
+            )}
+            {date && clashes.length > 0 && (
                 <div className="flex flex-col gap-4">
                     <p className="text-sm text-neutral-500">
                         On <span className="font-semibold text-neutral-700">{shortDayLabel(date)}</span>{' '}
@@ -778,6 +856,29 @@ function ClashModal({
                                                 </span>
                                             </div>
                                         ))}
+                                    </div>
+                                    <div className="mt-2 flex items-center justify-end gap-2 border-t border-amber-200/70 pt-2">
+                                        {unresolved.has(clash.entry._id) ? (
+                                            <span className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400">
+                                                <i
+                                                    className="fa-solid fa-ban text-[11px]"
+                                                    aria-hidden="true"
+                                                />
+                                                No resolution
+                                            </span>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleResolve(clash.entry)}
+                                                className="flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-amber-600"
+                                            >
+                                                <i
+                                                    className="fa-solid fa-wand-magic-sparkles text-[11px]"
+                                                    aria-hidden="true"
+                                                />
+                                                Resolve
+                                            </button>
+                                        )}
                                     </div>
                                 </li>
                             )

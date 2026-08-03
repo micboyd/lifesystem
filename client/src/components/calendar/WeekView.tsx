@@ -27,6 +27,12 @@ interface Props {
     /** Events on hidden calendars, keyed by date — drawn as presence dots. */
     hiddenByDate: Map<string, Event[]>
     onRevealCalendar: (calendarId: string) => void
+    /** Copy an event into the paste buffer. */
+    onCopyEvent: (event: Event) => void
+    /** Paste the buffered event into the given slot. */
+    onPasteEvent: (date: string, part: Part) => void
+    /** Whether a copied event is available to paste. */
+    canPaste: boolean
 }
 
 const CELL_H = 'h-20'
@@ -44,6 +50,9 @@ export default function WeekView({
     onPickEvents,
     hiddenByDate,
     onRevealCalendar,
+    onCopyEvent,
+    onPasteEvent,
+    canPaste,
 }: Props) {
     const tk = todayKey()
     const weekStart = getWeekStart(focusDate)
@@ -164,6 +173,9 @@ export default function WeekView({
                                                 onEventClick={onEventClick}
                                                 onAdd={() => onOpenPart(date, period.key)}
                                                 onPick={onPickEvents}
+                                                onCopyEvent={onCopyEvent}
+                                                onPaste={() => onPasteEvent(date, period.key)}
+                                                canPaste={canPaste}
                                             />
                                         </td>
                                     )
@@ -209,6 +221,9 @@ export default function WeekView({
                                             onEventClick={onEventClick}
                                             onAdd={() => onOpenPart(date, 'na')}
                                             onPick={onPickEvents}
+                                            onCopyEvent={onCopyEvent}
+                                            onPaste={() => onPasteEvent(date, 'na')}
+                                            canPaste={canPaste}
                                         />
                                     </td>
                                 )

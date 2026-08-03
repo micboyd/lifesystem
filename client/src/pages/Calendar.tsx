@@ -75,6 +75,13 @@ function getRange(view: CalendarView, focusDate: string): { from: string; to: st
     return { from: `${year}-01-01`, to: `${year}-12-31` }
 }
 
+/** Whole-day distance from start to end (0 for a same-day event). */
+function daySpan(start: string, end: string): number {
+    const a = new Date(start + 'T00:00:00')
+    const b = new Date(end + 'T00:00:00')
+    return Math.round((b.getTime() - a.getTime()) / 86_400_000)
+}
+
 function navigate(view: CalendarView, focusDate: string, delta: number): string {
     if (view === 'Week') return addDays(focusDate, delta * 7)
     if (view === 'Month') return addMonths(focusDate, delta)
@@ -118,6 +125,8 @@ export default function Calendar() {
     const [leaveDate, setLeaveDate] = useState<string | null>(null)
     // Day whose reminders are being edited in the drawer.
     const [reminderDate, setReminderDate] = useState<string | null>(null)
+    // Event copied via a chip's copy icon, ready to paste into an empty slot.
+    const [copiedEvent, setCopiedEvent] = useState<Event | null>(null)
 
     // ── Totals cell selection + in-app copy buffer ──
     const [selection, setSelection] = useState<CellSel | null>(null)
@@ -305,6 +314,47 @@ export default function Calendar() {
         setEditingEvent(event)
         setEditorOpen(true)
         setConflict(false)
+    }
+
+    // Duplicate the copied event into the target slot, preserving its day span
+    // and remaining details. Recurrence is dropped — a paste is a one-off copy.
+    async function pasteEvent(date: string, part: Part) {
+        if (!copiedEvent) return
+        const src = copiedEvent
+        const span = daySpan(src.startDate, src.endDate)
+        const input: EventInput = {
+            calendar: src.calendar,
+            title: src.title,
+            notes: src.notes,
+            location: src.location,
+            eventType: src.eventType,
+            allDay: src.allDay,
+            time: src.time,
+            startDate: date,
+            startPart: part,
+            endDate: addDays(date, span),
+            // Single-slot events collapse onto the target part; multi-part spans
+            // keep their original ending shape.
+            endPart: span === 0 ? part : src.endPart,
+            ignoreClash: src.ignoreClash,
+        }
+        setSaving(true)
+        try {
+            await createEvent(input)
+        } catch (err: unknown) {
+            // The user deliberately pasted here — if it clashes, force it through
+            // rather than dropping the paste silently.
+            if ((err as { response?: { status?: number } })?.response?.status === 409) {
+                try {
+                    await createEvent({ ...input, ignoreClash: true })
+                } catch {
+                    /* give up quietly */
+                }
+            }
+        } finally {
+            setSaving(false)
+            reload()
+        }
     }
 
     // ── Totals cell selection ──
@@ -503,6 +553,9 @@ export default function Calendar() {
         },
         onEventClick: (event: Event) => setDetailEvent(event),
         onPickEvents: (evts: Event[]) => setPickerEvents(evts),
+        onCopyEvent: (event: Event) => setCopiedEvent(event),
+        onPasteEvent: pasteEvent,
+        canPaste: !!copiedEvent,
         onCreateEvent: (date: string) => {
             setEditingEvent(null)
             setEditorOpen(true)
@@ -625,6 +678,9 @@ export default function Calendar() {
                                     onReminderClick={(date) => setReminderDate(date)}
                                     onEventClick={(event) => setDetailEvent(event)}
                                     onPickEvents={(evts) => setPickerEvents(evts)}
+                                    onCopyEvent={(event) => setCopiedEvent(event)}
+                                    onPasteEvent={pasteEvent}
+                                    canPaste={!!copiedEvent}
                                 />
                             ))
                         )}
@@ -840,6 +896,9 @@ interface MonthBlockProps {
     onReminderClick: (date: string) => void
     onEventClick: (event: Event) => void
     onPickEvents: (events: Event[]) => void
+    onCopyEvent: (event: Event) => void
+    onPasteEvent: (date: string, part: Part) => void
+    canPaste: boolean
 }
 
 function MonthBlock({
@@ -869,6 +928,9 @@ function MonthBlock({
     onReminderClick,
     onEventClick,
     onPickEvents,
+    onCopyEvent,
+    onPasteEvent,
+    canPaste,
 }: MonthBlockProps) {
     const tk = todayKey()
     const total = daysInMonth(year, month)
@@ -1032,6 +1094,9 @@ function MonthBlock({
                                                 onEventClick={onEventClick}
                                                 onAdd={() => onOpenPart(key, period.key)}
                                                 onPick={onPickEvents}
+                                                onCopyEvent={onCopyEvent}
+                                                onPaste={() => onPasteEvent(key, period.key)}
+                                                canPaste={canPaste}
                                             />
                                         </td>
                                     )
@@ -1084,6 +1149,9 @@ function MonthBlock({
                                             onEventClick={onEventClick}
                                             onAdd={() => onOpenPart(key, 'na')}
                                             onPick={onPickEvents}
+                                            onCopyEvent={onCopyEvent}
+                                            onPaste={() => onPasteEvent(key, 'na')}
+                                            canPaste={canPaste}
                                         />
                                     </td>
                                 )
