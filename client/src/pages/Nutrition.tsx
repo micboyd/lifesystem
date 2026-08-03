@@ -1767,6 +1767,11 @@ interface RandomiseOptions {
     /** Which slots to fill, in canonical meal order. */
     slots: MealType[]
     /**
+     * Which days of the visible week to fill, as offsets from the Monday start
+     * (0 = Mon … 6 = Sun), ascending. Days not listed are left untouched.
+     */
+    dayOffsets: number[]
+    /**
      * Cap on the number of *distinct* meals used across the whole week — the plan
      * repeats within this set. `null` means no limit (full variety).
      */
@@ -1774,6 +1779,18 @@ interface RandomiseOptions {
     /** Overwrite meals already in a slot rather than skipping filled slots. */
     replace: boolean
 }
+
+// Weekday pills for the randomiser, in Monday-first order to match the planner.
+// The offset is the day's distance from the week's Monday start.
+const RANDOMISE_DAYS: { offset: number; label: string }[] = [
+    { offset: 0, label: 'Mon' },
+    { offset: 1, label: 'Tue' },
+    { offset: 2, label: 'Wed' },
+    { offset: 3, label: 'Thu' },
+    { offset: 4, label: 'Fri' },
+    { offset: 5, label: 'Sat' },
+    { offset: 6, label: 'Sun' },
+]
 
 /**
  * "Randomise week": pick random meals from the library to fill the visible week.
@@ -1799,19 +1816,22 @@ function RandomiseWeekModal({
     )
 
     const [slots, setSlots] = useState<MealType[]>([])
+    // Which days of the week to fill, as Monday offsets (0 = Mon … 6 = Sun).
+    const [dayOffsets, setDayOffsets] = useState<number[]>(RANDOMISE_DAYS.map((d) => d.offset))
     // Cap on distinct meals across the week; capped to the library's ceiling below.
-    const [maxVariety, setMaxVariety] = useState(99)
-    const [limitVariety, setLimitVariety] = useState(false)
+    const [maxVariety, setMaxVariety] = useState(5)
+    const [limitVariety, setLimitVariety] = useState(true)
     const [replace, setReplace] = useState(false)
     const [generating, setGenerating] = useState(false)
 
     // Reset to sensible defaults each time the modal opens: every fillable type,
-    // fill-empty-only, and full variety.
+    // every day, fill-empty-only, and a variety cap of 5 distinct meals.
     useEffect(() => {
         if (open) {
             setSlots(available)
-            setMaxVariety(99)
-            setLimitVariety(false)
+            setDayOffsets(RANDOMISE_DAYS.map((d) => d.offset))
+            setMaxVariety(5)
+            setLimitVariety(true)
             setReplace(false)
             setGenerating(false)
         }
@@ -1822,7 +1842,9 @@ function RandomiseWeekModal({
     // so preview counts and the button match the generator exactly.
     const orderedSlots = MEAL_TYPES.filter((t) => slots.includes(t))
     const perDay = orderedSlots.length
-    const weekTotal = perDay * 7
+    const dayCount = dayOffsets.length
+    const weekTotal = perDay * dayCount
+    const allDaysSelected = dayCount === RANDOMISE_DAYS.length
 
     // The most distinct meals a variety cap could ever use — the number of
     // library meals tagged with at least one selected slot. The stepper can't
@@ -1848,18 +1870,30 @@ function RandomiseWeekModal({
         setSlots(allSelected ? [] : available)
     }
 
+    function toggleDay(offset: number) {
+        setDayOffsets((prev) =>
+            prev.includes(offset)
+                ? prev.filter((x) => x !== offset)
+                : [...prev, offset].sort((a, b) => a - b)
+        )
+    }
+
+    function toggleAllDays() {
+        setDayOffsets(allDaysSelected ? [] : RANDOMISE_DAYS.map((d) => d.offset))
+    }
+
     async function generate() {
-        if (perDay === 0) return
+        if (perDay === 0 || dayCount === 0) return
         setGenerating(true)
         try {
-            await onGenerate({ slots, maxVariety: varietyLimit, replace })
+            await onGenerate({ slots, dayOffsets, maxVariety: varietyLimit, replace })
             onClose()
         } finally {
             setGenerating(false)
         }
     }
 
-    const canGenerate = perDay > 0 && !generating
+    const canGenerate = perDay > 0 && dayCount > 0 && !generating
 
     return (
         <Modal
@@ -1928,6 +1962,46 @@ function RandomiseWeekModal({
                                         }`}
                                     >
                                         {TYPE_META[t].label}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </section>
+
+                    {/* Days to fill */}
+                    <section className="flex flex-col gap-2 border-t border-neutral-100 pt-4">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Days to fill
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={toggleAllDays}
+                                aria-pressed={allDaysSelected}
+                                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                                    allDaysSelected
+                                        ? 'bg-neutral-900 text-white'
+                                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                }`}
+                            >
+                                All
+                            </button>
+                            <span className="w-px self-stretch bg-neutral-200" aria-hidden="true" />
+                            {RANDOMISE_DAYS.map((d) => {
+                                const active = dayOffsets.includes(d.offset)
+                                return (
+                                    <button
+                                        key={d.offset}
+                                        type="button"
+                                        onClick={() => toggleDay(d.offset)}
+                                        aria-pressed={active}
+                                        className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                                            active
+                                                ? 'bg-neutral-900 text-white'
+                                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                        }`}
+                                    >
+                                        {d.label}
                                     </button>
                                 )
                             })}
@@ -2003,6 +2077,8 @@ function RandomiseWeekModal({
                     <p className="rounded-xl bg-neutral-50 px-4 py-3 text-xs text-neutral-500">
                         {perDay === 0 ? (
                             'Pick at least one meal type to fill.'
+                        ) : dayCount === 0 ? (
+                            'Pick at least one day to fill.'
                         ) : (
                             <>
                                 Fills{' '}
@@ -2011,7 +2087,12 @@ function RandomiseWeekModal({
                                 </span>{' '}
                                 a day — up to{' '}
                                 <span className="font-semibold text-neutral-700">{weekTotal}</span>{' '}
-                                across the week
+                                across{' '}
+                                <span className="font-semibold text-neutral-700">
+                                    {allDaysSelected
+                                        ? 'the week'
+                                        : `${dayCount} ${dayCount === 1 ? 'day' : 'days'}`}
+                                </span>
                                 {varietyLimit != null && (
                                     <>
                                         , drawn from just{' '}
@@ -2086,8 +2167,11 @@ function WeeklyPlanner({
     // Fill the visible week with random meals from the library. Each selected
     // slot is dealt from its own shuffled list of tagged meals, cycling once the
     // list runs out, so a week varies as much as the library allows.
-    async function generateRandomWeek({ slots, maxVariety, replace }: RandomiseOptions) {
+    async function generateRandomWeek({ slots, dayOffsets, maxVariety, replace }: RandomiseOptions) {
         const orderedSlots = MEAL_TYPES.filter((t) => slots.includes(t))
+        // Only fill the days the user selected; `days` is Monday-first, so its
+        // index is the offset the modal reports.
+        const targetDays = days.filter((_, i) => dayOffsets.includes(i))
 
         // The pool of meals each slot may draw from. With no variety cap that's
         // every tagged meal; with a cap we first choose a small "working set" of
@@ -2125,7 +2209,7 @@ function WeeklyPlanner({
         const cursor = new Map<MealType, number>()
         const toDelete: string[] = []
         const toAdd: { date: string; slot: MealType; mealId: string }[] = []
-        for (const date of days) {
+        for (const date of targetDays) {
             for (const slot of orderedSlots) {
                 const queue = queues.get(slot)!
                 if (queue.length === 0) continue
