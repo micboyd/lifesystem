@@ -8,6 +8,13 @@ export interface IWeatherLocation {
     longitude: number
 }
 
+export interface IMacroGoals {
+    calories?: number
+    protein?: number
+    carbs?: number
+    fat?: number
+}
+
 export interface IUserSettings {
     wakeTime?: string
     bedTime?: string
@@ -21,6 +28,8 @@ export interface IUserSettings {
     financeStartDate?: string
     /** Saved location the weather forecast is based on. */
     weatherLocation?: IWeatherLocation
+    /** Per-day macro targets, tracked against the weekly meal plan. */
+    macroGoals?: IMacroGoals
 }
 
 export interface IUser extends Document {
@@ -40,6 +49,16 @@ const weatherLocationSchema = new Schema<IWeatherLocation>(
     { _id: false }
 )
 
+const macroGoalsSchema = new Schema<IMacroGoals>(
+    {
+        calories: { type: Number, min: 0 },
+        protein: { type: Number, min: 0 },
+        carbs: { type: Number, min: 0 },
+        fat: { type: Number, min: 0 },
+    },
+    { _id: false }
+)
+
 const settingsSchema = new Schema<IUserSettings>(
     {
         wakeTime: { type: String, match: TIME_PATTERN },
@@ -51,6 +70,7 @@ const settingsSchema = new Schema<IUserSettings>(
         studyRowId: { type: String },
         financeStartDate: { type: String },
         weatherLocation: { type: weatherLocationSchema, default: undefined },
+        macroGoals: { type: macroGoalsSchema, default: undefined },
     },
     { _id: false }
 )

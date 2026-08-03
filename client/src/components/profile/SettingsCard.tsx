@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardBody } from '../Card'
 import TimePicker from '../TimePicker'
 import Switch from '../Switch'
 import DatePicker from '../DatePicker'
+import Input from '../Input'
 import Button from '../Button'
 import Alert from '../Alert'
 import type { UserSettings } from '../../types'
@@ -26,6 +27,11 @@ export default function SettingsCard() {
     const [showTotals, setShowTotals] = useState<boolean>(s.showTotals ?? false)
     const [financeStartDate, setFinanceStartDate] = useState<string>(s.financeStartDate ?? '')
     const [workDays, setWorkDays] = useState<number[]>(s.workDays ?? [1, 2, 3, 4, 5])
+    const g = s.macroGoals ?? {}
+    const [goalCalories, setGoalCalories] = useState<string>(g.calories ? String(g.calories) : '')
+    const [goalProtein, setGoalProtein] = useState<string>(g.protein ? String(g.protein) : '')
+    const [goalCarbs, setGoalCarbs] = useState<string>(g.carbs ? String(g.carbs) : '')
+    const [goalFat, setGoalFat] = useState<string>(g.fat ? String(g.fat) : '')
     const [saving, setSaving] = useState(false)
     const [msg, setMsg] = useState<{ type: 'success' | 'danger'; text: string } | null>(null)
 
@@ -33,6 +39,10 @@ export default function SettingsCard() {
         setMsg(null)
         setSaving(true)
         try {
+            const goal = (v: string): number | undefined => {
+                const n = Number(v)
+                return Number.isFinite(n) && n > 0 ? n : undefined
+            }
             const payload: UserSettings = {
                 wakeTime: wakeTime ?? '',
                 bedTime: bedTime ?? '',
@@ -41,6 +51,12 @@ export default function SettingsCard() {
                 showTotals,
                 workDays,
                 financeStartDate: financeStartDate || undefined,
+                macroGoals: {
+                    calories: goal(goalCalories),
+                    protein: goal(goalProtein),
+                    carbs: goal(goalCarbs),
+                    fat: goal(goalFat),
+                },
             }
             const updated = await updateSettings(payload)
             updateUser(updated)
@@ -152,6 +168,57 @@ export default function SettingsCard() {
                             onChange={(v) => setFinanceStartDate(typeof v === 'string' ? v : '')}
                             placeholder="No start date set"
                         />
+                    </div>
+
+                    {/* Nutrition — daily macro goals */}
+                    <div className="border-t border-neutral-100 pt-6">
+                        <p className="text-sm font-semibold text-neutral-700">Daily macro goals</p>
+                        <p className="mt-0.5 mb-3 text-xs text-neutral-400">
+                            Per-day targets, tracked against your weekly meal plan. Leave a field
+                            blank for no goal.
+                        </p>
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                            <Field label="Calories">
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    placeholder="kcal"
+                                    value={goalCalories}
+                                    onChange={(e) => setGoalCalories(e.target.value)}
+                                />
+                            </Field>
+                            <Field label="Protein (g)">
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    placeholder="g"
+                                    value={goalProtein}
+                                    onChange={(e) => setGoalProtein(e.target.value)}
+                                />
+                            </Field>
+                            <Field label="Carbs (g)">
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    placeholder="g"
+                                    value={goalCarbs}
+                                    onChange={(e) => setGoalCarbs(e.target.value)}
+                                />
+                            </Field>
+                            <Field label="Fat (g)">
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    placeholder="g"
+                                    value={goalFat}
+                                    onChange={(e) => setGoalFat(e.target.value)}
+                                />
+                            </Field>
+                        </div>
                     </div>
 
                     {/* Calendar */}

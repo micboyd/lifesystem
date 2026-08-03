@@ -33,8 +33,9 @@ import {
 } from '../services/mealPlan'
 import { createTask } from '../services/tasks'
 import { estimatePrepTime, formatDuration, DEFAULT_PREP_OVERHEAD } from '../lib/prepTime'
+import { useAuth } from '../context/AuthContext'
 import { MEAL_TYPES } from '../types'
-import type { Meal, MealType, Ingredient, Macros, MealPlanEntry } from '../types'
+import type { Meal, MealType, Ingredient, Macros, MacroGoals, MealPlanEntry } from '../types'
 import {
     todayKey,
     addDays,
@@ -143,6 +144,9 @@ const SUBTITLE: Record<TopTab, string> = {
 }
 
 export default function Nutrition() {
+    const { user } = useAuth()
+    const goals = useMemo(() => normGoals(user?.settings?.macroGoals), [user?.settings?.macroGoals])
+
     const [tab, setTab] = useState<TopTab>('Weekly Planner')
     const [drawer, setDrawer] = useState<Drawered>(null)
 
@@ -282,6 +286,7 @@ export default function Nutrition() {
                     <WeeklyPlanner
                         meals={allMeals}
                         mealsLoading={allLoading}
+                        goals={goals}
                         onViewMeal={(meal) => setDrawer({ mode: 'view', meal, fromPlanner: true })}
                     />
                 </Container>
@@ -480,11 +485,22 @@ function MacroRow({ macros }: { macros: Meal['macros'] }) {
     )
 }
 
-function MacroPill({ label, value }: { label: string; value: number }) {
+function MacroPill({ label, value, goal }: { label: string; value: number; goal?: number }) {
+    // With a goal, the pill reads "value/goal" and turns emerald once the target is met.
+    const met = goal != null && value >= goal
     return (
-        <span className="inline-flex items-center gap-1 rounded-md bg-neutral-50 px-1.5 py-0.5">
-            <span className="font-semibold text-neutral-400">{label}</span>
-            <span className="font-semibold text-neutral-700">{fmt(value)}g</span>
+        <span
+            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 ${
+                met ? 'bg-emerald-50' : 'bg-neutral-50'
+            }`}
+        >
+            <span className={`font-semibold ${met ? 'text-emerald-500' : 'text-neutral-400'}`}>
+                {label}
+            </span>
+            <span className={`font-semibold ${met ? 'text-emerald-700' : 'text-neutral-700'}`}>
+                {fmt(value)}
+                {goal != null ? `/${fmt(goal)}` : ''}g
+            </span>
         </span>
     )
 }
@@ -1198,6 +1214,33 @@ function MethodEditor({
 // ─── Weekly planner ─────────────────────────────────────────────────────────────
 
 const ZERO_MACROS: Macros = { calories: 0, protein: 0, carbs: 0, fat: 0 }
+
+/**
+ * Reduce raw macro goals to only the fields with a positive target, returning
+ * null when none are set — so callers can treat "no goals" as a single check.
+ */
+function normGoals(goals?: MacroGoals): MacroGoals | null {
+    if (!goals) return null
+    const g: MacroGoals = {}
+    if (goals.calories && goals.calories > 0) g.calories = goals.calories
+    if (goals.protein && goals.protein > 0) g.protein = goals.protein
+    if (goals.carbs && goals.carbs > 0) g.carbs = goals.carbs
+    if (goals.fat && goals.fat > 0) g.fat = goals.fat
+    return Object.keys(g).length ? g : null
+}
+
+/** A thin progress bar of `value` toward `goal` — accent up to the target, amber once past it. */
+function GoalBar({ value, goal }: { value: number; goal: number }) {
+    const pct = goal > 0 ? (value / goal) * 100 : 0
+    return (
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+            <div
+                className={`h-full rounded-full ${pct > 100 ? 'bg-amber-400' : 'bg-coral-500'}`}
+                style={{ width: `${Math.min(100, pct)}%` }}
+            />
+        </div>
+    )
+}
 
 /** Tally the per-serving macros of every planned meal (one serving each). */
 function sumMacros(entries: MealPlanEntry[]): Macros {
@@ -1990,10 +2033,12 @@ function RandomiseWeekModal({
 function WeeklyPlanner({
     meals,
     mealsLoading,
+    goals,
     onViewMeal,
 }: {
     meals: Meal[]
     mealsLoading: boolean
+    goals: MacroGoals | null
     onViewMeal: (meal: Meal) => void
 }) {
     const [weekStart, setWeekStart] = useState(() => mondayOf(todayKey()))
@@ -2299,7 +2344,7 @@ function WeeklyPlanner({
                             Cooking instructions
                         </Button>
                     </div>
-                    <WeekTotals macros={weekMacros} />
+                    <WeekTotals macros={weekMacros} goals={goals} />
                 </div>
             </div>
 
@@ -2321,6 +2366,7 @@ function WeeklyPlanner({
                             date={date}
                             isToday={date === today}
                             editable={editing}
+                            goals={goals}
                             entries={entries.filter((e) => e.date === date)}
                             onAdd={(slot) => setPicker({ date, slot })}
                             onRemove={handleRemove}
@@ -2434,7 +2480,10 @@ function Pagination({
 }
 
 /** Week-total headline: total kcal + P/C/F, plus the daily average. */
-function WeekTotals({ macros }: { macros: Macros }) {
+function WeekTotals({ macros, goals }: { macros: Macros; goals: MacroGoals | null }) {
+    // Goals are per-day; the week's target is seven of them.
+    const weekCals = goals?.calories ? goals.calories * 7 : undefined
+    const times7 = (v?: number) => (v ? v * 7 : undefined)
     return (
         <div className="flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-4 py-2.5">
             <div>
@@ -2443,14 +2492,16 @@ function WeekTotals({ macros }: { macros: Macros }) {
                 </p>
                 <p className="text-lg font-bold tabular-nums text-neutral-900">
                     {fmt(macros.calories)}
-                    <span className="ml-0.5 text-xs font-medium text-neutral-400">kcal</span>
+                    <span className="ml-0.5 text-xs font-medium text-neutral-400">
+                        {weekCals ? `/ ${fmt(weekCals)} kcal` : 'kcal'}
+                    </span>
                 </p>
             </div>
             <div className="h-8 w-px bg-neutral-200" />
             <div className="flex gap-1.5 text-xs tabular-nums text-neutral-500">
-                <MacroPill label="P" value={macros.protein} />
-                <MacroPill label="C" value={macros.carbs} />
-                <MacroPill label="F" value={macros.fat} />
+                <MacroPill label="P" value={macros.protein} goal={times7(goals?.protein)} />
+                <MacroPill label="C" value={macros.carbs} goal={times7(goals?.carbs)} />
+                <MacroPill label="F" value={macros.fat} goal={times7(goals?.fat)} />
             </div>
             <div className="hidden h-8 w-px bg-neutral-200 sm:block" />
             <div className="hidden sm:block">
@@ -2458,7 +2509,8 @@ function WeekTotals({ macros }: { macros: Macros }) {
                     Daily avg
                 </p>
                 <p className="text-sm font-semibold tabular-nums text-neutral-700">
-                    {fmt(macros.calories / 7)} kcal
+                    {fmt(macros.calories / 7)}
+                    {goals?.calories ? ` / ${fmt(goals.calories)}` : ''} kcal
                 </p>
             </div>
         </div>
@@ -2469,6 +2521,7 @@ function DayColumn({
     date,
     isToday,
     editable,
+    goals,
     entries,
     onAdd,
     onRemove,
@@ -2479,6 +2532,7 @@ function DayColumn({
     date: string
     isToday: boolean
     editable: boolean
+    goals: MacroGoals | null
     entries: MealPlanEntry[]
     onAdd: (slot: MealType) => void
     onRemove: (id: string) => void
@@ -2555,12 +2609,15 @@ function DayColumn({
                     <span className="text-base font-bold tabular-nums text-neutral-900">
                         {fmt(macros.calories)}
                     </span>
-                    <span className="text-[10px] text-neutral-400">kcal</span>
+                    <span className="text-[10px] text-neutral-400">
+                        {goals?.calories ? `/ ${fmt(goals.calories)} kcal` : 'kcal'}
+                    </span>
                 </div>
+                {goals?.calories ? <GoalBar value={macros.calories} goal={goals.calories} /> : null}
                 <div className="flex flex-wrap gap-1 text-[11px] tabular-nums text-neutral-500">
-                    <MacroPill label="P" value={macros.protein} />
-                    <MacroPill label="C" value={macros.carbs} />
-                    <MacroPill label="F" value={macros.fat} />
+                    <MacroPill label="P" value={macros.protein} goal={goals?.protein} />
+                    <MacroPill label="C" value={macros.carbs} goal={goals?.carbs} />
+                    <MacroPill label="F" value={macros.fat} goal={goals?.fat} />
                 </div>
             </div>
         </Card>

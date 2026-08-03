@@ -140,6 +140,21 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         }
     }
 
+    // Daily macro goals: an object of non-negative numbers, or null/'' to clear.
+    // Only fields with a positive value are stored — 0/blank means "no goal".
+    const goals = req.body.macroGoals
+    if (goals === null || goals === '') {
+        unset['settings.macroGoals'] = 1
+    } else if (goals && typeof goals === 'object') {
+        const cleaned: Record<string, number> = {}
+        for (const key of ['calories', 'protein', 'carbs', 'fat'] as const) {
+            const v = goals[key]
+            if (typeof v === 'number' && Number.isFinite(v) && v > 0) cleaned[key] = v
+        }
+        if (Object.keys(cleaned).length) set['settings.macroGoals'] = cleaned
+        else unset['settings.macroGoals'] = 1
+    }
+
     const user = await User.findByIdAndUpdate(
         req.userId,
         {

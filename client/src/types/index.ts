@@ -5,6 +5,15 @@ export interface WeatherLocation {
     longitude: number
 }
 
+/** Daily macronutrient targets used by the nutrition planner. Any field may be
+ *  unset (or 0), meaning "no goal for this macro". */
+export interface MacroGoals {
+    calories?: number
+    protein?: number
+    carbs?: number
+    fat?: number
+}
+
 export interface UserSettings {
     wakeTime?: string
     bedTime?: string
@@ -18,6 +27,8 @@ export interface UserSettings {
     financeStartDate?: string
     /** Saved location the weather forecast is based on. */
     weatherLocation?: WeatherLocation
+    /** Per-day macro targets, tracked against the weekly meal plan. */
+    macroGoals?: MacroGoals
 }
 
 export type CourseKind = 'course' | 'block'
