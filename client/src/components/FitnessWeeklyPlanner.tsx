@@ -21,6 +21,9 @@ import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
 import { listMobility } from '../services/mobility'
 import { listExercises } from '../services/exercises'
+import { createLog as createWorkoutLog } from '../services/workoutLogs'
+import { createLog as createConditioningLog } from '../services/conditioningLogs'
+import { useToast } from '../context/ToastContext'
 import { listEvents } from '../services/events'
 import {
     listPlanEntries,
@@ -2172,8 +2175,40 @@ function PlannedDetailDrawer({
         if (entry) setView(entry)
     }, [entry])
 
+    const toast = useToast()
+    const [logging, setLogging] = useState(false)
+
     const e = view
     const title = e ? planItemName(e) ?? KIND_META[e.kind].label : 'Details'
+
+    // Strength and conditioning items can be logged straight from the planner —
+    // "Mark as done" snapshots the library item into a completed record dated to
+    // the planned day, mirroring the Done buttons in the Strength/Conditioning logs.
+    const canMarkDone =
+        !!e && ((e.kind === 'workout' && !!e.workout) || (e.kind === 'conditioning' && !!e.session))
+
+    async function markDone() {
+        if (!e) return
+        setLogging(true)
+        try {
+            if (e.kind === 'workout' && e.workout) {
+                await createWorkoutLog({ workout: e.workout._id, date: e.date })
+                toast.show(`Logged “${e.workout.name}”.`, 'success')
+            } else if (e.kind === 'conditioning' && e.session) {
+                await createConditioningLog({
+                    session: e.session._id,
+                    date: e.date,
+                    duration: e.session.duration,
+                })
+                toast.show(`Logged “${e.session.name}”.`, 'success')
+            }
+            onClose()
+        } catch {
+            toast.show('Could not log that — please try again.', 'danger')
+        } finally {
+            setLogging(false)
+        }
+    }
 
     return (
         <Drawer
@@ -2183,9 +2218,20 @@ function PlannedDetailDrawer({
             title={title}
             badge={e ? shortDayLabel(e.date) : undefined}
             footer={
-                <Button variant="ghost" onClick={onClose}>
-                    Done
-                </Button>
+                <>
+                    <Button variant="ghost" onClick={onClose}>
+                        Close
+                    </Button>
+                    {canMarkDone && (
+                        <Button
+                            icon="fa-solid fa-check"
+                            onClick={markDone}
+                            disabled={logging}
+                        >
+                            {logging ? 'Logging…' : 'Mark as done'}
+                        </Button>
+                    )}
+                </>
             }
         >
             {e &&
