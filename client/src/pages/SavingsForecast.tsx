@@ -2201,13 +2201,11 @@ export default function SavingsForecast() {
                 />
             ) : (
                 <div className="flex flex-col gap-8">
-                    <div className="overflow-x-auto">
-                        <Tabs
-                            tabs={['Projection', 'Savings to date', 'Target planner']}
-                            value={view}
-                            onChange={(t) => setView(t as typeof view)}
-                        />
-                    </div>
+                    <Tabs
+                        tabs={['Projection', 'Savings to date', 'Target planner']}
+                        value={view}
+                        onChange={(t) => setView(t as typeof view)}
+                    />
 
                     {view === 'Savings to date' ? (
                         <LiveSavingsSection groups={groups} rows={rows} />

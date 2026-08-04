@@ -20,7 +20,7 @@ export default function Tabs({ tabs, value, defaultTab, onChange, className = ''
 
     return (
         <div
-            className={`inline-flex gap-1 rounded-full bg-neutral-200/80 p-1 ring-1 ring-black/[0.04] ${className}`}
+            className={`inline-flex max-w-full gap-1 overflow-x-auto scrollbar-none rounded-full bg-neutral-200/80 p-1 ring-1 ring-black/[0.04] ${className}`}
         >
             {tabs.map((tab) => {
                 const selected = tab === active

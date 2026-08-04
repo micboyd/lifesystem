@@ -34,13 +34,12 @@ export default function FinanceLayout() {
         return (
             <main className="min-h-screen">
                 <Container className="pt-10">
-                    <div className="mb-8 overflow-x-auto">
-                        <Tabs
-                            tabs={[...TABS]}
-                            value={active}
-                            onChange={(tab) => navigate(PATHS[tab as FinanceTab])}
-                        />
-                    </div>
+                    <Tabs
+                        tabs={[...TABS]}
+                        value={active}
+                        onChange={(tab) => navigate(PATHS[tab as FinanceTab])}
+                        className="mb-8"
+                    />
                 </Container>
                 <Container fluid className="pb-10">
                     <Outlet />
@@ -51,13 +50,12 @@ export default function FinanceLayout() {
 
     return (
         <Container as="main" className="py-10">
-            <div className="mb-8 overflow-x-auto">
-                <Tabs
-                    tabs={[...TABS]}
-                    value={active}
-                    onChange={(tab) => navigate(PATHS[tab as FinanceTab])}
-                />
-            </div>
+            <Tabs
+                tabs={[...TABS]}
+                value={active}
+                onChange={(tab) => navigate(PATHS[tab as FinanceTab])}
+                className="mb-8"
+            />
             <Outlet />
         </Container>
     )

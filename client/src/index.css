@@ -50,3 +50,12 @@ button {
         font-size: 16px !important;
     }
 }
+
+/* Scroll container that stays swipeable but hides its scrollbar — used by
+   horizontal strips (e.g. tabs) that overflow on narrow screens. */
+.scrollbar-none {
+    scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
