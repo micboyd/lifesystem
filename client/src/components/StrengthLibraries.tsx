@@ -45,7 +45,7 @@ const EXERCISE_TEMPLATE = JSON.stringify(
     2
 )
 
-const SUB_TABS = ['Exercises', 'Workouts Library', 'Workouts'] as const
+const SUB_TABS = ['Workouts', 'Exercises', 'Workouts Library'] as const
 type SubTab = (typeof SUB_TABS)[number]
 
 const PAGE_SIZE = 9
@@ -56,7 +56,7 @@ const PAGE_SIZE = 9
  * resolve exercise names without a second round-trip.
  */
 export default function StrengthLibraries() {
-    const [sub, setSub] = useState<SubTab>('Exercises')
+    const [sub, setSub] = useState<SubTab>('Workouts')
     const [loading, setLoading] = useState(true)
     const [exercises, setExercises] = useState<Exercise[]>([])
     const [workouts, setWorkouts] = useState<Workout[]>([])
