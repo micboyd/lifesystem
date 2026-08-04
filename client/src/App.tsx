@@ -35,7 +35,7 @@ import NotFound from './pages/NotFound'
 function AppLayout() {
     // Persist the desktop rail's collapsed state across reloads.
     const [collapsed, setCollapsed] = useState(
-        () => localStorage.getItem('sidebarCollapsed') === '1'
+        () => localStorage.getItem('sidebarCollapsed') !== '0'
     )
     useEffect(() => {
         localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0')
