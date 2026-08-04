@@ -16,6 +16,7 @@ import Modal from '../components/Modal'
 import Spinner from '../components/Spinner'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import TimeboxEditor from '../components/timebox/TimeboxEditor'
+import TimeboxImport from '../components/timebox/TimeboxImport'
 import {
     listTimeboxes,
     createTimebox,
@@ -56,6 +57,11 @@ export default function Timebox() {
     const [saving, setSaving] = useState(false)
     const [conflict, setConflict] = useState(false)
     const [deleteScope, setDeleteScope] = useState<'prompt' | null>(null)
+
+    // Bulk JSON import
+    const [importOpen, setImportOpen] = useState(false)
+    const [importing, setImporting] = useState(false)
+    const [importResult, setImportResult] = useState<{ added: number; skipped: number } | null>(null)
 
     // Tasks that can be dragged onto the timeline
     const [tasks, setTasks] = useState<Task[]>([])
@@ -310,6 +316,27 @@ export default function Timebox() {
         }
     }
 
+    async function handleImport(blocks: TimeboxInput[]) {
+        setImporting(true)
+        let added = 0
+        let skipped = 0
+        // Create sequentially so the server can reject overlaps (incl. against
+        // blocks added earlier in this same batch).
+        for (const block of blocks) {
+            try {
+                await createTimebox(date, block)
+                added++
+            } catch {
+                // 409 overlap or validation reject — skip and keep going
+                skipped++
+            }
+        }
+        await reload()
+        setImporting(false)
+        setImportOpen(false)
+        setImportResult({ added, skipped })
+    }
+
     function handleDelete() {
         if (!editing) return
         const isRecurring = editing.recurrence != null || editing.isRecurringInstance
@@ -383,13 +410,42 @@ export default function Timebox() {
                         </Badge>
                     )}
                 </div>
-                <Button
-                    icon="fa-solid fa-plus"
-                    onClick={() => openNew(workStart ? timeToMinutes(workStart) : wakeMin + 120)}
-                >
-                    Add block
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="secondary"
+                        icon="fa-solid fa-file-import"
+                        onClick={() => {
+                            setImportResult(null)
+                            setImportOpen(true)
+                        }}
+                    >
+                        Import
+                    </Button>
+                    <Button
+                        icon="fa-solid fa-plus"
+                        onClick={() => openNew(workStart ? timeToMinutes(workStart) : wakeMin + 120)}
+                    >
+                        Add block
+                    </Button>
+                </div>
             </div>
+
+            {importResult && (
+                <div className="mb-5 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                    <i className="fa-solid fa-circle-check" aria-hidden="true" />
+                    Added {importResult.added} {importResult.added === 1 ? 'block' : 'blocks'}
+                    {importResult.skipped > 0 &&
+                        ` · skipped ${importResult.skipped} (overlaps or invalid)`}
+                    <button
+                        type="button"
+                        onClick={() => setImportResult(null)}
+                        aria-label="Dismiss"
+                        className="ml-auto text-emerald-400 hover:text-emerald-600"
+                    >
+                        <i className="fa-solid fa-xmark" aria-hidden="true" />
+                    </button>
+                </div>
+            )}
 
             {loading ? (
                 <div className="grid place-items-center py-20">
@@ -620,6 +676,14 @@ export default function Timebox() {
                 }}
                 onSave={handleSave}
                 onDelete={handleDelete}
+            />
+
+            <TimeboxImport
+                open={importOpen}
+                dateLabel={formatDateLong(date)}
+                importing={importing}
+                onClose={() => setImportOpen(false)}
+                onImport={handleImport}
             />
 
             {deleteScope === 'prompt' && editing && (

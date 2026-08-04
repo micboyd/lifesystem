@@ -1543,17 +1543,36 @@ function SlotSection({
     onDropEntry: () => void
 }) {
     const meta = PART_META[part]
+    const listRef = useRef<HTMLUListElement>(null)
 
     if (!editable && entries.length === 0) return null
 
-    // While a row is in flight the whole slot is a drop target; hovering it but no
-    // particular row appends to the end. Row-level handlers pin a precise spot.
+    // The whole slot is one continuous drop target: rather than hit-testing
+    // individual rows (which leaves dead gaps between them), we pick the insertion
+    // point from the cursor's Y against each row's midpoint. That makes every
+    // "between items" zone span from one row's middle to the next — a large,
+    // forgiving target with no seams. Skips the row in flight so its own space
+    // merges into its neighbours' zones instead of showing a self-drop.
+    const targetForY = (clientY: number): { refId: string | null; after: boolean } => {
+        const rows = listRef.current?.querySelectorAll<HTMLElement>('[data-plan-row]')
+        if (rows) {
+            for (const row of Array.from(rows)) {
+                const id = row.getAttribute('data-plan-row')
+                if (id === draggedId) continue
+                const rect = row.getBoundingClientRect()
+                if (clientY < rect.top + rect.height / 2) return { refId: id, after: false }
+            }
+        }
+        return { refId: null, after: false }
+    }
+
     const containerDropProps = dragActive
         ? {
               onDragOver: (e: DragEvent) => {
                   e.preventDefault()
                   e.dataTransfer.dropEffect = 'move'
-                  onTarget(null, false)
+                  const t = targetForY(e.clientY)
+                  onTarget(t.refId, t.after)
               },
               onDragLeave: (e: DragEvent) => {
                   // Ignore bubbling from children; only clear when leaving the slot.
@@ -1565,20 +1584,6 @@ function SlotSection({
               },
           }
         : {}
-
-    // Hovering a row drops before or after it, by which half the cursor is in.
-    // Over the dragged row itself there's nothing to do, so the target clears.
-    const rowDragOver = (entry: FitnessPlanEntry) => (e: DragEvent) => {
-        e.preventDefault()
-        e.stopPropagation()
-        e.dataTransfer.dropEffect = 'move'
-        if (entry._id === draggedId) {
-            onClearTarget()
-            return
-        }
-        const rect = e.currentTarget.getBoundingClientRect()
-        onTarget(entry._id, e.clientY > rect.top + rect.height / 2)
-    }
 
     return (
         <div
@@ -1604,17 +1609,17 @@ function SlotSection({
                 )}
             </div>
             {entries.length > 0 ? (
-                <ul className="flex flex-col gap-1">
+                <ul ref={listRef} className="flex flex-col gap-2">
                     {entries.map((e) => (
                         <PlannedRow
                             key={e._id}
                             entry={e}
+                            dropId={e._id}
                             onOpen={() => onOpen(e)}
                             onRemove={editable ? () => onRemove(e._id) : undefined}
                             draggable={editable}
                             onDragStart={() => onEntryDragStart(e._id)}
                             onDragEnd={onEntryDragEnd}
-                            onDragOver={dragActive ? rowDragOver(e) : undefined}
                             dropEdge={
                                 drop && drop.refId === e._id
                                     ? drop.after
@@ -1666,7 +1671,7 @@ function PlannedRow({
     draggable = false,
     onDragStart,
     onDragEnd,
-    onDragOver,
+    dropId,
     dropEdge = null,
 }: {
     entry: FitnessPlanEntry
@@ -1676,8 +1681,8 @@ function PlannedRow({
     draggable?: boolean
     onDragStart?: () => void
     onDragEnd?: () => void
-    /** Fires while another row is dragged over this one, to pin the drop spot. */
-    onDragOver?: (e: DragEvent) => void
+    /** Marks the row for the slot's geometry-based drop targeting (`data-plan-row`). */
+    dropId?: string
     /**
      * Which edge to mark as the pending drop spot, or null for none. Drawn as an
      * overlay so it never shifts the row's box — otherwise the row would slide out
@@ -1751,7 +1756,7 @@ function PlannedRow({
                       }
                     : undefined
             }
-            onDragOver={onDragOver}
+            data-plan-row={dropId}
             className={`relative flex items-center gap-1.5 rounded-xl px-2.5 py-2 ${tone.row} ${
                 draggable ? 'cursor-grab active:cursor-grabbing' : ''
             } ${dragging ? 'opacity-40' : ''}`}
@@ -1760,7 +1765,7 @@ function PlannedRow({
                 <span
                     aria-hidden="true"
                     className={`pointer-events-none absolute inset-x-0 h-0.5 rounded-full bg-coral-400 ${
-                        dropEdge === 'top' ? '-top-[3px]' : '-bottom-[3px]'
+                        dropEdge === 'top' ? '-top-[5px]' : '-bottom-[5px]'
                     }`}
                 />
             )}
