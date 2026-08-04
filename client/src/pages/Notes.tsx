@@ -183,7 +183,7 @@ function NoteModal({
             const updated = await unlockNote(note._id, password)
             setLocked(false)
             onLockChanged(updated)
-            toast.success('Lock removed.')
+            toast.show('Lock removed.', 'success')
         } catch {
             toast.error('Couldn’t remove the lock.')
         } finally {
@@ -683,7 +683,7 @@ export default function Notes() {
                         setEditingPassword(null)
                         setEditing(updated)
                         setPwFlow(null)
-                        toast.success('Lock removed.')
+                        toast.show('Lock removed.', 'success')
                     }}
                     onClose={() => setPwFlow(null)}
                 />
@@ -698,7 +698,7 @@ export default function Notes() {
                         const locked = await lockNote(pwFlow.note._id, pw)
                         patchNote(locked)
                         setPwFlow(null)
-                        toast.success('Note locked.')
+                        toast.show('Note locked.', 'success')
                     }}
                     onClose={() => setPwFlow(null)}
                 />
