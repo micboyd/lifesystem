@@ -1,5 +1,4 @@
 import {
-    Fragment,
     useEffect,
     useMemo,
     useRef,
@@ -1607,19 +1606,23 @@ function SlotSection({
             {entries.length > 0 ? (
                 <ul className="flex flex-col gap-1">
                     {entries.map((e) => (
-                        <Fragment key={e._id}>
-                            {drop && drop.refId === e._id && !drop.after && <DropLine />}
-                            <PlannedRow
-                                entry={e}
-                                onOpen={() => onOpen(e)}
-                                onRemove={editable ? () => onRemove(e._id) : undefined}
-                                draggable={editable}
-                                onDragStart={() => onEntryDragStart(e._id)}
-                                onDragEnd={onEntryDragEnd}
-                                onDragOver={dragActive ? rowDragOver(e) : undefined}
-                            />
-                            {drop && drop.refId === e._id && drop.after && <DropLine />}
-                        </Fragment>
+                        <PlannedRow
+                            key={e._id}
+                            entry={e}
+                            onOpen={() => onOpen(e)}
+                            onRemove={editable ? () => onRemove(e._id) : undefined}
+                            draggable={editable}
+                            onDragStart={() => onEntryDragStart(e._id)}
+                            onDragEnd={onEntryDragEnd}
+                            onDragOver={dragActive ? rowDragOver(e) : undefined}
+                            dropEdge={
+                                drop && drop.refId === e._id
+                                    ? drop.after
+                                        ? 'bottom'
+                                        : 'top'
+                                    : null
+                            }
+                        />
                     ))}
                     {drop && drop.refId === null && <DropLine />}
                 </ul>
@@ -1664,6 +1667,7 @@ function PlannedRow({
     onDragStart,
     onDragEnd,
     onDragOver,
+    dropEdge = null,
 }: {
     entry: FitnessPlanEntry
     onOpen?: () => void
@@ -1674,6 +1678,12 @@ function PlannedRow({
     onDragEnd?: () => void
     /** Fires while another row is dragged over this one, to pin the drop spot. */
     onDragOver?: (e: DragEvent) => void
+    /**
+     * Which edge to mark as the pending drop spot, or null for none. Drawn as an
+     * overlay so it never shifts the row's box — otherwise the row would slide out
+     * from under the cursor mid-drag and the target would flicker.
+     */
+    dropEdge?: 'top' | 'bottom' | null
 }) {
     const name = planItemName(entry)
     const tone = KIND_TONE[entry.kind]
@@ -1742,10 +1752,18 @@ function PlannedRow({
                     : undefined
             }
             onDragOver={onDragOver}
-            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-2 ${tone.row} ${
+            className={`relative flex items-center gap-1.5 rounded-xl px-2.5 py-2 ${tone.row} ${
                 draggable ? 'cursor-grab active:cursor-grabbing' : ''
             } ${dragging ? 'opacity-40' : ''}`}
         >
+            {dropEdge && (
+                <span
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute inset-x-0 h-0.5 rounded-full bg-coral-400 ${
+                        dropEdge === 'top' ? '-top-[3px]' : '-bottom-[3px]'
+                    }`}
+                />
+            )}
             {draggable && (
                 <i
                     className="fa-solid fa-grip-vertical shrink-0 text-[11px] text-neutral-300"
