@@ -6,6 +6,8 @@ export interface NoteInput {
     body?: string
     /** Category id, or null/'' for uncategorised. */
     category?: string | null
+    /** Required when saving edits to a locked note — its password. */
+    password?: string
 }
 
 export interface NoteCategoryInput {
@@ -54,6 +56,32 @@ export async function updateNote(id: string, input: Partial<NoteInput>): Promise
     return res.data.data
 }
 
-export async function deleteNote(id: string): Promise<void> {
-    await api.delete(`/notes/${id}`)
+export async function deleteNote(id: string, password?: string): Promise<void> {
+    await api.delete(`/notes/${id}`, password ? { data: { password } } : undefined)
+}
+
+// ── Locking ───────────────────────────────────────────────────────────────────
+
+/** Set a password on an unlocked note; its body is hidden from lists afterwards. */
+export async function lockNote(id: string, password: string): Promise<Note> {
+    const res = await api.post<ApiResponse<Note>>(`/notes/${id}/lock`, { password })
+    return res.data.data
+}
+
+/** Verify the password and get the full note back (body included) without unlocking. */
+export async function revealNote(id: string, password: string): Promise<Note> {
+    const res = await api.post<ApiResponse<Note>>(`/notes/${id}/reveal`, { password })
+    return res.data.data
+}
+
+/** Verify the password and permanently remove the note's protection. */
+export async function unlockNote(id: string, password: string): Promise<Note> {
+    const res = await api.post<ApiResponse<Note>>(`/notes/${id}/unlock`, { password })
+    return res.data.data
+}
+
+/** Recovery: clear a forgotten lock by confirming the account login password. */
+export async function resetNoteLock(id: string, accountPassword: string): Promise<Note> {
+    const res = await api.post<ApiResponse<Note>>(`/notes/${id}/reset-lock`, { accountPassword })
+    return res.data.data
 }

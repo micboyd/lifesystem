@@ -631,9 +631,12 @@ export interface NoteCategory {
 export interface Note {
     _id: string
     title: string
+    /** Empty for a locked note in list responses until revealed with its password. */
     body: string
     /** Owning category id, or null for an uncategorised note. */
     category: string | null
+    /** When true, the body is hidden until the note's password is entered. */
+    locked: boolean
     createdAt: string
     updatedAt: string
 }

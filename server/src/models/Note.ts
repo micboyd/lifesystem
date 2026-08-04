@@ -6,6 +6,10 @@ export interface INote extends Document {
     body: string
     /** Owning category, or null for an uncategorised note. */
     category: Types.ObjectId | null
+    /** When true, the body is hidden in list responses until the password is verified. */
+    locked: boolean
+    /** bcrypt hash of this note's password. Never serialized to clients. */
+    passwordHash: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -21,6 +25,8 @@ const noteSchema = new Schema<INote>(
             default: null,
             index: true,
         },
+        locked: { type: Boolean, default: false },
+        passwordHash: { type: String, default: null },
     },
     { timestamps: true }
 )

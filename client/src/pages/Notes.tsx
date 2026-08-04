@@ -15,11 +15,16 @@ import {
     createNote,
     updateNote,
     deleteNote,
+    lockNote,
+    revealNote,
+    unlockNote,
+    resetNoteLock,
     listNoteCategories,
     createNoteCategory,
     updateNoteCategory,
     deleteNoteCategory,
 } from '../services/notes'
+import PasswordModal from '../components/notes/PasswordModal'
 import {
     NOTE_CATEGORY_COLORS,
     NOTE_CATEGORY_COLOR_CLASSES,
@@ -81,35 +86,63 @@ interface NoteModalProps {
     categories: NoteCategory[]
     /** Category id to pre-select when creating from a filtered view. */
     defaultCategory: string | null
+    /** Password captured when a locked note was revealed; reused for save/delete. */
+    initialPassword?: string
     onClose: () => void
     onSaved: (n: Note) => void
     onDeleted: (id: string) => void
+    /** Ask the page to run the "set a password" flow for this already-saved note. */
+    onRequestLock: (noteId: string) => void
+    /** Lock removed from inside the editor — update the list without closing. */
+    onLockChanged: (n: Note) => void
 }
 
-function NoteModal({ note, categories, defaultCategory, onClose, onSaved, onDeleted }: NoteModalProps) {
+function NoteModal({
+    note,
+    categories,
+    defaultCategory,
+    initialPassword,
+    onClose,
+    onSaved,
+    onDeleted,
+    onRequestLock,
+    onLockChanged,
+}: NoteModalProps) {
     const toast = useToast()
     const [title, setTitle] = useState(note?.title ?? '')
     const [body, setBody] = useState(note?.body ?? '')
     const [category, setCategory] = useState<string>(note ? (note.category ?? '') : (defaultCategory ?? ''))
+    const [locked, setLocked] = useState(note?.locked ?? false)
     const [saving, setSaving] = useState(false)
     const [deleting, setDeleting] = useState(false)
+    const [unlocking, setUnlocking] = useState(false)
+    // Held only in memory for this editing session, to authorise save/delete/unlock.
+    const password = initialPassword ?? ''
 
     const categoryOptions = [
         { label: 'Uncategorised', value: '' },
         ...categories.map((c) => ({ label: c.name, value: c._id })),
     ]
 
+    /** Save the current fields, sending the password when the note is locked. */
+    async function persist(): Promise<Note> {
+        const input = {
+            title: title.trim(),
+            body,
+            category: category || null,
+            ...(locked ? { password } : {}),
+        }
+        return note ? updateNote(note._id, input) : createNote(input)
+    }
+
     async function handleSubmit(e?: FormEvent) {
         e?.preventDefault()
         if (!title.trim()) return
         setSaving(true)
         try {
-            const input = { title: title.trim(), body, category: category || null }
-            const saved = note ? await updateNote(note._id, input) : await createNote(input)
-            onSaved(saved)
+            onSaved(await persist())
         } catch {
             toast.error('Couldn’t save that note.')
-        } finally {
             setSaving(false)
         }
     }
@@ -119,11 +152,42 @@ function NoteModal({ note, categories, defaultCategory, onClose, onSaved, onDele
         if (!confirm('Delete this note?')) return
         setDeleting(true)
         try {
-            await deleteNote(note._id)
+            await deleteNote(note._id, locked ? password : undefined)
             onDeleted(note._id)
         } catch {
             toast.error('Couldn’t delete that note.')
             setDeleting(false)
+        }
+    }
+
+    /** Save first (so no edits are lost), then hand off to the page's lock flow. */
+    async function handleLock() {
+        if (!note || !title.trim()) {
+            toast.error('Give the note a title first.')
+            return
+        }
+        setSaving(true)
+        try {
+            await persist()
+            onRequestLock(note._id)
+        } catch {
+            toast.error('Couldn’t save that note.')
+            setSaving(false)
+        }
+    }
+
+    async function handleRemoveLock() {
+        if (!note) return
+        setUnlocking(true)
+        try {
+            const updated = await unlockNote(note._id, password)
+            setLocked(false)
+            onLockChanged(updated)
+            toast.success('Lock removed.')
+        } catch {
+            toast.error('Couldn’t remove the lock.')
+        } finally {
+            setUnlocking(false)
         }
     }
 
@@ -134,13 +198,33 @@ function NoteModal({ note, categories, defaultCategory, onClose, onSaved, onDele
             title={note ? 'Edit note' : 'New note'}
             footer={
                 <div className="flex w-full items-center justify-between gap-3">
-                    {note ? (
-                        <Button variant="ghost" onClick={handleDelete} disabled={deleting}>
-                            {deleting ? 'Deleting…' : 'Delete'}
-                        </Button>
-                    ) : (
-                        <span />
-                    )}
+                    <div className="flex items-center gap-1">
+                        {note && (
+                            <Button variant="ghost" onClick={handleDelete} disabled={deleting}>
+                                {deleting ? 'Deleting…' : 'Delete'}
+                            </Button>
+                        )}
+                        {note &&
+                            (locked ? (
+                                <Button
+                                    variant="ghost"
+                                    icon="fa-solid fa-lock-open"
+                                    onClick={handleRemoveLock}
+                                    disabled={unlocking}
+                                >
+                                    {unlocking ? 'Removing…' : 'Remove lock'}
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="ghost"
+                                    icon="fa-solid fa-lock"
+                                    onClick={handleLock}
+                                    disabled={saving}
+                                >
+                                    Lock
+                                </Button>
+                            ))}
+                    </div>
                     <div className="flex gap-2">
                         <Button variant="secondary" onClick={onClose}>
                             Cancel
@@ -155,6 +239,12 @@ function NoteModal({ note, categories, defaultCategory, onClose, onSaved, onDele
                 </div>
             }
         >
+            {locked && (
+                <div className="mb-4 flex items-center gap-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs font-semibold text-neutral-500">
+                    <i className="fa-solid fa-lock" aria-hidden="true" />
+                    Password-protected — this note stays hidden in the list.
+                </div>
+            )}
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <Input
                     label="Title"
@@ -334,8 +424,15 @@ function NoteCard({
             onClick={onOpen}
             className="flex h-full flex-col rounded-2xl border border-neutral-100 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-neutral-200 hover:shadow-md"
         >
-            <h3 className="font-bold text-neutral-900 line-clamp-1">{note.title}</h3>
-            {note.body.trim() ? (
+            <h3 className="flex items-center gap-2 font-bold text-neutral-900 line-clamp-1">
+                {note.locked && (
+                    <i className="fa-solid fa-lock shrink-0 text-xs text-neutral-400" aria-hidden="true" />
+                )}
+                <span className="line-clamp-1">{note.title}</span>
+            </h3>
+            {note.locked ? (
+                <p className="mt-2 flex-1 text-sm italic text-neutral-300">Locked — tap to unlock</p>
+            ) : note.body.trim() ? (
                 <p className="mt-2 flex-1 whitespace-pre-wrap text-sm text-neutral-500 line-clamp-5">
                     {note.body}
                 </p>
@@ -372,7 +469,12 @@ export default function Notes() {
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState<string>(ALL)
     const [editing, setEditing] = useState<Note | 'new' | null>(null)
+    // Password for the currently-open locked note, held in memory for this session.
+    const [editingPassword, setEditingPassword] = useState<string | null>(null)
+    // An active password dialog: reveal a locked note, or set a password to lock one.
+    const [pwFlow, setPwFlow] = useState<{ note: Note; kind: 'reveal' | 'lock' } | null>(null)
     const [managingCategories, setManagingCategories] = useState(false)
+    const toast = useToast()
 
     useEffect(() => {
         let active = true
@@ -426,6 +528,34 @@ export default function Notes() {
         setNotes((prev) => prev.filter((p) => p._id !== id))
         setEditing(null)
         invalidate('notes')
+    }
+
+    /** Update a note in the list without closing the editor (used by lock changes). */
+    function patchNote(n: Note) {
+        setNotes((prev) => {
+            const next = prev.map((p) => (p._id === n._id ? n : p))
+            return [...next].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+        })
+        invalidate('notes')
+    }
+
+    /** A locked card asks for its password first; an open one opens the editor. */
+    function openCard(n: Note) {
+        if (n.locked) {
+            setPwFlow({ note: n, kind: 'reveal' })
+        } else {
+            setEditingPassword(null)
+            setEditing(n)
+        }
+    }
+
+    /** Editor's Lock button: the note is already saved, now collect a password. */
+    function requestLock(noteId: string) {
+        const target = notes.find((p) => p._id === noteId)
+        if (!target) return
+        setEditing(null)
+        setEditingPassword(null)
+        setPwFlow({ note: target, kind: 'lock' })
     }
 
     const uncategorisedCount = counts[NONE] ?? 0
@@ -512,7 +642,7 @@ export default function Notes() {
                             key={n._id}
                             note={n}
                             category={n.category ? categoryById.get(n.category) : undefined}
-                            onOpen={() => setEditing(n)}
+                            onOpen={() => openCard(n)}
                         />
                     ))}
                 </div>
@@ -523,9 +653,54 @@ export default function Notes() {
                     note={editing === 'new' ? null : editing}
                     categories={categories}
                     defaultCategory={editing === 'new' ? defaultCategoryForNew : null}
+                    initialPassword={editingPassword ?? undefined}
                     onClose={() => setEditing(null)}
                     onSaved={upsertNote}
                     onDeleted={removeNote}
+                    onRequestLock={requestLock}
+                    onLockChanged={(n) => {
+                        patchNote(n)
+                        setEditing(n)
+                        setEditingPassword(null)
+                    }}
+                />
+            )}
+
+            {pwFlow?.kind === 'reveal' && (
+                <PasswordModal
+                    mode="enter"
+                    title="Unlock note"
+                    submitLabel="Unlock"
+                    onSubmit={async (pw) => {
+                        const full = await revealNote(pwFlow.note._id, pw)
+                        setEditingPassword(pw)
+                        setEditing(full)
+                        setPwFlow(null)
+                    }}
+                    onReset={async (accountPassword) => {
+                        const updated = await resetNoteLock(pwFlow.note._id, accountPassword)
+                        patchNote(updated)
+                        setEditingPassword(null)
+                        setEditing(updated)
+                        setPwFlow(null)
+                        toast.success('Lock removed.')
+                    }}
+                    onClose={() => setPwFlow(null)}
+                />
+            )}
+
+            {pwFlow?.kind === 'lock' && (
+                <PasswordModal
+                    mode="set"
+                    title="Lock note"
+                    submitLabel="Lock note"
+                    onSubmit={async (pw) => {
+                        const locked = await lockNote(pwFlow.note._id, pw)
+                        patchNote(locked)
+                        setPwFlow(null)
+                        toast.success('Note locked.')
+                    }}
+                    onClose={() => setPwFlow(null)}
                 />
             )}
 
