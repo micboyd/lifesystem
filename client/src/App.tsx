@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route, Outlet, useLocation } from 'react-router-dom'
 import { documentTitleForPath } from './lib/pageTitle'
 import Sidebar from './components/Sidebar'
@@ -33,11 +33,21 @@ import NotFound from './pages/NotFound'
 
 /** The signed-in app shell: sidebar nav plus the matched page. */
 function AppLayout() {
+    // Persist the desktop rail's collapsed state across reloads.
+    const [collapsed, setCollapsed] = useState(
+        () => localStorage.getItem('sidebarCollapsed') === '1'
+    )
+    useEffect(() => {
+        localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0')
+    }, [collapsed])
+
     return (
         <div className="min-h-screen bg-canvas">
-            <Sidebar />
+            <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
             {/* Offset the content column for the fixed rail on large screens. */}
-            <div className="flex min-h-screen flex-col lg:pl-64">
+            <div
+                className={`flex min-h-screen flex-col transition-[padding] duration-200 ease-out ${collapsed ? 'lg:pl-20' : 'lg:pl-64'}`}
+            >
                 <main className="flex-1">
                     <Outlet />
                 </main>
