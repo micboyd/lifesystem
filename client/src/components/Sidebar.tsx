@@ -152,10 +152,10 @@ export default function Sidebar({
                     onClick={onToggle}
                     aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    className="absolute -right-3 top-20 grid h-6 w-6 place-items-center rounded-full border border-black/[0.06] bg-white text-neutral-400 shadow-sm transition-colors hover:text-neutral-700"
+                    className="absolute -right-3 top-1/2 -translate-y-1/2 grid h-6 w-6 place-items-center rounded-full border border-black/[0.06] bg-white text-neutral-400 shadow-sm transition-colors hover:text-neutral-700"
                 >
                     <i
-                        className={`fa-solid fa-chevron-${collapsed ? 'right' : 'left'} text-[10px]`}
+                        className={`fa-solid fa-chevron-left text-[10px] transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}
                         aria-hidden="true"
                     />
                 </button>
