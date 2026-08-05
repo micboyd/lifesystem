@@ -2418,6 +2418,7 @@ function SessionDetail({
                                         <RoundCounter
                                             target={part.rounds}
                                             label={part.roundLabel}
+                                            details={part.roundDetails}
                                             done={counts[i] ?? 0}
                                             onChange={(next) => onCount(i, next)}
                                         />

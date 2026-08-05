@@ -17,6 +17,8 @@ export interface ISessionPart {
     rounds?: number
     /** What one round is called, e.g. "round", "interval", "rep". Defaults to "round". */
     roundLabel?: string
+    /** Optional per-round info shown under each rep on the counter. */
+    roundDetails?: string[]
 }
 
 export interface IConditioningSession extends Document {
@@ -45,6 +47,7 @@ const partSchema = new Schema<ISessionPart>(
         detail: { type: String, trim: true },
         rounds: { type: Number, min: 1 },
         roundLabel: { type: String, trim: true },
+        roundDetails: { type: [String], default: undefined },
     },
     { _id: false }
 )

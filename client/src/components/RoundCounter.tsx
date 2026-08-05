@@ -1,23 +1,30 @@
 /**
  * A tap-to-count control for interval parts (e.g. "6 x 90s jog / 2min walk").
- * The big primary button logs a round; the dots and X / N read-out track
- * progress; an undo steps back. It's a controlled component — the parent owns the
- * `done` count so it can be persisted (e.g. when a session is marked done).
+ * The big primary button logs a round; an undo steps back. It's a controlled
+ * component — the parent owns the `done` count so it can be persisted (e.g. when
+ * a session is marked done).
+ *
+ * When `details` are supplied, each rep is drawn as its own row with that rep's
+ * info underneath; otherwise a compact row of progress dots is shown.
  */
 export default function RoundCounter({
     target,
     label,
+    details,
     done,
     onChange,
 }: {
     target: number
     label?: string
+    /** Optional per-rep info; entry i is shown under rep i+1. */
+    details?: string[]
     done: number
     onChange: (next: number) => void
 }) {
     const complete = done >= target
     const one = (label?.trim() || 'round').toLowerCase()
     const many = one.endsWith('s') ? one : `${one}s`
+    const hasDetails = !!details && details.length > 0
 
     return (
         <div className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
@@ -34,18 +41,59 @@ export default function RoundCounter({
                 </span>
             </div>
 
-            {/* Progress dots — one per round, filled as you go. */}
-            <div className="mb-3 flex flex-wrap gap-1.5">
-                {Array.from({ length: target }, (_, i) => (
-                    <span
-                        key={i}
-                        className={`h-2.5 flex-1 rounded-full transition-colors ${
-                            i < done ? 'bg-emerald-500' : 'bg-neutral-200'
-                        }`}
-                        style={{ minWidth: 10 }}
-                    />
-                ))}
-            </div>
+            {hasDetails ? (
+                /* Per-rep checklist — each rep shows its own info. */
+                <ol className="mb-3 flex flex-col gap-1.5">
+                    {Array.from({ length: target }, (_, i) => {
+                        const isDone = i < done
+                        const isNext = i === done && !complete
+                        return (
+                            <li
+                                key={i}
+                                className={`flex items-center gap-2.5 rounded-xl border px-2.5 py-2 transition-colors ${
+                                    isDone
+                                        ? 'border-emerald-200 bg-emerald-50'
+                                        : isNext
+                                          ? 'border-coral-300 bg-white ring-1 ring-coral-200'
+                                          : 'border-neutral-200 bg-white'
+                                }`}
+                            >
+                                <span
+                                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold tabular-nums ${
+                                        isDone
+                                            ? 'bg-emerald-500 text-white'
+                                            : isNext
+                                              ? 'bg-coral-500 text-white'
+                                              : 'bg-neutral-100 text-neutral-500'
+                                    }`}
+                                >
+                                    {isDone ? <i className="fa-solid fa-check text-[10px]" /> : i + 1}
+                                </span>
+                                <span
+                                    className={`min-w-0 flex-1 text-sm ${
+                                        isDone ? 'text-emerald-800' : 'text-neutral-700'
+                                    }`}
+                                >
+                                    {details![i] ?? `${label?.trim() || 'Round'} ${i + 1}`}
+                                </span>
+                            </li>
+                        )
+                    })}
+                </ol>
+            ) : (
+                /* Progress dots — one per round, filled as you go. */
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                    {Array.from({ length: target }, (_, i) => (
+                        <span
+                            key={i}
+                            className={`h-2.5 flex-1 rounded-full transition-colors ${
+                                i < done ? 'bg-emerald-500' : 'bg-neutral-200'
+                            }`}
+                            style={{ minWidth: 10 }}
+                        />
+                    ))}
+                </div>
+            )}
 
             <div className="flex items-center gap-2">
                 <button

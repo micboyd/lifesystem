@@ -41,7 +41,17 @@ function toParts(raw: unknown): ISessionPart[] {
         const rounds = Number.isFinite(roundsRaw) && roundsRaw >= 1 ? roundsRaw : undefined
         const roundLabel =
             rounds && typeof item.roundLabel === 'string' ? item.roundLabel.trim() || undefined : undefined
-        out.push({ name, detail, rounds, roundLabel })
+        const roundDetails =
+            rounds && Array.isArray(item.roundDetails)
+                ? item.roundDetails.map((d) => (typeof d === 'string' ? d.trim() : '')).filter(Boolean)
+                : undefined
+        out.push({
+            name,
+            detail,
+            rounds,
+            roundLabel,
+            roundDetails: roundDetails && roundDetails.length ? roundDetails : undefined,
+        })
     }
     return out
 }

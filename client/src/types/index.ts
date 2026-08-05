@@ -168,6 +168,8 @@ export interface SessionPart {
     rounds?: number
     /** What one round is called, e.g. "round", "interval", "rep". Defaults to "round". */
     roundLabel?: string
+    /** Optional per-round info shown under each rep on the counter, e.g. ["90s jog · 2min walk", …]. */
+    roundDetails?: string[]
 }
 
 export interface ConditioningSession {
