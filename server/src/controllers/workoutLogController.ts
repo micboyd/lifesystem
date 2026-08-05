@@ -1,7 +1,7 @@
 import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
-import WorkoutLog, { IWorkoutLogExercise } from '../models/WorkoutLog'
+import WorkoutLog, { IWorkoutLogExercise, ILoggedSet } from '../models/WorkoutLog'
 import Workout from '../models/Workout'
 import Exercise from '../models/Exercise'
 
@@ -10,6 +10,47 @@ function toDuration(raw: unknown): number | undefined {
     if (raw === undefined || raw === null || raw === '') return undefined
     const n = typeof raw === 'number' ? raw : Number(raw)
     return Number.isFinite(n) && n >= 0 ? n : undefined
+}
+
+/**
+ * Sanitise the client's per-exercise logged sets. Input is an array parallel to
+ * the log's exercises: entry i is the sets performed for exercise i. Each set
+ * keeps a non-negative weight (kg) and/or reps; a set with neither is dropped,
+ * and an exercise with no surviving sets yields `undefined` (no loggedSets).
+ */
+function sanitizeLoggedSets(raw: unknown): (ILoggedSet[] | undefined)[] {
+    if (!Array.isArray(raw)) return []
+    return raw.map((sets) => {
+        if (!Array.isArray(sets)) return undefined
+        const clean: ILoggedSet[] = []
+        for (const s of sets) {
+            if (!s || typeof s !== 'object') continue
+            const weight = toDuration((s as Record<string, unknown>).weight)
+            const reps = toDuration((s as Record<string, unknown>).reps)
+            if (weight === undefined && reps === undefined) continue
+            clean.push({
+                ...(weight !== undefined ? { weight } : {}),
+                ...(reps !== undefined ? { reps } : {}),
+            })
+        }
+        return clean.length ? clean : undefined
+    })
+}
+
+/**
+ * Overlay client-supplied logged sets onto snapshotted exercise lines, aligned by
+ * index. When `raw` isn't an array (e.g. a quick "Done" with no weights) the lines
+ * pass through untouched; otherwise each line's loggedSets is set or cleared to
+ * match, so re-saving an edited log with everything blank removes the weights.
+ */
+function applyLoggedSets(lines: IWorkoutLogExercise[], raw: unknown): IWorkoutLogExercise[] {
+    if (!Array.isArray(raw)) return lines
+    const perExercise = sanitizeLoggedSets(raw)
+    return lines.map((line, i) => {
+        const { loggedSets: _prev, ...rest } = line
+        const sets = perExercise[i]
+        return sets ? { ...rest, loggedSets: sets } : rest
+    })
 }
 
 /** Validate a YYYY-MM-DD date string. */
@@ -78,7 +119,7 @@ export async function createLog(req: AuthRequest, res: Response) {
         workout: src._id,
         name,
         date: b.date,
-        exercises: await snapshotExercises(src, req.userId),
+        exercises: applyLoggedSets(await snapshotExercises(src, req.userId), b.loggedSets),
         durationMin: toDuration(b.durationMin),
         notes: typeof b.notes === 'string' ? b.notes.trim() || undefined : undefined,
     })
@@ -93,6 +134,23 @@ export async function updateLog(req: AuthRequest, res: Response) {
     if (isValidDate(b.date)) fields.date = b.date
     if (b.durationMin !== undefined) fields.durationMin = toDuration(b.durationMin)
     if (typeof b.notes === 'string') fields.notes = b.notes.trim() || undefined
+
+    // Overlay edited weights onto the log's existing (already-snapshotted) lines,
+    // aligned by index — the edit drawer sends one set-list per exercise in order.
+    if (Array.isArray(b.loggedSets)) {
+        const existing = await WorkoutLog.findOne({
+            _id: req.params.id,
+            user: req.userId,
+        }).select('exercises')
+        if (!existing) {
+            res.status(404).json({ message: 'Log not found' })
+            return
+        }
+        fields.exercises = applyLoggedSets(
+            existing.exercises.map((e) => ({ name: e.name, sets: e.sets, reps: e.reps })),
+            b.loggedSets
+        )
+    }
 
     const log = await WorkoutLog.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },

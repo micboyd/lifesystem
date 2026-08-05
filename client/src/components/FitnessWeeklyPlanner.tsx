@@ -15,7 +15,7 @@ import Drawer from './Drawer'
 import Checkbox from './Checkbox'
 import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
-import RoundCounter from './RoundCounter'
+import ConditioningSessionDetail from './ConditioningSessionDetail'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
@@ -2279,7 +2279,7 @@ function PlannedDetailDrawer({
                 (e.kind === 'workout' && e.workout ? (
                     <WorkoutDetail workout={e.workout} exercisesById={exercisesById} />
                 ) : e.kind === 'conditioning' && e.session ? (
-                    <SessionDetail
+                    <ConditioningSessionDetail
                         session={e.session}
                         counts={counts}
                         onCount={(i, next) => setCounts((c) => ({ ...c, [i]: next }))}
@@ -2373,70 +2373,6 @@ function WorkoutDetail({
                     </ol>
                 )}
             </DetailSection>
-        </div>
-    )
-}
-
-function SessionDetail({
-    session,
-    counts,
-    onCount,
-}: {
-    session: ConditioningSession
-    counts: Record<number, number>
-    onCount: (index: number, next: number) => void
-}) {
-    return (
-        <div className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center gap-3">
-                <CategoryChip category={session.category} />
-                <span className="text-sm text-neutral-500">{session.duration} min</span>
-            </div>
-
-            {session.purpose && (
-                <DetailSection label="Purpose">
-                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{session.purpose}</p>
-                </DetailSection>
-            )}
-
-            {session.parts.length > 0 && (
-                <DetailSection label="Session parts">
-                    <ol className="flex flex-col gap-3">
-                        {session.parts.map((part, i) => (
-                            <li key={i} className="flex gap-3 text-sm">
-                                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
-                                    {i + 1}
-                                </span>
-                                <div className="min-w-0 flex-1 pt-0.5">
-                                    <p className="font-semibold text-neutral-900">{part.name}</p>
-                                    {part.detail && (
-                                        <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
-                                            {part.detail}
-                                        </p>
-                                    )}
-                                    {!!part.rounds && (
-                                        <RoundCounter
-                                            target={part.rounds}
-                                            label={part.roundLabel}
-                                            details={part.roundDetails}
-                                            seconds={part.roundSeconds}
-                                            startAtSec={part.startAtSec}
-                                            done={counts[i] ?? 0}
-                                            onChange={(next) => onCount(i, next)}
-                                        />
-                                    )}
-                                </div>
-                            </li>
-                        ))}
-                    </ol>
-                </DetailSection>
-            )}
-
-            {session.howToUse && (
-                <DetailSection label="How to use">
-                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{session.howToUse}</p>
-                </DetailSection>
-            )}
         </div>
     )
 }

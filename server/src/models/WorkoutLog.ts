@@ -1,10 +1,18 @@
 import { Schema, model, Document, Types } from 'mongoose'
 
+/** One performed set inside a logged exercise: weight lifted (kg) and reps done. */
+export interface ILoggedSet {
+    weight?: number
+    reps?: number
+}
+
 /** A snapshotted exercise line inside a logged workout. */
 export interface IWorkoutLogExercise {
     name: string
     sets?: number
     reps?: string
+    /** The sets actually performed, with per-set weight and reps. */
+    loggedSets?: ILoggedSet[]
 }
 
 /**
@@ -28,11 +36,20 @@ export interface IWorkoutLog extends Document {
     updatedAt: Date
 }
 
+const loggedSetSchema = new Schema<ILoggedSet>(
+    {
+        weight: { type: Number, min: 0 },
+        reps: { type: Number, min: 0 },
+    },
+    { _id: false }
+)
+
 const workoutLogExerciseSchema = new Schema<IWorkoutLogExercise>(
     {
         name: { type: String, required: true, trim: true },
         sets: { type: Number, min: 0 },
         reps: { type: String, trim: true },
+        loggedSets: { type: [loggedSetSchema], default: undefined },
     },
     { _id: false }
 )

@@ -29,7 +29,8 @@ import {
     type WorkoutInput,
 } from '../services/workouts'
 import WorkoutsLog from './WorkoutsLog'
-import { createLog as createWorkoutLog } from '../services/workoutLogs'
+import WorkoutLogWeightsDrawer from './WorkoutLogWeightsDrawer'
+import { createLog as createWorkoutLog, type WorkoutLogInput } from '../services/workoutLogs'
 import { useToast } from '../context/ToastContext'
 import { todayKey } from '../lib/calendar'
 import type { Exercise, Workout, WorkoutExercise } from '../types'
@@ -393,6 +394,7 @@ type WorkoutDrawered =
     | { mode: 'view'; workout: Workout }
     | { mode: 'create' }
     | { mode: 'edit'; workout: Workout }
+    | { mode: 'log'; workout: Workout }
     | null
 
 /**
@@ -503,6 +505,13 @@ function WorkoutLibrary({
     // workout, dated today. Surfaces in the "Workouts" log tab.
     async function handleDone(workout: Workout) {
         await createWorkoutLog({ workout: workout._id, date: todayKey() })
+        toast.show(`Logged “${workout.name}”.`, 'success')
+    }
+
+    // Record a workout with the actual weight × reps of each set, entered in the
+    // weight-logging drawer. Shares the same log store as the quick Done above.
+    async function handleLogWeights(workout: Workout, fields: WorkoutLogInput) {
+        await createWorkoutLog(fields)
         toast.show(`Logged “${workout.name}”.`, 'success')
     }
 
@@ -656,6 +665,14 @@ function WorkoutLibrary({
                 onEdit={(workout) => setDrawer({ mode: 'edit', workout })}
                 onDelete={handleDelete}
                 onDone={handleDone}
+                onLogWeights={(workout) => setDrawer({ mode: 'log', workout })}
+            />
+
+            <WorkoutLogWeightsDrawer
+                workout={drawer?.mode === 'log' ? drawer.workout : null}
+                byId={byId}
+                onClose={() => setDrawer(null)}
+                onSubmit={handleLogWeights}
             />
 
             <WorkoutFormDrawer
@@ -678,6 +695,7 @@ function WorkoutViewDrawer({
     onEdit,
     onDelete,
     onDone,
+    onLogWeights,
 }: {
     workout: Workout | null
     byId: Map<string, Exercise>
@@ -685,6 +703,7 @@ function WorkoutViewDrawer({
     onEdit: (workout: Workout) => void
     onDelete: (id: string) => void
     onDone: (workout: Workout) => Promise<void>
+    onLogWeights: (workout: Workout) => void
 }) {
     // Retain the last workout while the drawer animates closed.
     const [view, setView] = useState<Workout | null>(workout)
@@ -729,6 +748,7 @@ function WorkoutViewDrawer({
                         <Button
                             variant="ghost"
                             icon="fa-solid fa-trash-can"
+                            className="mr-auto"
                             onClick={() => onDelete(w._id)}
                         >
                             Delete
@@ -736,8 +756,16 @@ function WorkoutViewDrawer({
                         <Button variant="secondary" icon="fa-solid fa-pen" onClick={() => onEdit(w)}>
                             Edit
                         </Button>
-                        <Button icon="fa-solid fa-check" onClick={markDone} disabled={logging}>
-                            {logging ? 'Logging…' : 'Done'}
+                        <Button
+                            variant="secondary"
+                            icon="fa-solid fa-check"
+                            onClick={markDone}
+                            disabled={logging}
+                        >
+                            {logging ? 'Logging…' : 'Quick log'}
+                        </Button>
+                        <Button icon="fa-solid fa-dumbbell" onClick={() => onLogWeights(w)}>
+                            Log sets
                         </Button>
                     </>
                 )

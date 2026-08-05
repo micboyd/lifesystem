@@ -18,7 +18,7 @@ import RecoveryLibrary from '../components/RecoveryLibrary'
 import MobilityLibrary from '../components/MobilityLibrary'
 import FitnessWeeklyPlanner from '../components/FitnessWeeklyPlanner'
 import FitnessExportCenter from '../components/FitnessExportCenter'
-import RoundCounter from '../components/RoundCounter'
+import ConditioningSessionDetail from '../components/ConditioningSessionDetail'
 import JsonImportPanel from '../components/JsonImportPanel'
 import {
     listSessions,
@@ -484,6 +484,7 @@ function SessionViewDrawer({
         <Drawer
             open={!!session}
             onClose={onClose}
+            size="2xl"
             title={s?.name ?? 'Session'}
             footer={
                 s && (
@@ -503,68 +504,11 @@ function SessionViewDrawer({
             }
         >
             {s && (
-                <div className="flex flex-col gap-6">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <CategoryChip category={s.category} />
-                        <span className="text-sm text-neutral-500">{s.duration} min</span>
-                    </div>
-
-                    {s.purpose && (
-                        <section>
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                Purpose
-                            </p>
-                            <p className="whitespace-pre-wrap text-sm text-neutral-600">{s.purpose}</p>
-                        </section>
-                    )}
-
-                    {s.parts.length > 0 && (
-                        <section>
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                Session parts
-                            </p>
-                            <ol className="flex flex-col gap-3">
-                                {s.parts.map((part, i) => (
-                                    <li key={i} className="flex gap-3 text-sm">
-                                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
-                                            {i + 1}
-                                        </span>
-                                        <div className="min-w-0 flex-1 pt-0.5">
-                                            <p className="font-semibold text-neutral-900">{part.name}</p>
-                                            {part.detail && (
-                                                <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
-                                                    {part.detail}
-                                                </p>
-                                            )}
-                                            {!!part.rounds && (
-                                                <RoundCounter
-                                                    target={part.rounds}
-                                                    label={part.roundLabel}
-                                                    details={part.roundDetails}
-                                                    seconds={part.roundSeconds}
-                                                    startAtSec={part.startAtSec}
-                                                    done={counts[i] ?? 0}
-                                                    onChange={(next) =>
-                                                        setCounts((c) => ({ ...c, [i]: next }))
-                                                    }
-                                                />
-                                            )}
-                                        </div>
-                                    </li>
-                                ))}
-                            </ol>
-                        </section>
-                    )}
-
-                    {s.howToUse && (
-                        <section>
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                How to use
-                            </p>
-                            <p className="whitespace-pre-wrap text-sm text-neutral-600">{s.howToUse}</p>
-                        </section>
-                    )}
-                </div>
+                <ConditioningSessionDetail
+                    session={s}
+                    counts={counts}
+                    onCount={(i, next) => setCounts((c) => ({ ...c, [i]: next }))}
+                />
             )}
         </Drawer>
     )

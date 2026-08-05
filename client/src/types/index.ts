@@ -126,11 +126,26 @@ export interface Workout {
     updatedAt: string
 }
 
+/** One performed set inside a logged exercise: the weight lifted and reps done. */
+export interface LoggedSet {
+    /** Weight lifted, in kg. Omitted for bodyweight or when not recorded. */
+    weight?: number
+    /** Reps actually completed in this set. */
+    reps?: number
+}
+
 /** A snapshotted exercise line inside a logged workout. */
 export interface WorkoutLogExercise {
     name: string
+    /** Prescribed sets count, snapshotted from the library workout. */
     sets?: number
+    /** Prescribed reps, snapshotted from the library workout (free-form). */
     reps?: string
+    /**
+     * The sets actually performed, each with its own weight and reps. Empty when
+     * the workout was logged as a quick "Done" without recording weights.
+     */
+    loggedSets?: LoggedSet[]
 }
 
 /** A record that a strength workout was completed on a given day. */

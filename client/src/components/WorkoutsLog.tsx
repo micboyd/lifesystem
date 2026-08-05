@@ -12,7 +12,7 @@ import DatePicker from './DatePicker'
 import LineIcon from './LineIcon'
 import { listWorkouts } from '../services/workouts'
 import { listLogs, createLog, updateLog, deleteLog, type WorkoutLogInput } from '../services/workoutLogs'
-import type { Workout, WorkoutLog, WorkoutLogExercise } from '../types'
+import type { LoggedSet, Workout, WorkoutLog, WorkoutLogExercise } from '../types'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +49,25 @@ function formatSetsReps(e: WorkoutLogExercise): string {
     if (sets) return `${sets} ${sets === 1 ? 'set' : 'sets'}`
     if (reps) return `${reps} reps`
     return ''
+}
+
+/** One performed set as "60kg × 8", "60kg", or "8" — whatever was recorded. */
+function formatSet(s: LoggedSet): string {
+    if (s.weight != null && s.reps != null) return `${s.weight}kg × ${s.reps}`
+    if (s.weight != null) return `${s.weight}kg`
+    if (s.reps != null) return `${s.reps} reps`
+    return ''
+}
+
+/** Total training volume (Σ weight × reps) recorded across a log, in kg. */
+function logVolume(log: WorkoutLog): number {
+    let total = 0
+    for (const e of log.exercises) {
+        for (const s of e.loggedSets ?? []) {
+            if (s.weight != null && s.reps != null) total += s.weight * s.reps
+        }
+    }
+    return Math.round(total)
 }
 
 // ─── Workouts log ─────────────────────────────────────────────────────────────────
@@ -211,6 +230,11 @@ function LogRow({
     onEdit: () => void
     onDelete: () => void
 }) {
+    // When any set weights were recorded, itemise them per exercise; otherwise
+    // fall back to the compact name + prescription pills.
+    const hasWeights = log.exercises.some((e) => e.loggedSets && e.loggedSets.length > 0)
+    const volume = hasWeights ? logVolume(log) : 0
+
     return (
         <Card as="div" hover={false} className="flex items-start gap-3 !p-4">
             <div className="min-w-0 flex-1">
@@ -221,6 +245,12 @@ function LogRow({
                         {log.exercises.length}{' '}
                         {log.exercises.length === 1 ? 'exercise' : 'exercises'}
                     </span>
+                    {volume > 0 && (
+                        <span className="text-xs text-neutral-400">
+                            <i className="fa-solid fa-weight-hanging mr-1" aria-hidden="true" />
+                            {volume.toLocaleString()} kg
+                        </span>
+                    )}
                     {log.durationMin != null && log.durationMin > 0 && (
                         <span className="text-xs text-neutral-400">
                             <i className="fa-regular fa-clock mr-1" aria-hidden="true" />
@@ -229,22 +259,53 @@ function LogRow({
                     )}
                 </div>
 
-                {log.exercises.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                        {log.exercises.map((ex, i) => {
-                            const sr = formatSetsReps(ex)
-                            return (
-                                <span
-                                    key={i}
-                                    className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600"
-                                >
-                                    {ex.name}
-                                    {sr && <span className="text-coral-600">{sr}</span>}
-                                </span>
-                            )
-                        })}
-                    </div>
-                )}
+                {log.exercises.length > 0 &&
+                    (hasWeights ? (
+                        <ul className="mt-2.5 flex flex-col gap-1.5">
+                            {log.exercises.map((ex, i) => {
+                                const sets = ex.loggedSets ?? []
+                                return (
+                                    <li key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                        <span className="text-sm font-medium text-neutral-800">
+                                            {ex.name}
+                                        </span>
+                                        {sets.length > 0 ? (
+                                            sets.map((s, j) => {
+                                                const label = formatSet(s)
+                                                return label ? (
+                                                    <span
+                                                        key={j}
+                                                        className="inline-flex items-center rounded-md bg-coral-50 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-coral-700"
+                                                    >
+                                                        {label}
+                                                    </span>
+                                                ) : null
+                                            })
+                                        ) : (
+                                            <span className="text-[11px] text-neutral-400">
+                                                {formatSetsReps(ex) || 'no sets recorded'}
+                                            </span>
+                                        )}
+                                    </li>
+                                )
+                            })}
+                        </ul>
+                    ) : (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                            {log.exercises.map((ex, i) => {
+                                const sr = formatSetsReps(ex)
+                                return (
+                                    <span
+                                        key={i}
+                                        className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600"
+                                    >
+                                        {ex.name}
+                                        {sr && <span className="text-coral-600">{sr}</span>}
+                                    </span>
+                                )
+                            })}
+                        </div>
+                    ))}
 
                 {log.notes && (
                     <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-500">{log.notes}</p>

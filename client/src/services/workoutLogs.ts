@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, WorkoutLog } from '../types'
+import type { ApiResponse, LoggedSet, WorkoutLog } from '../types'
 
 /** Fields the create/update endpoints accept. */
 export interface WorkoutLogInput {
@@ -10,6 +10,11 @@ export interface WorkoutLogInput {
     date: string
     durationMin?: number
     notes?: string
+    /**
+     * Per-exercise sets performed, aligned by index to the workout's exercises.
+     * Entry i is the sets done for exercise i. Omit to log without weights.
+     */
+    loggedSets?: LoggedSet[][]
 }
 
 export async function listLogs(): Promise<WorkoutLog[]> {
