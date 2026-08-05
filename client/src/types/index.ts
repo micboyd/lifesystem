@@ -187,6 +187,16 @@ export interface ConditioningSession {
     updatedAt: string
 }
 
+/** How many rounds of one counted part were completed, snapshotted at log time. */
+export interface RoundProgress {
+    /** The part's name, snapshotted so it survives the session being edited. */
+    name: string
+    /** Rounds actually completed. */
+    done: number
+    /** Rounds the part called for. */
+    target: number
+}
+
 /** A record that a conditioning session was completed on a given day. */
 export interface ConditioningLog {
     _id: string
@@ -201,6 +211,8 @@ export interface ConditioningLog {
     duration: number
     /** Rate of perceived exertion, 1 (easy) – 10 (max). */
     rpe?: number
+    /** Completed rounds for each counted part, if any were tracked. */
+    rounds?: RoundProgress[]
     notes?: string
     createdAt: string
     updatedAt: string

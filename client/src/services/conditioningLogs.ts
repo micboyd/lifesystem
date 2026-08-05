@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, ConditioningLog } from '../types'
+import type { ApiResponse, ConditioningLog, RoundProgress } from '../types'
 
 /** Fields the create/update endpoints accept. */
 export interface ConditioningLogInput {
@@ -11,6 +11,8 @@ export interface ConditioningLogInput {
     date: string
     duration?: number
     rpe?: number
+    /** Completed rounds per counted part, if tracked. */
+    rounds?: RoundProgress[]
     notes?: string
 }
 

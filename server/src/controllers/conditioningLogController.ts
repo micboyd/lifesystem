@@ -33,6 +33,22 @@ function isValidDate(raw: unknown): raw is string {
     return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)
 }
 
+/** Normalise the rounds snapshot, dropping malformed or unnamed entries. */
+function toRounds(raw: unknown): { name: string; done: number; target: number }[] | undefined {
+    if (!Array.isArray(raw)) return undefined
+    const out: { name: string; done: number; target: number }[] = []
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue
+        const r = item as Record<string, unknown>
+        const name = typeof r.name === 'string' ? r.name.trim() : ''
+        const target = Math.floor(toAmount(r.target, 0))
+        if (!name || target < 1) continue
+        const done = Math.min(target, Math.max(0, Math.floor(toAmount(r.done, 0))))
+        out.push({ name, done, target })
+    }
+    return out.length > 0 ? out : undefined
+}
+
 /** GET /api/conditioning-logs — list the user's logged sessions, newest first. */
 export async function listLogs(req: AuthRequest, res: Response) {
     const logs = await ConditioningLog.find({ user: req.userId }).sort({ date: -1, createdAt: -1 })
@@ -76,6 +92,7 @@ export async function createLog(req: AuthRequest, res: Response) {
         date: b.date,
         duration: toAmount(b.duration),
         rpe: toRpe(b.rpe),
+        rounds: toRounds(b.rounds),
         notes: typeof b.notes === 'string' ? b.notes.trim() || undefined : undefined,
     })
     res.status(201).json({ message: 'Created', data: log })
@@ -90,6 +107,7 @@ export async function updateLog(req: AuthRequest, res: Response) {
     if (isValidDate(b.date)) fields.date = b.date
     if (b.duration !== undefined) fields.duration = toAmount(b.duration)
     if (b.rpe !== undefined) fields.rpe = toRpe(b.rpe)
+    if (b.rounds !== undefined) fields.rounds = toRounds(b.rounds)
     if (typeof b.notes === 'string') fields.notes = b.notes.trim() || undefined
 
     const log = await ConditioningLog.findOneAndUpdate(

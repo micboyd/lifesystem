@@ -15,6 +15,7 @@ import Drawer from './Drawer'
 import Checkbox from './Checkbox'
 import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
+import RoundCounter from './RoundCounter'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
@@ -51,6 +52,7 @@ import type {
     FitnessPlanNote,
     FitnessNoteScope,
     FitnessFlagColor,
+    RoundProgress,
     Event,
 } from '../types'
 import {
@@ -2201,6 +2203,13 @@ function PlannedDetailDrawer({
     const toast = useToast()
     const [logging, setLogging] = useState(false)
 
+    // Completed-round tallies for a conditioning session, keyed by part index.
+    // Reset whenever a different entry opens; snapshotted into the log on "done".
+    const [counts, setCounts] = useState<Record<number, number>>({})
+    useEffect(() => {
+        if (entry) setCounts({})
+    }, [entry])
+
     const e = view
     const title = e ? planItemName(e) ?? KIND_META[e.kind].label : 'Details'
 
@@ -2218,10 +2227,19 @@ function PlannedDetailDrawer({
                 await createWorkoutLog({ workout: e.workout._id, date: e.date })
                 toast.show(`Logged “${e.workout.name}”.`, 'success')
             } else if (e.kind === 'conditioning' && e.session) {
+                // Snapshot the tapped-out rounds for each counted part.
+                const rounds: RoundProgress[] = e.session.parts
+                    .map((part, i) =>
+                        part.rounds
+                            ? { name: part.name, done: counts[i] ?? 0, target: part.rounds }
+                            : null
+                    )
+                    .filter((r): r is RoundProgress => r !== null)
                 await createConditioningLog({
                     session: e.session._id,
                     date: e.date,
                     duration: e.session.duration,
+                    rounds: rounds.length > 0 ? rounds : undefined,
                 })
                 toast.show(`Logged “${e.session.name}”.`, 'success')
             }
@@ -2261,7 +2279,11 @@ function PlannedDetailDrawer({
                 (e.kind === 'workout' && e.workout ? (
                     <WorkoutDetail workout={e.workout} exercisesById={exercisesById} />
                 ) : e.kind === 'conditioning' && e.session ? (
-                    <SessionDetail session={e.session} />
+                    <SessionDetail
+                        session={e.session}
+                        counts={counts}
+                        onCount={(i, next) => setCounts((c) => ({ ...c, [i]: next }))}
+                    />
                 ) : e.kind === 'mobility' && e.mobility ? (
                     <MobilityDetail mobility={e.mobility} />
                 ) : e.recovery ? (
@@ -2355,7 +2377,15 @@ function WorkoutDetail({
     )
 }
 
-function SessionDetail({ session }: { session: ConditioningSession }) {
+function SessionDetail({
+    session,
+    counts,
+    onCount,
+}: {
+    session: ConditioningSession
+    counts: Record<number, number>
+    onCount: (index: number, next: number) => void
+}) {
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center gap-3">
@@ -2377,12 +2407,20 @@ function SessionDetail({ session }: { session: ConditioningSession }) {
                                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
                                     {i + 1}
                                 </span>
-                                <div className="min-w-0 pt-0.5">
+                                <div className="min-w-0 flex-1 pt-0.5">
                                     <p className="font-semibold text-neutral-900">{part.name}</p>
                                     {part.detail && (
                                         <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
                                             {part.detail}
                                         </p>
+                                    )}
+                                    {!!part.rounds && (
+                                        <RoundCounter
+                                            target={part.rounds}
+                                            label={part.roundLabel}
+                                            done={counts[i] ?? 0}
+                                            onChange={(next) => onCount(i, next)}
+                                        />
                                     )}
                                 </div>
                             </li>

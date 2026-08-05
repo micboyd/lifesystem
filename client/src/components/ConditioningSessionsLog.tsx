@@ -244,6 +244,29 @@ function LogRow({
                         </span>
                     )}
                 </div>
+                {log.rounds && log.rounds.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        {log.rounds.map((r, i) => {
+                            const done = r.done >= r.target
+                            return (
+                                <span
+                                    key={i}
+                                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${
+                                        done
+                                            ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
+                                            : 'bg-neutral-50 text-neutral-600 ring-neutral-300'
+                                    }`}
+                                >
+                                    <i
+                                        className={`fa-solid ${done ? 'fa-check' : 'fa-repeat'} text-[9px]`}
+                                        aria-hidden="true"
+                                    />
+                                    {r.name} {r.done}/{r.target}
+                                </span>
+                            )
+                        })}
+                    </div>
+                )}
                 {log.notes && (
                     <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-500">{log.notes}</p>
                 )}

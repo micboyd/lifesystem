@@ -6,6 +6,13 @@ import { CONDITIONING_CATEGORIES, ConditioningCategory } from './ConditioningSes
  * snapshotted from the library session at log time, so the record survives the
  * library session being edited or deleted.
  */
+/** How many rounds of one counted part were completed, snapshotted at log time. */
+export interface IRoundProgress {
+    name: string
+    done: number
+    target: number
+}
+
 export interface IConditioningLog extends Document {
     user: Types.ObjectId
     /** Library session this came from, if any. Null once that session is deleted. */
@@ -18,10 +25,21 @@ export interface IConditioningLog extends Document {
     duration: number
     /** Rate of perceived exertion, 1 (easy) – 10 (max). */
     rpe?: number
+    /** Completed rounds for each counted part, if any were tracked. */
+    rounds?: IRoundProgress[]
     notes?: string
     createdAt: Date
     updatedAt: Date
 }
+
+const roundProgressSchema = new Schema<IRoundProgress>(
+    {
+        name: { type: String, required: true, trim: true },
+        done: { type: Number, required: true, min: 0 },
+        target: { type: Number, required: true, min: 1 },
+    },
+    { _id: false }
+)
 
 const conditioningLogSchema = new Schema<IConditioningLog>(
     {
@@ -32,6 +50,7 @@ const conditioningLogSchema = new Schema<IConditioningLog>(
         date: { type: String, required: true },
         duration: { type: Number, default: 0, min: 0 },
         rpe: { type: Number, min: 1, max: 10 },
+        rounds: { type: [roundProgressSchema], default: undefined },
         notes: { type: String, trim: true },
     },
     { timestamps: true }
