@@ -21,7 +21,8 @@ import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
 import { listMobility } from '../services/mobility'
 import { listExercises } from '../services/exercises'
-import { createLog as createWorkoutLog } from '../services/workoutLogs'
+import { createLog as createWorkoutLog, type WorkoutLogInput } from '../services/workoutLogs'
+import WorkoutLogWeightsDrawer from './WorkoutLogWeightsDrawer'
 import { createLog as createConditioningLog } from '../services/conditioningLogs'
 import { useToast } from '../context/ToastContext'
 import { listEvents } from '../services/events'
@@ -372,6 +373,9 @@ export default function FitnessWeeklyPlanner() {
     } | null>(null)
     // A planned item opened for a read-only look at its full details.
     const [detail, setDetail] = useState<FitnessPlanEntry | null>(null)
+    // A planned strength workout being logged with per-set weights, and the day
+    // it's dated to (opened from the detail drawer).
+    const [logTarget, setLogTarget] = useState<{ workout: Workout; date: string } | null>(null)
     // The planner opens read-only; Edit reveals the add/remove controls.
     const [editing, setEditing] = useState(false)
     // A copied week held for pasting elsewhere: the source Monday plus which
@@ -387,6 +391,13 @@ export default function FitnessWeeklyPlanner() {
     const [clashDate, setClashDate] = useState<string | null>(null)
 
     const today = todayKey()
+    const toast = useToast()
+
+    // Log a planned workout with the per-set weights entered in the weight drawer.
+    async function handleLogWeights(workout: Workout, fields: WorkoutLogInput) {
+        await createWorkoutLog(fields)
+        toast.show(`Logged “${workout.name}”.`, 'success')
+    }
 
     // The week to fetch — and to tally totals over. Planning is week by week.
     const range = useMemo(() => {
@@ -716,6 +727,18 @@ export default function FitnessWeeklyPlanner() {
                 entry={detail}
                 exercisesById={exercisesById}
                 onClose={() => setDetail(null)}
+                onLogWeights={(workout, date) => {
+                    setDetail(null)
+                    setLogTarget({ workout, date })
+                }}
+            />
+
+            <WorkoutLogWeightsDrawer
+                workout={logTarget?.workout ?? null}
+                byId={exercisesById}
+                defaultDate={logTarget?.date}
+                onClose={() => setLogTarget(null)}
+                onSubmit={handleLogWeights}
             />
 
             <FlagEditorDrawer
@@ -2189,10 +2212,13 @@ function PlannedDetailDrawer({
     entry,
     exercisesById,
     onClose,
+    onLogWeights,
 }: {
     entry: FitnessPlanEntry | null
     exercisesById: Map<string, Exercise>
     onClose: () => void
+    /** Open the per-set weight logger for a planned workout, dated to its day. */
+    onLogWeights: (workout: Workout, date: string) => void
 }) {
     // Retain the last entry while the drawer animates closed.
     const [view, setView] = useState<FitnessPlanEntry | null>(entry)
@@ -2260,16 +2286,25 @@ function PlannedDetailDrawer({
             badge={e ? shortDayLabel(e.date) : undefined}
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>
+                    <Button variant="ghost" className="mr-auto" onClick={onClose}>
                         Close
                     </Button>
                     {canMarkDone && (
                         <Button
+                            variant="secondary"
                             icon="fa-solid fa-check"
                             onClick={markDone}
                             disabled={logging}
                         >
                             {logging ? 'Logging…' : 'Mark as done'}
+                        </Button>
+                    )}
+                    {e?.kind === 'workout' && e.workout && (
+                        <Button
+                            icon="fa-solid fa-dumbbell"
+                            onClick={() => e.workout && onLogWeights(e.workout, e.date)}
+                        >
+                            Log sets
                         </Button>
                     )}
                 </>

@@ -77,17 +77,20 @@ function toNum(s: string): number | undefined {
 export default function WorkoutLogWeightsDrawer({
     workout,
     byId,
+    defaultDate,
     onClose,
     onSubmit,
 }: {
     workout: Workout | null
     byId: Map<string, Exercise>
+    /** Day to pre-fill, e.g. the planned day when opened from the planner. Defaults to today. */
+    defaultDate?: string
     onClose: () => void
     onSubmit: (workout: Workout, fields: WorkoutLogInput) => Promise<void>
 }) {
     // Retain the last workout while the drawer animates closed.
     const [view, setView] = useState<Workout | null>(workout)
-    const [date, setDate] = useState(todayISO())
+    const [date, setDate] = useState(defaultDate ?? todayISO())
     const [notes, setNotes] = useState('')
     const [drafts, setDrafts] = useState<ExerciseDraft[]>([])
     const [saving, setSaving] = useState(false)
@@ -95,12 +98,12 @@ export default function WorkoutLogWeightsDrawer({
     useEffect(() => {
         if (workout) {
             setView(workout)
-            setDate(todayISO())
+            setDate(defaultDate ?? todayISO())
             setNotes('')
             setDrafts(seedDrafts(workout, byId))
             setSaving(false)
         }
-    }, [workout, byId])
+    }, [workout, byId, defaultDate])
 
     // Total training volume (Σ weight × reps) across every filled set, in kg.
     const volume = useMemo(() => {
