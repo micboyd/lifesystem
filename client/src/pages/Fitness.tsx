@@ -17,6 +17,7 @@ import ConditioningSessionsLog from '../components/ConditioningSessionsLog'
 import RecoveryLibrary from '../components/RecoveryLibrary'
 import MobilityLibrary from '../components/MobilityLibrary'
 import FitnessWeeklyPlanner from '../components/FitnessWeeklyPlanner'
+import FitnessExportCenter from '../components/FitnessExportCenter'
 import JsonImportPanel from '../components/JsonImportPanel'
 import {
     listSessions,
@@ -82,13 +83,25 @@ const SUBTITLE: Record<Tab, string> = {
 
 export default function Fitness() {
     const [tab, setTab] = useState<Tab>('Planner')
+    const [exportOpen, setExportOpen] = useState(false)
 
     return (
         <main className="py-10">
             <Container>
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Fitness</h1>
-                    <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
+                <header className="mb-8 flex items-start justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Fitness</h1>
+                        <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
+                    </div>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        icon="fa-solid fa-file-export"
+                        onClick={() => setExportOpen(true)}
+                        className="shrink-0"
+                    >
+                        Export
+                    </Button>
                 </header>
 
                 <Tabs
@@ -116,6 +129,8 @@ export default function Fitness() {
                     )}
                 </Container>
             )}
+
+            <FitnessExportCenter open={exportOpen} onClose={() => setExportOpen(false)} />
         </main>
     )
 }
