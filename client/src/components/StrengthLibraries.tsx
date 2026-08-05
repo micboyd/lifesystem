@@ -159,6 +159,9 @@ function ExerciseLibrary({
                 itemNoun="exercise"
                 onBack={() => setImporting(false)}
                 doImport={importExercises}
+                resource="exercises"
+                existingItems={exercises}
+                onLibraryChanged={reload}
                 onImported={async () => {
                     await reload()
                     setImporting(false)
@@ -471,6 +474,8 @@ function WorkoutLibrary({
         return (
             <WorkoutImportPanel
                 onBack={() => setImporting(false)}
+                onLibraryChanged={reload}
+                existingWorkouts={workouts}
                 onImported={async () => {
                     await reload()
                     setImporting(false)

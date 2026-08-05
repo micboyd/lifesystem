@@ -1,5 +1,6 @@
 import api from './api'
 import type { ApiResponse, Exercise } from '../types'
+import { importBody, importResult, type OverwriteMap, type ImportResult } from './imports'
 
 /** Fields the create/update endpoints accept. */
 export interface ExerciseInput {
@@ -30,7 +31,13 @@ export async function deleteExercise(id: string): Promise<void> {
 }
 
 /** Bulk-import exercises from a parsed JSON document. Returns the created exercises. */
-export async function importExercises(exercises: unknown): Promise<Exercise[]> {
-    const res = await api.post<ApiResponse<Exercise[]>>('/exercises/import', exercises)
-    return res.data.data
+export async function importExercises(
+    exercises: unknown,
+    overwrite?: OverwriteMap
+): Promise<ImportResult> {
+    const res = await api.post<ApiResponse<Exercise[]> & { updated?: number }>(
+        '/exercises/import',
+        importBody(exercises, overwrite)
+    )
+    return importResult(res.data.data, res.data)
 }

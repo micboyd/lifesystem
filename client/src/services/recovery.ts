@@ -1,5 +1,6 @@
 import api from './api'
 import type { ApiResponse, Recovery } from '../types'
+import { importBody, importResult, type OverwriteMap, type ImportResult } from './imports'
 
 /** Fields the create/update endpoints accept. */
 export interface RecoveryInput {
@@ -20,9 +21,15 @@ export async function createRecovery(fields: RecoveryInput): Promise<Recovery> {
 }
 
 /** Bulk-import recovery items from a parsed JSON document. */
-export async function importRecovery(recovery: unknown): Promise<Recovery[]> {
-    const res = await api.post<ApiResponse<Recovery[]>>('/recovery/import', recovery)
-    return res.data.data
+export async function importRecovery(
+    recovery: unknown,
+    overwrite?: OverwriteMap
+): Promise<ImportResult> {
+    const res = await api.post<ApiResponse<Recovery[]> & { updated?: number }>(
+        '/recovery/import',
+        importBody(recovery, overwrite)
+    )
+    return importResult(res.data.data, res.data)
 }
 
 export async function updateRecovery(

@@ -6,6 +6,13 @@ import ConditioningSession, {
     ISessionPart,
 } from '../models/ConditioningSession'
 import ConditioningLog from '../models/ConditioningLog'
+import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
+import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
+
+/** GET /api/conditioning/import/last — summarise the most recent import batch. */
+export const lastImport = makeLastImportHandler(ConditioningSession)
+/** DELETE /api/conditioning/import/last — revert the most recent import batch. */
+export const undoImport = makeUndoImportHandler(ConditioningSession)
 
 /** Coerce a request value to a non-negative number, or a fallback if invalid. */
 function toAmount(raw: unknown, fallback = 0): number {
@@ -102,11 +109,8 @@ export async function updateSession(req: AuthRequest, res: Response) {
  */
 export async function importSessions(req: AuthRequest, res: Response) {
     const body = req.body as unknown
-    const rawList = Array.isArray(body)
-        ? body
-        : body && typeof body === 'object' && Array.isArray((body as Record<string, unknown>).sessions)
-          ? ((body as Record<string, unknown>).sessions as unknown[])
-          : null
+    const rawList = extractList(body, 'sessions')
+    const overwrite = extractOverwrite(body)
 
     if (!rawList) {
         res.status(400).json({
@@ -149,12 +153,32 @@ export async function importSessions(req: AuthRequest, res: Response) {
 
     const last = await ConditioningSession.findOne({ user: req.userId }).sort({ order: -1 })
     let order = last ? last.order + 1 : 0
-    const docs = normalised.map((d) => ({ ...d!, order: order++ }))
+    const importBatch = newBatchId()
 
-    const created = await ConditioningSession.insertMany(docs)
+    // Overwrite chosen name-clashes in place (keeps _id, so the planner reflects
+    // the change wherever the session is scheduled); insert the rest as a batch.
+    const toInsert: Record<string, unknown>[] = []
+    let updated = 0
+    for (const d of normalised) {
+        const targetId = overwrite.get(nameKey(d!.name))
+        if (targetId) {
+            const r = await ConditioningSession.updateOne(
+                { _id: targetId, user: req.userId },
+                { $set: d! }
+            )
+            if (r.matchedCount) {
+                updated++
+                continue
+            }
+        }
+        toInsert.push({ ...d!, order: order++, importBatch })
+    }
+
+    const created = await ConditioningSession.insertMany(toInsert)
     res.status(201).json({
-        message: `Imported ${created.length} ${created.length === 1 ? 'session' : 'sessions'}`,
+        message: `Imported ${created.length} session(s), updated ${updated}`,
         data: created,
+        updated,
     })
 }
 

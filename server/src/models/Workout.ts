@@ -19,6 +19,8 @@ export interface IWorkout extends Document {
     exercises: IWorkoutExercise[]
     /** Priority position in the library (lower = sooner). */
     order: number
+    /** Import batch id if this record came from a bulk import (for undo). */
+    importBatch?: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -40,10 +42,12 @@ const workoutSchema = new Schema<IWorkout>(
         showInPlanner: { type: Boolean, default: false },
         exercises: { type: [workoutExerciseSchema], default: [] },
         order: { type: Number, default: 0 },
+        importBatch: { type: String, default: null },
     },
     { timestamps: true }
 )
 
 workoutSchema.index({ user: 1, order: 1 })
+workoutSchema.index({ user: 1, importBatch: 1 })
 
 export default model<IWorkout>('Workout', workoutSchema)

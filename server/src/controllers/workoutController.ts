@@ -3,6 +3,13 @@ import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import Workout, { IWorkoutExercise } from '../models/Workout'
 import Exercise from '../models/Exercise'
+import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
+import { nameKey, extractOverwrite } from '../lib/importReconcile'
+
+/** GET /api/workouts/import/last — summarise the most recent import batch. */
+export const lastImport = makeLastImportHandler(Workout)
+/** DELETE /api/workouts/import/last — revert the most recent import batch. */
+export const undoImport = makeUndoImportHandler(Workout)
 
 /** Coerce an optional sets value to a non-negative integer, else undefined. */
 function toSets(raw: unknown): number | undefined {
@@ -420,12 +427,14 @@ export async function importWorkouts(req: AuthRequest, res: Response) {
 
     const lastWk = await Workout.findOne({ user: req.userId }).sort({ order: -1 })
     let order = lastWk ? lastWk.order + 1 : 0
-    const docs = items.map((it) => ({
-        user: req.userId,
-        name: it.name,
-        description: it.description,
-        showInPlanner: it.showInPlanner,
-        exercises: it.exerciseItems
+    // Stamp only the workouts with the batch id — undo removes the imported
+    // workouts but leaves any exercises they auto-created in the library.
+    const importBatch = newBatchId()
+    const overwrite = extractOverwrite(req.body)
+
+    /** The exercise lines for one workout, resolved to library exercise ids. */
+    const lines = (it: (typeof items)[number]) =>
+        it.exerciseItems
             .map((ex) => {
                 const id = resolved.get(normKey(ex.name))
                 if (!id) return null
@@ -435,14 +444,35 @@ export async function importWorkouts(req: AuthRequest, res: Response) {
                     ...(ex.reps !== undefined ? { reps: ex.reps } : {}),
                 }
             })
-            .filter((e): e is IWorkoutExercise => e !== null),
-        order: order++,
-    }))
+            .filter((e): e is IWorkoutExercise => e !== null)
 
-    const created = await Workout.insertMany(docs)
+    // Overwrite chosen name-clashes in place (keeps _id, so the planner reflects
+    // the change wherever the workout is scheduled); insert the rest as a batch.
+    const toInsert: Record<string, unknown>[] = []
+    let updated = 0
+    for (const it of items) {
+        const content = {
+            name: it.name,
+            description: it.description,
+            showInPlanner: it.showInPlanner,
+            exercises: lines(it),
+        }
+        const targetId = overwrite.get(nameKey(it.name))
+        if (targetId) {
+            const r = await Workout.updateOne({ _id: targetId, user: req.userId }, { $set: content })
+            if (r.matchedCount) {
+                updated++
+                continue
+            }
+        }
+        toInsert.push({ user: req.userId, ...content, order: order++, importBatch })
+    }
+
+    const created = await Workout.insertMany(toInsert)
     res.status(201).json({
-        message: `Imported ${created.length} ${created.length === 1 ? 'workout' : 'workouts'}`,
+        message: `Imported ${created.length} workout(s), updated ${updated}`,
         data: created,
+        updated,
     })
 }
 

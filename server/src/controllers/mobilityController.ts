@@ -1,6 +1,13 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import Mobility, { IMobilityPart } from '../models/Mobility'
+import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
+import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
+
+/** GET /api/mobility/import/last — summarise the most recent import batch. */
+export const lastImport = makeLastImportHandler(Mobility)
+/** DELETE /api/mobility/import/last — revert the most recent import batch. */
+export const undoImport = makeUndoImportHandler(Mobility)
 
 /** Coerce a request value to a non-negative number, or a fallback if invalid. */
 function toAmount(raw: unknown, fallback = 0): number {
@@ -84,11 +91,8 @@ export async function updateMobility(req: AuthRequest, res: Response) {
  */
 export async function importMobility(req: AuthRequest, res: Response) {
     const body = req.body as unknown
-    const rawList = Array.isArray(body)
-        ? body
-        : body && typeof body === 'object' && Array.isArray((body as Record<string, unknown>).mobility)
-          ? ((body as Record<string, unknown>).mobility as unknown[])
-          : null
+    const rawList = extractList(body, 'mobility')
+    const overwrite = extractOverwrite(body)
 
     if (!rawList) {
         res.status(400).json({
@@ -130,12 +134,28 @@ export async function importMobility(req: AuthRequest, res: Response) {
 
     const last = await Mobility.findOne({ user: req.userId }).sort({ order: -1 })
     let order = last ? last.order + 1 : 0
-    const docs = normalised.map((d) => ({ ...d!, order: order++ }))
+    const importBatch = newBatchId()
 
-    const created = await Mobility.insertMany(docs)
+    // Overwrite chosen name-clashes in place; insert the rest as one batch.
+    const toInsert: Record<string, unknown>[] = []
+    let updated = 0
+    for (const d of normalised) {
+        const targetId = overwrite.get(nameKey(d!.name))
+        if (targetId) {
+            const r = await Mobility.updateOne({ _id: targetId, user: req.userId }, { $set: d! })
+            if (r.matchedCount) {
+                updated++
+                continue
+            }
+        }
+        toInsert.push({ ...d!, order: order++, importBatch })
+    }
+
+    const created = await Mobility.insertMany(toInsert)
     res.status(201).json({
-        message: `Imported ${created.length} ${created.length === 1 ? 'mobility routine' : 'mobility routines'}`,
+        message: `Imported ${created.length} mobility routine(s), updated ${updated}`,
         data: created,
+        updated,
     })
 }
 

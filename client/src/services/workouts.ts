@@ -1,5 +1,6 @@
 import api from './api'
 import type { ApiResponse, Workout, WorkoutExercise } from '../types'
+import { importResult, type OverwriteMap, type ImportResult } from './imports'
 
 /** Fields the create/update endpoints accept. */
 export interface WorkoutInput {
@@ -81,12 +82,24 @@ export async function previewImportWorkouts(workouts: unknown): Promise<WorkoutI
  */
 export async function importWorkouts(
     workouts: unknown,
-    links?: Record<string, string>
-): Promise<Workout[]> {
+    links?: Record<string, string>,
+    overwrite?: OverwriteMap
+): Promise<ImportResult> {
+    const hasLinks = !!links && Object.keys(links).length > 0
+    const hasOverwrite = !!overwrite && Object.keys(overwrite).length > 0
     const payload =
-        links && Object.keys(links).length > 0
-            ? { workouts: Array.isArray(workouts) ? workouts : (workouts as { workouts?: unknown }).workouts, links }
+        hasLinks || hasOverwrite
+            ? {
+                  workouts: Array.isArray(workouts)
+                      ? workouts
+                      : (workouts as { workouts?: unknown }).workouts,
+                  ...(hasLinks ? { links } : {}),
+                  ...(hasOverwrite ? { overwrite } : {}),
+              }
             : workouts
-    const res = await api.post<ApiResponse<Workout[]>>('/workouts/import', payload)
-    return res.data.data
+    const res = await api.post<ApiResponse<Workout[]> & { updated?: number }>(
+        '/workouts/import',
+        payload
+    )
+    return importResult(res.data.data, res.data)
 }

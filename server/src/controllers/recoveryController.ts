@@ -1,6 +1,13 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import Recovery from '../models/Recovery'
+import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
+import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
+
+/** GET /api/recovery/import/last — summarise the most recent import batch. */
+export const lastImport = makeLastImportHandler(Recovery)
+/** DELETE /api/recovery/import/last — revert the most recent import batch. */
+export const undoImport = makeUndoImportHandler(Recovery)
 
 /** Coerce a request value to a non-negative number, or a fallback if invalid. */
 function toAmount(raw: unknown, fallback = 0): number {
@@ -45,11 +52,8 @@ export async function createRecovery(req: AuthRequest, res: Response) {
  */
 export async function importRecovery(req: AuthRequest, res: Response) {
     const body = req.body as unknown
-    const rawList = Array.isArray(body)
-        ? body
-        : body && typeof body === 'object' && Array.isArray((body as Record<string, unknown>).recovery)
-          ? ((body as Record<string, unknown>).recovery as unknown[])
-          : null
+    const rawList = extractList(body, 'recovery')
+    const overwrite = extractOverwrite(body)
 
     if (!rawList) {
         res.status(400).json({
@@ -90,12 +94,28 @@ export async function importRecovery(req: AuthRequest, res: Response) {
 
     const last = await Recovery.findOne({ user: req.userId }).sort({ order: -1 })
     let order = last ? last.order + 1 : 0
-    const docs = normalised.map((d) => ({ ...d!, order: order++ }))
+    const importBatch = newBatchId()
 
-    const created = await Recovery.insertMany(docs)
+    // Overwrite chosen name-clashes in place; insert the rest as one batch.
+    const toInsert: Record<string, unknown>[] = []
+    let updated = 0
+    for (const d of normalised) {
+        const targetId = overwrite.get(nameKey(d!.name))
+        if (targetId) {
+            const r = await Recovery.updateOne({ _id: targetId, user: req.userId }, { $set: d! })
+            if (r.matchedCount) {
+                updated++
+                continue
+            }
+        }
+        toInsert.push({ ...d!, order: order++, importBatch })
+    }
+
+    const created = await Recovery.insertMany(toInsert)
     res.status(201).json({
-        message: `Imported ${created.length} ${created.length === 1 ? 'recovery item' : 'recovery items'}`,
+        message: `Imported ${created.length} recovery item(s), updated ${updated}`,
         data: created,
+        updated,
     })
 }
 

@@ -1,5 +1,6 @@
 import api from './api'
 import type { ApiResponse, ConditioningSession } from '../types'
+import { importBody, importResult, type OverwriteMap, type ImportResult } from './imports'
 
 /** Fields the create/update endpoints accept. */
 export interface ConditioningInput {
@@ -34,7 +35,13 @@ export async function deleteSession(id: string): Promise<void> {
 }
 
 /** Bulk-import sessions from a parsed JSON document. Returns the created sessions. */
-export async function importSessions(sessions: unknown): Promise<ConditioningSession[]> {
-    const res = await api.post<ApiResponse<ConditioningSession[]>>('/conditioning/import', sessions)
-    return res.data.data
+export async function importSessions(
+    sessions: unknown,
+    overwrite?: OverwriteMap
+): Promise<ImportResult> {
+    const res = await api.post<ApiResponse<ConditioningSession[]> & { updated?: number }>(
+        '/conditioning/import',
+        importBody(sessions, overwrite)
+    )
+    return importResult(res.data.data, res.data)
 }

@@ -109,6 +109,9 @@ export default function RecoveryLibrary() {
                 itemNoun="recovery item"
                 onBack={() => setImporting(false)}
                 doImport={importRecovery}
+                resource="recovery"
+                existingItems={items}
+                onLibraryChanged={reload}
                 onImported={async () => {
                     await reload()
                     setImporting(false)

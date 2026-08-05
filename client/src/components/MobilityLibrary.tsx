@@ -129,6 +129,9 @@ export default function MobilityLibrary() {
                 itemNoun="routine"
                 onBack={() => setImporting(false)}
                 doImport={importMobility}
+                resource="mobility"
+                existingItems={items}
+                onLibraryChanged={reload}
                 onImported={async () => {
                     await reload()
                     setImporting(false)

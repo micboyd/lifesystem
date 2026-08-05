@@ -33,6 +33,8 @@ export interface IConditioningSession extends Document {
     howToUse?: string
     /** Priority position in the library (lower = sooner). */
     order: number
+    /** Import batch id if this record came from a bulk import (for undo). */
+    importBatch?: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -57,10 +59,12 @@ const conditioningSessionSchema = new Schema<IConditioningSession>(
         parts: { type: [partSchema], default: [] },
         howToUse: { type: String, trim: true },
         order: { type: Number, default: 0 },
+        importBatch: { type: String, default: null },
     },
     { timestamps: true }
 )
 
 conditioningSessionSchema.index({ user: 1, order: 1 })
+conditioningSessionSchema.index({ user: 1, importBatch: 1 })
 
 export default model<IConditioningSession>('ConditioningSession', conditioningSessionSchema)

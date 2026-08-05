@@ -3,6 +3,13 @@ import { Card } from './Card'
 import Button from './Button'
 import Alert from './Alert'
 import Select, { type SelectOption } from './Select'
+import ImportUndoBanner from './ImportUndoBanner'
+import ImportConflictList, {
+    conflictKey,
+    toOverwriteMap,
+    type NameConflict,
+    type ConflictChoice,
+} from './ImportConflictList'
 import { useToast } from '../context/ToastContext'
 import {
     previewImportWorkouts,
@@ -48,6 +55,32 @@ function errorMessage(err: unknown): string {
     return 'Something went wrong during import.'
 }
 
+/** Find pasted workouts whose name already exists in the library. */
+function workoutConflicts(
+    parsed: unknown,
+    existing: { _id: string; name: string }[]
+): NameConflict[] {
+    const list = Array.isArray(parsed)
+        ? parsed
+        : parsed && typeof parsed === 'object' && Array.isArray((parsed as { workouts?: unknown }).workouts)
+          ? ((parsed as { workouts: unknown[] }).workouts)
+          : []
+    const byKey = new Map(existing.map((e) => [conflictKey(e.name), e._id]))
+    const out: NameConflict[] = []
+    const seen = new Set<string>()
+    for (const it of list) {
+        const name = it && typeof it === 'object' ? (it as { name?: unknown }).name : undefined
+        if (typeof name !== 'string' || !name.trim()) continue
+        const key = conflictKey(name)
+        const id = byKey.get(key)
+        if (id && !seen.has(key)) {
+            seen.add(key)
+            out.push({ name: name.trim(), existingId: id })
+        }
+    }
+    return out
+}
+
 type Result = { variant: 'success' | 'danger'; message: string } | null
 
 const STATUS_CHIP: Record<ImportExercisePlan['status'], { label: string; className: string }> = {
@@ -81,9 +114,15 @@ function optionsFor(plan: ImportExercisePlan, existing: ImportExerciseRef[]): Se
 export default function WorkoutImportPanel({
     onBack,
     onImported,
+    onLibraryChanged,
+    existingWorkouts = [],
 }: {
     onBack: () => void
     onImported: (count: number) => void
+    /** Reload the library grid after an import is reverted. */
+    onLibraryChanged?: () => void
+    /** Existing workouts — enables name-clash overwrite/keep-both prompts. */
+    existingWorkouts?: { _id: string; name: string }[]
 }) {
     const toast = useToast()
     const [text, setText] = useState('')
@@ -94,6 +133,9 @@ export default function WorkoutImportPanel({
     const [preview, setPreview] = useState<WorkoutImportPreview | null>(null)
     const [parsed, setParsed] = useState<unknown>(null)
     const [choices, setChoices] = useState<Record<string, string>>({})
+    // Workout-name clashes against the existing library, and per-name choices.
+    const [wkConflicts, setWkConflicts] = useState<NameConflict[]>([])
+    const [wkChoices, setWkChoices] = useState<Record<string, ConflictChoice>>({})
 
     const [busy, setBusy] = useState(false)
 
@@ -136,6 +178,10 @@ export default function WorkoutImportPanel({
                     plan.exercises.map((ex) => [ex.key, ex.status === 'matched' ? ex.match!.id : CREATE])
                 )
             )
+            // Detect workout-name clashes; default each to overwrite-in-place.
+            const found = workoutConflicts(json, existingWorkouts)
+            setWkConflicts(found)
+            setWkChoices(Object.fromEntries(found.map((c) => [conflictKey(c.name), 'overwrite'])))
         } catch (err) {
             setResult({ variant: 'danger', message: errorMessage(err) })
         } finally {
@@ -155,12 +201,15 @@ export default function WorkoutImportPanel({
         setBusy(true)
         setResult(null)
         try {
-            const created = await importWorkouts(parsed, links)
-            const n = created.length
-            const msg = `Imported ${n} ${n === 1 ? 'workout' : 'workouts'}.`
-            toast.show(msg, 'success')
-            setResult({ variant: 'success', message: `${msg} Returning to your library…` })
-            setTimeout(() => onImported(n), 1200)
+            const overwrite = toOverwriteMap(wkConflicts, wkChoices)
+            const { created, updated } = await importWorkouts(parsed, links, overwrite)
+            const parts: string[] = []
+            if (created) parts.push(`${created} added`)
+            if (updated) parts.push(`${updated} updated`)
+            const summary = parts.length ? parts.join(', ') : 'nothing changed'
+            toast.show(`Import complete — ${summary}.`, 'success')
+            setResult({ variant: 'success', message: `Import complete — ${summary}. Returning…` })
+            setTimeout(() => onImported(created), 1200)
         } catch (err) {
             setResult({ variant: 'danger', message: errorMessage(err) })
             setBusy(false)
@@ -202,6 +251,14 @@ export default function WorkoutImportPanel({
                 </p>
             </div>
 
+            {!preview && (
+                <ImportUndoBanner
+                    resource="workouts"
+                    noun="workout"
+                    onReverted={() => onLibraryChanged?.()}
+                />
+            )}
+
             {result && (
                 <Alert variant={result.variant} onClose={() => setResult(null)}>
                     {result.message}
@@ -209,15 +266,25 @@ export default function WorkoutImportPanel({
             )}
 
             {preview ? (
-                <ReconcileStage
-                    preview={preview}
-                    choices={choices}
-                    counts={counts}
-                    busy={busy}
-                    onChoose={(key, value) => setChoices((prev) => ({ ...prev, [key]: value }))}
-                    onImport={handleImport}
-                    onCancel={backToPaste}
-                />
+                <>
+                    {wkConflicts.length > 0 && (
+                        <ImportConflictList
+                            conflicts={wkConflicts}
+                            noun="workout"
+                            choices={wkChoices}
+                            onChange={setWkChoices}
+                        />
+                    )}
+                    <ReconcileStage
+                        preview={preview}
+                        choices={choices}
+                        counts={counts}
+                        busy={busy}
+                        onChoose={(key, value) => setChoices((prev) => ({ ...prev, [key]: value }))}
+                        onImport={handleImport}
+                        onCancel={backToPaste}
+                    />
+                </>
             ) : (
                 <>
                     {/* Template */}

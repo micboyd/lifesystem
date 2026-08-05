@@ -256,6 +256,9 @@ function ConditioningLibrary() {
                 itemNoun="session"
                 onBack={() => setImporting(false)}
                 doImport={importSessions}
+                resource="conditioning"
+                existingItems={sessions}
+                onLibraryChanged={reload}
                 onImported={async () => {
                     await reload()
                     setImporting(false)

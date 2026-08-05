@@ -2,6 +2,13 @@ import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import Exercise from '../models/Exercise'
 import Workout from '../models/Workout'
+import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
+import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
+
+/** GET /api/exercises/import/last — summarise the most recent import batch. */
+export const lastImport = makeLastImportHandler(Exercise)
+/** DELETE /api/exercises/import/last — revert the most recent import batch. */
+export const undoImport = makeUndoImportHandler(Exercise)
 
 /** GET /api/exercises — list the user's exercises in library order. */
 export async function listExercises(req: AuthRequest, res: Response) {
@@ -57,11 +64,8 @@ export async function updateExercise(req: AuthRequest, res: Response) {
  */
 export async function importExercises(req: AuthRequest, res: Response) {
     const body = req.body as unknown
-    const rawList = Array.isArray(body)
-        ? body
-        : body && typeof body === 'object' && Array.isArray((body as Record<string, unknown>).exercises)
-          ? ((body as Record<string, unknown>).exercises as unknown[])
-          : null
+    const rawList = extractList(body, 'exercises')
+    const overwrite = extractOverwrite(body)
 
     if (!rawList) {
         res.status(400).json({
@@ -100,12 +104,28 @@ export async function importExercises(req: AuthRequest, res: Response) {
 
     const last = await Exercise.findOne({ user: req.userId }).sort({ order: -1 })
     let order = last ? last.order + 1 : 0
-    const docs = normalised.map((d) => ({ ...d!, order: order++ }))
+    const importBatch = newBatchId()
 
-    const created = await Exercise.insertMany(docs)
+    // Overwrite chosen name-clashes in place; insert the rest as one batch.
+    const toInsert: Record<string, unknown>[] = []
+    let updated = 0
+    for (const d of normalised) {
+        const targetId = overwrite.get(nameKey(d!.name))
+        if (targetId) {
+            const r = await Exercise.updateOne({ _id: targetId, user: req.userId }, { $set: d! })
+            if (r.matchedCount) {
+                updated++
+                continue
+            }
+        }
+        toInsert.push({ ...d!, order: order++, importBatch })
+    }
+
+    const created = await Exercise.insertMany(toInsert)
     res.status(201).json({
-        message: `Imported ${created.length} ${created.length === 1 ? 'exercise' : 'exercises'}`,
+        message: `Imported ${created.length} exercise(s), updated ${updated}`,
         data: created,
+        updated,
     })
 }
 

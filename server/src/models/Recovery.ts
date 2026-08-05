@@ -16,6 +16,8 @@ export interface IRecovery extends Document {
     notes?: string
     /** Priority position in the library (lower = sooner). */
     order: number
+    /** Import batch id if this record came from a bulk import (for undo). */
+    importBatch?: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -28,10 +30,12 @@ const recoverySchema = new Schema<IRecovery>(
         purpose: { type: String, trim: true },
         notes: { type: String, trim: true },
         order: { type: Number, default: 0 },
+        importBatch: { type: String, default: null },
     },
     { timestamps: true }
 )
 
 recoverySchema.index({ user: 1, order: 1 })
+recoverySchema.index({ user: 1, importBatch: 1 })
 
 export default model<IRecovery>('Recovery', recoverySchema)
