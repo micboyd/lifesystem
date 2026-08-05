@@ -45,12 +45,23 @@ function toParts(raw: unknown): ISessionPart[] {
             rounds && Array.isArray(item.roundDetails)
                 ? item.roundDetails.map((d) => (typeof d === 'string' ? d.trim() : '')).filter(Boolean)
                 : undefined
+        const roundSeconds =
+            rounds && Array.isArray(item.roundSeconds)
+                ? item.roundSeconds
+                      .map((n) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.round(n) : 0))
+                      .filter((n) => n > 0)
+                : undefined
+        const startRaw = typeof item.startAtSec === 'number' ? item.startAtSec : NaN
+        const startAtSec =
+            rounds && Number.isFinite(startRaw) && startRaw >= 0 ? Math.round(startRaw) : undefined
         out.push({
             name,
             detail,
             rounds,
             roundLabel,
             roundDetails: roundDetails && roundDetails.length ? roundDetails : undefined,
+            roundSeconds: roundSeconds && roundSeconds.length ? roundSeconds : undefined,
+            startAtSec,
         })
     }
     return out

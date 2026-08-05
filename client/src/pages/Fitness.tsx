@@ -58,6 +58,8 @@ const SESSION_TEMPLATE = JSON.stringify(
                         '90 sec jog · 2 min walk',
                         '90 sec jog · 2 min walk',
                     ],
+                    roundSeconds: [210, 210, 210, 210, 210, 210],
+                    startAtSec: 420,
                 },
                 { name: 'Cool-down', detail: 'Walk 2 min @ 5.0 km/h, then 3 min @ 4.0 km/h.' },
             ],
@@ -287,9 +289,13 @@ function ConditioningLibrary() {
                             <span className="font-semibold text-neutral-700">detail</span>. Add{' '}
                             <span className="font-semibold text-neutral-700">rounds</span> (a number) to a
                             part to get a tap-to-count counter, plus an optional{' '}
-                            <span className="font-semibold text-neutral-700">roundLabel</span> and{' '}
+                            <span className="font-semibold text-neutral-700">roundLabel</span>,{' '}
                             <span className="font-semibold text-neutral-700">roundDetails</span> (one line
-                            of info per rep, shown under each rep).
+                            of info per rep) and, for timed reps,{' '}
+                            <span className="font-semibold text-neutral-700">roundSeconds</span> (each rep's
+                            length in seconds) with{' '}
+                            <span className="font-semibold text-neutral-700">startAtSec</span> (clock offset,
+                            e.g. warm-up length) to show a time window on each rep.
                         </p>
                     </>
                 }
@@ -535,6 +541,8 @@ function SessionViewDrawer({
                                                     target={part.rounds}
                                                     label={part.roundLabel}
                                                     details={part.roundDetails}
+                                                    seconds={part.roundSeconds}
+                                                    startAtSec={part.startAtSec}
                                                     done={counts[i] ?? 0}
                                                     onChange={(next) =>
                                                         setCounts((c) => ({ ...c, [i]: next }))
@@ -634,8 +642,10 @@ function SessionFormDrawer({
                         detail: p.detail?.trim() || undefined,
                         rounds,
                         roundLabel: rounds ? p.roundLabel?.trim() || undefined : undefined,
-                        // Preserve per-rep info set via import (no form editor for it yet).
+                        // Preserve per-rep info/timing set via import (no form editor for it yet).
                         roundDetails: rounds && p.roundDetails?.length ? p.roundDetails : undefined,
+                        roundSeconds: rounds && p.roundSeconds?.length ? p.roundSeconds : undefined,
+                        startAtSec: rounds ? p.startAtSec : undefined,
                     }
                 })
                 .filter((p) => p.name !== ''),

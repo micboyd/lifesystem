@@ -19,6 +19,10 @@ export interface ISessionPart {
     roundLabel?: string
     /** Optional per-round info shown under each rep on the counter. */
     roundDetails?: string[]
+    /** Optional duration (seconds) of each rep — enables clock timestamps on the counter. */
+    roundSeconds?: number[]
+    /** Optional clock offset (seconds) when the first rep begins, e.g. after a warm-up. */
+    startAtSec?: number
 }
 
 export interface IConditioningSession extends Document {
@@ -48,6 +52,8 @@ const partSchema = new Schema<ISessionPart>(
         rounds: { type: Number, min: 1 },
         roundLabel: { type: String, trim: true },
         roundDetails: { type: [String], default: undefined },
+        roundSeconds: { type: [Number], default: undefined },
+        startAtSec: { type: Number, min: 0 },
     },
     { _id: false }
 )

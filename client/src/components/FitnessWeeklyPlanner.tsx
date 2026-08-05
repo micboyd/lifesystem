@@ -2419,6 +2419,8 @@ function SessionDetail({
                                             target={part.rounds}
                                             label={part.roundLabel}
                                             details={part.roundDetails}
+                                            seconds={part.roundSeconds}
+                                            startAtSec={part.startAtSec}
                                             done={counts[i] ?? 0}
                                             onChange={(next) => onCount(i, next)}
                                         />

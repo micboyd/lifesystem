@@ -7,10 +7,19 @@
  * When `details` are supplied, each rep is drawn as its own row with that rep's
  * info underneath; otherwise a compact row of progress dots is shown.
  */
+/** Seconds → "M:SS" clock label. */
+function clock(sec: number): string {
+    const m = Math.floor(sec / 60)
+    const s = Math.round(sec % 60)
+    return `${m}:${String(s).padStart(2, '0')}`
+}
+
 export default function RoundCounter({
     target,
     label,
     details,
+    seconds,
+    startAtSec = 0,
     done,
     onChange,
 }: {
@@ -18,6 +27,10 @@ export default function RoundCounter({
     label?: string
     /** Optional per-rep info; entry i is shown under rep i+1. */
     details?: string[]
+    /** Optional per-rep duration (seconds); enables a clock window on each rep. */
+    seconds?: number[]
+    /** Clock offset (seconds) when rep 1 begins, e.g. after a warm-up. */
+    startAtSec?: number
     done: number
     onChange: (next: number) => void
 }) {
@@ -25,6 +38,18 @@ export default function RoundCounter({
     const one = (label?.trim() || 'round').toLowerCase()
     const many = one.endsWith('s') ? one : `${one}s`
     const hasDetails = !!details && details.length > 0
+    const hasTimes = !!seconds && seconds.length > 0
+
+    // Cumulative clock window [start, end] for each rep, from the durations.
+    const windows: [number, number][] = []
+    if (hasTimes) {
+        let t = startAtSec
+        for (let i = 0; i < target; i++) {
+            const dur = seconds![i] ?? 0
+            windows.push([t, t + dur])
+            t += dur
+        }
+    }
 
     return (
         <div className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
@@ -41,12 +66,13 @@ export default function RoundCounter({
                 </span>
             </div>
 
-            {hasDetails ? (
-                /* Per-rep checklist — each rep shows its own info. */
+            {hasDetails || hasTimes ? (
+                /* Per-rep checklist — each rep shows its own info and clock window. */
                 <ol className="mb-3 flex flex-col gap-1.5">
                     {Array.from({ length: target }, (_, i) => {
                         const isDone = i < done
                         const isNext = i === done && !complete
+                        const win = windows[i]
                         return (
                             <li
                                 key={i}
@@ -74,8 +100,23 @@ export default function RoundCounter({
                                         isDone ? 'text-emerald-800' : 'text-neutral-700'
                                     }`}
                                 >
-                                    {details![i] ?? `${label?.trim() || 'Round'} ${i + 1}`}
+                                    {hasDetails
+                                        ? (details![i] ?? `${label?.trim() || 'Round'} ${i + 1}`)
+                                        : `${label?.trim() || 'Round'} ${i + 1}`}
                                 </span>
+                                {win && (
+                                    <span
+                                        className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums ${
+                                            isDone
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : isNext
+                                                  ? 'bg-coral-100 text-coral-700'
+                                                  : 'bg-neutral-100 text-neutral-500'
+                                        }`}
+                                    >
+                                        {clock(win[0])}–{clock(win[1])}
+                                    </span>
+                                )}
                             </li>
                         )
                     })}

@@ -170,6 +170,10 @@ export interface SessionPart {
     roundLabel?: string
     /** Optional per-round info shown under each rep on the counter, e.g. ["90s jog · 2min walk", …]. */
     roundDetails?: string[]
+    /** Optional duration (seconds) of each rep — enables clock timestamps on the counter. */
+    roundSeconds?: number[]
+    /** Optional clock offset (seconds) when the first rep begins, e.g. after a warm-up. */
+    startAtSec?: number
 }
 
 export interface ConditioningSession {
