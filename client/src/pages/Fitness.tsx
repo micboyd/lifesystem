@@ -34,16 +34,24 @@ import type { ConditioningSession, ConditioningCategory, SessionPart } from '../
 const SESSION_TEMPLATE = JSON.stringify(
     [
         {
-            name: 'Extensive Tempo Runs',
-            duration: 40,
+            name: 'Treadmill Run-Walk Intervals',
+            duration: 30,
             category: 'Endurance',
-            purpose: 'Build aerobic base, support recovery, improve work capacity.',
+            purpose: 'Rebuild tolerance to running impact through controlled run-walk intervals.',
             parts: [
-                { name: 'Warm-up', detail: '10 min easy jog + drills' },
-                { name: 'Main set', detail: '6 x 200m at tempo, 100m walk recovery' },
-                { name: 'Cool-down', detail: '5 min walk + stretch' },
+                {
+                    name: 'Warm-up',
+                    detail: '0.5% incline. Walk 3 min @ 4.2 km/h, then 4 min @ 5.2 km/h.',
+                },
+                {
+                    name: 'Main set',
+                    detail: '90 sec jog @ 7.0 km/h, then 2 min walk @ 5.0 km/h. ~1.05 km running.',
+                    rounds: 6,
+                    roundLabel: 'jog/walk',
+                },
+                { name: 'Cool-down', detail: 'Walk 2 min @ 5.0 km/h, then 3 min @ 4.0 km/h.' },
             ],
-            howToUse: 'Run 1–2x per week on non-lifting days.',
+            howToUse: 'Leave at least one non-running day before the next run.',
         },
         {
             name: 'HIIT Bike Intervals',
@@ -249,7 +257,10 @@ function ConditioningLibrary() {
                         <p>
                             <span className="font-semibold text-neutral-700">parts</span> each take a{' '}
                             <span className="font-semibold text-neutral-700">name</span> and an optional{' '}
-                            <span className="font-semibold text-neutral-700">detail</span>.
+                            <span className="font-semibold text-neutral-700">detail</span>. Add{' '}
+                            <span className="font-semibold text-neutral-700">rounds</span> (a number) to a
+                            part to get a tap-to-count counter, plus an optional{' '}
+                            <span className="font-semibold text-neutral-700">roundLabel</span>.
                         </p>
                     </>
                 }
@@ -427,6 +438,12 @@ function SessionViewDrawer({
         if (session) setView(session)
     }, [session])
 
+    // Completed-round tallies keyed by part index. Reset each time a session opens.
+    const [counts, setCounts] = useState<Record<number, number>>({})
+    useEffect(() => {
+        if (session) setCounts({})
+    }, [session])
+
     const s = view
     return (
         <Drawer
@@ -477,12 +494,22 @@ function SessionViewDrawer({
                                         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
                                             {i + 1}
                                         </span>
-                                        <div className="min-w-0 pt-0.5">
+                                        <div className="min-w-0 flex-1 pt-0.5">
                                             <p className="font-semibold text-neutral-900">{part.name}</p>
                                             {part.detail && (
                                                 <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
                                                     {part.detail}
                                                 </p>
+                                            )}
+                                            {!!part.rounds && (
+                                                <RoundCounter
+                                                    target={part.rounds}
+                                                    label={part.roundLabel}
+                                                    done={counts[i] ?? 0}
+                                                    onChange={(next) =>
+                                                        setCounts((c) => ({ ...c, [i]: next }))
+                                                    }
+                                                />
                                             )}
                                         </div>
                                     </li>
@@ -502,6 +529,90 @@ function SessionViewDrawer({
                 </div>
             )}
         </Drawer>
+    )
+}
+
+// ─── Round counter ──────────────────────────────────────────────────────────────
+
+/**
+ * A tap-to-count control for interval parts (e.g. "6 x 90s jog / 2min walk").
+ * Big primary button logs a round; the dots and X / N read-out track progress;
+ * an undo steps back. State is ephemeral — it lives only while the drawer is open.
+ */
+function RoundCounter({
+    target,
+    label,
+    done,
+    onChange,
+}: {
+    target: number
+    label?: string
+    done: number
+    onChange: (next: number) => void
+}) {
+    const complete = done >= target
+    const one = (label?.trim() || 'round').toLowerCase()
+    const many = one.endsWith('s') ? one : `${one}s`
+
+    return (
+        <div className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+            <div className="mb-2.5 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    {target} {many}
+                </span>
+                <span
+                    className={`text-sm font-bold tabular-nums ${
+                        complete ? 'text-emerald-600' : 'text-neutral-900'
+                    }`}
+                >
+                    {done} / {target}
+                </span>
+            </div>
+
+            {/* Progress dots — one per round, filled as you go. */}
+            <div className="mb-3 flex flex-wrap gap-1.5">
+                {Array.from({ length: target }, (_, i) => (
+                    <span
+                        key={i}
+                        className={`h-2.5 flex-1 rounded-full transition-colors ${
+                            i < done ? 'bg-emerald-500' : 'bg-neutral-200'
+                        }`}
+                        style={{ minWidth: 10 }}
+                    />
+                ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+                <button
+                    type="button"
+                    onClick={() => onChange(Math.min(target, done + 1))}
+                    disabled={complete}
+                    className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
+                        complete
+                            ? 'cursor-default bg-emerald-100 text-emerald-700'
+                            : 'bg-coral-500 text-white hover:bg-coral-600 active:bg-coral-700'
+                    }`}
+                >
+                    {complete ? (
+                        <>
+                            <i className="fa-solid fa-check mr-1.5" />
+                            All {target} done
+                        </>
+                    ) : (
+                        <>Tap after each {one}</>
+                    )}
+                </button>
+                <button
+                    type="button"
+                    aria-label="Undo one"
+                    onClick={() => onChange(Math.max(0, done - 1))}
+                    disabled={done === 0}
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:bg-white hover:text-neutral-800 disabled:opacity-40"
+                >
+                    <i className="fa-solid fa-rotate-left" />
+                </button>
+            </div>
+        </div>
     )
 }
 
@@ -570,7 +681,15 @@ function SessionFormDrawer({
             category,
             purpose: purpose.trim() || undefined,
             parts: parts
-                .map((p) => ({ name: p.name.trim(), detail: p.detail?.trim() || undefined }))
+                .map((p) => {
+                    const rounds = p.rounds && p.rounds >= 1 ? Math.floor(p.rounds) : undefined
+                    return {
+                        name: p.name.trim(),
+                        detail: p.detail?.trim() || undefined,
+                        rounds,
+                        roundLabel: rounds ? p.roundLabel?.trim() || undefined : undefined,
+                    }
+                })
                 .filter((p) => p.name !== ''),
             howToUse: howToUse.trim() || undefined,
         }
@@ -718,6 +837,32 @@ function PartsEditor({
                                 value={r.detail ?? ''}
                                 onChange={(e) => update(r.key, { detail: e.target.value })}
                             />
+
+                            {/* Optional interval counter — leave rounds blank for plain parts. */}
+                            <div className="flex flex-wrap items-center gap-2 pl-8 text-xs text-neutral-500">
+                                <span className="font-medium">Tap-to-count</span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    step={1}
+                                    className="w-16 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+                                    placeholder="6"
+                                    value={r.rounds ?? ''}
+                                    onChange={(e) =>
+                                        update(r.key, {
+                                            rounds: e.target.value ? Number(e.target.value) : undefined,
+                                        })
+                                    }
+                                />
+                                <span>rounds of</span>
+                                <input
+                                    className="w-28 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400 disabled:bg-neutral-50 disabled:text-neutral-400"
+                                    placeholder="round"
+                                    disabled={!r.rounds}
+                                    value={r.roundLabel ?? ''}
+                                    onChange={(e) => update(r.key, { roundLabel: e.target.value })}
+                                />
+                            </div>
                         </div>
                     ))}
                 </div>

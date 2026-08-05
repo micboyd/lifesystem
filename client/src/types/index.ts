@@ -164,6 +164,10 @@ export type ConditioningCategory = (typeof CONDITIONING_CATEGORIES)[number]
 export interface SessionPart {
     name: string
     detail?: string
+    /** If set, this part is an interval block to tick off — the number of rounds to complete. */
+    rounds?: number
+    /** What one round is called, e.g. "round", "interval", "rep". Defaults to "round". */
+    roundLabel?: string
 }
 
 export interface ConditioningSession {

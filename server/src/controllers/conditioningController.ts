@@ -30,7 +30,11 @@ function toParts(raw: unknown): ISessionPart[] {
         const name = typeof item.name === 'string' ? item.name.trim() : ''
         if (!name) continue
         const detail = typeof item.detail === 'string' ? item.detail.trim() || undefined : undefined
-        out.push({ name, detail })
+        const roundsRaw = typeof item.rounds === 'number' ? Math.floor(item.rounds) : NaN
+        const rounds = Number.isFinite(roundsRaw) && roundsRaw >= 1 ? roundsRaw : undefined
+        const roundLabel =
+            rounds && typeof item.roundLabel === 'string' ? item.roundLabel.trim() || undefined : undefined
+        out.push({ name, detail, rounds, roundLabel })
     }
     return out
 }

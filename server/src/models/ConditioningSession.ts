@@ -13,6 +13,10 @@ export type ConditioningCategory = (typeof CONDITIONING_CATEGORIES)[number]
 export interface ISessionPart {
     name: string
     detail?: string
+    /** If set, this part is an interval block to tick off — the number of rounds to complete. */
+    rounds?: number
+    /** What one round is called, e.g. "round", "interval", "rep". Defaults to "round". */
+    roundLabel?: string
 }
 
 export interface IConditioningSession extends Document {
@@ -37,6 +41,8 @@ const partSchema = new Schema<ISessionPart>(
     {
         name: { type: String, required: true, trim: true },
         detail: { type: String, trim: true },
+        rounds: { type: Number, min: 1 },
+        roundLabel: { type: String, trim: true },
     },
     { _id: false }
 )
