@@ -721,7 +721,7 @@ function WorkoutViewDrawer({
         <Drawer
             open={!!workout}
             onClose={onClose}
-            size="xl"
+            size="2xl"
             title={w?.name ?? 'Workout'}
             footer={
                 w && (
@@ -876,7 +876,7 @@ function WorkoutFormDrawer({
         <Drawer
             open={!!form}
             onClose={onClose}
-            size="xl"
+            size="2xl"
             title={view?.mode === 'edit' ? 'Edit workout' : 'New workout'}
             footer={
                 <>

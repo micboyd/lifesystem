@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useOverlayBehavior } from './useOverlay'
 
-type DrawerSize = 'sm' | 'md' | 'lg' | 'xl'
+type DrawerSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 
 interface DrawerProps {
     open: boolean
@@ -23,6 +23,9 @@ const sizeClasses: Record<DrawerSize, string> = {
     // Extended: a quarter of the viewport on wide screens, never narrower than
     // `lg` (28rem) so forms stay comfortable on smaller laptops.
     xl: 'sm:w-1/4 sm:min-w-[28rem] sm:max-w-none',
+    // Large: about half the viewport, capped so it stays readable, for content-
+    // heavy drawers like the workout builder (exercise list + sets/reps).
+    '2xl': 'sm:w-1/2 sm:min-w-[32rem] sm:max-w-2xl',
 }
 
 export default function Drawer({
