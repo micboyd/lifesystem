@@ -16,7 +16,7 @@ export interface ITimebox extends Document {
     category?: TimeboxCategory
     startTime: string
     endTime: string
-    recurrence?: { freq: RecurrenceFreq; days?: number[] }
+    recurrence?: { freq: RecurrenceFreq; days?: number[]; until?: string }
     exceptions: string[]
     createdAt: Date
     updatedAt: Date
@@ -35,6 +35,7 @@ const timeboxSchema = new Schema<ITimebox>(
                 {
                     freq: { type: String, enum: RECURRENCE_FREQS, required: true },
                     days: { type: [Number], default: undefined },
+                    until: { type: String, match: DATE_PATTERN, default: undefined },
                 },
                 { _id: false }
             ),

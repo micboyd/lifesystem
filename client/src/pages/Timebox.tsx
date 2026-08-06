@@ -316,7 +316,10 @@ export default function Timebox() {
         }
     }
 
-    async function handleImport(blocks: TimeboxInput[]) {
+    async function handleImport(blocks: TimeboxInput[], startDate?: string) {
+        // Recurring imports can be anchored to a future/other start date; one-off
+        // imports land on the day currently in view.
+        const targetDate = startDate ?? date
         setImporting(true)
         let added = 0
         let skipped = 0
@@ -324,17 +327,20 @@ export default function Timebox() {
         // blocks added earlier in this same batch).
         for (const block of blocks) {
             try {
-                await createTimebox(date, block)
+                await createTimebox(targetDate, block)
                 added++
             } catch {
                 // 409 overlap or validation reject — skip and keep going
                 skipped++
             }
         }
-        await reload()
         setImporting(false)
         setImportOpen(false)
         setImportResult({ added, skipped })
+        // Jump to the anchor day so the new blocks are visible; otherwise just
+        // refresh the current day.
+        if (targetDate !== date) setDate(targetDate)
+        else await reload()
     }
 
     function handleDelete() {
@@ -680,6 +686,7 @@ export default function Timebox() {
 
             <TimeboxImport
                 open={importOpen}
+                date={date}
                 dateLabel={formatDateLong(date)}
                 importing={importing}
                 onClose={() => setImportOpen(false)}

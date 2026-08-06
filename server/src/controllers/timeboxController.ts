@@ -28,9 +28,11 @@ function recurringApplies(
     templateDate: string,
     freq: RecurrenceFreq,
     date: string,
-    days?: number[]
+    days?: number[],
+    until?: string
 ): boolean {
     if (date < templateDate) return false
+    if (until && date > until) return false
     const dow = dowOf(date)
     if (freq === 'daily') return true
     if (freq === 'weekdays') return dow >= 1 && dow <= 5
@@ -71,7 +73,16 @@ export async function listTimeboxes(req: AuthRequest, res: Response) {
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             const dateStr = d.toISOString().slice(0, 10)
             for (const tpl of templates) {
-                if (!recurringApplies(tpl.date, tpl.recurrence!.freq, dateStr, tpl.recurrence!.days)) continue
+                if (
+                    !recurringApplies(
+                        tpl.date,
+                        tpl.recurrence!.freq,
+                        dateStr,
+                        tpl.recurrence!.days,
+                        tpl.recurrence!.until
+                    )
+                )
+                    continue
                 if (tpl.exceptions.includes(dateStr)) continue
                 // Skip if there's already a specific block with same time on this date
                 const clash = specific.find(
@@ -100,7 +111,7 @@ interface TimeboxFields {
     category?: TimeboxCategory
     startTime: string
     endTime: string
-    recurrence?: { freq: RecurrenceFreq; days?: number[] }
+    recurrence?: { freq: RecurrenceFreq; days?: number[]; until?: string }
 }
 
 function validateBody(body: Record<string, unknown>): string | TimeboxFields {
@@ -114,7 +125,7 @@ function validateBody(body: Record<string, unknown>): string | TimeboxFields {
         (TIMEBOX_CATEGORIES as readonly string[]).includes(body.category)
             ? (body.category as TimeboxCategory)
             : undefined
-    let recurrence: { freq: RecurrenceFreq } | undefined
+    let recurrence: { freq: RecurrenceFreq; days?: number[]; until?: string } | undefined
     if (
         body.recurrence &&
         typeof (body.recurrence as any).freq === 'string' &&
@@ -126,7 +137,9 @@ function validateBody(body: Record<string, unknown>): string | TimeboxFields {
             freq === 'custom' && Array.isArray(rawDays)
                 ? rawDays.filter((d: unknown) => typeof d === 'number' && d >= 0 && d <= 6)
                 : undefined
-        recurrence = { freq, ...(days ? { days } : {}) }
+        const rawUntil = (body.recurrence as any).until
+        const until = isValidDate(rawUntil) ? rawUntil : undefined
+        recurrence = { freq, ...(days ? { days } : {}), ...(until ? { until } : {}) }
     }
     return { title, category, startTime: body.startTime as string, endTime: body.endTime as string, recurrence }
 }

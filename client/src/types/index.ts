@@ -958,7 +958,7 @@ export interface Timebox {
     category?: TimeboxCategory
     startTime: string
     endTime: string
-    recurrence?: { freq: RecurrenceFreq; days?: number[] }
+    recurrence?: { freq: RecurrenceFreq; days?: number[]; until?: string }
     isRecurringInstance?: boolean
     createdAt: string
     updatedAt: string
