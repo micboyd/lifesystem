@@ -9,7 +9,13 @@ import type { TimeboxInput } from '../../services/timeboxes'
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 const SAMPLE = `[
-  { "title": "Morning routine", "startTime": "07:00", "endTime": "07:45", "category": "personal", "notes": "Stretch, journal, cold shower" },
+  {
+    "title": "Morning routine",
+    "startTime": "07:00",
+    "endTime": "07:45",
+    "category": "personal",
+    "notes": "Stretch, journal, cold shower"
+  },
   { "title": "Deep work", "startTime": "09:00", "endTime": "11:00", "category": "work" },
   { "title": "Lunch", "startTime": "12:30", "endTime": "13:00" },
   { "title": "Gym", "startTime": "18:00", "endTime": "19:00", "category": "health" }
