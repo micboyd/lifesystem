@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
+import Textarea from '../Textarea'
 import TimePicker from '../TimePicker'
 import { formatDuration, timeToMinutes } from '../../lib/time'
 import {
@@ -55,6 +56,7 @@ export default function TimeboxEditor({
     onDelete,
 }: Props) {
     const [title, setTitle] = useState('')
+    const [notes, setNotes] = useState('')
     const [category, setCategory] = useState<TimeboxCategory | undefined>(undefined)
     const [startTime, setStartTime] = useState<string | null>(null)
     const [endTime, setEndTime] = useState<string | null>(null)
@@ -65,6 +67,7 @@ export default function TimeboxEditor({
     useEffect(() => {
         if (!open) return
         setTitle(item?.title ?? defaults.title ?? '')
+        setNotes(item?.notes ?? '')
         setCategory(item?.category ?? undefined)
         setStartTime(item?.startTime ?? defaults.startTime)
         setEndTime(item?.endTime ?? defaults.endTime)
@@ -93,6 +96,7 @@ export default function TimeboxEditor({
         }
         onSave({
             title: title.trim(),
+            notes: notes.trim() || undefined,
             category,
             startTime,
             endTime,
@@ -154,6 +158,16 @@ export default function TimeboxEditor({
                     }}
                     error={error}
                     autoFocus
+                />
+
+                {/* Notes */}
+                <Textarea
+                    label="Notes (optional)"
+                    placeholder="What's this block about? Add any detail you want to remember."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={4}
+                    maxLength={2000}
                 />
 
                 {/* Category */}

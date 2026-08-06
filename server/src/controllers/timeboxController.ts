@@ -108,6 +108,7 @@ export async function listTimeboxes(req: AuthRequest, res: Response) {
 
 interface TimeboxFields {
     title: string
+    notes?: string
     category?: TimeboxCategory
     startTime: string
     endTime: string
@@ -117,6 +118,8 @@ interface TimeboxFields {
 function validateBody(body: Record<string, unknown>): string | TimeboxFields {
     const title = typeof body.title === 'string' ? body.title.trim() : ''
     if (!title) return 'title is required'
+    const notes =
+        typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim().slice(0, 2000) : undefined
     if (!isValidTime(body.startTime) || !isValidTime(body.endTime))
         return 'startTime and endTime must be HH:MM'
     if (body.endTime <= body.startTime) return 'endTime must be after startTime'
@@ -141,7 +144,7 @@ function validateBody(body: Record<string, unknown>): string | TimeboxFields {
         const until = isValidDate(rawUntil) ? rawUntil : undefined
         recurrence = { freq, ...(days ? { days } : {}), ...(until ? { until } : {}) }
     }
-    return { title, category, startTime: body.startTime as string, endTime: body.endTime as string, recurrence }
+    return { title, notes, category, startTime: body.startTime as string, endTime: body.endTime as string, recurrence }
 }
 
 /** True if another timebox on the same day overlaps [startTime, endTime). */
@@ -205,6 +208,7 @@ export async function updateTimebox(req: AuthRequest, res: Response) {
         return
     }
     existing.title = fields.title
+    existing.notes = fields.notes
     existing.startTime = fields.startTime
     existing.endTime = fields.endTime
     existing.category = fields.category

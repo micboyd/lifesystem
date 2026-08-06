@@ -955,6 +955,7 @@ export interface Timebox {
     _id: string
     date: string
     title: string
+    notes?: string
     category?: TimeboxCategory
     startTime: string
     endTime: string

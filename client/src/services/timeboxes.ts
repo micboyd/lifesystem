@@ -3,6 +3,7 @@ import type { ApiResponse, Timebox, TimeboxCategory, RecurrenceFreq } from '../t
 
 export interface TimeboxInput {
     title: string
+    notes?: string
     category?: TimeboxCategory
     startTime: string
     endTime: string

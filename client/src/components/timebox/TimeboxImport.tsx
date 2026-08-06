@@ -9,7 +9,7 @@ import type { TimeboxInput } from '../../services/timeboxes'
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 const SAMPLE = `[
-  { "title": "Morning routine", "startTime": "07:00", "endTime": "07:45", "category": "personal" },
+  { "title": "Morning routine", "startTime": "07:00", "endTime": "07:45", "category": "personal", "notes": "Stretch, journal, cold shower" },
   { "title": "Deep work", "startTime": "09:00", "endTime": "11:00", "category": "work" },
   { "title": "Lunch", "startTime": "12:30", "endTime": "13:00" },
   { "title": "Gym", "startTime": "18:00", "endTime": "19:00", "category": "health" }
@@ -81,8 +81,11 @@ function parseBlocks(text: string): { blocks: TimeboxInput[] } | { error: string
             (TIMEBOX_CATEGORIES as readonly string[]).includes(b.category)
                 ? (b.category as TimeboxCategory)
                 : undefined
+        const notes =
+            typeof b.notes === 'string' && b.notes.trim() ? b.notes.trim().slice(0, 2000) : undefined
         blocks.push({
             title,
+            notes,
             category,
             startTime: b.startTime as string,
             endTime: b.endTime as string,
@@ -300,7 +303,8 @@ export default function TimeboxImport({
                     <code className="text-neutral-700">startTime</code> and{' '}
                     <code className="text-neutral-700">endTime</code> (HH:MM). An optional{' '}
                     <code className="text-neutral-700">category</code> can be one of:{' '}
-                    {TIMEBOX_CATEGORIES.join(', ')}.
+                    {TIMEBOX_CATEGORIES.join(', ')}. Optional{' '}
+                    <code className="text-neutral-700">notes</code> add detail to a block.
                 </p>
 
                 <textarea

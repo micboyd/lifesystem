@@ -13,6 +13,7 @@ export interface ITimebox extends Document {
     user: Types.ObjectId
     date: string
     title: string
+    notes?: string
     category?: TimeboxCategory
     startTime: string
     endTime: string
@@ -27,6 +28,7 @@ const timeboxSchema = new Schema<ITimebox>(
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         date: { type: String, required: true, match: DATE_PATTERN },
         title: { type: String, required: true, trim: true },
+        notes: { type: String, trim: true, maxlength: 2000 },
         category: { type: String, enum: TIMEBOX_CATEGORIES },
         startTime: { type: String, required: true, match: TIME_PATTERN },
         endTime: { type: String, required: true, match: TIME_PATTERN },

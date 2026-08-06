@@ -595,6 +595,13 @@ export default function Timebox() {
                                                             aria-hidden="true"
                                                         />
                                                     )}
+                                                    {item.notes && (
+                                                        <i
+                                                            className="fa-solid fa-note-sticky mr-1 text-[9px] opacity-60"
+                                                            aria-hidden="true"
+                                                            title="Has notes"
+                                                        />
+                                                    )}
                                                     {item.title}
                                                 </span>
                                                 <span
