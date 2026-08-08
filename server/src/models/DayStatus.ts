@@ -4,6 +4,7 @@ export const DAY_STATUSES = [
     'annual_leave_pending',
     'annual_leave_approved',
     'bank_holiday',
+    'christmas_new_year',
 ] as const
 export type DayStatusType = (typeof DAY_STATUSES)[number]
 

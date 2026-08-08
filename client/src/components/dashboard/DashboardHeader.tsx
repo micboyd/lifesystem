@@ -48,6 +48,11 @@ const STATUS_PILLS: Record<DayStatusType, Pill> = {
         text: 'text-green-700',
     },
     bank_holiday: { label: 'Bank Holiday', bg: 'bg-green-100', text: 'text-green-700' },
+    christmas_new_year: {
+        label: 'Christmas & New Year',
+        bg: 'bg-red-100',
+        text: 'text-red-700',
+    },
 }
 
 export default function DashboardHeader() {

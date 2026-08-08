@@ -852,6 +852,7 @@ export const DAY_STATUSES = [
     'annual_leave_pending',
     'annual_leave_approved',
     'bank_holiday',
+    'christmas_new_year',
 ] as const
 export type DayStatusType = (typeof DAY_STATUSES)[number]
 
@@ -884,6 +885,13 @@ export const DAY_STATUS_OPTIONS: DayStatusOption[] = [
         bg: 'bg-green-100',
         text: 'text-green-700',
         hover: 'hover:bg-green-200',
+    },
+    {
+        value: 'christmas_new_year',
+        label: 'Christmas & New Year',
+        bg: 'bg-red-100',
+        text: 'text-red-700',
+        hover: 'hover:bg-red-200',
     },
 ]
 
