@@ -21,9 +21,24 @@ import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
 import { listMobility } from '../services/mobility'
 import { listExercises } from '../services/exercises'
-import { createLog as createWorkoutLog, type WorkoutLogInput } from '../services/workoutLogs'
+import {
+    createLog as createWorkoutLog,
+    listLogs as listWorkoutLogs,
+    type WorkoutLogInput,
+} from '../services/workoutLogs'
 import WorkoutLogWeightsDrawer from './WorkoutLogWeightsDrawer'
-import { createLog as createConditioningLog } from '../services/conditioningLogs'
+import {
+    createLog as createConditioningLog,
+    listLogs as listConditioningLogs,
+} from '../services/conditioningLogs'
+import {
+    createLog as createMobilityLog,
+    listLogs as listMobilityLogs,
+} from '../services/mobilityLogs'
+import {
+    createLog as createRecoveryLog,
+    listLogs as listRecoveryLogs,
+} from '../services/recoveryLogs'
 import { useToast } from '../context/ToastContext'
 import { listEvents } from '../services/events'
 import {
@@ -199,6 +214,32 @@ function planItemName(entry: FitnessPlanEntry): string | undefined {
     return entry.recovery?.name
 }
 
+// ─── Completion (done) tracking ────────────────────────────────────────────────
+
+/**
+ * A planned item is "done" once a matching log exists for its library item on its
+ * day. Logs are keyed by kind + library id + date so a tick can be shown on the
+ * planned row. Strength and conditioning always logged this way; mobility and
+ * recovery now log the same, giving every category a completion record.
+ */
+function doneKey(kind: FitnessPlanKind, libId: string, date: string): string {
+    return `${kind}:${libId}:${date}`
+}
+
+/** The library item id behind a planned entry, whichever category it is. */
+function entryLibId(entry: FitnessPlanEntry): string | undefined {
+    if (entry.kind === 'workout') return entry.workout?._id
+    if (entry.kind === 'conditioning') return entry.session?._id
+    if (entry.kind === 'mobility') return entry.mobility?._id
+    return entry.recovery?._id
+}
+
+/** The done-key for a planned entry, or null when its library item is missing. */
+function entryDoneKey(entry: FitnessPlanEntry): string | null {
+    const id = entryLibId(entry)
+    return id ? doneKey(entry.kind, id, entry.date) : null
+}
+
 /** Compact "3 × 8-12" / "3 sets" / "8-12 reps" label, or '' when neither is set. */
 function formatSetsReps(e: { sets?: number; reps?: string }): string {
     const sets = e.sets && e.sets > 0 ? e.sets : undefined
@@ -362,6 +403,9 @@ export default function FitnessWeeklyPlanner() {
     const [notes, setNotes] = useState<FitnessPlanNote[]>([])
     // Calendar events across the displayed week, used to flag slot clashes.
     const [events, setEvents] = useState<Event[]>([])
+    // Keys (kind:libId:date) of completed items in the displayed week, so a
+    // planned row can show a tick once its matching log exists.
+    const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
     const [loading, setLoading] = useState(true)
     // The picker always targets one day + slot; the type (strength / conditioning /
     // recovery) and the slot are then chosen inside the drawer.
@@ -393,9 +437,19 @@ export default function FitnessWeeklyPlanner() {
     const today = todayKey()
     const toast = useToast()
 
+    // Mark a kind's library item as done on a date, so its planned rows tick.
+    function markDoneKey(kind: FitnessPlanKind, libId: string, date: string) {
+        setDoneKeys((prev) => {
+            const next = new Set(prev)
+            next.add(doneKey(kind, libId, date))
+            return next
+        })
+    }
+
     // Log a planned workout with the per-set weights entered in the weight drawer.
     async function handleLogWeights(workout: Workout, fields: WorkoutLogInput) {
         await createWorkoutLog(fields)
+        markDoneKey('workout', workout._id, fields.date)
         toast.show(`Logged “${workout.name}”.`, 'success')
     }
 
@@ -430,16 +484,37 @@ export default function FitnessWeeklyPlanner() {
         // Refetch silently on range change — the grid keeps the previous items
         // until the new ones arrive, so navigation never flashes a spinner.
         let active = true
+        // A log falls in the displayed week when its date sits in the range.
+        const inRange = (date: string) => date >= range.start && date <= range.end
         Promise.all([
             listPlanEntries(range.start, range.end),
             listPlanNotes(range.start, range.end),
             listEvents(range.start, range.end).catch(() => [] as Event[]),
+            listWorkoutLogs().catch(() => []),
+            listConditioningLogs().catch(() => []),
+            listMobilityLogs().catch(() => []),
+            listRecoveryLogs().catch(() => []),
         ])
-            .then(([rows, noteRows, eventRows]) => {
+            .then(([rows, noteRows, eventRows, wLogs, cLogs, mLogs, rLogs]) => {
                 if (!active) return
                 setEntries(rows)
                 setNotes(noteRows)
                 setEvents(eventRows)
+                // Build the week's completion keys from each kind's logs. Logs with
+                // no library link (their item was deleted) can't match a plan row.
+                const keys = new Set<string>()
+                for (const l of wLogs)
+                    if (l.workout && inRange(l.date)) keys.add(doneKey('workout', l.workout, l.date))
+                for (const l of cLogs)
+                    if (l.session && inRange(l.date))
+                        keys.add(doneKey('conditioning', l.session, l.date))
+                for (const l of mLogs)
+                    if (l.mobility && inRange(l.date))
+                        keys.add(doneKey('mobility', l.mobility, l.date))
+                for (const l of rLogs)
+                    if (l.recovery && inRange(l.date))
+                        keys.add(doneKey('recovery', l.recovery, l.date))
+                setDoneKeys(keys)
             })
             .finally(() => active && setLoading(false))
         return () => {
@@ -601,6 +676,12 @@ export default function FitnessWeeklyPlanner() {
 
     const rangeLabel = formatWeekRange(range.start, range.end)
 
+    // Whether a planned item has a matching completion log on its day.
+    const isDone = (entry: FitnessPlanEntry) => {
+        const k = entryDoneKey(entry)
+        return k ? doneKeys.has(k) : false
+    }
+
     // Count and label the items a pending clear would remove, for the confirm dialog.
     const clearInfo = useMemo(() => {
         if (!clearTarget) return null
@@ -700,6 +781,7 @@ export default function FitnessWeeklyPlanner() {
                     weekNote={weekNote}
                     dayNotes={dayNotes}
                     clashesByDate={clashesByDate}
+                    isDone={isDone}
                     onAdd={(date, part) => setPicker({ date, part })}
                     onOpen={setDetail}
                     onRemove={handleRemove}
@@ -718,6 +800,7 @@ export default function FitnessWeeklyPlanner() {
                 recovery={recovery}
                 mobility={mobility}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
+                isDone={isDone}
                 onClose={() => setPicker(null)}
                 onAdd={handleAdd}
                 onRemove={handleRemove}
@@ -726,7 +809,12 @@ export default function FitnessWeeklyPlanner() {
             <PlannedDetailDrawer
                 entry={detail}
                 exercisesById={exercisesById}
+                done={detail ? isDone(detail) : false}
                 onClose={() => setDetail(null)}
+                onLogged={(entry) => {
+                    const id = entryLibId(entry)
+                    if (id) markDoneKey(entry.kind, id, entry.date)
+                }}
                 onLogWeights={(workout, date) => {
                     setDetail(null)
                     setLogTarget({ workout, date })
@@ -1124,6 +1212,7 @@ function WeekView({
     weekNote,
     dayNotes,
     clashesByDate,
+    isDone,
     onAdd,
     onOpen,
     onRemove,
@@ -1139,6 +1228,8 @@ function WeekView({
     weekNote: FitnessPlanNote | null
     dayNotes: Map<string, FitnessPlanNote>
     clashesByDate: Map<string, Clash[]>
+    /** Whether a planned item has a matching completion log on its day. */
+    isDone: (entry: FitnessPlanEntry) => boolean
     onAdd: (date: string, part: FitnessPlanPart) => void
     onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
@@ -1215,6 +1306,7 @@ function WeekView({
                         entries={entries.filter((e) => e.date === date)}
                         note={dayNotes.get(date) ?? null}
                         clashCount={clashesByDate.get(date)?.length ?? 0}
+                        isDone={isDone}
                         onAdd={(part) => onAdd(date, part)}
                         onOpen={onOpen}
                         onRemove={onRemove}
@@ -1354,6 +1446,7 @@ function DayColumn({
     entries,
     note,
     clashCount,
+    isDone,
     onAdd,
     onOpen,
     onRemove,
@@ -1376,6 +1469,8 @@ function DayColumn({
     note: FitnessPlanNote | null
     /** How many of this day's planned items clash with a calendar event. */
     clashCount: number
+    /** Whether a planned item has a matching completion log on its day. */
+    isDone: (entry: FitnessPlanEntry) => boolean
     onAdd: (part: FitnessPlanPart) => void
     onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
@@ -1490,6 +1585,7 @@ function DayColumn({
                         part={part}
                         editable={editable}
                         entries={slotItems(part)}
+                        isDone={isDone}
                         onAdd={() => onAdd(part)}
                         onOpen={onOpen}
                         onRemove={onRemove}
@@ -1536,6 +1632,7 @@ function SlotSection({
     part,
     editable,
     entries,
+    isDone,
     onAdd,
     onOpen,
     onRemove,
@@ -1551,6 +1648,8 @@ function SlotSection({
     part: FitnessPlanPart
     editable: boolean
     entries: FitnessPlanEntry[]
+    /** Whether a planned item has a matching completion log on its day. */
+    isDone: (entry: FitnessPlanEntry) => boolean
     onAdd: () => void
     onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
@@ -1639,6 +1738,7 @@ function SlotSection({
                         <PlannedRow
                             key={e._id}
                             entry={e}
+                            done={isDone(e)}
                             dropId={e._id}
                             onOpen={() => onOpen(e)}
                             onRemove={editable ? () => onRemove(e._id) : undefined}
@@ -1691,6 +1791,7 @@ function KindChip({ kind }: { kind: FitnessPlanKind }) {
 
 function PlannedRow({
     entry,
+    done = false,
     onOpen,
     onRemove,
     draggable = false,
@@ -1700,6 +1801,8 @@ function PlannedRow({
     dropEdge = null,
 }: {
     entry: FitnessPlanEntry
+    /** When true the item has a matching completion log — shows a green tick. */
+    done?: boolean
     onOpen?: () => void
     onRemove?: () => void
     /** When true the row can be dragged to another slot of its day (week view). */
@@ -1721,7 +1824,16 @@ function PlannedRow({
 
     const body = (
         <>
-            <p className="truncate text-[13px] font-semibold text-neutral-700">{name}</p>
+            <div className="flex items-center gap-1.5">
+                {done && (
+                    <i
+                        className="fa-solid fa-circle-check shrink-0 text-[12px] text-emerald-500"
+                        aria-label="Done"
+                        title="Completed"
+                    />
+                )}
+                <p className="truncate text-[13px] font-semibold text-neutral-700">{name}</p>
+            </div>
             {entry.kind === 'workout' && entry.workout ? (
                 <div className="mt-0.5 flex items-center gap-1.5">
                     <KindChip kind="workout" />
@@ -1840,6 +1952,7 @@ function ItemPicker({
     recovery,
     mobility,
     entries,
+    isDone,
     onClose,
     onAdd,
     onRemove,
@@ -1851,6 +1964,8 @@ function ItemPicker({
     recovery: Recovery[]
     mobility: Mobility[]
     entries: FitnessPlanEntry[]
+    /** Whether a planned item has a matching completion log on its day. */
+    isDone: (entry: FitnessPlanEntry) => boolean
     onClose: () => void
     onAdd: (
         date: string,
@@ -1968,6 +2083,7 @@ function ItemPicker({
                                         <PlannedRow
                                             key={e._id}
                                             entry={e}
+                                            done={isDone(e)}
                                             onRemove={editable ? () => onRemove(e._id) : undefined}
                                         />
                                     ))}
@@ -2211,12 +2327,18 @@ function ItemPicker({
 function PlannedDetailDrawer({
     entry,
     exercisesById,
+    done,
     onClose,
+    onLogged,
     onLogWeights,
 }: {
     entry: FitnessPlanEntry | null
     exercisesById: Map<string, Exercise>
+    /** Whether this item already has a completion log on its day. */
+    done: boolean
     onClose: () => void
+    /** Called after an item is logged, so the planner can tick its row. */
+    onLogged: (entry: FitnessPlanEntry) => void
     /** Open the per-set weight logger for a planned workout, dated to its day. */
     onLogWeights: (workout: Workout, date: string) => void
 }) {
@@ -2239,11 +2361,17 @@ function PlannedDetailDrawer({
     const e = view
     const title = e ? planItemName(e) ?? KIND_META[e.kind].label : 'Details'
 
-    // Strength and conditioning items can be logged straight from the planner —
-    // "Mark as done" snapshots the library item into a completed record dated to
-    // the planned day, mirroring the Done buttons in the Strength/Conditioning logs.
+    // Any planned item can be logged straight from the planner — "Mark as done"
+    // snapshots the library item into a completed record dated to the planned day,
+    // mirroring the Done buttons in each category's log. Already-done items show a
+    // static "Done" chip instead.
     const canMarkDone =
-        !!e && ((e.kind === 'workout' && !!e.workout) || (e.kind === 'conditioning' && !!e.session))
+        !!e &&
+        !done &&
+        ((e.kind === 'workout' && !!e.workout) ||
+            (e.kind === 'conditioning' && !!e.session) ||
+            (e.kind === 'mobility' && !!e.mobility) ||
+            (e.kind === 'recovery' && !!e.recovery))
 
     async function markDone() {
         if (!e) return
@@ -2268,7 +2396,22 @@ function PlannedDetailDrawer({
                     rounds: rounds.length > 0 ? rounds : undefined,
                 })
                 toast.show(`Logged “${e.session.name}”.`, 'success')
+            } else if (e.kind === 'mobility' && e.mobility) {
+                await createMobilityLog({
+                    mobility: e.mobility._id,
+                    date: e.date,
+                    duration: e.mobility.duration,
+                })
+                toast.show(`Logged “${e.mobility.name}”.`, 'success')
+            } else if (e.kind === 'recovery' && e.recovery) {
+                await createRecoveryLog({
+                    recovery: e.recovery._id,
+                    date: e.date,
+                    duration: e.recovery.duration,
+                })
+                toast.show(`Logged “${e.recovery.name}”.`, 'success')
             }
+            onLogged(e)
             onClose()
         } catch {
             toast.show('Could not log that — please try again.', 'danger')
@@ -2289,6 +2432,12 @@ function PlannedDetailDrawer({
                     <Button variant="ghost" className="mr-auto" onClick={onClose}>
                         Close
                     </Button>
+                    {done && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700">
+                            <i className="fa-solid fa-circle-check" aria-hidden="true" />
+                            Done
+                        </span>
+                    )}
                     {canMarkDone && (
                         <Button
                             variant="secondary"

@@ -15,7 +15,9 @@ import LineIcon from '../components/LineIcon'
 import StrengthLibraries from '../components/StrengthLibraries'
 import ConditioningSessionsLog from '../components/ConditioningSessionsLog'
 import RecoveryLibrary from '../components/RecoveryLibrary'
+import RecoveryRecordsLog from '../components/RecoveryRecordsLog'
 import MobilityLibrary from '../components/MobilityLibrary'
+import MobilityRecordsLog from '../components/MobilityRecordsLog'
 import FitnessWeeklyPlanner from '../components/FitnessWeeklyPlanner'
 import FitnessExportCenter from '../components/FitnessExportCenter'
 import ConditioningSessionDetail from '../components/ConditioningSessionDetail'
@@ -88,8 +90,8 @@ const SUBTITLE: Record<Tab, string> = {
     Planner: 'Plan your training — drop strength, conditioning, mobility and recovery into each day.',
     Strength: 'Track your training programmes, sessions and progress.',
     Conditioning: 'Track your training programmes, sessions and progress.',
-    Mobility: 'Build a library of mobility routines — flows, circuits and drills.',
-    Recovery: 'Build a library of recovery — stretching, sauna, foam rolling and more.',
+    Mobility: 'Log completed routines and build a library of mobility flows, circuits and drills.',
+    Recovery: 'Log completed recovery and build a library — stretching, sauna, foam rolling and more.',
 }
 
 export default function Fitness() {
@@ -134,9 +136,9 @@ export default function Fitness() {
                     ) : tab === 'Conditioning' ? (
                         <ConditioningSection />
                     ) : tab === 'Mobility' ? (
-                        <MobilityLibrary />
+                        <MobilitySection />
                     ) : (
-                        <RecoveryLibrary />
+                        <RecoverySection />
                     )}
                 </Container>
             )}
@@ -165,6 +167,49 @@ function ConditioningSection() {
             />
 
             {sub === 'Sessions' ? <ConditioningSessionsLog /> : <ConditioningLibrary />}
+        </div>
+    )
+}
+
+// ─── Mobility section ───────────────────────────────────────────────────────────
+
+const RECORDS_SUB_TABS = ['Records', 'Library'] as const
+type RecordsSubTab = (typeof RECORDS_SUB_TABS)[number]
+
+/** Mobility splits into logged Records and the reusable routine Library. */
+function MobilitySection() {
+    const [sub, setSub] = useState<RecordsSubTab>('Records')
+
+    return (
+        <div className="flex flex-col gap-6">
+            <Tabs
+                tabs={[...RECORDS_SUB_TABS]}
+                value={sub}
+                onChange={(t) => setSub(t as RecordsSubTab)}
+                className="self-start"
+            />
+
+            {sub === 'Records' ? <MobilityRecordsLog /> : <MobilityLibrary />}
+        </div>
+    )
+}
+
+// ─── Recovery section ───────────────────────────────────────────────────────────
+
+/** Recovery splits into logged Records and the reusable item Library. */
+function RecoverySection() {
+    const [sub, setSub] = useState<RecordsSubTab>('Records')
+
+    return (
+        <div className="flex flex-col gap-6">
+            <Tabs
+                tabs={[...RECORDS_SUB_TABS]}
+                value={sub}
+                onChange={(t) => setSub(t as RecordsSubTab)}
+                className="self-start"
+            />
+
+            {sub === 'Records' ? <RecoveryRecordsLog /> : <RecoveryLibrary />}
         </div>
     )
 }

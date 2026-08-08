@@ -239,6 +239,38 @@ export interface ConditioningLog {
     updatedAt: string
 }
 
+/** A record that a mobility routine was completed on a given day. */
+export interface MobilityLog {
+    _id: string
+    /** Library routine this came from, if any. Null once that routine is deleted. */
+    mobility: string | null
+    /** Snapshot of the routine name at log time. */
+    name: string
+    /** YYYY-MM-DD — the day it was completed. */
+    date: string
+    /** Actual minutes spent. */
+    duration: number
+    notes?: string
+    createdAt: string
+    updatedAt: string
+}
+
+/** A record that a recovery item was completed on a given day. */
+export interface RecoveryLog {
+    _id: string
+    /** Library recovery item this came from, if any. Null once that item is deleted. */
+    recovery: string | null
+    /** Snapshot of the recovery item name at log time. */
+    name: string
+    /** YYYY-MM-DD — the day it was completed. */
+    date: string
+    /** Actual minutes spent. */
+    duration: number
+    notes?: string
+    createdAt: string
+    updatedAt: string
+}
+
 /** A meal placed into one slot of one day in the weekly planner. */
 export interface MealPlanEntry {
     _id: string
