@@ -133,10 +133,11 @@ export default function JsonImportPanel({
         setImporting(true)
         setResult(null)
         try {
-            const { created, updated } = await doImport(data, overwrite)
+            const { created, updated, placed } = await doImport(data, overwrite)
             const parts: string[] = []
             if (created) parts.push(`${created} added`)
             if (updated) parts.push(`${updated} updated`)
+            if (placed) parts.push(`${placed} scheduled`)
             const summary = parts.length ? parts.join(', ') : 'nothing changed'
             toast.show(`Import complete — ${summary}.`, 'success')
             setText('')

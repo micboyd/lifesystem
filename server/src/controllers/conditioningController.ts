@@ -8,6 +8,7 @@ import ConditioningSession, {
 import ConditioningLog from '../models/ConditioningLog'
 import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
 import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
+import { parsePlacements, placeOnPlan, PlanEntrySpec } from '../lib/planPlacement'
 
 /** GET /api/conditioning/import/last — summarise the most recent import batch. */
 export const lastImport = makeLastImportHandler(ConditioningSession)
@@ -145,6 +146,9 @@ export async function importSessions(req: AuthRequest, res: Response) {
     }
 
     const errors: string[] = []
+    // Placements run parallel to `normalised` by index, so we can pin each item
+    // onto the planner once we know the id it resolved to.
+    const placements = rawList.map(() => [] as ReturnType<typeof parsePlacements>)
     const normalised = rawList.map((raw_item, i) => {
         if (!raw_item || typeof raw_item !== 'object') {
             errors.push(`Session ${i + 1}: must be an object`)
@@ -156,6 +160,7 @@ export async function importSessions(req: AuthRequest, res: Response) {
             errors.push(`Session ${i + 1}: "name" is required`)
             return null
         }
+        placements[i] = parsePlacements(item.plan, `Session ${i + 1}`, errors)
         return {
             user: req.userId,
             name,
@@ -178,28 +183,46 @@ export async function importSessions(req: AuthRequest, res: Response) {
 
     // Overwrite chosen name-clashes in place (keeps _id, so the planner reflects
     // the change wherever the session is scheduled); insert the rest as a batch.
-    const toInsert: Record<string, unknown>[] = []
+    // Track the id each item resolved to so its placements target the right doc.
+    const resolvedIds: (string | null)[] = normalised.map(() => null)
+    const toInsert: { index: number; doc: Record<string, unknown> }[] = []
     let updated = 0
-    for (const d of normalised) {
-        const targetId = overwrite.get(nameKey(d!.name))
+    for (let i = 0; i < normalised.length; i++) {
+        const d = normalised[i]!
+        const targetId = overwrite.get(nameKey(d.name))
         if (targetId) {
             const r = await ConditioningSession.updateOne(
                 { _id: targetId, user: req.userId },
-                { $set: d! }
+                { $set: d }
             )
             if (r.matchedCount) {
                 updated++
+                resolvedIds[i] = String(targetId)
                 continue
             }
         }
-        toInsert.push({ ...d!, order: order++, importBatch })
+        toInsert.push({ index: i, doc: { ...d, order: order++, importBatch } })
     }
 
-    const created = await ConditioningSession.insertMany(toInsert)
+    const created = await ConditioningSession.insertMany(toInsert.map((t) => t.doc))
+    created.forEach((doc, k) => {
+        resolvedIds[toInsert[k].index] = String(doc._id)
+    })
+
+    // Schedule any item that carried a `plan`, now that we know its id.
+    const specs: PlanEntrySpec[] = []
+    for (let i = 0; i < placements.length; i++) {
+        const id = resolvedIds[i]
+        if (!id) continue
+        for (const { date, part } of placements[i]) specs.push({ itemId: id, date, part })
+    }
+    const placed = await placeOnPlan(req.userId!, 'conditioning', specs)
+
     res.status(201).json({
-        message: `Imported ${created.length} session(s), updated ${updated}`,
+        message: `Imported ${created.length} session(s), updated ${updated}, scheduled ${placed}`,
         data: created,
         updated,
+        placed,
     })
 }
 

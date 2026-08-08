@@ -11,6 +11,8 @@ export type OverwriteMap = Record<string, string>
 export interface ImportResult {
     created: number
     updated: number
+    /** How many planner entries the import scheduled (items carrying a `plan`). */
+    placed: number
 }
 
 /**
@@ -21,9 +23,12 @@ export function importBody(data: unknown, overwrite?: OverwriteMap): unknown {
     return overwrite && Object.keys(overwrite).length > 0 ? { items: data, overwrite } : data
 }
 
-/** Read the created/updated counts out of an import response. */
-export function importResult(data: { length: number }, body: { updated?: number }): ImportResult {
-    return { created: data.length, updated: body.updated ?? 0 }
+/** Read the created/updated/placed counts out of an import response. */
+export function importResult(
+    data: { length: number },
+    body: { updated?: number; placed?: number }
+): ImportResult {
+    return { created: data.length, updated: body.updated ?? 0, placed: body.placed ?? 0 }
 }
 
 /** Summary of the most recent import batch for a library. */

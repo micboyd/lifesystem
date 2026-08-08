@@ -77,6 +77,7 @@ const SESSION_TEMPLATE = JSON.stringify(
                 { name: 'Intervals', detail: '8 x 30s hard / 90s easy' },
                 { name: 'Cool-down', detail: '5 min easy spin' },
             ],
+            plan: [{ date: '2026-08-11', part: 'evening' }, '2026-08-14'],
         },
     ],
     null,
@@ -327,6 +328,17 @@ function ConditioningLibrary() {
                         <p>
                             <span className="font-semibold text-neutral-700">category</span> must be one
                             of: {CONDITIONING_CATEGORIES.join(', ')}.
+                        </p>
+                        <p>
+                            <span className="font-semibold text-neutral-700">plan</span> is optional — add
+                            it to also drop the session onto your weekly planner. Use a date string{' '}
+                            <span className="font-semibold text-neutral-700">"2026-08-11"</span> (lands in
+                            the morning), a{' '}
+                            <span className="font-semibold text-neutral-700">
+                                {'{ date, part }'}
+                            </span>{' '}
+                            object (part is morning, afternoon or evening), or an array of either to
+                            schedule it on several days. Leave it out to just add to the library.
                         </p>
                         <p>
                             <span className="font-semibold text-neutral-700">parts</span> each take a{' '}
