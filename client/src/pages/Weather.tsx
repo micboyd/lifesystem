@@ -394,11 +394,13 @@ export default function Weather() {
     )
 }
 
-/** Six tiles covering the next ~12 hours, two hours apart. */
+/** Six tiles covering the next ~12 hours, two hours apart, starting from now. */
 function HourlyStrip({ forecast }: { forecast: Forecast }) {
-    const upcoming = upcomingHours(forecast)
-    // The coming hour, then every second hour after it → 6 tiles over ~12 hours.
-    const tiles = Array.from({ length: 6 }, (_, i) => upcoming[i * 2]).filter(
+    const now = new Date()
+    // The current hour, then every second hour after it → 6 tiles over ~12 hours.
+    const current = forecast.hourly[now.getHours()]
+    const timeline = current ? [current, ...upcomingHours(forecast, now)] : upcomingHours(forecast, now)
+    const tiles = Array.from({ length: 6 }, (_, i) => timeline[i * 2]).filter(
         (h): h is HourlySlot => Boolean(h)
     )
     if (tiles.length === 0) return null
@@ -409,12 +411,15 @@ function HourlyStrip({ forecast }: { forecast: Forecast }) {
                 Next 12 hours
             </p>
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-                {tiles.map((h) => {
+                {tiles.map((h, i) => {
                     const info = weatherInfo(h.code, h.hour >= 6 && h.hour < 20)
+                    const isNow = i === 0 && h === current
                     return (
-                        <Card key={`${h.date}-${h.hour}`} className="!p-4">
+                        <Card key={`${h.date}-${h.hour}`} className={`!p-4 ${isNow ? 'ring-sky-200' : ''}`}>
                             <div className="flex flex-col items-center gap-2 text-center">
-                                <p className="text-xs font-semibold text-neutral-500">{hourLabel(h.hour)}</p>
+                                <p className={`text-xs font-semibold ${isNow ? 'text-sky-600' : 'text-neutral-500'}`}>
+                                    {isNow ? 'Now' : hourLabel(h.hour)}
+                                </p>
                                 <i className={`${info.icon} text-2xl text-sky-500`} aria-hidden="true" />
                                 <p className="text-lg font-bold text-neutral-900">{h.temperature}°</p>
                                 <p
