@@ -415,6 +415,16 @@ function estimateWorkoutMinutes(exercises: WorkoutExercise[]): number {
     return WARMUP_MIN + work
 }
 
+/**
+ * The minutes to show for a workout: its stated duration when one was given (an
+ * imported plan usually says), otherwise the estimate above. `estimated` drives
+ * whether the label is hedged with a "~".
+ */
+function workoutMinutes(workout: Workout): { minutes: number; estimated: boolean } {
+    if (workout.duration > 0) return { minutes: workout.duration, estimated: false }
+    return { minutes: estimateWorkoutMinutes(workout.exercises), estimated: true }
+}
+
 /** Compact "3 × 8-12" / "3 sets" / "8-12 reps" label, or '' when neither is set. */
 function formatSetsReps(e: { sets?: number; reps?: string }): string {
     const sets = e.sets && e.sets > 0 ? e.sets : undefined
@@ -591,7 +601,7 @@ function WorkoutLibrary({
                                         {workout.exercises.length}{' '}
                                         {workout.exercises.length === 1 ? 'exercise' : 'exercises'}
                                         {workout.exercises.length > 0 &&
-                                            ` · ~${estimateWorkoutMinutes(workout.exercises)} min`}
+                                            ` · ${workoutMinutes(workout).estimated ? '~' : ''}${workoutMinutes(workout).minutes} min`}
                                     </p>
                                 </div>
                                 <DropdownMenu
@@ -723,7 +733,7 @@ function WorkoutViewDrawer({
               .map((item) => ({ item, ex: byId.get(item.exercise) }))
               .filter((r): r is { item: WorkoutExercise; ex: Exercise } => !!r.ex)
         : []
-    const est = w ? estimateWorkoutMinutes(w.exercises) : 0
+    const time = w ? workoutMinutes(w) : null
 
     async function markDone() {
         if (!w) return
@@ -778,13 +788,18 @@ function WorkoutViewDrawer({
                             <i className="fa-solid fa-dumbbell text-neutral-400" aria-hidden="true" />
                             {rows.length} {rows.length === 1 ? 'exercise' : 'exercises'}
                         </span>
-                        {rows.length > 0 && (
+                        {time && rows.length > 0 && (
                             <span
-                                title="Rough estimate: an 8-minute warm-up plus working sets (~2 min each), or ~6 min per exercise where sets aren't set."
+                                title={
+                                    time.estimated
+                                        ? "Rough estimate: an 8-minute warm-up plus working sets (~2 min each), or ~6 min per exercise where sets aren't set."
+                                        : 'The duration set on this workout.'
+                                }
                                 className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600"
                             >
                                 <i className="fa-regular fa-clock text-neutral-400" aria-hidden="true" />
-                                ~{est} min
+                                {time.estimated ? '~' : ''}
+                                {time.minutes} min
                             </span>
                         )}
                         {w.showInPlanner && (
@@ -824,7 +839,17 @@ function WorkoutViewDrawer({
                                                         {formatSetsReps(item)}
                                                     </span>
                                                 )}
+                                                {item.rest && (
+                                                    <span className="text-xs text-neutral-400">
+                                                        rest {item.rest}
+                                                    </span>
+                                                )}
                                             </div>
+                                            {item.notes && (
+                                                <p className="mt-0.5 text-xs italic text-neutral-500">
+                                                    {item.notes}
+                                                </p>
+                                            )}
                                             {ex.description && (
                                                 <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
                                                     {ex.description}

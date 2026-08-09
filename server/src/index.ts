@@ -37,6 +37,7 @@ import savingsTargetRoutes from './routes/savingsTargetRoutes'
 import taskRoutes from './routes/taskRoutes'
 import timeboxRoutes from './routes/timeboxRoutes'
 import totalsRoutes from './routes/totalsRoutes'
+import trainingPlanRoutes from './routes/trainingPlanRoutes'
 import userRoutes from './routes/userRoutes'
 import weightLogRoutes from './routes/weightLogRoutes'
 import workoutRoutes from './routes/workoutRoutes'
@@ -91,6 +92,7 @@ app.use('/api/weight-logs', weightLogRoutes)
 app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)
+app.use('/api/plans', trainingPlanRoutes)
 app.use('/api/recovery', recoveryRoutes)
 app.use('/api/recovery-logs', recoveryLogRoutes)
 app.use('/api/mobility', mobilityRoutes)

@@ -19,6 +19,7 @@ import RecoveryRecordsLog from '../components/RecoveryRecordsLog'
 import MobilityLibrary from '../components/MobilityLibrary'
 import MobilityRecordsLog from '../components/MobilityRecordsLog'
 import FitnessWeeklyPlanner from '../components/FitnessWeeklyPlanner'
+import PlanLibrary from '../components/PlanLibrary'
 import BodyMetrics from '../components/BodyMetrics'
 import FitnessExportCenter from '../components/FitnessExportCenter'
 import ConditioningSessionDetail from '../components/ConditioningSessionDetail'
@@ -85,11 +86,12 @@ const SESSION_TEMPLATE = JSON.stringify(
     2
 )
 
-const TABS = ['Planner', 'Body', 'Strength', 'Conditioning', 'Mobility', 'Recovery'] as const
+const TABS = ['Planner', 'Plans', 'Body', 'Strength', 'Conditioning', 'Mobility', 'Recovery'] as const
 type Tab = (typeof TABS)[number]
 
 const SUBTITLE: Record<Tab, string> = {
     Planner: 'Plan your training — drop strength, conditioning, mobility and recovery into each day.',
+    Plans: 'Whole training blocks — import a plan, then apply it to fill the planner day by day.',
     Body: 'Weigh in and watch the trend, not the scale — the smoothed line is what tracks fat.',
     Strength: 'Track your training programmes, sessions and progress.',
     Conditioning: 'Track your training programmes, sessions and progress.',
@@ -134,7 +136,9 @@ export default function Fitness() {
                 </Container>
             ) : (
                 <Container className="mt-6">
-                    {tab === 'Body' ? (
+                    {tab === 'Plans' ? (
+                        <PlanLibrary />
+                    ) : tab === 'Body' ? (
                         <BodyMetrics />
                     ) : tab === 'Strength' ? (
                         <StrengthLibraries />

@@ -30,29 +30,27 @@ function toReps(raw: unknown): string | undefined {
 /**
  * Normalise a request value into a de-duplicated list of workout exercises that
  * actually belong to the user. Each entry may be a bare exercise id (string) or
- * an object `{ exercise, sets?, reps? }`. Unknown or malformed ids are dropped so
- * a workout never references an exercise the user can't see; submitted order is
- * preserved and an exercise appears at most once.
+ * an object `{ exercise, sets?, reps?, rest?, notes? }`. Unknown or malformed ids
+ * are dropped so a workout never references an exercise the user can't see;
+ * submitted order is preserved and an exercise appears at most once.
  */
 async function toWorkoutExercises(raw: unknown, userId: unknown): Promise<IWorkoutExercise[]> {
     if (!Array.isArray(raw)) return []
-    const entries: { id: string; sets?: number; reps?: string }[] = []
+    const entries: { id: string; line: Omit<IWorkoutExercise, 'exercise'> }[] = []
     const seen = new Set<string>()
     for (const item of raw) {
         let id: string | undefined
-        let sets: number | undefined
-        let reps: string | undefined
+        let line: Omit<IWorkoutExercise, 'exercise'> = {}
         if (typeof item === 'string') {
             id = item
         } else if (item && typeof item === 'object') {
             const o = item as Record<string, unknown>
             if (typeof o.exercise === 'string') id = o.exercise
-            sets = toSets(o.sets)
-            reps = toReps(o.reps)
+            line = { sets: toSets(o.sets), reps: toReps(o.reps), rest: toReps(o.rest), notes: toReps(o.notes) }
         }
         if (!id || !Types.ObjectId.isValid(id) || seen.has(id)) continue
         seen.add(id)
-        entries.push({ id, sets, reps })
+        entries.push({ id, line })
     }
     if (entries.length === 0) return []
 
@@ -63,11 +61,7 @@ async function toWorkoutExercises(raw: unknown, userId: unknown): Promise<IWorko
     const ownedSet = new Set(owned.map((e) => String(e._id)))
     return entries
         .filter((e) => ownedSet.has(e.id))
-        .map((e) => ({
-            exercise: new Types.ObjectId(e.id),
-            ...(e.sets !== undefined ? { sets: e.sets } : {}),
-            ...(e.reps !== undefined ? { reps: e.reps } : {}),
-        }))
+        .map((e) => ({ exercise: new Types.ObjectId(e.id), ...e.line }))
 }
 
 /** GET /api/workouts — list the user's workouts in library order. */
@@ -91,6 +85,7 @@ export async function createWorkout(req: AuthRequest, res: Response) {
         user: req.userId,
         name,
         description: typeof req.body.description === 'string' ? req.body.description.trim() : '',
+        duration: toSets(req.body.duration) ?? 0,
         showInPlanner: req.body.showInPlanner === true,
         exercises: await toWorkoutExercises(req.body.exercises, req.userId),
         order,
@@ -104,6 +99,7 @@ export async function updateWorkout(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
     if (typeof b.name === 'string' && b.name.trim()) fields.name = b.name.trim()
     if (typeof b.description === 'string') fields.description = b.description.trim()
+    if (b.duration !== undefined) fields.duration = toSets(b.duration) ?? 0
     if (typeof b.showInPlanner === 'boolean') fields.showInPlanner = b.showInPlanner
     if (Array.isArray(b.exercises)) fields.exercises = await toWorkoutExercises(b.exercises, req.userId)
     if (typeof b.order === 'number') fields.order = b.order
@@ -127,12 +123,15 @@ interface NormExercise {
     name: string
     sets?: number
     reps?: string
+    rest?: string
+    notes?: string
 }
 
 /** A workout as accepted by the importer, before exercises are resolved to ids. */
 interface NormWorkout {
     name: string
     description: string
+    duration: number
     showInPlanner: boolean
     /** Exercise lines in first-seen order, de-duplicated by name within the workout. */
     exerciseItems: NormExercise[]
@@ -183,26 +182,30 @@ function normaliseWorkouts(rawList: unknown[]): { items: NormWorkout[]; errors: 
         if (Array.isArray(item.exercises)) {
             for (const ex of item.exercises) {
                 let exName = ''
-                let sets: number | undefined
-                let reps: string | undefined
+                let line: Omit<NormExercise, 'name'> = {}
                 if (typeof ex === 'string') {
                     exName = ex.trim()
                 } else if (ex && typeof ex === 'object') {
                     const o = ex as Record<string, unknown>
                     if (typeof o.name === 'string') exName = o.name.trim()
-                    sets = toSets(o.sets)
-                    reps = toReps(o.reps)
+                    line = {
+                        sets: toSets(o.sets),
+                        reps: toReps(o.reps),
+                        rest: toReps(o.rest),
+                        notes: toReps(o.notes),
+                    }
                 }
                 if (!exName) continue
                 const key = normKey(exName)
                 if (seen.has(key)) continue
                 seen.add(key)
-                exerciseItems.push({ name: exName, sets, reps })
+                exerciseItems.push({ name: exName, ...line })
             }
         }
         items.push({
             name,
             description: typeof item.description === 'string' ? item.description.trim() : '',
+            duration: toSets(item.duration) ?? 0,
             showInPlanner: item.showInPlanner === true,
             exerciseItems,
         })
@@ -435,14 +438,9 @@ export async function importWorkouts(req: AuthRequest, res: Response) {
     /** The exercise lines for one workout, resolved to library exercise ids. */
     const lines = (it: (typeof items)[number]) =>
         it.exerciseItems
-            .map((ex) => {
-                const id = resolved.get(normKey(ex.name))
-                if (!id) return null
-                return {
-                    exercise: id,
-                    ...(ex.sets !== undefined ? { sets: ex.sets } : {}),
-                    ...(ex.reps !== undefined ? { reps: ex.reps } : {}),
-                }
+            .map(({ name: exName, ...line }) => {
+                const id = resolved.get(normKey(exName))
+                return id ? { exercise: id, ...line } : null
             })
             .filter((e): e is IWorkoutExercise => e !== null)
 
@@ -454,6 +452,7 @@ export async function importWorkouts(req: AuthRequest, res: Response) {
         const content = {
             name: it.name,
             description: it.description,
+            duration: it.duration,
             showInPlanner: it.showInPlanner,
             exercises: lines(it),
         }

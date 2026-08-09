@@ -1,0 +1,2883 @@
+{
+    "planName": "15% Body Fat - Rugby Physique & Performance Plan",
+    "generatedAt": "2026-08-09",
+    "planStart": "2026-08-10",
+    "planEnd": "2027-05-31",
+    "source": "Built from the user's AdminLife Fitness JSON export and its existing running progression.",
+    "goal": {
+        "primaryGoal": "Reduce body fat from about 28% toward 15% by 2027-05-31 while preserving as much muscle and strength as possible.",
+        "scaleWeight": "Secondary metric only; no target body weight.",
+        "proteinTarget": "About 190-210 g/day as a practical muscle-retention target.",
+        "rateOfChange": "Use a moderate calorie deficit. If gym performance, recovery and training quality are deteriorating for 2+ weeks, the deficit is probably too aggressive.",
+        "measurementProtocol": [
+            "Take waist measurement every 2 weeks under similar conditions.",
+            "Take front, side and back progress photos every 4 weeks in similar lighting.",
+            "Use the same body-fat measurement method each time and judge the trend, not single readings.",
+            "Track strength on the main lifts; broadly stable strength while waist/body-fat trend falls is a good sign."
+        ],
+        "checkpoints": [
+            {
+                "date": "2026-08-10",
+                "target": "Baseline around 28%; establish measurements."
+            },
+            {
+                "date": "2026-11-30",
+                "target": "Clear waist reduction and visible upper-body definition; body-fat trend ideally in the mid-20s."
+            },
+            {
+                "date": "2027-02-28",
+                "target": "Noticeably leaner with strength largely maintained; body-fat trend around low-20s is reasonable."
+            },
+            {
+                "date": "2027-04-30",
+                "target": "Approaching high-teens if progress has been consistent."
+            },
+            {
+                "date": "2027-05-31",
+                "target": "Aim for approximately 15%; accept measurement noise and judge physique/waist/strength together."
+            }
+        ]
+    },
+    "trainingPhases": [
+        {
+            "name": "Foundation & Return to Running",
+            "dates": "2026-08-10 to 2026-10-04",
+            "focus": "Rebuild running tolerance, establish four-day strength consistency, retain muscle and avoid unnecessary fatigue.",
+            "conditioning": "Use the existing run plan only. Do not add extra hard conditioning.",
+            "strength": "RPE 6-7 for the first two weeks, then RPE 7-8.",
+            "recoveryPriority": "Knee response, sleep and consistency."
+        },
+        {
+            "name": "5K Build",
+            "dates": "2026-10-05 to 2026-11-15",
+            "focus": "Progress continuous running while building visible rugby-muscle qualities: chest, back, shoulders, traps, legs and glutes.",
+            "conditioning": "Existing run plan only.",
+            "strength": "Normal listed volume; progress reps before load.",
+            "recoveryPriority": "Keep Thursday lower-body work submaximal before Friday running."
+        },
+        {
+            "name": "10K Performance Build",
+            "dates": "2026-11-16 to 2027-02-07",
+            "focus": "Continue strength while the running plan introduces more performance work and builds to 10K.",
+            "conditioning": "Existing run plan only; no extra Saturday HIIT.",
+            "strength": "Reduce lower-body volume by one set per main lift when run fatigue accumulates.",
+            "recoveryPriority": "Maintain upper-body volume, protect lower-body freshness."
+        },
+        {
+            "name": "Rugby Engine Build",
+            "dates": "2027-02-08 to 2027-04-04",
+            "focus": "Maintain strength and muscle while converting the running base into repeated-effort rugby fitness.",
+            "conditioning": "Wednesday easy aerobic run plus Saturday low-impact/sled conditioning.",
+            "strength": "Add medicine-ball power primers; keep compound lifts heavy but crisp.",
+            "recoveryPriority": "One complete rest day every week."
+        },
+        {
+            "name": "Lean Rugby Finish",
+            "dates": "2027-04-05 to 2027-05-31",
+            "focus": "Arrive leaner, strong and well-conditioned rather than simply lighter.",
+            "conditioning": "Wednesday aerobic maintenance plus Saturday straight-line/repeated-effort rugby conditioning.",
+            "strength": "Maintain main-lift intensity; trim accessory volume before trimming heavy work.",
+            "recoveryPriority": "Avoid turning every session into a maximal effort."
+        }
+    ],
+    "weeklyTemplate": [
+        {
+            "day": "Monday",
+            "strength": "Upper A - Rugby Size & Strength",
+            "conditioning": "Existing running plan until 2027-02-05; after that none by default",
+            "mobility": "Upper-Body and Shoulder Mobility",
+            "recovery": "Post-Training Recovery Routine"
+        },
+        {
+            "day": "Tuesday",
+            "strength": "Lower A - Heavy Rugby Base",
+            "conditioning": null,
+            "mobility": "Hip Mobility Flow + short ankle preparation",
+            "recovery": "Sauna Recovery optional"
+        },
+        {
+            "day": "Wednesday",
+            "strength": null,
+            "conditioning": "Existing running plan until 2027-02-05; then Wednesday Aerobic Run",
+            "mobility": "Pre-Run Dynamic Mobility",
+            "recovery": "Legs-Up Recovery if legs feel heavy"
+        },
+        {
+            "day": "Thursday",
+            "strength": "Lower B - Rugby Strength & Power",
+            "conditioning": null,
+            "mobility": "Ankle and Calf Mobility",
+            "recovery": "Post-Training Mobility"
+        },
+        {
+            "day": "Friday",
+            "strength": "Upper B - Shoulders, Back & Arms",
+            "conditioning": "Existing running plan until 2027-02-05; after that none by default",
+            "mobility": "Pre-Run Dynamic Mobility before the run; Upper-Body and Shoulder Mobility before lifting if needed",
+            "recovery": "Low-Stimulation Evening"
+        },
+        {
+            "day": "Saturday",
+            "strength": null,
+            "conditioning": "No extra hard conditioning before 2027-02-08; dedicated rugby conditioning from 2027-02-13",
+            "mobility": "Full-Body Mobility Reset",
+            "recovery": "Sauna Recovery optional"
+        },
+        {
+            "day": "Sunday",
+            "strength": null,
+            "conditioning": null,
+            "mobility": "Optional gentle mobility only",
+            "recovery": "Complete Rest Day"
+        }
+    ],
+    "exerciseLibrary": [
+        {
+            "name": "Medicine ball chest pass",
+            "description": "Develops explosive upper-body pushing power for hand-offs and contact."
+        },
+        {
+            "name": "Medicine ball rotational throw",
+            "description": "Builds explosive rotational power for passing and changing direction."
+        },
+        {
+            "name": "Barbell bench press",
+            "description": "Horizontal barbell press for the chest, shoulders and triceps."
+        },
+        {
+            "name": "Barbell row",
+            "description": "Bent-over barbell pull for the mid-back, lats and biceps."
+        },
+        {
+            "name": "Incline dumbbell press",
+            "description": ""
+        },
+        {
+            "name": "Lat pulldown",
+            "description": "Vertical cable pull for the lats, upper back and biceps."
+        },
+        {
+            "name": "Dumbbell lateral raise",
+            "description": "Isolation exercise targeting the side deltoids."
+        },
+        {
+            "name": "Dumbbell shrugs",
+            "description": ""
+        },
+        {
+            "name": "Rope triceps pushdown",
+            "description": "Rope-based cable extension for the triceps."
+        },
+        {
+            "name": "Barbell back squat",
+            "description": "Barbell squat for the quadriceps, glutes, hamstrings and core."
+        },
+        {
+            "name": "Barbell Romanian deadlift",
+            "description": "Hip hinge targeting the hamstrings, glutes and lower back."
+        },
+        {
+            "name": "Dumbbell Bulgarian split squat",
+            "description": ""
+        },
+        {
+            "name": "Seated or lying leg curl",
+            "description": ""
+        },
+        {
+            "name": "Standing dumbbell calf raise",
+            "description": ""
+        },
+        {
+            "name": "Cable Pallof press",
+            "description": "Builds anti-rotation core strength for tackling, sidestepping and resisting contact."
+        },
+        {
+            "name": "Trap bar deadlift",
+            "description": "Neutral-grip floor pull for the legs, glutes, back and grip."
+        },
+        {
+            "name": "Paused barbell back squat",
+            "description": ""
+        },
+        {
+            "name": "Dumbbell reverse lunge",
+            "description": "Builds single-leg strength while placing less forward stress on the knees."
+        },
+        {
+            "name": "Dumbbell hip thrust",
+            "description": ""
+        },
+        {
+            "name": "Farmer's carry",
+            "description": "Develops grip, core, shoulder and total-body strength for carrying and contact."
+        },
+        {
+            "name": "Barbell overhead press",
+            "description": "Standing vertical barbell press for the shoulders, triceps and core."
+        },
+        {
+            "name": "Dumbbell bench press",
+            "description": "Horizontal dumbbell press for the chest, shoulders and triceps."
+        },
+        {
+            "name": "One-arm dumbbell row",
+            "description": ""
+        },
+        {
+            "name": "Cable face pull",
+            "description": "Rope pull toward the face for the rear deltoids, traps and rotator cuff."
+        },
+        {
+            "name": "Dumbbell hammer curl",
+            "description": ""
+        },
+        {
+            "name": "Dumbbell overhead triceps extension",
+            "description": "Overhead dumbbell extension targeting the triceps."
+        },
+        {
+            "name": "Assault bike sprint intervals",
+            "description": "Develops repeated high-intensity conditioning for the stop-start demands of rugby."
+        },
+        {
+            "name": "Heavy sled push",
+            "description": "Builds force production and leg strength for scrummaging and contact situations."
+        },
+        {
+            "name": "4-way neck isometric",
+            "description": "Gentle resisted neck flexion, extension and lateral-flexion isometrics to build neck strength without loaded neck bridging."
+        }
+    ],
+    "strengthWorkouts": [
+        {
+            "day": "Monday",
+            "name": "Upper A - Rugby Size & Strength",
+            "duration": 70,
+            "purpose": "Build a thick chest, upper back, shoulders and traps while keeping the lower body fresh for Tuesday's heavy leg session.",
+            "exercises": [
+                {
+                    "name": "Medicine ball chest pass",
+                    "sets": 3,
+                    "reps": "4-5",
+                    "rest": "60-90 sec",
+                    "notes": "Explosive reps; stop each set before speed drops.",
+                    "phase": "From 2027-02-08 onward"
+                },
+                {
+                    "name": "Barbell bench press",
+                    "sets": 4,
+                    "reps": "5-8",
+                    "rest": "2-3 min",
+                    "notes": "Keep 1-2 reps in reserve on normal weeks."
+                },
+                {
+                    "name": "Barbell row",
+                    "sets": 4,
+                    "reps": "6-8",
+                    "rest": "2 min",
+                    "notes": "Strict torso position; build upper-back thickness."
+                },
+                {
+                    "name": "Incline dumbbell press",
+                    "sets": 3,
+                    "reps": "8-12",
+                    "rest": "90 sec"
+                },
+                {
+                    "name": "Lat pulldown",
+                    "sets": 3,
+                    "reps": "8-12",
+                    "rest": "90 sec"
+                },
+                {
+                    "name": "Dumbbell lateral raise",
+                    "sets": 3,
+                    "reps": "12-20",
+                    "rest": "60 sec"
+                },
+                {
+                    "name": "Dumbbell shrugs",
+                    "sets": 3,
+                    "reps": "10-15",
+                    "rest": "75 sec",
+                    "notes": "Pause for 1 second at the top."
+                },
+                {
+                    "name": "Rope triceps pushdown",
+                    "sets": 2,
+                    "reps": "10-15",
+                    "rest": "60 sec"
+                }
+            ]
+        },
+        {
+            "day": "Tuesday",
+            "name": "Lower A - Heavy Rugby Base",
+            "duration": 70,
+            "purpose": "Build squat strength, posterior-chain size and single-leg strength without chasing fatigue for its own sake.",
+            "exercises": [
+                {
+                    "name": "Barbell back squat",
+                    "sets": 4,
+                    "reps": "5-6",
+                    "rest": "3 min",
+                    "notes": "Primary strength lift. No grinding reps."
+                },
+                {
+                    "name": "Barbell Romanian deadlift",
+                    "sets": 3,
+                    "reps": "6-8",
+                    "rest": "2-3 min"
+                },
+                {
+                    "name": "Dumbbell Bulgarian split squat",
+                    "sets": 3,
+                    "reps": "8-10 each side",
+                    "rest": "90 sec"
+                },
+                {
+                    "name": "Seated or lying leg curl",
+                    "sets": 3,
+                    "reps": "10-15",
+                    "rest": "75 sec"
+                },
+                {
+                    "name": "Standing dumbbell calf raise",
+                    "sets": 3,
+                    "reps": "12-20",
+                    "rest": "60 sec"
+                },
+                {
+                    "name": "Cable Pallof press",
+                    "sets": 3,
+                    "reps": "10-12 each side",
+                    "rest": "60 sec",
+                    "notes": "Pause fully extended."
+                }
+            ]
+        },
+        {
+            "day": "Thursday",
+            "name": "Lower B - Rugby Strength & Power",
+            "duration": 65,
+            "purpose": "Build powerful hips, legs, grip and trunk strength while keeping enough in reserve for Friday's run.",
+            "exercises": [
+                {
+                    "name": "Trap bar deadlift",
+                    "sets": 4,
+                    "reps": "4-5",
+                    "rest": "3 min",
+                    "notes": "Fast concentric intent; keep 1-2 reps in reserve."
+                },
+                {
+                    "name": "Paused barbell back squat",
+                    "sets": 3,
+                    "reps": "5",
+                    "rest": "2-3 min",
+                    "notes": "Use a controlled 1-2 second pause; keep this lighter than Tuesday."
+                },
+                {
+                    "name": "Dumbbell reverse lunge",
+                    "sets": 3,
+                    "reps": "8 each side",
+                    "rest": "90 sec"
+                },
+                {
+                    "name": "Dumbbell hip thrust",
+                    "sets": 3,
+                    "reps": "8-12",
+                    "rest": "90 sec"
+                },
+                {
+                    "name": "Farmer's carry",
+                    "sets": 4,
+                    "reps": "20-30 m",
+                    "rest": "60-90 sec",
+                    "notes": "Heavy, tall posture, controlled breathing."
+                }
+            ]
+        },
+        {
+            "day": "Friday",
+            "name": "Upper B - Shoulders, Back & Arms",
+            "duration": 70,
+            "purpose": "Build the shoulder width, lats, arms and neck/trap look associated with a powerful rugby physique.",
+            "exercises": [
+                {
+                    "name": "Medicine ball rotational throw",
+                    "sets": 3,
+                    "reps": "4 each side",
+                    "rest": "60-90 sec",
+                    "notes": "Explosive, crisp reps.",
+                    "phase": "From 2027-02-08 onward"
+                },
+                {
+                    "name": "Barbell overhead press",
+                    "sets": 4,
+                    "reps": "6-8",
+                    "rest": "2-3 min"
+                },
+                {
+                    "name": "Lat pulldown",
+                    "sets": 4,
+                    "reps": "8-10",
+                    "rest": "90 sec"
+                },
+                {
+                    "name": "Dumbbell bench press",
+                    "sets": 3,
+                    "reps": "8-12",
+                    "rest": "90 sec"
+                },
+                {
+                    "name": "One-arm dumbbell row",
+                    "sets": 3,
+                    "reps": "8-12 each side",
+                    "rest": "90 sec"
+                },
+                {
+                    "name": "Cable face pull",
+                    "sets": 3,
+                    "reps": "12-15",
+                    "rest": "60 sec"
+                },
+                {
+                    "name": "Dumbbell hammer curl",
+                    "sets": 3,
+                    "reps": "10-12",
+                    "rest": "60 sec"
+                },
+                {
+                    "name": "Dumbbell overhead triceps extension",
+                    "sets": 3,
+                    "reps": "10-12",
+                    "rest": "60 sec"
+                },
+                {
+                    "name": "4-way neck isometric",
+                    "sets": 2,
+                    "reps": "20-30 sec each direction",
+                    "rest": "45 sec",
+                    "notes": "Use light manual/band resistance. No neck bridging."
+                }
+            ]
+        }
+    ],
+    "strengthProgression": {
+        "effortTarget": "Most working sets at RPE 7-8, generally 1-3 reps in reserve.",
+        "doubleProgression": "When every set reaches the top of the rep range with good form for two exposures, add 2-2.5 kg to upper-body barbell lifts or the smallest available increment; add 2.5-5 kg to lower-body barbell/trap-bar lifts.",
+        "fatLossRule": "Maintaining load and reps while body fat falls counts as progress. Do not force PRs during a calorie deficit.",
+        "deloadRule": "Every 5th or 6th week, or sooner if performance and recovery clearly fall, reduce working sets by about 40-50% and keep 3-4 reps in reserve for one week.",
+        "runInterferenceRule": "On Monday and Friday, do the run and upper-body lift as separate sessions when practical. If performed close together, do the priority session first and keep the second submaximal.",
+        "lowerBodyRule": "Thursday lower-body work must not become a max-effort session because Friday includes running.",
+        "phaseAdjustments": [
+            {
+                "phase": "Foundation",
+                "dates": "2026-08-10 to 2026-10-04",
+                "adjustment": "First two weeks at RPE 6-7, then settle at RPE 7-8. Build consistency and technique."
+            },
+            {
+                "phase": "Build",
+                "dates": "2026-10-05 to 2026-11-15",
+                "adjustment": "Use normal listed volume and progress reps/load gradually."
+            },
+            {
+                "phase": "Run Performance",
+                "dates": "2026-11-16 to 2027-02-07",
+                "adjustment": "Because the running plan becomes more demanding, remove one set from Tuesday squat/RDL and Thursday trap-bar/squat work whenever leg fatigue affects running quality."
+            },
+            {
+                "phase": "Rugby Build",
+                "dates": "2027-02-08 to 2027-04-04",
+                "adjustment": "Add the medicine-ball primers. Keep main lifts heavy and crisp; begin dedicated Saturday rugby conditioning."
+            },
+            {
+                "phase": "Lean Athletic Finish",
+                "dates": "2027-04-05 to 2027-05-31",
+                "adjustment": "Maintain strength. If conditioning fatigue rises, cut one accessory set before reducing main-lift intensity."
+            }
+        ]
+    },
+    "conditioning": {
+        "existingRunPlanPolicy": "Keep the current running plan intact through the first continuous 10K on 2027-02-05. The selected entries below remove older duplicate/superseded run variants from the source export.",
+        "existingRunPlan": [
+            {
+                "name": "Treadmill Week 2 - Mon 10 Aug",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "6 x 2 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.40 km.",
+                        "rounds": 6,
+                        "roundLabel": "jog/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                    }
+                ],
+                "howToUse": "Complete as session 1 of Treadmill Week 2. Leave at least one non-running day before the next run. Progress only if the knee is settled during the run and the following morning."
+            },
+            {
+                "name": "Treadmill Week 2 - Wed 12 Aug",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "6 x 2 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.40 km.",
+                        "rounds": 6,
+                        "roundLabel": "jog/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                    }
+                ],
+                "howToUse": "Complete as session 2 of Treadmill Week 2. Leave at least one non-running day before the next run. Progress only if the knee is settled during the run and the following morning."
+            },
+            {
+                "name": "Treadmill Week 2 - Fri 14 Aug",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "6 x 2 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.40 km.",
+                        "rounds": 6,
+                        "roundLabel": "jog/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                    }
+                ],
+                "howToUse": "Complete as the final session of Treadmill Week 2. Move to Week 3 only if the knee remains settled during the run and the following morning."
+            },
+            {
+                "name": "Treadmill Week 3 - Mon 17 Aug",
+                "duration": 37,
+                "category": "Endurance",
+                "purpose": "Increase the length of each running interval while keeping running speed unchanged.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.75 km.",
+                        "rounds": 5,
+                        "roundLabel": "jog/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                    }
+                ],
+                "howToUse": "Keep the running deliberately easy. Leave at least one non-running day before the next run. Repeat the previous week instead if knee symptoms increase."
+            },
+            {
+                "name": "Treadmill Week 3 - Wed 19 Aug",
+                "duration": 37,
+                "category": "Endurance",
+                "purpose": "Increase the length of each running interval while keeping running speed unchanged.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.75 km.",
+                        "rounds": 5,
+                        "roundLabel": "jog/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                    }
+                ],
+                "howToUse": "Keep the running deliberately easy. Leave at least one non-running day before the next run. The session should feel controlled rather than like hard cardio."
+            },
+            {
+                "name": "Treadmill Week 3 - Fri 21 Aug",
+                "duration": 37,
+                "category": "Endurance",
+                "purpose": "Increase the length of each running interval while keeping running speed unchanged.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.75 km.",
+                        "rounds": 5,
+                        "roundLabel": "jog/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                    }
+                ],
+                "howToUse": "Complete as the final session of Treadmill Week 3. Only progress if there is no meaningful increase in knee pain, swelling or next-morning stiffness."
+            },
+            {
+                "name": "Treadmill Week 4 - Mon 24 Aug",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Build slightly longer continuous running periods without making a large jump in total impact before the cruise.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "4 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.87 km.",
+                        "rounds": 4,
+                        "roundLabel": "jog/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                    }
+                ],
+                "howToUse": "Do not increase the treadmill speed. Longer running intervals are the progression this week."
+            },
+            {
+                "name": "Treadmill Week 4 - Wed 26 Aug",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Complete the final treadmill running session before the cruise without adding unnecessary fatigue.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "4 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.87 km.",
+                        "rounds": 4,
+                        "roundLabel": "jog/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                    }
+                ],
+                "howToUse": "This is the final run before the cruise. Do not make up another run during the cruise. Walking and normal holiday activity are enough."
+            },
+            {
+                "name": "Treadmill Week 4 - Fri 28 Aug",
+                "duration": 42,
+                "category": "HIIT",
+                "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "5 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 2.33 km.",
+                        "rounds": 5,
+                        "roundLabel": "jog/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                    }
+                ],
+                "howToUse": "Complete as the third Treadmill Week 4 session only if embarkation-day travel allows. Skip it if travel makes it awkward and do not make it up. Leave at least one non-running day after the previous run."
+            },
+            {
+                "name": "Cruise Maintenance - Mon 31 Aug",
+                "duration": 40,
+                "category": "HIIT",
+                "purpose": "Maintain running progress and bridge the transition from treadmill running to normal ground running.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 0.5 km, walk 0.25 km, repeat for 4 rounds, then finish with a 0.5 km run. Count laps using the ship's track sign rather than GPS. Use a treadmill if the deck is wet, crowded, or very windy. Target running pace: 7:45 min/km. Target walking pace: 10:30 min/km. Total running distance: 2.5 km.",
+                        "rounds": 4,
+                        "roundLabel": "run/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Complete as cruise-maintenance session 1. Keep the effort relaxed and leave recovery time before the next run."
+            },
+            {
+                "name": "Cruise Maintenance - Thu 3 Sep",
+                "duration": 40,
+                "category": "HIIT",
+                "purpose": "Maintain running progress and bridge the transition from treadmill running to normal ground running.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 0.5 km, walk 0.25 km, repeat for 4 rounds, then finish with a 0.5 km run. Count laps using the ship's track sign rather than GPS. Use a treadmill if the deck is wet, crowded, or very windy. Target running pace: 7:45 min/km. Target walking pace: 10:30 min/km. Total running distance: 2.5 km.",
+                        "rounds": 4,
+                        "roundLabel": "run/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Complete as cruise-maintenance session 2. Keep the effort relaxed and leave recovery time before the next run."
+            },
+            {
+                "name": "First Outdoor Run - Wed 9 Sep",
+                "duration": 37,
+                "category": "Endurance",
+                "purpose": "Reintroduce outdoor running cautiously after the cruise and allow the legs and knee to adapt to a less predictable surface.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 0.4 km, walk 0.2 km, repeat for 4 rounds, then finish with a 0.4 km run. Total running distance: 2.0 km. Keep the running around 8:15-8:45 min/km or slower if needed to remain conversational.",
+                        "rounds": 4,
+                        "roundLabel": "run/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Choose a flat and predictable route. Ignore speed if necessary. This session is primarily a test of how the knee tolerates outdoor impact."
+            },
+            {
+                "name": "First Outdoor Run - Fri 11 Sep",
+                "duration": 37,
+                "category": "Endurance",
+                "purpose": "Repeat the first outdoor exposure before increasing continuous running distance.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 0.4 km, walk 0.2 km, repeat for 4 rounds, then finish with a 0.4 km run. Total running distance: 2.0 km. Keep the running around 8:15-8:45 min/km or slower if needed to remain conversational.",
+                        "rounds": 4,
+                        "roundLabel": "run/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Only move forward if both outdoor sessions produce no meaningful increase in knee pain, swelling or next-morning stiffness."
+            },
+            {
+                "name": "Outdoor Week 1 - Mon 14 Sep",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Increase the length of individual outdoor running efforts while keeping total running volume controlled.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 0.5 km, walk 0.2 km, repeat for 3 rounds, then finish with a 0.5 km run. Total running distance: 2.0 km. Target an easy conversational pace of roughly 8:15-8:45 min/km.",
+                        "rounds": 3,
+                        "roundLabel": "run/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Stay relaxed and leave at least one non-running day before the next session."
+            },
+            {
+                "name": "Outdoor Week 1 - Wed 16 Sep",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Increase the length of individual outdoor running efforts while keeping total running volume controlled.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 0.5 km, walk 0.2 km, repeat for 3 rounds, then finish with a 0.5 km run. Total running distance: 2.0 km. Target an easy conversational pace of roughly 8:15-8:45 min/km.",
+                        "rounds": 3,
+                        "roundLabel": "run/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Stay relaxed and leave at least one non-running day before the next session."
+            },
+            {
+                "name": "Outdoor Week 1 - Fri 18 Sep",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Consolidate the first full week of outdoor running.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 0.5 km, walk 0.2 km, repeat for 3 rounds, then finish with a 0.5 km run. Total running distance: 2.0 km. Target an easy conversational pace of roughly 8:15-8:45 min/km.",
+                        "rounds": 3,
+                        "roundLabel": "run/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Progress only if the knee has handled the entire week comfortably."
+            },
+            {
+                "name": "Outdoor Week 2 - Mon 21 Sep",
+                "duration": 35,
+                "category": "Endurance",
+                "purpose": "Increase running distance gradually while maintaining regular walking breaks.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 0.75 km, walk 0.25 km, repeat for 2 rounds, then finish with a 0.75 km run. Total running distance: 2.25 km. Keep the running conversational.",
+                        "rounds": 2,
+                        "roundLabel": "run/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Run around 8:15-8:45 min/km if comfortable, but effort matters more than pace."
+            },
+            {
+                "name": "Outdoor Week 2 - Wed 23 Sep",
+                "duration": 35,
+                "category": "Endurance",
+                "purpose": "Increase running distance gradually while maintaining regular walking breaks.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 0.75 km, walk 0.25 km, repeat for 2 rounds, then finish with a 0.75 km run. Total running distance: 2.25 km. Keep the running conversational.",
+                        "rounds": 2,
+                        "roundLabel": "run/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Do not turn the final running section into a fast finish. Keep all running equally easy."
+            },
+            {
+                "name": "Outdoor Week 2 - Fri 25 Sep",
+                "duration": 35,
+                "category": "Endurance",
+                "purpose": "Consolidate the increased outdoor running distance before extending individual running intervals again.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 0.75 km, walk 0.25 km, repeat for 2 rounds, then finish with a 0.75 km run. Total running distance: 2.25 km.",
+                        "rounds": 2,
+                        "roundLabel": "run/walk"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Only progress when the knee is settled both immediately after running and the following morning."
+            },
+            {
+                "name": "Outdoor Week 3 - Mon 28 Sep",
+                "duration": 37,
+                "category": "Endurance",
+                "purpose": "Build towards kilometre-long continuous running efforts.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 1.0 km, walk 0.25 km, run 1.0 km, walk 0.25 km, then finish with a 0.5 km run. Total running distance: 2.5 km."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Keep every running section at an easy conversational effort. Do not chase a kilometre split."
+            },
+            {
+                "name": "Outdoor Week 3 - Wed 30 Sep",
+                "duration": 37,
+                "category": "Endurance",
+                "purpose": "Build towards kilometre-long continuous running efforts.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 1.0 km, walk 0.25 km, run 1.0 km, walk 0.25 km, then finish with a 0.5 km run. Total running distance: 2.5 km."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Keep every running section at an easy conversational effort."
+            },
+            {
+                "name": "Outdoor Week 3 - Fri 2 Oct",
+                "duration": 37,
+                "category": "Endurance",
+                "purpose": "Consolidate kilometre-long running intervals before reducing the number of walking breaks.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 1.0 km, walk 0.25 km, run 1.0 km, walk 0.25 km, then finish with a 0.5 km run. Total running distance: 2.5 km."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Finish feeling as though you could have done more."
+            },
+            {
+                "name": "Outdoor Week 4 - Mon 5 Oct",
+                "duration": 35,
+                "category": "Endurance",
+                "purpose": "Reduce walking breaks and prepare for continuous running.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 1.25 km, walk 0.25 km, then run 1.25 km. Total running distance: 2.5 km."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Run easily enough that the second 1.25 km section feels controlled."
+            },
+            {
+                "name": "Outdoor Week 4 - Wed 7 Oct",
+                "duration": 35,
+                "category": "Endurance",
+                "purpose": "Reduce walking breaks and prepare for continuous running.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 1.25 km, walk 0.25 km, then run 1.25 km. Total running distance: 2.5 km."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Maintain a conversational effort and resist the temptation to increase pace."
+            },
+            {
+                "name": "Outdoor Week 4 - Fri 9 Oct",
+                "duration": 35,
+                "category": "Endurance",
+                "purpose": "Complete the final run-walk week before continuous running.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 1.25 km, walk 0.25 km, then run 1.25 km. Total running distance: 2.5 km."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Move to continuous running next week only if this distance now feels comfortable and repeatable."
+            },
+            {
+                "name": "Outdoor Week 5 - Mon 12 Oct",
+                "duration": 32,
+                "category": "Endurance",
+                "purpose": "Complete the first continuous outdoor running distance at an easy effort.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 2.5 km continuously at an easy conversational effort. Aim roughly for 8:15-8:45 min/km, but slow down whenever required."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "The achievement is running continuously, not the pace."
+            },
+            {
+                "name": "Outdoor Week 5 - Wed 14 Oct",
+                "duration": 32,
+                "category": "Endurance",
+                "purpose": "Consolidate continuous easy running.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 2.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Keep the session controlled from the first few hundred metres."
+            },
+            {
+                "name": "Outdoor Week 5 - Fri 16 Oct",
+                "duration": 32,
+                "category": "Endurance",
+                "purpose": "Consolidate continuous easy running before increasing distance.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 2.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Do not increase both pace and distance. Distance increases next week while pace stays easy."
+            },
+            {
+                "name": "Outdoor Week 6 - Mon 19 Oct",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Increase continuous running endurance without adding speed.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 3.0 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Keep the running relaxed. Slow down if necessary to complete the distance comfortably."
+            },
+            {
+                "name": "Outdoor Week 6 - Wed 21 Oct",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Consolidate 3 km continuous running.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 3.0 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Aim to finish feeling capable of another 5-10 minutes of easy running."
+            },
+            {
+                "name": "Outdoor Week 6 - Fri 23 Oct",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Consolidate 3 km continuous running before increasing distance again.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 3.0 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Only progress if the knee remains settled throughout the week."
+            },
+            {
+                "name": "Outdoor Week 7 - Mon 26 Oct",
+                "duration": 41,
+                "category": "Endurance",
+                "purpose": "Continue building continuous running distance at a controlled pace.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 3.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Keep pace easy and consistent. Distance is the only progression."
+            },
+            {
+                "name": "Outdoor Week 7 - Wed 28 Oct",
+                "duration": 41,
+                "category": "Endurance",
+                "purpose": "Consolidate 3.5 km continuous running.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 3.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Run by effort rather than chasing your watch."
+            },
+            {
+                "name": "Outdoor Week 7 - Fri 30 Oct",
+                "duration": 41,
+                "category": "Endurance",
+                "purpose": "Complete the 3.5 km week comfortably before progressing.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 3.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Progress only if there is no accumulating knee soreness or swelling."
+            },
+            {
+                "name": "Outdoor Week 8 - Mon 2 Nov",
+                "duration": 45,
+                "category": "Endurance",
+                "purpose": "Build continuous running endurance towards the first 5K.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 4.0 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Do not increase speed simply because 4 km is starting to feel achievable."
+            },
+            {
+                "name": "Outdoor Week 8 - Wed 4 Nov",
+                "duration": 45,
+                "category": "Endurance",
+                "purpose": "Consolidate 4 km continuous running.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 4.0 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Keep the effort comfortable and repeatable."
+            },
+            {
+                "name": "Outdoor Week 8 - Fri 6 Nov",
+                "duration": 45,
+                "category": "Endurance",
+                "purpose": "Complete a full week at 4 km before attempting longer distances.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 4.0 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Finish comfortably rather than testing how fast you can run 4 km."
+            },
+            {
+                "name": "5K Goal Week - Mon 9 Nov",
+                "duration": 49,
+                "category": "Endurance",
+                "purpose": "Complete the final distance progression before the first 5K.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 4.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "Treat this as an easy endurance run, not a 4.5 km time trial."
+            },
+            {
+                "name": "5K Goal Week - Wed 11 Nov",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Reduce running volume before the first continuous 5K while maintaining rhythm.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 3.0 km continuously at a very easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "This is deliberately shorter. Do not run hard. Finish fresh and leave Thursday as a non-running day."
+            },
+            {
+                "name": "First Continuous 5K - Fri 13 Nov",
+                "duration": 53,
+                "category": "Endurance",
+                "purpose": "Complete the first continuous 5K comfortably and without treating it as a race.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 5.0 km continuously at an easy conversational effort. Start conservatively. A pace around 8:15-8:45 min/km is completely acceptable, and slower is fine."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk 0.5 km at an easy pace."
+                    }
+                ],
+                "howToUse": "The goal is simply to complete 5 km continuously with the knee feeling good. Do not race it. If the knee has reacted during the preceding week, postpone the 5K and repeat the previous successful week instead."
+            },
+            {
+                "name": "Performance Week 1 - Easy Run - Mon 16 Nov",
+                "duration": 42,
+                "category": "Endurance",
+                "purpose": "Recover from the first 5K while beginning the transition from rehabilitation running to normal aerobic training.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min, then complete a few ankle rolls, leg swings and easy marching drills."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 4.0 km continuously at an easy conversational effort. Aim roughly for 8:00-8:40 min/km, but do not force the pace."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "This should feel easier than the previous 5K. Keep the effort around RPE 3-4/10 and finish feeling capable of running farther."
+            },
+            {
+                "name": "Performance Week 1 - Faster Running - Wed 18 Nov",
+                "duration": 40,
+                "category": "HIIT",
+                "purpose": "Introduce controlled faster running without the intensity of a true hard interval session.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk for 3 min, then jog easily for 7 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "5 x 90 sec at a controlled faster pace of roughly 7:40-8:00 min/km. Recover with 2 min very easy jogging or walking after each effort.",
+                        "rounds": 5,
+                        "roundLabel": "faster/easy"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Jog very easily for 5 min, then walk for 3 min."
+                    }
+                ],
+                "howToUse": "The faster portions should feel smooth rather than hard. Aim for RPE 5-6/10 and never sprint."
+            },
+            {
+                "name": "Performance Week 1 - Long Run - Fri 20 Nov",
+                "duration": 52,
+                "category": "Endurance",
+                "purpose": "Begin extending running endurance beyond the previous 5K maximum.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 5.5 km continuously at an easy conversational effort. Aim roughly for 8:05-8:40 min/km."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Treat the extra 0.5 km as the progression. Do not also try to make this faster than your normal easy pace."
+            },
+            {
+                "name": "Performance Week 2 - Easy Run - Mon 23 Nov",
+                "duration": 45,
+                "category": "Endurance",
+                "purpose": "Build repeatable aerobic running volume without creating excessive fatigue.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 4.5 km continuously at an easy conversational effort. Aim roughly for 8:00-8:35 min/km."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Keep this deliberately easy so you are fresh enough for Wednesday's faster work."
+            },
+            {
+                "name": "Performance Week 2 - Intervals - Wed 25 Nov",
+                "duration": 44,
+                "category": "HIIT",
+                "purpose": "Develop running speed and aerobic power through short controlled repetitions.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk for 3 min, jog easily for 7 min, then complete 2 x 20 sec relaxed faster strides."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "6 x 2 min at roughly 7:30-7:50 min/km. Recover with 2 min easy jogging or walking after each repetition.",
+                        "rounds": 6,
+                        "roundLabel": "rep"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Jog easily for 5 min, then walk for 3 min."
+                    }
+                ],
+                "howToUse": "Aim for RPE 6/10. You should finish the final repetition feeling that you could complete one more."
+            },
+            {
+                "name": "Performance Week 2 - Long Run - Fri 27 Nov",
+                "duration": 56,
+                "category": "Endurance",
+                "purpose": "Continue gradually extending continuous running endurance.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 6.0 km continuously at an easy conversational effort. Aim roughly for 8:05-8:40 min/km."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Keep the first kilometre particularly easy. The goal is comfortable distance, not pace."
+            },
+            {
+                "name": "Performance Week 3 - Easy Run - Mon 30 Nov",
+                "duration": 49,
+                "category": "Endurance",
+                "purpose": "Develop aerobic fitness while increasing normal weekly running volume.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 5.0 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "A 5K is now a normal easy training run rather than a goal effort."
+            },
+            {
+                "name": "Performance Week 3 - Tempo Intervals - Wed 2 Dec",
+                "duration": 47,
+                "category": "Cardio",
+                "purpose": "Introduce sustained moderately hard running and improve the pace that can be maintained aerobically.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk for 3 min followed by 8 min of easy jogging."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "3 x 5 min at controlled tempo effort, approximately 7:30-7:50 min/km. Take 3 min easy jogging between repetitions.",
+                        "rounds": 3,
+                        "roundLabel": "tempo"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Jog easily for 6 min, then walk for 3 min."
+                    }
+                ],
+                "howToUse": "Tempo should feel like RPE 6-7/10: working, but controlled and nowhere near an all-out effort."
+            },
+            {
+                "name": "Performance Week 3 - Long Run - Fri 4 Dec",
+                "duration": 60,
+                "category": "Endurance",
+                "purpose": "Build endurance beyond 6 km while maintaining an easy aerobic effort.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 6.5 km continuously at an easy conversational pace."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Do not speed up at the end. Keep the entire run comfortably aerobic."
+            },
+            {
+                "name": "Performance Week 4 - Easy Run - Mon 7 Dec",
+                "duration": 42,
+                "category": "Endurance",
+                "purpose": "Reduce running load temporarily to consolidate the previous three weeks of training.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 4.0 km continuously at a relaxed conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "This is a deliberate easier week. Do not add additional distance because you feel good."
+            },
+            {
+                "name": "Performance Week 4 - Speed Introduction - Wed 9 Dec",
+                "duration": 38,
+                "category": "HIIT",
+                "purpose": "Develop leg turnover through short faster efforts while keeping overall training load low.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk for 3 min and jog easily for 8 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "6 x 1 min at approximately 7:15-7:35 min/km with 2 min easy jogging between repetitions.",
+                        "rounds": 6,
+                        "roundLabel": "fast/easy"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Jog easily for 5 min, then walk for 3 min."
+                    }
+                ],
+                "howToUse": "Run quickly but smoothly. This is not sprinting and should never feel uncontrolled."
+            },
+            {
+                "name": "Performance Week 4 - Long Run - Fri 11 Dec",
+                "duration": 52,
+                "category": "Endurance",
+                "purpose": "Complete a reduced-distance long run before the next training build.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 5.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "This completes the deload week. Finish feeling fresh."
+            },
+            {
+                "name": "Performance Week 5 - Easy Run - Mon 14 Dec",
+                "duration": 49,
+                "category": "Endurance",
+                "purpose": "Return to normal aerobic running volume following the lighter week.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 5.0 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Keep the pace relaxed. Faster running belongs in Wednesday's session."
+            },
+            {
+                "name": "Performance Week 5 - Tempo Intervals - Wed 16 Dec",
+                "duration": 52,
+                "category": "Cardio",
+                "purpose": "Increase the amount of sustained faster running that can be completed comfortably.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk for 3 min followed by 8 min easy jogging."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "4 x 5 min at approximately 7:25-7:45 min/km with 2 min 30 sec easy jogging between repetitions.",
+                        "rounds": 4,
+                        "roundLabel": "tempo"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Jog easily for 6 min, then walk for 3 min."
+                    }
+                ],
+                "howToUse": "Keep all four repetitions similar. If the first is dramatically faster than the fourth, you started too quickly."
+            },
+            {
+                "name": "Performance Week 5 - Long Run - Fri 18 Dec",
+                "duration": 64,
+                "category": "Endurance",
+                "purpose": "Extend continuous endurance to 7 km.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 7.0 km continuously at a conversational effort. Aim roughly for 8:00-8:35 min/km."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Keep enough in reserve that the final kilometre feels no harder than the middle of the run."
+            },
+            {
+                "name": "Performance Week 6 - Easy Run - Mon 21 Dec",
+                "duration": 46,
+                "category": "Endurance",
+                "purpose": "Maintain aerobic fitness through the holiday period without increasing training stress.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 4.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Keep this simple and comfortable."
+            },
+            {
+                "name": "Performance Week 6 - Steady Run - Wed 23 Dec",
+                "duration": 48,
+                "category": "Cardio",
+                "purpose": "Learn to hold a moderately quicker pace continuously rather than relying only on intervals.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Run approximately 1.5 km very easily after a short walking warm-up."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run continuously for 20 min at a steady effort of roughly 7:40-8:00 min/km."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Run approximately 1.0 km easily, then walk for 5 min."
+                    }
+                ],
+                "howToUse": "This should feel stronger than easy running but clearly easier than a race effort."
+            },
+            {
+                "name": "Performance Week 6 - Long Run - Fri 25 Dec",
+                "duration": 60,
+                "category": "Endurance",
+                "purpose": "Maintain long-run endurance without increasing distance during the holiday week.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 6.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Move this to Thu 24 Dec or Sat 26 Dec if Christmas Day does not suit. Do not attempt to make up missed running."
+            },
+            {
+                "name": "Performance Week 7 - Easy Run - Mon 28 Dec",
+                "duration": 49,
+                "category": "Endurance",
+                "purpose": "Return to normal training volume while maintaining good recovery.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 5.0 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "The easy run should remain genuinely easy even as fitness improves."
+            },
+            {
+                "name": "Performance Week 7 - Threshold Intervals - Wed 30 Dec",
+                "duration": 49,
+                "category": "HIIT",
+                "purpose": "Improve the ability to sustain faster running by accumulating controlled threshold work.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk for 3 min followed by 10 min easy jogging."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "5 x 3 min at approximately 7:15-7:35 min/km with 2 min easy jogging between repetitions.",
+                        "rounds": 5,
+                        "roundLabel": "threshold"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Jog easily for 7 min, then walk for 3 min."
+                    }
+                ],
+                "howToUse": "Aim around RPE 7/10. The repetitions should be hard enough to require concentration but not feel like maximum efforts."
+            },
+            {
+                "name": "Performance Week 7 - Long Run - Fri 1 Jan",
+                "duration": 68,
+                "category": "Endurance",
+                "purpose": "Increase endurance towards 8 km while keeping the run comfortably aerobic.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 7.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Move this by a day if New Year's Day does not suit. Do not combine it with Wednesday's faster session."
+            },
+            {
+                "name": "Performance Week 8 - Easy Run - Mon 4 Jan",
+                "duration": 46,
+                "category": "Endurance",
+                "purpose": "Reduce training volume to consolidate the previous three-week build.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 4.5 km continuously at a relaxed conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Treat this as recovery training rather than an opportunity to run faster."
+            },
+            {
+                "name": "Performance Week 8 - Fartlek - Wed 6 Jan",
+                "duration": 42,
+                "category": "HIIT",
+                "purpose": "Improve speed and running economy through short relaxed bursts of quicker running.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk for 3 min followed by 10 min easy jogging."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "8 x 1 min at approximately 7:05-7:25 min/km with 90 sec very easy jogging between repetitions.",
+                        "rounds": 8,
+                        "roundLabel": "fast/easy"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Jog easily for 6 min, then walk for 3 min."
+                    }
+                ],
+                "howToUse": "Stay relaxed through the shoulders and avoid turning the one-minute efforts into sprints."
+            },
+            {
+                "name": "Performance Week 8 - Long Run - Fri 8 Jan",
+                "duration": 60,
+                "category": "Endurance",
+                "purpose": "Complete a shorter long run during the deload week.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 6.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Finish the week feeling fresher than you started it."
+            },
+            {
+                "name": "Performance Week 9 - Easy Run - Mon 11 Jan",
+                "duration": 53,
+                "category": "Endurance",
+                "purpose": "Increase normal aerobic running volume as fitness improves.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 5.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Allow the pace to improve naturally but keep the effort around RPE 3-4/10."
+            },
+            {
+                "name": "Performance Week 9 - Tempo Intervals - Wed 13 Jan",
+                "duration": 58,
+                "category": "Cardio",
+                "purpose": "Build sustained speed and improve the pace that can be held for longer distances.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk for 3 min followed by 10 min easy jogging."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "3 x 8 min at approximately 7:20-7:40 min/km with 3 min easy jogging between repetitions.",
+                        "rounds": 3,
+                        "roundLabel": "tempo"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Jog easily for 7 min, then walk for 3 min."
+                    }
+                ],
+                "howToUse": "Aim for a pace you could theoretically maintain for considerably longer than eight minutes."
+            },
+            {
+                "name": "Performance Week 9 - Long Run - Fri 15 Jan",
+                "duration": 72,
+                "category": "Endurance",
+                "purpose": "Reach 8 km continuous running while maintaining an easy aerobic effort.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 8.0 km continuously at an easy conversational effort. Approximately 7:55-8:30 min/km is a reasonable guide if comfortable."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Fuel and hydrate normally beforehand. The distance, not speed, is the progression."
+            },
+            {
+                "name": "Performance Week 10 - Easy Run - Mon 18 Jan",
+                "duration": 53,
+                "category": "Endurance",
+                "purpose": "Maintain aerobic volume while recovering from the longer run.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 5.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Keep this relaxed even if your normal pace is beginning to become noticeably faster."
+            },
+            {
+                "name": "Performance Week 10 - Threshold Intervals - Wed 20 Jan",
+                "duration": 56,
+                "category": "HIIT",
+                "purpose": "Develop faster sustained running and improve cardiovascular capacity.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk for 3 min followed by 10 min easy jogging and 2 x 20 sec relaxed strides."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "6 x 3 min at approximately 7:10-7:30 min/km with 2 min easy jogging between repetitions.",
+                        "rounds": 6,
+                        "roundLabel": "threshold"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Jog easily for 7 min, then walk for 3 min."
+                    }
+                ],
+                "howToUse": "The goal is six consistent repetitions. Do not chase the fastest possible split."
+            },
+            {
+                "name": "Performance Week 10 - Long Run - Fri 22 Jan",
+                "duration": 76,
+                "category": "Endurance",
+                "purpose": "Extend continuous endurance beyond 8 km.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 8.5 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Do not add a fast finish. Keep the whole session aerobic."
+            },
+            {
+                "name": "Performance Week 11 - Easy Run & Strides - Mon 25 Jan",
+                "duration": 57,
+                "category": "Endurance",
+                "purpose": "Build aerobic volume while adding small amounts of relaxed speed and improving running economy.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 6.0 km easily. During the final 2 km, include 4 x 20 sec relaxed strides with at least 90 sec of easy running between each.",
+                        "rounds": 4,
+                        "roundLabel": "stride"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Strides should feel quick, light and smooth rather than exhausting."
+            },
+            {
+                "name": "Performance Week 11 - Continuous Tempo - Wed 27 Jan",
+                "duration": 52,
+                "category": "Cardio",
+                "purpose": "Develop the ability to hold a meaningfully faster pace continuously.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Run 1.5-2.0 km very easily after a short walking warm-up."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run continuously for 20 min at approximately 7:20-7:40 min/km or RPE 6-7/10."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Jog easily until approximately 6 km total running distance, then walk for 5 min."
+                    }
+                ],
+                "howToUse": "This should be your strongest sustained training run so far, but you should never be hanging on desperately at the end."
+            },
+            {
+                "name": "Performance Week 11 - Long Run - Fri 29 Jan",
+                "duration": 80,
+                "category": "Endurance",
+                "purpose": "Complete the final major endurance progression before attempting 10 km.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 9.0 km continuously at an easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Keep the pace comfortable. If 9 km feels manageable rather than heroic, the training is doing exactly what it should."
+            },
+            {
+                "name": "10K Goal Week - Easy Run - Mon 1 Feb",
+                "duration": 42,
+                "category": "Endurance",
+                "purpose": "Reduce fatigue while maintaining normal running rhythm before the first 10K.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 4.0 km continuously at a very easy conversational effort."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Deliberately hold back. This week is about arriving fresh for Friday."
+            },
+            {
+                "name": "10K Goal Week - Easy Run & Strides - Wed 3 Feb",
+                "duration": 36,
+                "category": "Endurance",
+                "purpose": "Keep the legs moving while adding a small amount of faster running before the 10K.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5 min."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 3.0 km easily. During the second half complete 4 x 30 sec relaxed faster strides with 90 sec easy running between each.",
+                        "rounds": 4,
+                        "roundLabel": "stride"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for 5 min."
+                    }
+                ],
+                "howToUse": "Do not turn this into a workout. The strides should make the legs feel better rather than tired."
+            },
+            {
+                "name": "First Continuous 10K - Fri 5 Feb",
+                "duration": 90,
+                "category": "Endurance",
+                "purpose": "Complete the first continuous 10 km and establish a new endurance baseline for future performance training.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "Walk briskly for 5-8 min, then complete a few leg swings and ankle mobility drills."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 10.0 km continuously. Start conservatively at roughly 8:00-8:30 min/km or whatever pace feels genuinely easy. If you still feel strong after 8 km, allow the final 2 km to become gradually quicker."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "Walk easily for at least 5-10 min."
+                    }
+                ],
+                "howToUse": "This is not a 10K race. The goal is to finish continuously and under control. If your knee has become sore, swollen or increasingly stiff during the preceding weeks, postpone the attempt and repeat the most recent successful week."
+            }
+        ],
+        "post10KSessionLibrary": [
+            {
+                "name": "Wednesday Aerobic Run",
+                "duration": 45,
+                "category": "Endurance",
+                "purpose": "Maintain the aerobic base built by the 10K plan while leaving enough recovery for strength and rugby conditioning.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "8-10 min brisk walk and easy jog plus Pre-Run Dynamic Mobility."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "Run 4-6 km at an easy conversational effort. Every second week, finish with 4-6 x 15 sec relaxed strides at about 80-85% speed with a full walk-back recovery."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "5 min easy walk."
+                    }
+                ],
+                "howToUse": "Keep this genuinely aerobic. It should not compete with Thursday lower-body training."
+            },
+            {
+                "name": "Rugby Conditioning - Low Impact Repeat Efforts",
+                "duration": 30,
+                "category": "HIIT",
+                "purpose": "Introduce repeated hard efforts with minimal running impact after the 10K base is complete.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "8 min easy assault bike or spin bike, gradually building cadence."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "8 x 30 sec hard at RPE 8-9 followed by 90 sec very easy. Keep output repeatable rather than sprinting the first rep all-out.",
+                        "rounds": 8,
+                        "roundLabel": "hard/easy"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "5 min very easy spin."
+                    }
+                ],
+                "howToUse": "Use through February. Stop the set if power falls sharply or form deteriorates."
+            },
+            {
+                "name": "Rugby Conditioning - Sled & Bike",
+                "duration": 35,
+                "category": "HIIT",
+                "purpose": "Build leg drive and repeated-effort capacity with rugby-relevant resistance.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "8 min easy bike plus dynamic lower-body mobility."
+                    },
+                    {
+                        "name": "Sled block",
+                        "detail": "6 x 15-20 m heavy sled push. Walk back and rest until breathing is controlled.",
+                        "rounds": 6,
+                        "roundLabel": "push"
+                    },
+                    {
+                        "name": "Bike block",
+                        "detail": "6 x 20 sec hard assault-bike effort followed by 70 sec easy.",
+                        "rounds": 6,
+                        "roundLabel": "hard/easy"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "5 min easy walk or bike."
+                    }
+                ],
+                "howToUse": "Use through March. The sled should be heavy enough to require force but not so heavy that posture collapses."
+            },
+            {
+                "name": "Rugby Conditioning - Straight-Line Tempo",
+                "duration": 35,
+                "category": "Cardio",
+                "purpose": "Reintroduce faster running in controlled straight-line efforts without jumping immediately to maximal sprinting or sharp cutting.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "10 min easy jog, dynamic mobility and 3 gradual 40-60 m build-ups."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "2 sets of 6 x 20 sec at about 75-80% running speed, followed by 40 sec walk. Rest 3 min between sets.",
+                        "rounds": 12,
+                        "roundLabel": "tempo rep"
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "5-10 min easy walk."
+                    }
+                ],
+                "howToUse": "Use through April only if the knee remains settled during running and the following morning. Otherwise use Low Impact Repeat Efforts."
+            },
+            {
+                "name": "Rugby Conditioning - Repeated Efforts",
+                "duration": 40,
+                "category": "HIIT",
+                "purpose": "Prepare for the repeated high-output work-rest pattern of rugby while keeping efforts controlled rather than maximal.",
+                "parts": [
+                    {
+                        "name": "Warm-up",
+                        "detail": "10 min easy jog plus dynamic mobility and gradual accelerations."
+                    },
+                    {
+                        "name": "Main set",
+                        "detail": "3 sets of 5 x 20 sec hard at about 80-85% speed followed by 40 sec walk/jog. Rest 3 min between sets.",
+                        "rounds": 15,
+                        "roundLabel": "work rep"
+                    },
+                    {
+                        "name": "Optional progression",
+                        "detail": "Only if fully comfortable with straight-line work: make 2-3 reps per set gentle 10-20 m shuttle patterns rather than all reps. Avoid maximal cutting."
+                    },
+                    {
+                        "name": "Cool-down",
+                        "detail": "8 min easy walk."
+                    }
+                ],
+                "howToUse": "Use through May. Quality is more important than exhaustion."
+            }
+        ],
+        "post10KCalendar": [
+            {
+                "date": "2027-02-10",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-02-13",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Low Impact Repeat Efforts"
+            },
+            {
+                "date": "2027-02-17",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-02-20",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Low Impact Repeat Efforts"
+            },
+            {
+                "date": "2027-02-24",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-02-27",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Low Impact Repeat Efforts"
+            },
+            {
+                "date": "2027-03-03",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-03-06",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Sled & Bike"
+            },
+            {
+                "date": "2027-03-10",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-03-13",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Sled & Bike"
+            },
+            {
+                "date": "2027-03-17",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-03-20",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Sled & Bike"
+            },
+            {
+                "date": "2027-03-24",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-03-27",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Sled & Bike"
+            },
+            {
+                "date": "2027-03-31",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-04-03",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Straight-Line Tempo"
+            },
+            {
+                "date": "2027-04-07",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-04-10",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Straight-Line Tempo"
+            },
+            {
+                "date": "2027-04-14",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-04-17",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Straight-Line Tempo"
+            },
+            {
+                "date": "2027-04-21",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-04-24",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Straight-Line Tempo"
+            },
+            {
+                "date": "2027-04-28",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-05-01",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Repeated Efforts"
+            },
+            {
+                "date": "2027-05-05",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-05-08",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Repeated Efforts"
+            },
+            {
+                "date": "2027-05-12",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-05-15",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Repeated Efforts"
+            },
+            {
+                "date": "2027-05-19",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-05-22",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Repeated Efforts"
+            },
+            {
+                "date": "2027-05-26",
+                "day": "Wednesday",
+                "session": "Wednesday Aerobic Run",
+                "notes": "4-6 km easy. Add relaxed strides only on alternating weeks and only if legs feel good."
+            },
+            {
+                "date": "2027-05-29",
+                "day": "Saturday",
+                "session": "Rugby Conditioning - Repeated Efforts"
+            }
+        ]
+    },
+    "mobility": {
+        "library": [
+            {
+                "name": "Lower-Body Plyometric Foundations",
+                "duration": 20,
+                "purpose": "Build landing control, coordination and lower-body explosiveness.",
+                "parts": [
+                    {
+                        "name": "Pogo jumps",
+                        "detail": "3 x 20 reps, keeping the jumps small and springy"
+                    },
+                    {
+                        "name": "Snap-down landings",
+                        "detail": "3 x 5 reps, land softly and hold for 2 seconds"
+                    },
+                    {
+                        "name": "Squat jumps",
+                        "detail": "3 x 5 reps, reset fully between each jump"
+                    },
+                    {
+                        "name": "Broad jump and stick",
+                        "detail": "3 x 4 reps, hold the landing for 2 seconds"
+                    }
+                ],
+                "howToUse": "Perform once or twice per week when fresh, before lower-body strength training."
+            },
+            {
+                "name": "Lateral Power and Stability",
+                "duration": 20,
+                "purpose": "Improve side-to-side power, balance and change-of-direction control.",
+                "parts": [
+                    {
+                        "name": "Lateral line hops",
+                        "detail": "3 x 15 seconds, small quick jumps over a line"
+                    },
+                    {
+                        "name": "Skater jumps",
+                        "detail": "3 x 6 reps per side, pause briefly on each landing"
+                    },
+                    {
+                        "name": "Lateral bounds and stick",
+                        "detail": "3 x 5 reps per side, control the knee and hip"
+                    },
+                    {
+                        "name": "Quarter-turn jumps",
+                        "detail": "3 x 4 reps each direction, land softly and balanced"
+                    }
+                ],
+                "howToUse": "Use before agility work, rugby training or a lower-body gym session."
+            },
+            {
+                "name": "Rugby Power Plyometrics",
+                "duration": 25,
+                "purpose": "Develop explosive power for acceleration, contact and short rugby movements.",
+                "parts": [
+                    {
+                        "name": "Countermovement jumps",
+                        "detail": "4 x 4 reps, jump as high as possible with full recovery"
+                    },
+                    {
+                        "name": "Standing broad jumps",
+                        "detail": "4 x 3 reps, focus on powerful hip extension"
+                    },
+                    {
+                        "name": "Split-stance jumps",
+                        "detail": "3 x 5 reps per side, switch legs in the air or reset between reps"
+                    },
+                    {
+                        "name": "Forward bounds",
+                        "detail": "3 x 10 metres, powerful but controlled"
+                    },
+                    {
+                        "name": "Short acceleration",
+                        "detail": "4 x 10 metres, walk back recovery"
+                    }
+                ],
+                "howToUse": "Perform once per week before sprinting or rugby training. Keep every repetition fast and high quality."
+            },
+            {
+                "name": "Low-Impact Plyometric Session",
+                "duration": 15,
+                "purpose": "Introduce elastic and explosive movements without excessive jumping volume.",
+                "parts": [
+                    {
+                        "name": "Ankle bounces",
+                        "detail": "3 x 15 reps, stay tall and use the ankles"
+                    },
+                    {
+                        "name": "Fast step-ups",
+                        "detail": "3 x 6 reps per side, drive through the working leg"
+                    },
+                    {
+                        "name": "Low box jump",
+                        "detail": "3 x 4 reps, step down after every repetition"
+                    },
+                    {
+                        "name": "Medicine ball chest pass",
+                        "detail": "3 x 6 reps, throw explosively into a wall"
+                    },
+                    {
+                        "name": "Medicine ball scoop throw",
+                        "detail": "3 x 5 reps per side, rotate through the hips"
+                    }
+                ],
+                "howToUse": "Use when returning to plyometrics or when you want a lower-impact power session."
+            },
+            {
+                "name": "Hip Mobility Flow",
+                "duration": 12,
+                "purpose": "Open up tight hips before lower-body training.",
+                "parts": [
+                    {
+                        "name": "90/90 switches",
+                        "detail": "2 x 8 reps, slow and controlled"
+                    },
+                    {
+                        "name": "Adductor rock-backs",
+                        "detail": "2 x 10 reps per side"
+                    },
+                    {
+                        "name": "Deep squat hold",
+                        "detail": "3 x 30 seconds, gently push the knees out"
+                    },
+                    {
+                        "name": "Couch stretch",
+                        "detail": "60 seconds per side"
+                    },
+                    {
+                        "name": "World's greatest stretch",
+                        "detail": "5 slow reps per side"
+                    }
+                ],
+                "howToUse": "Run before squats, running sessions or on recovery days."
+            },
+            {
+                "name": "Ankle and Calf Mobility",
+                "duration": 10,
+                "purpose": "Improve ankle movement for squatting, running and comfortable landings.",
+                "parts": [
+                    {
+                        "name": "Knee-to-wall ankle rocks",
+                        "detail": "2 x 10 reps per side, keep the heel down"
+                    },
+                    {
+                        "name": "Bent-knee calf stretch",
+                        "detail": "2 x 30 seconds per side"
+                    },
+                    {
+                        "name": "Straight-leg calf stretch",
+                        "detail": "2 x 30 seconds per side"
+                    },
+                    {
+                        "name": "Slow calf raises",
+                        "detail": "2 x 12 reps, pause at the top and bottom"
+                    },
+                    {
+                        "name": "Ankle circles",
+                        "detail": "10 slow circles each direction, per ankle"
+                    }
+                ],
+                "howToUse": "Perform before running, plyometrics or lower-body lifting."
+            },
+            {
+                "name": "Full-Body Mobility Reset",
+                "duration": 20,
+                "purpose": "Reduce stiffness and restore comfortable movement throughout the body.",
+                "parts": [
+                    {
+                        "name": "Cat-cow",
+                        "detail": "10 slow reps"
+                    },
+                    {
+                        "name": "Thread the needle",
+                        "detail": "8 reps per side"
+                    },
+                    {
+                        "name": "World's greatest stretch",
+                        "detail": "5 reps per side"
+                    },
+                    {
+                        "name": "90/90 hip switches",
+                        "detail": "2 x 8 reps"
+                    },
+                    {
+                        "name": "Deep squat hold",
+                        "detail": "2 x 45 seconds"
+                    },
+                    {
+                        "name": "Child's pose with side reach",
+                        "detail": "30 seconds per side"
+                    }
+                ],
+                "howToUse": "Use on rest days, after travelling or whenever your body feels stiff."
+            },
+            {
+                "name": "Upper-Body and Shoulder Mobility",
+                "duration": 12,
+                "purpose": "Improve shoulder, upper-back and chest mobility for pressing and contact work.",
+                "parts": [
+                    {
+                        "name": "Shoulder CARs",
+                        "detail": "5 slow reps each direction, per arm"
+                    },
+                    {
+                        "name": "Wall slides",
+                        "detail": "2 x 10 reps, keep the ribs down"
+                    },
+                    {
+                        "name": "Band pull-aparts",
+                        "detail": "2 x 15 reps"
+                    },
+                    {
+                        "name": "Open-book rotations",
+                        "detail": "8 reps per side"
+                    },
+                    {
+                        "name": "Doorway chest stretch",
+                        "detail": "45 seconds per side"
+                    }
+                ],
+                "howToUse": "Perform before upper-body training, rugby sessions or after working at a desk."
+            },
+            {
+                "name": "Pre-Run Dynamic Mobility",
+                "duration": 10,
+                "purpose": "Prepare the hips, ankles and legs for running or sprinting.",
+                "parts": [
+                    {
+                        "name": "Walking knee hugs",
+                        "detail": "10 steps per side"
+                    },
+                    {
+                        "name": "Walking quad pulls",
+                        "detail": "10 steps per side"
+                    },
+                    {
+                        "name": "Leg swings",
+                        "detail": "10 forward-and-back and 10 side-to-side per leg"
+                    },
+                    {
+                        "name": "Walking lunges with rotation",
+                        "detail": "8 reps per side"
+                    },
+                    {
+                        "name": "A-march",
+                        "detail": "2 x 15 metres"
+                    },
+                    {
+                        "name": "Pogo jumps",
+                        "detail": "2 x 15 light reps"
+                    }
+                ],
+                "howToUse": "Complete immediately before running, sprinting or field training."
+            },
+            {
+                "name": "Post-Training Mobility",
+                "duration": 15,
+                "purpose": "Help the body settle after training and reduce feelings of lower-body tightness.",
+                "parts": [
+                    {
+                        "name": "Half-kneeling hip-flexor stretch",
+                        "detail": "60 seconds per side"
+                    },
+                    {
+                        "name": "Hamstring stretch",
+                        "detail": "60 seconds per side"
+                    },
+                    {
+                        "name": "Figure-four glute stretch",
+                        "detail": "60 seconds per side"
+                    },
+                    {
+                        "name": "Adductor stretch",
+                        "detail": "60 seconds per side"
+                    },
+                    {
+                        "name": "Calf stretch",
+                        "detail": "45 seconds per side"
+                    },
+                    {
+                        "name": "Relaxed breathing",
+                        "detail": "2 minutes, slow breaths through the nose"
+                    }
+                ],
+                "howToUse": "Perform after gym, rugby or running sessions. Keep every position comfortable rather than forcing the stretch."
+            }
+        ],
+        "weeklyUse": {
+            "Monday": "Upper-Body and Shoulder Mobility before Upper A.",
+            "Tuesday": "Hip Mobility Flow before Lower A; add ankle rocks/calf work if squat depth or calves feel restricted.",
+            "Wednesday": "Pre-Run Dynamic Mobility before running.",
+            "Thursday": "Ankle and Calf Mobility before Lower B.",
+            "Friday": "Pre-Run Dynamic Mobility before the run; shoulder mobility before lifting if needed.",
+            "Saturday": "Full-Body Mobility Reset after conditioning or later in the day.",
+            "Sunday": "Optional gentle reset only; recovery takes priority."
+        }
+    },
+    "recovery": {
+        "library": [
+            {
+                "name": "Easy Recovery Walk",
+                "duration": 30,
+                "purpose": "Promote circulation and reduce general stiffness without adding training fatigue.",
+                "notes": "Walk on a flat route at a comfortable conversational pace. Keep the effort deliberately easy."
+            },
+            {
+                "name": "Easy Recovery Bike",
+                "duration": 25,
+                "purpose": "Increase blood flow through tired legs after running, rugby or lower-body training.",
+                "notes": "Use very light resistance and a relaxed cadence. You should finish feeling fresher than when you started."
+            },
+            {
+                "name": "Pool Recovery",
+                "duration": 25,
+                "purpose": "Move the body and promote circulation with minimal impact on the joints.",
+                "notes": "Alternate easy swimming, gentle pool walking and relaxed floating. Avoid hard lengths or structured intervals."
+            },
+            {
+                "name": "Sauna Recovery",
+                "duration": 20,
+                "purpose": "Relax and wind down following training.",
+                "notes": "Use one or two comfortable rounds. Drink water before and afterwards, and leave if you feel dizzy or unwell."
+            },
+            {
+                "name": "Hot Bath Recovery",
+                "duration": 25,
+                "purpose": "Relax tired muscles and help the body settle before bed.",
+                "notes": "Use comfortably warm water rather than extreme heat. Follow it with water and a relaxed evening."
+            },
+            {
+                "name": "Foam Rolling Recovery",
+                "duration": 15,
+                "purpose": "Reduce the feeling of soreness and tightness in heavily trained muscles.",
+                "notes": "Roll the calves, quads, hamstrings, glutes and upper back. Use moderate pressure and avoid rolling directly over painful joints."
+            },
+            {
+                "name": "Breathing and Relaxation",
+                "duration": 10,
+                "purpose": "Bring the body down from a hard session and support relaxation before sleep.",
+                "notes": "Lie somewhere comfortable and breathe slowly through your nose. Keep the exhale slightly longer than the inhale."
+            },
+            {
+                "name": "Legs-Up Recovery",
+                "duration": 15,
+                "purpose": "Provide a simple period of rest after spending a long time running, walking or standing.",
+                "notes": "Lie on your back with your lower legs supported on a sofa or against a wall. Relax and breathe normally."
+            },
+            {
+                "name": "Recovery Nap",
+                "duration": 25,
+                "purpose": "Reduce tiredness and improve alertness after demanding training or poor sleep.",
+                "notes": "Keep the nap around 20 to 30 minutes and avoid taking it too close to bedtime."
+            },
+            {
+                "name": "Post-Training Recovery Routine",
+                "duration": 30,
+                "purpose": "Begin the recovery process immediately after a demanding gym, running or rugby session.",
+                "notes": "Complete 10 minutes of easy walking or cycling, drink water, eat a meal containing protein and carbohydrates, then spend the remainder relaxing."
+            },
+            {
+                "name": "Low-Stimulation Evening",
+                "duration": 60,
+                "purpose": "Improve sleep readiness and support recovery from accumulated training fatigue.",
+                "notes": "Dim the lights, reduce phone use, avoid intense exercise and complete a quiet activity such as reading, listening to music or taking a warm shower."
+            },
+            {
+                "name": "Complete Rest Day",
+                "duration": 0,
+                "purpose": "Allow physical and mental fatigue to settle without adding more structured exercise.",
+                "notes": "Skip formal training. Focus on normal daily movement, regular meals, hydration and getting a full night of sleep."
+            }
+        ],
+        "weeklyUse": {
+            "Monday": "Post-Training Recovery Routine after the harder of the two sessions.",
+            "Tuesday": "Sauna Recovery optional if hydrated and feeling well.",
+            "Wednesday": "Legs-Up Recovery or Easy Recovery Walk if useful.",
+            "Thursday": "Post-Training Mobility and a normal meal containing protein and carbohydrate.",
+            "Friday": "Low-Stimulation Evening where practical.",
+            "Saturday": "Sauna Recovery optional after conditioning; rehydrate fully.",
+            "Sunday": "Complete Rest Day. Normal walking is fine; no mandatory training."
+        },
+        "sleepTarget": "Aim for roughly 7.5-9 hours per night where practical.",
+        "priorityOrder": [
+            "Sleep",
+            "Food and hydration",
+            "Rest day",
+            "Easy movement",
+            "Optional sauna/foam rolling"
+        ]
+    },
+    "readinessRules": [
+        "Do not add extra hard conditioning before the existing 10K plan is complete.",
+        "If running causes a meaningful increase in knee pain, swelling, altered gait or next-morning stiffness, repeat or regress the running week and skip the optional hard conditioning.",
+        "If two consecutive strength sessions show a clear drop in performance and sleep/leg soreness are poor, take a deload or remove one accessory set from each workout for a week.",
+        "Hard conditioning should finish with repeatable output. Stop before it becomes sloppy survival work.",
+        "Do not perform maximal sprinting or sharp change-of-direction work until straight-line running and tempo work are consistently symptom-free."
+    ],
+    "completedConditioningLogsFromSource": [
+        {
+            "name": "Treadmill Week 1 - Fri 7 Aug",
+            "category": "HIIT",
+            "date": "2026-08-07",
+            "duration": 33
+        },
+        {
+            "name": "Treadmill Week 1 - Wed 5 Aug",
+            "category": "HIIT",
+            "date": "2026-08-05",
+            "duration": 33
+        },
+        {
+            "name": "Treadmill Week 1 - Mon 3 Aug",
+            "category": "HIIT",
+            "date": "2026-08-03",
+            "duration": 33
+        }
+    ]
+}

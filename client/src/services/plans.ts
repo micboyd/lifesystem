@@ -1,0 +1,89 @@
+import api from './api'
+import type { ApiResponse, FitnessPlanKind, TrainingPlan } from '../types'
+
+/** What importing a plan added to each library, and how much it scheduled. */
+export interface PlanImportSummary {
+    exercisesCreated: number
+    workoutsCreated: number
+    conditioningCreated: number
+    mobilityCreated: number
+    recoveryCreated: number
+    itemsLinked: number
+    scheduled: number
+    warnings: number
+}
+
+/** The plan library, newest additions last. `schedule` is not included. */
+export async function listPlans(): Promise<TrainingPlan[]> {
+    const res = await api.get<ApiResponse<TrainingPlan[]>>('/plans')
+    return res.data.data
+}
+
+/** One plan in full, including its day-by-day schedule. */
+export async function getPlan(id: string): Promise<TrainingPlan> {
+    const res = await api.get<ApiResponse<TrainingPlan>>(`/plans/${id}`)
+    return res.data.data
+}
+
+/**
+ * Import a pasted plan document. Any library item the plan names that isn't
+ * already there is created, and the plan is saved with its schedule worked out.
+ * Nothing lands on the weekly planner until the plan is applied.
+ */
+export async function importPlan(
+    doc: unknown
+): Promise<{ plan: TrainingPlan; summary: PlanImportSummary }> {
+    const res = await api.post<ApiResponse<TrainingPlan> & { summary: PlanImportSummary }>(
+        '/plans/import',
+        doc
+    )
+    return { plan: res.data.data, summary: res.data.summary }
+}
+
+export async function renamePlan(id: string, name: string): Promise<TrainingPlan> {
+    const res = await api.patch<ApiResponse<TrainingPlan>>(`/plans/${id}`, { name })
+    return res.data.data
+}
+
+/** Delete a plan and any planner entries it placed. Library items are kept. */
+export async function deletePlan(id: string): Promise<void> {
+    await api.delete(`/plans/${id}`)
+}
+
+/** How much of a plan to roll out. Omitted fields default to the whole plan. */
+export interface ApplyPlanOptions {
+    /** "YYYY-MM-DD" — defaults to the plan's own start. */
+    start?: string
+    /** "YYYY-MM-DD" — defaults to the plan's own end. */
+    end?: string
+    /** Which libraries to place. Defaults to all four. */
+    kinds?: FitnessPlanKind[]
+    /** Also clear entries this plan didn't place, rather than only its own. */
+    replace?: boolean
+}
+
+export interface ApplyPlanResult {
+    placed: number
+    removed: number
+    start: string
+    end: string
+    kinds: FitnessPlanKind[]
+}
+
+/**
+ * Push a plan's schedule onto the weekly planner. Applying twice over the same
+ * window is safe: the plan's own previous entries there are cleared first.
+ */
+export async function applyPlan(
+    id: string,
+    options: ApplyPlanOptions = {}
+): Promise<ApplyPlanResult> {
+    const res = await api.post<ApiResponse<ApplyPlanResult>>(`/plans/${id}/apply`, options)
+    return res.data.data
+}
+
+/** Remove every planner entry this plan placed, leaving hand-placed ones alone. */
+export async function unapplyPlan(id: string): Promise<number> {
+    const res = await api.delete<ApiResponse<{ removed: number }>>(`/plans/${id}/apply`)
+    return res.data.data.removed
+}

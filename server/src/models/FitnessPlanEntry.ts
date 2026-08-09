@@ -26,6 +26,11 @@ export interface IFitnessPlanEntry extends Document {
     session: Types.ObjectId | null
     recovery: Types.ObjectId | null
     mobility: Types.ObjectId | null
+    /**
+     * The training plan that placed this entry, when it came from applying one.
+     * Lets a plan be un-applied without touching hand-placed entries.
+     */
+    plan: Types.ObjectId | null
     /** Position within the day+part (lower = sooner). */
     order: number
     createdAt: Date
@@ -42,11 +47,13 @@ const fitnessPlanEntrySchema = new Schema<IFitnessPlanEntry>(
         session: { type: Schema.Types.ObjectId, ref: 'ConditioningSession', default: null },
         recovery: { type: Schema.Types.ObjectId, ref: 'Recovery', default: null },
         mobility: { type: Schema.Types.ObjectId, ref: 'Mobility', default: null },
+        plan: { type: Schema.Types.ObjectId, ref: 'TrainingPlan', default: null },
         order: { type: Number, default: 0 },
     },
     { timestamps: true }
 )
 
 fitnessPlanEntrySchema.index({ user: 1, date: 1 })
+fitnessPlanEntrySchema.index({ user: 1, plan: 1 })
 
 export default model<IFitnessPlanEntry>('FitnessPlanEntry', fitnessPlanEntrySchema)

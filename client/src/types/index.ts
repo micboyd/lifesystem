@@ -138,12 +138,18 @@ export interface WorkoutExercise {
     sets?: number
     /** Reps per set — free-form to allow ranges/AMRAP, e.g. "8-12". */
     reps?: string
+    /** Rest between sets — free-form, e.g. "90 sec", "2-3 min". */
+    rest?: string
+    /** Coaching cue for this line, e.g. "Keep 1-2 reps in reserve". */
+    notes?: string
 }
 
 export interface Workout {
     _id: string
     name: string
     description: string
+    /** Planned duration in minutes. 0 means "estimate it from the sets". */
+    duration: number
     /** Pin this workout to the top of the week planner. */
     showInPlanner: boolean
     /** Ordered exercises drawn from the library, each with optional sets/reps. */
@@ -416,6 +422,98 @@ export interface FitnessPlanNote {
     date: string
     color: FitnessFlagColor
     label: string
+    createdAt: string
+    updatedAt: string
+}
+
+// ─── Training plans ─────────────────────────────────────────────────────────────
+
+/** Which part of a training plan a linked item plays. */
+export const PLAN_ROLES = ['strength', 'run', 'conditioning', 'mobility', 'recovery'] as const
+export type PlanRole = (typeof PLAN_ROLES)[number]
+
+/** A library item a plan links to. Details live in the library it points at. */
+export interface PlanItem {
+    kind: FitnessPlanKind
+    role: PlanRole
+    /** Id of the Workout / ConditioningSession / Mobility / Recovery. */
+    item: string
+    /** The item's name at import time. */
+    label: string
+    /** True when the import created this item rather than reusing an existing one. */
+    created: boolean
+}
+
+/** One materialised placement: a library item on a specific day and slot. */
+export interface PlanScheduleEntry {
+    /** "YYYY-MM-DD". */
+    date: string
+    part: FitnessPlanPart
+    kind: FitnessPlanKind
+    role: PlanRole
+    item: string
+    label: string
+    /** Guidance carried from the source calendar, e.g. "4-6 km easy". */
+    notes?: string
+}
+
+/** One block of a plan's periodisation, e.g. "5K Build". */
+export interface PlanPhase {
+    name: string
+    dates?: string
+    focus?: string
+    conditioning?: string
+    strength?: string
+    recoveryPriority?: string
+}
+
+/** One row of a plan's week-at-a-glance table. */
+export interface PlanWeekDay {
+    day: string
+    strength?: string
+    conditioning?: string
+    mobility?: string
+    recovery?: string
+}
+
+/** A name in the imported document that matched nothing in the libraries. */
+export interface PlanWarning {
+    source: string
+    message: string
+}
+
+/**
+ * A saved training plan: the prose that frames a training block, the library
+ * items it uses, and a day-by-day schedule ready to push onto the planner.
+ * `schedule` is omitted from the list endpoint and present on the detail one.
+ */
+export interface TrainingPlan {
+    _id: string
+    name: string
+    source?: string
+    generatedAt?: string
+    /** "YYYY-MM-DD" bounds of the plan. */
+    planStart: string
+    planEnd: string
+    /** Free-form goal block, rendered as key/value prose. */
+    goal?: Record<string, unknown>
+    phases: PlanPhase[]
+    weeklyTemplate: PlanWeekDay[]
+    /** Free-form progression rules, rendered as key/value prose. */
+    strengthProgression?: Record<string, unknown>
+    /** Weekday → how mobility / recovery are used, from the source document. */
+    mobilityUse?: Record<string, string>
+    recoveryUse?: Record<string, string>
+    readinessRules: string[]
+    items: PlanItem[]
+    /** Only present on the detail endpoint. */
+    schedule?: PlanScheduleEntry[]
+    warnings: PlanWarning[]
+    /** When the plan was last pushed onto the planner; null if never. */
+    appliedAt?: string | null
+    /** How many planner entries this plan currently has in place. */
+    appliedEntries: number
+    order: number
     createdAt: string
     updatedAt: string
 }

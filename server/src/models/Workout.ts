@@ -7,12 +7,18 @@ export interface IWorkoutExercise {
     sets?: number
     /** Reps per set — free-form to allow ranges/AMRAP, e.g. "8-12". */
     reps?: string
+    /** Rest between sets — free-form, e.g. "90 sec", "2-3 min". */
+    rest?: string
+    /** Coaching cue for this line, e.g. "Keep 1-2 reps in reserve". */
+    notes?: string
 }
 
 export interface IWorkout extends Document {
     user: Types.ObjectId
     name: string
     description: string
+    /** Planned duration in minutes. 0 means "estimate it from the sets". */
+    duration: number
     /** Pin this workout to the top of the week planner. */
     showInPlanner: boolean
     /** Ordered exercises drawn from the library, each with optional sets/reps. */
@@ -30,6 +36,8 @@ const workoutExerciseSchema = new Schema<IWorkoutExercise>(
         exercise: { type: Schema.Types.ObjectId, ref: 'Exercise', required: true },
         sets: { type: Number, min: 0 },
         reps: { type: String, trim: true },
+        rest: { type: String, trim: true },
+        notes: { type: String, trim: true },
     },
     { _id: false }
 )
@@ -39,6 +47,7 @@ const workoutSchema = new Schema<IWorkout>(
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         name: { type: String, required: true, trim: true },
         description: { type: String, default: '', trim: true },
+        duration: { type: Number, default: 0, min: 0 },
         showInPlanner: { type: Boolean, default: false },
         exercises: { type: [workoutExerciseSchema], default: [] },
         order: { type: Number, default: 0 },
