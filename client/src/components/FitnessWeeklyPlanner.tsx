@@ -1624,9 +1624,10 @@ function DayColumn({
 
 /**
  * One slot (morning / afternoon / evening) of a day column. Holds a flat list
- * of items of any category, each carrying its own colour. In view mode an empty
- * slot collapses; in edit mode it shows an add control that opens the picker
- * pre-targeted to this slot.
+ * of items of any category, each carrying its own colour. Every slot is always
+ * shown, so a day reads the same shape throughout: an empty one says "Nothing
+ * this morning" in view mode, and in edit mode offers an add control that opens
+ * the picker pre-targeted to this slot.
  */
 function SlotSection({
     part,
@@ -1668,8 +1669,6 @@ function SlotSection({
 }) {
     const meta = PART_META[part]
     const listRef = useRef<HTMLUListElement>(null)
-
-    if (!editable && entries.length === 0) return null
 
     // The whole slot is one continuous drop target: rather than hit-testing
     // individual rows (which leaves dead gaps between them), we pick the insertion
@@ -1756,7 +1755,7 @@ function SlotSection({
                     ))}
                     {drop && drop.refId === null && <DropLine />}
                 </ul>
-            ) : (
+            ) : editable ? (
                 <button
                     type="button"
                     onClick={onAdd}
@@ -1768,6 +1767,10 @@ function SlotSection({
                 >
                     {dragActive ? 'Move here' : 'Add'}
                 </button>
+            ) : (
+                <p className="py-1 text-[11px] italic text-neutral-300">
+                    Nothing this {meta.label.toLowerCase()}
+                </p>
             )}
         </div>
     )
