@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Card } from './Card'
 import Button from './Button'
 import Alert from './Alert'
+import Checkbox from './Checkbox'
 import { useToast } from '../context/ToastContext'
 import { importPlan, type PlanImportSummary } from '../services/plans'
 import samplePlan from '../data/rugbyPhysiquePlan.json'
@@ -132,6 +133,8 @@ interface PlanImportPanelProps {
     onBack: () => void
     /** Called after a plan is saved. */
     onImported: () => void
+    /** Existing plans, so a re-import can replace one rather than duplicate it. */
+    existingPlans?: { _id: string; name: string }[]
 }
 
 /**
@@ -140,9 +143,19 @@ interface PlanImportPanelProps {
  * out the day each session falls on. Names that already exist in a library are
  * reused rather than duplicated, so re-importing a revised plan is safe.
  */
-export default function PlanImportPanel({ onBack, onImported }: PlanImportPanelProps) {
+export default function PlanImportPanel({
+    onBack,
+    onImported,
+    existingPlans = [],
+}: PlanImportPanelProps) {
     const toast = useToast()
     const [text, setText] = useState('')
+    // Library items are matched by name and left alone by default; this opts into
+    // refreshing them, which is how a corrected plan pushes fixes through.
+    const [updateExisting, setUpdateExisting] = useState(false)
+    // A plan the paste would duplicate, found by name once the JSON parses.
+    const [clash, setClash] = useState<{ _id: string; name: string } | null>(null)
+    const [replaceClash, setReplaceClash] = useState(true)
     const [importing, setImporting] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [summary, setSummary] = useState<PlanImportSummary | null>(null)
@@ -156,6 +169,21 @@ export default function PlanImportPanel({ onBack, onImported }: PlanImportPanelP
         } catch {
             toast.show('Could not copy to clipboard.')
         }
+    }
+
+    // Watch the paste for a plan name that already exists. Cheap enough to redo on
+    // each keystroke, and it lets the replace choice appear before importing.
+    function onText(next: string) {
+        setText(next)
+        let name: unknown
+        try {
+            name = (JSON.parse(next) as { planName?: unknown }).planName
+        } catch {
+            setClash(null)
+            return
+        }
+        const key = typeof name === 'string' ? name.trim().toLowerCase() : ''
+        setClash(existingPlans.find((p) => p.name.trim().toLowerCase() === key) ?? null)
     }
 
     async function handleImport() {
@@ -176,7 +204,10 @@ export default function PlanImportPanel({ onBack, onImported }: PlanImportPanelP
 
         setImporting(true)
         try {
-            const { plan, summary: result } = await importPlan(parsed)
+            const { plan, summary: result } = await importPlan(parsed, {
+                updateExisting,
+                replaceId: clash && replaceClash ? clash._id : null,
+            })
             setSummary(result)
             setText('')
             toast.show(`Imported “${plan.name}”.`, 'success')
@@ -238,10 +269,20 @@ export default function PlanImportPanel({ onBack, onImported }: PlanImportPanelP
                                     .map(([n, label]) => `${n} ${label}`)
                                     .join(', ')})`}
                         </li>
+                        {summary.itemsUpdated > 0 && (
+                            <li>{summary.itemsUpdated} existing library items refreshed</li>
+                        )}
                         <li>{summary.itemsLinked} items linked to the plan</li>
                         <li>{summary.scheduled} sessions placed on dates</li>
                         {summary.overrides > 0 && (
                             <li>{summary.overrides} dated exceptions applied</li>
+                        )}
+                        {summary.replacedPlan && (
+                            <li>
+                                replaced the existing plan
+                                {summary.staleEntries > 0 &&
+                                    ` — ${summary.staleEntries} of its planner sessions were cleared, ready to re-apply`}
+                            </li>
                         )}
                         {summary.warnings > 0 && (
                             <li>
@@ -347,8 +388,10 @@ export default function PlanImportPanel({ onBack, onImported }: PlanImportPanelP
                         in order, so a later one wins.
                     </p>
                     <p>
-                        Library items are matched by name and never overwritten, so importing a
-                        revised plan reuses everything you have already tuned by hand.
+                        Library items are matched by name. By default an existing one is reused
+                        untouched, so importing a revised plan keeps whatever you have tuned by hand
+                        — tick “Update items that already exist” below to push the plan’s version
+                        through instead.
                     </p>
                 </div>
             </Card>
@@ -361,17 +404,50 @@ export default function PlanImportPanel({ onBack, onImported }: PlanImportPanelP
 
                 <textarea
                     value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={(e) => onText(e.target.value)}
                     spellCheck={false}
                     rows={12}
                     placeholder="Paste your plan here…"
                     className="w-full resize-y rounded-xl border border-neutral-200 bg-white p-4 font-mono text-xs leading-relaxed text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-neutral-400"
                 />
 
+                <div className="mt-4 flex flex-col gap-3 rounded-xl border border-neutral-200 p-3">
+                    <Checkbox
+                        label="Update items that already exist"
+                        checked={updateExisting}
+                        onChange={setUpdateExisting}
+                    />
+                    <p className="pl-7 text-xs text-neutral-400">
+                        Refreshes matching workouts, sessions and routines from this plan — how a
+                        correction reaches items an earlier import already created. They keep their
+                        ids, so anything on the planner and every completed log stays linked.
+                    </p>
+                </div>
+
+                {clash && (
+                    <Alert
+                        variant="warning"
+                        className="mt-3"
+                        title="You already have a plan with this name"
+                    >
+                        <Checkbox
+                            label={`Replace “${clash.name}” instead of adding a second one`}
+                            checked={replaceClash}
+                            onChange={setReplaceClash}
+                            className="mt-2"
+                        />
+                        <p className="mt-1 pl-7 text-xs">
+                            {replaceClash
+                                ? 'The existing plan is overwritten in place. Sessions it put on the planner are cleared, ready to re-apply from the new schedule.'
+                                : 'Two plans will share the name, and applying both can double up on the planner.'}
+                        </p>
+                    </Alert>
+                )}
+
                 <div className="mt-4 flex items-center justify-end gap-3">
                     <Button
                         variant="ghost"
-                        onClick={() => setText('')}
+                        onClick={() => onText('')}
                         disabled={!text || importing}
                     >
                         Clear

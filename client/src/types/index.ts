@@ -14,10 +14,12 @@ export interface MacroGoals {
     fat?: number
 }
 
-/** Bodyweight targets the weigh-in trend is judged against. */
+/** Body composition targets the weigh-in trend is judged against. */
 export interface BodyGoals {
     /** Goal bodyweight in kilograms. */
     targetWeight?: number
+    /** Goal body fat, as a percentage of bodyweight. */
+    targetBodyFat?: number
     /**
      * Intended change per week in kilograms, signed: negative for a cut,
      * positive for a gain.
@@ -53,6 +55,8 @@ export interface WeightLog {
     weight: number
     /** Waist measurement in centimetres, if taken. */
     waist?: number
+    /** Body fat as a percentage of bodyweight, if measured. */
+    bodyFat?: number
     notes?: string
     createdAt: string
     updatedAt: string

@@ -8,6 +8,8 @@ export interface WeightLogPayload {
     weight: number
     /** Waist in centimetres; omit or send undefined to clear. */
     waist?: number
+    /** Body fat percentage; omit or send undefined to clear. */
+    bodyFat?: number
     notes?: string
 }
 

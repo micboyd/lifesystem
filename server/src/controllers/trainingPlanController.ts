@@ -100,7 +100,7 @@ function toSpecs(
     return out
 }
 
-/** What resolving a library produced: name → item, plus which ones were new. */
+/** What resolving a library produced: name → item, plus what changed. */
 interface Resolved {
     /** Normalised name → the library item it resolved to. */
     byKey: Map<string, NamedRef>
@@ -108,17 +108,33 @@ interface Resolved {
     all: NamedRef[]
     /** Normalised names of the items this import created. */
     created: Set<string>
+    /** Normalised names of existing items this import refreshed. */
+    updated: Set<string>
+}
+
+/** How an import treats a name that already exists in the library. */
+interface EnsureOptions {
+    /**
+     * Refresh matching items from the plan instead of leaving them as they are.
+     * The item keeps its `_id`, so anything pointing at it — planner entries,
+     * completion logs — stays linked.
+     */
+    updateExisting?: boolean
+    /** Fields to set when creating but never when refreshing, e.g. a pinned flag. */
+    createOnly?: string[]
 }
 
 /**
- * Match each spec against the user's library by name and create only the ones
- * that are missing. Existing items are never modified — importing a plan adds
- * what the plan needs without rewriting anything already tuned by hand.
+ * Match each spec against the user's library by name and create the ones that
+ * are missing. By default existing items are left exactly as they are, so
+ * importing a plan never rewrites anything tuned by hand; `updateExisting`
+ * opts into refreshing them, which is how a corrected plan pushes fixes through.
  */
 async function ensureLibrary<T extends { name: string; order: number }>(
     model: Model<T>,
     userId: string,
-    specs: LibrarySpec[]
+    specs: LibrarySpec[],
+    options: EnsureOptions = {}
 ): Promise<Resolved> {
     const existing = await model
         .find({ user: userId } as FilterQuery<T>)
@@ -159,7 +175,26 @@ async function ensureLibrary<T extends { name: string; order: number }>(
         })
     }
 
-    return { byKey, all: [...byKey.values()], created }
+    // Refresh the items that already existed, in place. Keeping each `_id` is the
+    // whole point: planner entries and completion logs keep pointing at them.
+    const updated = new Set<string>()
+    if (options.updateExisting) {
+        const skip = new Set(options.createOnly ?? [])
+        for (const spec of specs) {
+            const key = nameKey(spec.name)
+            const ref = byKey.get(key)
+            if (!ref || created.has(key) || updated.has(key)) continue
+            const fields = Object.fromEntries(
+                Object.entries(spec.fields).filter(([k]) => !skip.has(k))
+            )
+            await model.updateOne({ _id: ref.id, user: userId } as FilterQuery<T>, {
+                $set: { name: spec.name, ...fields },
+            })
+            updated.add(key)
+        }
+    }
+
+    return { byKey, all: [...byKey.values()], created, updated }
 }
 
 // ─── Import ─────────────────────────────────────────────────────────────────────
@@ -205,6 +240,11 @@ export async function importPlan(req: AuthRequest, res: Response) {
     }
 
     const userId = req.userId!
+    // Options ride on the query string so the body stays a pasteable plan document.
+    const updateExisting = req.query.updateExisting === '1'
+    const replaceId = typeof req.query.replace === 'string' ? req.query.replace : null
+    const ensure = { updateExisting }
+
     const warnings: IPlanWarning[] = []
     const conditioningDoc = obj(doc.conditioning) ?? {}
     const mobilityDoc = obj(doc.mobility) ?? {}
@@ -221,7 +261,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
             if (lineName) exerciseSpecs.push({ name: lineName, fields: { description: '' } })
         }
     }
-    const exercises = await ensureLibrary(Exercise, userId, exerciseSpecs)
+    const exercises = await ensureLibrary(Exercise, userId, exerciseSpecs, ensure)
 
     // ── Strength workouts ──────────────────────────────────────────────────────
     /** Prescription lines resolved to library exercise ids. */
@@ -257,7 +297,10 @@ export async function importPlan(req: AuthRequest, res: Response) {
         exercises: workoutLines(w.exercises),
         showInPlanner: false,
     }))
-    const workouts = await ensureLibrary(Workout, userId, workoutSpecs)
+    const workouts = await ensureLibrary(Workout, userId, workoutSpecs, {
+        ...ensure,
+        createOnly: ['showInPlanner'],
+    })
 
     // ── Conditioning: the dated run plan plus the post-goal session library ─────
     const runPlan = arr(conditioningDoc.existingRunPlan)
@@ -273,7 +316,12 @@ export async function importPlan(req: AuthRequest, res: Response) {
     })
     const runSpecs = toSpecs(runPlan, sessionFields)
     const postSpecs = toSpecs(postLibrary, sessionFields)
-    const sessions = await ensureLibrary(ConditioningSession, userId, [...runSpecs, ...postSpecs])
+    const sessions = await ensureLibrary(
+        ConditioningSession,
+        userId,
+        [...runSpecs, ...postSpecs],
+        ensure
+    )
 
     // ── Mobility and recovery libraries ────────────────────────────────────────
     const mobilitySpecs = toSpecs(arr(mobilityDoc.library), (m) => ({
@@ -282,14 +330,14 @@ export async function importPlan(req: AuthRequest, res: Response) {
         parts: toSessionParts(m.parts),
         howToUse: str(m.howToUse),
     }))
-    const mobility = await ensureLibrary(Mobility, userId, mobilitySpecs)
+    const mobility = await ensureLibrary(Mobility, userId, mobilitySpecs, ensure)
 
     const recoverySpecs = toSpecs(arr(recoveryDoc.library), (r) => ({
         duration: num(r.duration) ?? 0,
         purpose: str(r.purpose),
         notes: str(r.notes) ?? str(r.howToUse),
     }))
-    const recovery = await ensureLibrary(Recovery, userId, recoverySpecs)
+    const recovery = await ensureLibrary(Recovery, userId, recoverySpecs, ensure)
 
     // ── Schedule ───────────────────────────────────────────────────────────────
     const schedule = new ScheduleBuilder()
@@ -412,7 +460,12 @@ export async function importPlan(req: AuthRequest, res: Response) {
     } = applyOverrides(
         schedule,
         arr(doc.scheduleOverrides),
-        { workout: workouts.all, conditioning: sessions.all, mobility: mobility.all, recovery: recovery.all },
+        {
+            workout: workouts.all,
+            conditioning: sessions.all,
+            mobility: mobility.all,
+            recovery: recovery.all,
+        },
         toPart
     )
     for (const message of problems) warnings.push({ source: 'scheduleOverrides', message })
@@ -463,9 +516,22 @@ export async function importPlan(req: AuthRequest, res: Response) {
     }
 
     const goal = obj(doc.goal) ?? undefined
-    const last = await TrainingPlan.findOne({ user: userId }).sort({ order: -1 }).select('order')
 
-    const plan = await TrainingPlan.create({
+    // Replacing keeps the plan's `_id`, so planner entries it already placed stay
+    // stamped with it — re-applying then cleanly supersedes them instead of
+    // doubling up, which creating a second plan of the same name would do.
+    const target = replaceId
+        ? await TrainingPlan.findOne({ _id: replaceId, user: userId }).select('_id order')
+        : null
+    if (replaceId && !target) {
+        res.status(404).json({ message: 'The plan you asked to replace no longer exists.' })
+        return
+    }
+    const last = target
+        ? null
+        : await TrainingPlan.findOne({ user: userId }).sort({ order: -1 }).select('order')
+
+    const content = {
         user: userId,
         name,
         source: str(doc.source),
@@ -498,8 +564,23 @@ export async function importPlan(req: AuthRequest, res: Response) {
         schedule: schedule.sorted(),
         overrides,
         warnings,
-        order: last ? last.order + 1 : 0,
-    })
+        appliedAt: null,
+        order: target ? target.order : last ? last.order + 1 : 0,
+    }
+
+    const plan = target
+        ? (await TrainingPlan.findOneAndUpdate(
+              { _id: target._id, user: userId },
+              { $set: content },
+              { new: true }
+          ))!
+        : await TrainingPlan.create(content)
+
+    // A replaced plan's old placements describe the previous schedule, so clear
+    // them: the plan is no longer applied until it's applied again.
+    const staleEntries = target
+        ? ((await FitnessPlanEntry.deleteMany({ user: userId, plan: plan._id })).deletedCount ?? 0)
+        : 0
 
     res.status(201).json({
         message: `Imported “${plan.name}”`,
@@ -510,6 +591,20 @@ export async function importPlan(req: AuthRequest, res: Response) {
             conditioningCreated: sessions.created.size,
             mobilityCreated: mobility.created.size,
             recoveryCreated: recovery.created.size,
+            itemsCreated:
+                exercises.created.size +
+                workouts.created.size +
+                sessions.created.size +
+                mobility.created.size +
+                recovery.created.size,
+            itemsUpdated:
+                exercises.updated.size +
+                workouts.updated.size +
+                sessions.updated.size +
+                mobility.updated.size +
+                recovery.updated.size,
+            replacedPlan: !!target,
+            staleEntries,
             itemsLinked: items.length,
             scheduled: plan.schedule.length,
             overrides: overrides.length,

@@ -7,9 +7,9 @@ export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
  * second reading on the same day is a correction, not a new data point, so the
  * API upserts on { user, date } rather than appending.
  *
- * Waist sits alongside weight because it keeps moving through the week-long
- * water swings that flatten the scale, so the two together tell you whether a
- * stall is real.
+ * Waist and body fat sit alongside weight because they keep moving through the
+ * week-long water swings that flatten the scale, so together they tell you
+ * whether a stall is real — and whether what's coming off is fat.
  */
 export interface IWeightLog extends Document {
     user: Types.ObjectId
@@ -19,6 +19,8 @@ export interface IWeightLog extends Document {
     weight: number
     /** Optional waist measurement in centimetres. */
     waist?: number
+    /** Optional body fat, as a percentage of bodyweight. */
+    bodyFat?: number
     notes?: string
     createdAt: Date
     updatedAt: Date
@@ -30,6 +32,7 @@ const weightLogSchema = new Schema<IWeightLog>(
         date: { type: String, required: true, match: ISO_DATE_PATTERN },
         weight: { type: Number, required: true, min: 0 },
         waist: { type: Number, min: 0 },
+        bodyFat: { type: Number, min: 0, max: 100 },
         notes: { type: String, trim: true },
     },
     { timestamps: true }

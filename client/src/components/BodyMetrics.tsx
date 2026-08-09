@@ -13,15 +13,26 @@ import { updateSettings } from '../services/users'
 import { listWeightLogs, saveWeightLog, deleteWeightLog } from '../services/weightLogs'
 import {
     trendSeries,
+    bodyFatSeries,
     weeklyRate,
     ratePercent,
     rateStatus,
     projectTargetDate,
     daysBetween,
     type TrendPoint,
+    type BodyFatPoint,
     type RateStatus,
 } from '../lib/weightTrend'
-import type { WeightLog } from '../types'
+import type { BodyGoals, WeightLog } from '../types'
+
+/** What one weigh-in submission carries. */
+interface WeighInPayload {
+    date: string
+    weight: number
+    waist?: number
+    bodyFat?: number
+    notes?: string
+}
 
 /** Windows the rate of change can be measured over. */
 const WINDOWS = [
@@ -44,11 +55,15 @@ export default function BodyMetrics() {
     const [goalsOpen, setGoalsOpen] = useState(false)
 
     useEffect(() => {
-        listWeightLogs().then(setLogs).catch(() => setLogs([]))
+        listWeightLogs()
+            .then(setLogs)
+            .catch(() => setLogs([]))
     }, [])
 
     const goals = user?.settings?.bodyGoals
     const points = useMemo(() => trendSeries(logs ?? []), [logs])
+    const fatPoints = useMemo(() => bodyFatSeries(logs ?? []), [logs])
+    const latestFat = fatPoints.length ? fatPoints[fatPoints.length - 1] : null
     const rate = useMemo(() => weeklyRate(points, windowDays), [points, windowDays])
     const pct = ratePercent(points, rate)
     const status = rateStatus(rate, goals?.weeklyRate)
@@ -57,12 +72,7 @@ export default function BodyMetrics() {
     const eta =
         goals?.targetWeight != null ? projectTargetDate(points, goals.targetWeight, rate) : null
 
-    async function handleSave(payload: {
-        date: string
-        weight: number
-        waist?: number
-        notes?: string
-    }) {
+    async function handleSave(payload: WeighInPayload) {
         const saved = await saveWeightLog(payload)
         setLogs((prev) => {
             const rest = (prev ?? []).filter((l) => l.date !== saved.date)
@@ -81,7 +91,7 @@ export default function BodyMetrics() {
         }
     }
 
-    async function handleSaveGoals(next: { targetWeight?: number; weeklyRate?: number }) {
+    async function handleSaveGoals(next: BodyGoals) {
         const updated = await updateSettings({ bodyGoals: next })
         updateUser(updated)
         setGoalsOpen(false)
@@ -122,7 +132,11 @@ export default function BodyMetrics() {
                 />
             ) : (
                 <>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div
+                        className={`grid gap-4 sm:grid-cols-2 ${
+                            latestFat || goals?.targetBodyFat ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
+                        }`}
+                    >
                         <Stat
                             label="Trend"
                             value={`${latest!.trend.toFixed(1)} kg`}
@@ -150,8 +164,17 @@ export default function BodyMetrics() {
                         <Stat
                             label="Projected"
                             value={eta ? longDate(eta) : '—'}
-                            sub={eta ? `${daysBetween(todayKey(), eta)} days away` : etaHint(status)}
+                            sub={
+                                eta ? `${daysBetween(todayKey(), eta)} days away` : etaHint(status)
+                            }
                         />
+                        {(latestFat || goals?.targetBodyFat) && (
+                            <Stat
+                                label="Body fat"
+                                value={latestFat ? `${latestFat.trend.toFixed(1)}%` : '—'}
+                                sub={bodyFatSub(latestFat, goals?.targetBodyFat)}
+                            />
+                        )}
                     </div>
 
                     <Card hover={false} className="flex flex-col gap-4">
@@ -236,18 +259,14 @@ function WeighInForm({
     onCancelEdit,
 }: {
     initial: WeightLog | null
-    onSave: (payload: {
-        date: string
-        weight: number
-        waist?: number
-        notes?: string
-    }) => Promise<void>
+    onSave: (payload: WeighInPayload) => Promise<void>
     onCancelEdit?: () => void
 }) {
     const toast = useToast()
     const [date, setDate] = useState(initial?.date ?? todayKey())
     const [weight, setWeight] = useState(initial ? String(initial.weight) : '')
     const [waist, setWaist] = useState(initial?.waist ? String(initial.waist) : '')
+    const [bodyFat, setBodyFat] = useState(initial?.bodyFat ? String(initial.bodyFat) : '')
     const [saving, setSaving] = useState(false)
 
     async function submit(e: FormEvent) {
@@ -258,16 +277,23 @@ function WeighInForm({
             return
         }
         const cm = waist.trim() ? Number(waist) : undefined
+        const fat = bodyFat.trim() ? Number(bodyFat) : undefined
+        if (fat !== undefined && (!Number.isFinite(fat) || fat <= 0 || fat > 100)) {
+            toast.error('Body fat must be a percentage between 0 and 100')
+            return
+        }
         setSaving(true)
         try {
             await onSave({
                 date,
                 weight: kg,
                 waist: cm !== undefined && Number.isFinite(cm) && cm > 0 ? cm : undefined,
+                bodyFat: fat,
             })
             if (!initial) {
                 setWeight('')
                 setWaist('')
+                setBodyFat('')
             }
         } catch {
             toast.error('Could not save that weigh-in')
@@ -307,6 +333,19 @@ function WeighInForm({
                     placeholder="optional"
                     value={waist}
                     onChange={(e) => setWaist(e.target.value)}
+                />
+            </div>
+            <div className="w-28">
+                <Input
+                    label="Body fat (%)"
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    max={100}
+                    inputMode="decimal"
+                    placeholder="optional"
+                    value={bodyFat}
+                    onChange={(e) => setBodyFat(e.target.value)}
                 />
             </div>
             <Button type="submit" disabled={saving} icon="fa-solid fa-plus">
@@ -355,7 +394,9 @@ function TrendChart({ points, target }: { points: TrendPoint[]; target?: number 
     const x = (date: string) => PAD_X + (daysBetween(first, date) / span) * (CHART_W - PAD_X * 2)
     const y = (v: number) => PAD_Y + (1 - (v - min) / range) * (CHART_H - PAD_Y * 2)
 
-    const trendPath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.date)},${y(p.trend)}`).join(' ')
+    const trendPath = points
+        .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.date)},${y(p.trend)}`)
+        .join(' ')
 
     return (
         <div className="overflow-x-auto">
@@ -481,10 +522,7 @@ function RecentLog({
     onDelete: (log: WeightLog) => void
 }) {
     const [expanded, setExpanded] = useState(false)
-    const trendByDate = useMemo(
-        () => new Map(points.map((p) => [p.date, p.trend])),
-        [points]
-    )
+    const trendByDate = useMemo(() => new Map(points.map((p) => [p.date, p.trend])), [points])
     const shown = expanded ? logs : logs.slice(0, 10)
 
     return (
@@ -507,8 +545,11 @@ function RecentLog({
                                 ? `${trendByDate.get(log.date)!.toFixed(1)} trend`
                                 : ''}
                         </span>
-                        <span className="flex-1 text-sm tabular-nums text-neutral-400">
+                        <span className="w-24 text-sm tabular-nums text-neutral-400">
                             {log.waist ? `${log.waist} cm waist` : ''}
+                        </span>
+                        <span className="flex-1 text-sm tabular-nums text-neutral-400">
+                            {log.bodyFat ? `${log.bodyFat.toFixed(1)}% fat` : ''}
                         </span>
                         <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                             <RowButton
@@ -558,7 +599,9 @@ function RowButton({
             aria-label={label}
             onClick={onClick}
             className={`grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors ${
-                danger ? 'hover:bg-red-50 hover:text-red-500' : 'hover:bg-neutral-100 hover:text-neutral-900'
+                danger
+                    ? 'hover:bg-red-50 hover:text-red-500'
+                    : 'hover:bg-neutral-100 hover:text-neutral-900'
             }`}
         >
             <i className={`${icon} text-[11px]`} aria-hidden="true" />
@@ -569,9 +612,9 @@ function RowButton({
 // ─── Targets ────────────────────────────────────────────────────────────────────
 
 /**
- * Target weight and intended weekly rate. The rate is entered as a positive
- * number of kg per week alongside a direction, because "-0.5" is an awkward
- * thing to type; it's stored signed.
+ * Target weight, body fat and intended weekly rate. The rate is entered as a
+ * positive number of kg per week alongside a direction, because "-0.5" is an
+ * awkward thing to type; it's stored signed.
  */
 function GoalsModal({
     open,
@@ -580,20 +623,19 @@ function GoalsModal({
     onSave,
 }: {
     open: boolean
-    initial?: { targetWeight?: number; weeklyRate?: number }
+    initial?: BodyGoals
     onClose: () => void
-    onSave: (next: { targetWeight?: number; weeklyRate?: number }) => Promise<void>
+    onSave: (next: BodyGoals) => Promise<void>
 }) {
     const toast = useToast()
     // Seeded from settings on mount; the caller keys this component on `open` so
     // a cancelled edit is discarded by remounting rather than by an effect.
-    const [target, setTarget] = useState(
-        initial?.targetWeight ? String(initial.targetWeight) : ''
-    )
+    const [target, setTarget] = useState(initial?.targetWeight ? String(initial.targetWeight) : '')
     const [rate, setRate] = useState(
         initial?.weeklyRate ? String(Math.abs(initial.weeklyRate)) : ''
     )
     const [losing, setLosing] = useState((initial?.weeklyRate ?? -0.5) < 0)
+    const [fat, setFat] = useState(initial?.targetBodyFat ? String(initial.targetBodyFat) : '')
     const [saving, setSaving] = useState(false)
 
     async function submit() {
@@ -607,11 +649,17 @@ function GoalsModal({
             toast.error('Weekly rate must be a positive number')
             return
         }
+        const f = fat.trim() ? Number(fat) : undefined
+        if (f !== undefined && (!Number.isFinite(f) || f <= 0 || f > 100)) {
+            toast.error('Target body fat must be a percentage between 0 and 100')
+            return
+        }
         setSaving(true)
         try {
             await onSave({
                 targetWeight: t,
                 weeklyRate: r === undefined ? undefined : losing ? -r : r,
+                targetBodyFat: f,
             })
         } catch {
             toast.error('Could not save your targets')
@@ -624,7 +672,7 @@ function GoalsModal({
         <Modal
             open={open}
             onClose={onClose}
-            title="Bodyweight targets"
+            title="Body targets"
             size="sm"
             footer={
                 <>
@@ -646,6 +694,18 @@ function GoalsModal({
                     placeholder="e.g. 78"
                     value={target}
                     onChange={(e) => setTarget(e.target.value)}
+                />
+                <Input
+                    label="Target body fat (%)"
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    max={100}
+                    inputMode="decimal"
+                    placeholder="e.g. 15"
+                    value={fat}
+                    onChange={(e) => setFat(e.target.value)}
+                    hint="Judged on the trend, not one reading — measure the same way each time."
                 />
                 <div className="flex flex-col gap-1.5">
                     <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
@@ -728,6 +788,22 @@ function signed(n: number, dp = 1): string {
 function longDate(date: string): string {
     const { year, month, day } = parseDateKey(date)
     return `${day} ${MONTHS[month].slice(0, 3)} ${year}`
+}
+
+/**
+ * The line under the body-fat tile. The tile shows the smoothed trend, so the
+ * last raw reading goes here — and the gap to the target when one is set, in
+ * percentage points, since "% to go" would read as a percentage of a percentage.
+ */
+function bodyFatSub(latest: BodyFatPoint | null, target?: number): string {
+    // The tile only shows when there's a reading or a target, so no reading here
+    // always means a target is set and waiting for one.
+    if (!latest) return `Target ${target}% · add a reading to a weigh-in`
+    const reading = `Last reading ${latest.bodyFat.toFixed(1)}%`
+    if (target == null) return reading
+    const gap = latest.trend - target
+    if (Math.abs(gap) < 0.05) return `At your ${target}% target`
+    return `${Math.abs(gap).toFixed(1)} points ${gap > 0 ? 'to go' : 'past'} · target ${target}%`
 }
 
 /** Why there's no projection, phrased for the reason. */

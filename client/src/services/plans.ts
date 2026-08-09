@@ -8,6 +8,14 @@ export interface PlanImportSummary {
     conditioningCreated: number
     mobilityCreated: number
     recoveryCreated: number
+    /** New library items across all five libraries. */
+    itemsCreated: number
+    /** Existing library items refreshed from the plan, when that was asked for. */
+    itemsUpdated: number
+    /** True when this import replaced an existing plan rather than adding one. */
+    replacedPlan: boolean
+    /** Planner entries cleared because the replaced plan's schedule changed. */
+    staleEntries: number
     itemsLinked: number
     scheduled: number
     /** How many dated exceptions the plan carries. */
@@ -32,12 +40,27 @@ export async function getPlan(id: string): Promise<TrainingPlan> {
  * already there is created, and the plan is saved with its schedule worked out.
  * Nothing lands on the weekly planner until the plan is applied.
  */
+export interface ImportPlanOptions {
+    /**
+     * Refresh library items whose names already exist, instead of keeping them as
+     * they are. Items keep their ids, so planner entries and logs stay linked.
+     */
+    updateExisting?: boolean
+    /** Id of a plan to overwrite in place, rather than adding a second one. */
+    replaceId?: string | null
+}
+
 export async function importPlan(
-    doc: unknown
+    doc: unknown,
+    options: ImportPlanOptions = {}
 ): Promise<{ plan: TrainingPlan; summary: PlanImportSummary }> {
+    const params: Record<string, string> = {}
+    if (options.updateExisting) params.updateExisting = '1'
+    if (options.replaceId) params.replace = options.replaceId
     const res = await api.post<ApiResponse<TrainingPlan> & { summary: PlanImportSummary }>(
         '/plans/import',
-        doc
+        doc,
+        { params }
     )
     return { plan: res.data.data, summary: res.data.summary }
 }

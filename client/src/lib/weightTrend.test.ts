@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
     trendSeries,
+    bodyFatSeries,
     weeklyRate,
     projectTargetDate,
     rateStatus,
@@ -11,11 +12,12 @@ import {
 import type { WeightLog } from '../types'
 
 /** A weigh-in, with only the fields the trend math reads. */
-function log(date: string, weight: number): WeightLog {
+function log(date: string, weight: number, bodyFat?: number): WeightLog {
     return {
         _id: date,
         date,
         weight,
+        ...(bodyFat === undefined ? {} : { bodyFat }),
         createdAt: '',
         updatedAt: '',
     }
@@ -220,5 +222,43 @@ describe('ratePercent', () => {
     it('returns null without a rate or any weigh-ins', () => {
         expect(ratePercent(trendSeries([log('2026-08-01', 90)]), null)).toBeNull()
         expect(ratePercent([], -0.5)).toBeNull()
+    })
+})
+
+describe('bodyFatSeries', () => {
+    it('only includes weigh-ins that recorded a reading', () => {
+        const points = bodyFatSeries([
+            log('2026-08-01', 90, 28),
+            log('2026-08-02', 89.5),
+            log('2026-08-03', 89.6, 27.6),
+        ])
+        expect(points.map((p) => p.date)).toEqual(['2026-08-01', '2026-08-03'])
+        expect(points[0].bodyFat).toBe(28)
+    })
+
+    it('returns nothing when no weigh-in recorded body fat', () => {
+        expect(bodyFatSeries([log('2026-08-01', 90), log('2026-08-02', 89.8)])).toEqual([])
+    })
+
+    it('anchors the trend to the first reading, then smooths toward later ones', () => {
+        const points = bodyFatSeries([log('2026-08-01', 90, 28), log('2026-08-02', 90, 26)])
+        expect(points[0].trend).toBe(28)
+        // One day on: 28 + 0.15 * (26 - 28).
+        expect(points[1].trend).toBeCloseTo(28 + DAILY_ALPHA * -2, 10)
+    })
+
+    it('compounds smoothing across gaps, as the weight trend does', () => {
+        const gapped = bodyFatSeries([log('2026-08-01', 90, 28), log('2026-08-08', 90, 26)])
+        const effective = 1 - Math.pow(1 - DAILY_ALPHA, 7)
+        expect(gapped[1].trend).toBeCloseTo(28 + effective * -2, 10)
+    })
+
+    it('ignores impossible readings', () => {
+        expect(bodyFatSeries([log('2026-08-01', 90, 0), log('2026-08-02', 90, -3)])).toEqual([])
+    })
+
+    it('leaves the weight trend untouched by missing body fat', () => {
+        const logs = [log('2026-08-01', 90, 28), log('2026-08-02', 89.5)]
+        expect(trendSeries(logs).map((p) => p.date)).toEqual(['2026-08-01', '2026-08-02'])
     })
 })

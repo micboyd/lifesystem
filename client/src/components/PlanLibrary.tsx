@@ -138,6 +138,7 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
     if (importing) {
         return (
             <PlanImportPanel
+                existingPlans={plans}
                 onBack={() => setImporting(false)}
                 onImported={async () => {
                     await reload()

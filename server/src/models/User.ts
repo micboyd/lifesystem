@@ -15,7 +15,7 @@ export interface IMacroGoals {
     fat?: number
 }
 
-/** Bodyweight targets the weigh-in trend is judged against. */
+/** Body composition targets the weigh-in trend is judged against. */
 export interface IBodyGoals {
     /** Goal bodyweight in kilograms. */
     targetWeight?: number
@@ -24,6 +24,8 @@ export interface IBodyGoals {
      * positive for a gain. The trend's actual rate is compared against this.
      */
     weeklyRate?: number
+    /** Goal body fat, as a percentage of bodyweight. */
+    targetBodyFat?: number
 }
 
 export interface IUserSettings {
@@ -41,7 +43,7 @@ export interface IUserSettings {
     weatherLocation?: IWeatherLocation
     /** Per-day macro targets, tracked against the weekly meal plan. */
     macroGoals?: IMacroGoals
-    /** Bodyweight target and intended rate of change. */
+    /** Bodyweight and body fat targets, plus the intended rate of change. */
     bodyGoals?: IBodyGoals
 }
 
@@ -77,6 +79,7 @@ const bodyGoalsSchema = new Schema<IBodyGoals>(
         targetWeight: { type: Number, min: 0 },
         // Signed — negative for a cut — so no min bound here.
         weeklyRate: { type: Number },
+        targetBodyFat: { type: Number, min: 0, max: 100 },
     },
     { _id: false }
 )

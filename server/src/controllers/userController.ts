@@ -155,9 +155,9 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         else unset['settings.macroGoals'] = 1
     }
 
-    // Bodyweight goals: { targetWeight, weeklyRate }, or null/'' to clear.
+    // Body goals: { targetWeight, weeklyRate, targetBodyFat }, or null/'' to clear.
     // `weeklyRate` is signed (negative for a cut), so only zero is treated as
-    // "no goal"; `targetWeight` must be positive.
+    // "no goal"; `targetWeight` must be positive and `targetBodyFat` a percentage.
     const body = req.body.bodyGoals
     if (body === null || body === '') {
         unset['settings.bodyGoals'] = 1
@@ -167,6 +167,13 @@ export async function updateSettings(req: AuthRequest, res: Response) {
             cleaned.targetWeight = body.targetWeight
         if (typeof body.weeklyRate === 'number' && Number.isFinite(body.weeklyRate) && body.weeklyRate !== 0)
             cleaned.weeklyRate = body.weeklyRate
+        if (
+            typeof body.targetBodyFat === 'number' &&
+            Number.isFinite(body.targetBodyFat) &&
+            body.targetBodyFat > 0 &&
+            body.targetBodyFat <= 100
+        )
+            cleaned.targetBodyFat = body.targetBodyFat
         if (Object.keys(cleaned).length) set['settings.bodyGoals'] = cleaned
         else unset['settings.bodyGoals'] = 1
     }

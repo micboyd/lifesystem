@@ -37,26 +37,70 @@ export function daysBetween(from: string, to: string): number {
  * reading given for that date.
  */
 export function trendSeries(logs: WeightLog[], alpha = DAILY_ALPHA): TrendPoint[] {
+    return smooth(logs, (log) => log.weight, alpha).map(({ date, value, trend }) => ({
+        date,
+        weight: value,
+        trend,
+    }))
+}
+
+/** A body-fat reading paired with the smoothed trend on that date. */
+export interface BodyFatPoint {
+    date: string
+    /** The raw reading, as a percentage of bodyweight. */
+    bodyFat: number
+    /** The smoothed trend, in percentage points. */
+    trend: number
+}
+
+/**
+ * The same smoothing over body fat, for the weigh-ins that recorded it.
+ *
+ * Body-fat readings are noisier than the scale, not less — impedance scales
+ * swing with hydration, calipers with whoever holds them — so a single number is
+ * meaningless and only the trend is worth reading. Days without a reading are
+ * skipped entirely rather than carried forward, so measuring fortnightly gives a
+ * fortnightly series rather than a flat line between points.
+ */
+export function bodyFatSeries(logs: WeightLog[], alpha = DAILY_ALPHA): BodyFatPoint[] {
+    return smooth(logs, (log) => log.bodyFat, alpha).map(({ date, value, trend }) => ({
+        date,
+        bodyFat: value,
+        trend,
+    }))
+}
+
+/**
+ * Fold the gap-aware exponential moving average over whichever measure `pick`
+ * returns, skipping logs where it is missing or nonsensical. Shared so the
+ * weight and body-fat trends can never drift apart.
+ */
+function smooth(
+    logs: WeightLog[],
+    pick: (log: WeightLog) => number | undefined,
+    alpha: number
+): { date: string; value: number; trend: number }[] {
     const byDate = new Map<string, number>()
     for (const log of logs) {
-        if (!Number.isFinite(log.weight) || log.weight <= 0) continue
-        byDate.set(log.date, log.weight)
+        const value = pick(log)
+        if (value === undefined || !Number.isFinite(value) || value <= 0) continue
+        byDate.set(log.date, value)
     }
 
     const dates = [...byDate.keys()].sort()
-    const points: TrendPoint[] = []
+    const points: { date: string; value: number; trend: number }[] = []
     let trend = 0
 
     dates.forEach((date, i) => {
-        const weight = byDate.get(date)!
+        const value = byDate.get(date)!
         if (i === 0) {
-            trend = weight
+            trend = value
         } else {
             const gap = Math.max(1, daysBetween(dates[i - 1], date))
             const effective = 1 - Math.pow(1 - alpha, gap)
-            trend += effective * (weight - trend)
+            trend += effective * (value - trend)
         }
-        points.push({ date, weight, trend })
+        points.push({ date, value, trend })
     })
 
     return points
@@ -117,7 +161,14 @@ export function projectTargetDate(
  * set, 'stalled' when barely moving, 'gaining'/'losing' when moving the wrong
  * way, 'on-track' within a quarter-kilo a week of target, else 'slow'/'fast'.
  */
-export type RateStatus = 'no-goal' | 'no-data' | 'on-track' | 'slow' | 'fast' | 'stalled' | 'wrong-way'
+export type RateStatus =
+    | 'no-goal'
+    | 'no-data'
+    | 'on-track'
+    | 'slow'
+    | 'fast'
+    | 'stalled'
+    | 'wrong-way'
 
 /** Below this, a week's movement is noise rather than progress (kg/week). */
 const STALL_THRESHOLD = 0.05

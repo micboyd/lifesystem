@@ -13,6 +13,12 @@ function toMeasure(raw: unknown): number | undefined {
     return Number.isFinite(n) && n > 0 ? n : undefined
 }
 
+/** Coerce to a percentage in (0, 100], or undefined when absent/blank/invalid. */
+function toPercent(raw: unknown): number | undefined {
+    const n = toMeasure(raw)
+    return n !== undefined && n <= 100 ? n : undefined
+}
+
 /**
  * GET /api/weight-logs?since=YYYY-MM-DD
  * List weigh-ins oldest-first, so the trend can be folded over them in order.
@@ -33,7 +39,7 @@ export async function listWeightLogs(req: AuthRequest, res: Response) {
  * re-weighing is a correction, not an extra observation.
  */
 export async function upsertWeightLog(req: AuthRequest, res: Response) {
-    const { date, weight, waist, notes } = req.body
+    const { date, weight, waist, bodyFat, notes } = req.body
 
     if (!isDate(date)) {
         res.status(400).json({ message: 'date must be YYYY-MM-DD' })
@@ -46,14 +52,17 @@ export async function upsertWeightLog(req: AuthRequest, res: Response) {
     }
 
     const cm = toMeasure(waist)
+    const fat = toPercent(bodyFat)
     const note = typeof notes === 'string' ? notes.trim() : ''
 
-    // Waist and notes are unset rather than left behind when sent blank, so
+    // The optional fields are unset rather than left behind when sent blank, so
     // re-saving a day with an emptied field actually clears it.
     const set: Record<string, unknown> = { weight: kg }
     const unset: Record<string, 1> = {}
     if (cm !== undefined) set.waist = cm
     else unset.waist = 1
+    if (fat !== undefined) set.bodyFat = fat
+    else unset.bodyFat = 1
     if (note) set.notes = note
     else unset.notes = 1
 
