@@ -29,6 +29,8 @@ import {
 import {
     listPlanEntries,
     addPlanEntry,
+    addAdhocEntry,
+    setEntryStatus,
     copyPlanEntries,
     clearPlanRange,
     deletePlanEntry,
@@ -37,7 +39,15 @@ import { createTask } from '../services/tasks'
 import { estimatePrepTime, formatDuration, DEFAULT_PREP_OVERHEAD } from '../lib/prepTime'
 import { useAuth } from '../context/AuthContext'
 import { MEAL_TYPES } from '../types'
-import type { Meal, MealType, Ingredient, Macros, MacroGoals, MealPlanEntry } from '../types'
+import type {
+    Meal,
+    MealType,
+    Ingredient,
+    Macros,
+    MacroGoals,
+    MealPlanEntry,
+    EntryStatus,
+} from '../types'
 import {
     todayKey,
     addDays,
@@ -1292,17 +1302,66 @@ function GoalBar({ value, goal }: { value: number; goal: number }) {
     )
 }
 
-/** Tally the per-serving macros of every planned meal (one serving each). */
+/** The macros an entry contributes: one serving of its recipe, or its own if off-plan. */
+function entryMacros(entry: MealPlanEntry): Macros {
+    return entry.meal?.macros ?? entry.adhoc?.macros ?? ZERO_MACROS
+}
+
+/** What to call an entry — the recipe's name, or the off-plan label. */
+function entryName(entry: MealPlanEntry): string {
+    return entry.meal?.name ?? entry.adhoc?.name ?? 'Unknown'
+}
+
+/**
+ * Whether an entry counts toward a day's total. Skipped food doesn't: the whole
+ * point of marking it is to take it back out of the tally.
+ */
+function isCounted(entry: MealPlanEntry): boolean {
+    return entry.status !== 'skipped'
+}
+
+/**
+ * Tally macros across entries (one serving each), ignoring anything skipped.
+ * With everything still 'planned' this is the plan; once the day is marked up
+ * it's what was actually eaten.
+ */
 function sumMacros(entries: MealPlanEntry[]): Macros {
-    return entries.reduce<Macros>(
-        (acc, e) => ({
-            calories: acc.calories + (e.meal?.macros.calories ?? 0),
-            protein: acc.protein + (e.meal?.macros.protein ?? 0),
-            carbs: acc.carbs + (e.meal?.macros.carbs ?? 0),
-            fat: acc.fat + (e.meal?.macros.fat ?? 0),
-        }),
-        { ...ZERO_MACROS }
-    )
+    return entries.filter(isCounted).reduce<Macros>((acc, e) => {
+        const m = entryMacros(e)
+        return {
+            calories: acc.calories + m.calories,
+            protein: acc.protein + m.protein,
+            carbs: acc.carbs + m.carbs,
+            fat: acc.fat + m.fat,
+        }
+    }, { ...ZERO_MACROS })
+}
+
+/** How much of a stretch of plan has been settled either way. */
+interface LogProgress {
+    /** Entries marked eaten. */
+    eaten: number
+    /** Entries marked skipped. */
+    skipped: number
+    /** Entries still awaiting a verdict. */
+    pending: number
+    /** Calories from entries marked eaten — the number that's actually true. */
+    eatenCalories: number
+}
+
+function logProgress(entries: MealPlanEntry[]): LogProgress {
+    let eaten = 0
+    let skipped = 0
+    let eatenCalories = 0
+    for (const e of entries) {
+        if (e.status === 'eaten') {
+            eaten += 1
+            eatenCalories += entryMacros(e).calories
+        } else if (e.status === 'skipped') {
+            skipped += 1
+        }
+    }
+    return { eaten, skipped, pending: entries.length - eaten - skipped, eatenCalories }
 }
 
 /** The Monday (YYYY-MM-DD) that starts the week containing `date`. */
@@ -1367,7 +1426,9 @@ function fmtQty(n: number): string {
 function buildShoppingList(entries: MealPlanEntry[]): ShoppingItem[] {
     const map = new Map<string, ShoppingItem>()
     for (const entry of entries) {
-        const meal = entry.meal
+        // Skipped meals aren't going to be cooked, so don't shop for them.
+        // Off-plan entries have no recipe and so no ingredients to gather.
+        const meal = isCounted(entry) ? entry.meal : undefined
         if (!meal) continue
         const servings = Math.max(1, meal.servings || 1)
         for (const ing of meal.ingredients) {
@@ -1627,7 +1688,8 @@ function WeekCookingDrawer({
     const planned = useMemo(() => {
         const map = new Map<string, { meal: Meal; count: number }>()
         for (const entry of entries) {
-            const meal = entry.meal
+            // Nothing to cook for a skipped meal or an off-plan entry.
+            const meal = isCounted(entry) ? entry.meal : undefined
             if (!meal) continue
             const existing = map.get(meal._id)
             if (existing) existing.count += 1
@@ -2179,6 +2241,8 @@ function WeeklyPlanner({
     const [showList, setShowList] = useState(false)
     const [showCooking, setShowCooking] = useState(false)
     const [showRandom, setShowRandom] = useState(false)
+    // The day an off-plan entry is being logged against, if any.
+    const [offPlan, setOffPlan] = useState<string | null>(null)
     // The Monday of a week the user has "copied" for pasting onto another week.
     const [copiedWeek, setCopiedWeek] = useState<string | null>(null)
     // The planner opens read-only; Edit reveals the add/remove/copy controls.
@@ -2212,6 +2276,31 @@ function WeeklyPlanner({
     async function handleRemove(id: string) {
         setEntries((prev) => prev.filter((e) => e._id !== id))
         await deletePlanEntry(id)
+    }
+
+    // Optimistic: marking food eaten should feel instant, and reverting on
+    // failure is cheaper than making the tick wait on a round trip.
+    async function handleSetStatus(id: string, status: EntryStatus) {
+        const previous = entries.find((e) => e._id === id)?.status
+        setEntries((prev) => prev.map((e) => (e._id === id ? { ...e, status } : e)))
+        try {
+            await setEntryStatus(id, status)
+        } catch {
+            if (previous) {
+                setEntries((prev) =>
+                    prev.map((e) => (e._id === id ? { ...e, status: previous } : e))
+                )
+            }
+        }
+    }
+
+    async function handleLogOffPlan(
+        date: string,
+        slot: MealType,
+        adhoc: { name: string; macros: Partial<Macros> }
+    ) {
+        const entry = await addAdhocEntry(date, slot, adhoc)
+        setEntries((prev) => [...prev, entry])
     }
 
     // Fill the visible week with random meals from the library. Each selected
@@ -2382,6 +2471,7 @@ function WeeklyPlanner({
     }
 
     const weekMacros = sumMacros(entries)
+    const weekProgress = logProgress(entries)
     const weekCopied = copiedWeek === weekStart
 
     return (
@@ -2478,7 +2568,12 @@ function WeeklyPlanner({
                             Cooking instructions
                         </Button>
                     </div>
-                    <WeekTotals macros={weekMacros} goals={goals} />
+                    <WeekTotals
+                        macros={weekMacros}
+                        goals={goals}
+                        progress={weekProgress}
+                        total={entries.length}
+                    />
                 </div>
             </div>
 
@@ -2504,6 +2599,8 @@ function WeeklyPlanner({
                             entries={entries.filter((e) => e.date === date)}
                             onAdd={(slot) => setPicker({ date, slot })}
                             onRemove={handleRemove}
+                            onSetStatus={handleSetStatus}
+                            onLogOffPlan={() => setOffPlan(date)}
                             onCopyDay={() => handleCopyDay(date)}
                             onClearDay={() => handleClearDay(date)}
                             onViewMeal={onViewMeal}
@@ -2523,6 +2620,16 @@ function WeeklyPlanner({
                 onClose={() => setPicker(null)}
                 onAdd={handleAdd}
                 onRemove={handleRemove}
+                onSetStatus={handleSetStatus}
+            />
+
+            {/* Keyed on the day so each open starts from a blank form — cheaper
+                than resetting the fields, and there's nothing to preserve. */}
+            <OffPlanModal
+                key={offPlan ?? 'closed'}
+                date={offPlan}
+                onClose={() => setOffPlan(null)}
+                onSave={handleLogOffPlan}
             />
 
             <ShoppingListModal
@@ -2614,10 +2721,45 @@ function Pagination({
 }
 
 /** Week-total headline: total kcal + P/C/F, plus the daily average. */
-function WeekTotals({ macros, goals }: { macros: Macros; goals: MacroGoals | null }) {
+/**
+ * The day's logging state under its calorie bar. Skipped meals are called out
+ * separately because they're the reason the day's total dropped — without that
+ * line the number looks like a mistake.
+ */
+function LogStatus({ progress, total }: { progress: LogProgress; total: number }) {
+    if (total === 0) return null
+
+    const { eaten, skipped, pending } = progress
+    if (eaten === 0 && skipped === 0) {
+        return <p className="text-[10px] text-neutral-300">Nothing logged yet</p>
+    }
+
+    const settled = eaten + skipped
+    return (
+        <p className="text-[10px] tabular-nums text-neutral-400">
+            <span className={pending === 0 ? 'font-semibold text-emerald-600' : ''}>
+                {settled}/{total} logged
+            </span>
+            {skipped > 0 && ` · ${skipped} skipped`}
+        </p>
+    )
+}
+
+function WeekTotals({
+    macros,
+    goals,
+    progress,
+    total,
+}: {
+    macros: Macros
+    goals: MacroGoals | null
+    progress: LogProgress
+    total: number
+}) {
     // Goals are per-day; the week's target is seven of them.
     const weekCals = goals?.calories ? goals.calories * 7 : undefined
     const times7 = (v?: number) => (v ? v * 7 : undefined)
+    const settled = progress.eaten + progress.skipped
     return (
         <div className="flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-4 py-2.5">
             <div>
@@ -2647,6 +2789,20 @@ function WeekTotals({ macros, goals }: { macros: Macros; goals: MacroGoals | nul
                     {goals?.calories ? ` / ${fmt(goals.calories)}` : ''} kcal
                 </p>
             </div>
+            <div className="hidden h-8 w-px bg-neutral-200 md:block" />
+            {/* What was actually eaten, as distinct from what was planned — the
+                only figure worth judging a week by. */}
+            <div className="hidden md:block">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                    Eaten
+                </p>
+                <p className="text-sm font-semibold tabular-nums text-neutral-700">
+                    {fmt(progress.eatenCalories)} kcal
+                    <span className="ml-1 font-medium text-neutral-400">
+                        · {settled}/{total} logged
+                    </span>
+                </p>
+            </div>
         </div>
     )
 }
@@ -2659,6 +2815,8 @@ function DayColumn({
     entries,
     onAdd,
     onRemove,
+    onSetStatus,
+    onLogOffPlan,
     onCopyDay,
     onClearDay,
     onViewMeal,
@@ -2670,6 +2828,8 @@ function DayColumn({
     entries: MealPlanEntry[]
     onAdd: (slot: MealType) => void
     onRemove: (id: string) => void
+    onSetStatus: (id: string, status: EntryStatus) => void
+    onLogOffPlan: () => void
     onCopyDay: () => void
     onClearDay: () => void
     onViewMeal: (meal: Meal) => void
@@ -2677,6 +2837,7 @@ function DayColumn({
     const { year, month, day } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
     const macros = sumMacros(entries)
+    const progress = logProgress(entries)
 
     return (
         <Card as="div" flush hover={false} className="flex flex-col gap-3 p-4">
@@ -2733,9 +2894,20 @@ function DayColumn({
                         entries={entries.filter((e) => e.slot === slot)}
                         onAdd={() => onAdd(slot)}
                         onRemove={onRemove}
+                        onSetStatus={onSetStatus}
                         onViewMeal={onViewMeal}
                     />
                 ))}
+                {!editable && (
+                    <button
+                        type="button"
+                        onClick={onLogOffPlan}
+                        className="rounded-lg border border-dashed border-neutral-200 py-1.5 text-center text-[11px] text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-700"
+                    >
+                        <i className="fa-solid fa-plus mr-1 text-[10px]" aria-hidden="true" />
+                        Off-plan
+                    </button>
+                )}
             </div>
 
             <div className="mt-auto flex flex-col gap-1.5 border-t border-neutral-100 pt-3">
@@ -2748,6 +2920,7 @@ function DayColumn({
                     </span>
                 </div>
                 {goals?.calories ? <GoalBar value={macros.calories} goal={goals.calories} /> : null}
+                <LogStatus progress={progress} total={entries.length} />
                 <div className="flex flex-wrap gap-1 text-[11px] tabular-nums text-neutral-500">
                     <MacroPill label="P" value={macros.protein} goal={goals?.protein} />
                     <MacroPill label="C" value={macros.carbs} goal={goals?.carbs} />
@@ -2764,6 +2937,7 @@ function SlotSection({
     entries,
     onAdd,
     onRemove,
+    onSetStatus,
     onViewMeal,
 }: {
     slot: MealType
@@ -2771,6 +2945,7 @@ function SlotSection({
     entries: MealPlanEntry[]
     onAdd: () => void
     onRemove: (id: string) => void
+    onSetStatus: (id: string, status: EntryStatus) => void
     onViewMeal: (meal: Meal) => void
 }) {
     // In view mode an empty slot is just noise — collapse it so the plan reads clean.
@@ -2799,8 +2974,9 @@ function SlotSection({
                         <PlannedMealRow
                             key={e._id}
                             entry={e}
-                            onView={() => onViewMeal(e.meal)}
+                            onView={e.meal ? () => onViewMeal(e.meal!) : undefined}
                             onRemove={editable ? () => onRemove(e._id) : undefined}
+                            onSetStatus={(status) => onSetStatus(e._id, status)}
                         />
                     ))}
                 </ul>
@@ -2817,35 +2993,89 @@ function SlotSection({
     )
 }
 
+/**
+ * What clicking the status button does next, and how the current state looks.
+ * One control cycles the three states rather than three separate buttons — in a
+ * column this narrow there's only room for one target per row.
+ */
+const STATUS_CYCLE: Record<
+    EntryStatus,
+    { next: EntryStatus; icon: string; cls: string; verb: string }
+> = {
+    planned: {
+        next: 'eaten',
+        icon: 'fa-regular fa-circle',
+        cls: 'text-neutral-300 hover:text-emerald-500',
+        verb: 'Mark as eaten',
+    },
+    eaten: {
+        next: 'skipped',
+        icon: 'fa-solid fa-circle-check',
+        cls: 'text-emerald-500 hover:text-neutral-400',
+        verb: 'Mark as skipped',
+    },
+    skipped: {
+        next: 'planned',
+        icon: 'fa-solid fa-circle-minus',
+        cls: 'text-neutral-400 hover:text-neutral-500',
+        verb: 'Back to planned',
+    },
+}
+
 function PlannedMealRow({
     entry,
     onView,
     onRemove,
+    onSetStatus,
 }: {
     entry: MealPlanEntry
     onView?: () => void
     onRemove?: () => void
+    onSetStatus?: (status: EntryStatus) => void
 }) {
-    const m = entry.meal
+    const name = entryName(entry)
+    const macros = entryMacros(entry)
     const meta = TYPE_META[entry.slot]
+    const cycle = STATUS_CYCLE[entry.status]
+    const skipped = entry.status === 'skipped'
+
     const details = (
         <>
-            <p className={`truncate text-[13px] font-semibold ${meta.name}`}>{m.name}</p>
-            <p className={`text-[11px] tabular-nums ${meta.sub}`}>
-                {fmt(m.macros.calories)} kcal · P{fmt(m.macros.protein)} C{fmt(m.macros.carbs)} F
-                {fmt(m.macros.fat)}
+            <p
+                className={`truncate text-[13px] font-semibold ${meta.name} ${
+                    skipped ? 'line-through opacity-50' : ''
+                }`}
+            >
+                {name}
+            </p>
+            <p className={`text-[11px] tabular-nums ${meta.sub} ${skipped ? 'opacity-50' : ''}`}>
+                {fmt(macros.calories)} kcal · P{fmt(macros.protein)} C{fmt(macros.carbs)} F
+                {fmt(macros.fat)}
+                {entry.adhoc && <span className="ml-1 font-semibold">· off-plan</span>}
             </p>
         </>
     )
+
     return (
         <li
             className={`flex items-center gap-1.5 rounded-xl px-2.5 py-2 transition-colors ${meta.block}`}
         >
-            {onView ? (
+            {onSetStatus && (
+                <button
+                    type="button"
+                    aria-label={`${cycle.verb}: ${name}`}
+                    title={cycle.verb}
+                    onClick={() => onSetStatus(cycle.next)}
+                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full transition-colors ${cycle.cls}`}
+                >
+                    <i className={`${cycle.icon} text-sm`} aria-hidden="true" />
+                </button>
+            )}
+            {onView && entry.meal ? (
                 <button
                     type="button"
                     onClick={onView}
-                    aria-label={`View ${m.name}`}
+                    aria-label={`View ${name}`}
                     className="min-w-0 flex-1 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
                 >
                     {details}
@@ -2856,7 +3086,7 @@ function PlannedMealRow({
             {onRemove && (
                 <button
                     type="button"
-                    aria-label={`Remove ${m.name}`}
+                    aria-label={`Remove ${name}`}
                     onClick={onRemove}
                     className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-red-600"
                 >
@@ -2864,6 +3094,152 @@ function PlannedMealRow({
                 </button>
             )}
         </li>
+    )
+}
+
+/**
+ * Log something eaten that isn't in the library. Deliberately the shortest form
+ * in the app — a name and a calorie figure is enough, and macros are optional,
+ * because the food that wrecks a week is exactly the food nobody stops to weigh.
+ * It saves straight to 'eaten': there's no planning an off-plan biscuit.
+ */
+function OffPlanModal({
+    date,
+    onClose,
+    onSave,
+}: {
+    date: string | null
+    onClose: () => void
+    onSave: (
+        date: string,
+        slot: MealType,
+        adhoc: { name: string; macros: Partial<Macros> }
+    ) => Promise<void>
+}) {
+    const [slot, setSlot] = useState<MealType>('snack')
+    const [name, setName] = useState('')
+    const [calories, setCalories] = useState('')
+    const [protein, setProtein] = useState('')
+    const [carbs, setCarbs] = useState('')
+    const [fat, setFat] = useState('')
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState('')
+
+    const num = (v: string) => {
+        const n = Number(v)
+        return v.trim() && Number.isFinite(n) && n > 0 ? n : undefined
+    }
+
+    async function submit() {
+        if (!date) return
+        if (!name.trim()) {
+            setError('Give it a name')
+            return
+        }
+        setSaving(true)
+        try {
+            await onSave(date, slot, {
+                name: name.trim(),
+                macros: {
+                    calories: num(calories),
+                    protein: num(protein),
+                    carbs: num(carbs),
+                    fat: num(fat),
+                },
+            })
+            onClose()
+        } catch {
+            setError('Could not save that')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    return (
+        <Modal
+            open={!!date}
+            onClose={onClose}
+            title="Log off-plan food"
+            size="sm"
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button onClick={submit} disabled={saving}>
+                        Log it
+                    </Button>
+                </>
+            }
+        >
+            <div className="flex flex-col gap-4">
+                {date && (
+                    <p className="text-xs text-neutral-400">{shortDayLabel(date)}</p>
+                )}
+                <Input
+                    label="What was it?"
+                    placeholder="e.g. two slices of pizza"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    error={error || undefined}
+                />
+                <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        Slot
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                        {MEAL_TYPES.map((t) => (
+                            <button
+                                key={t}
+                                type="button"
+                                onClick={() => setSlot(t)}
+                                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                    slot === t
+                                        ? 'bg-neutral-950 text-white'
+                                        : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                                }`}
+                            >
+                                {TYPE_META[t].label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <Input
+                    label="Calories"
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="best guess is fine"
+                    value={calories}
+                    onChange={(e) => setCalories(e.target.value)}
+                />
+                <div className="grid grid-cols-3 gap-3">
+                    <Input
+                        label="Protein"
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="g"
+                        value={protein}
+                        onChange={(e) => setProtein(e.target.value)}
+                    />
+                    <Input
+                        label="Carbs"
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="g"
+                        value={carbs}
+                        onChange={(e) => setCarbs(e.target.value)}
+                    />
+                    <Input
+                        label="Fat"
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="g"
+                        value={fat}
+                        onChange={(e) => setFat(e.target.value)}
+                    />
+                </div>
+            </div>
+        </Modal>
     )
 }
 
@@ -2879,6 +3255,7 @@ function MealPicker({
     onClose,
     onAdd,
     onRemove,
+    onSetStatus,
 }: {
     target: { date: string; slot: MealType } | null
     meals: Meal[]
@@ -2886,6 +3263,7 @@ function MealPicker({
     onClose: () => void
     onAdd: (date: string, slot: MealType, mealId: string) => Promise<void>
     onRemove: (id: string) => void
+    onSetStatus: (id: string, status: EntryStatus) => void
 }) {
     // Retain the last target so the drawer keeps its content while sliding shut.
     const [view, setView] = useState(target)
@@ -2942,6 +3320,7 @@ function MealPicker({
                                     key={e._id}
                                     entry={e}
                                     onRemove={() => onRemove(e._id)}
+                                    onSetStatus={(status) => onSetStatus(e._id, status)}
                                 />
                             ))}
                         </ul>

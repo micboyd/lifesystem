@@ -15,6 +15,17 @@ export interface IMacroGoals {
     fat?: number
 }
 
+/** Bodyweight targets the weigh-in trend is judged against. */
+export interface IBodyGoals {
+    /** Goal bodyweight in kilograms. */
+    targetWeight?: number
+    /**
+     * Intended change per week in kilograms, signed: negative for a cut,
+     * positive for a gain. The trend's actual rate is compared against this.
+     */
+    weeklyRate?: number
+}
+
 export interface IUserSettings {
     wakeTime?: string
     bedTime?: string
@@ -30,6 +41,8 @@ export interface IUserSettings {
     weatherLocation?: IWeatherLocation
     /** Per-day macro targets, tracked against the weekly meal plan. */
     macroGoals?: IMacroGoals
+    /** Bodyweight target and intended rate of change. */
+    bodyGoals?: IBodyGoals
 }
 
 export interface IUser extends Document {
@@ -59,6 +72,15 @@ const macroGoalsSchema = new Schema<IMacroGoals>(
     { _id: false }
 )
 
+const bodyGoalsSchema = new Schema<IBodyGoals>(
+    {
+        targetWeight: { type: Number, min: 0 },
+        // Signed — negative for a cut — so no min bound here.
+        weeklyRate: { type: Number },
+    },
+    { _id: false }
+)
+
 const settingsSchema = new Schema<IUserSettings>(
     {
         wakeTime: { type: String, match: TIME_PATTERN },
@@ -71,6 +93,7 @@ const settingsSchema = new Schema<IUserSettings>(
         financeStartDate: { type: String },
         weatherLocation: { type: weatherLocationSchema, default: undefined },
         macroGoals: { type: macroGoalsSchema, default: undefined },
+        bodyGoals: { type: bodyGoalsSchema, default: undefined },
     },
     { _id: false }
 )

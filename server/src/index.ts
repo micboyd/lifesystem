@@ -38,10 +38,12 @@ import taskRoutes from './routes/taskRoutes'
 import timeboxRoutes from './routes/timeboxRoutes'
 import totalsRoutes from './routes/totalsRoutes'
 import userRoutes from './routes/userRoutes'
+import weightLogRoutes from './routes/weightLogRoutes'
 import workoutRoutes from './routes/workoutRoutes'
 import workoutLogRoutes from './routes/workoutLogRoutes'
 import Workout from './models/Workout'
 import FitnessPlanEntry from './models/FitnessPlanEntry'
+import MealPlanEntry from './models/MealPlanEntry'
 
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 
@@ -85,6 +87,7 @@ app.use('/api/conditioning-logs', conditioningLogRoutes)
 app.use('/api/exercises', exerciseRoutes)
 app.use('/api/workouts', workoutRoutes)
 app.use('/api/workout-logs', workoutLogRoutes)
+app.use('/api/weight-logs', weightLogRoutes)
 app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)
@@ -182,6 +185,21 @@ connectDB()
                 console.log(`FitnessPlanEntry: assigned ${modifiedCount} entr(ies) to the morning slot`)
         } catch (err) {
             console.error('FitnessPlanEntry part migration failed:', err)
+        }
+
+        // One-time migration: meal plan entries gained an eaten/skipped status.
+        // Anything planned before that has no `status` at all, and the planner
+        // keys its tick control off the value — so backfill rather than rely on
+        // the schema default only applying on hydrate.
+        try {
+            const { modifiedCount } = await MealPlanEntry.updateMany(
+                { status: { $exists: false } },
+                { $set: { status: 'planned' } }
+            )
+            if (modifiedCount > 0)
+                console.log(`MealPlanEntry: marked ${modifiedCount} entr(ies) as planned`)
+        } catch (err) {
+            console.error('MealPlanEntry status backfill failed:', err)
         }
 
         // One-time migration: events predate calendars. Every event now belongs

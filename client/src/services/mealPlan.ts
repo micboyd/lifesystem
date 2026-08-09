@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, MealPlanEntry, MealType } from '../types'
+import type { ApiResponse, EntryStatus, Macros, MealPlanEntry, MealType } from '../types'
 
 /** List planned meals whose date falls in [start, end] (inclusive, YYYY-MM-DD). */
 export async function listPlanEntries(start: string, end: string): Promise<MealPlanEntry[]> {
@@ -16,6 +16,30 @@ export async function addPlanEntry(
     meal: string
 ): Promise<MealPlanEntry> {
     const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', { date, slot, meal })
+    return res.data.data
+}
+
+/**
+ * Log food that wasn't on the plan. Off-plan food is by definition already
+ * eaten, so it goes straight in with that status rather than as an intention.
+ */
+export async function addAdhocEntry(
+    date: string,
+    slot: MealType,
+    adhoc: { name: string; macros: Partial<Macros> }
+): Promise<MealPlanEntry> {
+    const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', {
+        date,
+        slot,
+        adhoc,
+        status: 'eaten',
+    })
+    return res.data.data
+}
+
+/** Mark an entry eaten, skipped, or back to planned. */
+export async function setEntryStatus(id: string, status: EntryStatus): Promise<MealPlanEntry> {
+    const res = await api.patch<ApiResponse<MealPlanEntry>>(`/meal-plan/${id}`, { status })
     return res.data.data
 }
 

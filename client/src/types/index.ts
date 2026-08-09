@@ -14,6 +14,17 @@ export interface MacroGoals {
     fat?: number
 }
 
+/** Bodyweight targets the weigh-in trend is judged against. */
+export interface BodyGoals {
+    /** Goal bodyweight in kilograms. */
+    targetWeight?: number
+    /**
+     * Intended change per week in kilograms, signed: negative for a cut,
+     * positive for a gain.
+     */
+    weeklyRate?: number
+}
+
 export interface UserSettings {
     wakeTime?: string
     bedTime?: string
@@ -29,6 +40,22 @@ export interface UserSettings {
     weatherLocation?: WeatherLocation
     /** Per-day macro targets, tracked against the weekly meal plan. */
     macroGoals?: MacroGoals
+    /** Bodyweight target and intended rate of change. */
+    bodyGoals?: BodyGoals
+}
+
+/** One weigh-in. At most one per day — a second reading replaces the first. */
+export interface WeightLog {
+    _id: string
+    /** "YYYY-MM-DD" — the morning the reading was taken. */
+    date: string
+    /** Bodyweight in kilograms. */
+    weight: number
+    /** Waist measurement in centimetres, if taken. */
+    waist?: number
+    notes?: string
+    createdAt: string
+    updatedAt: string
 }
 
 export type CourseKind = 'course' | 'block'
@@ -271,7 +298,20 @@ export interface RecoveryLog {
     updatedAt: string
 }
 
-/** A meal placed into one slot of one day in the weekly planner. */
+export const ENTRY_STATUSES = ['planned', 'eaten', 'skipped'] as const
+/** Whether a planned meal was actually eaten. */
+export type EntryStatus = (typeof ENTRY_STATUSES)[number]
+
+/** Food eaten that wasn't in the library — logged with macros, not a recipe. */
+export interface AdhocMeal {
+    name: string
+    macros: Macros
+}
+
+/**
+ * A meal placed into one slot of one day in the weekly planner. Exactly one of
+ * `meal` (a library recipe) and `adhoc` (off-plan food) is set.
+ */
 export interface MealPlanEntry {
     _id: string
     /** "YYYY-MM-DD" — the day this sits on. */
@@ -279,7 +319,11 @@ export interface MealPlanEntry {
     /** Which slot of the day: breakfast / lunch / dinner / snack. */
     slot: MealType
     /** The planned meal, populated by the server (macros read from here). */
-    meal: Meal
+    meal?: Meal
+    /** Set instead of `meal` for off-plan food, carrying its own macros. */
+    adhoc?: AdhocMeal
+    /** Whether it was eaten. */
+    status: EntryStatus
     order: number
     createdAt: string
     updatedAt: string
