@@ -10,6 +10,8 @@ export interface PlanImportSummary {
     recoveryCreated: number
     itemsLinked: number
     scheduled: number
+    /** How many dated exceptions the plan carries. */
+    overrides: number
     warnings: number
 }
 
@@ -68,6 +70,12 @@ export interface ApplyPlanResult {
     start: string
     end: string
     kinds: FitnessPlanKind[]
+    /**
+     * "YYYY-MM-DD" of the first session placed, or null when nothing was. A plan's
+     * first session can fall well after today, so this is the week the planner
+     * should open on — otherwise it opens on this week and looks empty.
+     */
+    firstDate: string | null
 }
 
 /**

@@ -86,29 +86,45 @@ const SESSION_TEMPLATE = JSON.stringify(
     2
 )
 
-const TABS = ['Planner', 'Plans', 'Body', 'Strength', 'Conditioning', 'Mobility', 'Recovery'] as const
+const TABS = [
+    'Planner',
+    'Plans',
+    'Body',
+    'Strength',
+    'Conditioning',
+    'Mobility',
+    'Recovery',
+] as const
 type Tab = (typeof TABS)[number]
 
 const SUBTITLE: Record<Tab, string> = {
-    Planner: 'Plan your training — drop strength, conditioning, mobility and recovery into each day.',
+    Planner:
+        'Plan your training — drop strength, conditioning, mobility and recovery into each day.',
     Plans: 'Whole training blocks — import a plan, then apply it to fill the planner day by day.',
     Body: 'Weigh in and watch the trend, not the scale — the smoothed line is what tracks fat.',
     Strength: 'Track your training programmes, sessions and progress.',
     Conditioning: 'Track your training programmes, sessions and progress.',
     Mobility: 'Log completed routines and build a library of mobility flows, circuits and drills.',
-    Recovery: 'Log completed recovery and build a library — stretching, sauna, foam rolling and more.',
+    Recovery:
+        'Log completed recovery and build a library — stretching, sauna, foam rolling and more.',
 }
 
 export default function Fitness() {
     const [tab, setTab] = useState<Tab>('Planner')
     const [exportOpen, setExportOpen] = useState(false)
+    // Set when applying a plan sends us to the planner, so it opens on the week
+    // the plan actually starts rather than on this one. Cleared as soon as the
+    // user picks a tab themselves, so the planner goes back to opening on today.
+    const [plannerStart, setPlannerStart] = useState<string | null>(null)
 
     return (
         <main className="py-10">
             <Container>
                 <header className="mb-8 flex items-start justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Fitness</h1>
+                        <h1 className="text-3xl font-bold tracking-tight text-neutral-950">
+                            Fitness
+                        </h1>
                         <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
                     </div>
                     <Button
@@ -125,19 +141,31 @@ export default function Fitness() {
                 <Tabs
                     tabs={[...TABS]}
                     value={tab}
-                    onChange={(t) => setTab(t as Tab)}
+                    onChange={(t) => {
+                        setTab(t as Tab)
+                        setPlannerStart(null)
+                    }}
                     className="self-start"
                 />
             </Container>
 
             {tab === 'Planner' ? (
                 <Container fluid className="mt-8">
-                    <FitnessWeeklyPlanner />
+                    {/* Keyed so a fresh week request remounts the planner on it. */}
+                    <FitnessWeeklyPlanner
+                        key={plannerStart ?? 'today'}
+                        startOn={plannerStart ?? undefined}
+                    />
                 </Container>
             ) : (
                 <Container className="mt-6">
                     {tab === 'Plans' ? (
-                        <PlanLibrary />
+                        <PlanLibrary
+                            onApplied={(firstDate) => {
+                                setPlannerStart(firstDate)
+                                setTab('Planner')
+                            }}
+                        />
                     ) : tab === 'Body' ? (
                         <BodyMetrics />
                     ) : tab === 'Strength' ? (
@@ -273,9 +301,7 @@ function ConditioningLibrary() {
         const q = search.trim().toLowerCase()
         if (!q) return sessions
         return sessions.filter(
-            (s) =>
-                s.name.toLowerCase().includes(q) ||
-                (s.purpose ?? '').toLowerCase().includes(q)
+            (s) => s.name.toLowerCase().includes(q) || (s.purpose ?? '').toLowerCase().includes(q)
         )
     }, [sessions, search])
 
@@ -334,14 +360,15 @@ function ConditioningLibrary() {
                             required field. Everything else is optional and defaults sensibly.
                         </p>
                         <p>
-                            <span className="font-semibold text-neutral-700">category</span> must be one
-                            of: {CONDITIONING_CATEGORIES.join(', ')}.
+                            <span className="font-semibold text-neutral-700">category</span> must be
+                            one of: {CONDITIONING_CATEGORIES.join(', ')}.
                         </p>
                         <p>
-                            <span className="font-semibold text-neutral-700">plan</span> is optional — add
-                            it to also drop the session onto your weekly planner. Use a date string{' '}
-                            <span className="font-semibold text-neutral-700">"2026-08-11"</span> (lands in
-                            the morning), a{' '}
+                            <span className="font-semibold text-neutral-700">plan</span> is optional
+                            — add it to also drop the session onto your weekly planner. Use a date
+                            string{' '}
+                            <span className="font-semibold text-neutral-700">"2026-08-11"</span>{' '}
+                            (lands in the morning), a{' '}
                             <span className="font-semibold text-neutral-700">
                                 {'{ date, part }'}
                             </span>{' '}
@@ -349,18 +376,18 @@ function ConditioningLibrary() {
                             schedule it on several days. Leave it out to just add to the library.
                         </p>
                         <p>
-                            <span className="font-semibold text-neutral-700">parts</span> each take a{' '}
-                            <span className="font-semibold text-neutral-700">name</span> and an optional{' '}
-                            <span className="font-semibold text-neutral-700">detail</span>. Add{' '}
-                            <span className="font-semibold text-neutral-700">rounds</span> (a number) to a
-                            part to get a tap-to-count counter, plus an optional{' '}
+                            <span className="font-semibold text-neutral-700">parts</span> each take
+                            a <span className="font-semibold text-neutral-700">name</span> and an
+                            optional <span className="font-semibold text-neutral-700">detail</span>.
+                            Add <span className="font-semibold text-neutral-700">rounds</span> (a
+                            number) to a part to get a tap-to-count counter, plus an optional{' '}
                             <span className="font-semibold text-neutral-700">roundLabel</span>,{' '}
-                            <span className="font-semibold text-neutral-700">roundDetails</span> (one line
-                            of info per rep) and, for timed reps,{' '}
-                            <span className="font-semibold text-neutral-700">roundSeconds</span> (each rep's
-                            length in seconds) with{' '}
-                            <span className="font-semibold text-neutral-700">startAtSec</span> (clock offset,
-                            e.g. warm-up length) to show a time window on each rep.
+                            <span className="font-semibold text-neutral-700">roundDetails</span>{' '}
+                            (one line of info per rep) and, for timed reps,{' '}
+                            <span className="font-semibold text-neutral-700">roundSeconds</span>{' '}
+                            (each rep's length in seconds) with{' '}
+                            <span className="font-semibold text-neutral-700">startAtSec</span>{' '}
+                            (clock offset, e.g. warm-up length) to show a time window on each rep.
                         </p>
                     </>
                 }
@@ -406,7 +433,10 @@ function ConditioningLibrary() {
                     title="No sessions yet"
                     description="Add your first conditioning session to start building a library."
                     action={
-                        <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
+                        <Button
+                            icon="fa-solid fa-plus"
+                            onClick={() => setDrawer({ mode: 'create' })}
+                        >
                             New session
                         </Button>
                     }
@@ -501,7 +531,12 @@ function SessionCard({
                     }
                     items={[
                         { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onEdit },
-                        { label: 'Delete', icon: 'fa-solid fa-trash-can', danger: true, onClick: onDelete },
+                        {
+                            label: 'Delete',
+                            icon: 'fa-solid fa-trash-can',
+                            danger: true,
+                            onClick: onDelete,
+                        },
                     ]}
                 />
             </div>
@@ -739,13 +774,7 @@ function SessionFormDrawer({
 
 // ─── Parts editor ───────────────────────────────────────────────────────────────
 
-function PartsEditor({
-    rows,
-    onChange,
-}: {
-    rows: PartRow[]
-    onChange: (rows: PartRow[]) => void
-}) {
+function PartsEditor({ rows, onChange }: { rows: PartRow[]; onChange: (rows: PartRow[]) => void }) {
     function update(key: string, patch: Partial<SessionPart>) {
         onChange(rows.map((r) => (r.key === key ? { ...r, ...patch } : r)))
     }
@@ -817,7 +846,9 @@ function PartsEditor({
                                     value={r.rounds ?? ''}
                                     onChange={(e) =>
                                         update(r.key, {
-                                            rounds: e.target.value ? Number(e.target.value) : undefined,
+                                            rounds: e.target.value
+                                                ? Number(e.target.value)
+                                                : undefined,
                                         })
                                     }
                                 />

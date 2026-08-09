@@ -1,12 +1,7 @@
 import { Response } from 'express'
 import { Model, FilterQuery, Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
-import TrainingPlan, {
-    IPlanItem,
-    IPlanScheduleEntry,
-    IPlanWarning,
-    PlanRole,
-} from '../models/TrainingPlan'
+import TrainingPlan, { IPlanItem, IPlanWarning, PlanRole } from '../models/TrainingPlan'
 import FitnessPlanEntry, {
     FITNESS_PLAN_KINDS,
     FITNESS_PLAN_PARTS,
@@ -22,6 +17,8 @@ import ConditioningSession, {
 import Mobility from '../models/Mobility'
 import Recovery from '../models/Recovery'
 import {
+    ScheduleBuilder,
+    applyOverrides,
     dayMs,
     dateFromName,
     matchAllByName,
@@ -40,15 +37,6 @@ const DEFAULT_PART: Record<FitnessPlanKind, FitnessPlanPart> = {
     workout: 'morning',
     conditioning: 'afternoon',
     recovery: 'evening',
-}
-
-/** Order within a slot, so mobility is listed before the session it warms up for. */
-const ROLE_ORDER: Record<PlanRole, number> = {
-    mobility: 0,
-    strength: 1,
-    run: 2,
-    conditioning: 3,
-    recovery: 4,
 }
 
 // ─── Small readers ──────────────────────────────────────────────────────────────
@@ -192,56 +180,6 @@ async function ensureLibrary<T extends { name: string; order: number }>(
 }
 
 // ─── Import ─────────────────────────────────────────────────────────────────────
-
-/** Accumulates schedule entries, dropping repeats of the same item on a day. */
-class ScheduleBuilder {
-    private seen = new Set<string>()
-    readonly entries: (IPlanScheduleEntry & { roleOrder: number })[] = []
-
-    add(
-        date: string,
-        kind: FitnessPlanKind,
-        role: PlanRole,
-        ref: NamedRef,
-        part: FitnessPlanPart,
-        notes?: string
-    ) {
-        const key = `${date}|${kind}|${ref.id}`
-        if (this.seen.has(key)) return
-        this.seen.add(key)
-        this.entries.push({
-            date,
-            part,
-            kind,
-            role,
-            item: new Types.ObjectId(ref.id),
-            label: ref.name,
-            notes,
-            roleOrder: ROLE_ORDER[role],
-        })
-    }
-
-    /** Chronological, then by slot, then prep-before-session within a slot. */
-    sorted(): IPlanScheduleEntry[] {
-        return this.entries
-            .sort(
-                (a, b) =>
-                    a.date.localeCompare(b.date) ||
-                    FITNESS_PLAN_PARTS.indexOf(a.part) - FITNESS_PLAN_PARTS.indexOf(b.part) ||
-                    a.roleOrder - b.roleOrder ||
-                    a.label.localeCompare(b.label)
-            )
-            .map((e) => ({
-                date: e.date,
-                part: e.part,
-                kind: e.kind,
-                role: e.role,
-                item: e.item,
-                label: e.label,
-                notes: e.notes,
-            }))
-    }
-}
 
 /**
  * POST /api/plans/import — turn a pasted plan document into a saved plan.
@@ -387,7 +325,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
         }
         const part = toPart(w.part, 'workout')
         for (const date of weekdaysBetween(planStart, planEnd, weekday)) {
-            schedule.add(date, 'workout', 'strength', ref, part)
+            schedule.add(date, 'workout', 'strength', ref, part, 'recurring')
         }
     }
 
@@ -408,7 +346,15 @@ export async function importPlan(req: AuthRequest, res: Response) {
             })
             continue
         }
-        schedule.add(date, 'conditioning', 'run', ref, toPart(s.part, 'conditioning'), str(s.notes))
+        schedule.add(
+            date,
+            'conditioning',
+            'run',
+            ref,
+            toPart(s.part, 'conditioning'),
+            'dated',
+            str(s.notes)
+        )
     }
 
     // The post-goal calendar: explicit dates naming a session from the library.
@@ -431,6 +377,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
             'conditioning',
             ref,
             toPart(row.part, 'conditioning'),
+            'dated',
             str(row.notes)
         )
     }
@@ -459,17 +406,33 @@ export async function importPlan(req: AuthRequest, res: Response) {
 
         for (const date of dates) {
             for (const ref of matchAllByName(row.strength, workouts.all)) {
-                schedule.add(date, 'workout', 'strength', ref, DEFAULT_PART.workout)
+                schedule.add(date, 'workout', 'strength', ref, DEFAULT_PART.workout, 'recurring')
             }
             for (const { role, own, other, text } of cells) {
                 const hits = matchAllByName(text, libraryOf[own].all)
                 const kind = hits.length ? own : other
                 for (const ref of hits.length ? hits : matchAllByName(text, libraryOf[other].all)) {
-                    schedule.add(date, kind, role, ref, DEFAULT_PART[role])
+                    schedule.add(date, kind, role, ref, DEFAULT_PART[role], 'recurring')
                 }
             }
         }
     }
+
+    // ── Dated overrides ────────────────────────────────────────────────────────
+    // Exceptions to the recurring week — a holiday with no gym access, a match day
+    // that replaces the usual session, a deload. Applied last, in document order,
+    // so a later override wins over an earlier one covering the same days.
+    const {
+        applied: overrides,
+        refs: overrideRefs,
+        problems,
+    } = applyOverrides(
+        schedule,
+        arr(doc.scheduleOverrides),
+        { workout: workouts.all, conditioning: sessions.all, mobility: mobility.all, recovery: recovery.all },
+        toPart
+    )
+    for (const message of problems) warnings.push({ source: 'scheduleOverrides', message })
 
     // ── Linked items ───────────────────────────────────────────────────────────
     const items: IPlanItem[] = []
@@ -499,6 +462,22 @@ export async function importPlan(req: AuthRequest, res: Response) {
     pushItems('conditioning', 'conditioning', sessions, postSpecs)
     pushItems('mobility', 'mobility', mobility, mobilitySpecs)
     pushItems('recovery', 'recovery', recovery, recoverySpecs)
+
+    // An override can name a workout the plan's own sections never mention — a
+    // one-off match-day session, say. Link those too, so the plan still points at
+    // everything it will place.
+    const linked = new Set(items.map((i) => String(i.item)))
+    for (const { kind, role, ref } of overrideRefs) {
+        if (linked.has(ref.id)) continue
+        linked.add(ref.id)
+        items.push({
+            kind,
+            role,
+            item: new Types.ObjectId(ref.id),
+            label: ref.name,
+            created: false,
+        })
+    }
 
     const goal = obj(doc.goal) ?? undefined
     const last = await TrainingPlan.findOne({ user: userId }).sort({ order: -1 }).select('order')
@@ -534,6 +513,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
         readinessRules: strList(doc.readinessRules),
         items,
         schedule: schedule.sorted(),
+        overrides,
         warnings,
         order: last ? last.order + 1 : 0,
     })
@@ -549,6 +529,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
             recoveryCreated: recovery.created.size,
             itemsLinked: items.length,
             scheduled: plan.schedule.length,
+            overrides: overrides.length,
             warnings: warnings.length,
         },
     })
@@ -726,7 +707,20 @@ export async function applyPlan(req: AuthRequest, res: Response) {
 
     res.json({
         message: `Applied ${docs.length} session(s) from “${plan.name}”`,
-        data: { placed: docs.length, removed: deletedCount ?? 0, start, end, kinds },
+        data: {
+            placed: docs.length,
+            removed: deletedCount ?? 0,
+            start,
+            end,
+            kinds,
+            // The day the first session actually landed on. A plan can start well
+            // after the window's start — or after today — so the planner needs this
+            // to open on a week that has something in it.
+            firstDate: due.reduce<string | null>(
+                (min, e) => (min === null || e.date < min ? e.date : min),
+                null
+            ),
+        },
     })
 }
 

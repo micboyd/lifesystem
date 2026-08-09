@@ -111,6 +111,16 @@ const TEMPLATE = JSON.stringify(
                 },
             ],
         },
+        scheduleOverrides: [
+            { date: '2026-10-05', strength: 'Upper A', notes: 'Moved off Tuesday this week' },
+            { date: '2026-10-06', strength: null, notes: 'Travelling' },
+            {
+                start: '2026-10-10',
+                end: '2026-10-18',
+                suppressRecurringStrength: true,
+                notes: 'Holiday — no gym',
+            },
+        ],
         readinessRules: ['Skip the optional conditioning if sleep has been poor for two nights.'],
     },
     null,
@@ -230,6 +240,9 @@ export default function PlanImportPanel({ onBack, onImported }: PlanImportPanelP
                         </li>
                         <li>{summary.itemsLinked} items linked to the plan</li>
                         <li>{summary.scheduled} sessions placed on dates</li>
+                        {summary.overrides > 0 && (
+                            <li>{summary.overrides} dated exceptions applied</li>
+                        )}
                         {summary.warnings > 0 && (
                             <li>
                                 {summary.warnings} entries could not be scheduled — see the plan
@@ -302,6 +315,36 @@ export default function PlanImportPanel({ onBack, onImported }: PlanImportPanelP
                         in mobility and recovery. Cells can be prose — any library name inside the
                         text is picked up, so “Sauna Recovery optional” schedules Sauna Recovery,
                         and a cell can name two routines.
+                    </p>
+                    <p>
+                        <span className="font-semibold text-neutral-700">scheduleOverrides</span>{' '}
+                        are dated exceptions to the recurring week — holidays, matches, injuries,
+                        deloads. Each takes a{' '}
+                        <span className="font-semibold text-neutral-700">date</span> or a{' '}
+                        <span className="font-semibold text-neutral-700">start</span>/
+                        <span className="font-semibold text-neutral-700">end</span> range, plus
+                        optional <span className="font-semibold text-neutral-700">notes</span>{' '}
+                        saying why.
+                    </p>
+                    <p>
+                        Naming a category —{' '}
+                        <span className="font-semibold text-neutral-700">strength</span>,{' '}
+                        <span className="font-semibold text-neutral-700">conditioning</span>,{' '}
+                        <span className="font-semibold text-neutral-700">mobility</span> or{' '}
+                        <span className="font-semibold text-neutral-700">recovery</span> — replaces
+                        everything of that category on those days.{' '}
+                        <span className="font-semibold text-neutral-700">null</span> empties it;
+                        leaving the key out altogether leaves the day alone.
+                    </p>
+                    <p>
+                        <span className="font-semibold text-neutral-700">
+                            suppressRecurringStrength
+                        </span>{' '}
+                        (and the Conditioning / Mobility / Recovery variants, or{' '}
+                        <span className="font-semibold text-neutral-700">suppressRecurring</span>{' '}
+                        for all four) drops only the weekly repeats — so a week away clears the gym
+                        work while the runs written for those exact days stay put. Overrides apply
+                        in order, so a later one wins.
                     </p>
                     <p>
                         Library items are matched by name and never overwritten, so importing a

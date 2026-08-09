@@ -2853,6 +2853,14 @@
             "Optional sauna/foam rolling"
         ]
     },
+    "scheduleOverrides": [
+        {
+            "start": "2026-08-28",
+            "end": "2026-09-08",
+            "suppressRecurringStrength": true,
+            "notes": "Cruise - no gym. The cruise-maintenance runs on 31 Aug and 3 Sep still stand."
+        }
+    ],
     "readinessRules": [
         "Do not add extra hard conditioning before the existing 10K plan is complete.",
         "If running causes a meaningful increase in knee pain, swelling, altered gait or next-morning stiffness, repeat or regress the running week and skip the optional hard conditioning.",

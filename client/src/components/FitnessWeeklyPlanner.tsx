@@ -1,11 +1,4 @@
-import {
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type DragEvent,
-    type ReactNode,
-} from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { Card } from './Card'
 import Spinner from './Spinner'
 import Button from './Button'
@@ -84,10 +77,7 @@ import {
 
 // ─── Kind presentation ────────────────────────────────────────────────────────
 
-const KIND_META: Record<
-    FitnessPlanKind,
-    { label: string; noun: string; icon: string }
-> = {
+const KIND_META: Record<FitnessPlanKind, { label: string; noun: string; icon: string }> = {
     workout: { label: 'Strength', noun: 'workout', icon: 'fa-solid fa-dumbbell' },
     conditioning: { label: 'Conditioning', noun: 'session', icon: 'fa-solid fa-heart-pulse' },
     mobility: { label: 'Mobility', noun: 'routine', icon: 'fa-solid fa-person-walking' },
@@ -389,10 +379,12 @@ function tally(entries: FitnessPlanEntry[]): WeekTally {
 
 // ─── Planner ────────────────────────────────────────────────────────────────────
 
-export default function FitnessWeeklyPlanner() {
+export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) {
     // The anchor is any day inside the week on show; the week's Monday is derived
-    // from it. Planning is week by week — one calendar week at a time.
-    const [anchor, setAnchor] = useState(() => todayKey())
+    // from it. Planning is week by week — one calendar week at a time. `startOn`
+    // opens on a different week — applying a plan whose first session is next
+    // month should land there, not on an empty view of this week.
+    const [anchor, setAnchor] = useState(() => startOn ?? todayKey())
     const [workouts, setWorkouts] = useState<Workout[]>([])
     const [sessions, setSessions] = useState<ConditioningSession[]>([])
     const [recovery, setRecovery] = useState<Recovery[]>([])
@@ -462,7 +454,13 @@ export default function FitnessWeeklyPlanner() {
     // The libraries — loaded once, for the picker, the "is it empty" check and
     // the detail drawer (exercises resolve a workout's exercise names).
     useEffect(() => {
-        Promise.all([listWorkouts(), listSessions(), listRecovery(), listMobility(), listExercises()])
+        Promise.all([
+            listWorkouts(),
+            listSessions(),
+            listRecovery(),
+            listMobility(),
+            listExercises(),
+        ])
             .then(([wk, se, re, mo, ex]) => {
                 setWorkouts(wk)
                 setSessions(se)
@@ -504,7 +502,8 @@ export default function FitnessWeeklyPlanner() {
                 // no library link (their item was deleted) can't match a plan row.
                 const keys = new Set<string>()
                 for (const l of wLogs)
-                    if (l.workout && inRange(l.date)) keys.add(doneKey('workout', l.workout, l.date))
+                    if (l.workout && inRange(l.date))
+                        keys.add(doneKey('workout', l.workout, l.date))
                 for (const l of cLogs)
                     if (l.session && inRange(l.date))
                         keys.add(doneKey('conditioning', l.session, l.date))
@@ -640,7 +639,7 @@ export default function FitnessWeeklyPlanner() {
     )
     // The note the editor is currently working on (undefined for a brand-new flag).
     const flagNote = flagTarget
-        ? notes.find((n) => n.scope === flagTarget.scope && n.date === flagTarget.date) ?? null
+        ? (notes.find((n) => n.scope === flagTarget.scope && n.date === flagTarget.date) ?? null)
         : null
 
     const totals = tally(entries)
@@ -848,8 +847,8 @@ export default function FitnessWeeklyPlanner() {
                             <span className="font-semibold">
                                 {clearInfo.count} planned item{clearInfo.count !== 1 ? 's' : ''}
                             </span>{' '}
-                            from <span className="font-semibold">{clearInfo.where}</span>? Flags stay
-                            in place. This can’t be undone.
+                            from <span className="font-semibold">{clearInfo.where}</span>? Flags
+                            stay in place. This can’t be undone.
                         </>
                     ) : (
                         ''
@@ -867,7 +866,7 @@ export default function FitnessWeeklyPlanner() {
 
             <ClashModal
                 date={clashDate}
-                clashes={clashDate ? clashesByDate.get(clashDate) ?? [] : []}
+                clashes={clashDate ? (clashesByDate.get(clashDate) ?? []) : []}
                 dayEntries={clashDate ? entries.filter((e) => e.date === clashDate) : []}
                 events={events}
                 onMove={handleMove}
@@ -940,20 +939,30 @@ function ClashModal({
         >
             {date && clashes.length === 0 && (
                 <div className="flex flex-col items-center gap-2 py-4 text-center">
-                    <i className="fa-solid fa-circle-check text-2xl text-emerald-500" aria-hidden="true" />
+                    <i
+                        className="fa-solid fa-circle-check text-2xl text-emerald-500"
+                        aria-hidden="true"
+                    />
                     <p className="text-sm font-semibold text-neutral-700">Nothing clashing</p>
                     <p className="text-sm text-neutral-500">
                         Every session on{' '}
-                        <span className="font-semibold text-neutral-700">{shortDayLabel(date)}</span> sits
-                        in a clear slot.
+                        <span className="font-semibold text-neutral-700">
+                            {shortDayLabel(date)}
+                        </span>{' '}
+                        sits in a clear slot.
                     </p>
                 </div>
             )}
             {date && clashes.length > 0 && (
                 <div className="flex flex-col gap-4">
                     <p className="text-sm text-neutral-500">
-                        On <span className="font-semibold text-neutral-700">{shortDayLabel(date)}</span>{' '}
-                        {clashes.length === 1 ? 'a planned session overlaps' : 'planned sessions overlap'}{' '}
+                        On{' '}
+                        <span className="font-semibold text-neutral-700">
+                            {shortDayLabel(date)}
+                        </span>{' '}
+                        {clashes.length === 1
+                            ? 'a planned session overlaps'
+                            : 'planned sessions overlap'}{' '}
                         with what&apos;s already on your calendar.
                     </p>
                     <ul className="flex flex-col gap-3">
@@ -971,7 +980,8 @@ function ClashModal({
                                             aria-hidden="true"
                                         />
                                         <span className="text-sm font-semibold text-neutral-800">
-                                            {planItemName(clash.entry) ?? KIND_META[clash.entry.kind].noun}
+                                            {planItemName(clash.entry) ??
+                                                KIND_META[clash.entry.kind].noun}
                                         </span>
                                         <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
                                             <i
@@ -1061,7 +1071,9 @@ function WeekCopyControls({
     const [confirming, setConfirming] = useState(false)
     const [open, setOpen] = useState(false)
     // Which categories to copy — defaults to all; the checklist can narrow it.
-    const [selected, setSelected] = useState<Set<FitnessPlanKind>>(() => new Set(FITNESS_PLAN_KINDS))
+    const [selected, setSelected] = useState<Set<FitnessPlanKind>>(
+        () => new Set(FITNESS_PLAN_KINDS)
+    )
     const panelRef = useRef<HTMLDivElement>(null)
 
     // Close the copy checklist on an outside click.
@@ -1119,7 +1131,9 @@ function WeekCopyControls({
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setSelected(allSelected ? new Set() : new Set(FITNESS_PLAN_KINDS))
+                                    setSelected(
+                                        allSelected ? new Set() : new Set(FITNESS_PLAN_KINDS)
+                                    )
                                 }
                                 className="text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-900"
                             >
@@ -1182,8 +1196,8 @@ function WeekCopyControls({
                 message={
                     clipboard && (
                         <p className="text-sm text-neutral-600">
-                            Replace <span className="font-semibold">{kindsLabel(clipboard.kinds)}</span>{' '}
-                            for{' '}
+                            Replace{' '}
+                            <span className="font-semibold">{kindsLabel(clipboard.kinds)}</span> for{' '}
                             <span className="font-semibold">
                                 {formatWeekRange(weekStart, weekEnd)}
                             </span>{' '}
@@ -1254,7 +1268,9 @@ function WeekView({
 
     // A slot's items (any day) in display (order) sequence.
     const slotItems = (date: string, part: FitnessPlanPart) =>
-        entries.filter((e) => e.date === date && partOf(e) === part).sort((a, b) => a.order - b.order)
+        entries
+            .filter((e) => e.date === date && partOf(e) === part)
+            .sort((a, b) => a.order - b.order)
 
     function resetDrag() {
         setDragId(null)
@@ -1317,9 +1333,7 @@ function WeekView({
                         onEntryDragEnd={resetDrag}
                         onTarget={(part, refId, after) => setDropAt({ date, part, refId, after })}
                         onClearTarget={(part) =>
-                            setDropAt((d) =>
-                                d && d.date === date && d.part === part ? null : d
-                            )
+                            setDropAt((d) => (d && d.date === date && d.part === part ? null : d))
                         }
                         onDropEntry={handleDrop}
                         onEditFlag={() => onEditFlag('day', date)}
@@ -1365,14 +1379,12 @@ function WeekFlagBanner({
 
     const tone = FLAG_TONE[note.color]
     return (
-        <div
-            className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 ${tone.banner}`}
-        >
+        <div className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 ${tone.banner}`}>
             <i className="fa-solid fa-flag text-xs" aria-hidden="true" />
-            <span className="text-sm font-semibold">
-                {note.label || 'Flagged week'}
+            <span className="text-sm font-semibold">{note.label || 'Flagged week'}</span>
+            <span className="text-xs opacity-70">
+                · {formatWeekRange(weekStart, addDays(weekStart, 6))}
             </span>
-            <span className="text-xs opacity-70">· {formatWeekRange(weekStart, addDays(weekStart, 6))}</span>
             {editable && (
                 <button
                     type="button"
@@ -2008,7 +2020,8 @@ function ItemPicker({
             : workouts
         // Pinned workouts (showInPlanner) bubble to the top as suggestions.
         return [...base].sort(
-            (a, b) => Number(b.showInPlanner) - Number(a.showInPlanner) || a.name.localeCompare(b.name)
+            (a, b) =>
+                Number(b.showInPlanner) - Number(a.showInPlanner) || a.name.localeCompare(b.name)
         )
     }, [workouts, query])
 
@@ -2219,7 +2232,12 @@ function ItemPicker({
                                                 type="button"
                                                 onClick={() =>
                                                     view &&
-                                                    onAdd(view.date, 'conditioning', s._id, activePart)
+                                                    onAdd(
+                                                        view.date,
+                                                        'conditioning',
+                                                        s._id,
+                                                        activePart
+                                                    )
                                                 }
                                                 className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
                                             >
@@ -2253,7 +2271,8 @@ function ItemPicker({
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    view && onAdd(view.date, 'mobility', m._id, activePart)
+                                                    view &&
+                                                    onAdd(view.date, 'mobility', m._id, activePart)
                                                 }
                                                 className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
                                             >
@@ -2288,7 +2307,8 @@ function ItemPicker({
                                         <button
                                             type="button"
                                             onClick={() =>
-                                                view && onAdd(view.date, 'recovery', r._id, activePart)
+                                                view &&
+                                                onAdd(view.date, 'recovery', r._id, activePart)
                                             }
                                             className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
                                         >
@@ -2362,7 +2382,7 @@ function PlannedDetailDrawer({
     }, [entry])
 
     const e = view
-    const title = e ? planItemName(e) ?? KIND_META[e.kind].label : 'Details'
+    const title = e ? (planItemName(e) ?? KIND_META[e.kind].label) : 'Details'
 
     // Any planned item can be logged straight from the planner — "Mark as done"
     // snapshots the library item into a completed record dated to the planned day,
@@ -2525,7 +2545,9 @@ function WorkoutDetail({
             </div>
 
             {workout.description && (
-                <p className="whitespace-pre-wrap text-sm text-neutral-600">{workout.description}</p>
+                <p className="whitespace-pre-wrap text-sm text-neutral-600">
+                    {workout.description}
+                </p>
             )}
 
             <DetailSection label="Exercises">
@@ -2576,7 +2598,9 @@ function MobilityDetail({ mobility }: { mobility: Mobility }) {
 
             {mobility.purpose && (
                 <DetailSection label="Purpose">
-                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{mobility.purpose}</p>
+                    <p className="whitespace-pre-wrap text-sm text-neutral-600">
+                        {mobility.purpose}
+                    </p>
                 </DetailSection>
             )}
 
@@ -2604,7 +2628,9 @@ function MobilityDetail({ mobility }: { mobility: Mobility }) {
 
             {mobility.howToUse && (
                 <DetailSection label="How to use">
-                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{mobility.howToUse}</p>
+                    <p className="whitespace-pre-wrap text-sm text-neutral-600">
+                        {mobility.howToUse}
+                    </p>
                 </DetailSection>
             )}
         </div>
@@ -2623,7 +2649,9 @@ function RecoveryDetail({ recovery }: { recovery: Recovery }) {
 
             {recovery.purpose && (
                 <DetailSection label="Purpose">
-                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{recovery.purpose}</p>
+                    <p className="whitespace-pre-wrap text-sm text-neutral-600">
+                        {recovery.purpose}
+                    </p>
                 </DetailSection>
             )}
 

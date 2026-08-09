@@ -21,6 +21,7 @@ import {
     applyPlan,
     unapplyPlan,
     type ApplyPlanOptions,
+    type ApplyPlanResult,
 } from '../services/plans'
 import { formatDateLong, formatWeekRange, todayKey } from '../lib/calendar'
 import { FITNESS_PLAN_KINDS } from '../types'
@@ -97,7 +98,7 @@ function proseRows(block: Record<string, unknown> | undefined): { label: string;
 
 // ─── Library ────────────────────────────────────────────────────────────────────
 
-export default function PlanLibrary() {
+export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: string) => void }) {
     const toast = useToast()
     const [loading, setLoading] = useState(true)
     const [plans, setPlans] = useState<TrainingPlan[]>([])
@@ -201,10 +202,24 @@ export default function PlanLibrary() {
             <ApplyPlanModal
                 plan={applying}
                 onClose={() => setApplying(null)}
-                onApplied={async (placed) => {
+                onApplied={async (result) => {
                     await reload()
                     setApplying(null)
-                    toast.show(`Added ${placed} session(s) to the planner.`, 'success')
+                    if (result.placed === 0 || !result.firstDate) {
+                        toast.show(
+                            'Nothing was added — no sessions fall in those dates.',
+                            'warning'
+                        )
+                        return
+                    }
+                    // A plan's first session is often days or weeks away, and the
+                    // planner opens on this week — so say when it starts, and take
+                    // the user there rather than to an empty grid.
+                    toast.show(
+                        `Added ${result.placed} session(s), starting ${formatDateLong(result.firstDate)}.`,
+                        'success'
+                    )
+                    onApplied?.(result.firstDate)
                 }}
             />
 
@@ -563,6 +578,28 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
                 </Section>
             )}
 
+            {plan.overrides.length > 0 && (
+                <Section title={`Dated exceptions (${plan.overrides.length})`}>
+                    <ol className="flex flex-col gap-2">
+                        {plan.overrides.map((o, i) => (
+                            <li key={i} className="flex gap-3 text-sm">
+                                <span className="w-40 shrink-0 text-xs font-semibold text-neutral-500">
+                                    {o.start === o.end
+                                        ? formatDateLong(o.start)
+                                        : formatWeekRange(o.start, o.end)}
+                                </span>
+                                <span className="min-w-0 text-neutral-700">
+                                    {o.summary}
+                                    {o.notes && (
+                                        <span className="text-neutral-400"> — {o.notes}</span>
+                                    )}
+                                </span>
+                            </li>
+                        ))}
+                    </ol>
+                </Section>
+            )}
+
             {plan.readinessRules.length > 0 && (
                 <Section title="Readiness rules">
                     <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-neutral-700">
@@ -686,6 +723,10 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
         return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(0, 28)
     }, [plan, from])
 
+    // The last override covering a day, matching the import's "later wins" rule.
+    const overrideOn = (date: string) =>
+        [...plan.overrides].reverse().find((o) => date >= o.start && date <= o.end) ?? null
+
     return (
         <div className="flex flex-col gap-3">
             <div className="w-48">
@@ -706,9 +747,17 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
             ) : (
                 days.map(([date, entries]) => (
                     <div key={date} className="rounded-xl border border-neutral-200 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                            {formatDateLong(date)}
-                        </p>
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                {formatDateLong(date)}
+                            </p>
+                            {overrideOn(date) && (
+                                <span className="text-[11px] font-semibold text-amber-700">
+                                    Exception ·{' '}
+                                    {overrideOn(date)!.notes ?? overrideOn(date)!.summary}
+                                </span>
+                            )}
+                        </div>
                         <ul className="mt-1.5 flex flex-col gap-1">
                             {entries.map((e, i) => (
                                 <li key={i} className="flex items-baseline gap-2 text-sm">
@@ -723,6 +772,17 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
                                 </li>
                             ))}
                         </ul>
+                        {entries.some((e) => e.notes) && (
+                            <ul className="mt-1.5 flex flex-col gap-0.5 border-t border-neutral-100 pt-1.5">
+                                {[...new Set(entries.map((e) => e.notes).filter(Boolean))].map(
+                                    (note) => (
+                                        <li key={note} className="text-[11px] text-neutral-400">
+                                            {note}
+                                        </li>
+                                    )
+                                )}
+                            </ul>
+                        )}
                     </div>
                 ))
             )}
@@ -739,7 +799,7 @@ function ApplyPlanModal({
 }: {
     plan: TrainingPlan | null
     onClose: () => void
-    onApplied: (placed: number) => void
+    onApplied: (result: ApplyPlanResult) => void
 }) {
     // Keyed on the plan so the dates and checkboxes reset per plan. The modal
     // renders nothing when closed, so unmounting the form costs no animation.
@@ -754,7 +814,7 @@ function ApplyPlanForm({
 }: {
     plan: TrainingPlan
     onClose: () => void
-    onApplied: (placed: number) => void
+    onApplied: (result: ApplyPlanResult) => void
 }) {
     const toast = useToast()
 
@@ -799,7 +859,7 @@ function ApplyPlanForm({
         setSaving(true)
         try {
             const result = await applyPlan(plan._id, options)
-            onApplied(result.placed)
+            onApplied(result)
         } catch {
             toast.error('Could not apply the plan.')
         } finally {

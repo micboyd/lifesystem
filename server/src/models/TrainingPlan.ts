@@ -63,6 +63,21 @@ export interface IPlanWeekDay {
     recovery?: string
 }
 
+/**
+ * A dated exception to the plan's normal week, kept so the detail view can show
+ * what the schedule departs from and why. Holidays, matches, injuries, deloads —
+ * anything that changes one day or a stretch of days without changing the plan.
+ */
+export interface IPlanOverride {
+    /** Inclusive "YYYY-MM-DD" bounds. A single-day override has start === end. */
+    start: string
+    end: string
+    /** Human-readable summary of what it does, built at import. */
+    summary: string
+    /** Free-text reason from the source document, e.g. "Cruise". */
+    notes?: string
+}
+
 /** A name in the source document that matched nothing in the libraries. */
 export interface IPlanWarning {
     /** Where the unresolved name came from, e.g. "post10KCalendar". */
@@ -94,6 +109,8 @@ export interface ITrainingPlan extends Document {
     items: IPlanItem[]
     /** The day-by-day placements, sorted by date then slot. */
     schedule: IPlanScheduleEntry[]
+    /** Dated exceptions applied on top of the recurring week. */
+    overrides: IPlanOverride[]
     /** Names the import could not resolve — surfaced on the plan detail view. */
     warnings: IPlanWarning[]
     /** When the plan was last pushed onto the weekly planner. */
@@ -151,6 +168,16 @@ const weekDaySchema = new Schema<IPlanWeekDay>(
     { _id: false }
 )
 
+const overrideSchema = new Schema<IPlanOverride>(
+    {
+        start: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+        end: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+        summary: { type: String, required: true, trim: true },
+        notes: { type: String, trim: true },
+    },
+    { _id: false }
+)
+
 const warningSchema = new Schema<IPlanWarning>(
     {
         source: { type: String, required: true, trim: true },
@@ -176,6 +203,7 @@ const trainingPlanSchema = new Schema<ITrainingPlan>(
         readinessRules: { type: [String], default: [] },
         items: { type: [planItemSchema], default: [] },
         schedule: { type: [scheduleEntrySchema], default: [] },
+        overrides: { type: [overrideSchema], default: [] },
         warnings: { type: [warningSchema], default: [] },
         appliedAt: { type: Date, default: null },
         order: { type: Number, default: 0 },

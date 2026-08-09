@@ -476,6 +476,21 @@ export interface PlanWeekDay {
     recovery?: string
 }
 
+/**
+ * A dated exception to the plan's normal week — a holiday, a match, an injury,
+ * a deload. Kept so the plan can show where the schedule departs from the
+ * recurring template and why.
+ */
+export interface PlanOverride {
+    /** Inclusive "YYYY-MM-DD" bounds. A single-day override has start === end. */
+    start: string
+    end: string
+    /** What it does, e.g. "no recurring strength" or "strength: Upper B". */
+    summary: string
+    /** The reason given in the source document, e.g. "Cruise". */
+    notes?: string
+}
+
 /** A name in the imported document that matched nothing in the libraries. */
 export interface PlanWarning {
     source: string
@@ -508,6 +523,8 @@ export interface TrainingPlan {
     items: PlanItem[]
     /** Only present on the detail endpoint. */
     schedule?: PlanScheduleEntry[]
+    /** Dated exceptions applied on top of the recurring week. */
+    overrides: PlanOverride[]
     warnings: PlanWarning[]
     /** When the plan was last pushed onto the planner; null if never. */
     appliedAt?: string | null
@@ -821,11 +838,31 @@ export const NOTE_CATEGORY_COLOR_CLASSES: Record<
     NoteCategoryColor,
     { dot: string; text: string; soft: string; ring: string }
 > = {
-    neutral: { dot: 'bg-neutral-400', text: 'text-neutral-600', soft: 'bg-neutral-100', ring: 'ring-neutral-300' },
-    emerald: { dot: 'bg-emerald-500', text: 'text-emerald-700', soft: 'bg-emerald-50', ring: 'ring-emerald-400' },
+    neutral: {
+        dot: 'bg-neutral-400',
+        text: 'text-neutral-600',
+        soft: 'bg-neutral-100',
+        ring: 'ring-neutral-300',
+    },
+    emerald: {
+        dot: 'bg-emerald-500',
+        text: 'text-emerald-700',
+        soft: 'bg-emerald-50',
+        ring: 'ring-emerald-400',
+    },
     sky: { dot: 'bg-sky-500', text: 'text-sky-700', soft: 'bg-sky-50', ring: 'ring-sky-400' },
-    violet: { dot: 'bg-violet-500', text: 'text-violet-700', soft: 'bg-violet-50', ring: 'ring-violet-400' },
-    amber: { dot: 'bg-amber-500', text: 'text-amber-700', soft: 'bg-amber-50', ring: 'ring-amber-400' },
+    violet: {
+        dot: 'bg-violet-500',
+        text: 'text-violet-700',
+        soft: 'bg-violet-50',
+        ring: 'ring-violet-400',
+    },
+    amber: {
+        dot: 'bg-amber-500',
+        text: 'text-amber-700',
+        soft: 'bg-amber-50',
+        ring: 'ring-amber-400',
+    },
     rose: { dot: 'bg-rose-500', text: 'text-rose-700', soft: 'bg-rose-50', ring: 'ring-rose-400' },
     teal: { dot: 'bg-teal-500', text: 'text-teal-700', soft: 'bg-teal-50', ring: 'ring-teal-400' },
 }
@@ -868,13 +905,55 @@ export const CHECKLIST_COLOR_CLASSES: Record<
     ChecklistColor,
     { dot: string; text: string; soft: string; ring: string; bar: string }
 > = {
-    neutral: { dot: 'bg-neutral-400', text: 'text-neutral-600', soft: 'bg-neutral-100', ring: 'ring-neutral-300', bar: 'bg-neutral-400' },
-    emerald: { dot: 'bg-emerald-500', text: 'text-emerald-700', soft: 'bg-emerald-50', ring: 'ring-emerald-400', bar: 'bg-emerald-500' },
-    sky: { dot: 'bg-sky-500', text: 'text-sky-700', soft: 'bg-sky-50', ring: 'ring-sky-400', bar: 'bg-sky-500' },
-    violet: { dot: 'bg-violet-500', text: 'text-violet-700', soft: 'bg-violet-50', ring: 'ring-violet-400', bar: 'bg-violet-500' },
-    amber: { dot: 'bg-amber-500', text: 'text-amber-700', soft: 'bg-amber-50', ring: 'ring-amber-400', bar: 'bg-amber-500' },
-    rose: { dot: 'bg-rose-500', text: 'text-rose-700', soft: 'bg-rose-50', ring: 'ring-rose-400', bar: 'bg-rose-500' },
-    teal: { dot: 'bg-teal-500', text: 'text-teal-700', soft: 'bg-teal-50', ring: 'ring-teal-400', bar: 'bg-teal-500' },
+    neutral: {
+        dot: 'bg-neutral-400',
+        text: 'text-neutral-600',
+        soft: 'bg-neutral-100',
+        ring: 'ring-neutral-300',
+        bar: 'bg-neutral-400',
+    },
+    emerald: {
+        dot: 'bg-emerald-500',
+        text: 'text-emerald-700',
+        soft: 'bg-emerald-50',
+        ring: 'ring-emerald-400',
+        bar: 'bg-emerald-500',
+    },
+    sky: {
+        dot: 'bg-sky-500',
+        text: 'text-sky-700',
+        soft: 'bg-sky-50',
+        ring: 'ring-sky-400',
+        bar: 'bg-sky-500',
+    },
+    violet: {
+        dot: 'bg-violet-500',
+        text: 'text-violet-700',
+        soft: 'bg-violet-50',
+        ring: 'ring-violet-400',
+        bar: 'bg-violet-500',
+    },
+    amber: {
+        dot: 'bg-amber-500',
+        text: 'text-amber-700',
+        soft: 'bg-amber-50',
+        ring: 'ring-amber-400',
+        bar: 'bg-amber-500',
+    },
+    rose: {
+        dot: 'bg-rose-500',
+        text: 'text-rose-700',
+        soft: 'bg-rose-50',
+        ring: 'ring-rose-400',
+        bar: 'bg-rose-500',
+    },
+    teal: {
+        dot: 'bg-teal-500',
+        text: 'text-teal-700',
+        soft: 'bg-teal-50',
+        ring: 'ring-teal-400',
+        bar: 'bg-teal-500',
+    },
 }
 
 export interface ChecklistItem {
