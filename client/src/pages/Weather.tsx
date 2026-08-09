@@ -19,6 +19,7 @@ import {
     upcomingHours,
     wearInputForHours,
     hourLabel,
+    daylightRibbon,
     type Forecast,
     type GeocodeResult,
     type HourlySlot,
@@ -408,11 +409,47 @@ function HourlyStrip({ forecast }: { forecast: Forecast }) {
     )
     if (tiles.length === 0) return null
 
+    // A daylight ribbon over the same window as the tiles (the first tile's hour
+    // through the last tile's hour), so night/dawn/day/dusk lines up left-to-right.
+    const { gradient, markers } = daylightRibbon(forecast, upcoming.slice(0, tiles.length * 2 - 1))
+
     return (
         <div>
             <p className="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-400">
                 Next 12 hours
             </p>
+
+            {gradient && (
+                <div className="mb-5 px-1">
+                    <div
+                        className="relative h-2 rounded-full ring-1 ring-black/5"
+                        style={{ background: `linear-gradient(to right, ${gradient})` }}
+                    >
+                        {markers.map((m) => (
+                            <div
+                                key={`${m.kind}-${m.position}`}
+                                className="absolute top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+                                style={{ left: `${m.position}%` }}
+                            >
+                                <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[9px] text-neutral-600 shadow ring-1 ring-black/5">
+                                    <i
+                                        className={
+                                            m.kind === 'sunrise'
+                                                ? 'fa-solid fa-sun text-amber-500'
+                                                : 'fa-solid fa-moon text-indigo-400'
+                                        }
+                                        aria-hidden="true"
+                                    />
+                                </span>
+                                <span className="mt-1 whitespace-nowrap text-[10px] font-medium text-neutral-400">
+                                    {m.time}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
                 {tiles.map((h) => {
                     const info = weatherInfo(h.code, h.hour >= 6 && h.hour < 20)

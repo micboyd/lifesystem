@@ -736,6 +736,93 @@ export function wearInputForHours(slots: HourlySlot[]): WearInput | null {
     }
 }
 
+// ── Daylight ribbon ───────────────────────────────────────────────────────────
+
+/** Sky colours for the daylight ribbon, blended left-to-right by linear-gradient. */
+const SKY_COLORS = {
+    night: '#1e293b', // slate-800
+    dawn: '#fbbf24', // amber-400 — morning gold
+    day: '#38bdf8', // sky-400
+    dusk: '#fb7185', // rose-400 — evening glow
+} as const
+
+/** "…T04:35" → 4.583 (decimal hours), or null when unparseable. */
+function timeToDecimalHours(iso?: string): number | null {
+    if (!iso || !iso.includes('T')) return null
+    const [h, m] = iso.split('T')[1].split(':')
+    const hours = Number(h) + Number(m) / 60
+    return Number.isFinite(hours) ? hours : null
+}
+
+/** The sky's colour at a given hour, given that day's sunrise/sunset (decimal hours). */
+function skyColorAt(hour: number, sunrise: number | null, sunset: number | null): string {
+    if (sunrise == null || sunset == null) return SKY_COLORS.day
+    const twilight = 1 // hours either side of sunrise/sunset that count as transition
+    if (hour <= sunrise - twilight || hour >= sunset + twilight) return SKY_COLORS.night
+    if (hour >= sunrise + twilight && hour <= sunset - twilight) return SKY_COLORS.day
+    // In a transition band — colour by whichever edge is nearer.
+    return Math.abs(hour - sunrise) <= Math.abs(hour - sunset) ? SKY_COLORS.dawn : SKY_COLORS.dusk
+}
+
+export interface DaylightRibbon {
+    /** Colour-stop list for `linear-gradient(to right, …)`. Empty when unavailable. */
+    gradient: string
+    /** Sunrise/sunset moments that fall inside the window, positioned 0–100%. */
+    markers: Array<{ kind: 'sunrise' | 'sunset'; time: string; position: number }>
+}
+
+/**
+ * Builds a left-to-right daylight gradient across a run of consecutive hourly
+ * slots, plus any sunrise/sunset markers landing inside that window. Each hour is
+ * coloured from its own day's sun times, so a window spanning midnight still
+ * reads correctly.
+ */
+export function daylightRibbon(forecast: Forecast, hours: HourlySlot[]): DaylightRibbon {
+    if (hours.length < 2) return { gradient: '', markers: [] }
+
+    const dayIndex = new Map(forecast.daily.map((d, i) => [d.date, i]))
+    const ordinal = (date: string, hour: number) => (dayIndex.get(date) ?? 0) * 24 + hour
+    const sun = new Map(
+        forecast.daily.map((d) => [
+            d.date,
+            { sr: timeToDecimalHours(d.sunrise), ss: timeToDecimalHours(d.sunset) },
+        ])
+    )
+
+    const first = ordinal(hours[0].date, hours[0].hour)
+    const last = ordinal(hours[hours.length - 1].date, hours[hours.length - 1].hour)
+    const span = last - first || 1
+
+    const gradient = hours
+        .map((h, i) => {
+            const s = sun.get(h.date)
+            const color = skyColorAt(h.hour, s?.sr ?? null, s?.ss ?? null)
+            return `${color} ${Math.round((i / (hours.length - 1)) * 100)}%`
+        })
+        .join(', ')
+
+    const markers: DaylightRibbon['markers'] = []
+    for (const d of forecast.daily) {
+        const s = sun.get(d.date)
+        if (!s) continue
+        for (const [kind, dec, iso] of [
+            ['sunrise', s.sr, d.sunrise],
+            ['sunset', s.ss, d.sunset],
+        ] as const) {
+            if (dec == null) continue
+            const ord = (dayIndex.get(d.date) ?? 0) * 24 + dec
+            if (ord < first || ord > last) continue
+            markers.push({
+                kind,
+                time: iso && iso.includes('T') ? iso.split('T')[1].slice(0, 5) : '',
+                position: Math.round(((ord - first) / span) * 100),
+            })
+        }
+    }
+
+    return { gradient, markers }
+}
+
 /** Compact clock label for an hour-of-day, e.g. 0 → "12am", 14 → "2pm". */
 export function hourLabel(hour: number): string {
     const h = ((hour % 24) + 24) % 24
