@@ -332,7 +332,7 @@ export function dayCondition(day: DailyForecast, hourly: HourlySlot[]): number {
     return day.code
 }
 
-interface WearInput {
+export interface WearInput {
     tempMax: number
     tempMin: number
     code: number
@@ -705,6 +705,43 @@ export function planningInsight(hourly: HourlySlot[]): string {
     }
 
     return 'Mixed conditions — keep an eye on the forecast'
+}
+
+/**
+ * Hourly slots strictly after `now`, in chronological order across every fetched
+ * day. `now` is assumed to fall on the first daily entry (today), matching how
+ * the forecast is built.
+ */
+export function upcomingHours(forecast: Forecast, now: Date = new Date()): HourlySlot[] {
+    const days = forecast.daily
+    if (days.length === 0) return []
+    const dayIndex = new Map(days.map((d, i) => [d.date, i]))
+    const ordinal = (date: string, hour: number) => (dayIndex.get(date) ?? 0) * 24 + hour
+    const nowOrdinal = now.getHours() // today is day 0
+    const all = days.flatMap((d) => forecast.hourlyByDate[d.date] ?? [])
+    return all
+        .filter((h) => ordinal(h.date, h.hour) > nowOrdinal)
+        .sort((a, b) => ordinal(a.date, a.hour) - ordinal(b.date, b.hour))
+}
+
+/** Collapses a run of hourly slots into a single `whatToWear` input. */
+export function wearInputForHours(slots: HourlySlot[]): WearInput | null {
+    if (slots.length === 0) return null
+    return {
+        tempMax: Math.max(...slots.map((s) => s.temperature)),
+        tempMin: Math.min(...slots.map((s) => s.temperature)),
+        code: representativeCode(slots),
+        precipitationProbability: Math.max(...slots.map((s) => s.precipitationProbability)),
+        windMax: Math.max(...slots.map((s) => s.windGust)),
+    }
+}
+
+/** Compact clock label for an hour-of-day, e.g. 0 → "12am", 14 → "2pm". */
+export function hourLabel(hour: number): string {
+    const h = ((hour % 24) + 24) % 24
+    if (h === 0) return '12am'
+    if (h === 12) return '12pm'
+    return h < 12 ? `${h}am` : `${h - 12}pm`
 }
 
 /** "Today", "Tomorrow", else a short weekday like "Thu". */

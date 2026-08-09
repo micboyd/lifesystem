@@ -16,8 +16,12 @@ import {
     whatToWear,
     dayLabel,
     dayCondition,
+    upcomingHours,
+    wearInputForHours,
+    hourLabel,
     type Forecast,
     type GeocodeResult,
+    type HourlySlot,
 } from '../lib/weather'
 import type { WeatherLocation } from '../types'
 
@@ -241,7 +245,7 @@ export default function Weather() {
             <header className="mb-8">
                 <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Weather</h1>
                 <p className="mt-1 text-sm text-neutral-500">
-                    Your forecast and what to wear over the next few days
+                    Today's conditions, the next 12 hours, and what to wear
                 </p>
             </header>
 
@@ -292,41 +296,53 @@ export default function Weather() {
                                         <span className="mt-1 text-2xl font-semibold text-neutral-400">°C</span>
                                     </div>
                                     <p className="text-sm font-medium text-neutral-600">
-                                        {weatherInfo(current.code, current.isDay).label} · feels like{' '}
-                                        {current.apparentTemperature}°
+                                        {weatherInfo(current.code, current.isDay).label}
                                     </p>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
+                                <Stat
+                                    icon="fa-solid fa-temperature-half"
+                                    label="High / Low"
+                                    value={`${todayDay.tempMax}° / ${todayDay.tempMin}°`}
+                                />
+                                <Stat
+                                    icon="fa-solid fa-hand-holding-droplet"
+                                    label="Feels like"
+                                    value={`${current.apparentTemperature}°`}
+                                />
+                                <Stat
+                                    icon="fa-solid fa-umbrella"
+                                    label="Rain today"
+                                    value={`${todayDay.precipitationProbability}%`}
+                                />
+                                <Stat
+                                    icon="fa-solid fa-sun"
+                                    label="UV index"
+                                    value={todayDay.uvIndexMax != null ? String(Math.round(todayDay.uvIndexMax)) : '—'}
+                                />
                                 <Stat icon="fa-solid fa-droplet" label="Humidity" value={`${current.humidity}%`} />
                                 <Stat icon="fa-solid fa-wind" label="Wind" value={`${current.windSpeed} mph`} />
                                 <Stat icon="fa-solid fa-arrow-up" label="Sunrise" value={formatTime(todayDay.sunrise)} />
                                 <Stat icon="fa-solid fa-arrow-down" label="Sunset" value={formatTime(todayDay.sunset)} />
                             </div>
                         </div>
-
-                        {/* What to wear today */}
-                        <div className="mt-6 flex items-start gap-3 rounded-2xl bg-neutral-50 px-4 py-3.5">
-                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-neutral-500">
-                                <i className="fa-solid fa-shirt" aria-hidden="true" />
-                            </span>
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                    What to wear today
-                                </p>
-                                <p className="mt-0.5 text-sm text-neutral-700">{whatToWear(todayDay)}</p>
-                            </div>
-                        </div>
                     </Card>
+
+                    {/* Next 12 hours */}
+                    <HourlyStrip forecast={forecast} />
+
+                    {/* What to wear over the next 12 hours */}
+                    <ClothingOutlook forecast={forecast} />
 
                     {/* Forecast */}
                     <div>
                         <p className="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-400">
-                            Next few days
+                            Next 5 days
                         </p>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            {forecast.daily.slice(0, 5).map((d) => {
+                            {forecast.daily.slice(1, 6).map((d) => {
                                 const info = weatherInfo(dayCondition(d, forecast.hourlyByDate[d.date] ?? []))
                                 return (
                                     <Card key={d.date}>
@@ -375,6 +391,92 @@ export default function Weather() {
                 </div>
             )}
         </Container>
+    )
+}
+
+/** Six tiles covering the next ~12 hours, two hours apart. */
+function HourlyStrip({ forecast }: { forecast: Forecast }) {
+    const upcoming = upcomingHours(forecast)
+    // The coming hour, then every second hour after it → 6 tiles over ~12 hours.
+    const tiles = Array.from({ length: 6 }, (_, i) => upcoming[i * 2]).filter(
+        (h): h is HourlySlot => Boolean(h)
+    )
+    if (tiles.length === 0) return null
+
+    return (
+        <div>
+            <p className="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-400">
+                Next 12 hours
+            </p>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+                {tiles.map((h) => {
+                    const info = weatherInfo(h.code, h.hour >= 6 && h.hour < 20)
+                    return (
+                        <Card key={`${h.date}-${h.hour}`} className="!p-4">
+                            <div className="flex flex-col items-center gap-2 text-center">
+                                <p className="text-xs font-semibold text-neutral-500">{hourLabel(h.hour)}</p>
+                                <i className={`${info.icon} text-2xl text-sky-500`} aria-hidden="true" />
+                                <p className="text-lg font-bold text-neutral-900">{h.temperature}°</p>
+                                <p
+                                    className={`text-xs ${
+                                        h.precipitationProbability >= 40 ? 'text-sky-600' : 'text-neutral-400'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-droplet mr-1" aria-hidden="true" />
+                                    {h.precipitationProbability}%
+                                </p>
+                            </div>
+                        </Card>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
+/** What to wear across the next 12 hours, split into two six-hour bands. */
+function ClothingOutlook({ forecast }: { forecast: Forecast }) {
+    const upcoming = upcomingHours(forecast)
+    const bands = [
+        { key: 'first', title: 'Next 6 hours', slots: upcoming.slice(0, 6) },
+        { key: 'second', title: 'Following 6 hours', slots: upcoming.slice(6, 12) },
+    ].filter((b) => b.slots.length > 0)
+    if (bands.length === 0) return null
+
+    return (
+        <div>
+            <p className="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-400">
+                What to wear
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+                {bands.map(({ key, title, slots }) => {
+                    const wear = wearInputForHours(slots)
+                    if (!wear) return null
+                    const first = slots[0]
+                    const last = slots[slots.length - 1]
+                    const info = weatherInfo(wear.code)
+                    return (
+                        <Card key={key}>
+                            <div className="flex items-center gap-4">
+                                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-neutral-50 text-2xl text-neutral-500">
+                                    <i className="fa-solid fa-shirt" aria-hidden="true" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-bold text-neutral-900">{title}</p>
+                                    <p className="text-xs text-neutral-400">
+                                        {hourLabel(first.hour)}–{hourLabel(last.hour + 1)} · {info.label} ·{' '}
+                                        {wear.tempMin}°–{wear.tempMax}°
+                                    </p>
+                                </div>
+                            </div>
+                            <p className="mt-4 border-t border-neutral-100 pt-4 text-sm text-neutral-700">
+                                {whatToWear(wear)}
+                            </p>
+                        </Card>
+                    )
+                })}
+            </div>
+        </div>
     )
 }
 
