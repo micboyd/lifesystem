@@ -16,6 +16,7 @@ import ConditioningSession, {
 } from '../models/ConditioningSession'
 import Mobility from '../models/Mobility'
 import Recovery from '../models/Recovery'
+import { toSessionParts } from '../lib/sessionParts'
 import {
     ScheduleBuilder,
     applyOverrides,
@@ -75,24 +76,6 @@ function toPart(raw: unknown, kind: FitnessPlanKind): FitnessPlanPart {
     return FITNESS_PLAN_PARTS.includes(raw as FitnessPlanPart)
         ? (raw as FitnessPlanPart)
         : DEFAULT_PART[kind]
-}
-
-/** Session parts, reusing the conditioning shape (name + detail + optional rounds). */
-function toParts(raw: unknown) {
-    return arr(raw)
-        .map((p) => {
-            const name = str(p.name)
-            if (!name) return null
-            const rounds =
-                typeof p.rounds === 'number' && p.rounds >= 1 ? Math.floor(p.rounds) : undefined
-            return {
-                name,
-                detail: str(p.detail),
-                rounds,
-                roundLabel: rounds ? str(p.roundLabel) : undefined,
-            }
-        })
-        .filter((p): p is NonNullable<typeof p> => p !== null)
 }
 
 // ─── Library reconciliation ─────────────────────────────────────────────────────
@@ -285,7 +268,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
             ? (s.category as ConditioningCategory)
             : CONDITIONING_CATEGORIES[0],
         purpose: str(s.purpose),
-        parts: toParts(s.parts),
+        parts: toSessionParts(s.parts),
         howToUse: str(s.howToUse),
     })
     const runSpecs = toSpecs(runPlan, sessionFields)
@@ -296,7 +279,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
     const mobilitySpecs = toSpecs(arr(mobilityDoc.library), (m) => ({
         duration: num(m.duration) ?? 0,
         purpose: str(m.purpose),
-        parts: toParts(m.parts),
+        parts: toSessionParts(m.parts),
         howToUse: str(m.howToUse),
     }))
     const mobility = await ensureLibrary(Mobility, userId, mobilitySpecs)

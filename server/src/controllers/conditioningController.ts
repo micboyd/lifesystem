@@ -3,12 +3,12 @@ import { AuthRequest } from '../middleware/auth'
 import ConditioningSession, {
     CONDITIONING_CATEGORIES,
     ConditioningCategory,
-    ISessionPart,
 } from '../models/ConditioningSession'
 import ConditioningLog from '../models/ConditioningLog'
 import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
 import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
 import { parsePlacements, placeOnPlan, PlanEntrySpec } from '../lib/planPlacement'
+import { toSessionParts } from '../lib/sessionParts'
 
 /** GET /api/conditioning/import/last — summarise the most recent import batch. */
 export const lastImport = makeLastImportHandler(ConditioningSession)
@@ -26,46 +26,6 @@ function toCategory(raw: unknown): ConditioningCategory {
     return CONDITIONING_CATEGORIES.includes(raw as ConditioningCategory)
         ? (raw as ConditioningCategory)
         : CONDITIONING_CATEGORIES[0]
-}
-
-/** Normalise the parts array, dropping entries without a name. */
-function toParts(raw: unknown): ISessionPart[] {
-    if (!Array.isArray(raw)) return []
-    const out: ISessionPart[] = []
-    for (const raw_item of raw) {
-        if (!raw_item || typeof raw_item !== 'object') continue
-        const item = raw_item as Record<string, unknown>
-        const name = typeof item.name === 'string' ? item.name.trim() : ''
-        if (!name) continue
-        const detail = typeof item.detail === 'string' ? item.detail.trim() || undefined : undefined
-        const roundsRaw = typeof item.rounds === 'number' ? Math.floor(item.rounds) : NaN
-        const rounds = Number.isFinite(roundsRaw) && roundsRaw >= 1 ? roundsRaw : undefined
-        const roundLabel =
-            rounds && typeof item.roundLabel === 'string' ? item.roundLabel.trim() || undefined : undefined
-        const roundDetails =
-            rounds && Array.isArray(item.roundDetails)
-                ? item.roundDetails.map((d) => (typeof d === 'string' ? d.trim() : '')).filter(Boolean)
-                : undefined
-        const roundSeconds =
-            rounds && Array.isArray(item.roundSeconds)
-                ? item.roundSeconds
-                      .map((n) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.round(n) : 0))
-                      .filter((n) => n > 0)
-                : undefined
-        const startRaw = typeof item.startAtSec === 'number' ? item.startAtSec : NaN
-        const startAtSec =
-            rounds && Number.isFinite(startRaw) && startRaw >= 0 ? Math.round(startRaw) : undefined
-        out.push({
-            name,
-            detail,
-            rounds,
-            roundLabel,
-            roundDetails: roundDetails && roundDetails.length ? roundDetails : undefined,
-            roundSeconds: roundSeconds && roundSeconds.length ? roundSeconds : undefined,
-            startAtSec,
-        })
-    }
-    return out
 }
 
 /** GET /api/conditioning — list the user's sessions in library order. */
@@ -91,7 +51,7 @@ export async function createSession(req: AuthRequest, res: Response) {
         duration: toAmount(req.body.duration),
         category: toCategory(req.body.category),
         purpose: typeof req.body.purpose === 'string' ? req.body.purpose.trim() || undefined : undefined,
-        parts: toParts(req.body.parts),
+        parts: toSessionParts(req.body.parts),
         howToUse: typeof req.body.howToUse === 'string' ? req.body.howToUse.trim() || undefined : undefined,
         order,
     })
@@ -106,7 +66,7 @@ export async function updateSession(req: AuthRequest, res: Response) {
     if (b.duration !== undefined) fields.duration = toAmount(b.duration)
     if (b.category !== undefined) fields.category = toCategory(b.category)
     if (typeof b.purpose === 'string') fields.purpose = b.purpose.trim() || undefined
-    if (Array.isArray(b.parts)) fields.parts = toParts(b.parts)
+    if (Array.isArray(b.parts)) fields.parts = toSessionParts(b.parts)
     if (typeof b.howToUse === 'string') fields.howToUse = b.howToUse.trim() || undefined
     if (typeof b.order === 'number') fields.order = b.order
 
@@ -167,7 +127,7 @@ export async function importSessions(req: AuthRequest, res: Response) {
             duration: toAmount(item.duration),
             category: toCategory(item.category),
             purpose: typeof item.purpose === 'string' ? item.purpose.trim() || undefined : undefined,
-            parts: toParts(item.parts),
+            parts: toSessionParts(item.parts),
             howToUse: typeof item.howToUse === 'string' ? item.howToUse.trim() || undefined : undefined,
         }
     })

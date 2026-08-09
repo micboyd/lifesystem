@@ -516,7 +516,9 @@
                         "name": "Main set",
                         "detail": "6 x 2 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.40 km.",
                         "rounds": 6,
-                        "roundLabel": "jog/walk"
+                        "roundLabel": "jog/walk",
+                        "roundSeconds": [240, 240, 240, 240, 240, 240],
+                        "startAtSec": 420
                     },
                     {
                         "name": "Cool-down",
@@ -539,7 +541,9 @@
                         "name": "Main set",
                         "detail": "6 x 2 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.40 km.",
                         "rounds": 6,
-                        "roundLabel": "jog/walk"
+                        "roundLabel": "jog/walk",
+                        "roundSeconds": [240, 240, 240, 240, 240, 240],
+                        "startAtSec": 420
                     },
                     {
                         "name": "Cool-down",
@@ -562,7 +566,9 @@
                         "name": "Main set",
                         "detail": "6 x 2 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.40 km.",
                         "rounds": 6,
-                        "roundLabel": "jog/walk"
+                        "roundLabel": "jog/walk",
+                        "roundSeconds": [240, 240, 240, 240, 240, 240],
+                        "startAtSec": 420
                     },
                     {
                         "name": "Cool-down",
@@ -585,7 +591,9 @@
                         "name": "Main set",
                         "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.75 km.",
                         "rounds": 5,
-                        "roundLabel": "jog/walk"
+                        "roundLabel": "jog/walk",
+                        "roundSeconds": [300, 300, 300, 300, 300],
+                        "startAtSec": 420
                     },
                     {
                         "name": "Cool-down",
@@ -608,7 +616,9 @@
                         "name": "Main set",
                         "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.75 km.",
                         "rounds": 5,
-                        "roundLabel": "jog/walk"
+                        "roundLabel": "jog/walk",
+                        "roundSeconds": [300, 300, 300, 300, 300],
+                        "startAtSec": 420
                     },
                     {
                         "name": "Cool-down",
@@ -631,7 +641,9 @@
                         "name": "Main set",
                         "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.75 km.",
                         "rounds": 5,
-                        "roundLabel": "jog/walk"
+                        "roundLabel": "jog/walk",
+                        "roundSeconds": [300, 300, 300, 300, 300],
+                        "startAtSec": 420
                     },
                     {
                         "name": "Cool-down",
@@ -654,7 +666,9 @@
                         "name": "Main set",
                         "detail": "4 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.87 km.",
                         "rounds": 4,
-                        "roundLabel": "jog/walk"
+                        "roundLabel": "jog/walk",
+                        "roundSeconds": [360, 360, 360, 360],
+                        "startAtSec": 420
                     },
                     {
                         "name": "Cool-down",
@@ -677,7 +691,9 @@
                         "name": "Main set",
                         "detail": "4 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.87 km.",
                         "rounds": 4,
-                        "roundLabel": "jog/walk"
+                        "roundLabel": "jog/walk",
+                        "roundSeconds": [360, 360, 360, 360],
+                        "startAtSec": 420
                     },
                     {
                         "name": "Cool-down",
@@ -700,7 +716,9 @@
                         "name": "Main set",
                         "detail": "5 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 2.33 km.",
                         "rounds": 5,
-                        "roundLabel": "jog/walk"
+                        "roundLabel": "jog/walk",
+                        "roundSeconds": [360, 360, 360, 360, 360],
+                        "startAtSec": 420
                     },
                     {
                         "name": "Cool-down",
@@ -1415,7 +1433,9 @@
                         "name": "Main set",
                         "detail": "5 x 90 sec at a controlled faster pace of roughly 7:40-8:00 min/km. Recover with 2 min very easy jogging or walking after each effort.",
                         "rounds": 5,
-                        "roundLabel": "faster/easy"
+                        "roundLabel": "faster/easy",
+                        "roundSeconds": [210, 210, 210, 210, 210],
+                        "startAtSec": 600
                     },
                     {
                         "name": "Cool-down",
@@ -1480,7 +1500,9 @@
                         "name": "Main set",
                         "detail": "6 x 2 min at roughly 7:30-7:50 min/km. Recover with 2 min easy jogging or walking after each repetition.",
                         "rounds": 6,
-                        "roundLabel": "rep"
+                        "roundLabel": "rep",
+                        "roundSeconds": [240, 240, 240, 240, 240, 240],
+                        "startAtSec": 640
                     },
                     {
                         "name": "Cool-down",
@@ -1545,7 +1567,9 @@
                         "name": "Main set",
                         "detail": "3 x 5 min at controlled tempo effort, approximately 7:30-7:50 min/km. Take 3 min easy jogging between repetitions.",
                         "rounds": 3,
-                        "roundLabel": "tempo"
+                        "roundLabel": "tempo",
+                        "roundSeconds": [480, 480, 480],
+                        "startAtSec": 660
                     },
                     {
                         "name": "Cool-down",
@@ -1610,7 +1634,9 @@
                         "name": "Main set",
                         "detail": "6 x 1 min at approximately 7:15-7:35 min/km with 2 min easy jogging between repetitions.",
                         "rounds": 6,
-                        "roundLabel": "fast/easy"
+                        "roundLabel": "fast/easy",
+                        "roundSeconds": [180, 180, 180, 180, 180, 180],
+                        "startAtSec": 660
                     },
                     {
                         "name": "Cool-down",
@@ -1675,7 +1701,9 @@
                         "name": "Main set",
                         "detail": "4 x 5 min at approximately 7:25-7:45 min/km with 2 min 30 sec easy jogging between repetitions.",
                         "rounds": 4,
-                        "roundLabel": "tempo"
+                        "roundLabel": "tempo",
+                        "roundSeconds": [450, 450, 450, 450],
+                        "startAtSec": 660
                     },
                     {
                         "name": "Cool-down",
@@ -1803,7 +1831,9 @@
                         "name": "Main set",
                         "detail": "5 x 3 min at approximately 7:15-7:35 min/km with 2 min easy jogging between repetitions.",
                         "rounds": 5,
-                        "roundLabel": "threshold"
+                        "roundLabel": "threshold",
+                        "roundSeconds": [300, 300, 300, 300, 300],
+                        "startAtSec": 780
                     },
                     {
                         "name": "Cool-down",
@@ -1868,7 +1898,9 @@
                         "name": "Main set",
                         "detail": "8 x 1 min at approximately 7:05-7:25 min/km with 90 sec very easy jogging between repetitions.",
                         "rounds": 8,
-                        "roundLabel": "fast/easy"
+                        "roundLabel": "fast/easy",
+                        "roundSeconds": [150, 150, 150, 150, 150, 150, 150, 150],
+                        "startAtSec": 780
                     },
                     {
                         "name": "Cool-down",
@@ -1933,7 +1965,9 @@
                         "name": "Main set",
                         "detail": "3 x 8 min at approximately 7:20-7:40 min/km with 3 min easy jogging between repetitions.",
                         "rounds": 3,
-                        "roundLabel": "tempo"
+                        "roundLabel": "tempo",
+                        "roundSeconds": [660, 660, 660],
+                        "startAtSec": 780
                     },
                     {
                         "name": "Cool-down",
@@ -1998,7 +2032,9 @@
                         "name": "Main set",
                         "detail": "6 x 3 min at approximately 7:10-7:30 min/km with 2 min easy jogging between repetitions.",
                         "rounds": 6,
-                        "roundLabel": "threshold"
+                        "roundLabel": "threshold",
+                        "roundSeconds": [300, 300, 300, 300, 300, 300],
+                        "startAtSec": 820
                     },
                     {
                         "name": "Cool-down",
@@ -2195,7 +2231,9 @@
                         "name": "Main set",
                         "detail": "8 x 30 sec hard at RPE 8-9 followed by 90 sec very easy. Keep output repeatable rather than sprinting the first rep all-out.",
                         "rounds": 8,
-                        "roundLabel": "hard/easy"
+                        "roundLabel": "hard/easy",
+                        "roundSeconds": [120, 120, 120, 120, 120, 120, 120, 120],
+                        "startAtSec": 480
                     },
                     {
                         "name": "Cool-down",
