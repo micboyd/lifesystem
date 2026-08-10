@@ -5,6 +5,7 @@ import Modal from '../components/Modal'
 import Drawer from '../components/Drawer'
 import Button from '../components/Button'
 import DropdownMenu, { type MenuEntry } from '../components/DropdownMenu'
+import Tabs from '../components/Tabs'
 import { Card } from '../components/Card'
 import {
     listRows,
@@ -912,6 +913,8 @@ interface AllTransactionsDrawerProps {
     onDeleteTopUp: (id: string) => Promise<void>
 }
 
+const ADJUSTMENTS_TAB = 'Adjustments'
+
 function AllTransactionsDrawer({ row, month, spends, topUps, onClose, onDelete, onDeleteTopUp }: AllTransactionsDrawerProps) {
     const weeks = groupSpendsByWeek(month, spends)
     const bounds = monthWeekBounds(month)
@@ -923,99 +926,104 @@ function AllTransactionsDrawer({ row, month, spends, topUps, onClose, onDelete, 
     // here — they're history, not a live action. Newest first.
     const adjustments = [...topUps].sort((a, b) => b.date.localeCompare(a.date))
 
+    // One tab per week in the month, so weeks with nothing logged are still
+    // reachable rather than silently missing.
+    const daysByWeek = new Map(weeks.map((w) => [w.weekNum, w.days]))
+    const weekTabs = Array.from({ length: weeksInMonth(month) }, (_, i) => `Week ${i + 1}`)
+    const tabs = adjustments.length > 0 ? [...weekTabs, ADJUSTMENTS_TAB] : weekTabs
+
+    // Land on the week we're currently in when viewing this month; otherwise week 1.
+    const today = todayKey()
+    const [tab, setTab] = useState(
+        today.slice(0, 7) === month ? `Week ${weekNumberInMonth(today)}` : weekTabs[0]
+    )
+    // The Adjustments tab disappears once the last adjustment is deleted.
+    const active = tabs.includes(tab) ? tab : weekTabs[0]
+
+    const activeWeekNum = active === ADJUSTMENTS_TAB ? null : weekTabs.indexOf(active) + 1
+    const activeDays = activeWeekNum === null ? [] : daysByWeek.get(activeWeekNum) ?? []
+    const range = activeWeekNum === null ? undefined : bounds.get(activeWeekNum)
+    const weekTotal = activeDays.reduce((s, d) => s + d.items.reduce((s2, t) => s2 + t.amount, 0), 0)
+
     return (
-        <Drawer open onClose={onClose} title={row.name} badge={`£${fmt(monthTotal)}`} size="md">
-            {adjustments.length > 0 && (
-                <div className="mb-6">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                        Adjustments
-                    </p>
-                    <ul className="flex flex-col gap-1.5">
-                        {adjustments.map((t) => {
-                            const isRefill = t.kind === 'refill'
-                            const isWithdrawal = t.kind === 'withdrawal'
-                            const title = t.note
-                                ? t.note
-                                : isRefill
-                                    ? 'Refill from day-off pot'
-                                    : isWithdrawal
-                                        ? 'Withdrawn for something else'
-                                        : 'Top up'
-                            return (
-                                <LedgerRow
-                                    key={t._id}
-                                    title={title}
-                                    date={t.date}
-                                    caption={isRefill ? 'into space, not budget' : isWithdrawal ? 'out of budget' : 'added to budget'}
-                                    amount={t.amount}
-                                    sign={isWithdrawal ? '−' : '+'}
-                                    onDelete={() => onDeleteTopUp(t._id)}
-                                    deleteLabel={isRefill ? 'Remove refill' : isWithdrawal ? 'Remove withdrawal' : 'Remove top-up'}
-                                />
-                            )
-                        })}
-                    </ul>
-                </div>
-            )}
-            {weeks.length === 0 ? (
-                <p className="text-sm text-neutral-500">No transactions logged this month.</p>
-            ) : (
-                <div className="flex flex-col gap-6">
-                    {weeks.map(({ weekNum, days }) => {
-                        const range = bounds.get(weekNum)
-                        const weekTotal = days.reduce(
-                            (s, d) => s + d.items.reduce((s2, t) => s2 + t.amount, 0),
-                            0
-                        )
+        <Drawer open onClose={onClose} title={row.name} badge={`£${fmt(monthTotal)}`} size="2xl">
+            <Tabs tabs={tabs} value={active} onChange={setTab} className="mb-5" />
+
+            {active === ADJUSTMENTS_TAB ? (
+                <ul className="flex flex-col gap-1.5">
+                    {adjustments.map((t) => {
+                        const isRefill = t.kind === 'refill'
+                        const isWithdrawal = t.kind === 'withdrawal'
+                        const title = t.note
+                            ? t.note
+                            : isRefill
+                                ? 'Refill from day-off pot'
+                                : isWithdrawal
+                                    ? 'Withdrawn for something else'
+                                    : 'Top up'
                         return (
-                            <div key={weekNum}>
-                                <div className="mb-3 flex items-baseline justify-between gap-2">
-                                    <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                                        Week {weekNum}
-                                        {range ? ` · ${formatDateRange(range.start, range.end)}` : ''}
-                                    </span>
-                                    <span className="text-xs font-semibold tabular-nums text-neutral-500">
-                                        £{fmt(weekTotal)}
-                                    </span>
-                                </div>
-                                <div className="flex flex-col gap-4">
-                                    {days.map(({ date, items }) => (
-                                        <div key={date}>
-                                            <p className="mb-1.5 text-sm font-semibold text-neutral-700">
-                                                {formatDayHeader(date)}
-                                            </p>
-                                            <ul className="flex flex-col gap-1.5">
-                                                {items.map((t) => (
-                                                    <li
-                                                        key={t._id}
-                                                        className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3.5 py-2.5"
-                                                    >
-                                                        <p className="min-w-0 truncate text-sm font-semibold text-neutral-800">
-                                                            {t.note || row.name}
-                                                        </p>
-                                                        <div className="flex shrink-0 items-center gap-2">
-                                                            <span className="text-sm tabular-nums text-neutral-700">
-                                                                £{fmt(t.amount)}
-                                                            </span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => onDelete(t._id)}
-                                                                aria-label="Delete transaction"
-                                                                className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                                                            >
-                                                                <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                                                            </button>
-                                                        </div>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                            <LedgerRow
+                                key={t._id}
+                                title={title}
+                                date={t.date}
+                                caption={isRefill ? 'into space, not budget' : isWithdrawal ? 'out of budget' : 'added to budget'}
+                                amount={t.amount}
+                                sign={isWithdrawal ? '−' : '+'}
+                                onDelete={() => onDeleteTopUp(t._id)}
+                                deleteLabel={isRefill ? 'Remove refill' : isWithdrawal ? 'Remove withdrawal' : 'Remove top-up'}
+                            />
                         )
                     })}
-                </div>
+                </ul>
+            ) : (
+                <>
+                    <div className="mb-3 flex items-baseline justify-between gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                            {range ? formatDateRange(range.start, range.end) : ''}
+                        </span>
+                        <span className="text-xs font-semibold tabular-nums text-neutral-500">
+                            £{fmt(weekTotal)}
+                        </span>
+                    </div>
+                    {activeDays.length === 0 ? (
+                        <p className="text-sm text-neutral-500">No transactions logged this week.</p>
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            {activeDays.map(({ date, items }) => (
+                                <div key={date}>
+                                    <p className="mb-1.5 text-sm font-semibold text-neutral-700">
+                                        {formatDayHeader(date)}
+                                    </p>
+                                    <ul className="flex flex-col gap-1.5">
+                                        {items.map((t) => (
+                                            <li
+                                                key={t._id}
+                                                className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-3.5 py-2.5"
+                                            >
+                                                <p className="min-w-0 truncate text-sm font-semibold text-neutral-800">
+                                                    {t.note || row.name}
+                                                </p>
+                                                <div className="flex shrink-0 items-center gap-2">
+                                                    <span className="text-sm tabular-nums text-neutral-700">
+                                                        £{fmt(t.amount)}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onDelete(t._id)}
+                                                        aria-label="Delete transaction"
+                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                                    >
+                                                        <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                                    </button>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
         </Drawer>
     )
