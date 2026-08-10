@@ -908,6 +908,7 @@ interface AllTransactionsDrawerProps {
     month: string
     spends: BudgetSpend[]
     topUps: BudgetTopUp[]
+    excludedDates: Set<string>
     onClose: () => void
     onDelete: (id: string) => Promise<void>
     onDeleteTopUp: (id: string) => Promise<void>
@@ -915,7 +916,7 @@ interface AllTransactionsDrawerProps {
 
 const ADJUSTMENTS_TAB = 'Adjustments'
 
-function AllTransactionsDrawer({ row, month, spends, topUps, onClose, onDelete, onDeleteTopUp }: AllTransactionsDrawerProps) {
+function AllTransactionsDrawer({ row, month, spends, topUps, excludedDates, onClose, onDelete, onDeleteTopUp }: AllTransactionsDrawerProps) {
     const weeks = groupSpendsByWeek(month, spends)
     const bounds = monthWeekBounds(month)
     const monthTotal = weeks.reduce(
@@ -944,6 +945,18 @@ function AllTransactionsDrawer({ row, month, spends, topUps, onClose, onDelete, 
     const activeDays = activeWeekNum === null ? [] : daysByWeek.get(activeWeekNum) ?? []
     const range = activeWeekNum === null ? undefined : bounds.get(activeWeekNum)
     const weekTotal = activeDays.reduce((s, d) => s + d.items.reduce((s2, t) => s2 + t.amount, 0), 0)
+
+    // Days off don't carry a budget, so a quiet week may just be an excluded one
+    // rather than a week you spent nothing in — say which.
+    let daysInWeek = 0
+    let excludedInWeek = 0
+    if (range) {
+        for (let d = range.start; d <= range.end; d = addDays(d, 1)) {
+            daysInWeek++
+            if (excludedDates.has(d)) excludedInWeek++
+        }
+    }
+    const allWeekExcluded = daysInWeek > 0 && excludedInWeek === daysInWeek
 
     return (
         <Drawer open onClose={onClose} title={row.name} badge={`£${fmt(monthTotal)}`} size="2xl">
@@ -985,8 +998,24 @@ function AllTransactionsDrawer({ row, month, spends, topUps, onClose, onDelete, 
                             £{fmt(weekTotal)}
                         </span>
                     </div>
+                    {excludedInWeek > 0 && (
+                        <div className="mb-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                            <i className="fa-solid fa-circle-info shrink-0" aria-hidden="true" />
+                            <span>
+                                {allWeekExcluded
+                                    ? 'Every day this week was excluded — no budget ran.'
+                                    : `Some days this week were excluded (${excludedInWeek} of ${daysInWeek}).`}
+                            </span>
+                        </div>
+                    )}
                     {activeDays.length === 0 ? (
-                        <p className="text-sm text-neutral-500">No transactions logged this week.</p>
+                        <p className="text-sm text-neutral-500">
+                            {allWeekExcluded
+                                ? 'Nothing to log — the whole week was a day off.'
+                                : excludedInWeek > 0
+                                    ? "No transactions logged on this week's active days."
+                                    : 'No transactions logged this week.'}
+                        </p>
                     ) : (
                         <div className="flex flex-col gap-4">
                             {activeDays.map(({ date, items }) => (
@@ -1923,6 +1952,7 @@ export default function Budgets() {
                     month={month}
                     spends={spends.filter((s) => s.row === txRow._id)}
                     topUps={topUps.filter((t) => t.row === txRow._id)}
+                    excludedDates={excludedDates}
                     onClose={() => setTxRow(null)}
                     onDelete={handleDeleteSpend}
                     onDeleteTopUp={handleDeleteTopUp}
