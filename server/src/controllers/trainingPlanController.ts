@@ -17,6 +17,7 @@ import ConditioningSession, {
 import Mobility from '../models/Mobility'
 import Recovery from '../models/Recovery'
 import { toSessionParts } from '../lib/sessionParts'
+import { buildPlanExport } from '../lib/planExport'
 import {
     ScheduleBuilder,
     applyOverrides,
@@ -563,6 +564,9 @@ export async function importPlan(req: AuthRequest, res: Response) {
         items,
         schedule: schedule.sorted(),
         overrides,
+        // Kept verbatim so exporting can hand the rows back: `overrides` above is
+        // a summary for the detail view and can't be read back into rules.
+        sourceOverrides: arr(doc.scheduleOverrides),
         warnings,
         appliedAt: null,
         order: target ? target.order : last ? last.order + 1 : 0,
@@ -648,6 +652,25 @@ export async function getPlan(req: AuthRequest, res: Response) {
         plan: plan._id,
     })
     res.json({ message: 'OK', data: { ...plan.toObject(), appliedEntries } })
+}
+
+/**
+ * GET /api/plans/:id/export — the plan as an import document.
+ *
+ * Round-trips: the result is the same shape `POST /api/plans/import` accepts, so
+ * a plan can be pulled out, edited as a whole and pasted back over itself. The
+ * library sections are rebuilt from the libraries as they stand now, so anything
+ * tuned by hand since the import comes back tuned. `warnings` lists whatever the
+ * rebuild couldn't carry across.
+ */
+export async function exportPlan(req: AuthRequest, res: Response) {
+    const plan = await TrainingPlan.findOne({ _id: req.params.id, user: req.userId })
+    if (!plan) {
+        res.status(404).json({ message: 'Plan not found' })
+        return
+    }
+    const { document, warnings } = await buildPlanExport(plan)
+    res.json({ message: 'OK', data: document, warnings })
 }
 
 /** PATCH /api/plans/:id — rename or reorder a plan. */

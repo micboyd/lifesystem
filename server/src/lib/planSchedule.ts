@@ -13,15 +13,18 @@ const DAY_MS = 86_400_000
 /** A "YYYY-MM-DD" day key. */
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-const WEEKDAYS = [
-    'sunday',
-    'monday',
-    'tuesday',
-    'wednesday',
-    'thursday',
-    'friday',
-    'saturday',
+/** Weekday names indexed 0 = Sunday, matching `Date#getUTCDay`. */
+export const WEEKDAY_NAMES = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
 ] as const
+
+const WEEKDAYS = WEEKDAY_NAMES.map((d) => d.toLowerCase())
 
 const MONTHS = [
     'january',
@@ -57,6 +60,12 @@ export function weekdayIndex(name: unknown): number | null {
     if (!key) return null
     const i = WEEKDAYS.findIndex((d) => d === key || d.startsWith(key.slice(0, 3)))
     return i === -1 ? null : i
+}
+
+/** 0 = Sunday … 6 = Saturday for a "YYYY-MM-DD" day, or null when malformed. */
+export function weekdayOf(date: string): number | null {
+    const ms = dayMs(date)
+    return Number.isFinite(ms) ? new Date(ms).getUTCDay() : null
 }
 
 /**
@@ -333,7 +342,7 @@ export interface OverrideResult {
 }
 
 /** Default slot per kind: prep, then train, then wind down. */
-const DEFAULT_PART: Record<ScheduleKind, SchedulePart> = {
+export const DEFAULT_PART: Record<ScheduleKind, SchedulePart> = {
     mobility: 'morning',
     workout: 'morning',
     conditioning: 'afternoon',

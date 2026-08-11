@@ -2,6 +2,7 @@ import { Router } from 'express'
 import {
     listPlans,
     getPlan,
+    exportPlan,
     importPlan,
     updatePlan,
     deletePlan,
@@ -18,6 +19,7 @@ router.get('/', listPlans)
 router.post('/import', importPlan)
 
 router.get('/:id', getPlan)
+router.get('/:id/export', exportPlan)
 router.patch('/:id', updatePlan)
 router.delete('/:id', deletePlan)
 router.post('/:id/apply', applyPlan)

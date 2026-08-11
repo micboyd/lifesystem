@@ -20,6 +20,7 @@ import {
     deletePlan,
     applyPlan,
     unapplyPlan,
+    exportPlan,
     type ApplyPlanOptions,
     type ApplyPlanResult,
 } from '../services/plans'
@@ -105,6 +106,7 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
     const [importing, setImporting] = useState(false)
     const [openId, setOpenId] = useState<string | null>(null)
     const [applying, setApplying] = useState<TrainingPlan | null>(null)
+    const [exporting, setExporting] = useState<TrainingPlan | null>(null)
     const [confirming, setConfirming] = useState<TrainingPlan | null>(null)
 
     async function reload() {
@@ -188,6 +190,7 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                             onOpen={() => setOpenId(plan._id)}
                             onApply={() => setApplying(plan)}
                             onUnapply={() => handleUnapply(plan)}
+                            onExport={() => setExporting(plan)}
                             onDelete={() => setConfirming(plan)}
                         />
                     ))}
@@ -198,7 +201,10 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                 planId={openId}
                 onClose={() => setOpenId(null)}
                 onApply={(plan) => setApplying(plan)}
+                onExport={(plan) => setExporting(plan)}
             />
+
+            <ExportPlanModal plan={exporting} onClose={() => setExporting(null)} />
 
             <ApplyPlanModal
                 plan={applying}
@@ -252,12 +258,14 @@ function PlanCard({
     onOpen,
     onApply,
     onUnapply,
+    onExport,
     onDelete,
 }: {
     plan: TrainingPlan
     onOpen: () => void
     onApply: () => void
     onUnapply: () => void
+    onExport: () => void
     onDelete: () => void
 }) {
     const applied = plan.appliedEntries > 0
@@ -307,6 +315,11 @@ function PlanCard({
                               ]
                             : []),
                         {
+                            label: 'Export JSON',
+                            icon: 'fa-solid fa-file-export',
+                            onClick: onExport,
+                        },
+                        {
                             label: 'Delete',
                             icon: 'fa-solid fa-trash-can',
                             danger: true,
@@ -353,10 +366,12 @@ function PlanDetailDrawer({
     planId,
     onClose,
     onApply,
+    onExport,
 }: {
     planId: string | null
     onClose: () => void
     onApply: (plan: TrainingPlan) => void
+    onExport: (plan: TrainingPlan) => void
 }) {
     const [plan, setPlan] = useState<TrainingPlan | null>(null)
 
@@ -384,15 +399,27 @@ function PlanDetailDrawer({
             title={ready ? plan.name : 'Plan'}
             footer={
                 ready && (
-                    <Button
-                        icon="fa-solid fa-calendar-plus"
-                        onClick={() => {
-                            onApply(plan)
-                            onClose()
-                        }}
-                    >
-                        Apply to planner
-                    </Button>
+                    <>
+                        <Button
+                            variant="secondary"
+                            icon="fa-solid fa-file-export"
+                            onClick={() => {
+                                onExport(plan)
+                                onClose()
+                            }}
+                        >
+                            Export JSON
+                        </Button>
+                        <Button
+                            icon="fa-solid fa-calendar-plus"
+                            onClick={() => {
+                                onApply(plan)
+                                onClose()
+                            }}
+                        >
+                            Apply to planner
+                        </Button>
+                    </>
                 )
             }
         >
@@ -788,6 +815,135 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
                 ))
             )}
         </div>
+    )
+}
+
+// ─── Export modal ───────────────────────────────────────────────────────────────
+
+/** "Winter Strength Block" → "winter-strength-block.json". */
+function fileNameFor(name: string): string {
+    const slug = name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+    return `${slug || 'training-plan'}.json`
+}
+
+function ExportPlanModal({ plan, onClose }: { plan: TrainingPlan | null; onClose: () => void }) {
+    // Keyed on the plan so re-opening on another one refetches. The modal renders
+    // nothing when closed, so unmounting costs no animation.
+    if (!plan) return null
+    return <ExportPlanBody key={plan._id} plan={plan} onClose={onClose} />
+}
+
+/**
+ * The plan rebuilt as an import document, ready to copy or save. Round-trips:
+ * pasting it back into the importer over the same plan rebuilds it, so this is
+ * how a plan gets edited as a whole rather than a session at a time.
+ */
+function ExportPlanBody({ plan, onClose }: { plan: TrainingPlan; onClose: () => void }) {
+    const toast = useToast()
+    const [json, setJson] = useState<string | null>(null)
+    const [warnings, setWarnings] = useState<string[]>([])
+    const [failed, setFailed] = useState(false)
+    const [copied, setCopied] = useState(false)
+
+    useEffect(() => {
+        let live = true
+        exportPlan(plan._id)
+            .then((result) => {
+                if (!live) return
+                setJson(JSON.stringify(result.document, null, 2))
+                setWarnings(result.warnings)
+            })
+            .catch(() => {
+                if (live) setFailed(true)
+            })
+        return () => {
+            live = false
+        }
+    }, [plan._id])
+
+    async function copy() {
+        if (!json) return
+        try {
+            await navigator.clipboard.writeText(json)
+            setCopied(true)
+            setTimeout(() => setCopied(false), 2000)
+        } catch {
+            toast.show('Could not copy to clipboard.')
+        }
+    }
+
+    function download() {
+        if (!json) return
+        const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+        const link = document.createElement('a')
+        link.href = url
+        link.download = fileNameFor(plan.name)
+        link.click()
+        URL.revokeObjectURL(url)
+    }
+
+    return (
+        <Modal
+            open
+            onClose={onClose}
+            size="lg"
+            title="Export plan"
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onClose}>
+                        Close
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        icon={copied ? 'fa-solid fa-check' : 'fa-regular fa-copy'}
+                        onClick={copy}
+                        disabled={!json}
+                    >
+                        {copied ? 'Copied' : 'Copy'}
+                    </Button>
+                    <Button icon="fa-solid fa-download" onClick={download} disabled={!json}>
+                        Download
+                    </Button>
+                </>
+            }
+        >
+            <div className="flex flex-col gap-4">
+                <p className="text-sm text-neutral-500">
+                    “{plan.name}” in the same shape the importer takes. Edit it and paste it back in
+                    — the importer offers to replace this plan rather than add a second one. The
+                    workouts, sessions and routines are written out as they stand in your libraries
+                    now, so anything you have changed since importing comes back changed.
+                </p>
+
+                {failed && <Alert variant="danger">Could not build the export.</Alert>}
+
+                {warnings.length > 0 && (
+                    <Alert variant="warning" title="Some things could not be exported">
+                        <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4">
+                            {warnings.map((w, i) => (
+                                <li key={i}>{w}</li>
+                            ))}
+                        </ul>
+                    </Alert>
+                )}
+
+                {json === null && !failed ? (
+                    <div className="grid place-items-center py-16">
+                        <Spinner />
+                    </div>
+                ) : (
+                    json !== null && (
+                        <pre className="max-h-[45vh] overflow-auto rounded-xl bg-neutral-900 p-4 text-xs leading-relaxed text-neutral-100">
+                            <code>{json}</code>
+                        </pre>
+                    )
+                )}
+            </div>
+        </Modal>
     )
 }
 

@@ -111,6 +111,13 @@ export interface ITrainingPlan extends Document {
     schedule: IPlanScheduleEntry[]
     /** Dated exceptions applied on top of the recurring week. */
     overrides: IPlanOverride[]
+    /**
+     * The `scheduleOverrides` rows exactly as the import document wrote them.
+     * `overrides` above is a summary built for display and cannot be turned back
+     * into the rules that produced it, so the raw rows are kept alongside — they
+     * are the one part of a plan that exporting could not otherwise rebuild.
+     */
+    sourceOverrides?: unknown[]
     /** Names the import could not resolve — surfaced on the plan detail view. */
     warnings: IPlanWarning[]
     /** When the plan was last pushed onto the weekly planner. */
@@ -204,6 +211,7 @@ const trainingPlanSchema = new Schema<ITrainingPlan>(
         items: { type: [planItemSchema], default: [] },
         schedule: { type: [scheduleEntrySchema], default: [] },
         overrides: { type: [overrideSchema], default: [] },
+        sourceOverrides: { type: [Schema.Types.Mixed], default: undefined },
         warnings: { type: [warningSchema], default: [] },
         appliedAt: { type: Date, default: null },
         order: { type: Number, default: 0 },

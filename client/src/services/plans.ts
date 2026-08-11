@@ -65,6 +65,24 @@ export async function importPlan(
     return { plan: res.data.data, summary: res.data.summary }
 }
 
+/** A plan rebuilt as an import document, plus whatever couldn't be carried across. */
+export interface PlanExport {
+    document: Record<string, unknown>
+    warnings: string[]
+}
+
+/**
+ * Pull a plan back out in the shape `importPlan` accepts, so it can be edited as
+ * a whole and pasted back over itself. Library sections are rebuilt from the
+ * libraries as they stand now, not as they were pasted.
+ */
+export async function exportPlan(id: string): Promise<PlanExport> {
+    const res = await api.get<ApiResponse<Record<string, unknown>> & { warnings: string[] }>(
+        `/plans/${id}/export`
+    )
+    return { document: res.data.data, warnings: res.data.warnings ?? [] }
+}
+
 export async function renamePlan(id: string, name: string): Promise<TrainingPlan> {
     const res = await api.patch<ApiResponse<TrainingPlan>>(`/plans/${id}`, { name })
     return res.data.data
