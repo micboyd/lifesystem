@@ -1161,6 +1161,32 @@ export interface DayStatus {
     status: DayStatusType
 }
 
+// ─── Month notes (flags on whole months) ──────────────────────────────────────
+
+/**
+ * A label hung on a month or a run of months — "No booze", "Cutting", "Wedding
+ * season". Months are YYYY-MM; the range is inclusive at both ends. Reuses the
+ * calendar palette so flags sit visually alongside calendar layers.
+ */
+export interface MonthNote {
+    _id: string
+    startMonth: string
+    endMonth: string
+    label: string
+    note?: string
+    color: CalendarColor
+    createdAt: string
+    updatedAt: string
+}
+
+export interface MonthNoteInput {
+    startMonth: string
+    endMonth: string
+    label: string
+    note?: string
+    color: CalendarColor
+}
+
 export const TIMEBOX_CATEGORIES = ['work', 'personal', 'health', 'learning', 'social'] as const
 export type TimeboxCategory = (typeof TIMEBOX_CATEGORIES)[number]
 

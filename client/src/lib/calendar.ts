@@ -43,6 +43,38 @@ export function dateKey(year: number, month: number, day: number) {
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
+/** "YYYY-MM" for a year and 0-based month — the key month notes are pinned to. */
+export function monthKey(year: number, month: number) {
+    return `${year}-${String(month + 1).padStart(2, '0')}`
+}
+
+/** The YYYY-MM a YYYY-MM-DD date key falls in. */
+export function monthKeyOf(date: string) {
+    return date.slice(0, 7)
+}
+
+/** Shift a YYYY-MM month key by n months. */
+export function addMonthsToKey(month: string, n: number): string {
+    const [year, m] = month.split('-').map(Number)
+    const d = new Date(year, m - 1 + n, 1)
+    return monthKey(d.getFullYear(), d.getMonth())
+}
+
+/** "June 2026" for a YYYY-MM month key. */
+export function formatMonthKey(month: string): string {
+    const [year, m] = month.split('-').map(Number)
+    return `${MONTHS[m - 1]} ${year}`
+}
+
+/** "June 2026" or "June → August 2026" for an inclusive month range. */
+export function formatMonthRange(startMonth: string, endMonth: string): string {
+    if (startMonth === endMonth) return formatMonthKey(startMonth)
+    const [sy, sm] = startMonth.split('-').map(Number)
+    const [ey] = endMonth.split('-').map(Number)
+    const start = sy === ey ? MONTHS[sm - 1] : formatMonthKey(startMonth)
+    return `${start} → ${formatMonthKey(endMonth)}`
+}
+
 export function parseDateKey(date: string) {
     const [year, month, day] = date.split('-').map(Number)
     return { year, month: month - 1, day }

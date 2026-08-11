@@ -28,6 +28,7 @@ import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
 import mobilityRoutes from './routes/mobilityRoutes'
 import mobilityLogRoutes from './routes/mobilityLogRoutes'
+import monthNoteRoutes from './routes/monthNoteRoutes'
 import noteRoutes from './routes/noteRoutes'
 import path from 'path'
 import recoveryRoutes from './routes/recoveryRoutes'
@@ -74,6 +75,7 @@ app.use('/api/events', eventRoutes)
 app.use('/api/calendars', calendarRoutes)
 app.use('/api/habits', habitRoutes)
 app.use('/api/day-status', dayStatusRoutes)
+app.use('/api/month-notes', monthNoteRoutes)
 app.use('/api/reminders', reminderRoutes)
 app.use('/api/tasks', taskRoutes)
 app.use('/api/timeboxes', timeboxRoutes)
