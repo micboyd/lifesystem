@@ -68,7 +68,9 @@ const allowedOrigins = [
 ]
 
 app.use(cors({ origin: allowedOrigins, credentials: true }))
-app.use(express.json())
+// A pasted training plan is a whole season in one document — the bundled sample
+// is already 78 kB — so the 100 kB default is far too tight for /api/plans/import.
+app.use(express.json({ limit: '5mb' }))
 
 app.use('/api/users', userRoutes)
 app.use('/api/events', eventRoutes)
@@ -110,10 +112,21 @@ app.get('/api/health', (_req, res) => {
 // Terminal error handler. Thanks to express-async-errors, rejected promises in
 // async route handlers reach here too, so a thrown DB error returns a 500
 // instead of leaving the request hanging.
+//
+// Errors raised before a route runs — body-parser rejecting an oversized or
+// malformed JSON body — carry their own status and a message meant for the
+// caller. Passing those through matters: reporting a 413 as "Something went
+// wrong" sends you hunting through a plan document for a fault that isn't there.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     console.error(err)
     if (res.headersSent) return
+    const e = err as { status?: number; statusCode?: number; expose?: boolean; message?: string }
+    const status = e?.status ?? e?.statusCode
+    if (e?.expose === true && typeof status === 'number' && status >= 400 && status < 500) {
+        res.status(status).json({ message: e.message ?? 'Bad request' })
+        return
+    }
     res.status(500).json({ message: 'Something went wrong' })
 })
 
