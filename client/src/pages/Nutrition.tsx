@@ -2223,6 +2223,9 @@ function RandomiseWeekModal({
     )
 }
 
+/** Shared column template for the weekday and weekend rows of the planner grid. */
+const WEEK_ROW_GRID = 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
+
 function WeeklyPlanner({
     meals,
     mealsLoading,
@@ -2588,23 +2591,29 @@ function WeeklyPlanner({
                     description="Add meals to your library first, then drop them into the week."
                 />
             ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-                    {days.map((date) => (
-                        <DayColumn
-                            key={date}
-                            date={date}
-                            isToday={date === today}
-                            editable={editing}
-                            goals={goals}
-                            entries={entries.filter((e) => e.date === date)}
-                            onAdd={(slot) => setPicker({ date, slot })}
-                            onRemove={handleRemove}
-                            onSetStatus={handleSetStatus}
-                            onLogOffPlan={() => setOffPlan(date)}
-                            onCopyDay={() => handleCopyDay(date)}
-                            onClearDay={() => handleClearDay(date)}
-                            onViewMeal={onViewMeal}
-                        />
+                // Mon–Fri on one row, the weekend on its own below it. Both rows use
+                // the same column template so the weekend days keep the weekday width.
+                <div className="flex flex-col gap-4">
+                    {[days.slice(0, 5), days.slice(5)].map((row) => (
+                        <div key={row[0]} className={WEEK_ROW_GRID}>
+                            {row.map((date) => (
+                                <DayColumn
+                                    key={date}
+                                    date={date}
+                                    isToday={date === today}
+                                    editable={editing}
+                                    goals={goals}
+                                    entries={entries.filter((e) => e.date === date)}
+                                    onAdd={(slot) => setPicker({ date, slot })}
+                                    onRemove={handleRemove}
+                                    onSetStatus={handleSetStatus}
+                                    onLogOffPlan={() => setOffPlan(date)}
+                                    onCopyDay={() => handleCopyDay(date)}
+                                    onClearDay={() => handleClearDay(date)}
+                                    onViewMeal={onViewMeal}
+                                />
+                            ))}
+                        </div>
                     ))}
                 </div>
             )}

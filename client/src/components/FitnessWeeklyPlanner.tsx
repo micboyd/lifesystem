@@ -1304,6 +1304,35 @@ function WeekView({
         onReorder(target.date, target.part, ids)
     }
 
+    const renderDay = (date: string) => (
+        <DayColumn
+            key={date}
+            date={date}
+            isToday={date === today}
+            editable={editing}
+            entries={entries.filter((e) => e.date === date)}
+            note={dayNotes.get(date) ?? null}
+            clashCount={clashesByDate.get(date)?.length ?? 0}
+            isDone={isDone}
+            onAdd={(part) => onAdd(date, part)}
+            onOpen={onOpen}
+            onRemove={onRemove}
+            dragActive={dragId !== null}
+            draggedId={dragId}
+            dropForDay={dropAt && dropAt.date === date ? dropAt : null}
+            onEntryDragStart={setDragId}
+            onEntryDragEnd={resetDrag}
+            onTarget={(part, refId, after) => setDropAt({ date, part, refId, after })}
+            onClearTarget={(part) =>
+                setDropAt((d) => (d && d.date === date && d.part === part ? null : d))
+            }
+            onDropEntry={handleDrop}
+            onEditFlag={() => onEditFlag('day', date)}
+            onClear={() => onClearDay(date)}
+            onShowClashes={() => onShowClashes(date)}
+        />
+    )
+
     return (
         <div className="flex flex-col gap-4">
             <WeekFlagBanner
@@ -1312,39 +1341,16 @@ function WeekView({
                 editable={editing}
                 onEdit={() => onEditFlag('week', weekStart)}
             />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-                {days.map((date) => (
-                    <DayColumn
-                        key={date}
-                        date={date}
-                        isToday={date === today}
-                        editable={editing}
-                        entries={entries.filter((e) => e.date === date)}
-                        note={dayNotes.get(date) ?? null}
-                        clashCount={clashesByDate.get(date)?.length ?? 0}
-                        isDone={isDone}
-                        onAdd={(part) => onAdd(date, part)}
-                        onOpen={onOpen}
-                        onRemove={onRemove}
-                        dragActive={dragId !== null}
-                        draggedId={dragId}
-                        dropForDay={dropAt && dropAt.date === date ? dropAt : null}
-                        onEntryDragStart={setDragId}
-                        onEntryDragEnd={resetDrag}
-                        onTarget={(part, refId, after) => setDropAt({ date, part, refId, after })}
-                        onClearTarget={(part) =>
-                            setDropAt((d) => (d && d.date === date && d.part === part ? null : d))
-                        }
-                        onDropEntry={handleDrop}
-                        onEditFlag={() => onEditFlag('day', date)}
-                        onClear={() => onClearDay(date)}
-                        onShowClashes={() => onShowClashes(date)}
-                    />
-                ))}
-            </div>
+            {/* Mon–Fri on one row, the weekend on its own below it. Both rows use
+                the same column template so the weekend days keep the weekday width. */}
+            <div className={WEEK_ROW_GRID}>{days.slice(0, 5).map(renderDay)}</div>
+            <div className={WEEK_ROW_GRID}>{days.slice(5).map(renderDay)}</div>
         </div>
     )
 }
+
+/** Shared column template for the weekday and weekend rows of the planner grid. */
+const WEEK_ROW_GRID = 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
 
 /**
  * The week's flag + label, shown above the day grid. When a flag is set it reads
