@@ -59,6 +59,14 @@ export function formatDateLong(date: string) {
     return `${weekday} ${day} ${MONTHS[month]} ${year}`
 }
 
+/** "10 Aug 2026". Anything that isn't a YYYY-MM-DD key comes back unchanged. */
+export function formatDateShort(date: string): string {
+    const { year, month, day } = parseDateKey(date)
+    const name = MONTHS[month]
+    if (!name || !year || !day) return date
+    return `${day} ${name.slice(0, 3)} ${year}`
+}
+
 /** Epoch days × 4 slots/day + part index. Matches the server calculation. */
 export function slotOrdinal(date: string, part: Part) {
     const { year, month, day } = parseDateKey(date)

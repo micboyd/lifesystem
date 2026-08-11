@@ -9,6 +9,40 @@ import type {
     FitnessFlagColor,
 } from '../types'
 
+/**
+ * One week's planner state, as it should be put back. Entries name their library
+ * item by id rather than carrying the populated document, and hold the plan that
+ * placed them so restoring doesn't orphan them from it.
+ */
+export interface PlanWeekSnapshot {
+    /** Inclusive "YYYY-MM-DD" bounds — the week's Monday and Sunday. */
+    start: string
+    end: string
+    entries: {
+        date: string
+        part: FitnessPlanPart
+        kind: FitnessPlanKind
+        item: string
+        plan: string | null
+        order: number
+    }[]
+    notes: {
+        scope: FitnessNoteScope
+        date: string
+        color: FitnessFlagColor
+        label: string
+    }[]
+}
+
+/**
+ * Make [start, end] look exactly like the snapshot, replacing whatever is there.
+ * The planner saves each change as it's made, so this is how cancelling an edit
+ * puts the week back: one write, however much was changed in between.
+ */
+export async function restorePlanWeek(snapshot: PlanWeekSnapshot): Promise<void> {
+    await api.put('/fitness-plan/week', snapshot)
+}
+
 /** List planned training whose date falls in [start, end] (inclusive, YYYY-MM-DD). */
 export async function listPlanEntries(start: string, end: string): Promise<FitnessPlanEntry[]> {
     const res = await api.get<ApiResponse<FitnessPlanEntry[]>>('/fitness-plan', {

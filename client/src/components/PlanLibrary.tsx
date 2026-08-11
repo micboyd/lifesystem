@@ -24,7 +24,7 @@ import {
     type ApplyPlanOptions,
     type ApplyPlanResult,
 } from '../services/plans'
-import { formatDateLong, formatWeekRange, todayKey } from '../lib/calendar'
+import { formatDateLong, formatDateShort, formatWeekRange, todayKey } from '../lib/calendar'
 import { FITNESS_PLAN_KINDS } from '../types'
 import type { FitnessPlanKind, PlanRole, PlanScheduleEntry, TrainingPlan } from '../types'
 
@@ -81,6 +81,15 @@ function countByKind(plan: TrainingPlan): { kind: FitnessPlanKind; count: number
     })).filter((c) => c.count > 0)
 }
 
+/**
+ * An imported plan writes its dates as "2026-08-10" throughout its prose — phase
+ * ranges, notes, targets. Rewrite every one of them as "10 Aug 2026" so the drawer
+ * reads the same way whether a date came from a field or from a sentence.
+ */
+function readableDates(text: string): string {
+    return text.replace(/\d{4}-\d{2}-\d{2}/g, (iso) => formatDateShort(iso))
+}
+
 /** Turn a free-form goal / progression block into readable label + value rows. */
 function proseRows(block: Record<string, unknown> | undefined): { label: string; value: string }[] {
     if (!block) return []
@@ -92,7 +101,10 @@ function proseRows(block: Record<string, unknown> | undefined): { label: string;
             .replace(/([A-Z])/g, ' $1')
             .replace(/^./, (c) => c.toUpperCase())
             .toLowerCase()
-        rows.push({ label: label.charAt(0).toUpperCase() + label.slice(1), value })
+        rows.push({
+            label: label.charAt(0).toUpperCase() + label.slice(1),
+            value: readableDates(value),
+        })
     }
     return rows
 }
@@ -461,7 +473,7 @@ function PlanDetail({ plan }: { plan: TrainingPlan }) {
                 <Alert variant="warning" title="Some entries could not be scheduled">
                     <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4">
                         {plan.warnings.map((w, i) => (
-                            <li key={i}>{w.message}</li>
+                            <li key={i}>{readableDates(w.message)}</li>
                         ))}
                     </ul>
                 </Alert>
@@ -523,7 +535,7 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
 
     return (
         <div className="flex flex-col gap-6">
-            {plan.source && <p className="text-sm text-neutral-500">{plan.source}</p>}
+            {plan.source && <p className="text-sm text-neutral-500">{readableDates(plan.source)}</p>}
 
             {goalRows.length > 0 && (
                 <Section title="Goal">
@@ -535,7 +547,7 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
                 <Section title="How to measure">
                     <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-neutral-700">
                         {measurement.map((m, i) => (
-                            <li key={i}>{m}</li>
+                            <li key={i}>{readableDates(m)}</li>
                         ))}
                     </ul>
                 </Section>
@@ -546,10 +558,12 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
                     <ol className="flex flex-col gap-2">
                         {checkpoints.map((c, i) => (
                             <li key={i} className="flex gap-3 text-sm">
-                                <span className="w-24 shrink-0 font-semibold text-neutral-500">
-                                    {c.date}
+                                <span className="w-28 shrink-0 font-semibold text-neutral-500">
+                                    {c.date ? formatDateShort(c.date) : ''}
                                 </span>
-                                <span className="text-neutral-700">{c.target}</span>
+                                <span className="text-neutral-700">
+                                    {c.target ? readableDates(c.target) : ''}
+                                </span>
                             </li>
                         ))}
                     </ol>
@@ -564,18 +578,24 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
                                 <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                                     <p className="font-semibold text-neutral-900">{p.name}</p>
                                     {p.dates && (
-                                        <p className="text-xs text-neutral-400">{p.dates}</p>
+                                        <p className="text-xs text-neutral-400">
+                                            {readableDates(p.dates)}
+                                        </p>
                                     )}
                                 </div>
                                 {p.focus && (
-                                    <p className="mt-1 text-sm text-neutral-600">{p.focus}</p>
+                                    <p className="mt-1 text-sm text-neutral-600">
+                                        {readableDates(p.focus)}
+                                    </p>
                                 )}
                                 {(p.strength || p.conditioning || p.recoveryPriority) && (
                                     <dl className="mt-2 flex flex-col gap-1 text-xs text-neutral-500">
                                         {p.strength && (
                                             <div>
                                                 <dt className="inline font-semibold">Strength: </dt>
-                                                <dd className="inline">{p.strength}</dd>
+                                                <dd className="inline">
+                                                    {readableDates(p.strength)}
+                                                </dd>
                                             </div>
                                         )}
                                         {p.conditioning && (
@@ -583,13 +603,17 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
                                                 <dt className="inline font-semibold">
                                                     Conditioning:{' '}
                                                 </dt>
-                                                <dd className="inline">{p.conditioning}</dd>
+                                                <dd className="inline">
+                                                    {readableDates(p.conditioning)}
+                                                </dd>
                                             </div>
                                         )}
                                         {p.recoveryPriority && (
                                             <div>
                                                 <dt className="inline font-semibold">Recovery: </dt>
-                                                <dd className="inline">{p.recoveryPriority}</dd>
+                                                <dd className="inline">
+                                                    {readableDates(p.recoveryPriority)}
+                                                </dd>
                                             </div>
                                         )}
                                     </dl>
@@ -613,13 +637,16 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
                             <li key={i} className="flex gap-3 text-sm">
                                 <span className="w-40 shrink-0 text-xs font-semibold text-neutral-500">
                                     {o.start === o.end
-                                        ? formatDateLong(o.start)
+                                        ? formatDateShort(o.start)
                                         : formatWeekRange(o.start, o.end)}
                                 </span>
                                 <span className="min-w-0 text-neutral-700">
-                                    {o.summary}
+                                    {readableDates(o.summary)}
                                     {o.notes && (
-                                        <span className="text-neutral-400"> — {o.notes}</span>
+                                        <span className="text-neutral-400">
+                                            {' '}
+                                            — {readableDates(o.notes)}
+                                        </span>
                                     )}
                                 </span>
                             </li>
@@ -632,7 +659,7 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
                 <Section title="Readiness rules">
                     <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-neutral-700">
                         {plan.readinessRules.map((r, i) => (
-                            <li key={i}>{r}</li>
+                            <li key={i}>{readableDates(r)}</li>
                         ))}
                     </ul>
                 </Section>
@@ -662,16 +689,19 @@ function WeekTab({ plan }: { plan: TrainingPlan }) {
                 <div key={row.day} className="rounded-xl border border-neutral-200 p-3">
                     <p className="font-semibold text-neutral-900">{row.day}</p>
                     <dl className="mt-1.5 flex flex-col gap-1 text-sm">
-                        {columns.map(({ key, label }) =>
-                            row[key] ? (
+                        {columns.map(({ key, label }) => {
+                            const value = row[key]
+                            return value ? (
                                 <div key={key} className="flex gap-2">
                                     <dt className="w-28 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                         {label}
                                     </dt>
-                                    <dd className="min-w-0 text-neutral-700">{row[key]}</dd>
+                                    <dd className="min-w-0 text-neutral-700">
+                                        {readableDates(value)}
+                                    </dd>
                                 </div>
                             ) : null
-                        )}
+                        })}
                     </dl>
                 </div>
             ))}
@@ -711,7 +741,7 @@ function SessionsTab({ plan }: { plan: TrainingPlan }) {
                                 className="flex items-center justify-between gap-3 rounded-lg bg-neutral-50 px-3 py-2 text-sm"
                             >
                                 <span className="min-w-0 truncate text-neutral-700">
-                                    {item.label}
+                                    {readableDates(item.label)}
                                 </span>
                                 {item.created ? (
                                     <span className="shrink-0 text-[11px] font-semibold text-herb">
@@ -777,12 +807,14 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
                     <div key={date} className="rounded-xl border border-neutral-200 p-3">
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                {formatDateLong(date)}
+                                {formatDateShort(date)}
                             </p>
                             {overrideOn(date) && (
                                 <span className="text-[11px] font-semibold text-amber-700">
                                     Exception ·{' '}
-                                    {overrideOn(date)!.notes ?? overrideOn(date)!.summary}
+                                    {readableDates(
+                                        overrideOn(date)!.notes ?? overrideOn(date)!.summary
+                                    )}
                                 </span>
                             )}
                         </div>
@@ -793,7 +825,9 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
                                         className={`${KIND_META[e.kind].icon} w-4 shrink-0 text-xs text-neutral-400`}
                                         aria-hidden="true"
                                     />
-                                    <span className="min-w-0 text-neutral-700">{e.label}</span>
+                                    <span className="min-w-0 text-neutral-700">
+                                        {readableDates(e.label)}
+                                    </span>
                                     <span className="ml-auto shrink-0 text-[11px] capitalize text-neutral-400">
                                         {e.part}
                                     </span>
@@ -802,13 +836,15 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
                         </ul>
                         {entries.some((e) => e.notes) && (
                             <ul className="mt-1.5 flex flex-col gap-0.5 border-t border-neutral-100 pt-1.5">
-                                {[...new Set(entries.map((e) => e.notes).filter(Boolean))].map(
-                                    (note) => (
-                                        <li key={note} className="text-[11px] text-neutral-400">
-                                            {note}
-                                        </li>
-                                    )
-                                )}
+                                {[
+                                    ...new Set(
+                                        entries.map((e) => e.notes).filter((n): n is string => !!n)
+                                    ),
+                                ].map((note) => (
+                                    <li key={note} className="text-[11px] text-neutral-400">
+                                        {readableDates(note)}
+                                    </li>
+                                ))}
                             </ul>
                         )}
                     </div>

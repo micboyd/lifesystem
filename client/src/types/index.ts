@@ -401,6 +401,8 @@ export interface FitnessPlanEntry {
     recovery: Recovery | null
     /** Populated for `kind: 'mobility'`, otherwise null. */
     mobility: Mobility | null
+    /** Id of the training plan that placed this, or null when placed by hand. */
+    plan: string | null
     order: number
     createdAt: string
     updatedAt: string

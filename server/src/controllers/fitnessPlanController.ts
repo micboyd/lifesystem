@@ -1,4 +1,5 @@
 import { Response } from 'express'
+import { FilterQuery, Model, Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import FitnessPlanEntry, {
     FITNESS_PLAN_KINDS,
@@ -16,6 +17,7 @@ import Workout from '../models/Workout'
 import ConditioningSession from '../models/ConditioningSession'
 import Recovery from '../models/Recovery'
 import Mobility from '../models/Mobility'
+import TrainingPlan from '../models/TrainingPlan'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -316,6 +318,143 @@ export async function clearRange(req: AuthRequest, res: Response) {
         date: { $gte: start, $lte: end },
     })
     res.json({ message: 'OK', data: { cleared: deletedCount ?? 0 } })
+}
+
+// ─── Restoring a week ───────────────────────────────────────────────────────────
+
+/** Payload rows that are objects. Anything else in the array is ignored. */
+function rows(raw: unknown): Record<string, unknown>[] {
+    if (!Array.isArray(raw)) return []
+    return raw.filter(
+        (r): r is Record<string, unknown> => !!r && typeof r === 'object' && !Array.isArray(r)
+    )
+}
+
+/** Which of `ids` name a document in `model` belonging to `user`. */
+async function ownedIds<T>(model: Model<T>, user: string, ids: string[]): Promise<Set<string>> {
+    const valid = ids.filter((id) => Types.ObjectId.isValid(id))
+    if (valid.length === 0) return new Set()
+    const docs = await model
+        .find({ _id: { $in: valid }, user } as FilterQuery<T>)
+        .select('_id')
+        .lean<{ _id: Types.ObjectId }[]>()
+    return new Set(docs.map((d) => String(d._id)))
+}
+
+/** One planned item as the client wants it put back. */
+interface RestoredEntry {
+    date: string
+    part: FitnessPlanPart
+    kind: FitnessPlanKind
+    /** The library item's id. */
+    item: string
+    /** The training plan that placed it, or null when it was placed by hand. */
+    plan: string | null
+    order: number
+}
+
+/**
+ * PUT /api/fitness-plan/week — make [start, end] look exactly like the payload.
+ *
+ * The planner writes each change straight through as it's made, so cancelling an
+ * edit can't unwind a queue of saves. Instead the client keeps the week as it was
+ * when editing began and hands it back here, and this replaces the window
+ * wholesale — one operation whatever was done in between, and no dependence on
+ * the ids of entries that have since been deleted.
+ *
+ * Body: { start, end, entries: RestoredEntry[], notes: [{scope,date,color,label}] }.
+ * Rows naming a library item or plan the caller doesn't own are dropped rather
+ * than trusted, so a snapshot can only ever put back the caller's own training.
+ */
+export async function restoreWeek(req: AuthRequest, res: Response) {
+    const { start, end } = req.body
+    if (!isDate(start) || !isDate(end)) {
+        res.status(400).json({ message: 'start and end (YYYY-MM-DD) are required' })
+        return
+    }
+    if (end < start) {
+        res.status(400).json({ message: 'end must not be before start' })
+        return
+    }
+    const userId = req.userId!
+
+    const wanted: RestoredEntry[] = []
+    rows(req.body.entries).forEach((r, i) => {
+        if (!isDate(r.date) || r.date < start || r.date > end) return
+        if (!isKind(r.kind) || typeof r.item !== 'string') return
+        wanted.push({
+            date: r.date,
+            part: toPart(r.part),
+            kind: r.kind,
+            item: r.item,
+            plan: typeof r.plan === 'string' ? r.plan : null,
+            order: typeof r.order === 'number' ? r.order : i,
+        })
+    })
+
+    const idsOf = (kind: FitnessPlanKind) =>
+        wanted.filter((e) => e.kind === kind).map((e) => e.item)
+    const [workouts, sessions, mobility, recovery, plans] = await Promise.all([
+        ownedIds(Workout, userId, idsOf('workout')),
+        ownedIds(ConditioningSession, userId, idsOf('conditioning')),
+        ownedIds(Mobility, userId, idsOf('mobility')),
+        ownedIds(Recovery, userId, idsOf('recovery')),
+        ownedIds(
+            TrainingPlan,
+            userId,
+            wanted.map((e) => e.plan).filter((p): p is string => p !== null)
+        ),
+    ])
+    const owned: Record<FitnessPlanKind, Set<string>> = {
+        workout: workouts,
+        conditioning: sessions,
+        mobility,
+        recovery,
+    }
+
+    const docs = wanted
+        .filter((e) => owned[e.kind].has(e.item))
+        .map((e) => ({
+            user: userId,
+            date: e.date,
+            part: e.part,
+            kind: e.kind,
+            workout: e.kind === 'workout' ? e.item : null,
+            session: e.kind === 'conditioning' ? e.item : null,
+            recovery: e.kind === 'recovery' ? e.item : null,
+            mobility: e.kind === 'mobility' ? e.item : null,
+            // Keeping the stamp matters: it's what lets a plan be un-applied later
+            // without disturbing anything placed by hand.
+            plan: e.plan && plans.has(e.plan) ? e.plan : null,
+            order: e.order,
+        }))
+
+    const noteDocs = rows(req.body.notes)
+        .filter(
+            (n) =>
+                isScope(n.scope) &&
+                isDate(n.date) &&
+                n.date >= start &&
+                n.date <= end &&
+                isColor(n.color)
+        )
+        .map((n) => ({
+            user: userId,
+            scope: n.scope as FitnessNoteScope,
+            date: n.date as string,
+            color: n.color as FitnessFlagColor,
+            label: typeof n.label === 'string' ? n.label.trim() : '',
+        }))
+
+    await FitnessPlanEntry.deleteMany({ user: userId, date: { $gte: start, $lte: end } })
+    if (docs.length > 0) await FitnessPlanEntry.insertMany(docs)
+
+    // A week flag is stored on its own Monday, which is inside the window, so
+    // clearing the range never reaches a neighbouring week's flag.
+    await FitnessPlanNote.deleteMany({ user: userId, date: { $gte: start, $lte: end } })
+    if (noteDocs.length > 0) await FitnessPlanNote.insertMany(noteDocs)
+
+    res.json({ message: 'OK', data: { entries: docs.length, notes: noteDocs.length } })
 }
 
 /**

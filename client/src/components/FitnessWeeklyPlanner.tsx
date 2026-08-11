@@ -45,6 +45,8 @@ import {
     listPlanNotes,
     savePlanNote,
     deletePlanNote,
+    restorePlanWeek,
+    type PlanWeekSnapshot,
 } from '../services/fitnessPlan'
 import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS, FITNESS_FLAG_COLORS } from '../types'
 import type {
@@ -222,6 +224,44 @@ function entryLibId(entry: FitnessPlanEntry): string | undefined {
     if (entry.kind === 'conditioning') return entry.session?._id
     if (entry.kind === 'mobility') return entry.mobility?._id
     return entry.recovery?._id
+}
+
+/**
+ * A week reduced to what putting it back needs: each entry's library item by id
+ * rather than its populated document, plus the flags on those days. Entries whose
+ * library item has been deleted are left out — they can't be rebuilt, and the
+ * list endpoint drops them anyway, so they were never on screen.
+ */
+function snapshotWeek(
+    start: string,
+    end: string,
+    entries: FitnessPlanEntry[],
+    notes: FitnessPlanNote[]
+): PlanWeekSnapshot {
+    return {
+        start,
+        end,
+        entries: entries.flatMap((e) => {
+            const item = entryLibId(e)
+            if (!item) return []
+            return [
+                {
+                    date: e.date,
+                    part: e.part,
+                    kind: e.kind,
+                    item,
+                    plan: e.plan,
+                    order: e.order,
+                },
+            ]
+        }),
+        notes: notes.map((n) => ({
+            scope: n.scope,
+            date: n.date,
+            color: n.color,
+            label: n.label,
+        })),
+    }
 }
 
 /** The done-key for a planned entry, or null when its library item is missing. */
@@ -414,6 +454,19 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     const [logTarget, setLogTarget] = useState<{ workout: Workout; date: string } | null>(null)
     // The planner opens read-only; Edit reveals the add/remove controls.
     const [editing, setEditing] = useState(false)
+    // Every change saves as it's made, so cancelling can't unwind a queue of
+    // writes. Instead each week touched since editing began is kept as it was,
+    // keyed by its Monday, and Cancel hands those back to be put in place.
+    const baseline = useRef(new Map<string, PlanWeekSnapshot>())
+    // Whether anything has actually been changed, so Cancel can bow out quietly
+    // when nothing has — and warn before throwing work away when something has.
+    const [dirty, setDirty] = useState(false)
+    const [confirmDiscard, setConfirmDiscard] = useState(false)
+    const [discarding, setDiscarding] = useState(false)
+    // The week the loaded entries belong to. The grid deliberately keeps the old
+    // week on screen while the next one loads, so this is what says the rows in
+    // hand really are this week's — and are safe to snapshot.
+    const [loadedWeek, setLoadedWeek] = useState<string | null>(null)
     // A copied week held for pasting elsewhere: the source Monday plus which
     // categories were copied. Only those categories are overwritten on paste.
     const [clipboard, setClipboard] = useState<{ from: string; kinds: FitnessPlanKind[] } | null>(
@@ -498,6 +551,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 setEntries(rows)
                 setNotes(noteRows)
                 setEvents(eventRows)
+                setLoadedWeek(range.start)
                 // Build the week's completion keys from each kind's logs. Logs with
                 // no library link (their item was deleted) can't match a plan row.
                 const keys = new Set<string>()
@@ -521,8 +575,64 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         }
     }, [range.start, range.end])
 
+    // Snapshot each week the first time it's seen in edit mode — the one on show
+    // when Edit was pressed, and any navigated to afterwards. Later runs are no-ops
+    // thanks to the `has` guard, so a snapshot is always the week untouched.
+    useEffect(() => {
+        if (!editing || loadedWeek !== range.start) return
+        if (baseline.current.has(range.start)) return
+        baseline.current.set(range.start, snapshotWeek(range.start, range.end, entries, notes))
+    }, [editing, loadedWeek, range.start, range.end, entries, notes])
+
     function step(dir: -1 | 1) {
         setAnchor((a) => addDays(mondayOf(a), dir * 7))
+    }
+
+    /** Note that the week on screen no longer matches its snapshot. */
+    function markDirty() {
+        setDirty(true)
+    }
+
+    /** Leave edit mode, keeping everything as it now stands. */
+    function stopEditing() {
+        setPicker(null)
+        baseline.current.clear()
+        setDirty(false)
+        setEditing(false)
+    }
+
+    /**
+     * Put every week touched since editing began back as it was, then leave edit
+     * mode. The week on show is refetched afterwards either way, so a restore that
+     * fails part-way still leaves the grid showing what is actually saved.
+     */
+    async function discardChanges() {
+        setConfirmDiscard(false)
+        setDiscarding(true)
+        let failed = false
+        for (const snapshot of baseline.current.values()) {
+            try {
+                await restorePlanWeek(snapshot)
+            } catch {
+                failed = true
+            }
+        }
+        try {
+            const [rows, noteRows] = await Promise.all([
+                listPlanEntries(range.start, range.end),
+                listPlanNotes(range.start, range.end),
+            ])
+            setEntries(rows)
+            setNotes(noteRows)
+        } catch {
+            failed = true
+        }
+        setDiscarding(false)
+        stopEditing()
+        toast.show(
+            failed ? 'Some changes could not be undone.' : 'Changes undone.',
+            failed ? 'warning' : 'success'
+        )
     }
 
     async function handleAdd(
@@ -533,10 +643,12 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     ) {
         const entry = await addPlanEntry(date, kind, itemId, part)
         setEntries((prev) => [...prev, entry])
+        markDirty()
     }
 
     async function handleRemove(id: string) {
         setEntries((prev) => prev.filter((e) => e._id !== id))
+        markDirty()
         await deletePlanEntry(id)
     }
 
@@ -552,6 +664,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         await copyPlanWeek(clipboard.from, range.start, clipboard.kinds)
         const rows = await listPlanEntries(range.start, range.end)
         setEntries(rows)
+        markDirty()
     }
 
     // Clear every planned item from a single day. Optimistic, reverting on failure.
@@ -559,6 +672,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         const removed = entries.filter((e) => e.date === date)
         if (removed.length === 0) return
         setEntries((prev) => prev.filter((e) => e.date !== date))
+        markDirty()
         try {
             await clearPlanRange(date, date)
         } catch {
@@ -572,6 +686,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         const removed = entries.filter((e) => e.date >= start && e.date <= end)
         if (removed.length === 0) return
         setEntries((prev) => prev.filter((e) => !(e.date >= start && e.date <= end)))
+        markDirty()
         try {
             await clearPlanRange(start, end)
         } catch {
@@ -583,6 +698,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     // Optimistic: the row jumps immediately, then the server records the new slot.
     async function handleMove(id: string, part: FitnessPlanPart) {
         setEntries((prev) => prev.map((e) => (e._id === id ? { ...e, part } : e)))
+        markDirty()
         await updatePlanEntry(id, part)
     }
 
@@ -598,6 +714,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 position.has(e._id) ? { ...e, date, part, order: position.get(e._id)! } : e
             )
         )
+        markDirty()
         try {
             await reorderPlanSlot(date, part, ids)
         } catch {
@@ -619,11 +736,13 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
             return [...rest, saved]
         })
         setFlagTarget(null)
+        markDirty()
     }
 
     async function handleRemoveFlag(id: string) {
         setNotes((prev) => prev.filter((n) => n._id !== id))
         setFlagTarget(null)
+        markDirty()
         await deletePlanNote(id)
     }
 
@@ -733,19 +852,6 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                             onClearClipboard={() => setClipboard(null)}
                         />
                     )}
-                    {!libraryEmpty && (
-                        <Button
-                            variant={editing ? 'primary' : 'secondary'}
-                            size="sm"
-                            icon={editing ? 'fa-solid fa-check' : 'fa-solid fa-pen'}
-                            onClick={() => {
-                                setPicker(null)
-                                setEditing((e) => !e)
-                            }}
-                        >
-                            {editing ? 'Done' : 'Edit plan'}
-                        </Button>
-                    )}
                     {editing && entries.length > 0 && (
                         <Button
                             variant="ghost"
@@ -755,6 +861,39 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                             className="text-red-500 hover:bg-red-50 hover:text-red-600"
                         >
                             Clear week
+                        </Button>
+                    )}
+                    {editing && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            icon="fa-solid fa-rotate-left"
+                            disabled={discarding}
+                            // Nothing changed means nothing to warn about — just
+                            // drop back out of edit mode.
+                            onClick={() => (dirty ? setConfirmDiscard(true) : stopEditing())}
+                        >
+                            {discarding ? 'Undoing…' : 'Cancel'}
+                        </Button>
+                    )}
+                    {!libraryEmpty && (
+                        <Button
+                            variant={editing ? 'primary' : 'secondary'}
+                            size="sm"
+                            icon={editing ? 'fa-solid fa-check' : 'fa-solid fa-pen'}
+                            disabled={discarding}
+                            onClick={() => {
+                                if (editing) {
+                                    stopEditing()
+                                    return
+                                }
+                                setPicker(null)
+                                baseline.current.clear()
+                                setDirty(false)
+                                setEditing(true)
+                            }}
+                        >
+                            {editing ? 'Done' : 'Edit plan'}
                         </Button>
                     )}
                     <WeekTotals tally={totals} />
@@ -862,6 +1001,23 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     setClearTarget(null)
                 }}
                 onClose={() => setClearTarget(null)}
+            />
+
+            <ConfirmModal
+                open={confirmDiscard}
+                danger
+                title="Undo your changes?"
+                message={
+                    <>
+                        Everything you have added, removed, moved or flagged since pressing{' '}
+                        <span className="font-semibold">Edit plan</span> will be put back as it was
+                        {baseline.current.size > 1 && ', across every week you have edited'}. This
+                        can’t itself be undone.
+                    </>
+                }
+                confirmLabel="Undo changes"
+                onConfirm={discardChanges}
+                onClose={() => setConfirmDiscard(false)}
             />
 
             <ClashModal
