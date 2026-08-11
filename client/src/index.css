@@ -10,6 +10,14 @@
     --color-marigold: #f4a258;
     --color-brand: #013d5a;
 
+    /* Opaque tints of herb/marigold, matched to how the /10 and /30 alphas used
+       to composite on white — so surfaces that float over content (toasts) stay
+       solid instead of showing the page through them. */
+    --color-herb-50: #f1f4f0;
+    --color-herb-200: #d4dcd2;
+    --color-marigold-50: #fef6ee;
+    --color-marigold-200: #fbdabc;
+
     /* Coral — the Airbnb-warm accent used for primary actions and active states. */
     --color-coral-50: #fff1f2;
     --color-coral-100: #ffe4e7;

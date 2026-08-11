@@ -12,10 +12,12 @@ interface AlertProps {
     className?: string
 }
 
+// Every variant is fully opaque — an alert can float over page content (as a
+// toast does), where a tinted alpha would let whatever is behind it show through.
 const variantClasses: Record<AlertVariant, string> = {
     info: 'bg-neutral-50 border-neutral-200 text-neutral-700',
-    success: 'bg-herb/10 border-herb/30 text-herb',
-    warning: 'bg-marigold/10 border-marigold/40 text-amber-800',
+    success: 'bg-herb-50 border-herb-200 text-herb',
+    warning: 'bg-marigold-50 border-marigold-200 text-amber-800',
     danger: 'bg-red-50 border-red-100 text-red-700',
 }
 
