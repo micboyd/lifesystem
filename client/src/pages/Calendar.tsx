@@ -16,6 +16,8 @@ import {
     formatWeekRange,
     formatDateLong,
     parseDateKey,
+    monthKey,
+    monthKeyOf,
 } from '../lib/calendar'
 import {
     listEvents,
@@ -28,11 +30,12 @@ import {
 import { listBirthdays } from '../services/birthdays'
 import { listStatuses } from '../services/dayStatus'
 import { listReminders } from '../services/reminders'
+import { listMonthNotes } from '../services/monthNotes'
 import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from '../services/totals'
 import { useAuth } from '../context/AuthContext'
 import { useCalendars } from '../context/CalendarsContext'
 import { DAY_STATUS_OPTIONS } from '../types'
-import type { Event, Part, DayStatus, TotalRow, Reminder } from '../types'
+import type { Event, Part, DayStatus, TotalRow, Reminder, MonthNote } from '../types'
 import Container from '../components/Container'
 import Checkbox from '../components/Checkbox'
 import Tabs from '../components/Tabs'
@@ -47,6 +50,8 @@ import EditRecurringEventDialog, {
     type EditScope,
 } from '../components/calendar/EditRecurringEventDialog'
 import MonthView from '../components/calendar/MonthView'
+import MonthFlags from '../components/calendar/MonthFlags'
+import MonthNoteEditor from '../components/calendar/MonthNoteEditor'
 import WeekView from '../components/calendar/WeekView'
 import CalendarFilterBar from '../components/calendar/CalendarFilterBar'
 import HiddenCalendarDots from '../components/calendar/HiddenCalendarDots'
@@ -108,6 +113,7 @@ export default function Calendar() {
     const [events, setEvents] = useState<Event[]>([])
     const [statuses, setStatuses] = useState<DayStatus[]>([])
     const [reminders, setReminders] = useState<Reminder[]>([])
+    const [monthNotes, setMonthNotes] = useState<MonthNote[]>([])
     const [rows, setRows] = useState<TotalRow[]>([])
     const [values, setValues] = useState<Record<string, number>>({})
     const [detailEvent, setDetailEvent] = useState<Event | null>(null)
@@ -127,6 +133,9 @@ export default function Calendar() {
     const [reminderDate, setReminderDate] = useState<string | null>(null)
     // Event copied via a chip's copy icon, ready to paste into an empty slot.
     const [copiedEvent, setCopiedEvent] = useState<Event | null>(null)
+    // Month flag being edited. `note: null` with a month set means "create one
+    // starting here"; the whole thing null means the editor is closed.
+    const [noteEdit, setNoteEdit] = useState<{ note: MonthNote | null; month: string } | null>(null)
 
     // ── Totals cell selection + in-app copy buffer ──
     const [selection, setSelection] = useState<CellSel | null>(null)
@@ -152,8 +161,9 @@ export default function Calendar() {
             listStatuses(from, to),
             listBirthdays(),
             listReminders(from, to),
+            listMonthNotes(monthKeyOf(from), monthKeyOf(to)),
         ])
-            .then(([evts, sts, bdays, rems]) => {
+            .then(([evts, sts, bdays, rems, notes]) => {
                 // Expand each birthday into a synthetic all-day event for every year in the range.
                 const fromYear = parseInt(from.slice(0, 4), 10)
                 const toYear = parseInt(to.slice(0, 4), 10)
@@ -180,11 +190,13 @@ export default function Calendar() {
                 setEvents([...(evts as Event[]), ...birthdayEvents])
                 setStatuses(sts)
                 setReminders(rems)
+                setMonthNotes(notes)
             })
             .catch(() => {
                 setEvents([])
                 setStatuses([])
                 setReminders([])
+                setMonthNotes([])
             })
 
         if (totalsOn) {
@@ -634,7 +646,17 @@ export default function Calendar() {
             <Container fluid className="py-4 sm:py-6">
                 {view === 'Week' && <WeekView {...sharedProps} />}
 
-                {view === 'Month' && <MonthView {...sharedProps} />}
+                {view === 'Month' && (
+                    <div className="flex flex-col gap-3">
+                        <MonthFlags
+                            month={monthKeyOf(focusDate)}
+                            notes={monthNotes}
+                            onEdit={(note) => setNoteEdit({ note, month: note.startMonth })}
+                            onAdd={(m) => setNoteEdit({ note: null, month: m })}
+                        />
+                        <MonthView {...sharedProps} />
+                    </div>
+                )}
 
                 {view === 'Year' && (
                     <div className="flex flex-col gap-6">
@@ -656,6 +678,11 @@ export default function Calendar() {
                                     onRevealCalendar={revealCalendar}
                                     statuses={statuses}
                                     reminders={reminders}
+                                    monthNotes={monthNotes}
+                                    onEditMonthNote={(note) =>
+                                        setNoteEdit({ note, month: note.startMonth })
+                                    }
+                                    onAddMonthNote={(m) => setNoteEdit({ note: null, month: m })}
                                     totalsOn={totalsOn}
                                     rows={rows}
                                     values={values}
@@ -687,6 +714,14 @@ export default function Calendar() {
                     </div>
                 )}
             </Container>
+
+            <MonthNoteEditor
+                open={!!noteEdit}
+                note={noteEdit?.note ?? null}
+                defaultMonth={noteEdit?.month ?? monthKeyOf(focusDate)}
+                onClose={() => setNoteEdit(null)}
+                onSaved={reload}
+            />
 
             <EventDetailModal
                 event={detailEvent}
@@ -878,6 +913,9 @@ interface MonthBlockProps {
     onRevealCalendar: (calendarId: string) => void
     statuses: DayStatus[]
     reminders: Reminder[]
+    monthNotes: MonthNote[]
+    onEditMonthNote: (note: MonthNote) => void
+    onAddMonthNote: (month: string) => void
     totalsOn: boolean
     rows: TotalRow[]
     values: Record<string, number>
@@ -910,6 +948,9 @@ function MonthBlock({
     onRevealCalendar,
     statuses,
     reminders,
+    monthNotes,
+    onEditMonthNote,
+    onAddMonthNote,
     totalsOn,
     rows,
     values,
@@ -958,10 +999,16 @@ function MonthBlock({
 
     return (
         <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
-            <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3">
                 <h2 className="text-base font-bold tracking-tight text-neutral-950">
                     {MONTHS[month]} <span className="font-semibold text-neutral-400">{year}</span>
                 </h2>
+                <MonthFlags
+                    month={monthKey(year, month)}
+                    notes={monthNotes}
+                    onEdit={onEditMonthNote}
+                    onAdd={onAddMonthNote}
+                />
             </div>
             <div ref={scrollRef} className="overflow-x-auto">
                 <table
