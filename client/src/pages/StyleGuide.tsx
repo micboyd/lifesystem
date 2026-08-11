@@ -515,7 +515,7 @@ export default function StyleGuide() {
 
                 <Section
                     title="Date Picker"
-                    description="Calendar dropdown for a single date or a date range, with hover preview and a clear button. Supports min/max bounds, disabled dates, and error (red) dates. Uncontrolled by default, or pass value/onChange."
+                    description="Calendar dropdown for a single date or a date range, with hover preview and a clear button. Supports min/max bounds, disabled dates, and error (red) dates. Set precision=&quot;month&quot; to pick whole months instead of days. Uncontrolled by default, or pass value/onChange."
                     preview={
                         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                             <div>
@@ -544,6 +544,19 @@ export default function StyleGuide() {
                                     Past dates &amp; weekends disabled; two days flagged red.
                                 </p>
                             </div>
+                            <div>
+                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    Month range
+                                </p>
+                                <DatePicker
+                                    mode="range"
+                                    precision="month"
+                                    className="max-w-xs"
+                                />
+                                <p className="mt-1.5 text-xs text-neutral-400">
+                                    Values are &quot;YYYY-MM&quot;; the day grid is never reached.
+                                </p>
+                            </div>
                         </div>
                     }
                     code={`<DatePicker />
@@ -559,7 +572,11 @@ export default function StyleGuide() {
     maxDate="2026-12-31"
     disabledDates={(date) => date.getDay() === 0 || date.getDay() === 6}
     errorDates={['2026-06-07', '2026-06-08']}
-/>`}
+/>
+
+{/* Whole months — values are "YYYY-MM" */}
+<DatePicker precision="month" value={month} onChange={setMonth} />
+<DatePicker mode="range" precision="month" value={months} onChange={setMonths} />`}
                 />
 
                 <Section

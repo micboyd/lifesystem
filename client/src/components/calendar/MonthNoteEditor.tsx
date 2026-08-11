@@ -7,6 +7,7 @@ import Modal from '../Modal'
 import Button from '../Button'
 import Input from '../Input'
 import Textarea from '../Textarea'
+import DatePicker, { type DateRange, type DatePickerValue } from '../DatePicker'
 
 interface Props {
     open: boolean
@@ -136,31 +137,29 @@ export default function MonthNoteEditor({ open, note, defaultMonth, onClose, onS
                     onChange={(e) => setLabel(e.target.value)}
                 />
 
-                <div className="grid grid-cols-2 gap-3">
-                    <Input
-                        label="From"
-                        type="month"
-                        value={startMonth}
-                        onChange={(e) => {
-                            setStartMonth(e.target.value)
-                            // Dragging the start past the end carries the end with
-                            // it, rather than leaving an invalid range on screen.
-                            if (e.target.value > endMonth) setEndMonth(e.target.value)
+                <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        Months
+                    </span>
+                    <DatePicker
+                        mode="range"
+                        precision="month"
+                        value={startMonth && endMonth ? { start: startMonth, end: endMonth } : null}
+                        onChange={(v: DatePickerValue) => {
+                            if (!v || typeof v !== 'object' || !('start' in v)) return
+                            const r = v as DateRange
+                            // Clearing the range falls back to the month the editor
+                            // was opened from, so the flag always covers something.
+                            setStartMonth(r.start || defaultMonth)
+                            setEndMonth(r.end || r.start || defaultMonth)
                         }}
                     />
-                    <Input
-                        label="To"
-                        type="month"
-                        value={endMonth}
-                        onChange={(e) => setEndMonth(e.target.value)}
-                    />
+                    {spanValid && (
+                        <p className="text-xs text-neutral-500">
+                            Covers {formatMonthRange(startMonth, endMonth)}.
+                        </p>
+                    )}
                 </div>
-
-                {spanValid && (
-                    <p className="-mt-2 text-xs text-neutral-500">
-                        Covers {formatMonthRange(startMonth, endMonth)}.
-                    </p>
-                )}
 
                 <div className="flex flex-col gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">

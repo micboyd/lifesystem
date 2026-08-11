@@ -11,10 +11,18 @@ export type DatePickerValue = string | DateRange | null
 /** Either a list of ISO "YYYY-MM-DD" strings, or a predicate over a Date. */
 export type DateMatcher = string[] | ((date: Date) => boolean)
 
+/** How coarse a selection is: whole days, or whole months ("YYYY-MM"). */
+export type DatePickerPrecision = 'day' | 'month'
+
 type DayStatus = 'normal' | 'disabled' | 'error'
 
 interface DatePickerProps {
     mode?: 'single' | 'range'
+    /**
+     * `month` makes values "YYYY-MM" and stops the picker at the month grid —
+     * the day view is never reached, so a month is picked in one click.
+     */
+    precision?: DatePickerPrecision
     value?: DatePickerValue
     defaultValue?: DatePickerValue
     onChange?: (value: DatePickerValue) => void
@@ -55,8 +63,24 @@ function parseISO(value?: string | null): Date | null {
     return value ? new Date(`${value}T00:00:00`) : null
 }
 
+function toMonthISO(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** "YYYY-MM" to the first of that month. Also tolerates a full date key. */
+function parseMonthISO(value?: string | null): Date | null {
+    if (!value) return null
+    const [year, month] = value.split('-').map(Number)
+    if (!year || !month) return null
+    return new Date(year, month - 1, 1)
+}
+
 function sameDay(a: Date, b: Date): boolean {
     return a.toDateString() === b.toDateString()
+}
+
+function sameMonth(a: Date, b: Date): boolean {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
 }
 
 function startOfMonth(date: Date): Date {
@@ -71,6 +95,14 @@ function formatShort(date: Date): string {
     return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function formatMonthLong(date: Date): string {
+    return date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+}
+
+function formatMonthShort(date: Date): string {
+    return date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+}
+
 function normalizeMatcher(matcher?: DateMatcher): (date: Date) => boolean {
     if (!matcher) return () => false
     if (typeof matcher === 'function') return matcher
@@ -80,13 +112,15 @@ function normalizeMatcher(matcher?: DateMatcher): (date: Date) => boolean {
 
 function parseValue(
     mode: 'single' | 'range',
-    value: DatePickerValue
+    value: DatePickerValue,
+    precision: DatePickerPrecision
 ): { single: Date | null; start: Date | null; end: Date | null } {
+    const parse = precision === 'month' ? parseMonthISO : parseISO
     if (mode === 'range') {
         const v = (value as DateRange | null) ?? null
-        return { single: null, start: parseISO(v?.start), end: parseISO(v?.end) }
+        return { single: null, start: parse(v?.start), end: parse(v?.end) }
     }
-    return { single: parseISO(value as string | null), start: null, end: null }
+    return { single: parse(value as string | null), start: null, end: null }
 }
 
 function buildCalendar(viewDate: Date): PickerDay[] {
@@ -110,10 +144,17 @@ function buildCalendar(viewDate: Date): PickerDay[] {
 
 export default function DatePicker({
     mode = 'single',
+    precision = 'day',
     value,
     defaultValue,
     onChange,
-    placeholder = mode === 'range' ? 'Select a date range' : 'Select a date',
+    placeholder = precision === 'month'
+        ? mode === 'range'
+            ? 'Select a month range'
+            : 'Select a month'
+        : mode === 'range'
+          ? 'Select a date range'
+          : 'Select a date',
     disabled = false,
     minDate,
     maxDate,
@@ -122,8 +163,12 @@ export default function DatePicker({
     className = '',
 }: DatePickerProps) {
     const isRange = mode === 'range'
+    const isMonth = precision === 'month'
+    // The grid a month-precision picker lives in — it never drills down to days.
+    const baseView: CalendarView = isMonth ? 'months' : 'days'
+    const serialize = (date: Date) => (isMonth ? toMonthISO(date) : toISO(date))
     const isControlled = value !== undefined
-    const initial = parseValue(mode, isControlled ? value : (defaultValue ?? null))
+    const initial = parseValue(mode, isControlled ? value : (defaultValue ?? null), precision)
 
     const [open, setOpen] = useState(false)
     const [viewDate, setViewDate] = useState(() =>
@@ -136,7 +181,7 @@ export default function DatePicker({
         initial.start && !initial.end ? 'end' : 'start'
     )
     const [hoverDate, setHoverDate] = useState<Date | null>(null)
-    const [view, setView] = useState<CalendarView>('days')
+    const [view, setView] = useState<CalendarView>(baseView)
     const containerRef = useRef<HTMLDivElement>(null)
     const triggerRef = useRef<HTMLButtonElement>(null)
     const menuRef = useRef<HTMLDivElement>(null)
@@ -186,7 +231,7 @@ export default function DatePicker({
     const valueKey = isControlled ? JSON.stringify(value ?? null) : ''
     const [lastValueKey, setLastValueKey] = useState(valueKey)
     if (isControlled && valueKey !== lastValueKey) {
-        const p = parseValue(mode, value ?? null)
+        const p = parseValue(mode, value ?? null, precision)
         setSelectedDate(p.single)
         setRangeStart(p.start)
         setRangeEnd(p.end)
@@ -223,23 +268,41 @@ export default function DatePicker({
         return 'normal'
     }
 
+    /**
+     * Month-precision bounds compare at month granularity, so a `minDate` of
+     * "2026-03-14" still leaves March selectable rather than disabling its own month.
+     */
+    function monthStatus(date: Date): DayStatus {
+        const key = toMonthISO(date)
+        if (minDate && key < minDate.slice(0, 7)) return 'disabled'
+        if (maxDate && key > maxDate.slice(0, 7)) return 'disabled'
+        return 'normal'
+    }
+
     const hasValue = isRange ? !!(rangeStart || rangeEnd) : !!selectedDate
     const monthLabel = viewDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 
     const triggerLabel = (() => {
+        const short = isMonth ? formatMonthShort : formatShort
         if (isRange) {
             if (!rangeStart && !rangeEnd) return ''
-            const s = rangeStart ? formatShort(rangeStart) : '…'
-            const e = rangeEnd ? formatShort(rangeEnd) : '…'
+            const s = rangeStart ? short(rangeStart) : '…'
+            const e = rangeEnd ? short(rangeEnd) : '…'
+            // A range covering one month reads better as just that month.
+            if (isMonth && rangeStart && rangeEnd && sameMonth(rangeStart, rangeEnd))
+                return formatMonthLong(rangeStart)
             return `${s} → ${e}`
         }
-        return selectedDate ? formatLong(selectedDate) : ''
+        if (!selectedDate) return ''
+        return isMonth ? formatMonthLong(selectedDate) : formatLong(selectedDate)
     })()
 
     const rangeHint = (() => {
         if (!isRange) return ''
-        if (rangeSelecting === 'start') return 'Select start date'
-        return rangeStart ? `From ${formatShort(rangeStart)} — select end date` : 'Select end date'
+        const unit = isMonth ? 'month' : 'date'
+        const short = isMonth ? formatMonthShort : formatShort
+        if (rangeSelecting === 'start') return `Select start ${unit}`
+        return rangeStart ? `From ${short(rangeStart)} — select end ${unit}` : `Select end ${unit}`
     })()
 
     // Visual range bounds, accounting for hover preview and reversed selection.
@@ -263,10 +326,10 @@ export default function DatePicker({
     }
 
     function emitSingle(date: Date | null) {
-        onChange?.(date ? toISO(date) : '')
+        onChange?.(date ? serialize(date) : '')
     }
     function emitRange(s: Date | null, e: Date | null) {
-        onChange?.({ start: s ? toISO(s) : '', end: e ? toISO(e) : '' })
+        onChange?.({ start: s ? serialize(s) : '', end: e ? serialize(e) : '' })
     }
 
     function toggle() {
@@ -278,7 +341,7 @@ export default function DatePicker({
         const base = (isRange ? rangeStart : selectedDate) ?? new Date()
         setViewDate(startOfMonth(base))
         setHoverDate(null)
-        setView('days')
+        setView(baseView)
         setRangeSelecting(isRange && rangeStart && !rangeEnd ? 'end' : 'start')
         positionMenu() // place it before paint to avoid a flash at the origin
         setOpen(true)
@@ -306,8 +369,38 @@ export default function DatePicker({
     }
 
     function selectMonth(monthIndex: number) {
-        setViewDate(new Date(viewDate.getFullYear(), monthIndex, 1))
-        setView('days')
+        const date = new Date(viewDate.getFullYear(), monthIndex, 1)
+
+        // At day precision the month grid is only navigation — drill into the days.
+        if (!isMonth) {
+            setViewDate(date)
+            setView('days')
+            return
+        }
+
+        if (monthStatus(date) !== 'normal') return
+
+        if (!isRange) {
+            setSelectedDate(date)
+            emitSingle(date)
+            setOpen(false)
+            return
+        }
+
+        if (rangeSelecting === 'start') {
+            setRangeStart(date)
+            setRangeEnd(null)
+            setRangeSelecting('end')
+        } else if (rangeStart && date >= rangeStart) {
+            setRangeEnd(date)
+            emitRange(rangeStart, date)
+            setRangeSelecting('start')
+            setOpen(false)
+        } else {
+            // Clicked before the start — treat as a new start.
+            setRangeStart(date)
+            setRangeEnd(null)
+        }
     }
 
     function selectYear(year: number) {
@@ -317,7 +410,7 @@ export default function DatePicker({
 
     function goToday() {
         setViewDate(startOfMonth(new Date()))
-        setView('days')
+        setView(baseView)
     }
 
     function selectDate(day: PickerDay) {
@@ -415,15 +508,41 @@ export default function DatePicker({
               ? String(viewDate.getFullYear())
               : `${yearPageStart} – ${yearPageStart + YEARS_PER_PAGE - 1}`
 
-    const gridCellClass = (selected: boolean, isCurrent: boolean) =>
+    const gridCellClass = (
+        selected: boolean,
+        isCurrent: boolean,
+        opts: { inRange?: boolean; disabled?: boolean } = {}
+    ) =>
         [
             'h-9 rounded-xl text-sm transition-colors duration-150',
-            selected
-                ? 'bg-neutral-950 font-semibold text-white'
-                : isCurrent
-                  ? 'border border-neutral-950 font-semibold text-neutral-900 hover:bg-neutral-100'
-                  : 'font-medium text-neutral-700 hover:bg-neutral-100',
+            opts.disabled
+                ? 'cursor-not-allowed font-normal text-neutral-300 line-through decoration-neutral-200'
+                : selected
+                  ? 'bg-neutral-950 font-semibold text-white'
+                  : opts.inRange
+                    ? 'bg-neutral-100 font-medium text-neutral-900 hover:bg-neutral-200'
+                    : isCurrent
+                      ? 'border border-neutral-950 font-semibold text-neutral-900 hover:bg-neutral-100'
+                      : 'font-medium text-neutral-700 hover:bg-neutral-100',
         ].join(' ')
+
+    /** A month cell's selected state: the picked month(s) at month precision,
+     *  and merely the month being browsed at day precision. */
+    function monthSelected(monthIndex: number): boolean {
+        if (!isMonth) return monthIndex === viewDate.getMonth()
+        const date = new Date(viewDate.getFullYear(), monthIndex, 1)
+        if (!isRange) return !!selectedDate && sameMonth(date, selectedDate)
+        return (
+            (!!rangeStart && sameMonth(date, rangeStart)) ||
+            (!!rangeEnd && sameMonth(date, rangeEnd))
+        )
+    }
+
+    function monthInRange(monthIndex: number): boolean {
+        if (!isMonth || !isRange || !vStart || !vEnd) return false
+        const date = new Date(viewDate.getFullYear(), monthIndex, 1)
+        return date >= startOfMonth(vStart) && date <= startOfMonth(vEnd)
+    }
 
     const triggerClasses = [
         'group flex w-full items-center gap-3 rounded-xl border bg-white py-2.5 pl-4 pr-3 text-sm outline-none transition-all duration-150',
@@ -570,22 +689,42 @@ export default function DatePicker({
 
                     {/* Months view */}
                     {view === 'months' && (
-                        <div className="grid grid-cols-3 gap-1">
-                            {MONTHS.map((label, i) => (
-                                <button
-                                    key={label}
-                                    type="button"
-                                    onClick={() => selectMonth(i)}
-                                    className={gridCellClass(
-                                        i === viewDate.getMonth(),
-                                        i === today.getMonth() &&
-                                            viewDate.getFullYear() === today.getFullYear()
-                                    )}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
+                        <>
+                            {isMonth && isRange && (
+                                <p className="mb-3 text-center text-[11px] font-medium text-neutral-400">
+                                    {rangeHint}
+                                </p>
+                            )}
+                            <div
+                                className="grid grid-cols-3 gap-1"
+                                onMouseLeave={() => setHoverDate(null)}
+                            >
+                                {MONTHS.map((label, i) => {
+                                    const date = new Date(viewDate.getFullYear(), i, 1)
+                                    const off = isMonth && monthStatus(date) !== 'normal'
+                                    return (
+                                        <button
+                                            key={label}
+                                            type="button"
+                                            disabled={off}
+                                            onClick={() => selectMonth(i)}
+                                            onMouseEnter={() => {
+                                                if (isMonth && isRange && rangeSelecting === 'end' && !off)
+                                                    setHoverDate(date)
+                                            }}
+                                            className={gridCellClass(
+                                                monthSelected(i),
+                                                i === today.getMonth() &&
+                                                    viewDate.getFullYear() === today.getFullYear(),
+                                                { inRange: monthInRange(i), disabled: off }
+                                            )}
+                                        >
+                                            {label}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </>
                     )}
 
                     {/* Years view */}
@@ -615,7 +754,7 @@ export default function DatePicker({
                             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             <i className="fa-regular fa-calendar-check" aria-hidden="true" />
-                            Today
+                            {isMonth ? 'This month' : 'Today'}
                         </button>
                     </div>
                 </div>,
