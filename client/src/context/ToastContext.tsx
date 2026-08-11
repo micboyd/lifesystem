@@ -47,7 +47,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     return (
         <ToastContext.Provider value={value}>
             {children}
-            <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-2 p-4 sm:items-end sm:p-6">
+            {/* Centred on the viewport and above every overlay — modals, drawers
+                and the portaled picker menus all sit at z-50/z-[100], so a toast
+                reporting a failure inside one has to clear them. */}
+            <div className="pointer-events-none fixed inset-0 z-[200] flex flex-col items-center justify-center gap-2 p-4 sm:p-6">
                 {toasts.map((t) => (
                     <div key={t.id} className="pointer-events-auto w-full max-w-sm shadow-lg">
                         <Alert variant={t.variant} onClose={() => dismiss(t.id)}>
