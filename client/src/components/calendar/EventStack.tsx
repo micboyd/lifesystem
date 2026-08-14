@@ -14,6 +14,8 @@ interface EventStackProps {
     onPick: (events: Event[]) => void
     /** Copy this event to the calendar's paste buffer. */
     onCopyEvent?: (event: Event) => void
+    /** Delete this event (the caller handles confirmation / recurrence scope). */
+    onDeleteEvent?: (event: Event) => void
     /** Paste the buffered event into this slot (date/part already bound). */
     onPaste?: () => void
     /** Whether a copied event is available to paste. */
@@ -89,8 +91,8 @@ function Chip({
  * - 2 events: two stacked half-height chips (both titles visible).
  * - 3+ events: the first chip plus a "+N more" that opens a picker.
  *
- * Right-clicking a chip opens a context menu to copy it (and paste, when a
- * copied event is available); right-clicking an empty slot offers paste.
+ * Right-clicking a chip opens a context menu to copy or delete it (and paste,
+ * when a copied event is available); right-clicking an empty slot offers paste.
  */
 export default function EventStack({
     events,
@@ -99,17 +101,22 @@ export default function EventStack({
     onAdd,
     onPick,
     onCopyEvent,
+    onDeleteEvent,
     onPaste,
     canPaste = false,
 }: EventStackProps) {
     // Cursor-anchored menu; `event` is null when opened over an empty slot.
     const [menu, setMenu] = useState<{ x: number; y: number; event: Event | null } | null>(null)
 
+    // Synthetic birthdays have no underlying event document to delete.
+    const canDelete = (event: Event | null) =>
+        !!event && !!onDeleteEvent && !event._id.startsWith('birthday-')
+
     function openMenu(e: ReactMouseEvent, event: Event | null) {
         const canCopy = !!event && !!onCopyEvent
         const canPasteHere = canPaste && !!onPaste
         // Nothing to offer — let the browser's native menu through.
-        if (!canCopy && !canPasteHere) return
+        if (!canCopy && !canPasteHere && !canDelete(event)) return
         e.preventDefault()
         e.stopPropagation()
         setMenu({ x: e.clientX, y: e.clientY, event })
@@ -128,6 +135,16 @@ export default function EventStack({
                   : []),
               ...(canPaste && onPaste
                   ? [{ label: 'Paste event', icon: 'fa-solid fa-paste', onClick: onPaste }]
+                  : []),
+              ...(canDelete(menu.event)
+                  ? [
+                        {
+                            label: 'Delete event',
+                            icon: 'fa-solid fa-trash',
+                            danger: true,
+                            onClick: () => onDeleteEvent!(menu.event!),
+                        },
+                    ]
                   : []),
           ]
         : []

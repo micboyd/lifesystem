@@ -38,6 +38,7 @@ import { DAY_STATUS_OPTIONS } from '../types'
 import type { Event, Part, DayStatus, TotalRow, Reminder, MonthNote } from '../types'
 import Container from '../components/Container'
 import Checkbox from '../components/Checkbox'
+import ConfirmModal from '../components/ConfirmModal'
 import Tabs from '../components/Tabs'
 import EventDetailModal from '../components/calendar/EventDetailModal'
 import EventEditor from '../components/calendar/EventEditor'
@@ -120,6 +121,8 @@ export default function Calendar() {
     const [pickerEvents, setPickerEvents] = useState<Event[] | null>(null)
     const [editingEvent, setEditingEvent] = useState<Event | null>(null)
     const [scopeEvent, setScopeEvent] = useState<Event | null>(null)
+    // Non-recurring event awaiting confirmation of a right-click delete.
+    const [confirmDeleteEvent, setConfirmDeleteEvent] = useState<Event | null>(null)
     // A pending save of a recurring event, held while the this-one / whole-series
     // chooser is open. Applied once the user picks a scope.
     const [editScopeInput, setEditScopeInput] = useState<EventInput | null>(null)
@@ -309,6 +312,18 @@ export default function Calendar() {
         } finally {
             setSaving(false)
         }
+    }
+
+    // Delete requested from an event's right-click menu. Recurring events go
+    // straight to the this-one / whole-series chooser; anything else asks for a
+    // plain confirmation first, since a context-menu click is easy to misfire.
+    function requestDeleteEvent(event: Event) {
+        if (event._id.startsWith('birthday-')) return
+        if (event.recurrence) {
+            setScopeEvent(event)
+            return
+        }
+        setConfirmDeleteEvent(event)
     }
 
     async function handleDelete() {
@@ -566,6 +581,7 @@ export default function Calendar() {
         onEventClick: (event: Event) => setDetailEvent(event),
         onPickEvents: (evts: Event[]) => setPickerEvents(evts),
         onCopyEvent: (event: Event) => setCopiedEvent(event),
+        onDeleteEvent: requestDeleteEvent,
         onPasteEvent: pasteEvent,
         canPaste: !!copiedEvent,
         onCreateEvent: (date: string) => {
@@ -706,6 +722,7 @@ export default function Calendar() {
                                     onEventClick={(event) => setDetailEvent(event)}
                                     onPickEvents={(evts) => setPickerEvents(evts)}
                                     onCopyEvent={(event) => setCopiedEvent(event)}
+                                    onDeleteEvent={requestDeleteEvent}
                                     onPasteEvent={pasteEvent}
                                     canPaste={!!copiedEvent}
                                 />
@@ -800,6 +817,24 @@ export default function Calendar() {
                 }}
                 onSave={handleSave}
                 onDelete={handleDelete}
+            />
+            <ConfirmModal
+                open={!!confirmDeleteEvent}
+                title="Delete event?"
+                message={
+                    <>
+                        <span className="font-semibold text-neutral-900">
+                            {confirmDeleteEvent?.title}
+                        </span>{' '}
+                        will be permanently deleted.
+                    </>
+                }
+                confirmLabel="Delete"
+                danger
+                onConfirm={() => {
+                    if (confirmDeleteEvent) void removeEvent(confirmDeleteEvent, 'series')
+                }}
+                onClose={() => setConfirmDeleteEvent(null)}
             />
             {scopeEvent && (
                 <DeleteRecurringEventDialog
@@ -935,6 +970,7 @@ interface MonthBlockProps {
     onEventClick: (event: Event) => void
     onPickEvents: (events: Event[]) => void
     onCopyEvent: (event: Event) => void
+    onDeleteEvent: (event: Event) => void
     onPasteEvent: (date: string, part: Part) => void
     canPaste: boolean
 }
@@ -970,6 +1006,7 @@ function MonthBlock({
     onEventClick,
     onPickEvents,
     onCopyEvent,
+    onDeleteEvent,
     onPasteEvent,
     canPaste,
 }: MonthBlockProps) {
@@ -1142,6 +1179,7 @@ function MonthBlock({
                                                 onAdd={() => onOpenPart(key, period.key)}
                                                 onPick={onPickEvents}
                                                 onCopyEvent={onCopyEvent}
+                                                onDeleteEvent={onDeleteEvent}
                                                 onPaste={() => onPasteEvent(key, period.key)}
                                                 canPaste={canPaste}
                                             />
@@ -1197,6 +1235,7 @@ function MonthBlock({
                                             onAdd={() => onOpenPart(key, 'na')}
                                             onPick={onPickEvents}
                                             onCopyEvent={onCopyEvent}
+                                            onDeleteEvent={onDeleteEvent}
                                             onPaste={() => onPasteEvent(key, 'na')}
                                             canPaste={canPaste}
                                         />

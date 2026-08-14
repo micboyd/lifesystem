@@ -29,6 +29,8 @@ interface Props {
     onRevealCalendar: (calendarId: string) => void
     /** Copy an event into the paste buffer. */
     onCopyEvent: (event: Event) => void
+    /** Delete an event from its right-click menu. */
+    onDeleteEvent: (event: Event) => void
     /** Paste the buffered event into the given slot. */
     onPasteEvent: (date: string, part: Part) => void
     /** Whether a copied event is available to paste. */
@@ -51,6 +53,7 @@ export default function WeekView({
     hiddenByDate,
     onRevealCalendar,
     onCopyEvent,
+    onDeleteEvent,
     onPasteEvent,
     canPaste,
 }: Props) {
@@ -174,6 +177,7 @@ export default function WeekView({
                                                 onAdd={() => onOpenPart(date, period.key)}
                                                 onPick={onPickEvents}
                                                 onCopyEvent={onCopyEvent}
+                                                onDeleteEvent={onDeleteEvent}
                                                 onPaste={() => onPasteEvent(date, period.key)}
                                                 canPaste={canPaste}
                                             />
@@ -222,6 +226,7 @@ export default function WeekView({
                                             onAdd={() => onOpenPart(date, 'na')}
                                             onPick={onPickEvents}
                                             onCopyEvent={onCopyEvent}
+                                            onDeleteEvent={onDeleteEvent}
                                             onPaste={() => onPasteEvent(date, 'na')}
                                             canPaste={canPaste}
                                         />
