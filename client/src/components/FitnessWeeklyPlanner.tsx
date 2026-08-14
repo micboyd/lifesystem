@@ -391,6 +391,80 @@ function eventWhenLabel(event: Event, date: string): string {
     return event.time ? `${parts} · ${event.time}` : parts
 }
 
+// ─── Overloaded slots ─────────────────────────────────────────────────────────
+
+/**
+ * A slot stacking two hard sessions on top of each other — two strength, two
+ * conditioning, or one of each. Not a diary conflict like a clash — the slot is
+ * free, it's the training load in one sitting that's the problem — so it gets
+ * its own warning and its own fix: shift one of the two to another slot of the
+ * same day.
+ */
+interface Overload {
+    part: FitnessPlanPart
+    /** The hard sessions sharing the slot, in display order. */
+    entries: FitnessPlanEntry[]
+}
+
+/**
+ * Whether a kind counts towards a slot's load. Mobility and recovery never
+ * overload a slot — they're what you'd pair a hard session with — so only
+ * strength and conditioning are weighed.
+ */
+function isHardSession(kind: FitnessPlanKind): boolean {
+    return kind === 'workout' || kind === 'conditioning'
+}
+
+/** The slots of one day holding more than one hard session. */
+function overloadsIn(dayEntries: FitnessPlanEntry[]): Overload[] {
+    const found: Overload[] = []
+    for (const part of FITNESS_PLAN_PARTS) {
+        const hard = dayEntries
+            .filter((e) => partOf(e) === part && isHardSession(e.kind))
+            .sort((a, b) => a.order - b.order)
+        if (hard.length > 1) found.push({ part, entries: hard })
+    }
+    return found
+}
+
+/**
+ * The nearest slot on the entry's own day it could move to, to break up an
+ * overloaded one: a slot holding no hard session of its own (landing beside one
+ * would only move the overload along) nor two items already, and with no event
+ * covering it — no point trading an overload for a calendar clash. Slots are
+ * tried by distance from the current one, the later of two equals winning, so an
+ * afternoon session drifts to the evening rather than back to the morning.
+ * Returns null when the day has nowhere free to put it.
+ */
+function findFreeSlot(
+    entry: FitnessPlanEntry,
+    dayEntries: FitnessPlanEntry[],
+    events: Event[]
+): FitnessPlanPart | null {
+    const current = partOf(entry)
+    const currentIndex = FITNESS_PLAN_PARTS.indexOf(current)
+    const candidates = FITNESS_PLAN_PARTS.filter((p) => p !== current).sort((a, b) => {
+        const da = Math.abs(FITNESS_PLAN_PARTS.indexOf(a) - currentIndex)
+        const db = Math.abs(FITNESS_PLAN_PARTS.indexOf(b) - currentIndex)
+        if (da !== db) return da - db
+        return FITNESS_PLAN_PARTS.indexOf(b) - FITNESS_PLAN_PARTS.indexOf(a)
+    })
+    for (const part of candidates) {
+        const inSlot = dayEntries.filter((e) => e._id !== entry._id && partOf(e) === part)
+        // Slot capacity: at most two planned sessions share a slot.
+        if (inSlot.length >= 2) continue
+        if (inSlot.some((e) => isHardSession(e.kind))) continue
+        const blocked = events.some(
+            (e) =>
+                !e.ignoreClash &&
+                (eventCoversAllDay(e, entry.date) || eventCoversSlot(e, entry.date, part))
+        )
+        if (blocked) continue
+        return part
+    }
+    return null
+}
+
 // ─── Week tallies ───────────────────────────────────────────────────────────────
 
 interface WeekTally {
@@ -478,6 +552,8 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     >(null)
     // The day whose calendar clashes are open in the clash modal, if any.
     const [clashDate, setClashDate] = useState<string | null>(null)
+    // The day whose overloaded slots are open in the overload modal, if any.
+    const [overloadDate, setOverloadDate] = useState<string | null>(null)
 
     const today = todayKey()
     const toast = useToast()
@@ -778,6 +854,23 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         return m
     }, [entries, events])
 
+    // Overloaded slots keyed by day: each slot holding two hard sessions.
+    // Days with nothing doubled up are absent from the map.
+    const overloadsByDate = useMemo(() => {
+        const byDate = new Map<string, FitnessPlanEntry[]>()
+        for (const entry of entries) {
+            const list = byDate.get(entry.date)
+            if (list) list.push(entry)
+            else byDate.set(entry.date, [entry])
+        }
+        const m = new Map<string, Overload[]>()
+        for (const [date, dayEntries] of byDate) {
+            const found = overloadsIn(dayEntries)
+            if (found.length > 0) m.set(date, found)
+        }
+        return m
+    }, [entries])
+
     const libraryEmpty =
         workouts.length === 0 &&
         sessions.length === 0 &&
@@ -919,6 +1012,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     weekNote={weekNote}
                     dayNotes={dayNotes}
                     clashesByDate={clashesByDate}
+                    overloadsByDate={overloadsByDate}
                     isDone={isDone}
                     onAdd={(date, part) => setPicker({ date, part })}
                     onOpen={setDetail}
@@ -927,6 +1021,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     onEditFlag={(scope, date) => setFlagTarget({ scope, date })}
                     onClearDay={(date) => setClearTarget({ type: 'day', date })}
                     onShowClashes={setClashDate}
+                    onShowOverloads={setOverloadDate}
                 />
             )}
 
@@ -1027,6 +1122,15 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 events={events}
                 onMove={handleMove}
                 onClose={() => setClashDate(null)}
+            />
+
+            <OverloadModal
+                date={overloadDate}
+                overloads={overloadDate ? (overloadsByDate.get(overloadDate) ?? []) : []}
+                dayEntries={overloadDate ? entries.filter((e) => e.date === overloadDate) : []}
+                events={events}
+                onMove={handleMove}
+                onClose={() => setOverloadDate(null)}
             />
         </div>
     )
@@ -1192,6 +1296,132 @@ function ClashModal({
                                 </li>
                             )
                         })}
+                    </ul>
+                </div>
+            )}
+        </Modal>
+    )
+}
+
+// ─── Overload modal ───────────────────────────────────────────────────────────
+
+/**
+ * Lists a day's overloaded slots: each slot asking for two hard sessions back to
+ * back, with a one-press move of either session to the nearest slot of the day
+ * that's free to take it.
+ */
+function OverloadModal({
+    date,
+    overloads,
+    dayEntries,
+    events,
+    onMove,
+    onClose,
+}: {
+    date: string | null
+    overloads: Overload[]
+    /** Every planned item on this day — used to gauge each slot's spare capacity. */
+    dayEntries: FitnessPlanEntry[]
+    /** The week's calendar events, so a session is never moved into a busy slot. */
+    events: Event[]
+    onMove: (id: string, part: FitnessPlanPart) => void
+    onClose: () => void
+}) {
+    return (
+        <Modal
+            open={date !== null}
+            onClose={onClose}
+            title="Overloaded slot"
+            size="md"
+            footer={
+                <Button variant="ghost" onClick={onClose}>
+                    Done
+                </Button>
+            }
+        >
+            {date && overloads.length === 0 && (
+                <div className="flex flex-col items-center gap-2 py-4 text-center">
+                    <i
+                        className="fa-solid fa-circle-check text-2xl text-emerald-500"
+                        aria-hidden="true"
+                    />
+                    <p className="text-sm font-semibold text-neutral-700">Nicely spread out</p>
+                    <p className="text-sm text-neutral-500">
+                        No slot on{' '}
+                        <span className="font-semibold text-neutral-700">
+                            {shortDayLabel(date)}
+                        </span>{' '}
+                        doubles up on hard sessions.
+                    </p>
+                </div>
+            )}
+            {date && overloads.length > 0 && (
+                <div className="flex flex-col gap-4">
+                    <p className="text-sm text-neutral-500">
+                        On{' '}
+                        <span className="font-semibold text-neutral-700">
+                            {shortDayLabel(date)}
+                        </span>{' '}
+                        {overloads.length === 1 ? 'a slot stacks' : 'slots stack'} two hard sessions
+                        together. Move one to another slot to spread the load.
+                    </p>
+                    <ul className="flex flex-col gap-3">
+                        {overloads.map((overload) => (
+                            <li
+                                key={overload.part}
+                                className="rounded-xl border border-violet-200 bg-violet-50/50 p-3"
+                            >
+                                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-violet-500">
+                                    <i
+                                        className={`${PART_META[overload.part].icon} text-[10px]`}
+                                        aria-hidden="true"
+                                    />
+                                    {PART_META[overload.part].label}
+                                </div>
+                                <div className="mt-2 flex flex-col gap-2 border-t border-violet-200/70 pt-2">
+                                    {overload.entries.map((entry) => {
+                                        const tone = KIND_TONE[entry.kind]
+                                        const target = findFreeSlot(entry, dayEntries, events)
+                                        return (
+                                            <div
+                                                key={entry._id}
+                                                className="flex items-center gap-2 text-sm"
+                                            >
+                                                <i
+                                                    className={`${KIND_META[entry.kind].icon} shrink-0 text-xs ${tone.icon}`}
+                                                    aria-hidden="true"
+                                                />
+                                                <span className="min-w-0 flex-1 truncate font-semibold text-neutral-800">
+                                                    {planItemName(entry) ??
+                                                        KIND_META[entry.kind].noun}
+                                                </span>
+                                                {target ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onMove(entry._id, target)}
+                                                        className="flex shrink-0 items-center gap-1.5 rounded-full bg-violet-500 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-violet-600"
+                                                    >
+                                                        <i
+                                                            className="fa-solid fa-arrow-right-long text-[11px]"
+                                                            aria-hidden="true"
+                                                        />
+                                                        Move to {PART_META[target].label}
+                                                    </button>
+                                                ) : (
+                                                    <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-neutral-400">
+                                                        <i
+                                                            className="fa-solid fa-ban text-[11px]"
+                                                            aria-hidden="true"
+                                                        />
+                                                        No free slot
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </li>
+                        ))}
                     </ul>
                 </div>
             )}
@@ -1382,6 +1612,7 @@ function WeekView({
     weekNote,
     dayNotes,
     clashesByDate,
+    overloadsByDate,
     isDone,
     onAdd,
     onOpen,
@@ -1390,6 +1621,7 @@ function WeekView({
     onEditFlag,
     onClearDay,
     onShowClashes,
+    onShowOverloads,
 }: {
     weekStart: string
     today: string
@@ -1398,6 +1630,7 @@ function WeekView({
     weekNote: FitnessPlanNote | null
     dayNotes: Map<string, FitnessPlanNote>
     clashesByDate: Map<string, Clash[]>
+    overloadsByDate: Map<string, Overload[]>
     /** Whether a planned item has a matching completion log on its day. */
     isDone: (entry: FitnessPlanEntry) => boolean
     onAdd: (date: string, part: FitnessPlanPart) => void
@@ -1407,6 +1640,7 @@ function WeekView({
     onEditFlag: (scope: FitnessNoteScope, date: string) => void
     onClearDay: (date: string) => void
     onShowClashes: (date: string) => void
+    onShowOverloads: (date: string) => void
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
@@ -1469,6 +1703,7 @@ function WeekView({
             entries={entries.filter((e) => e.date === date)}
             note={dayNotes.get(date) ?? null}
             clashCount={clashesByDate.get(date)?.length ?? 0}
+            overloadCount={overloadsByDate.get(date)?.length ?? 0}
             isDone={isDone}
             onAdd={(part) => onAdd(date, part)}
             onOpen={onOpen}
@@ -1486,6 +1721,7 @@ function WeekView({
             onEditFlag={() => onEditFlag('day', date)}
             onClear={() => onClearDay(date)}
             onShowClashes={() => onShowClashes(date)}
+            onShowOverloads={() => onShowOverloads(date)}
         />
     )
 
@@ -1620,6 +1856,7 @@ function DayColumn({
     entries,
     note,
     clashCount,
+    overloadCount,
     isDone,
     onAdd,
     onOpen,
@@ -1635,6 +1872,7 @@ function DayColumn({
     onEditFlag,
     onClear,
     onShowClashes,
+    onShowOverloads,
 }: {
     date: string
     isToday: boolean
@@ -1643,6 +1881,8 @@ function DayColumn({
     note: FitnessPlanNote | null
     /** How many of this day's planned items clash with a calendar event. */
     clashCount: number
+    /** How many of this day's slots stack two hard sessions together. */
+    overloadCount: number
     /** Whether a planned item has a matching completion log on its day. */
     isDone: (entry: FitnessPlanEntry) => boolean
     onAdd: (part: FitnessPlanPart) => void
@@ -1663,6 +1903,7 @@ function DayColumn({
     onEditFlag: () => void
     onClear: () => void
     onShowClashes: () => void
+    onShowOverloads: () => void
 }) {
     const { year, month, day } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
@@ -1705,6 +1946,17 @@ function DayColumn({
                                 className="fa-solid fa-triangle-exclamation text-[13px]"
                                 aria-hidden="true"
                             />
+                        </button>
+                    )}
+                    {overloadCount > 0 && (
+                        <button
+                            type="button"
+                            onClick={onShowOverloads}
+                            aria-label={`${overloadCount} overloaded slot${overloadCount === 1 ? '' : 's'} — view`}
+                            title={`${overloadCount} overloaded slot${overloadCount === 1 ? '' : 's'}`}
+                            className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600"
+                        >
+                            <i className="fa-solid fa-gauge-high text-[13px]" aria-hidden="true" />
                         </button>
                     )}
                     {isToday && (
