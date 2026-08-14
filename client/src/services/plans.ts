@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, FitnessPlanKind, TrainingPlan } from '../types'
+import type { ApiResponse, FitnessPlanKind, FitnessPlanPart, TrainingPlan } from '../types'
 
 /** What importing a plan added to each library, and how much it scheduled. */
 export interface PlanImportSummary {
@@ -23,9 +23,15 @@ export interface PlanImportSummary {
     warnings: number
 }
 
-/** The plan library, newest additions last. `schedule` is not included. */
-export async function listPlans(): Promise<TrainingPlan[]> {
-    const res = await api.get<ApiResponse<TrainingPlan[]>>('/plans')
+/**
+ * The plan library, newest additions last. `schedule` is left out by default —
+ * it's long, and the cards don't need it. Ask for it when every plan's
+ * placements have to be read at once, as the overload scan does.
+ */
+export async function listPlans(options: { schedule?: boolean } = {}): Promise<TrainingPlan[]> {
+    const res = await api.get<ApiResponse<TrainingPlan[]>>('/plans', {
+        params: options.schedule ? { schedule: '1' } : undefined,
+    })
     return res.data.data
 }
 
@@ -85,6 +91,20 @@ export async function exportPlan(id: string): Promise<PlanExport> {
 
 export async function renamePlan(id: string, name: string): Promise<TrainingPlan> {
     const res = await api.patch<ApiResponse<TrainingPlan>>(`/plans/${id}`, { name })
+    return res.data.data
+}
+
+/**
+ * Move one scheduled session to another slot of its own day — how an overloaded
+ * slot is broken up. The plan itself is rewritten, so the fix survives applying
+ * the plan again; when the plan is already on the planner, the entry it placed
+ * moves along with it. Returns the plan with its updated schedule.
+ */
+export async function movePlanScheduleEntry(
+    id: string,
+    move: { date: string; item: string; from: FitnessPlanPart; to: FitnessPlanPart }
+): Promise<TrainingPlan> {
+    const res = await api.patch<ApiResponse<TrainingPlan>>(`/plans/${id}/schedule`, move)
     return res.data.data
 }
 

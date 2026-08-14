@@ -8,6 +8,7 @@ import {
     deletePlan,
     applyPlan,
     unapplyPlan,
+    movePlanScheduleEntry,
 } from '../controllers/trainingPlanController'
 import { requireAuth } from '../middleware/auth'
 
@@ -21,6 +22,7 @@ router.post('/import', importPlan)
 router.get('/:id', getPlan)
 router.get('/:id/export', exportPlan)
 router.patch('/:id', updatePlan)
+router.patch('/:id/schedule', movePlanScheduleEntry)
 router.delete('/:id', deletePlan)
 router.post('/:id/apply', applyPlan)
 router.delete('/:id/apply', unapplyPlan)

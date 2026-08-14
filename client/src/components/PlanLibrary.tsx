@@ -21,12 +21,20 @@ import {
     applyPlan,
     unapplyPlan,
     exportPlan,
+    movePlanScheduleEntry,
     type ApplyPlanOptions,
     type ApplyPlanResult,
 } from '../services/plans'
 import { formatDateLong, formatDateShort, formatWeekRange, todayKey } from '../lib/calendar'
+import { findOverloads, findFreeSlot, type Overload } from '../lib/overload'
 import { FITNESS_PLAN_KINDS } from '../types'
-import type { FitnessPlanKind, PlanRole, PlanScheduleEntry, TrainingPlan } from '../types'
+import type {
+    FitnessPlanKind,
+    FitnessPlanPart,
+    PlanRole,
+    PlanScheduleEntry,
+    TrainingPlan,
+} from '../types'
 
 // ─── Presentation ───────────────────────────────────────────────────────────────
 
@@ -51,6 +59,13 @@ const KIND_META: Record<FitnessPlanKind, { label: string; icon: string; chip: st
         icon: 'fa-solid fa-bed',
         chip: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
     },
+}
+
+/** The three slots each day splits into, labelled as the planner labels them. */
+const PART_META: Record<FitnessPlanPart, { label: string; icon: string }> = {
+    morning: { label: 'Morning', icon: 'fa-solid fa-sun' },
+    afternoon: { label: 'Afternoon', icon: 'fa-solid fa-cloud-sun' },
+    evening: { label: 'Evening', icon: 'fa-solid fa-moon' },
 }
 
 const ROLE_LABEL: Record<PlanRole, string> = {
@@ -120,16 +135,59 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
     const [applying, setApplying] = useState<TrainingPlan | null>(null)
     const [exporting, setExporting] = useState<TrainingPlan | null>(null)
     const [confirming, setConfirming] = useState<TrainingPlan | null>(null)
+    // The plan ids the overload drawer is open on — one plan, or every plan.
+    // Held as ids rather than plans so the drawer keeps reading the live rows as
+    // fixes land. Null keeps it closed.
+    const [overloadScope, setOverloadScope] = useState<string[] | null>(null)
 
     async function reload() {
-        setPlans(await listPlans())
+        setPlans(await listPlans({ schedule: true }))
     }
 
     useEffect(() => {
-        listPlans()
+        listPlans({ schedule: true })
             .then(setPlans)
             .finally(() => setLoading(false))
     }, [])
+
+    // Overloaded slots per plan, read off each plan's own schedule — so a plan
+    // that hasn't been applied yet still shows what it would stack up. Plans
+    // with nothing doubled up are absent from the map.
+    const overloadsByPlan = useMemo(() => {
+        const m = new Map<string, Overload<PlanScheduleEntry>[]>()
+        for (const plan of plans) {
+            const found = findOverloads(plan.schedule ?? [])
+            if (found.length > 0) m.set(plan._id, found)
+        }
+        return m
+    }, [plans])
+
+    const totalOverloads = useMemo(
+        () => [...overloadsByPlan.values()].reduce((n, list) => n + list.length, 0),
+        [overloadsByPlan]
+    )
+
+    // Move one scheduled session to another slot. The plan is the source of
+    // truth, so the server rewrites its schedule (and shifts the planner entry
+    // it placed, if the plan is applied) and hands back the plan it saved.
+    async function handleMoveScheduled(
+        plan: TrainingPlan,
+        entry: PlanScheduleEntry,
+        to: FitnessPlanPart
+    ) {
+        const saved = await movePlanScheduleEntry(plan._id, {
+            date: entry.date,
+            item: entry.item,
+            from: entry.part,
+            to,
+        })
+        // Only the schedule can have changed; the rest of the row (not least
+        // `appliedEntries`, which the list works out) is left as it stands.
+        setPlans((prev) =>
+            prev.map((p) => (p._id === plan._id ? { ...p, schedule: saved.schedule } : p))
+        )
+        toast.show(`Moved “${entry.label}” to the ${to}.`, 'success')
+    }
 
     async function handleDelete(plan: TrainingPlan) {
         setPlans((prev) => prev.filter((p) => p._id !== plan._id))
@@ -169,13 +227,25 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                     A plan links every workout, session and routine it needs, and knows which day
                     each one falls on. Apply it to fill the planner.
                 </p>
-                <Button
-                    variant="secondary"
-                    icon="fa-solid fa-file-import"
-                    onClick={() => setImporting(true)}
-                >
-                    Import plan
-                </Button>
+                <div className="flex items-center gap-3">
+                    {totalOverloads > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setOverloadScope(plans.map((p) => p._id))}
+                            className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-semibold text-violet-700 transition-colors hover:border-violet-300 hover:bg-violet-100"
+                        >
+                            <i className="fa-solid fa-gauge-high text-xs" aria-hidden="true" />
+                            {totalOverloads} overloaded slot{totalOverloads === 1 ? '' : 's'}
+                        </button>
+                    )}
+                    <Button
+                        variant="secondary"
+                        icon="fa-solid fa-file-import"
+                        onClick={() => setImporting(true)}
+                    >
+                        Import plan
+                    </Button>
+                </div>
             </div>
 
             {loading ? (
@@ -199,6 +269,8 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                         <PlanCard
                             key={plan._id}
                             plan={plan}
+                            overloadCount={overloadsByPlan.get(plan._id)?.length ?? 0}
+                            onShowOverloads={() => setOverloadScope([plan._id])}
                             onOpen={() => setOpenId(plan._id)}
                             onApply={() => setApplying(plan)}
                             onUnapply={() => handleUnapply(plan)}
@@ -214,6 +286,14 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                 onClose={() => setOpenId(null)}
                 onApply={(plan) => setApplying(plan)}
                 onExport={(plan) => setExporting(plan)}
+            />
+
+            <OverloadDrawer
+                open={overloadScope !== null}
+                plans={overloadScope ? plans.filter((p) => overloadScope.includes(p._id)) : []}
+                overloadsByPlan={overloadsByPlan}
+                onMove={handleMoveScheduled}
+                onClose={() => setOverloadScope(null)}
             />
 
             <ExportPlanModal plan={exporting} onClose={() => setExporting(null)} />
@@ -267,6 +347,8 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
 
 function PlanCard({
     plan,
+    overloadCount,
+    onShowOverloads,
     onOpen,
     onApply,
     onUnapply,
@@ -274,6 +356,9 @@ function PlanCard({
     onDelete,
 }: {
     plan: TrainingPlan
+    /** How many of this plan's slots stack two hard sessions together. */
+    overloadCount: number
+    onShowOverloads: () => void
     onOpen: () => void
     onApply: () => void
     onUnapply: () => void
@@ -358,14 +443,212 @@ function PlanCard({
                 ) : (
                     <span className="text-xs text-neutral-400">Not applied yet</span>
                 )}
-                {plan.warnings.length > 0 && (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700">
-                        <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" />
-                        {plan.warnings.length}
-                    </span>
-                )}
+                <div className="flex items-center gap-2">
+                    {overloadCount > 0 && (
+                        <button
+                            type="button"
+                            onClick={onShowOverloads}
+                            title={`${overloadCount} overloaded slot${overloadCount === 1 ? '' : 's'}`}
+                            className="relative z-20 inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100"
+                        >
+                            <i className="fa-solid fa-gauge-high" aria-hidden="true" />
+                            {overloadCount}
+                        </button>
+                    )}
+                    {plan.warnings.length > 0 && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700">
+                            <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" />
+                            {plan.warnings.length}
+                        </span>
+                    )}
+                </div>
             </div>
         </Card>
+    )
+}
+
+// ─── Overload drawer ────────────────────────────────────────────────────────────
+
+/**
+ * Every overloaded slot across one plan or the whole library, in one place: each
+ * slot that asks for two hard sessions back to back, listed by plan and then by
+ * date, with a one-press move of either session to the nearest slot of its day
+ * that's free to take it.
+ *
+ * Fixes are made against the plan's own schedule rather than a day of the
+ * planner, so they hold when the plan is applied again. Calendar events aren't
+ * weighed here — a plan spans months, and the planner's clash warning is what
+ * catches a session landing on something in the diary.
+ */
+function OverloadDrawer({
+    open,
+    plans,
+    overloadsByPlan,
+    onMove,
+    onClose,
+}: {
+    open: boolean
+    /** The plans in scope — one when opened from a card, all from the header. */
+    plans: TrainingPlan[]
+    overloadsByPlan: Map<string, Overload<PlanScheduleEntry>[]>
+    onMove: (
+        plan: TrainingPlan,
+        entry: PlanScheduleEntry,
+        to: FitnessPlanPart
+    ) => Promise<void> | void
+    onClose: () => void
+}) {
+    const withOverloads = plans.filter((p) => (overloadsByPlan.get(p._id)?.length ?? 0) > 0)
+    const total = withOverloads.reduce((n, p) => n + (overloadsByPlan.get(p._id)?.length ?? 0), 0)
+
+    return (
+        <Drawer
+            open={open}
+            onClose={onClose}
+            size="2xl"
+            title="Overloaded slots"
+            badge={total > 0 ? String(total) : undefined}
+            footer={
+                <Button variant="secondary" onClick={onClose}>
+                    Done
+                </Button>
+            }
+        >
+            {withOverloads.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-10 text-center">
+                    <i
+                        className="fa-solid fa-circle-check text-2xl text-emerald-500"
+                        aria-hidden="true"
+                    />
+                    <p className="text-sm font-semibold text-neutral-700">Nicely spread out</p>
+                    <p className="max-w-sm text-sm text-neutral-500">
+                        No slot doubles up on hard sessions — strength and conditioning each have a
+                        slot to themselves.
+                    </p>
+                </div>
+            ) : (
+                <div className="flex flex-col gap-8">
+                    <p className="text-sm text-neutral-500">
+                        A slot asking for two hard sessions back to back is flagged here. Moving one
+                        rewrites the plan, so the fix holds the next time you apply it — and if the
+                        plan is already on the planner, the session moves there too.
+                    </p>
+                    {withOverloads.map((plan) => (
+                        <section key={plan._id} className="flex flex-col gap-3">
+                            {/* Only worth naming the plan when several are in scope. */}
+                            {plans.length > 1 && (
+                                <div className="flex items-baseline gap-2">
+                                    <p className="text-sm font-semibold text-neutral-900">
+                                        {plan.name}
+                                    </p>
+                                    <p className="text-xs text-neutral-400">
+                                        {overloadsByPlan.get(plan._id)?.length} slot
+                                        {overloadsByPlan.get(plan._id)?.length === 1 ? '' : 's'}
+                                    </p>
+                                </div>
+                            )}
+                            <ul className="flex flex-col gap-3">
+                                {(overloadsByPlan.get(plan._id) ?? []).map((overload) => (
+                                    <OverloadRow
+                                        key={`${overload.date}|${overload.part}`}
+                                        plan={plan}
+                                        overload={overload}
+                                        onMove={onMove}
+                                    />
+                                ))}
+                            </ul>
+                        </section>
+                    ))}
+                </div>
+            )}
+        </Drawer>
+    )
+}
+
+/** One overloaded slot: the day and slot it falls in, and the sessions stacked there. */
+function OverloadRow({
+    plan,
+    overload,
+    onMove,
+}: {
+    plan: TrainingPlan
+    overload: Overload<PlanScheduleEntry>
+    onMove: (
+        plan: TrainingPlan,
+        entry: PlanScheduleEntry,
+        to: FitnessPlanPart
+    ) => Promise<void> | void
+}) {
+    // Which of the slot's sessions is being moved, by position — a plan can name
+    // the same item twice, so its id isn't enough to tell them apart. Held so the
+    // button can't be pressed again while the save is in flight.
+    const [moving, setMoving] = useState<number | null>(null)
+    const dayEntries = (plan.schedule ?? []).filter((e) => e.date === overload.date)
+
+    async function handleMove(entry: PlanScheduleEntry, to: FitnessPlanPart, index: number) {
+        setMoving(index)
+        try {
+            await onMove(plan, entry, to)
+        } finally {
+            setMoving(null)
+        }
+    }
+
+    return (
+        <li className="rounded-2xl border border-violet-200 bg-violet-50/50 p-3">
+            <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-neutral-800">
+                    {formatDateLong(overload.date)}
+                </span>
+                <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-violet-500">
+                    <i
+                        className={`${PART_META[overload.part].icon} text-[10px]`}
+                        aria-hidden="true"
+                    />
+                    {PART_META[overload.part].label}
+                </span>
+            </div>
+            <div className="mt-2 flex flex-col gap-2 border-t border-violet-200/70 pt-2">
+                {overload.entries.map((entry, i) => {
+                    const target = findFreeSlot(entry, dayEntries)
+                    const busy = moving === i
+                    return (
+                        <div key={`${entry.item}-${i}`} className="flex items-center gap-2 text-sm">
+                            <i
+                                className={`${KIND_META[entry.kind].icon} shrink-0 text-xs text-neutral-400`}
+                                aria-hidden="true"
+                            />
+                            <span className="min-w-0 flex-1 truncate font-semibold text-neutral-800">
+                                {entry.label}
+                            </span>
+                            {target ? (
+                                <button
+                                    type="button"
+                                    disabled={busy || moving !== null}
+                                    onClick={() => handleMove(entry, target, i)}
+                                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-violet-500 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
+                                >
+                                    <i
+                                        className={`text-[11px] ${
+                                            busy
+                                                ? 'fa-solid fa-circle-notch fa-spin'
+                                                : 'fa-solid fa-arrow-right-long'
+                                        }`}
+                                        aria-hidden="true"
+                                    />
+                                    Move to {PART_META[target].label}
+                                </button>
+                            ) : (
+                                <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-neutral-400">
+                                    <i className="fa-solid fa-ban text-[11px]" aria-hidden="true" />
+                                    No free slot
+                                </span>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
+        </li>
     )
 }
 
@@ -535,7 +818,9 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
 
     return (
         <div className="flex flex-col gap-6">
-            {plan.source && <p className="text-sm text-neutral-500">{readableDates(plan.source)}</p>}
+            {plan.source && (
+                <p className="text-sm text-neutral-500">{readableDates(plan.source)}</p>
+            )}
 
             {goalRows.length > 0 && (
                 <Section title="Goal">

@@ -619,11 +619,14 @@ export async function importPlan(req: AuthRequest, res: Response) {
 
 // ─── Read / delete ──────────────────────────────────────────────────────────────
 
-/** GET /api/plans — the plan library, without the (large) schedule arrays. */
+/** GET /api/plans — the plan library; the schedule arrays only on request. */
 export async function listPlans(req: AuthRequest, res: Response) {
-    const plans = await TrainingPlan.find({ user: req.userId })
-        .select('-schedule')
-        .sort({ order: 1, createdAt: 1 })
+    // The list leaves out each plan's schedule by default — it's long and the
+    // cards don't need it. `?schedule=1` keeps it, for callers that have to read
+    // every plan's placements at once, such as the overload scan.
+    const query = TrainingPlan.find({ user: req.userId }).sort({ order: 1, createdAt: 1 })
+    if (req.query.schedule !== '1') query.select('-schedule')
+    const plans = await query
     // The planner needs to know how many entries each plan has placed, and the
     // schedule is excluded above, so count entries per plan in one pass.
     const applied = await FitnessPlanEntry.aggregate<{ _id: Types.ObjectId; count: number }>([
@@ -725,6 +728,90 @@ function refFields(kind: FitnessPlanKind, item: Types.ObjectId) {
         recovery: kind === 'recovery' ? item : null,
         mobility: kind === 'mobility' ? item : null,
     }
+}
+
+/** The FitnessPlanEntry field holding the library reference for a kind. */
+const REF_FIELD: Record<FitnessPlanKind, string> = {
+    workout: 'workout',
+    conditioning: 'session',
+    recovery: 'recovery',
+    mobility: 'mobility',
+}
+
+/**
+ * PATCH /api/plans/:id/schedule — move one scheduled session to another slot of
+ * its own day. Body: { date, item, from, to }.
+ *
+ * The plan's schedule is the source of truth, so the fix is recorded there and
+ * survives re-applying. When the plan is already on the planner, the entry it
+ * placed for that session moves with it — otherwise the two would disagree until
+ * the next apply. The moved entry is appended to the end of its new slot, the
+ * same as a move made in the planner itself.
+ */
+export async function movePlanScheduleEntry(req: AuthRequest, res: Response) {
+    const body = obj(req.body) ?? {}
+    const date = str(body.date)
+    const item = str(body.item)
+    const from = str(body.from)
+    const to = str(body.to)
+
+    if (!date || !DATE_RE.test(date)) {
+        res.status(400).json({ message: 'date ("YYYY-MM-DD") is required' })
+        return
+    }
+    if (!item || !Types.ObjectId.isValid(item)) {
+        res.status(400).json({ message: 'item (a library item id) is required' })
+        return
+    }
+    const isPart = (p: string | undefined): p is FitnessPlanPart =>
+        !!p && FITNESS_PLAN_PARTS.includes(p as FitnessPlanPart)
+    if (!isPart(from) || !isPart(to)) {
+        res.status(400).json({ message: 'from and to (morning|afternoon|evening) are required' })
+        return
+    }
+    if (from === to) {
+        res.status(400).json({ message: 'from and to must be different slots' })
+        return
+    }
+
+    const plan = await TrainingPlan.findOne({ _id: req.params.id, user: req.userId })
+    if (!plan) {
+        res.status(404).json({ message: 'Plan not found' })
+        return
+    }
+
+    const target = plan.schedule.find(
+        (e) => e.date === date && e.part === from && String(e.item) === item
+    )
+    if (!target) {
+        res.status(404).json({ message: 'That session is not on this plan’s schedule' })
+        return
+    }
+    target.part = to
+    await plan.save()
+
+    // The entry this plan placed for that session, if it's currently applied.
+    const placed = await FitnessPlanEntry.findOne({
+        user: req.userId,
+        plan: plan._id,
+        date,
+        part: from,
+        [REF_FIELD[target.kind]]: new Types.ObjectId(item),
+    })
+    if (placed) {
+        const last = await FitnessPlanEntry.findOne({ user: req.userId, date, part: to }).sort({
+            order: -1,
+        })
+        placed.part = to
+        placed.order = last ? last.order + 1 : 0
+        await placed.save()
+    }
+
+    res.json({
+        message: `Moved “${target.label}” to the ${to}`,
+        data: plan,
+        movedEntry: !!placed,
+    })
 }
 
 /**

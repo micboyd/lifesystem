@@ -76,6 +76,7 @@ import {
     eventCoversSlot,
     eventCoversAllDay,
 } from '../lib/calendar'
+import { findOverloads, findFreeSlot, type Overload } from '../lib/overload'
 
 // ─── Kind presentation ────────────────────────────────────────────────────────
 
@@ -394,75 +395,34 @@ function eventWhenLabel(event: Event, date: string): string {
 // ─── Overloaded slots ─────────────────────────────────────────────────────────
 
 /**
- * A slot stacking two hard sessions on top of each other — two strength, two
- * conditioning, or one of each. Not a diary conflict like a clash — the slot is
- * free, it's the training load in one sitting that's the problem — so it gets
- * its own warning and its own fix: shift one of the two to another slot of the
- * same day.
+ * A slot of this week stacking two hard sessions on top of each other. The rule
+ * itself lives in `lib/overload`, shared with the plans tab; this is the week
+ * planner's view of it — one day's worth, keyed off the day column it warns on.
  */
-interface Overload {
-    part: FitnessPlanPart
-    /** The hard sessions sharing the slot, in display order. */
-    entries: FitnessPlanEntry[]
+type DayOverload = Overload<FitnessPlanEntry>
+
+/** The slots of one day holding more than one hard session, in slot order. */
+function overloadsIn(dayEntries: FitnessPlanEntry[]): DayOverload[] {
+    return findOverloads([...dayEntries].sort((a, b) => a.order - b.order))
 }
 
 /**
- * Whether a kind counts towards a slot's load. Mobility and recovery never
- * overload a slot — they're what you'd pair a hard session with — so only
- * strength and conditioning are weighed.
+ * Where a clashing item could go instead — as `findFreeSlot`, but also refusing
+ * any slot a calendar event covers, since there's no point trading an overload
+ * for a clash.
  */
-function isHardSession(kind: FitnessPlanKind): boolean {
-    return kind === 'workout' || kind === 'conditioning'
-}
-
-/** The slots of one day holding more than one hard session. */
-function overloadsIn(dayEntries: FitnessPlanEntry[]): Overload[] {
-    const found: Overload[] = []
-    for (const part of FITNESS_PLAN_PARTS) {
-        const hard = dayEntries
-            .filter((e) => partOf(e) === part && isHardSession(e.kind))
-            .sort((a, b) => a.order - b.order)
-        if (hard.length > 1) found.push({ part, entries: hard })
-    }
-    return found
-}
-
-/**
- * The nearest slot on the entry's own day it could move to, to break up an
- * overloaded one: a slot holding no hard session of its own (landing beside one
- * would only move the overload along) nor two items already, and with no event
- * covering it — no point trading an overload for a calendar clash. Slots are
- * tried by distance from the current one, the later of two equals winning, so an
- * afternoon session drifts to the evening rather than back to the morning.
- * Returns null when the day has nowhere free to put it.
- */
-function findFreeSlot(
+function findFreeSlotAround(
     entry: FitnessPlanEntry,
     dayEntries: FitnessPlanEntry[],
     events: Event[]
 ): FitnessPlanPart | null {
-    const current = partOf(entry)
-    const currentIndex = FITNESS_PLAN_PARTS.indexOf(current)
-    const candidates = FITNESS_PLAN_PARTS.filter((p) => p !== current).sort((a, b) => {
-        const da = Math.abs(FITNESS_PLAN_PARTS.indexOf(a) - currentIndex)
-        const db = Math.abs(FITNESS_PLAN_PARTS.indexOf(b) - currentIndex)
-        if (da !== db) return da - db
-        return FITNESS_PLAN_PARTS.indexOf(b) - FITNESS_PLAN_PARTS.indexOf(a)
-    })
-    for (const part of candidates) {
-        const inSlot = dayEntries.filter((e) => e._id !== entry._id && partOf(e) === part)
-        // Slot capacity: at most two planned sessions share a slot.
-        if (inSlot.length >= 2) continue
-        if (inSlot.some((e) => isHardSession(e.kind))) continue
-        const blocked = events.some(
+    return findFreeSlot(entry, dayEntries, (part) =>
+        events.some(
             (e) =>
                 !e.ignoreClash &&
                 (eventCoversAllDay(e, entry.date) || eventCoversSlot(e, entry.date, part))
         )
-        if (blocked) continue
-        return part
-    }
-    return null
+    )
 }
 
 // ─── Week tallies ───────────────────────────────────────────────────────────────
@@ -857,16 +817,11 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     // Overloaded slots keyed by day: each slot holding two hard sessions.
     // Days with nothing doubled up are absent from the map.
     const overloadsByDate = useMemo(() => {
-        const byDate = new Map<string, FitnessPlanEntry[]>()
-        for (const entry of entries) {
-            const list = byDate.get(entry.date)
-            if (list) list.push(entry)
-            else byDate.set(entry.date, [entry])
-        }
-        const m = new Map<string, Overload[]>()
-        for (const [date, dayEntries] of byDate) {
-            const found = overloadsIn(dayEntries)
-            if (found.length > 0) m.set(date, found)
+        const m = new Map<string, DayOverload[]>()
+        for (const overload of overloadsIn(entries)) {
+            const list = m.get(overload.date)
+            if (list) list.push(overload)
+            else m.set(overload.date, [overload])
         }
         return m
     }, [entries])
@@ -1319,7 +1274,7 @@ function OverloadModal({
     onClose,
 }: {
     date: string | null
-    overloads: Overload[]
+    overloads: DayOverload[]
     /** Every planned item on this day — used to gauge each slot's spare capacity. */
     dayEntries: FitnessPlanEntry[]
     /** The week's calendar events, so a session is never moved into a busy slot. */
@@ -1381,7 +1336,7 @@ function OverloadModal({
                                 <div className="mt-2 flex flex-col gap-2 border-t border-violet-200/70 pt-2">
                                     {overload.entries.map((entry) => {
                                         const tone = KIND_TONE[entry.kind]
-                                        const target = findFreeSlot(entry, dayEntries, events)
+                                        const target = findFreeSlotAround(entry, dayEntries, events)
                                         return (
                                             <div
                                                 key={entry._id}
@@ -1630,7 +1585,7 @@ function WeekView({
     weekNote: FitnessPlanNote | null
     dayNotes: Map<string, FitnessPlanNote>
     clashesByDate: Map<string, Clash[]>
-    overloadsByDate: Map<string, Overload[]>
+    overloadsByDate: Map<string, DayOverload[]>
     /** Whether a planned item has a matching completion log on its day. */
     isDone: (entry: FitnessPlanEntry) => boolean
     onAdd: (date: string, part: FitnessPlanPart) => void
