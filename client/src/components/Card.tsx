@@ -30,7 +30,8 @@ export function Card({
     flush = false,
     hover = true,
 }: CardRootProps) {
-    const base = `rounded-3xl bg-white ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${flush ? '' : 'p-6'}`
+    // Tighter padding on phones: `p-6` would eat 48px of a 375px viewport.
+    const base = `rounded-3xl bg-white ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${flush ? '' : 'p-4 sm:p-6'}`
     const hoverCls = hover
         ? 'transition-all duration-300 hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.14)] hover:-translate-y-0.5'
         : ''

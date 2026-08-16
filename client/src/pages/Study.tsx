@@ -168,7 +168,7 @@ export default function Study() {
     return (
         <Container as="main" className="py-10">
             <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Studying</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Studying</h1>
                 <p className="mt-1 text-sm text-neutral-500">
                     Bank study hours from a calendar totals row, then see when each course finishes.
                 </p>

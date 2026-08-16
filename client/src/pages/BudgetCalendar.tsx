@@ -1945,22 +1945,25 @@ export default function BudgetCalendar() {
     return (
         <>
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
+                {/* Full-width on phones with a shrinkable label — the arrows,
+                    the 180px label and "This month" total ~378px, wider than a
+                    narrow viewport, and none of them shrink on their own. */}
+                <div className="flex w-full items-center gap-2 sm:w-auto">
                     <button
                         type="button"
                         onClick={() => setMonth((m) => addMonths(m, -1))}
                         disabled={!!(financeStartMonth && month <= financeStartMonth)}
-                        className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900 disabled:opacity-30 disabled:pointer-events-none"
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900 disabled:opacity-30 disabled:pointer-events-none"
                     >
                         <i className="fa-solid fa-chevron-left text-sm" aria-hidden="true" />
                     </button>
-                    <span className="min-w-[180px] text-center text-lg font-bold text-neutral-900">
+                    <span className="min-w-0 flex-1 truncate text-center text-lg font-bold text-neutral-900 sm:min-w-[180px] sm:flex-none">
                         {formatMonthLabel(month)}
                     </span>
                     <button
                         type="button"
                         onClick={() => setMonth((m) => addMonths(m, 1))}
-                        className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
                     >
                         <i className="fa-solid fa-chevron-right text-sm" aria-hidden="true" />
                     </button>
@@ -1968,7 +1971,7 @@ export default function BudgetCalendar() {
                         <button
                             type="button"
                             onClick={() => setMonth(currentMonth())}
-                            className="rounded-full px-3 py-1.5 text-sm font-semibold text-neutral-500 transition-colors hover:bg-neutral-200"
+                            className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold text-neutral-500 transition-colors hover:bg-neutral-200"
                         >
                             This month
                         </button>

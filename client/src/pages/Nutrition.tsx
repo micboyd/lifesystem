@@ -322,7 +322,7 @@ export default function Nutrition() {
         <main className="py-10">
             <Container>
                 <header className="mb-6">
-                    <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Nutrition</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Nutrition</h1>
                     <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
                 </header>
 
@@ -2481,13 +2481,15 @@ function WeeklyPlanner({
         <div className="flex flex-col gap-6">
             {/* Week navigation + totals */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-center gap-2">
+                {/* Full-width on phones with a shrinkable label, so "This week"
+                    stops breaking mid-word next to the 10rem range label. */}
+                <div className="flex w-full items-center gap-2 sm:w-auto">
                     <IconButton
                         label="Previous week"
                         icon="fa-solid fa-chevron-left"
                         onClick={() => setWeekStart(addDays(weekStart, -7))}
                     />
-                    <div className="min-w-[10rem] text-center text-sm font-semibold text-neutral-900">
+                    <div className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-neutral-900 sm:min-w-[10rem] sm:flex-none">
                         {formatWeekRange(weekStart, weekEnd)}
                     </div>
                     <IconButton
@@ -2499,7 +2501,7 @@ function WeeklyPlanner({
                         variant="ghost"
                         size="sm"
                         onClick={() => setWeekStart(mondayOf(today))}
-                        className="ml-1"
+                        className="ml-1 shrink-0 whitespace-nowrap"
                     >
                         This week
                     </Button>

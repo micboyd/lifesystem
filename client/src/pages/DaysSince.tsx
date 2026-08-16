@@ -203,7 +203,7 @@ export default function DaysSince() {
 
     return (
         <Container as="main" className="py-10">
-            <header className="mb-8 flex items-center gap-3">
+            <header className="mb-8 flex flex-wrap items-center gap-3">
                 <Link
                     to="/profile"
                     className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
@@ -211,7 +211,7 @@ export default function DaysSince() {
                     <i className="fa-solid fa-arrow-left text-sm" aria-hidden="true" />
                 </Link>
                 <div className="flex-1">
-                    <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Days Since</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Days Since</h1>
                     <p className="mt-1 text-sm text-neutral-500">
                         Count the days since you started something good — or stopped something bad.
                     </p>
@@ -305,7 +305,7 @@ export default function DaysSince() {
                                         />
                                     </div>
 
-                                    <div className="mt-5 flex items-baseline gap-2">
+                                    <div className="mt-5 flex flex-wrap items-baseline gap-2">
                                         <span className={`text-5xl font-extrabold tracking-tight ${c.accent}`}>
                                             {days}
                                         </span>

@@ -2,9 +2,10 @@ import { todayKey, addDays, getWeekStart, parseDateKey } from '../../lib/calenda
 import { EVENT_TYPE_ICONS, DAY_STATUS_OPTIONS } from '../../types'
 import { useCalendars } from '../../context/CalendarsContext'
 import { colorsForEvent } from '../../lib/eventColors'
-import type { Event, DayStatus, Part, Reminder } from '../../types'
+import type { Event, DayStatus, Part, Reminder, Birthday } from '../../types'
 import { Card } from '../Card'
 import ReminderChip from '../reminders/ReminderChip'
+import BirthdayBadge from './BirthdayBadge'
 import HiddenCalendarDots from './HiddenCalendarDots'
 
 interface Props {
@@ -21,6 +22,9 @@ interface Props {
     /** Events on hidden calendars, keyed by date — drawn as presence dots. */
     hiddenByDate: Map<string, Event[]>
     onRevealCalendar: (calendarId: string) => void
+    /** Birthdays keyed by MM-DD — drawn as a cake in the day header. */
+    birthdaysByDay: Map<string, Birthday[]>
+    onOpenBirthdays: (date: string) => void
 }
 
 const WEEKDAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -37,6 +41,8 @@ export default function MonthView({
     onCreateEvent,
     hiddenByDate,
     onRevealCalendar,
+    birthdaysByDay,
+    onOpenBirthdays,
 }: Props) {
     const { byId } = useCalendars()
     const tk = todayKey()
@@ -112,34 +118,43 @@ export default function MonthView({
                                     )
                                 })()}
 
-                            {/* Header: reminder affordance (left) + day number (right) */}
+                            {/* Header: reminder + birthday affordances (left) + day number (right) */}
                             <div className="mb-1 flex items-center justify-between">
-                                <button
-                                    type="button"
-                                    onClick={(ev) => {
-                                        ev.stopPropagation()
-                                        onOpenReminders(date)
-                                    }}
-                                    aria-label="Reminders"
-                                    title={
-                                        dayReminders.length
-                                            ? dayReminders.map((r) => r.text).join('\n')
-                                            : 'Add reminder'
-                                    }
-                                    className={[
-                                        'grid h-6 w-6 place-items-center rounded-full text-xs transition-colors hover:bg-amber-100',
-                                        dayReminders.length
-                                            ? 'text-amber-500'
-                                            : 'text-neutral-300 opacity-100 sm:opacity-0 sm:group-hover/cell:opacity-100',
-                                    ].join(' ')}
-                                >
-                                    <i className="fa-solid fa-bell text-[11px]" aria-hidden="true" />
-                                    {dayReminders.length > 1 && (
-                                        <span className="ml-0.5 text-[9px] font-bold">
-                                            {dayReminders.length}
-                                        </span>
-                                    )}
-                                </button>
+                                <div className="flex min-w-0 items-center">
+                                    <button
+                                        type="button"
+                                        onClick={(ev) => {
+                                            ev.stopPropagation()
+                                            onOpenReminders(date)
+                                        }}
+                                        aria-label="Reminders"
+                                        title={
+                                            dayReminders.length
+                                                ? dayReminders.map((r) => r.text).join('\n')
+                                                : 'Add reminder'
+                                        }
+                                        className={[
+                                            'grid h-6 w-6 place-items-center rounded-full text-xs transition-colors hover:bg-amber-100',
+                                            dayReminders.length
+                                                ? 'text-amber-500'
+                                                : 'text-neutral-300 opacity-100 sm:opacity-0 sm:group-hover/cell:opacity-100',
+                                        ].join(' ')}
+                                    >
+                                        <i
+                                            className="fa-solid fa-bell text-[11px]"
+                                            aria-hidden="true"
+                                        />
+                                        {dayReminders.length > 1 && (
+                                            <span className="ml-0.5 text-[9px] font-bold">
+                                                {dayReminders.length}
+                                            </span>
+                                        )}
+                                    </button>
+                                    <BirthdayBadge
+                                        birthdays={birthdaysByDay.get(date.slice(5)) ?? []}
+                                        onOpen={() => onOpenBirthdays(date)}
+                                    />
+                                </div>
                                 <HiddenCalendarDots
                                     events={hiddenByDate.get(date) ?? []}
                                     onReveal={onRevealCalendar}

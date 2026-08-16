@@ -9,9 +9,10 @@ import {
     todayKey,
 } from '../../lib/calendar'
 import { DAY_STATUS_OPTIONS } from '../../types'
-import type { Event, DayStatus, Part, Reminder } from '../../types'
+import type { Event, DayStatus, Part, Reminder, Birthday } from '../../types'
 import EventStack from './EventStack'
 import HiddenCalendarDots from './HiddenCalendarDots'
+import BirthdayBadge from './BirthdayBadge'
 
 interface Props {
     focusDate: string
@@ -27,6 +28,9 @@ interface Props {
     /** Events on hidden calendars, keyed by date — drawn as presence dots. */
     hiddenByDate: Map<string, Event[]>
     onRevealCalendar: (calendarId: string) => void
+    /** Birthdays keyed by MM-DD — drawn as a cake in the day header. */
+    birthdaysByDay: Map<string, Birthday[]>
+    onOpenBirthdays: (date: string) => void
     /** Copy an event into the paste buffer. */
     onCopyEvent: (event: Event) => void
     /** Delete an event from its right-click menu. */
@@ -52,6 +56,8 @@ export default function WeekView({
     onPickEvents,
     hiddenByDate,
     onRevealCalendar,
+    birthdaysByDay,
+    onOpenBirthdays,
     onCopyEvent,
     onDeleteEvent,
     onPasteEvent,
@@ -77,10 +83,7 @@ export default function WeekView({
                                 const isToday = date === tk
                                 const dayReminders = reminders.filter((r) => r.date === date)
                                 return (
-                                    <th
-                                        key={date}
-                                        className="group/day px-1 py-2 text-center"
-                                    >
+                                    <th key={date} className="group/day px-1 py-2 text-center">
                                         <div className="flex flex-col items-center gap-1">
                                             <button
                                                 type="button"
@@ -117,13 +120,20 @@ export default function WeekView({
                                                         : 'text-neutral-300 opacity-100 sm:opacity-0 sm:group-hover/day:opacity-100',
                                                 ].join(' ')}
                                             >
-                                                <i className="fa-solid fa-bell text-[10px]" aria-hidden="true" />
+                                                <i
+                                                    className="fa-solid fa-bell text-[10px]"
+                                                    aria-hidden="true"
+                                                />
                                                 {dayReminders.length > 1 && (
                                                     <span className="text-[9px] font-bold leading-none">
                                                         {dayReminders.length}
                                                     </span>
                                                 )}
                                             </button>
+                                            <BirthdayBadge
+                                                birthdays={birthdaysByDay.get(date.slice(5)) ?? []}
+                                                onOpen={() => onOpenBirthdays(date)}
+                                            />
                                             <HiddenCalendarDots
                                                 events={hiddenByDate.get(date) ?? []}
                                                 onReveal={onRevealCalendar}
@@ -291,7 +301,6 @@ export default function WeekView({
                                 )
                             })}
                         </tr>
-
                     </tbody>
                 </table>
             </div>

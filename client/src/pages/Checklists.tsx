@@ -393,7 +393,7 @@ function ChecklistDetail({
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2.5">
                         <span className={`h-3.5 w-3.5 shrink-0 rounded-full ${c.dot}`} />
-                        <h1 className="truncate text-3xl font-bold tracking-tight text-neutral-950">
+                        <h1 className="truncate text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">
                             {list.title}
                         </h1>
                     </div>
@@ -539,7 +539,7 @@ export default function Checklists() {
                 <>
                     <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
                         <div>
-                            <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Checklists</h1>
+                            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Checklists</h1>
                             <p className="mt-1 text-sm text-neutral-500">
                                 {checklists.length} checklist{checklists.length !== 1 ? 's' : ''}
                             </p>

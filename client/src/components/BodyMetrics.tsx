@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Card } from './Card'
 import Button from './Button'
 import Input from './Input'
+import DatePicker from './DatePicker'
 import Spinner from './Spinner'
 import EmptyState from './EmptyState'
 import ConfirmModal from './ConfirmModal'
@@ -304,13 +305,14 @@ function WeighInForm({
 
     return (
         <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
-            <div className="w-40">
-                <Input
-                    label="Date"
-                    type="date"
+            <div className="flex w-52 flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    Date
+                </label>
+                <DatePicker
                     value={date}
-                    max={todayKey()}
-                    onChange={(e) => setDate(e.target.value)}
+                    maxDate={todayKey()}
+                    onChange={(v) => setDate(typeof v === 'string' ? v : todayKey())}
                 />
             </div>
             <div className="w-28">

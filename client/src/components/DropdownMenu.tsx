@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 export interface MenuItem {
@@ -36,6 +36,10 @@ export default function DropdownMenu({
 }: DropdownMenuProps) {
     const [open, setOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
+    const menuRef = useRef<HTMLDivElement>(null)
+    // Horizontal nudge that pulls the menu back inside the viewport on narrow
+    // screens, where a wide menu on an edge-anchored trigger would overflow.
+    const [shift, setShift] = useState(0)
 
     useEffect(() => {
         if (!open) return
@@ -47,6 +51,30 @@ export default function DropdownMenu({
         document.addEventListener('mousedown', handle)
         return () => document.removeEventListener('mousedown', handle)
     }, [open])
+
+    // Measure once the menu is up, then shift it just enough to fit.
+    useLayoutEffect(() => {
+        // No reset on close: the menu unmounts, and the measurement below
+        // subtracts any carried-over shift, so a stale value self-corrects
+        // before the next paint.
+        const el = menuRef.current
+        if (!open || !el) return
+        const margin = 8
+        // Measure against the unshifted position so the correction is absolute.
+        const rect = el.getBoundingClientRect()
+        const left = rect.left - shift
+        const right = rect.right - shift
+        if (right > window.innerWidth - margin) {
+            setShift(Math.max(window.innerWidth - margin - right, margin - left))
+        } else if (left < margin) {
+            setShift(margin - left)
+        } else {
+            setShift(0)
+        }
+        // `shift` is deliberately excluded: including it would re-run on every
+        // correction and oscillate.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, items.length, align, size])
 
     const itemClass = (danger?: boolean) =>
         [
@@ -62,8 +90,10 @@ export default function DropdownMenu({
 
             {open && (
                 <div
+                    ref={menuRef}
                     role="menu"
-                    className={`absolute z-50 mt-2 ${SIZE_WIDTH[size]} rounded-xl border border-neutral-100 bg-white p-1.5 shadow-lg ${
+                    style={shift ? { transform: `translateX(${shift}px)` } : undefined}
+                    className={`absolute z-50 mt-2 ${SIZE_WIDTH[size]} max-w-[calc(100vw-1rem)] rounded-xl border border-neutral-100 bg-white p-1.5 shadow-lg ${
                         align === 'right' ? 'right-0' : 'left-0'
                     }`}
                 >

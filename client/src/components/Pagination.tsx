@@ -55,7 +55,10 @@ export default function Pagination({
         ].join(' ')
 
     return (
-        <nav aria-label="Pagination" className={`flex items-center gap-1.5 ${className}`}>
+        <nav
+            aria-label="Pagination"
+            className={`flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 ${className}`}
+        >
             <button
                 type="button"
                 aria-label="Previous page"

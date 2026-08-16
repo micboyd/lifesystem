@@ -93,7 +93,7 @@ export default function Drawer({
                 </div>
 
                 {footer && (
-                    <div className="flex items-center justify-end gap-3 border-t border-neutral-100 px-5 py-4">
+                    <div className="flex flex-wrap items-center justify-end gap-3 border-t border-neutral-100 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                         {footer}
                     </div>
                 )}

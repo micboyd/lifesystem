@@ -131,7 +131,7 @@ export default function Birthdays() {
 
     return (
         <Container as="main" className="py-10">
-            <header className="mb-8 flex items-center gap-3">
+            <header className="mb-8 flex flex-wrap items-center gap-3">
                 <Link
                     to="/profile"
                     className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
@@ -139,7 +139,7 @@ export default function Birthdays() {
                     <i className="fa-solid fa-arrow-left text-sm" aria-hidden="true" />
                 </Link>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Birthdays</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Birthdays</h1>
                     <p className="mt-1 text-sm text-neutral-500">
                         Birthdays appear as all-day events on the calendar
                     </p>

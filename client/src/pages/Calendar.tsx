@@ -35,7 +35,7 @@ import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from 
 import { useAuth } from '../context/AuthContext'
 import { useCalendars } from '../context/CalendarsContext'
 import { DAY_STATUS_OPTIONS } from '../types'
-import type { Event, Part, DayStatus, TotalRow, Reminder, MonthNote } from '../types'
+import type { Event, Part, DayStatus, TotalRow, Reminder, MonthNote, Birthday } from '../types'
 import Container from '../components/Container'
 import Checkbox from '../components/Checkbox'
 import ConfirmModal from '../components/ConfirmModal'
@@ -58,6 +58,8 @@ import CalendarFilterBar from '../components/calendar/CalendarFilterBar'
 import HiddenCalendarDots from '../components/calendar/HiddenCalendarDots'
 import Drawer from '../components/Drawer'
 import DayStatusSection from '../components/calendar/DayStatusSection'
+import BirthdaysDaySection from '../components/calendar/BirthdaysDaySection'
+import BirthdayBadge from '../components/calendar/BirthdayBadge'
 import RemindersDaySection from '../components/reminders/RemindersDaySection'
 
 type CalendarView = 'Week' | 'Month' | 'Year'
@@ -114,6 +116,7 @@ export default function Calendar() {
     const [events, setEvents] = useState<Event[]>([])
     const [statuses, setStatuses] = useState<DayStatus[]>([])
     const [reminders, setReminders] = useState<Reminder[]>([])
+    const [birthdays, setBirthdays] = useState<Birthday[]>([])
     const [monthNotes, setMonthNotes] = useState<MonthNote[]>([])
     const [rows, setRows] = useState<TotalRow[]>([])
     const [values, setValues] = useState<Record<string, number>>({})
@@ -134,6 +137,8 @@ export default function Calendar() {
     const [leaveDate, setLeaveDate] = useState<string | null>(null)
     // Day whose reminders are being edited in the drawer.
     const [reminderDate, setReminderDate] = useState<string | null>(null)
+    // Day whose birthdays are being listed in the drawer.
+    const [birthdayDate, setBirthdayDate] = useState<string | null>(null)
     // Event copied via a chip's copy icon, ready to paste into an empty slot.
     const [copiedEvent, setCopiedEvent] = useState<Event | null>(null)
     // Month flag being edited. `note: null` with a month set means "create one
@@ -167,37 +172,16 @@ export default function Calendar() {
             listMonthNotes(monthKeyOf(from), monthKeyOf(to)),
         ])
             .then(([evts, sts, bdays, rems, notes]) => {
-                // Expand each birthday into a synthetic all-day event for every year in the range.
-                const fromYear = parseInt(from.slice(0, 4), 10)
-                const toYear = parseInt(to.slice(0, 4), 10)
-                const birthdayEvents: Event[] = []
-                for (const b of bdays) {
-                    for (let y = fromYear; y <= toYear; y++) {
-                        const date = `${y}-${b.date}`
-                        if (date >= from && date <= to) {
-                            birthdayEvents.push({
-                                _id: `birthday-${b._id}-${y}`,
-                                title: b.name,
-                                eventType: 'general',
-                                allDay: true,
-                                startDate: date,
-                                startPart: 'na',
-                                endDate: date,
-                                endPart: 'na',
-                                createdAt: b.createdAt,
-                                updatedAt: b.updatedAt,
-                            })
-                        }
-                    }
-                }
-                setEvents([...(evts as Event[]), ...birthdayEvents])
+                setEvents(evts as Event[])
                 setStatuses(sts)
+                setBirthdays(bdays)
                 setReminders(rems)
                 setMonthNotes(notes)
             })
             .catch(() => {
                 setEvents([])
                 setStatuses([])
+                setBirthdays([])
                 setReminders([])
                 setMonthNotes([])
             })
@@ -318,7 +302,6 @@ export default function Calendar() {
     // straight to the this-one / whole-series chooser; anything else asks for a
     // plain confirmation first, since a context-menu click is easy to misfire.
     function requestDeleteEvent(event: Event) {
-        if (event._id.startsWith('birthday-')) return
         if (event.recurrence) {
             setScopeEvent(event)
             return
@@ -529,8 +512,8 @@ export default function Calendar() {
         return () => document.removeEventListener('keydown', onKey)
     }, [totalsOn, selection, copySelection, pasteSelection, clearSelectionValues])
 
-    // An event is drawn when its calendar is visible. Synthetic events (birthdays)
-    // carry no calendar and are always shown — they aren't a layer you manage.
+    // An event is drawn when its calendar is visible. Events with no calendar
+    // aren't a layer you manage, so they're always shown.
     const isShown = useCallback(
         (event: Event) => {
             if (!event.calendar) return true
@@ -556,6 +539,18 @@ export default function Calendar() {
         return map
     }, [events, isShown])
 
+    // Birthdays keyed by their MM-DD, so any year in view can look up a day's
+    // birthdays without expanding them into per-year rows.
+    const birthdaysByDay = useMemo(() => {
+        const map = new Map<string, Birthday[]>()
+        for (const b of birthdays) {
+            const bucket = map.get(b.date)
+            if (bucket) bucket.push(b)
+            else map.set(b.date, [b])
+        }
+        return map
+    }, [birthdays])
+
     const revealCalendar = useCallback(
         (calendarId: string) => void setVisible(calendarId, true),
         [setVisible]
@@ -568,9 +563,11 @@ export default function Calendar() {
         reminders,
         today,
         hiddenByDate,
+        birthdaysByDay,
         onRevealCalendar: revealCalendar,
         onOpenDay: (date: string) => nav(`/day/${date}`),
         onOpenReminders: (date: string) => setReminderDate(date),
+        onOpenBirthdays: (date: string) => setBirthdayDate(date),
         // Adding an event from a slot opens the editor in place — only the day
         // number navigates to the day view.
         onOpenPart: (date: string, part: Part) => {
@@ -607,24 +604,26 @@ export default function Calendar() {
             {/* Toolbar — the bar is full-bleed; its content uses the fluid container. */}
             <div className="sticky top-14 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-sm lg:top-0">
                 <Container fluid className="flex flex-wrap items-center justify-between gap-3 py-3">
-                    {/* Title + nav */}
-                    <div className="flex items-center gap-2">
+                    {/* Title + nav. Wraps on phones: in Year view the arrows, the
+                        title, "Today" and the past-months checkbox total ~460px,
+                        and none of them shrink. */}
+                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                         <button
                             type="button"
                             onClick={() => setFocusDate((d) => navigate(view, d, -1))}
                             aria-label="Previous"
-                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
                         </button>
-                        <h1 className="min-w-32 text-center text-lg font-bold tracking-tight text-neutral-950">
+                        <h1 className="min-w-0 flex-1 text-center text-lg font-bold tracking-tight text-neutral-950 sm:min-w-32 sm:flex-none">
                             {title}
                         </h1>
                         <button
                             type="button"
                             onClick={() => setFocusDate((d) => navigate(view, d, 1))}
                             aria-label="Next"
-                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
                         </button>
@@ -632,7 +631,7 @@ export default function Calendar() {
                             <button
                                 type="button"
                                 onClick={() => setFocusDate(todayKey())}
-                                className="rounded-full px-3 py-1.5 text-sm font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                                className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                             >
                                 Today
                             </button>
@@ -642,7 +641,7 @@ export default function Calendar() {
                                 checked={showPastMonths}
                                 onChange={setShowPastMonths}
                                 label="View previous months"
-                                className="ml-2"
+                                className="ml-0 shrink-0 sm:ml-2"
                             />
                         )}
                     </div>
@@ -691,6 +690,7 @@ export default function Calendar() {
                                     today={today}
                                     events={visibleEvents}
                                     hiddenByDate={hiddenByDate}
+                                    birthdaysByDay={birthdaysByDay}
                                     onRevealCalendar={revealCalendar}
                                     statuses={statuses}
                                     reminders={reminders}
@@ -719,6 +719,7 @@ export default function Calendar() {
                                     }}
                                     onLeaveClick={(date) => setLeaveDate(date)}
                                     onReminderClick={(date) => setReminderDate(date)}
+                                    onBirthdayClick={(date) => setBirthdayDate(date)}
                                     onEventClick={(event) => setDetailEvent(event)}
                                     onPickEvents={(evts) => setPickerEvents(evts)}
                                     onCopyEvent={(event) => setCopiedEvent(event)}
@@ -745,8 +746,7 @@ export default function Calendar() {
                 onClose={() => setDetailEvent(null)}
                 onEdit={() => detailEvent && openEdit(detailEvent)}
                 onDelete={
-                    // Synthetic birthdays have no underlying event to delete.
-                    detailEvent && !detailEvent._id.startsWith('birthday-')
+                    detailEvent
                         ? (event) => {
                               // Recurring events offer this-one / whole-series; the
                               // scope dialog takes over from the closing detail modal.
@@ -760,12 +760,10 @@ export default function Calendar() {
                         : undefined
                 }
                 onSaveNotes={
-                    // Inline notes only for real, non-recurring events. Recurring
-                    // instances carry an occurrence date (saving would move the
-                    // series) and birthdays are synthetic — both stay read-only.
-                    detailEvent &&
-                    !detailEvent._id.startsWith('birthday-') &&
-                    !detailEvent.recurrence
+                    // Inline notes only for non-recurring events. Recurring
+                    // instances carry an occurrence date, so saving would move
+                    // the whole series — they stay read-only.
+                    detailEvent && !detailEvent.recurrence
                         ? async (notes) => {
                               const ev = detailEvent
                               await updateEvent(ev._id, {
@@ -862,9 +860,7 @@ export default function Calendar() {
                 }}
                 title="Leave & Holidays"
             >
-                {leaveDate && (
-                    <DayStatusSection key={leaveDate} date={leaveDate} defaultAdding />
-                )}
+                {leaveDate && <DayStatusSection key={leaveDate} date={leaveDate} defaultAdding />}
             </Drawer>
 
             {/* Reminders editor — opened from any view's reminder affordance. */}
@@ -880,6 +876,19 @@ export default function Calendar() {
                         autoFocus
                         showDaysAway
                         onChange={reload}
+                    />
+                )}
+            </Drawer>
+
+            {/* Birthdays for a day — opened from a day's cake icon. */}
+            <Drawer
+                open={!!birthdayDate}
+                onClose={() => setBirthdayDate(null)}
+                title={birthdayDate ? `Birthdays · ${formatDateLong(birthdayDate)}` : 'Birthdays'}
+            >
+                {birthdayDate && (
+                    <BirthdaysDaySection
+                        birthdays={birthdaysByDay.get(birthdayDate.slice(5)) ?? []}
                     />
                 )}
             </Drawer>
@@ -945,6 +954,8 @@ interface MonthBlockProps {
     events: Event[]
     /** Events on hidden calendars, keyed by date — drawn as presence dots. */
     hiddenByDate: Map<string, Event[]>
+    /** Birthdays keyed by MM-DD — drawn as a cake in the day header. */
+    birthdaysByDay: Map<string, Birthday[]>
     onRevealCalendar: (calendarId: string) => void
     statuses: DayStatus[]
     reminders: Reminder[]
@@ -967,6 +978,7 @@ interface MonthBlockProps {
     onOpenPart: (date: string, part: Part) => void
     onLeaveClick: (date: string) => void
     onReminderClick: (date: string) => void
+    onBirthdayClick: (date: string) => void
     onEventClick: (event: Event) => void
     onPickEvents: (events: Event[]) => void
     onCopyEvent: (event: Event) => void
@@ -981,6 +993,7 @@ function MonthBlock({
     today,
     events,
     hiddenByDate,
+    birthdaysByDay,
     onRevealCalendar,
     statuses,
     reminders,
@@ -1003,6 +1016,7 @@ function MonthBlock({
     onOpenPart,
     onLeaveClick,
     onReminderClick,
+    onBirthdayClick,
     onEventClick,
     onPickEvents,
     onCopyEvent,
@@ -1089,7 +1103,9 @@ function MonthBlock({
                                                 <span
                                                     className={[
                                                         'mt-0.5 text-[10px] leading-none',
-                                                        todayCol ? 'text-white/70' : 'text-neutral-400',
+                                                        todayCol
+                                                            ? 'text-white/70'
+                                                            : 'text-neutral-400',
                                                     ].join(' ')}
                                                 >
                                                     {WEEKDAYS[weekday]}
@@ -1111,13 +1127,20 @@ function MonthBlock({
                                                         : 'text-neutral-300 opacity-100 sm:opacity-0 sm:group-hover/day:opacity-100',
                                                 ].join(' ')}
                                             >
-                                                <i className="fa-solid fa-bell text-[10px]" aria-hidden="true" />
+                                                <i
+                                                    className="fa-solid fa-bell text-[10px]"
+                                                    aria-hidden="true"
+                                                />
                                                 {dayReminders.length > 1 && (
                                                     <span className="text-[9px] font-bold leading-none">
                                                         {dayReminders.length}
                                                     </span>
                                                 )}
                                             </button>
+                                            <BirthdayBadge
+                                                birthdays={birthdaysByDay.get(key.slice(5)) ?? []}
+                                                onOpen={() => onBirthdayClick(key)}
+                                            />
                                             <HiddenCalendarDots
                                                 size="sm"
                                                 events={hiddenByDate.get(key) ?? []}
@@ -1325,9 +1348,8 @@ function MonthBlock({
                                     : dayNums.reduce(
                                           (sum, day) =>
                                               sum +
-                                              (values[
-                                                  `${row._id}:${dateKey(year, month, day)}`
-                                              ] ?? 0),
+                                              (values[`${row._id}:${dateKey(year, month, day)}`] ??
+                                                  0),
                                           0
                                       )
                                 return (
@@ -1493,11 +1515,10 @@ function TotalRowCells({
             {weekly && weekGroups
                 ? weekGroups.map((g) => {
                       const containsToday = g.days.some((d) => isToday(d))
-                      const weekend =
-                          g.days.every((d) => {
-                              const wd = new Date(year, month, d).getDay()
-                              return wd === 0 || wd === 6
-                          })
+                      const weekend = g.days.every((d) => {
+                          const wd = new Date(year, month, d).getDay()
+                          return wd === 0 || wd === 6
+                      })
                       const anchorDay = g.days[0] - 1
                       const selected = g.days.some((d) => daySelected(d - 1))
                       return (

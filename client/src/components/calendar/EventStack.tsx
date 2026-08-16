@@ -39,12 +39,8 @@ function Chip({
     const { bg, hover, text } = colorsForEvent(event, byId)
     const sizing = mini ? 'min-h-0 flex-1' : 'h-full'
     const base = `flex h-full w-full items-center gap-1 overflow-hidden rounded-md px-1.5 text-left ${bg} ${text}`
-    const isBirthday = event._id.startsWith('birthday-')
     const title = (
         <>
-            {isBirthday && (
-                <i className="fa-solid fa-cake-candles shrink-0 text-[9px] opacity-70" />
-            )}
             {EVENT_TYPE_ICONS[event.eventType] && (
                 <i
                     className={`${EVENT_TYPE_ICONS[event.eventType]} shrink-0 text-[9px] opacity-80`}
@@ -108,9 +104,7 @@ export default function EventStack({
     // Cursor-anchored menu; `event` is null when opened over an empty slot.
     const [menu, setMenu] = useState<{ x: number; y: number; event: Event | null } | null>(null)
 
-    // Synthetic birthdays have no underlying event document to delete.
-    const canDelete = (event: Event | null) =>
-        !!event && !!onDeleteEvent && !event._id.startsWith('birthday-')
+    const canDelete = (event: Event | null) => !!event && !!onDeleteEvent
 
     function openMenu(e: ReactMouseEvent, event: Event | null) {
         const canCopy = !!event && !!onCopyEvent

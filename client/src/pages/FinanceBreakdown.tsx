@@ -367,7 +367,7 @@ export default function FinanceBreakdown() {
                                 {group.name}
                             </span>
                         </div>
-                        <h1 className="text-3xl font-bold tracking-tight text-neutral-950">
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">
                             {row.name}
                         </h1>
                         <p className="mt-1 text-sm text-neutral-500">
@@ -414,7 +414,7 @@ export default function FinanceBreakdown() {
                     )}
 
                     {/* Total card */}
-                    <div className="mb-6 rounded-3xl border border-neutral-200 bg-white p-6">
+                    <div className="mb-6 rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6">
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                             {isRecurring
                                 ? `Total for ${formatMonth(month)}`

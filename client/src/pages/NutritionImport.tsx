@@ -237,7 +237,7 @@ export default function NutritionImport() {
                     <i className="fa-solid fa-arrow-left text-xs" aria-hidden="true" />
                     Back to Nutrition
                 </Link>
-                <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Import meals</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Import meals</h1>
                 <p className="mt-1 text-sm text-neutral-500">
                     Copy the template, fill it in with your own recipes, then paste the JSON below to
                     add them all to your library at once.

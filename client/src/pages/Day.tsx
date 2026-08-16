@@ -44,7 +44,7 @@ export default function Day() {
                         Today
                     </p>
                 )}
-                <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950">
+                <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">
                     {formatDateLong(date)}
                 </h1>
             </header>

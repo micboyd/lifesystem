@@ -864,13 +864,16 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
             {/* View switch + navigation + totals */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2">
+                    {/* Full-width on phones with a shrinkable label: the arrows,
+                        the 10rem range label and "This week" don't fit side by
+                        side, and the button was breaking mid-word. */}
+                    <div className="flex w-full items-center gap-2 sm:w-auto">
                         <IconButton
                             label="Previous week"
                             icon="fa-solid fa-chevron-left"
                             onClick={() => step(-1)}
                         />
-                        <div className="min-w-[10rem] text-center text-sm font-semibold text-neutral-900">
+                        <div className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-neutral-900 sm:min-w-[10rem] sm:flex-none">
                             {rangeLabel}
                         </div>
                         <IconButton
@@ -882,7 +885,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                             variant="ghost"
                             size="sm"
                             onClick={() => setAnchor(today)}
-                            className="ml-1"
+                            className="ml-1 shrink-0 whitespace-nowrap"
                         >
                             This week
                         </Button>
@@ -1779,15 +1782,17 @@ function IconButton({
 /** Week-total headline: workouts, sessions and total conditioning minutes. */
 function WeekTotals({ tally }: { tally: WeekTally }) {
     return (
-        <div className="flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-4 py-2.5">
+        // Five labelled stats plus dividers come to ~454px, so on a phone this
+        // becomes a swipeable strip rather than pushing the page sideways.
+        <div className="flex items-center gap-3 overflow-x-auto scrollbar-none rounded-2xl border border-neutral-200 bg-white px-4 py-2.5 sm:gap-4">
             <Stat label="Strength" value={tally.workouts} />
-            <div className="h-8 w-px bg-neutral-200" />
+            <div className="h-8 w-px shrink-0 bg-neutral-200" />
             <Stat label="Cond." value={tally.sessions} />
-            <div className="h-8 w-px bg-neutral-200" />
+            <div className="h-8 w-px shrink-0 bg-neutral-200" />
             <Stat label="Mobility" value={tally.mobility} />
-            <div className="h-8 w-px bg-neutral-200" />
+            <div className="h-8 w-px shrink-0 bg-neutral-200" />
             <Stat label="Recovery" value={tally.recovery} />
-            <div className="h-8 w-px bg-neutral-200" />
+            <div className="h-8 w-px shrink-0 bg-neutral-200" />
             <Stat label="Cond. min" value={tally.minutes} />
         </div>
     )
@@ -1795,8 +1800,8 @@ function WeekTotals({ tally }: { tally: WeekTally }) {
 
 function Stat({ label, value }: { label: string; value: number }) {
     return (
-        <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+        <div className="shrink-0">
+            <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
                 {label}
             </p>
             <p className="text-lg font-bold tabular-nums text-neutral-900">{value}</p>

@@ -244,7 +244,7 @@ export default function Weather() {
     return (
         <Container as="main" className="py-10">
             <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Weather</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Weather</h1>
                 <p className="mt-1 text-sm text-neutral-500">
                     Today's conditions, the next 12 hours, and what to wear
                 </p>
@@ -306,7 +306,7 @@ export default function Weather() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 sm:gap-x-8">
                                 <Stat
                                     icon="fa-solid fa-temperature-half"
                                     label="High / Low"

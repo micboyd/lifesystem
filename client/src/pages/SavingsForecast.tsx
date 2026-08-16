@@ -152,7 +152,7 @@ function MonthDrawer({
             />
             {/* Drawer */}
             <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col bg-white shadow-2xl">
-                <div className="flex items-center justify-between border-b border-neutral-100 px-8 py-6">
+                <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-5 sm:px-8 sm:py-6">
                     <div>
                         <p className="text-xl font-bold tracking-tight text-neutral-900">
                             Year {yearRow.year}
@@ -168,20 +168,20 @@ function MonthDrawer({
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto">
-                    <table className="w-full">
+                <div className="flex-1 overflow-y-auto overflow-x-auto">
+                    <table className="w-full min-w-[26rem]">
                         <thead className="sticky top-0 bg-white">
                             <tr className="border-b border-neutral-100 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                                <th className="py-4 pl-8 pr-4 text-left">Month</th>
+                                <th className="py-4 pl-4 pr-4 text-left sm:pl-8">Month</th>
                                 <th className="px-4 py-4 text-right">Contributions</th>
                                 <th className="px-4 py-4 text-right">Interest</th>
-                                <th className="py-4 pl-4 pr-12 text-right">Balance</th>
+                                <th className="py-4 pl-4 pr-4 text-right sm:pr-12">Balance</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-50">
                             {months.map((m) => (
                                 <tr key={m.month} className="hover:bg-neutral-50">
-                                    <td className="py-4 pl-8 pr-4 text-sm font-semibold text-neutral-900">
+                                    <td className="py-4 pl-4 pr-4 text-sm font-semibold text-neutral-900 sm:pl-8">
                                         {label(m.month)}
                                     </td>
                                     <td className="px-4 py-4 text-right text-sm tabular-nums text-neutral-600">
@@ -190,7 +190,7 @@ function MonthDrawer({
                                     <td className={`px-4 py-4 text-right text-sm tabular-nums ${m.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-300'}`}>
                                         {m.interestEarned > 0 ? '+' : ''}£{fmt(m.interestEarned, 0)}
                                     </td>
-                                    <td className="py-4 pl-4 pr-12 text-right text-sm font-bold tabular-nums text-neutral-900">
+                                    <td className="py-4 pl-4 pr-4 text-right text-sm font-bold tabular-nums text-neutral-900 sm:pr-12">
                                         £{fmt(m.endBalance, 0)}
                                     </td>
                                 </tr>
@@ -199,7 +199,7 @@ function MonthDrawer({
                     </table>
                 </div>
 
-                <div className="border-t border-neutral-100 px-8 py-6">
+                <div className="border-t border-neutral-100 px-4 py-5 sm:px-8 sm:py-6">
                     <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Contributions</p>
@@ -329,7 +329,7 @@ function GroupSettingsCard({ group, monthlyContribution, activeDescription, onUp
     }
 
     return (
-        <div className="rounded-3xl border border-neutral-200 bg-white p-6 transition-colors duration-200 hover:border-neutral-300">
+        <div className="rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6 transition-colors duration-200 hover:border-neutral-300">
             <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                     <p className="text-lg font-bold tracking-tight text-neutral-900">{group.name}</p>
@@ -514,7 +514,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
             <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                 Savings to date
             </h2>
-            <div className="rounded-3xl border border-neutral-200 bg-white p-6">
+            <div className="rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6">
                 <div className="flex flex-wrap items-end gap-3">
                     <MonthField
                         label="From"
@@ -920,7 +920,7 @@ function SavedTargetCard({
                 onDragEnd()
             }}
             className={[
-                'rounded-3xl border bg-white p-6 transition-colors duration-200',
+                'rounded-3xl border bg-white p-4 sm:p-6 transition-colors duration-200',
                 target.priority
                     ? 'border-amber-300 hover:border-amber-400'
                     : 'border-neutral-200 hover:border-neutral-300',
@@ -1344,7 +1344,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
             </div>
 
             {/* Timeline */}
-            <div className="mt-4 rounded-3xl border border-neutral-200 bg-white p-6">
+            <div className="mt-4 rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6">
                 <div className="flex flex-col gap-3">
                     {bars.map(({ plan, start, end, visible, endedBeforeNow, runsBeyondHorizon }) => {
                         const color = colorFor.get(plan._id) ?? PLAN_BAR_COLORS[0]
@@ -1455,7 +1455,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
             </div>
 
             {/* Milestones — how much you'll have, by when */}
-            <div className="mt-4 rounded-3xl border border-neutral-200 bg-white p-6">
+            <div className="mt-4 rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                     How much, by when
                 </p>
@@ -1798,7 +1798,7 @@ function TargetPlannerSection({
             <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                 Create a savings plan
             </h2>
-            <div className="rounded-3xl border border-neutral-200 bg-white p-6">
+            <div className="rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                     <Tabs
                         tabs={['Reach a target', 'Save a set amount']}
@@ -2264,7 +2264,7 @@ export default function SavingsForecast() {
                             </section>
 
                             {/* Summary stats */}
-                            <section className="grid grid-cols-2 gap-4 rounded-3xl border border-neutral-200 bg-white p-6 sm:grid-cols-3">
+                            <section className="grid grid-cols-2 gap-4 rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6 sm:grid-cols-3">
                                 <div>
                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                                         Starting balance

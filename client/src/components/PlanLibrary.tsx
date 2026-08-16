@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Card } from './Card'
 import Spinner from './Spinner'
 import Button from './Button'
-import Input from './Input'
+import DatePicker from './DatePicker'
 import EmptyState from './EmptyState'
 import DropdownMenu from './DropdownMenu'
 import Drawer from './Drawer'
@@ -1072,14 +1072,17 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
 
     return (
         <div className="flex flex-col gap-3">
-            <div className="w-48">
-                <Input
-                    label="Show from"
-                    type="date"
+            <div className="flex w-52 flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    Show from
+                </label>
+                <DatePicker
                     value={from}
-                    min={plan.planStart}
-                    max={plan.planEnd}
-                    onChange={(e) => setFrom(e.target.value || plan.planStart)}
+                    minDate={plan.planStart}
+                    maxDate={plan.planEnd}
+                    onChange={(v) =>
+                        setFrom(typeof v === 'string' && v ? v : plan.planStart)
+                    }
                 />
             </div>
 
@@ -1369,24 +1372,30 @@ function ApplyPlanForm({
                 </p>
 
                 <div className="flex gap-3">
-                    <div className="flex-1">
-                        <Input
-                            label="From"
-                            type="date"
+                    <div className="flex flex-1 flex-col gap-1.5">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            From
+                        </label>
+                        <DatePicker
                             value={start}
-                            min={plan.planStart}
-                            max={plan.planEnd}
-                            onChange={(e) => setStart(e.target.value)}
+                            minDate={plan.planStart}
+                            maxDate={end || plan.planEnd}
+                            onChange={(v) =>
+                                setStart(typeof v === 'string' && v ? v : plan.planStart)
+                            }
                         />
                     </div>
-                    <div className="flex-1">
-                        <Input
-                            label="To"
-                            type="date"
+                    <div className="flex flex-1 flex-col gap-1.5">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            To
+                        </label>
+                        <DatePicker
                             value={end}
-                            min={plan.planStart}
-                            max={plan.planEnd}
-                            onChange={(e) => setEnd(e.target.value)}
+                            minDate={start || plan.planStart}
+                            maxDate={plan.planEnd}
+                            onChange={(v) =>
+                                setEnd(typeof v === 'string' && v ? v : plan.planEnd)
+                            }
                         />
                     </div>
                 </div>

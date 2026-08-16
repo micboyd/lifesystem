@@ -291,7 +291,10 @@ function PotCard({
                         return (
                             <div
                                 key={row._id}
-                                className="group/row flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/70"
+                                // On phones the action icons are always visible (no
+                                // hover), so they wrap to their own line instead of
+                                // squeezing the row name down to a letter or two.
+                                className="group/row flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-white/70 sm:flex-nowrap"
                             >
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
@@ -317,12 +320,13 @@ function PotCard({
                                     </div>
                                 </div>
 
-                                <div className="flex shrink-0 items-center justify-end">
-                                <div className="w-28 text-right">
+                                <div className="flex shrink-0 items-center justify-end max-sm:w-auto">
+                                <div className="w-20 text-right sm:w-28">
                                     <AmountCell large value={amt} placeholder={monthlyDefault} onSave={(v) => onSetEntry(row._id, v)} />
                                 </div>
+                                </div>
 
-                                <div className="flex items-center gap-0.5 overflow-hidden max-w-[160px] opacity-100 transition-all duration-200 sm:max-w-0 sm:opacity-0 sm:group-hover/row:max-w-[160px] sm:group-hover/row:opacity-100">
+                                <div className="flex items-center gap-0.5 overflow-hidden opacity-100 transition-all duration-200 max-sm:w-full max-sm:justify-end sm:max-w-0 sm:opacity-0 sm:group-hover/row:max-w-[160px] sm:group-hover/row:opacity-100">
                                     <button type="button" onClick={() => onNavigate(row._id)} title="View breakdown"
                                         className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
                                         <i className="fa-solid fa-chart-pie text-xs" aria-hidden="true" />
@@ -343,7 +347,6 @@ function PotCard({
                                             <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
                                         </button>
                                     )}
-                                </div>
                                 </div>
                             </div>
                         )
@@ -946,7 +949,7 @@ export default function Finances() {
     return (
         <>
             {/* Header */}
-            <header className="mb-8 flex items-start justify-between gap-4">
+            <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">Finances</h1>
                     <p className="mt-1 text-sm text-neutral-500">Monthly income and expenses.</p>
@@ -1406,7 +1409,10 @@ export default function Finances() {
                                             return (
                                                 <div
                                                     key={row._id}
-                                                    className="group/row flex items-center gap-3 px-5 py-3 transition-colors hover:bg-neutral-50/70"
+                                                    // On phones the actions are always visible (no
+                                                    // hover), so they wrap to their own line rather
+                                                    // than squeezing the name to a letter or two.
+                                                    className="group/row flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 transition-colors hover:bg-neutral-50/70 sm:flex-nowrap"
                                                 >
                                                     {/* Name + meta + proportion bar */}
                                                     <div className="min-w-0 flex-1">
@@ -1449,7 +1455,7 @@ export default function Finances() {
 
                                                     {/* Right cluster: amount flush-right, actions slide in on hover */}
                                                     <div className="flex shrink-0 items-center justify-end">
-                                                    <div className="w-28 text-right">
+                                                    <div className="w-20 text-right sm:w-28">
                                                         <AmountCell
                                                             large
                                                             value={amt}
@@ -1459,9 +1465,10 @@ export default function Finances() {
                                                             }
                                                         />
                                                     </div>
+                                                    </div>
 
                                                     {/* Actions */}
-                                                    <div className="flex items-center gap-0.5 overflow-hidden max-w-[160px] opacity-100 transition-all duration-200 sm:max-w-0 sm:opacity-0 sm:group-hover/row:max-w-[160px] sm:group-hover/row:opacity-100">
+                                                    <div className="flex items-center gap-0.5 overflow-hidden opacity-100 transition-all duration-200 max-sm:order-last max-sm:w-full max-sm:justify-end sm:max-w-0 sm:opacity-0 sm:group-hover/row:max-w-[160px] sm:group-hover/row:opacity-100">
                                                         <button
                                                             type="button"
                                                             onClick={() =>
@@ -1560,7 +1567,6 @@ export default function Finances() {
                                                     >
                                                         <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
                                                     </button>
-                                                    </div>
                                                 </div>
                                             )
                                         })}

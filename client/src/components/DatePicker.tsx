@@ -596,7 +596,7 @@ export default function DatePicker({
                 <div
                     ref={menuRef}
                     style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-                    className={`z-[100] rounded-2xl border border-neutral-100 bg-white p-4 shadow-xl ${isRange ? 'w-80' : 'w-72'}`}
+                    className={`z-[100] max-w-[calc(100vw-1rem)] rounded-2xl border border-neutral-100 bg-white p-4 shadow-xl ${isRange ? 'w-80' : 'w-72'}`}
                 >
                     {/* Header nav */}
                     <div className="mb-3 flex items-center justify-between gap-2">

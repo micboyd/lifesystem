@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import {
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+    type MouseEvent as ReactMouseEvent,
+} from 'react'
 
 export type TimePickerValue = string | null
 
@@ -86,6 +93,8 @@ export default function TimePicker({
     const [minuteDraft, setMinuteDraft] = useState<string | null>(null)
 
     const containerRef = useRef<HTMLDivElement>(null)
+    const menuRef = useRef<HTMLDivElement>(null)
+    const [shift, setShift] = useState(0)
     const hourInputRef = useRef<HTMLInputElement>(null)
     const minuteInputRef = useRef<HTMLInputElement>(null)
 
@@ -123,6 +132,30 @@ export default function TimePicker({
         document.addEventListener('mousedown', handle)
         return () => document.removeEventListener('mousedown', handle)
     }, [open])
+
+    // Pull the dropdown back inside the viewport on narrow screens, where the
+    // fixed-width panel on an edge-anchored trigger would otherwise run off.
+    useLayoutEffect(() => {
+        // No reset on close: the dropdown unmounts, and the measurement below
+        // subtracts any carried-over shift, so a stale value self-corrects
+        // before the next paint.
+        const el = menuRef.current
+        if (!open || !el) return
+        const margin = 8
+        // Measure against the unshifted position so the correction is absolute.
+        const rect = el.getBoundingClientRect()
+        const left = rect.left - shift
+        const right = rect.right - shift
+        if (right > window.innerWidth - margin) {
+            setShift(Math.max(window.innerWidth - margin - right, margin - left))
+        } else if (left < margin) {
+            setShift(margin - left)
+        } else {
+            setShift(0)
+        }
+        // `shift` is excluded on purpose: re-running on each correction oscillates.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, align, use12Hour])
 
     // Focus hour input when it mounts
     useEffect(() => {
@@ -357,8 +390,10 @@ export default function TimePicker({
             {/* ── Dropdown ── */}
             {open && (
                 <div
+                    ref={menuRef}
+                    style={shift ? { transform: `translateX(${shift}px)` } : undefined}
                     className={[
-                        'absolute top-full z-50 mt-2 rounded-2xl border border-neutral-100 bg-white shadow-xl',
+                        'absolute top-full z-50 mt-2 max-w-[calc(100vw-1rem)] rounded-2xl border border-neutral-100 bg-white shadow-xl',
                         align === 'right' ? 'right-0' : 'left-0',
                         use12Hour ? 'w-72' : 'w-60',
                     ].join(' ')}

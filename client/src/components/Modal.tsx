@@ -45,7 +45,7 @@ export default function Modal({
                 className={`relative z-10 flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl bg-white ${sizeClasses[size]} ${className}`}
             >
                 {title ? (
-                    <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-6 py-4">
+                    <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-4 py-4 sm:px-6">
                         <h2 className="text-lg font-bold tracking-tight text-neutral-900">
                             {title}
                         </h2>
@@ -69,12 +69,12 @@ export default function Modal({
                     </button>
                 )}
 
-                <div className="overflow-y-auto px-6 py-5 text-sm leading-relaxed text-neutral-600">
+                <div className="overflow-y-auto px-4 py-5 sm:px-6 text-sm leading-relaxed text-neutral-600">
                     {children}
                 </div>
 
                 {footer && (
-                    <div className="flex items-center justify-end gap-3 border-t border-neutral-100 px-6 py-4">
+                    <div className="flex flex-wrap items-center justify-end gap-3 border-t border-neutral-100 px-4 py-4 sm:px-6">
                         {footer}
                     </div>
                 )}

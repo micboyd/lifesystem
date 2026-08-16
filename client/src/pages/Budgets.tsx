@@ -1103,16 +1103,18 @@ function AllowanceHero({ periodLabel, rangeLabel, allowance, remaining, spent, s
     const over = remaining < -RECONCILE_EPSILON
     const pct = Math.min(100, (spent / (allowance || 1)) * 100)
     return (
-        <div className="rounded-2xl bg-neutral-950 p-5 text-white">
-            <div className="flex items-center justify-between gap-3">
+        <div className="rounded-2xl bg-neutral-950 p-4 text-white sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                     {periodLabel}
                 </span>
                 <span className="text-[11px] font-medium tabular-nums text-neutral-400">{rangeLabel}</span>
             </div>
 
-            <div className="mt-3 flex items-baseline gap-2">
-                <p className={['text-4xl font-bold tabular-nums tracking-tight', over ? 'text-red-400' : 'text-white'].join(' ')}>
+            {/* Wraps on narrow cards: a four-figure amount plus its caption is
+                wider than a phone-width card at the desktop type size. */}
+            <div className="mt-3 flex flex-wrap items-baseline gap-x-2">
+                <p className={['text-3xl font-bold tabular-nums tracking-tight sm:text-4xl', over ? 'text-red-400' : 'text-white'].join(' ')}>
                     £{fmt(Math.abs(remaining))}
                 </p>
                 <span className="text-sm font-medium text-neutral-400">{over ? 'over budget' : 'left to spend'}</span>
@@ -1800,7 +1802,10 @@ export default function Budgets() {
                     <p className="mt-1 text-sm text-neutral-500">Spending targets derived from your monthly figures.</p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* On phones this becomes its own full-width row with the arrows
+                    pushed to the edges — the fixed-size children can't shrink, so
+                    left-packing them overflows a narrow viewport. */}
+                <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
                     {starlingEnabled && (
                         <button
                             type="button"
