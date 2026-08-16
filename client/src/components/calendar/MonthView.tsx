@@ -120,7 +120,7 @@ export default function MonthView({
 
                             {/* Header: reminder + birthday affordances (left) + day number (right) */}
                             <div className="mb-1 flex items-center justify-between">
-                                <div className="flex min-w-0 items-center">
+                                <div className="flex min-w-0 items-center gap-0.5">
                                     <button
                                         type="button"
                                         onClick={(ev) => {

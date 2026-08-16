@@ -24,7 +24,7 @@ export default function BirthdayBadge({
             }}
             aria-label="Birthdays"
             title={birthdays.map((b) => b.name).join('\n')}
-            className="inline-flex h-5 shrink-0 items-center gap-0.5 rounded-full px-1.5 text-pink-500 transition-colors hover:bg-pink-100"
+            className="inline-flex h-5 shrink-0 items-center gap-0.5 rounded-full px-1 text-pink-500 transition-colors hover:bg-pink-100"
         >
             <i className="fa-solid fa-cake-candles text-[10px]" aria-hidden="true" />
             {birthdays.length > 1 && (
