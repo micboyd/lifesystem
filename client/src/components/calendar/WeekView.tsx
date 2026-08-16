@@ -12,7 +12,7 @@ import { DAY_STATUS_OPTIONS } from '../../types'
 import type { Event, DayStatus, Part, Reminder, Birthday } from '../../types'
 import EventStack from './EventStack'
 import HiddenCalendarDots from './HiddenCalendarDots'
-import BirthdayBadge from './BirthdayBadge'
+import DayMarkers from './DayMarkers'
 
 interface Props {
     focusDate: string
@@ -104,42 +104,12 @@ export default function WeekView({
                                                     {day}
                                                 </span>
                                             </button>
-                                            <div className="flex items-center gap-0.5">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onOpenReminders(date)}
-                                                    aria-label="Reminders"
-                                                    title={
-                                                        dayReminders.length
-                                                            ? dayReminders
-                                                                  .map((r) => r.text)
-                                                                  .join('\n')
-                                                            : 'Add reminder'
-                                                    }
-                                                    className={[
-                                                        'inline-flex h-5 items-center gap-0.5 rounded-full px-1.5 transition-colors hover:bg-amber-100',
-                                                        dayReminders.length
-                                                            ? 'text-amber-500'
-                                                            : 'text-neutral-300 opacity-100 sm:opacity-0 sm:group-hover/day:opacity-100',
-                                                    ].join(' ')}
-                                                >
-                                                    <i
-                                                        className="fa-solid fa-bell text-[10px]"
-                                                        aria-hidden="true"
-                                                    />
-                                                    {dayReminders.length > 1 && (
-                                                        <span className="text-[9px] font-bold leading-none">
-                                                            {dayReminders.length}
-                                                        </span>
-                                                    )}
-                                                </button>
-                                                <BirthdayBadge
-                                                    birthdays={
-                                                        birthdaysByDay.get(date.slice(5)) ?? []
-                                                    }
-                                                    onOpen={() => onOpenBirthdays(date)}
-                                                />
-                                            </div>
+                                            <DayMarkers
+                                                reminders={dayReminders}
+                                                birthdays={birthdaysByDay.get(date.slice(5)) ?? []}
+                                                onOpenReminders={() => onOpenReminders(date)}
+                                                onOpenBirthdays={() => onOpenBirthdays(date)}
+                                            />
                                             <HiddenCalendarDots
                                                 events={hiddenByDate.get(date) ?? []}
                                                 onReveal={onRevealCalendar}

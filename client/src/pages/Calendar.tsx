@@ -59,7 +59,7 @@ import HiddenCalendarDots from '../components/calendar/HiddenCalendarDots'
 import Drawer from '../components/Drawer'
 import DayStatusSection from '../components/calendar/DayStatusSection'
 import BirthdaysDaySection from '../components/calendar/BirthdaysDaySection'
-import BirthdayBadge from '../components/calendar/BirthdayBadge'
+import DayMarkers from '../components/calendar/DayMarkers'
 import RemindersDaySection from '../components/reminders/RemindersDaySection'
 
 type CalendarView = 'Week' | 'Month' | 'Year'
@@ -1111,42 +1111,12 @@ function MonthBlock({
                                                     {WEEKDAYS[weekday]}
                                                 </span>
                                             </button>
-                                            <div className="flex items-center gap-0.5">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onReminderClick(key)}
-                                                    aria-label="Reminders"
-                                                    title={
-                                                        dayReminders.length
-                                                            ? dayReminders
-                                                                  .map((r) => r.text)
-                                                                  .join('\n')
-                                                            : 'Add reminder'
-                                                    }
-                                                    className={[
-                                                        'inline-flex h-5 items-center gap-0.5 rounded-full px-1.5 transition-colors hover:bg-amber-100',
-                                                        dayReminders.length
-                                                            ? 'text-amber-500'
-                                                            : 'text-neutral-300 opacity-100 sm:opacity-0 sm:group-hover/day:opacity-100',
-                                                    ].join(' ')}
-                                                >
-                                                    <i
-                                                        className="fa-solid fa-bell text-[10px]"
-                                                        aria-hidden="true"
-                                                    />
-                                                    {dayReminders.length > 1 && (
-                                                        <span className="text-[9px] font-bold leading-none">
-                                                            {dayReminders.length}
-                                                        </span>
-                                                    )}
-                                                </button>
-                                                <BirthdayBadge
-                                                    birthdays={
-                                                        birthdaysByDay.get(key.slice(5)) ?? []
-                                                    }
-                                                    onOpen={() => onBirthdayClick(key)}
-                                                />
-                                            </div>
+                                            <DayMarkers
+                                                reminders={dayReminders}
+                                                birthdays={birthdaysByDay.get(key.slice(5)) ?? []}
+                                                onOpenReminders={() => onReminderClick(key)}
+                                                onOpenBirthdays={() => onBirthdayClick(key)}
+                                            />
                                             <HiddenCalendarDots
                                                 size="sm"
                                                 events={hiddenByDate.get(key) ?? []}

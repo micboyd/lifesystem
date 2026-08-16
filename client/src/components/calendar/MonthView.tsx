@@ -5,7 +5,7 @@ import { colorsForEvent } from '../../lib/eventColors'
 import type { Event, DayStatus, Part, Reminder, Birthday } from '../../types'
 import { Card } from '../Card'
 import ReminderChip from '../reminders/ReminderChip'
-import BirthdayBadge from './BirthdayBadge'
+import DayMarkers from './DayMarkers'
 import HiddenCalendarDots from './HiddenCalendarDots'
 
 interface Props {
@@ -100,7 +100,7 @@ export default function MonthView({
                             key={date}
                             onClick={() => onCreateEvent?.(date)}
                             className={[
-                                'group/cell min-h-28 cursor-pointer p-1.5 transition-colors hover:bg-neutral-50',
+                                'group/day min-h-28 cursor-pointer p-1.5 transition-colors hover:bg-neutral-50',
                                 !isCurrentMonth ? 'bg-neutral-50/60' : '',
                                 isPast && isCurrentMonth ? 'bg-red-50/40' : '',
                             ].join(' ')}
@@ -118,43 +118,14 @@ export default function MonthView({
                                     )
                                 })()}
 
-                            {/* Header: reminder + birthday affordances (left) + day number (right) */}
+                            {/* Header: day markers (left) + day number (right) */}
                             <div className="mb-1 flex items-center justify-between">
-                                <div className="flex min-w-0 items-center gap-0.5">
-                                    <button
-                                        type="button"
-                                        onClick={(ev) => {
-                                            ev.stopPropagation()
-                                            onOpenReminders(date)
-                                        }}
-                                        aria-label="Reminders"
-                                        title={
-                                            dayReminders.length
-                                                ? dayReminders.map((r) => r.text).join('\n')
-                                                : 'Add reminder'
-                                        }
-                                        className={[
-                                            'grid h-6 w-6 place-items-center rounded-full text-xs transition-colors hover:bg-amber-100',
-                                            dayReminders.length
-                                                ? 'text-amber-500'
-                                                : 'text-neutral-300 opacity-100 sm:opacity-0 sm:group-hover/cell:opacity-100',
-                                        ].join(' ')}
-                                    >
-                                        <i
-                                            className="fa-solid fa-bell text-[11px]"
-                                            aria-hidden="true"
-                                        />
-                                        {dayReminders.length > 1 && (
-                                            <span className="ml-0.5 text-[9px] font-bold">
-                                                {dayReminders.length}
-                                            </span>
-                                        )}
-                                    </button>
-                                    <BirthdayBadge
-                                        birthdays={birthdaysByDay.get(date.slice(5)) ?? []}
-                                        onOpen={() => onOpenBirthdays(date)}
-                                    />
-                                </div>
+                                <DayMarkers
+                                    reminders={dayReminders}
+                                    birthdays={birthdaysByDay.get(date.slice(5)) ?? []}
+                                    onOpenReminders={() => onOpenReminders(date)}
+                                    onOpenBirthdays={() => onOpenBirthdays(date)}
+                                />
                                 <HiddenCalendarDots
                                     events={hiddenByDate.get(date) ?? []}
                                     onReveal={onRevealCalendar}
