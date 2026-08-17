@@ -13,6 +13,24 @@ function isValidColor(v: unknown): v is CalendarColor {
     return typeof v === 'string' && (CALENDAR_COLORS as readonly string[]).includes(v)
 }
 
+/**
+ * A body worth reading. `express.json()` accepts bare `null`, `true` and arrays
+ * as valid JSON, so destructuring the body without this check throws a
+ * TypeError and surfaces as a 500 on what is really a bad request.
+ */
+function isObjectBody(v: unknown): v is Record<string, unknown> {
+    return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+/**
+ * Whether an id can address a document at all. An unparseable id cast-errors
+ * inside Mongoose, turning "no such plan" into a 500; checking first lets the
+ * handlers answer 404, which is what a caller asking for a nonexistent id means.
+ */
+function isId(v: unknown): v is string {
+    return typeof v === 'string' && /^[0-9a-fA-F]{24}$/.test(v)
+}
+
 /** The ids in a link array that are well-formed, deduped. Bad ids are dropped. */
 function readIds(v: unknown): Types.ObjectId[] {
     if (!Array.isArray(v)) return []
@@ -35,15 +53,10 @@ function readPillars(v: unknown): LifePillar[] | undefined {
 }
 
 /** Validate a plan create/update body, or return the error message. */
-function readPlanBody(body: {
-    name?: unknown
-    start?: unknown
-    end?: unknown
-    vision?: unknown
-    pillars?: unknown
-}):
+function readPlanBody(body: unknown):
     | { error: string }
     | { name: string; start: string; end: string; vision?: string; pillars: LifePillar[] } {
+    if (!isObjectBody(body)) return { error: 'a JSON object body is required' }
     const { name, start, end, vision, pillars } = body
     if (typeof name !== 'string' || !name.trim()) return { error: 'name is required' }
     if (!isValidMonth(start) || !isValidMonth(end))
@@ -71,10 +84,11 @@ type SeasonFields = Pick<ISeason, 'name' | 'startMonth' | 'endMonth' | 'color' |
  * months, which is what makes "which season am I in right now" answerable.
  */
 function readSeasonBody(
-    body: Record<string, unknown>,
+    body: unknown,
     plan: ILifePlan,
     ignoreSeasonId?: string
 ): { error: string } | SeasonFields {
+    if (!isObjectBody(body)) return { error: 'a JSON object body is required' }
     const { name, startMonth, endMonth, focus, color, intent, links } = body
     if (typeof name !== 'string' || !name.trim()) return { error: 'name is required' }
     if (!isValidMonth(startMonth) || !isValidMonth(endMonth))
@@ -140,6 +154,10 @@ export async function listLifePlans(req: AuthRequest, res: Response) {
 
 /** GET /api/life-plans/:id — one plan. */
 export async function getLifePlan(req: AuthRequest, res: Response) {
+    if (!isId(req.params.id)) {
+        res.status(404).json({ message: 'Plan not found' })
+        return
+    }
     const plan = await LifePlan.findOne({ _id: req.params.id, user: req.userId })
     if (!plan) {
         res.status(404).json({ message: 'Plan not found' })
@@ -176,6 +194,10 @@ export async function updateLifePlan(req: AuthRequest, res: Response) {
         res.status(400).json({ message: parsed.error })
         return
     }
+    if (!isId(req.params.id)) {
+        res.status(404).json({ message: 'Plan not found' })
+        return
+    }
     const plan = await LifePlan.findOne({ _id: req.params.id, user: req.userId })
     if (!plan) {
         res.status(404).json({ message: 'Plan not found' })
@@ -202,6 +224,10 @@ export async function updateLifePlan(req: AuthRequest, res: Response) {
 
 /** DELETE /api/life-plans/:id — remove a plan and its seasons. */
 export async function deleteLifePlan(req: AuthRequest, res: Response) {
+    if (!isId(req.params.id)) {
+        res.status(404).json({ message: 'Plan not found' })
+        return
+    }
     const plan = await LifePlan.findOneAndDelete({ _id: req.params.id, user: req.userId })
     if (!plan) {
         res.status(404).json({ message: 'Plan not found' })
@@ -212,6 +238,10 @@ export async function deleteLifePlan(req: AuthRequest, res: Response) {
 
 /** POST /api/life-plans/:id/seasons — add a chapter to the plan. */
 export async function createSeason(req: AuthRequest, res: Response) {
+    if (!isId(req.params.id)) {
+        res.status(404).json({ message: 'Plan not found' })
+        return
+    }
     const plan = await LifePlan.findOne({ _id: req.params.id, user: req.userId })
     if (!plan) {
         res.status(404).json({ message: 'Plan not found' })
@@ -230,6 +260,10 @@ export async function createSeason(req: AuthRequest, res: Response) {
 
 /** PUT /api/life-plans/:id/seasons/:seasonId — edit a chapter. */
 export async function updateSeason(req: AuthRequest, res: Response) {
+    if (!isId(req.params.id)) {
+        res.status(404).json({ message: 'Plan not found' })
+        return
+    }
     const plan = await LifePlan.findOne({ _id: req.params.id, user: req.userId })
     if (!plan) {
         res.status(404).json({ message: 'Plan not found' })
@@ -261,17 +295,20 @@ export async function updateSeason(req: AuthRequest, res: Response) {
 
 /** DELETE /api/life-plans/:id/seasons/:seasonId — drop a chapter. */
 export async function deleteSeason(req: AuthRequest, res: Response) {
+    if (!isId(req.params.id)) {
+        res.status(404).json({ message: 'Plan not found' })
+        return
+    }
     const plan = await LifePlan.findOne({ _id: req.params.id, user: req.userId })
     if (!plan) {
         res.status(404).json({ message: 'Plan not found' })
         return
     }
-    const before = plan.seasons.length
-    plan.seasons = plan.seasons.filter((s) => String(s._id) !== req.params.seasonId) as typeof plan.seasons
-    if (plan.seasons.length === before) {
+    if (!plan.seasons.some((s) => String(s._id) === req.params.seasonId)) {
         res.status(404).json({ message: 'Season not found' })
         return
     }
+    plan.seasons.pull({ _id: req.params.seasonId })
     sortSeasons(plan)
     await plan.save()
     res.json({ message: 'Deleted', data: plan })
@@ -284,6 +321,10 @@ export async function deleteSeason(req: AuthRequest, res: Response) {
  * season's dates and links, and so a review can't fail validation on them.
  */
 export async function saveSeasonReview(req: AuthRequest, res: Response) {
+    if (!isId(req.params.id)) {
+        res.status(404).json({ message: 'Plan not found' })
+        return
+    }
     const plan = await LifePlan.findOne({ _id: req.params.id, user: req.userId })
     if (!plan) {
         res.status(404).json({ message: 'Plan not found' })
@@ -294,11 +335,11 @@ export async function saveSeasonReview(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Season not found' })
         return
     }
-    const { notes, rating, reviewedAt } = req.body as {
-        notes?: unknown
-        rating?: unknown
-        reviewedAt?: unknown
+    if (!isObjectBody(req.body)) {
+        res.status(400).json({ message: 'a JSON object body is required' })
+        return
     }
+    const { notes, rating, reviewedAt } = req.body
     if (notes !== undefined && notes !== null && typeof notes !== 'string') {
         res.status(400).json({ message: 'notes must be a string' })
         return

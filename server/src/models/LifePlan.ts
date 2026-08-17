@@ -71,7 +71,7 @@ export interface ILifePlan extends Document {
     vision?: string
     /** Which lanes this plan tracks, in display order. */
     pillars: LifePillar[]
-    seasons: ISeason[]
+    seasons: Types.DocumentArray<ISeason>
     /** Library position (lower = sooner). */
     order: number
     createdAt: Date
