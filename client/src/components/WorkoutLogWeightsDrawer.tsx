@@ -3,6 +3,7 @@ import Drawer from './Drawer'
 import Button from './Button'
 import DatePicker from './DatePicker'
 import Textarea from './Textarea'
+import ExerciseSwapPicker from './ExerciseSwapPicker'
 import type { Exercise, LoggedSet, Workout, WorkoutExercise } from '../types'
 import type { WorkoutLogInput } from '../services/workoutLogs'
 
@@ -19,7 +20,14 @@ interface SetDraft {
 
 /** One resolved exercise row with its editable sets. */
 interface ExerciseDraft {
+    /** The library exercise actually being performed — changes when swapped. */
+    exerciseId: string
     name: string
+    /**
+     * What the workout prescribed, kept only once this row has been swapped out.
+     * It survives a second swap, so the record always names the original.
+     */
+    swappedFrom?: { id: string; name: string }
     /** The prescription label, e.g. "3 × 8-12", shown as a hint. */
     prescription: string
     sets: SetDraft[]
@@ -54,6 +62,7 @@ function seedDrafts(workout: Workout, byId: Map<string, Exercise>): ExerciseDraf
             const count = Math.max(1, item.sets && item.sets > 0 ? item.sets : 1)
             const reps = seedReps(item.reps)
             return {
+                exerciseId: ex._id,
                 name: ex.name,
                 prescription: formatPrescription(item),
                 sets: Array.from({ length: count }, () => ({ weight: '', reps })),
@@ -82,6 +91,8 @@ export default function WorkoutLogWeightsDrawer({
     onSubmit,
 }: {
     workout: Workout | null
+    /** The whole exercise library, keyed by id — it resolves the workout's lines
+     *  and doubles as the pool the swap picker draws alternatives from. */
     byId: Map<string, Exercise>
     /** Day to pre-fill, e.g. the planned day when opened from the planner. Defaults to today. */
     defaultDate?: string
@@ -94,6 +105,8 @@ export default function WorkoutLogWeightsDrawer({
     const [notes, setNotes] = useState('')
     const [drafts, setDrafts] = useState<ExerciseDraft[]>([])
     const [saving, setSaving] = useState(false)
+    /** Index of the row whose swap picker is open, or null when none is. */
+    const [swapping, setSwapping] = useState<number | null>(null)
 
     useEffect(() => {
         if (workout) {
@@ -101,9 +114,16 @@ export default function WorkoutLogWeightsDrawer({
             setDate(defaultDate ?? todayISO())
             setNotes('')
             setDrafts(seedDrafts(workout, byId))
+            setSwapping(null)
             setSaving(false)
         }
     }, [workout, byId, defaultDate])
+
+    const library = useMemo(() => [...byId.values()], [byId])
+
+    // Everything already in this session — the picker shouldn't offer a movement
+    // back to you that you're doing two rows down anyway.
+    const inSession = useMemo(() => drafts.map((d) => d.exerciseId), [drafts])
 
     // Total training volume (Σ weight × reps) across every filled set, in kg.
     const volume = useMemo(() => {
@@ -147,6 +167,46 @@ export default function WorkoutLogWeightsDrawer({
         )
     }
 
+    /**
+     * Point a row at a different exercise. The prescription and any sets already
+     * typed stay put — you're doing the same work on different kit, so the target
+     * volume still applies. `swappedFrom` keeps the *first* origin, so swapping
+     * twice still records what the workout originally asked for.
+     */
+    function applySwap(ei: number, exercise: Exercise) {
+        setDrafts((prev) =>
+            prev.map((ex, i) => {
+                if (i !== ei) return ex
+                const origin = ex.swappedFrom ?? { id: ex.exerciseId, name: ex.name }
+                // Swapping back to the original is an undo, not a substitution.
+                if (exercise._id === origin.id) {
+                    return {
+                        ...ex,
+                        exerciseId: origin.id,
+                        name: origin.name,
+                        swappedFrom: undefined,
+                    }
+                }
+                return { ...ex, exerciseId: exercise._id, name: exercise.name, swappedFrom: origin }
+            })
+        )
+        setSwapping(null)
+    }
+
+    function undoSwap(ei: number) {
+        setDrafts((prev) =>
+            prev.map((ex, i) => {
+                if (i !== ei || !ex.swappedFrom) return ex
+                return {
+                    ...ex,
+                    exerciseId: ex.swappedFrom.id,
+                    name: ex.swappedFrom.name,
+                    swappedFrom: undefined,
+                }
+            })
+        )
+    }
+
     async function submit() {
         if (!view) return
         // Align one set-list per exercise, in the same order the server snapshots.
@@ -162,6 +222,11 @@ export default function WorkoutLogWeightsDrawer({
                 })
                 .filter((s) => s.weight !== undefined || s.reps !== undefined)
         )
+        // Aligned the same way: the exercise actually performed, or null when the
+        // row went as prescribed. Omitted entirely when nothing was swapped.
+        const substitutions = drafts.map((ex) => (ex.swappedFrom ? ex.exerciseId : null))
+        const swapped = substitutions.some(Boolean)
+
         setSaving(true)
         try {
             await onSubmit(view, {
@@ -169,6 +234,7 @@ export default function WorkoutLogWeightsDrawer({
                 date,
                 notes: notes.trim() || undefined,
                 loggedSets,
+                ...(swapped ? { substitutions } : {}),
             })
             onClose()
         } finally {
@@ -224,14 +290,61 @@ export default function WorkoutLogWeightsDrawer({
                         <div className="flex flex-col gap-5">
                             {drafts.map((ex, ei) => (
                                 <section key={ei} className="flex flex-col gap-2">
-                                    <div className="flex items-baseline justify-between gap-2">
-                                        <p className="font-semibold text-neutral-900">{ex.name}</p>
-                                        {ex.prescription && (
-                                            <span className="shrink-0 text-xs text-neutral-400">
-                                                target {ex.prescription}
-                                            </span>
-                                        )}
+                                    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+                                        <p className="min-w-0 font-semibold text-neutral-900">
+                                            {ex.name}
+                                        </p>
+                                        <div className="flex shrink-0 items-center gap-2">
+                                            {ex.prescription && (
+                                                <span className="text-xs text-neutral-400">
+                                                    target {ex.prescription}
+                                                </span>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setSwapping(swapping === ei ? null : ei)
+                                                }
+                                                aria-expanded={swapping === ei}
+                                                title="Machine taken? Swap this out"
+                                                className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
+                                            >
+                                                <i
+                                                    className="fa-solid fa-right-left text-[10px]"
+                                                    aria-hidden="true"
+                                                />
+                                                Swap
+                                            </button>
+                                        </div>
                                     </div>
+
+                                    {ex.swappedFrom && (
+                                        <p className="-mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-400">
+                                            <span>
+                                                Swapped in for{' '}
+                                                <span className="font-medium text-neutral-500">
+                                                    {ex.swappedFrom.name}
+                                                </span>
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => undoSwap(ei)}
+                                                className="font-semibold text-coral-600 transition-colors hover:text-coral-700"
+                                            >
+                                                Undo
+                                            </button>
+                                        </p>
+                                    )}
+
+                                    {swapping === ei && byId.get(ex.exerciseId) && (
+                                        <ExerciseSwapPicker
+                                            target={byId.get(ex.exerciseId)!}
+                                            library={library}
+                                            excludeIds={inSession}
+                                            onPick={(picked) => applySwap(ei, picked)}
+                                            onCancel={() => setSwapping(null)}
+                                        />
+                                    )}
 
                                     <div className="grid grid-cols-[1.75rem_1fr_1fr_1.75rem] items-center gap-2 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
                                         <span>Set</span>

@@ -4,6 +4,7 @@ import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
 import Textarea from './Textarea'
+import Select from './Select'
 import Switch from './Switch'
 import EmptyState from './EmptyState'
 import DropdownMenu from './DropdownMenu'
@@ -33,18 +34,39 @@ import WorkoutLogWeightsDrawer from './WorkoutLogWeightsDrawer'
 import { createLog as createWorkoutLog, type WorkoutLogInput } from '../services/workoutLogs'
 import { useToast } from '../context/ToastContext'
 import { todayKey } from '../lib/calendar'
+import { MUSCLE_GROUPS, EQUIPMENT, resolveTags } from '../lib/exerciseSwap'
 import type { Exercise, Workout, WorkoutExercise } from '../types'
 
 // ─── Import templates ─────────────────────────────────────────────────────────
 
 const EXERCISE_TEMPLATE = JSON.stringify(
     [
-        { name: 'Barbell bench press', description: 'Horizontal press for chest, shoulders and triceps.' },
-        { name: 'Barbell row', description: 'Bent-over pull for the mid-back and lats.' },
+        {
+            name: 'Barbell bench press',
+            description: 'Horizontal press for chest, shoulders and triceps.',
+            muscleGroup: 'Chest',
+            equipment: 'Barbell',
+        },
+        {
+            name: 'Barbell row',
+            description: 'Bent-over pull for the mid-back and lats.',
+            muscleGroup: 'Back',
+            equipment: 'Barbell',
+        },
     ],
     null,
     2
 )
+
+/** Blank-able option lists for the two tag fields. */
+const GROUP_OPTIONS = [
+    { label: 'Not set', value: '' },
+    ...MUSCLE_GROUPS.map((g) => ({ label: g, value: g })),
+]
+const EQUIPMENT_OPTIONS = [
+    { label: 'Not set', value: '' },
+    ...EQUIPMENT.map((e) => ({ label: e, value: e })),
+]
 
 const SUB_TABS = ['Workouts', 'Exercises', 'Workouts Library'] as const
 type SubTab = (typeof SUB_TABS)[number]
@@ -171,8 +193,16 @@ function ExerciseLibrary({
                     <>
                         <p>
                             <span className="font-semibold text-neutral-700">name</span> is required.{' '}
-                            <span className="font-semibold text-neutral-700">description</span> is
+                            <span className="font-semibold text-neutral-700">description</span>,{' '}
+                            <span className="font-semibold text-neutral-700">muscleGroup</span> and{' '}
+                            <span className="font-semibold text-neutral-700">equipment</span> are
                             optional.
+                        </p>
+                        <p>
+                            The last two are what the swap button matches on when a machine is
+                            taken. Leave them out and they&apos;re read from the name instead —
+                            tagging
+                            them just makes the suggestions surer.
                         </p>
                     </>
                 }
@@ -286,6 +316,7 @@ function ExerciseLibrary({
                             {exercise.description && (
                                 <p className="text-sm text-neutral-500">{exercise.description}</p>
                             )}
+                            <ExerciseTagChips exercise={exercise} />
                         </Card>
                     ))}
                 </div>
@@ -305,6 +336,40 @@ function ExerciseLibrary({
                 onSave={handleSave}
             />
         </>
+    )
+}
+
+/**
+ * The muscle group and equipment an exercise carries. Inferred values are shown
+ * in a lighter style — they're what a swap will match on either way, so it's
+ * worth seeing the guess and being able to correct it.
+ */
+function ExerciseTagChips({ exercise }: { exercise: Exercise }) {
+    const tags = resolveTags(exercise)
+    const chips = [
+        { value: tags.muscleGroup, exact: tags.taggedGroup },
+        { value: tags.equipment, exact: tags.taggedEquipment },
+    ].filter((c): c is { value: string; exact: boolean } => !!c.value)
+
+    if (chips.length === 0) return null
+
+    return (
+        <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
+            {chips.map((chip) => (
+                <span
+                    key={chip.value}
+                    title={chip.exact ? undefined : 'Read from the name — edit to set it exactly'}
+                    className={[
+                        'inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                        chip.exact
+                            ? 'bg-neutral-100 text-neutral-600'
+                            : 'border border-dashed border-neutral-200 text-neutral-400',
+                    ].join(' ')}
+                >
+                    {chip.value}
+                </span>
+            ))}
+        </div>
     )
 }
 
@@ -328,20 +393,33 @@ function ExerciseFormDrawer({
 
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
+    const [muscleGroup, setMuscleGroup] = useState('')
+    const [equipment, setEquipment] = useState('')
     const [saving, setSaving] = useState(false)
 
     useEffect(() => {
         setName(editing?.name ?? '')
         setDescription(editing?.description ?? '')
+        setMuscleGroup(editing?.muscleGroup ?? '')
+        setEquipment(editing?.equipment ?? '')
         setSaving(false)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [view])
+
+    // What the swap picker would assume if these are left blank, so the hint can
+    // show the guess rather than leaving the user to wonder whether it matters.
+    const guess = resolveTags({ name, description })
 
     const valid = name.trim() !== '' && description.trim() !== ''
 
     async function submit() {
         if (!view || !valid) return
-        const fields: ExerciseInput = { name: name.trim(), description: description.trim() }
+        const fields: ExerciseInput = {
+            name: name.trim(),
+            description: description.trim(),
+            muscleGroup,
+            equipment,
+        }
         setSaving(true)
         try {
             if (view.mode === 'create') await onAdd(fields)
@@ -383,6 +461,36 @@ function ExerciseFormDrawer({
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                 />
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <Select
+                        label="Muscle group"
+                        options={GROUP_OPTIONS}
+                        value={muscleGroup}
+                        onChange={setMuscleGroup}
+                        placeholder="Not set"
+                        hint={
+                            muscleGroup
+                                ? undefined
+                                : guess.muscleGroup
+                                  ? `Reads as ${guess.muscleGroup}`
+                                  : 'Set this so swaps can match it'
+                        }
+                    />
+                    <Select
+                        label="Equipment"
+                        options={EQUIPMENT_OPTIONS}
+                        value={equipment}
+                        onChange={setEquipment}
+                        placeholder="Not set"
+                        hint={
+                            equipment
+                                ? undefined
+                                : guess.equipment
+                                  ? `Reads as ${guess.equipment}`
+                                  : 'Swaps prefer a different one'
+                        }
+                    />
+                </div>
             </div>
         </Drawer>
     )

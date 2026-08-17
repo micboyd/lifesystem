@@ -15,6 +15,12 @@ export interface WorkoutLogInput {
      * Entry i is the sets done for exercise i. Omit to log without weights.
      */
     loggedSets?: LoggedSet[][]
+    /**
+     * Mid-session swaps, aligned by index the same way. Entry i is the library
+     * exercise id actually performed for exercise i, or null when it was done as
+     * prescribed. Omit when nothing was swapped.
+     */
+    substitutions?: (string | null)[]
 }
 
 export async function listLogs(): Promise<WorkoutLog[]> {

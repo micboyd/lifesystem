@@ -129,6 +129,11 @@ export interface Exercise {
     _id: string
     name: string
     description: string
+    /** Primary muscle group trained, e.g. "Chest". Blank when untagged — the
+     *  swap picker infers one from the name/description in that case. */
+    muscleGroup?: string
+    /** Kit the movement needs, e.g. "Machine". Blank when untagged. */
+    equipment?: string
     order: number
     createdAt: string
     updatedAt: string
@@ -174,6 +179,8 @@ export interface LoggedSet {
 /** A snapshotted exercise line inside a logged workout. */
 export interface WorkoutLogExercise {
     name: string
+    /** When this line was swapped mid-session, the exercise originally prescribed. */
+    substitutedFor?: string
     /** Prescribed sets count, snapshotted from the library workout. */
     sets?: number
     /** Prescribed reps, snapshotted from the library workout (free-form). */

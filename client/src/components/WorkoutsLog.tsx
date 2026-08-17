@@ -269,6 +269,14 @@ function LogRow({
                                         <span className="text-sm font-medium text-neutral-800">
                                             {ex.name}
                                         </span>
+                                        {ex.substitutedFor && (
+                                            <span
+                                                className="text-[11px] text-neutral-400"
+                                                title={`Swapped in for ${ex.substitutedFor}`}
+                                            >
+                                                for {ex.substitutedFor}
+                                            </span>
+                                        )}
                                         {sets.length > 0 ? (
                                             sets.map((s, j) => {
                                                 const label = formatSet(s)
@@ -300,6 +308,14 @@ function LogRow({
                                         className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600"
                                     >
                                         {ex.name}
+                                        {ex.substitutedFor && (
+                                            <span
+                                                className="text-neutral-400"
+                                                title={`Swapped in for ${ex.substitutedFor}`}
+                                            >
+                                                for {ex.substitutedFor}
+                                            </span>
+                                        )}
                                         {sr && <span className="text-coral-600">{sr}</span>}
                                     </span>
                                 )

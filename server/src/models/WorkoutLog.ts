@@ -9,6 +9,11 @@ export interface ILoggedSet {
 /** A snapshotted exercise line inside a logged workout. */
 export interface IWorkoutLogExercise {
     name: string
+    /**
+     * The exercise originally prescribed, when this line was swapped out mid-session
+     * (the machine was taken). Absent when the workout was performed as written.
+     */
+    substitutedFor?: string
     sets?: number
     reps?: string
     /** The sets actually performed, with per-set weight and reps. */
@@ -47,6 +52,7 @@ const loggedSetSchema = new Schema<ILoggedSet>(
 const workoutLogExerciseSchema = new Schema<IWorkoutLogExercise>(
     {
         name: { type: String, required: true, trim: true },
+        substitutedFor: { type: String, trim: true },
         sets: { type: Number, min: 0 },
         reps: { type: String, trim: true },
         loggedSets: { type: [loggedSetSchema], default: undefined },

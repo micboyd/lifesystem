@@ -6,6 +6,10 @@ import { importBody, importResult, type OverwriteMap, type ImportResult } from '
 export interface ExerciseInput {
     name: string
     description?: string
+    /** Primary muscle group trained — what swap candidates are matched on. */
+    muscleGroup?: string
+    /** Kit the movement needs — swaps prefer a different value. */
+    equipment?: string
 }
 
 export async function listExercises(): Promise<Exercise[]> {

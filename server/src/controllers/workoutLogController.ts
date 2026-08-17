@@ -53,6 +53,36 @@ function applyLoggedSets(lines: IWorkoutLogExercise[], raw: unknown): IWorkoutLo
     })
 }
 
+/**
+ * Overlay mid-session swaps onto snapshotted lines, aligned by index the same way
+ * logged sets are. Entry i is the library exercise id actually performed for line
+ * i, or null when it was performed as prescribed. The replacement's current name
+ * is written into the line and the prescribed one kept as `substitutedFor`, so the
+ * record says what was done without losing what was planned.
+ */
+async function applySubstitutions(
+    lines: IWorkoutLogExercise[],
+    raw: unknown,
+    userId: unknown
+): Promise<IWorkoutLogExercise[]> {
+    if (!Array.isArray(raw)) return lines
+
+    const ids = raw.filter(
+        (id): id is string => typeof id === 'string' && Types.ObjectId.isValid(id)
+    )
+    if (ids.length === 0) return lines
+
+    const found = await Exercise.find({ _id: { $in: ids }, user: userId }).select('_id name')
+    const nameById = new Map(found.map((e) => [String(e._id), e.name]))
+
+    return lines.map((line, i) => {
+        const name = typeof raw[i] === 'string' ? nameById.get(raw[i] as string) : undefined
+        // An unresolvable id means the swap target was deleted — keep the plan.
+        if (!name || name === line.name) return line
+        return { ...line, name, substitutedFor: line.name }
+    })
+}
+
 /** Validate a YYYY-MM-DD date string. */
 function isValidDate(raw: unknown): raw is string {
     return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)
@@ -119,7 +149,14 @@ export async function createLog(req: AuthRequest, res: Response) {
         workout: src._id,
         name,
         date: b.date,
-        exercises: applyLoggedSets(await snapshotExercises(src, req.userId), b.loggedSets),
+        exercises: applyLoggedSets(
+            await applySubstitutions(
+                await snapshotExercises(src, req.userId),
+                b.substitutions,
+                req.userId
+            ),
+            b.loggedSets
+        ),
         durationMin: toDuration(b.durationMin),
         notes: typeof b.notes === 'string' ? b.notes.trim() || undefined : undefined,
     })
@@ -147,7 +184,12 @@ export async function updateLog(req: AuthRequest, res: Response) {
             return
         }
         fields.exercises = applyLoggedSets(
-            existing.exercises.map((e) => ({ name: e.name, sets: e.sets, reps: e.reps })),
+            existing.exercises.map((e) => ({
+                name: e.name,
+                sets: e.sets,
+                reps: e.reps,
+                ...(e.substitutedFor ? { substitutedFor: e.substitutedFor } : {}),
+            })),
             b.loggedSets
         )
     }

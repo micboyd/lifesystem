@@ -5,6 +5,11 @@ import Workout from '../models/Workout'
 import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
 import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
 
+/** Trim a request value to a string, or '' when it isn't one. */
+function str(raw: unknown): string {
+    return typeof raw === 'string' ? raw.trim() : ''
+}
+
 /** GET /api/exercises/import/last — summarise the most recent import batch. */
 export const lastImport = makeLastImportHandler(Exercise)
 /** DELETE /api/exercises/import/last — revert the most recent import batch. */
@@ -31,6 +36,8 @@ export async function createExercise(req: AuthRequest, res: Response) {
         user: req.userId,
         name,
         description: typeof req.body.description === 'string' ? req.body.description.trim() : '',
+        muscleGroup: str(req.body.muscleGroup),
+        equipment: str(req.body.equipment),
         order,
     })
     res.status(201).json({ message: 'Created', data: exercise })
@@ -42,6 +49,8 @@ export async function updateExercise(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
     if (typeof b.name === 'string' && b.name.trim()) fields.name = b.name.trim()
     if (typeof b.description === 'string') fields.description = b.description.trim()
+    if (typeof b.muscleGroup === 'string') fields.muscleGroup = b.muscleGroup.trim()
+    if (typeof b.equipment === 'string') fields.equipment = b.equipment.trim()
     if (typeof b.order === 'number') fields.order = b.order
 
     const exercise = await Exercise.findOneAndUpdate(
@@ -94,6 +103,8 @@ export async function importExercises(req: AuthRequest, res: Response) {
             user: req.userId,
             name,
             description: typeof item.description === 'string' ? item.description.trim() : '',
+            muscleGroup: str(item.muscleGroup),
+            equipment: str(item.equipment),
         }
     })
 
