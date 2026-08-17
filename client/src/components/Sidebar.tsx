@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 const navItems = [
     { label: 'Home', to: '/', icon: 'fa-house' },
     { label: 'Calendar', to: '/calendar', icon: 'fa-calendar-days' },
+    { label: 'Life Plan', to: '/life-plan', icon: 'fa-compass' },
     { label: 'Finances', to: '/finances', icon: 'fa-wallet' },
     { label: 'Timebox', to: '/timebox', icon: 'fa-table-cells-large' },
     { label: 'Habits', to: '/habits', icon: 'fa-repeat' },

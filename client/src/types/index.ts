@@ -1461,3 +1461,161 @@ export interface LoginCredentials {
 export interface LoginResponseData {
     token: string
 }
+
+// ─── Life Plan ────────────────────────────────────────────────────────────────
+
+/**
+ * The domains a life plan tracks — the lanes of the timeline. Each pillar reads
+ * from a module that already records the underlying data; the life plan only
+ * says what the stretch of time is *for*.
+ */
+export const LIFE_PILLARS = ['training', 'nutrition', 'money', 'study', 'life'] as const
+export type LifePillar = (typeof LIFE_PILLARS)[number]
+
+export const LIFE_PILLAR_LABELS: Record<LifePillar, string> = {
+    training: 'Training',
+    nutrition: 'Nutrition',
+    money: 'Money',
+    study: 'Study',
+    life: 'Life',
+}
+
+export const LIFE_PILLAR_ICONS: Record<LifePillar, string> = {
+    training: 'fa-dumbbell',
+    nutrition: 'fa-bowl-food',
+    money: 'fa-wallet',
+    study: 'fa-graduation-cap',
+    life: 'fa-compass',
+}
+
+/** What a season is trying to do in one pillar, in the user's own words. */
+export interface SeasonIntent {
+    pillar: LifePillar
+    text: string
+}
+
+/**
+ * What a season pulls in from elsewhere in the app — references only. The linked
+ * records stay owned by their own modules, so the timeline always reflects their
+ * current dates rather than a copy taken when the season was written.
+ */
+export interface SeasonLinks {
+    trainingPlans: string[]
+    nutritionPhases: string[]
+    savingsTargets: string[]
+    goals: string[]
+    courses: string[]
+    monthNotes: string[]
+}
+
+/** A season's retro, written once it has elapsed. */
+export interface SeasonReview {
+    reviewedAt?: string
+    notes?: string
+    /** How it went overall, 1–5. */
+    rating?: number
+}
+
+/**
+ * One chapter of a life plan: a run of months with a focus and an intent per
+ * pillar. Seasons within a plan never overlap, so "which season is this month
+ * in" has exactly one answer.
+ */
+export interface Season {
+    _id: string
+    name: string
+    /** Inclusive YYYY-MM bounds. */
+    startMonth: string
+    endMonth: string
+    focus?: string
+    color: CalendarColor
+    intent: SeasonIntent[]
+    links: SeasonLinks
+    review?: SeasonReview
+    order: number
+}
+
+/** A dated horizon — usually a year — divided into seasons. */
+export interface LifePlan {
+    _id: string
+    name: string
+    /** Inclusive YYYY-MM bounds of the whole plan. */
+    start: string
+    end: string
+    /** The multi-year theme this plan serves. */
+    vision?: string
+    pillars: LifePillar[]
+    seasons: Season[]
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+export interface LifePlanInput {
+    name: string
+    start: string
+    end: string
+    vision?: string
+    pillars?: LifePillar[]
+}
+
+export interface SeasonInput {
+    name: string
+    startMonth: string
+    endMonth: string
+    focus?: string
+    color: CalendarColor
+    intent: SeasonIntent[]
+    links: SeasonLinks
+}
+
+/** An empty link set — what a new season starts from. */
+export const EMPTY_SEASON_LINKS: SeasonLinks = {
+    trainingPlans: [],
+    nutritionPhases: [],
+    savingsTargets: [],
+    goals: [],
+    courses: [],
+    monthNotes: [],
+}
+
+// ─── Nutrition phases ─────────────────────────────────────────────────────────
+
+export const NUTRITION_PHASE_KINDS = ['cut', 'maintain', 'gain'] as const
+export type NutritionPhaseKind = (typeof NUTRITION_PHASE_KINDS)[number]
+
+export const NUTRITION_PHASE_LABELS: Record<NutritionPhaseKind, string> = {
+    cut: 'Cut',
+    maintain: 'Maintain',
+    gain: 'Gain',
+}
+
+/**
+ * A dated stretch of eating with its own daily targets. Gives the nutrition lane
+ * something to draw and gives adherence a target with dates on it, rather than
+ * one global setting standing in for every month of the year.
+ */
+export interface NutritionPhase {
+    _id: string
+    name: string
+    /** Inclusive YYYY-MM-DD bounds — day-precise, since a cut rarely starts on the 1st. */
+    startDate: string
+    endDate: string
+    kind: NutritionPhaseKind
+    targets: MacroGoals
+    /** Intended kg/week, signed: negative for a cut, positive for a gain. */
+    weeklyRate?: number
+    notes?: string
+    createdAt: string
+    updatedAt: string
+}
+
+export interface NutritionPhaseInput {
+    name: string
+    startDate: string
+    endDate: string
+    kind: NutritionPhaseKind
+    targets: MacroGoals
+    weeklyRate?: number
+    notes?: string
+}

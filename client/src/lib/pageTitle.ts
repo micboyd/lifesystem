@@ -11,6 +11,7 @@ export function pageNameForPath(pathname: string): string | null {
     if (pathname === '/login') return 'Sign in'
     if (pathname === '/calendar') return 'Calendar'
     if (pathname.startsWith('/day/')) return 'Day'
+    if (pathname === '/life-plan') return 'Life Plan'
     if (pathname === '/timebox') return 'Timebox'
     if (pathname === '/habits') return 'Habits'
     if (pathname === '/study') return 'Studying'

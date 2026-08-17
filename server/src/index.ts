@@ -24,12 +24,14 @@ import express from 'express'
 import financeRoutes from './routes/financeRoutes'
 import fitnessPlanRoutes from './routes/fitnessPlanRoutes'
 import habitRoutes from './routes/habitRoutes'
+import lifePlanRoutes from './routes/lifePlanRoutes'
 import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
 import mobilityRoutes from './routes/mobilityRoutes'
 import mobilityLogRoutes from './routes/mobilityLogRoutes'
 import monthNoteRoutes from './routes/monthNoteRoutes'
 import noteRoutes from './routes/noteRoutes'
+import nutritionPhaseRoutes from './routes/nutritionPhaseRoutes'
 import path from 'path'
 import recoveryRoutes from './routes/recoveryRoutes'
 import recoveryLogRoutes from './routes/recoveryLogRoutes'
@@ -104,6 +106,8 @@ app.use('/api/mobility-logs', mobilityLogRoutes)
 app.use('/api/notes', noteRoutes)
 app.use('/api/checklists', checklistRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
+app.use('/api/life-plans', lifePlanRoutes)
+app.use('/api/nutrition-phases', nutritionPhaseRoutes)
 
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })

@@ -23,6 +23,7 @@ import FinanceBreakdown from './pages/FinanceBreakdown'
 import Birthdays from './pages/Birthdays'
 import DaysSince from './pages/DaysSince'
 import Goals from './pages/Goals'
+import LifePlan from './pages/LifePlan'
 import Notes from './pages/Notes'
 import Checklists from './pages/Checklists'
 import Weather from './pages/Weather'
@@ -100,6 +101,7 @@ export default function App() {
                 <Route path="/days-since" element={<DaysSince />} />
                 <Route path="/weather" element={<Weather />} />
                 <Route path="/goals" element={<Goals />} />
+                <Route path="/life-plan" element={<LifePlan />} />
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/checklists" element={<Checklists />} />
                 <Route path="/styleguide" element={<StyleGuide />} />
