@@ -3,6 +3,7 @@ import { Card } from './Card'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
+import Pagination from './Pagination'
 import EmptyState from './EmptyState'
 import Drawer from './Drawer'
 import Checkbox from './Checkbox'
@@ -2327,11 +2328,18 @@ function PlannedRow({
     )
 }
 
+/** How many library items the day drawer's add list lays out at a time. */
+const PICKER_PAGE_SIZE = 10
+
 /**
  * The day drawer. It targets one day + slot; inside, a Slot toggle and a Type
  * toggle (Strength / Conditioning / Recovery) choose where an added item lands
  * and which library the add list draws from. In view mode it's a read-only
  * summary grouped by slot; in edit mode items can be added and removed here.
+ *
+ * The add list is paged: the libraries grow into the hundreds, so it shows the
+ * first `PICKER_PAGE_SIZE` — pinned workouts first, where they're pinned — and
+ * leaves search and the pager to reach the rest.
  */
 function ItemPicker({
     target,
@@ -2370,14 +2378,24 @@ function ItemPicker({
     // Which library the add list shows, and which slot an added item lands in.
     const [activeKind, setActiveKind] = useState<FitnessPlanKind>('workout')
     const [activePart, setActivePart] = useState<FitnessPlanPart>('morning')
+    // Which page of the add list is on show. Libraries run to hundreds of items
+    // (conditioning especially), and laying them all out at once is what made
+    // the drawer buckle — so it shows a page at a time, with search to narrow.
+    const [page, setPage] = useState(1)
     useEffect(() => {
         if (target) {
             setView(target)
             setQuery('')
             setActiveKind('workout')
             setActivePart(target.part)
+            setPage(1)
         }
     }, [target])
+
+    // A different library or a new search starts the list over at the top.
+    useEffect(() => {
+        setPage(1)
+    }, [activeKind, query])
 
     const kind = activeKind
     const meta = KIND_META[kind]
@@ -2434,6 +2452,23 @@ function ItemPicker({
             : mobility
         return [...base].sort((a, b) => a.name.localeCompare(b.name))
     }, [mobility, query])
+
+    // How many of the active library matched, and the slice of it on show.
+    const total =
+        kind === 'workout'
+            ? workoutResults.length
+            : kind === 'conditioning'
+              ? sessionResults.length
+              : kind === 'mobility'
+                ? mobilityResults.length
+                : recoveryResults.length
+    const pageCount = Math.max(1, Math.ceil(total / PICKER_PAGE_SIZE))
+    // A new search or a shrinking library can leave `page` past the end — pull it back.
+    useEffect(() => {
+        if (page > pageCount) setPage(pageCount)
+    }, [page, pageCount])
+    const from = (page - 1) * PICKER_PAGE_SIZE
+    const to = from + PICKER_PAGE_SIZE
 
     // The day's items, grouped by slot for the read-only summary.
     const slots = FITNESS_PLAN_PARTS.map((part) => ({
@@ -2547,6 +2582,15 @@ function ItemPicker({
                             onChange={(e) => setQuery(e.target.value)}
                         />
 
+                        {total > 0 && (
+                            <p className="text-xs text-neutral-400">
+                                {total <= PICKER_PAGE_SIZE
+                                    ? `${total} ${meta.noun}${total === 1 ? '' : 's'}`
+                                    : `Showing ${from + 1}–${Math.min(to, total)} of ${total} ${meta.noun}s`}
+                                {total > PICKER_PAGE_SIZE && !query.trim() && ' — search to narrow'}
+                            </p>
+                        )}
+
                         {kind === 'workout' ? (
                             workoutResults.length === 0 ? (
                                 <p className="py-6 text-center text-sm text-neutral-400">
@@ -2554,7 +2598,7 @@ function ItemPicker({
                                 </p>
                             ) : (
                                 <ul className="flex flex-col gap-1.5">
-                                    {workoutResults.map((w) => (
+                                    {workoutResults.slice(from, to).map((w) => (
                                         <li key={w._id}>
                                             <button
                                                 type="button"
@@ -2600,7 +2644,7 @@ function ItemPicker({
                                 </p>
                             ) : (
                                 <ul className="flex flex-col gap-1.5">
-                                    {sessionResults.map((s) => (
+                                    {sessionResults.slice(from, to).map((s) => (
                                         <li key={s._id}>
                                             <button
                                                 type="button"
@@ -2640,7 +2684,7 @@ function ItemPicker({
                                 </p>
                             ) : (
                                 <ul className="flex flex-col gap-1.5">
-                                    {mobilityResults.map((m) => (
+                                    {mobilityResults.slice(from, to).map((m) => (
                                         <li key={m._id}>
                                             <button
                                                 type="button"
@@ -2676,7 +2720,7 @@ function ItemPicker({
                             </p>
                         ) : (
                             <ul className="flex flex-col gap-1.5">
-                                {recoveryResults.map((r) => (
+                                {recoveryResults.slice(from, to).map((r) => (
                                     <li key={r._id}>
                                         <button
                                             type="button"
@@ -2705,6 +2749,8 @@ function ItemPicker({
                                 ))}
                             </ul>
                         )}
+
+                        <Pagination page={page} pageCount={pageCount} onChange={setPage} />
                     </>
                 )}
             </div>
