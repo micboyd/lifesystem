@@ -21,6 +21,7 @@ import {
     type WorkoutLogInput,
 } from '../services/workoutLogs'
 import WorkoutLogWeightsDrawer from './WorkoutLogWeightsDrawer'
+import PlannerExportDrawer from './PlannerExportDrawer'
 import {
     createLog as createConditioningLog,
     listLogs as listConditioningLogs,
@@ -506,6 +507,8 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     const [logTarget, setLogTarget] = useState<{ workout: Workout; date: string } | null>(null)
     // The planner opens read-only; Edit reveals the add/remove controls.
     const [editing, setEditing] = useState(false)
+    // The planner export drawer — writes the weeks out as JSON, as they stand.
+    const [exportOpen, setExportOpen] = useState(false)
     // Every change saves as it's made, so cancelling can't unwind a queue of
     // writes. Instead each week touched since editing began is kept as it was,
     // keyed by its Monday, and Cancel hands those back to be put in place.
@@ -968,6 +971,16 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                             {discarding ? 'Undoing…' : 'Cancel'}
                         </Button>
                     )}
+                    {!libraryEmpty && !editing && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            icon="fa-solid fa-file-export"
+                            onClick={() => setExportOpen(true)}
+                        >
+                            Export
+                        </Button>
+                    )}
                     {!libraryEmpty && (
                         <Button
                             variant={editing ? 'primary' : 'secondary'}
@@ -1131,6 +1144,12 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 events={events}
                 onMove={handleMove}
                 onClose={() => setOverloadDate(null)}
+            />
+
+            <PlannerExportDrawer
+                open={exportOpen}
+                onClose={() => setExportOpen(false)}
+                weekStart={range.start}
             />
         </div>
     )
@@ -1302,8 +1321,7 @@ function ClashModal({
                                             KIND_META[clash.entry.kind].noun}
                                     </p>
                                     <p className="truncate text-xs text-neutral-400">
-                                        Clashes with{' '}
-                                        {clash.events.map((e) => e.title).join(', ')}
+                                        Clashes with {clash.events.map((e) => e.title).join(', ')}
                                     </p>
                                 </div>
                                 <button
@@ -1785,7 +1803,9 @@ function WeekView({
             entries={entries.filter((e) => e.date === date)}
             note={dayNotes.get(date) ?? null}
             clashCount={(clashesByDate.get(date) ?? []).filter((c) => !c.acknowledged).length}
-            acceptedClashCount={(clashesByDate.get(date) ?? []).filter((c) => c.acknowledged).length}
+            acceptedClashCount={
+                (clashesByDate.get(date) ?? []).filter((c) => c.acknowledged).length
+            }
             overloadCount={overloadsByDate.get(date)?.length ?? 0}
             isDone={isDone}
             onAdd={(part) => onAdd(date, part)}
