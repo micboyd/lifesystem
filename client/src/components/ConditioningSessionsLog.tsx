@@ -18,6 +18,7 @@ import {
     deleteLog,
     type ConditioningLogInput,
 } from '../services/conditioningLogs'
+import { CONDITIONING_CATEGORIES } from '../types'
 import type { ConditioningLog, ConditioningSession, ConditioningCategory } from '../types'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -319,6 +320,7 @@ function LogFormDrawer({
     const editing = view?.mode === 'edit' ? view.log : undefined
 
     const [sessionId, setSessionId] = useState('')
+    const [category, setCategory] = useState<ConditioningCategory>('HIIT')
     const [date, setDate] = useState(todayISO())
     const [duration, setDuration] = useState('0')
     const [rpe, setRpe] = useState('')
@@ -329,12 +331,14 @@ function LogFormDrawer({
         if (view?.mode === 'edit') {
             const l = view.log
             setSessionId(l.session ?? '')
+            setCategory(l.category)
             setDate(l.date)
             setDuration(String(l.duration))
             setRpe(l.rpe != null ? String(l.rpe) : '')
             setNotes(l.notes ?? '')
         } else {
             setSessionId('')
+            setCategory('HIIT')
             setDate(todayISO())
             setDuration('0')
             setRpe('')
@@ -344,11 +348,14 @@ function LogFormDrawer({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [view])
 
-    // Picking a session in create mode seeds the duration from the library.
+    // Picking a session in create mode seeds the duration and category from the library.
     function chooseSession(id: string) {
         setSessionId(id)
         const src = sessions.find((s) => s._id === id)
-        if (src) setDuration(String(src.duration))
+        if (src) {
+            setDuration(String(src.duration))
+            setCategory(src.category)
+        }
     }
 
     const isEdit = view?.mode === 'edit'
@@ -374,7 +381,7 @@ function LogFormDrawer({
             if (view.mode === 'create') {
                 await onAdd({ ...base, session: sessionId })
             } else {
-                await onSave(view.log._id, base)
+                await onSave(view.log._id, { ...base, category })
             }
             onClose()
         } finally {
@@ -403,10 +410,15 @@ function LogFormDrawer({
         >
             <div className="flex flex-col gap-5">
                 {isEdit ? (
-                    <div className="flex items-center gap-2">
+                    <>
                         <p className="font-semibold text-neutral-900">{editing?.name}</p>
-                        {editing && <CategoryChip category={editing.category} />}
-                    </div>
+                        <Select
+                            label="Category *"
+                            value={category}
+                            onChange={(v) => setCategory(v as ConditioningCategory)}
+                            options={CONDITIONING_CATEGORIES.map((c) => ({ label: c, value: c }))}
+                        />
+                    </>
                 ) : (
                     <Select
                         label="Session *"
