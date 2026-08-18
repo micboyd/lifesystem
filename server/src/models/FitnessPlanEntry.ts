@@ -33,6 +33,13 @@ export interface IFitnessPlanEntry extends Document {
     plan: Types.ObjectId | null
     /** Position within the day+part (lower = sooner). */
     order: number
+    /**
+     * When true the planner's clash warning is suppressed for this entry — the
+     * calendar collision has been seen and accepted, so it stops being flagged.
+     * Set per entry rather than per event: the same event may be a real problem
+     * for one session and beside the point for another.
+     */
+    ignoreClash: boolean
     createdAt: Date
     updatedAt: Date
 }
@@ -49,6 +56,7 @@ const fitnessPlanEntrySchema = new Schema<IFitnessPlanEntry>(
         mobility: { type: Schema.Types.ObjectId, ref: 'Mobility', default: null },
         plan: { type: Schema.Types.ObjectId, ref: 'TrainingPlan', default: null },
         order: { type: Number, default: 0 },
+        ignoreClash: { type: Boolean, default: false },
     },
     { timestamps: true }
 )

@@ -25,6 +25,8 @@ export interface PlanWeekSnapshot {
         item: string
         plan: string | null
         order: number
+        /** Whether its calendar clash had been accepted. */
+        ignoreClash: boolean
     }[]
     notes: {
         scope: FitnessNoteScope
@@ -67,12 +69,15 @@ export async function addPlanEntry(
     return res.data.data
 }
 
-/** Move a planned entry to a different slot (morning / afternoon / evening) of its day. */
+/**
+ * Change a planned entry: move it to a different slot (morning / afternoon /
+ * evening) of its day, accept its calendar clash so it stops warning, or both.
+ */
 export async function updatePlanEntry(
     id: string,
-    part: FitnessPlanPart
+    patch: { part?: FitnessPlanPart; ignoreClash?: boolean }
 ): Promise<FitnessPlanEntry> {
-    const res = await api.patch<ApiResponse<FitnessPlanEntry>>(`/fitness-plan/${id}`, { part })
+    const res = await api.patch<ApiResponse<FitnessPlanEntry>>(`/fitness-plan/${id}`, patch)
     return res.data.data
 }
 

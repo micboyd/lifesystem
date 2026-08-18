@@ -254,6 +254,7 @@ function snapshotWeek(
                     item,
                     plan: e.plan,
                     order: e.order,
+                    ignoreClash: e.ignoreClash === true,
                 },
             ]
         }),
@@ -341,6 +342,11 @@ function shortDayLabel(date: string): string {
 interface Clash {
     entry: FitnessPlanEntry
     events: Event[]
+    /**
+     * True once the clash has been accepted on the entry (`ignoreClash`). It stays
+     * in the list so it can be taken back, but stops counting as a live warning.
+     */
+    acknowledged: boolean
 }
 
 /** The events that occupy the same slot as `entry` — an all-day event clashes with any slot. */
@@ -353,34 +359,45 @@ function eventsClashingWith(entry: FitnessPlanEntry, events: Event[]): Event[] {
     )
 }
 
+/** Why a slot can't take a clashing item — or null when it's free to move into. */
+type SlotBlock = 'busy' | 'full' | null
+
+/** One of the entry's own day's other slots, and whether it could move there. */
+interface SlotOption {
+    part: FitnessPlanPart
+    blocked: SlotBlock
+    /** The events occupying it, when `blocked` is 'busy' — named in the tooltip. */
+    events: Event[]
+}
+
 /**
- * A slot on the entry's own day it could move to, to escape its calendar clash:
- * one holding fewer than two planned items and with no event covering it (an
- * all-day event covers every slot). Slots are tried in natural order — morning →
- * afternoon → evening — skipping the entry's current slot. Returns null when
- * every other slot is either full (two sessions) or itself blocked by an event,
- * i.e. the clash has no resolution.
+ * Where a clashing item could go instead: every other slot of its own day, in
+ * natural order — morning → afternoon → evening — each marked with what stands
+ * in its way. A slot is 'full' once two sessions share it, and 'busy' when an
+ * event covers it (an all-day event covers every slot). Both are offered rather
+ * than hidden, so the reason a slot is out is visible instead of implied; when
+ * every one is blocked the clash simply has no resolution.
  */
-function findResolutionSlot(
+function resolutionSlots(
     entry: FitnessPlanEntry,
     dayEntries: FitnessPlanEntry[],
     events: Event[]
-): FitnessPlanPart | null {
+): SlotOption[] {
     const current = partOf(entry)
-    for (const part of FITNESS_PLAN_PARTS) {
-        if (part === current) continue
-        // Slot capacity: at most two planned sessions share a slot.
-        if (dayEntries.filter((e) => partOf(e) === part).length >= 2) continue
-        // A free slot has no non-ignored event covering it (all-day counts).
-        const blocked = events.some(
+    return FITNESS_PLAN_PARTS.filter((part) => part !== current).map((part) => {
+        const covering = events.filter(
             (e) =>
                 !e.ignoreClash &&
                 (eventCoversAllDay(e, entry.date) || eventCoversSlot(e, entry.date, part))
         )
-        if (blocked) continue
-        return part
-    }
-    return null
+        // Slot capacity: at most two planned sessions share a slot.
+        const full = dayEntries.filter((e) => partOf(e) === part).length >= 2
+        return {
+            part,
+            blocked: covering.length > 0 ? 'busy' : full ? 'full' : null,
+            events: covering,
+        }
+    })
 }
 
 /** A short "when" label for an event on `date` — "All day", a clock time, or the slots it spans. */
@@ -736,7 +753,24 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     async function handleMove(id: string, part: FitnessPlanPart) {
         setEntries((prev) => prev.map((e) => (e._id === id ? { ...e, part } : e)))
         markDirty()
-        await updatePlanEntry(id, part)
+        await updatePlanEntry(id, { part })
+    }
+
+    // Accept a planned item's calendar clash, or think better of it. Optimistic:
+    // the warning goes quiet at once, then the server records the decision. A
+    // failed save puts the flag back, so the warning can't be lost to a dropped
+    // request — a clash silenced only on screen is worse than one still showing.
+    async function handleOverrideClash(id: string, ignoreClash: boolean) {
+        setEntries((prev) => prev.map((e) => (e._id === id ? { ...e, ignoreClash } : e)))
+        markDirty()
+        try {
+            await updatePlanEntry(id, { ignoreClash })
+        } catch {
+            setEntries((prev) =>
+                prev.map((e) => (e._id === id ? { ...e, ignoreClash: !ignoreClash } : e))
+            )
+            toast.show('Could not save that — the clash warning is back.', 'error')
+        }
     }
 
     // Reorder a slot from a week-view drag — and, when the dragged item came from
@@ -802,13 +836,19 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
 
     // Clashes keyed by day: each planned item that overlaps a calendar event in
     // its slot (or any all-day event). Days with no clash are absent from the map.
+    // Accepted clashes stay in the map, marked, so they can still be taken back —
+    // it's the day's badge that stops sounding the alarm for them, not this.
     const clashesByDate = useMemo(() => {
         const m = new Map<string, Clash[]>()
         for (const entry of entries) {
             const clashing = eventsClashingWith(entry, events)
             if (clashing.length === 0) continue
             const list = m.get(entry.date)
-            const clash: Clash = { entry, events: clashing }
+            const clash: Clash = {
+                entry,
+                events: clashing,
+                acknowledged: entry.ignoreClash === true,
+            }
             if (list) list.push(clash)
             else m.set(entry.date, [clash])
         }
@@ -1080,6 +1120,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 dayEntries={clashDate ? entries.filter((e) => e.date === clashDate) : []}
                 events={events}
                 onMove={handleMove}
+                onOverride={handleOverrideClash}
                 onClose={() => setClashDate(null)}
             />
 
@@ -1100,6 +1141,12 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
 /**
  * Lists a day's schedule clashes: each planned item that overlaps a calendar
  * event, shown alongside the event(s) it collides with and when they fall.
+ *
+ * Each one offers the two ways out. Move it: the day's other slots are laid out
+ * with whatever stands in each one's way, so the choice of where it goes is the
+ * user's rather than the first slot that happens to be free. Or accept it: the
+ * clash is real but fine, and the warning goes quiet for that item until it's
+ * taken back — which the accepted list below keeps within reach.
  */
 function ClashModal({
     date,
@@ -1107,6 +1154,7 @@ function ClashModal({
     dayEntries,
     events,
     onMove,
+    onOverride,
     onClose,
 }: {
     date: string | null
@@ -1116,33 +1164,12 @@ function ClashModal({
     /** The week's calendar events, to tell which slots an event already blocks. */
     events: Event[]
     onMove: (id: string, part: FitnessPlanPart) => void
+    /** Accept an item's clash (or take that back), silencing its warning. */
+    onOverride: (id: string, ignoreClash: boolean) => void
     onClose: () => void
 }) {
-    // Entries whose Resolve found nowhere free to go, so we show "No resolution".
-    const [unresolved, setUnresolved] = useState<Set<string>>(new Set())
-
-    // Forget any "No resolution" flags when the modal switches to another day.
-    useEffect(() => {
-        setUnresolved(new Set())
-    }, [date])
-
-    // Try to move a clashing item to a free slot of the same day. On success it
-    // lands there and drops out of the clash list; on failure it's flagged as
-    // having no resolution.
-    function handleResolve(entry: FitnessPlanEntry) {
-        const slot = findResolutionSlot(entry, dayEntries, events)
-        if (slot) {
-            onMove(entry._id, slot)
-            setUnresolved((prev) => {
-                if (!prev.has(entry._id)) return prev
-                const next = new Set(prev)
-                next.delete(entry._id)
-                return next
-            })
-        } else {
-            setUnresolved((prev) => new Set(prev).add(entry._id))
-        }
-    }
+    const live = clashes.filter((c) => !c.acknowledged)
+    const accepted = clashes.filter((c) => c.acknowledged)
 
     return (
         <Modal
@@ -1172,20 +1199,20 @@ function ClashModal({
                     </p>
                 </div>
             )}
-            {date && clashes.length > 0 && (
+            {date && live.length > 0 && (
                 <div className="flex flex-col gap-4">
                     <p className="text-sm text-neutral-500">
                         On{' '}
                         <span className="font-semibold text-neutral-700">
                             {shortDayLabel(date)}
                         </span>{' '}
-                        {clashes.length === 1
+                        {live.length === 1
                             ? 'a planned session overlaps'
                             : 'planned sessions overlap'}{' '}
                         with what&apos;s already on your calendar.
                     </p>
                     <ul className="flex flex-col gap-3">
-                        {clashes.map((clash) => {
+                        {live.map((clash) => {
                             const tone = KIND_TONE[clash.entry.kind]
                             const part = partOf(clash.entry)
                             return (
@@ -1229,28 +1256,24 @@ function ClashModal({
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="mt-2 flex items-center justify-end gap-2 border-t border-amber-200/70 pt-2">
-                                        {unresolved.has(clash.entry._id) ? (
-                                            <span className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400">
-                                                <i
-                                                    className="fa-solid fa-ban text-[11px]"
-                                                    aria-hidden="true"
-                                                />
-                                                No resolution
-                                            </span>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleResolve(clash.entry)}
-                                                className="flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-amber-600"
-                                            >
-                                                <i
-                                                    className="fa-solid fa-wand-magic-sparkles text-[11px]"
-                                                    aria-hidden="true"
-                                                />
-                                                Resolve
-                                            </button>
-                                        )}
+                                    <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-amber-200/70 pt-2">
+                                        <SlotChoices
+                                            slots={resolutionSlots(clash.entry, dayEntries, events)}
+                                            date={date}
+                                            onPick={(part) => onMove(clash.entry._id, part)}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => onOverride(clash.entry._id, true)}
+                                            title="Keep it where it is and stop warning about this clash"
+                                            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300 px-3 py-1 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-100"
+                                        >
+                                            <i
+                                                className="fa-solid fa-bell-slash text-[11px]"
+                                                aria-hidden="true"
+                                            />
+                                            Keep anyway
+                                        </button>
                                     </div>
                                 </li>
                             )
@@ -1258,7 +1281,107 @@ function ClashModal({
                     </ul>
                 </div>
             )}
+            {date && accepted.length > 0 && (
+                <div className={`flex flex-col gap-2 ${live.length > 0 ? 'mt-5' : ''}`}>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                        Accepted on this day
+                    </p>
+                    <ul className="flex flex-col gap-1.5">
+                        {accepted.map((clash) => (
+                            <li
+                                key={clash.entry._id}
+                                className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2"
+                            >
+                                <i
+                                    className={`${KIND_META[clash.entry.kind].icon} shrink-0 text-xs text-neutral-400`}
+                                    aria-hidden="true"
+                                />
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium text-neutral-600">
+                                        {planItemName(clash.entry) ??
+                                            KIND_META[clash.entry.kind].noun}
+                                    </p>
+                                    <p className="truncate text-xs text-neutral-400">
+                                        Clashes with{' '}
+                                        {clash.events.map((e) => e.title).join(', ')}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => onOverride(clash.entry._id, false)}
+                                    className="shrink-0 rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:border-neutral-300 hover:text-neutral-800"
+                                >
+                                    Warn again
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
         </Modal>
+    )
+}
+
+/**
+ * The slots a clashing item could move to, one button each. A blocked slot stays
+ * on show but disabled, saying what's in the way — a slot missing entirely reads
+ * as a bug, whereas "Afternoon · busy" reads as an answer. When nothing on the
+ * day can take it, the row says so rather than offering an empty choice.
+ */
+function SlotChoices({
+    slots,
+    date,
+    onPick,
+}: {
+    slots: SlotOption[]
+    /** The day being resolved, for naming the events that block a slot. */
+    date: string
+    onPick: (part: FitnessPlanPart) => void
+}) {
+    if (slots.every((s) => s.blocked !== null)) {
+        return (
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400">
+                <i className="fa-solid fa-ban text-[11px]" aria-hidden="true" />
+                Nowhere free on this day
+            </span>
+        )
+    }
+
+    return (
+        <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-semibold text-neutral-500">Move to</span>
+            {slots.map(({ part, blocked, events }) => (
+                <button
+                    key={part}
+                    type="button"
+                    disabled={blocked !== null}
+                    onClick={() => onPick(part)}
+                    title={
+                        blocked === 'busy'
+                            ? `${PART_META[part].label} — ${events
+                                  .map((e) => `${e.title} (${eventWhenLabel(e, date)})`)
+                                  .join(', ')}`
+                            : blocked === 'full'
+                              ? `${PART_META[part].label} — already holds two sessions`
+                              : `Move to ${PART_META[part].label.toLowerCase()}`
+                    }
+                    className={[
+                        'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors',
+                        blocked === null
+                            ? 'bg-amber-500 text-white hover:bg-amber-600'
+                            : 'cursor-not-allowed border border-neutral-200 bg-white text-neutral-300',
+                    ].join(' ')}
+                >
+                    <i className={`${PART_META[part].icon} text-[11px]`} aria-hidden="true" />
+                    {PART_META[part].label}
+                    {blocked && (
+                        <span className="font-normal">
+                            · {blocked === 'busy' ? 'busy' : 'full'}
+                        </span>
+                    )}
+                </button>
+            ))}
+        </div>
     )
 }
 
@@ -1661,7 +1784,8 @@ function WeekView({
             editable={editing}
             entries={entries.filter((e) => e.date === date)}
             note={dayNotes.get(date) ?? null}
-            clashCount={clashesByDate.get(date)?.length ?? 0}
+            clashCount={(clashesByDate.get(date) ?? []).filter((c) => !c.acknowledged).length}
+            acceptedClashCount={(clashesByDate.get(date) ?? []).filter((c) => c.acknowledged).length}
             overloadCount={overloadsByDate.get(date)?.length ?? 0}
             isDone={isDone}
             onAdd={(part) => onAdd(date, part)}
@@ -1817,6 +1941,7 @@ function DayColumn({
     entries,
     note,
     clashCount,
+    acceptedClashCount,
     overloadCount,
     isDone,
     onAdd,
@@ -1840,8 +1965,10 @@ function DayColumn({
     editable: boolean
     entries: FitnessPlanEntry[]
     note: FitnessPlanNote | null
-    /** How many of this day's planned items clash with a calendar event. */
+    /** How many of this day's planned items clash with a calendar event, unaccepted. */
     clashCount: number
+    /** How many of its clashes have been accepted, so they no longer warn. */
+    acceptedClashCount: number
     /** How many of this day's slots stack two hard sessions together. */
     overloadCount: number
     /** Whether a planned item has a matching completion log on its day. */
@@ -1895,7 +2022,7 @@ function DayColumn({
                     </p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                    {clashCount > 0 && (
+                    {clashCount > 0 ? (
                         <button
                             type="button"
                             onClick={onShowClashes}
@@ -1908,6 +2035,20 @@ function DayColumn({
                                 aria-hidden="true"
                             />
                         </button>
+                    ) : (
+                        // Every clash on this day has been accepted: no warning, but a
+                        // quiet mark that keeps the day one press from taking it back.
+                        acceptedClashCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={onShowClashes}
+                                aria-label={`${acceptedClashCount} accepted calendar clash${acceptedClashCount === 1 ? '' : 'es'} — view`}
+                                title={`${acceptedClashCount} accepted calendar clash${acceptedClashCount === 1 ? '' : 'es'}`}
+                                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-500"
+                            >
+                                <i className="fa-solid fa-check text-[13px]" aria-hidden="true" />
+                            </button>
+                        )
                     )}
                     {overloadCount > 0 && (
                         <button

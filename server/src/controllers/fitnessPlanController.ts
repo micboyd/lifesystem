@@ -154,13 +154,25 @@ export async function createEntry(req: AuthRequest, res: Response) {
 }
 
 /**
- * PATCH /api/fitness-plan/:id — move an entry to a different slot of its day.
- * Only the `part` changes; the entry appends to the end of the target slot.
+ * PATCH /api/fitness-plan/:id — move an entry to a different slot of its day,
+ * and/or accept its calendar clash. A move appends the entry to the end of the
+ * target slot; `ignoreClash` silences the planner's warning for this entry.
+ * Body: { part?, ignoreClash? } — at least one, either on its own.
  */
 export async function updateEntry(req: AuthRequest, res: Response) {
-    const { part } = req.body
-    if (!isPart(part)) {
-        res.status(400).json({ message: 'part (morning|afternoon|evening) is required' })
+    const { part, ignoreClash } = req.body
+    const moving = part !== undefined
+    const overriding = ignoreClash !== undefined
+    if (!moving && !overriding) {
+        res.status(400).json({ message: 'part or ignoreClash is required' })
+        return
+    }
+    if (moving && !isPart(part)) {
+        res.status(400).json({ message: 'part must be morning, afternoon or evening' })
+        return
+    }
+    if (overriding && typeof ignoreClash !== 'boolean') {
+        res.status(400).json({ message: 'ignoreClash must be true or false' })
         return
     }
 
@@ -170,7 +182,7 @@ export async function updateEntry(req: AuthRequest, res: Response) {
         return
     }
 
-    if (entry.part !== part) {
+    if (moving && entry.part !== part) {
         const last = await FitnessPlanEntry.findOne({
             user: req.userId,
             date: entry.date,
@@ -178,8 +190,10 @@ export async function updateEntry(req: AuthRequest, res: Response) {
         }).sort({ order: -1 })
         entry.part = part
         entry.order = last ? last.order + 1 : 0
-        await entry.save()
     }
+    if (overriding) entry.ignoreClash = ignoreClash
+
+    if (entry.isModified()) await entry.save()
 
     await entry.populate('workout')
     await entry.populate('session')
@@ -351,6 +365,8 @@ interface RestoredEntry {
     /** The training plan that placed it, or null when it was placed by hand. */
     plan: string | null
     order: number
+    /** Whether its calendar clash had been accepted. */
+    ignoreClash: boolean
 }
 
 /**
@@ -389,6 +405,7 @@ export async function restoreWeek(req: AuthRequest, res: Response) {
             item: r.item,
             plan: typeof r.plan === 'string' ? r.plan : null,
             order: typeof r.order === 'number' ? r.order : i,
+            ignoreClash: r.ignoreClash === true,
         })
     })
 
@@ -427,6 +444,7 @@ export async function restoreWeek(req: AuthRequest, res: Response) {
             // without disturbing anything placed by hand.
             plan: e.plan && plans.has(e.plan) ? e.plan : null,
             order: e.order,
+            ignoreClash: e.ignoreClash,
         }))
 
     const noteDocs = rows(req.body.notes)

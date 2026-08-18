@@ -411,6 +411,8 @@ export interface FitnessPlanEntry {
     /** Id of the training plan that placed this, or null when placed by hand. */
     plan: string | null
     order: number
+    /** When true this item's calendar clash has been accepted, so it stops warning. */
+    ignoreClash?: boolean
     createdAt: string
     updatedAt: string
 }
