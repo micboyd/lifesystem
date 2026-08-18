@@ -769,7 +769,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
             setEntries((prev) =>
                 prev.map((e) => (e._id === id ? { ...e, ignoreClash: !ignoreClash } : e))
             )
-            toast.show('Could not save that — the clash warning is back.', 'error')
+            toast.show('Could not save that — the clash warning is back.', 'danger')
         }
     }
 
