@@ -1,0 +1,4177 @@
+{
+  "email": "michael_boyd@live.co.uk",
+  "takenAt": "2026-08-18T21:27:59.644Z",
+  "exercises": [
+    {
+      "_id": "6a6bdc4d07e13fa7605d25c1",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Dumbbell bench press",
+      "description": "Horizontal dumbbell press for the chest, shoulders and triceps.",
+      "order": 3,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:20:45.762Z",
+      "updatedAt": "2026-08-18T13:18:06.717Z"
+    },
+    {
+      "_id": "6a6bdc4d07e13fa7605d25cc",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Barbell overhead press",
+      "description": "Standing vertical barbell press for the shoulders, triceps and core.",
+      "order": 14,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:20:45.762Z",
+      "updatedAt": "2026-08-18T13:18:06.723Z"
+    },
+    {
+      "_id": "6a6bdc4d07e13fa7605d25e4",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Lat pulldown",
+      "description": "Vertical cable pull for the lats, upper back and biceps.",
+      "order": 38,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:20:45.763Z",
+      "updatedAt": "2026-08-18T13:18:06.729Z"
+    },
+    {
+      "_id": "6a6bdc4d07e13fa7605d25ff",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Seated leg curl",
+      "description": "Machine isolation exercise for the hamstrings.",
+      "order": 65,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:20:45.763Z",
+      "updatedAt": "2026-07-30T23:20:45.763Z"
+    },
+    {
+      "_id": "6a6bdc4d07e13fa7605d260e",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Standing calf raise",
+      "description": "Straight-leg calf exercise emphasising the gastrocnemius.",
+      "order": 80,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:20:45.763Z",
+      "updatedAt": "2026-07-30T23:20:45.763Z"
+    },
+    {
+      "_id": "6a6bdc4d07e13fa7605d261c",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Dumbbell overhead triceps extension",
+      "description": "Overhead dumbbell extension targeting the triceps.",
+      "order": 94,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:20:45.764Z",
+      "updatedAt": "2026-08-18T13:18:06.736Z"
+    },
+    {
+      "_id": "6a6bdd4e07e13fa7605d267a",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Trap bar deadlift",
+      "description": "Neutral-grip floor pull for the legs, glutes, back and grip.",
+      "order": 100,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:25:02.758Z",
+      "updatedAt": "2026-08-09T20:22:26.515Z"
+    },
+    {
+      "_id": "6a6bdd4e07e13fa7605d267b",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Barbell back squat",
+      "description": "Barbell squat for the quadriceps, glutes, hamstrings and core.",
+      "order": 101,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:25:02.758Z",
+      "updatedAt": "2026-08-18T13:18:06.742Z"
+    },
+    {
+      "_id": "6a6bdd4e07e13fa7605d2680",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Dumbbell reverse lunge",
+      "description": "Builds single-leg strength while placing less forward stress on the knees.",
+      "order": 106,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:25:02.759Z",
+      "updatedAt": "2026-08-09T20:22:26.523Z"
+    },
+    {
+      "_id": "6a6bdd4e07e13fa7605d2691",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Push press",
+      "description": "Builds explosive upper-body power by transferring force from the legs through the arms.",
+      "order": 123,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:25:02.759Z",
+      "updatedAt": "2026-08-18T13:18:06.770Z"
+    },
+    {
+      "_id": "6a6bdd4e07e13fa7605d2693",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Barbell bench press",
+      "description": "Horizontal barbell press for the chest, shoulders and triceps.",
+      "order": 125,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:25:02.759Z",
+      "updatedAt": "2026-08-18T13:18:06.780Z"
+    },
+    {
+      "_id": "6a6bdd4e07e13fa7605d269a",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Chest-supported row",
+      "description": "Supported horizontal pull to load the upper back without unnecessary lumbar fatigue.",
+      "order": 132,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:25:02.759Z",
+      "updatedAt": "2026-08-18T13:18:06.784Z"
+    },
+    {
+      "_id": "6a6bdd4e07e13fa7605d269d",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Cable face pull",
+      "description": "Rope pull toward the face for the rear deltoids, traps and rotator cuff.",
+      "order": 135,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:25:02.759Z",
+      "updatedAt": "2026-08-18T13:18:06.798Z"
+    },
+    {
+      "_id": "6a6bdd4e07e13fa7605d269f",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Farmer's carry",
+      "description": "Develops grip, core, shoulder and total-body strength for carrying and contact.",
+      "order": 137,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:25:02.759Z",
+      "updatedAt": "2026-08-18T13:18:06.803Z"
+    },
+    {
+      "_id": "6a6bdd4e07e13fa7605d26a4",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Cable Pallof press",
+      "description": "Builds anti-rotation core strength for tackling, sidestepping and resisting contact.",
+      "order": 142,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:25:02.759Z",
+      "updatedAt": "2026-08-18T13:18:06.807Z"
+    },
+    {
+      "_id": "6a6bdd4e07e13fa7605d26a9",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Medicine ball chest pass",
+      "description": "Develops explosive upper-body pushing power for hand-offs and contact.",
+      "order": 147,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:25:02.759Z",
+      "updatedAt": "2026-08-18T13:18:06.819Z"
+    },
+    {
+      "_id": "6a6bdd4e07e13fa7605d26aa",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Medicine ball rotational throw",
+      "description": "Builds explosive rotational power for passing and changing direction.",
+      "order": 148,
+      "__v": 0,
+      "createdAt": "2026-07-30T23:25:02.759Z",
+      "updatedAt": "2026-08-18T13:18:06.832Z"
+    },
+    {
+      "_id": "6a6d23304ead18333b58dfb8",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Incline dumbbell press",
+      "description": "",
+      "order": 150,
+      "__v": 0,
+      "createdAt": "2026-07-31T22:35:28.084Z",
+      "updatedAt": "2026-08-18T13:18:06.838Z"
+    },
+    {
+      "_id": "6a6d23304ead18333b58dfb9",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Dumbbell shrugs",
+      "description": "",
+      "order": 151,
+      "__v": 0,
+      "createdAt": "2026-07-31T22:35:28.084Z",
+      "updatedAt": "2026-08-18T13:18:06.844Z"
+    },
+    {
+      "_id": "6a6d23304ead18333b58dfba",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Dumbbell hammer curl",
+      "description": "",
+      "order": 152,
+      "__v": 0,
+      "createdAt": "2026-07-31T22:35:28.084Z",
+      "updatedAt": "2026-08-18T13:18:06.850Z"
+    },
+    {
+      "_id": "6a6d23304ead18333b58dfbb",
+      "user": "6a21752b799de48151c0e715",
+      "name": "One-arm dumbbell row",
+      "description": "",
+      "order": 153,
+      "__v": 0,
+      "createdAt": "2026-07-31T22:35:28.084Z",
+      "updatedAt": "2026-08-18T13:18:06.858Z"
+    },
+    {
+      "_id": "6a6d23ee4ead18333b58dfc8",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Dumbbell Bulgarian split squat",
+      "description": "",
+      "order": 155,
+      "__v": 0,
+      "createdAt": "2026-07-31T22:38:38.196Z",
+      "updatedAt": "2026-08-18T13:18:06.864Z"
+    },
+    {
+      "_id": "6a6d23ee4ead18333b58dfcd",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Dumbbell hip thrust",
+      "description": "",
+      "order": 160,
+      "__v": 0,
+      "createdAt": "2026-07-31T22:38:38.196Z",
+      "updatedAt": "2026-08-09T20:22:26.526Z"
+    },
+    {
+      "_id": "6a78bdf17046174aa09f316c",
+      "user": "6a21752b799de48151c0e715",
+      "name": "4-way neck isometric",
+      "description": "Gentle resisted neck flexion, extension and lateral-flexion isometrics to build neck strength without loaded neck bridging.",
+      "order": 161,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T17:50:41.071Z",
+      "updatedAt": "2026-08-18T13:18:06.881Z"
+    },
+    {
+      "_id": "6a7f8e8eceb5e60f01417f30",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Copenhagen plank",
+      "description": "Adductor-strength exercise for groin and pelvis robustness.",
+      "order": 163,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:22.977Z",
+      "updatedAt": "2026-08-18T13:18:06.892Z"
+    },
+    {
+      "_id": "6a7f8e8eceb5e60f01417f31",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Broad jump and stick",
+      "description": "Horizontal plyometric jump with a controlled landing.",
+      "order": 164,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:22.977Z",
+      "updatedAt": "2026-08-18T13:18:06.899Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d23891",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Romanian deadlift",
+      "description": "Hip-hinge strength exercise for hamstrings, glutes and posterior-chain development.",
+      "muscleGroup": "",
+      "equipment": "",
+      "order": 165,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.398Z",
+      "updatedAt": "2026-08-18T13:18:06.905Z"
+    }
+  ],
+  "workouts": [
+    {
+      "_id": "6a78bdf17046174aa09f3172",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Lower B - Rugby Strength & Power",
+      "description": "Build powerful hips, legs, grip and trunk strength while keeping enough in reserve for Friday's run.",
+      "duration": 65,
+      "showInPlanner": false,
+      "exercises": [
+        {
+          "exercise": "6a6bdd4e07e13fa7605d267a",
+          "sets": 4,
+          "reps": "4-5",
+          "rest": "3 min",
+          "notes": "Fast concentric intent; keep 1-2 reps in reserve."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d267b",
+          "sets": 3,
+          "reps": "5",
+          "rest": "2-3 min",
+          "notes": "Use a controlled 1-2 second pause; keep this lighter than Tuesday."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d2680",
+          "sets": 3,
+          "reps": "8 each side",
+          "rest": "90 sec"
+        },
+        {
+          "exercise": "6a6d23ee4ead18333b58dfcd",
+          "sets": 3,
+          "reps": "8-12",
+          "rest": "90 sec"
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d269f",
+          "sets": 4,
+          "reps": "20-30 m",
+          "rest": "60-90 sec",
+          "notes": "Heavy, tall posture, controlled breathing."
+        }
+      ],
+      "order": 14,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T17:50:41.103Z",
+      "updatedAt": "2026-08-18T21:15:36.606Z"
+    },
+    {
+      "_id": "6a78c4877046174aa09f4304",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Prop Power & Armour",
+      "description": "Micro-dose explosive power, neck, trunk and carrying strength without compromising Saturday.",
+      "duration": 35,
+      "showInPlanner": false,
+      "exercises": [
+        {
+          "exercise": "6a6bdd4e07e13fa7605d26a9",
+          "sets": 3,
+          "reps": "4",
+          "rest": "60-90 sec",
+          "notes": "Maximum intent."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d26aa",
+          "sets": 3,
+          "reps": "3 each side",
+          "rest": "60-90 sec",
+          "notes": "Fast and crisp."
+        },
+        {
+          "exercise": "6a7f8e8eceb5e60f01417f31",
+          "sets": 3,
+          "reps": "3",
+          "rest": "90 sec",
+          "notes": "Full reset between reps."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d2691",
+          "sets": 3,
+          "reps": "3",
+          "rest": "2 min",
+          "notes": "Light-to-moderate and fast."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d269f",
+          "sets": 3,
+          "reps": "20-30 m",
+          "rest": "60-90 sec",
+          "notes": "Strong posture."
+        },
+        {
+          "exercise": "6a78bdf17046174aa09f316c",
+          "sets": 2,
+          "reps": "20-30 sec each direction",
+          "rest": "45 sec",
+          "notes": "Controlled."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d26a4",
+          "sets": 2,
+          "reps": "8 each side",
+          "rest": "60 sec",
+          "notes": "Brace hard."
+        }
+      ],
+      "order": 29,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T18:18:47.864Z",
+      "updatedAt": "2026-08-18T13:18:06.957Z"
+    },
+    {
+      "_id": "6a78c4877046174aa09f4301",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Upper A - Prop Strength & Size",
+      "description": "Build the pressing strength, upper-back mass, traps and arm strength useful for scrummaging, carrying, tackling and collision robustness.",
+      "duration": 65,
+      "showInPlanner": false,
+      "exercises": [
+        {
+          "exercise": "6a6bdd4e07e13fa7605d2693",
+          "sets": 4,
+          "reps": "4-6",
+          "rest": "3 min",
+          "notes": "Main press. RPE 7-8; no grinders."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d269a",
+          "sets": 4,
+          "reps": "6-8",
+          "rest": "2 min",
+          "notes": "Heavy upper-back work with minimal lower-back fatigue."
+        },
+        {
+          "exercise": "6a6d23304ead18333b58dfb8",
+          "sets": 3,
+          "reps": "8-10",
+          "rest": "90 sec",
+          "notes": "Controlled, 1-2 reps in reserve."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d25e4",
+          "sets": 3,
+          "reps": "8-10",
+          "rest": "90 sec",
+          "notes": "Drive elbows down; no swinging."
+        },
+        {
+          "exercise": "6a6d23304ead18333b58dfb9",
+          "sets": 3,
+          "reps": "10-12",
+          "rest": "75 sec",
+          "notes": "Pause at the top."
+        },
+        {
+          "exercise": "6a6d23304ead18333b58dfba",
+          "sets": 2,
+          "reps": "10-12",
+          "rest": "60 sec",
+          "notes": "Grip and elbow robustness."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d261c",
+          "sets": 2,
+          "reps": "10-12",
+          "rest": "60 sec",
+          "notes": "Stop short of failure."
+        }
+      ],
+      "order": 26,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T18:18:47.864Z",
+      "updatedAt": "2026-08-18T13:18:06.939Z"
+    },
+    {
+      "_id": "6a78da04c8e6dd45c854092f",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Lower A - Main Prop Strength",
+      "description": "Build maximal lower-body force, leg drive, posterior-chain strength and single-leg robustness while consolidating the hard lower-body day with evening rugby.",
+      "duration": 60,
+      "showInPlanner": false,
+      "exercises": [
+        {
+          "exercise": "6a6bdd4e07e13fa7605d267b",
+          "sets": 4,
+          "reps": "3-5",
+          "rest": "3-4 min",
+          "notes": "Main lift. RPE 7-8, clean reps only."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d267a",
+          "sets": 3,
+          "reps": "3-5",
+          "rest": "3 min",
+          "notes": "Explosive concentric; keep 1-2 reps in reserve."
+        },
+        {
+          "exercise": "6a6d23ee4ead18333b58dfc8",
+          "sets": 2,
+          "reps": "6-8 each side",
+          "rest": "90 sec",
+          "notes": "Moderate volume to limit soreness."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d25ff",
+          "sets": 2,
+          "reps": "8-12",
+          "rest": "75 sec",
+          "notes": "Controlled eccentric."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d260e",
+          "sets": 2,
+          "reps": "10-15",
+          "rest": "60 sec",
+          "notes": "Full range."
+        },
+        {
+          "exercise": "6a7f8e8eceb5e60f01417f30",
+          "sets": 2,
+          "reps": "20-30 sec each side",
+          "rest": "60 sec",
+          "notes": "Adductor strength and groin robustness."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d26a4",
+          "sets": 2,
+          "reps": "8-10 each side",
+          "rest": "60 sec",
+          "notes": "Anti-rotation trunk strength."
+        }
+      ],
+      "order": 32,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T19:50:28.978Z",
+      "updatedAt": "2026-08-18T21:15:36.606Z"
+    },
+    {
+      "_id": "6a7f911cceb5e60f01418bf6",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Upper A - Prep Prop Strength",
+      "description": "Build pressing and upper-back strength while leaving enough recovery capacity for the running progression.",
+      "duration": 55,
+      "showInPlanner": false,
+      "exercises": [
+        {
+          "exercise": "6a6bdd4e07e13fa7605d2693",
+          "sets": 3,
+          "reps": "5-8",
+          "rest": "2-3 min",
+          "notes": "Start around RPE 6-7; progress toward RPE 7-8."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d269a",
+          "sets": 3,
+          "reps": "6-10",
+          "rest": "2 min",
+          "notes": "Strict, controlled upper-back work."
+        },
+        {
+          "exercise": "6a6d23304ead18333b58dfb8",
+          "sets": 2,
+          "reps": "8-12",
+          "rest": "90 sec",
+          "notes": "Stop 1-2 reps before failure."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d25e4",
+          "sets": 2,
+          "reps": "8-12",
+          "rest": "90 sec",
+          "notes": "Smooth reps."
+        },
+        {
+          "exercise": "6a6d23304ead18333b58dfb9",
+          "sets": 2,
+          "reps": "10-15",
+          "rest": "75 sec",
+          "notes": "Pause briefly at the top."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d26a4",
+          "sets": 2,
+          "reps": "10 each side",
+          "rest": "60 sec",
+          "notes": "Controlled trunk work."
+        }
+      ],
+      "order": 35,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T22:05:16.829Z",
+      "updatedAt": "2026-08-18T13:18:06.915Z"
+    },
+    {
+      "_id": "6a7f911cceb5e60f01418bf7",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Lower A - Prep Prop Strength",
+      "description": "Rebuild squat, hinge, single-leg and groin strength in preparation for the heavier November prop programme.",
+      "duration": 55,
+      "showInPlanner": false,
+      "exercises": [
+        {
+          "exercise": "6a6bdd4e07e13fa7605d267b",
+          "sets": 3,
+          "reps": "5-6",
+          "rest": "3 min",
+          "notes": "RPE 6-7 initially; never grind."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d267a",
+          "sets": 3,
+          "reps": "4-6",
+          "rest": "3 min",
+          "notes": "Strong, fast concentric."
+        },
+        {
+          "exercise": "6a6d23ee4ead18333b58dfc8",
+          "sets": 2,
+          "reps": "6-8 each side",
+          "rest": "90 sec",
+          "notes": "Moderate volume to limit soreness."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d25ff",
+          "sets": 2,
+          "reps": "10-12",
+          "rest": "75 sec",
+          "notes": "Controlled eccentric."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d260e",
+          "sets": 2,
+          "reps": "12-15",
+          "rest": "60 sec",
+          "notes": "Full range."
+        },
+        {
+          "exercise": "6a7f8e8eceb5e60f01417f30",
+          "sets": 2,
+          "reps": "20 sec each side",
+          "rest": "60 sec",
+          "notes": "Groin/adductor robustness."
+        }
+      ],
+      "order": 36,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T22:05:16.829Z",
+      "updatedAt": "2026-08-18T21:15:36.606Z"
+    },
+    {
+      "_id": "6a7f911cceb5e60f01418bf8",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Upper B - Prep Contact Strength",
+      "description": "Build shoulders, pressing power, lats, grip and neck strength before full rugby-season loading.",
+      "duration": 50,
+      "showInPlanner": false,
+      "exercises": [
+        {
+          "exercise": "6a6bdc4d07e13fa7605d25cc",
+          "sets": 3,
+          "reps": "5-8",
+          "rest": "2-3 min",
+          "notes": "RPE 6-8."
+        },
+        {
+          "exercise": "6a6d23304ead18333b58dfbb",
+          "sets": 3,
+          "reps": "8-10 each side",
+          "rest": "90 sec",
+          "notes": "Brace hard."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d25c1",
+          "sets": 2,
+          "reps": "8-10",
+          "rest": "90 sec",
+          "notes": "No failure."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d269d",
+          "sets": 2,
+          "reps": "12-15",
+          "rest": "60 sec",
+          "notes": "Shoulder/scapular health."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d269f",
+          "sets": 3,
+          "reps": "20 m",
+          "rest": "75 sec",
+          "notes": "Grip and total-body bracing."
+        },
+        {
+          "exercise": "6a78bdf17046174aa09f316c",
+          "sets": 2,
+          "reps": "20 sec each direction",
+          "rest": "45 sec",
+          "notes": "Controlled resistance; no neck bridging."
+        }
+      ],
+      "order": 37,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T22:05:16.829Z",
+      "updatedAt": "2026-08-18T13:18:06.928Z"
+    },
+    {
+      "_id": "6a7f911cceb5e60f01418bf9",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Prep Prop Power & Armour",
+      "description": "Introduce a low-fatigue power and robustness micro-dose so Friday power work in the November plan is familiar.",
+      "duration": 25,
+      "showInPlanner": false,
+      "exercises": [
+        {
+          "exercise": "6a6bdd4e07e13fa7605d26a9",
+          "sets": 3,
+          "reps": "4",
+          "rest": "60 sec",
+          "notes": "Maximum intent."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d26aa",
+          "sets": 2,
+          "reps": "4 each side",
+          "rest": "60 sec",
+          "notes": "Fast, crisp reps."
+        },
+        {
+          "exercise": "6a7f8e8eceb5e60f01417f31",
+          "sets": 2,
+          "reps": "3",
+          "rest": "90 sec",
+          "notes": "Full reset between reps."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d269f",
+          "sets": 2,
+          "reps": "20 m",
+          "rest": "75 sec",
+          "notes": "Heavy but not conditioning."
+        },
+        {
+          "exercise": "6a78bdf17046174aa09f316c",
+          "sets": 2,
+          "reps": "20 sec each direction",
+          "rest": "45 sec",
+          "notes": "Controlled."
+        }
+      ],
+      "order": 38,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T22:05:16.829Z",
+      "updatedAt": "2026-08-18T13:18:06.935Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238ad",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Upper B - Strength & Power",
+      "description": "Build explosive pressing, upper-back strength, shoulder stability, grip and neck robustness while keeping lower-body fatigue low.",
+      "duration": 60,
+      "showInPlanner": false,
+      "exercises": [
+        {
+          "exercise": "6a6bdd4e07e13fa7605d2691",
+          "sets": 4,
+          "reps": "3",
+          "rest": "2-3 min",
+          "notes": "Explosive; stop if bar speed slows."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d25cc",
+          "sets": 3,
+          "reps": "5-6",
+          "rest": "2-3 min",
+          "notes": "RPE 7-8."
+        },
+        {
+          "exercise": "6a6d23304ead18333b58dfbb",
+          "sets": 3,
+          "reps": "6-8 each side",
+          "rest": "90 sec",
+          "notes": "Heavy but strict."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d25c1",
+          "sets": 3,
+          "reps": "6-8",
+          "rest": "90 sec",
+          "notes": "No failure."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d269d",
+          "sets": 2,
+          "reps": "12-15",
+          "rest": "60 sec",
+          "notes": "Scapular and shoulder health."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d269f",
+          "sets": 3,
+          "reps": "20 m",
+          "rest": "75-90 sec",
+          "notes": "Heavy bracing and grip; not conditioning."
+        },
+        {
+          "exercise": "6a78bdf17046174aa09f316c",
+          "sets": 3,
+          "reps": "20 sec each direction",
+          "rest": "45 sec",
+          "notes": "Controlled manual/band resistance; no neck bridging."
+        }
+      ],
+      "order": 39,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.533Z",
+      "updatedAt": "2026-08-18T13:18:06.951Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238ae",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Off-Season Lower A - Squat Strength",
+      "description": "Build squat strength and leg muscle now that rugby no longer occupies Tuesday evenings.",
+      "duration": 60,
+      "showInPlanner": false,
+      "exercises": [
+        {
+          "exercise": "6a6bdd4e07e13fa7605d267b",
+          "sets": 4,
+          "reps": "3-5",
+          "rest": "3-4 min",
+          "notes": "RPE 7-8; technically clean reps only."
+        },
+        {
+          "exercise": "6a6d23ee4ead18333b58dfc8",
+          "sets": 3,
+          "reps": "6-8 each side",
+          "rest": "90 sec",
+          "notes": "Controlled single-leg strength."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d25ff",
+          "sets": 3,
+          "reps": "8-12",
+          "rest": "75 sec",
+          "notes": "Controlled eccentric."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d260e",
+          "sets": 3,
+          "reps": "10-15",
+          "rest": "60 sec",
+          "notes": "Full range."
+        },
+        {
+          "exercise": "6a7f8e8eceb5e60f01417f30",
+          "sets": 2,
+          "reps": "20-30 sec each side",
+          "rest": "60 sec",
+          "notes": "Adductor strength and pelvis robustness."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d26a4",
+          "sets": 2,
+          "reps": "8-10 each side",
+          "rest": "60 sec",
+          "notes": "Anti-rotation trunk strength."
+        }
+      ],
+      "order": 40,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.533Z",
+      "updatedAt": "2026-08-18T21:15:36.606Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238af",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Off-Season Lower B - Hinge & Power",
+      "description": "Build posterior-chain strength, explosive power and lower-body robustness without rugby-specific conditioning.",
+      "duration": 60,
+      "showInPlanner": false,
+      "exercises": [
+        {
+          "exercise": "6a7f8e8eceb5e60f01417f31",
+          "sets": 3,
+          "reps": "3",
+          "rest": "90 sec",
+          "notes": "Full reset; stop if jump quality drops."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d267a",
+          "sets": 4,
+          "reps": "3-5",
+          "rest": "3 min",
+          "notes": "RPE 7-8; explosive concentric."
+        },
+        {
+          "exercise": "6a844e1fec00414fa9d23891",
+          "sets": 3,
+          "reps": "6-8",
+          "rest": "2 min",
+          "notes": "Controlled hinge; keep back position strict."
+        },
+        {
+          "exercise": "6a6d23ee4ead18333b58dfc8",
+          "sets": 2,
+          "reps": "8 each side",
+          "rest": "90 sec",
+          "notes": "Moderate volume."
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d25ff",
+          "sets": 2,
+          "reps": "10-12",
+          "rest": "75 sec",
+          "notes": "Smooth reps."
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d269f",
+          "sets": 3,
+          "reps": "20-30 m",
+          "rest": "75-90 sec",
+          "notes": "Heavy posture and grip work."
+        }
+      ],
+      "order": 41,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.533Z",
+      "updatedAt": "2026-08-18T21:15:36.606Z"
+    },
+    {
+      "_id": "6a84c08f80f0a0432b57c979",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Simple Rugby Full Body",
+      "description": "Simple full-body strength session for rugby using basic commercial gym equipment.",
+      "duration": 0,
+      "showInPlanner": true,
+      "exercises": [
+        {
+          "exercise": "6a6bdd4e07e13fa7605d267b",
+          "sets": 3,
+          "reps": "5-8"
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d2693",
+          "sets": 3,
+          "reps": "5-8"
+        },
+        {
+          "exercise": "6a844e1fec00414fa9d23891",
+          "sets": 3,
+          "reps": "6-8"
+        },
+        {
+          "exercise": "6a6bdd4e07e13fa7605d269a",
+          "sets": 3,
+          "reps": "8-10"
+        },
+        {
+          "exercise": "6a6bdc4d07e13fa7605d25e4",
+          "sets": 3,
+          "reps": "8-10"
+        },
+        {
+          "exercise": "6a6d23304ead18333b58dfb9",
+          "sets": 3,
+          "reps": "10-12"
+        }
+      ],
+      "order": 42,
+      "importBatch": "6a84c08f80f0a0432b57c978",
+      "__v": 0,
+      "createdAt": "2026-08-18T20:29:03.780Z",
+      "updatedAt": "2026-08-18T21:15:36.606Z"
+    }
+  ],
+  "conditioning": [
+    {
+      "_id": "6a6ccfa7724be1097515dc9f",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 3 - Mon 17 Aug",
+      "duration": 37,
+      "category": "Endurance",
+      "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.75 km.",
+          "rounds": 5,
+          "roundLabel": "jog/walk",
+          "roundSeconds": [
+            300,
+            300,
+            300,
+            300,
+            300
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only when the knee is settled during the run and the following morning. Keep the running speed unchanged; progress the length of the jogging blocks only.",
+      "order": 6,
+      "__v": 0,
+      "createdAt": "2026-07-31T16:39:03.339Z",
+      "updatedAt": "2026-08-18T13:18:07.042Z"
+    },
+    {
+      "_id": "6a6ccfa7724be1097515dca0",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 3 - Wed 19 Aug",
+      "duration": 37,
+      "category": "Endurance",
+      "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.75 km.",
+          "rounds": 5,
+          "roundLabel": "jog/walk",
+          "roundSeconds": [
+            300,
+            300,
+            300,
+            300,
+            300
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only when the knee is settled during the run and the following morning. Keep the running speed unchanged; progress the length of the jogging blocks only.",
+      "order": 7,
+      "__v": 0,
+      "createdAt": "2026-07-31T16:39:03.339Z",
+      "updatedAt": "2026-08-18T13:18:07.050Z"
+    },
+    {
+      "_id": "6a6ccfa7724be1097515dca1",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 3 - Fri 21 Aug",
+      "duration": 37,
+      "category": "Endurance",
+      "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.75 km.",
+          "rounds": 5,
+          "roundLabel": "jog/walk",
+          "roundSeconds": [
+            300,
+            300,
+            300,
+            300,
+            300
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only when the knee is settled during the run and the following morning. Keep the running speed unchanged; progress the length of the jogging blocks only.",
+      "order": 8,
+      "__v": 0,
+      "createdAt": "2026-07-31T16:39:03.339Z",
+      "updatedAt": "2026-08-18T13:18:07.063Z"
+    },
+    {
+      "_id": "6a6ccfa7724be1097515dca2",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 4 - Mon 24 Aug",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "5 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 2.33 km.",
+          "rounds": 5,
+          "roundLabel": "jog/walk",
+          "roundSeconds": [
+            360,
+            360,
+            360,
+            360,
+            360
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only when the knee is settled during the run and the following morning. Keep the running speed unchanged; progress the length of the jogging blocks only.",
+      "order": 9,
+      "__v": 0,
+      "createdAt": "2026-07-31T16:39:03.339Z",
+      "updatedAt": "2026-08-18T13:18:07.075Z"
+    },
+    {
+      "_id": "6a6ccfa7724be1097515dca3",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 4 - Wed 26 Aug",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "5 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 2.33 km.",
+          "rounds": 5,
+          "roundLabel": "jog/walk",
+          "roundSeconds": [
+            360,
+            360,
+            360,
+            360,
+            360
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only when the knee is settled during the run and the following morning. Keep the running speed unchanged; progress the length of the jogging blocks only.",
+      "order": 10,
+      "__v": 0,
+      "createdAt": "2026-07-31T16:39:03.339Z",
+      "updatedAt": "2026-08-18T13:18:07.089Z"
+    },
+    {
+      "_id": "6a6ccfa7724be1097515dca4",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 4 - Fri 28 Aug",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "5 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 2.33 km.",
+          "rounds": 5,
+          "roundLabel": "jog/walk",
+          "roundSeconds": [
+            360,
+            360,
+            360,
+            360,
+            360
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only when the knee is settled during the run and the following morning. Keep the running speed unchanged; progress the length of the jogging blocks only.",
+      "order": 11,
+      "__v": 0,
+      "createdAt": "2026-07-31T16:39:03.339Z",
+      "updatedAt": "2026-08-18T13:18:07.095Z"
+    },
+    {
+      "_id": "6a78c13a7046174aa09f31e3",
+      "user": "6a21752b799de48151c0e715",
+      "name": "League Match",
+      "duration": 120,
+      "category": "HIIT",
+      "purpose": "Competitive rugby match; the highest-priority physical exposure of the week.",
+      "parts": [
+        {
+          "name": "Pre-match",
+          "detail": "Follow the team's normal pre-match preparation and progressive build-up."
+        },
+        {
+          "name": "Match",
+          "detail": "Play the scheduled fixture. The match replaces all other Saturday conditioning."
+        }
+      ],
+      "order": 152,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T18:04:42.494Z",
+      "updatedAt": "2026-08-18T13:18:07.863Z",
+      "howToUse": "Competitive fixtures begin in October 2026 in this plan."
+    },
+    {
+      "_id": "6a78da04c8e6dd45c8540933",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Rugby Training",
+      "duration": 90,
+      "category": "HIIT",
+      "purpose": "Primary rugby-specific skills, set-piece, contact, tactical work and repeated-effort conditioning.",
+      "parts": [
+        {
+          "name": "Team preparation",
+          "detail": "Complete the club's normal pre-session preparation."
+        },
+        {
+          "name": "Club session",
+          "detail": "Complete the normal team rugby session, including the coached technical, tactical, set-piece, contact and conditioning content."
+        }
+      ],
+      "howToUse": "Tuesday and Thursday evenings from October through April. Any strength on the same date is scheduled in a separate earlier block.",
+      "order": 160,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T19:50:28.993Z",
+      "updatedAt": "2026-08-18T13:18:07.845Z"
+    },
+    {
+      "_id": "6a7b9f0b980660405d611785",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 4 - Fri 28 Aug - 2026-08-28",
+      "duration": 36,
+      "category": "Endurance",
+      "purpose": "Extend continuous treadmill running slightly before the cruise while keeping the pace conservative. Progress only if the knee is settled during the run and the following morning. Do not increase the speed within the session.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "4 x 4 min jog followed by 2 min walk. Jog at 7.2 km/h and walk at 5.0 km/h. Keep every running repetition relaxed and controlled.",
+          "rounds": 4
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "order": 223,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-11T22:15:39.460Z",
+      "updatedAt": "2026-08-11T22:17:48.720Z"
+    },
+    {
+      "_id": "6a7b9f0b980660405d611780",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 3 - Mon 17 Aug - 2026-08-17",
+      "duration": 37,
+      "category": "Endurance",
+      "purpose": "Build running tolerance by gradually extending each controlled running repetition while keeping the effort easy and repeatable. Progress only if the knee is settled during the run and the following morning. Do not increase the speed within the session.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.2 km/h and walk at 5.0 km/h. Keep every running repetition relaxed and controlled.",
+          "rounds": 5
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "order": 218,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-11T22:15:39.460Z",
+      "updatedAt": "2026-08-11T22:17:48.699Z"
+    },
+    {
+      "_id": "6a7b9f0b980660405d611781",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 3 - Wed 19 Aug - 2026-08-19",
+      "duration": 37,
+      "category": "Endurance",
+      "purpose": "Build running tolerance by gradually extending each controlled running repetition while keeping the effort easy and repeatable. Progress only if the knee is settled during the run and the following morning. Do not increase the speed within the session.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.2 km/h and walk at 5.0 km/h. Keep every running repetition relaxed and controlled.",
+          "rounds": 5
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "order": 219,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-11T22:15:39.460Z",
+      "updatedAt": "2026-08-11T22:17:48.703Z"
+    },
+    {
+      "_id": "6a7b9f0b980660405d611782",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 3 - Fri 21 Aug - 2026-08-21",
+      "duration": 37,
+      "category": "Endurance",
+      "purpose": "Build running tolerance by gradually extending each controlled running repetition while keeping the effort easy and repeatable. Progress only if the knee is settled during the run and the following morning. Do not increase the speed within the session.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.2 km/h and walk at 5.0 km/h. Keep every running repetition relaxed and controlled.",
+          "rounds": 5
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "order": 220,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-11T22:15:39.460Z",
+      "updatedAt": "2026-08-11T22:17:48.707Z"
+    },
+    {
+      "_id": "6a7b9f0b980660405d611783",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 4 - Mon 24 Aug - 2026-08-24",
+      "duration": 36,
+      "category": "Endurance",
+      "purpose": "Extend continuous treadmill running slightly before the cruise while keeping the pace conservative. Progress only if the knee is settled during the run and the following morning. Do not increase the speed within the session.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "4 x 4 min jog followed by 2 min walk. Jog at 7.2 km/h and walk at 5.0 km/h. Keep every running repetition relaxed and controlled.",
+          "rounds": 4
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "order": 221,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-11T22:15:39.460Z",
+      "updatedAt": "2026-08-11T22:17:48.712Z"
+    },
+    {
+      "_id": "6a7b9f0b980660405d611784",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Week 4 - Wed 26 Aug - 2026-08-26",
+      "duration": 36,
+      "category": "Endurance",
+      "purpose": "Extend continuous treadmill running slightly before the cruise while keeping the pace conservative. Progress only if the knee is settled during the run and the following morning. Do not increase the speed within the session.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "4 x 4 min jog followed by 2 min walk. Jog at 7.2 km/h and walk at 5.0 km/h. Keep every running repetition relaxed and controlled.",
+          "rounds": 4
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "order": 222,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-11T22:15:39.460Z",
+      "updatedAt": "2026-08-11T22:17:48.716Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f6f",
+      "user": "6a21752b799de48151c0e715",
+      "name": "5K Pace Introduction - 17 Feb",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Introduce controlled work near 30-minute 5K pace without turning the session into a race.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk 3 min, jog 4 min easy, then complete 3 x 20 sec relaxed strides with 40 sec easy after each stride. Total warm-up: 10 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "4 x 4 min at 9.5 km/h with 2 min very easy jog or walk between repetitions. Stay smooth and controlled; finish capable of another repetition.",
+          "rounds": 4,
+          "roundLabel": "work/recovery",
+          "roundSeconds": [
+            360,
+            360,
+            360,
+            240
+          ],
+          "startAtSec": 600
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Jog very easily for 3 min, then walk 5 min."
+        }
+      ],
+      "howToUse": "Finish feeling capable of one more repetition. This is not a VO2 max session.",
+      "order": 302,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.269Z",
+      "updatedAt": "2026-08-18T13:18:07.349Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f70",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Continuous 5K - 24 Feb",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Consolidate the ability to cover 5 km continuously without racing.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 5.0 km continuously at an easy conversational pace, roughly 7.8-8.5 km/h depending on recovery."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "The only target is continuous completion with good mechanics.",
+      "order": 303,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.269Z",
+      "updatedAt": "2026-08-18T13:18:07.355Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f71",
+      "user": "6a21752b799de48151c0e715",
+      "name": "5K Pace Reps - 3 Mar",
+      "duration": 41,
+      "category": "Endurance",
+      "purpose": "Build time near the pace required for a 30-minute 5K while preserving rugby freshness.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk/jog easily for 7 min, then complete 3 x 20 sec relaxed strides with 40 sec easy after each stride. Total warm-up: 10 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "4 x 5 min at 9.7-10.0 km/h with 2 min very easy jog or walk between repetitions. Controlled target-pace work; do not sprint the final repetition.",
+          "rounds": 4,
+          "roundLabel": "work/recovery",
+          "roundSeconds": [
+            420,
+            420,
+            420,
+            300
+          ],
+          "startAtSec": 600
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Controlled target-pace work. Do not sprint the final repetition.",
+      "order": 304,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.269Z",
+      "updatedAt": "2026-08-18T13:18:07.361Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f72",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Aerobic Treadmill - 10 Mar",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Maintain aerobic fitness between faster maintenance sessions.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog very easily for 5 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 35 min continuously at 7.8-8.5 km/h at conversational effort."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep this deliberately easy.",
+      "order": 305,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.269Z",
+      "updatedAt": "2026-08-18T13:18:07.365Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f73",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Pre-Match Aerobic Maintenance - 17 Mar",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Maintain running rhythm before the 20 March league match without creating fatigue.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 20 min easy at 7.5-8.0 km/h."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Freshness is more important than fitness gain this week.",
+      "order": 306,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.269Z",
+      "updatedAt": "2026-08-18T13:18:07.371Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f74",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Between-Matches Aerobic Maintenance - 24 Mar",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Maintain running rhythm between consecutive league matches.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 20 min easy at 7.5-8.0 km/h."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Do not add target-pace work between the 20 and 27 March fixtures.",
+      "order": 307,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.270Z",
+      "updatedAt": "2026-08-18T13:18:07.376Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f75",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Post-Match Aerobic Return - 31 Mar",
+      "duration": 45,
+      "category": "Endurance",
+      "purpose": "Re-establish aerobic running after the March match block.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "10 min easy walk/jog."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 25-30 min at 7.8-8.5 km/h, conversational throughout."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep this easy after two match weekends.",
+      "order": 308,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.270Z",
+      "updatedAt": "2026-08-18T13:18:07.382Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f76",
+      "user": "6a21752b799de48151c0e715",
+      "name": "5K Pace Reps - 7 Apr",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Increase sustainable time near 30-minute 5K pace.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk/jog easily for 7 min, then complete 3 x 20 sec relaxed strides with 40 sec easy after each stride. Total warm-up: 10 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "3 x 7 min at 9.8-10.0 km/h with 2 min very easy jog or walk between repetitions. Keep form relaxed and finish with reserve.",
+          "rounds": 3,
+          "roundLabel": "work/recovery",
+          "roundSeconds": [
+            540,
+            540,
+            420
+          ],
+          "startAtSec": 600
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep form relaxed and finish with reserve.",
+      "order": 309,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.270Z",
+      "updatedAt": "2026-08-18T13:18:07.388Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f77",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Continuous 5K - 14 Apr",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Maintain effortless 5 km completion between target-pace sessions.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 5.0 km continuously at easy conversational effort."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Do not race this session.",
+      "order": 310,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.270Z",
+      "updatedAt": "2026-08-18T13:18:07.394Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f78",
+      "user": "6a21752b799de48151c0e715",
+      "name": "5K Pace Reps - 21 Apr",
+      "duration": 43,
+      "category": "Endurance",
+      "purpose": "Maintain comfort close to 10.0 km/h without needing frequent hard 5K efforts.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk/jog easily for 7 min, then complete 3 x 20 sec relaxed strides with 40 sec easy after each stride. Total warm-up: 10 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "3 x 8 min at 9.8-10.0 km/h with 2 min very easy jog or walk between repetitions. Comfortably hard, never all-out.",
+          "rounds": 3,
+          "roundLabel": "work/recovery",
+          "roundSeconds": [
+            600,
+            600,
+            480
+          ],
+          "startAtSec": 600
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "This should be comfortably hard, never all-out.",
+      "order": 311,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.270Z",
+      "updatedAt": "2026-08-18T13:18:07.401Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f79",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Controlled 5K Benchmark - 28 Apr",
+      "duration": 45,
+      "category": "Endurance",
+      "purpose": "Demonstrate the required approximately 30-minute 5K standard without racing beyond what rugby-season recovery allows.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "10 min easy walk/jog plus 3 x 20 sec relaxed strides."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 5.0 km continuously. If recovery is good, target 29:30-30:30. Start controlled at roughly 10.0 km/h and avoid a sprint finish."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "This is the first formal confirmation of the year-round 30-minute 5K standard. If unusually sore from rugby, run controlled and repeat the benchmark later rather than forcing it.",
+      "order": 312,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.270Z",
+      "updatedAt": "2026-08-18T13:18:07.414Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f7e",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Pre-Match Prop Primer",
+      "duration": 20,
+      "category": "HIIT",
+      "purpose": "Create a short sharp pre-match stimulus without soreness or meaningful fatigue.",
+      "parts": [
+        {
+          "name": "Choose one location option",
+          "detail": "Complete either the gym-equipment option or the field/no-equipment option for the whole session. Do not combine the two."
+        },
+        {
+          "name": "Gym option",
+          "detail": "5 min easy machine build-up; then 5 x 8 sec fast air-bike or rower efforts with 60-75 sec easy recovery; finish with 3 x 3 low box jumps or explosive step jumps with full reset."
+        },
+        {
+          "name": "Field option",
+          "detail": "5 min easy jog and progressive movement; then 3 x 10 m relaxed-to-fast accelerations with full walk-back recovery; finish with 2 x 3 broad jumps and 2 x 10 sec fast-feet efforts."
+        }
+      ],
+      "howToUse": "Friday before each listed Saturday match. The primer replaces Friday strength.",
+      "order": 317,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.270Z",
+      "updatedAt": "2026-08-18T13:18:07.869Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f82",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Prop Speed Microdose",
+      "duration": 30,
+      "category": "HIIT",
+      "purpose": "Expose the body to high-quality acceleration while keeping total fatigue low.",
+      "parts": [
+        {
+          "name": "Choose one location option",
+          "detail": "Complete either the gym-equipment option or the field/no-equipment option for the whole session. Do not combine the two."
+        },
+        {
+          "name": "Gym option",
+          "detail": "10 min progressive machine build-up; then 4 x 10 sec and 4 x 15 sec fast efforts on an air bike or rower with 90-120 sec very easy recovery; stop before output drops."
+        },
+        {
+          "name": "Field option",
+          "detail": "10 min progressive field preparation; then 4 x 10 m and 4 x 20 m accelerations at about 90-95% with 90-120 sec walk-back/full recovery; stop before speed drops."
+        }
+      ],
+      "howToUse": "Use on a non-match Saturday when speed quality is wanted without a hard conditioning load.",
+      "order": 321,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.270Z",
+      "updatedAt": "2026-08-18T13:18:07.887Z"
+    },
+    {
+      "_id": "6a7f911cceb5e60f01418c16",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Prop Acceleration Microdose",
+      "duration": 30,
+      "category": "HIIT",
+      "purpose": "Introduce short high-quality acceleration and explosive intent without a large fatigue cost.",
+      "parts": [
+        {
+          "name": "Choose one location option",
+          "detail": "Complete either the gym-equipment option or the field/no-equipment option for the whole session. Do not combine the two."
+        },
+        {
+          "name": "Gym option",
+          "detail": "8-10 min easy machine build-up; then 6 x 10 sec powerful efforts on an air bike, rower or ski erg with 80-90 sec very easy recovery; finish with 3 x 3 explosive box jumps with full reset."
+        },
+        {
+          "name": "Field option",
+          "detail": "8-10 min progressive running preparation; then 6 x 10 m accelerations at 85-90% with full walk-back recovery; finish with 3 x 3 broad jumps with full reset."
+        }
+      ],
+      "howToUse": "Selected non-rugby Saturdays in the early build. Stop while output is sharp.",
+      "order": 348,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T22:05:16.876Z",
+      "updatedAt": "2026-08-18T13:18:07.857Z"
+    },
+    {
+      "_id": "6a7f9278ceb5e60f01418d7f",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Continuous 3K - Wed 21 Oct",
+      "duration": 34,
+      "category": "Endurance",
+      "purpose": "Transition from interval running into relaxed continuous running before the November prop programme.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min on a 0.5-1.0% incline."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 3.0 km continuously at approximately 7.5 km/h. Keep the effort conversational and do not race the final kilometre."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Distance is the progression. Keep the pace controlled.",
+      "order": 366,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T22:11:04.091Z",
+      "updatedAt": "2026-08-18T13:18:07.171Z"
+    },
+    {
+      "_id": "6a7f9278ceb5e60f01418d80",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Continuous 3.5K - Fri 23 Oct",
+      "duration": 38,
+      "category": "Endurance",
+      "purpose": "Transition from interval running into relaxed continuous running before the November prop programme.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min on a 0.5-1.0% incline."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 3.5 km continuously at approximately 7.5 km/h. Keep the effort conversational and do not race the final kilometre."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Distance is the progression. Keep the pace controlled.",
+      "order": 367,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T22:11:04.091Z",
+      "updatedAt": "2026-08-18T13:18:07.177Z"
+    },
+    {
+      "_id": "6a7f9278ceb5e60f01418d81",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Continuous 3.5K - Mon 26 Oct",
+      "duration": 38,
+      "category": "Endurance",
+      "purpose": "Transition from interval running into relaxed continuous running before the November prop programme.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min on a 0.5-1.0% incline."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 3.5 km continuously at approximately 7.5 km/h. Keep the effort conversational and do not race the final kilometre."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Distance is the progression. Keep the pace controlled.",
+      "order": 368,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T22:11:04.091Z",
+      "updatedAt": "2026-08-18T13:18:07.183Z"
+    },
+    {
+      "_id": "6a7f9278ceb5e60f01418d82",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Continuous 4K - Wed 28 Oct",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Transition from interval running into relaxed continuous running before the November prop programme.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min on a 0.5-1.0% incline."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 4.0 km continuously at approximately 7.5 km/h. Keep the effort conversational and do not race the final kilometre."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Distance is the progression. Keep the pace controlled.",
+      "order": 369,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T22:11:04.091Z",
+      "updatedAt": "2026-08-18T13:18:07.187Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238ba",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Post-Cruise Treadmill Build - Wed 9 Sep",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Restart running after the cruise with simple controlled treadmill repetitions.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "4 x 5 min jog followed by 2 min walk. Jog at 7.5 km/h and walk at 5.0 km/h. Keep every running repetition relaxed and controlled.",
+          "rounds": 4,
+          "roundLabel": "jog/walk",
+          "roundSeconds": [
+            420,
+            420,
+            420,
+            420
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only if the knee is settled during the run and the following morning. Do not increase the speed within the session.",
+      "order": 370,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.606Z",
+      "updatedAt": "2026-08-18T13:18:07.101Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238bc",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Post-Stag Treadmill Build - Mon 21 Sep",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Progressively rebuild treadmill running tolerance while keeping effort controlled enough to coexist with strength and later rugby training.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set treadmill to 0.5-1.0% incline. Walk 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "4 x 5 min jog at 7.4 km/h, each followed by 2 min walk at 5.0 km/h.",
+          "rounds": 4,
+          "roundLabel": "run/recovery",
+          "roundSeconds": [
+            420,
+            420,
+            420,
+            420
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only if the knee/lower legs are settled during the run and the following morning. Never increase both speed and duration aggressively at the same time.",
+      "order": 372,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.113Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238bd",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill 7-Minute Blocks - Wed 23 Sep",
+      "duration": 39,
+      "category": "Endurance",
+      "purpose": "Progressively rebuild treadmill running tolerance while keeping effort controlled enough to coexist with strength and later rugby training.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set treadmill to 0.5-1.0% incline. Walk 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "3 x 7 min jog at 7.5 km/h, each followed by 2 min walk at 5.0 km/h.",
+          "rounds": 3,
+          "roundLabel": "run/recovery",
+          "roundSeconds": [
+            540,
+            540,
+            540
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only if the knee/lower legs are settled during the run and the following morning. Never increase both speed and duration aggressively at the same time.",
+      "order": 373,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.119Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238be",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill 8-Minute Blocks - Wed 30 Sep",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Progressively rebuild treadmill running tolerance while keeping effort controlled enough to coexist with strength and later rugby training.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set treadmill to 0.5-1.0% incline. Walk 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "3 x 8 min jog at 7.5 km/h, each followed by 2 min walk at 5.0 km/h.",
+          "rounds": 3,
+          "roundLabel": "run/recovery",
+          "roundSeconds": [
+            600,
+            600,
+            600
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only if the knee/lower legs are settled during the run and the following morning. Never increase both speed and duration aggressively at the same time.",
+      "order": 374,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.125Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238bf",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Post-Rugby Reduced Treadmill - Wed 7 Oct",
+      "duration": 36,
+      "category": "Endurance",
+      "purpose": "Progressively rebuild treadmill running tolerance while keeping effort controlled enough to coexist with strength and later rugby training.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set treadmill to 0.5-1.0% incline. Walk 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "3 x 6 min jog at 7.4 km/h, each followed by 2 min walk at 5.0 km/h. This is deliberately reduced after the first Tuesday rugby session.",
+          "rounds": 3,
+          "roundLabel": "run/recovery",
+          "roundSeconds": [
+            480,
+            480,
+            480
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only if the knee/lower legs are settled during the run and the following morning. Never increase both speed and duration aggressively at the same time.",
+      "order": 375,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.131Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238c0",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Rugby Integration Treadmill - Fri 9 Oct",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Progressively rebuild treadmill running tolerance while keeping effort controlled enough to coexist with strength and later rugby training.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set treadmill to 0.5-1.0% incline. Walk 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "3 x 8 min jog at 7.5 km/h, each followed by 2 min walk at 5.0 km/h.",
+          "rounds": 3,
+          "roundLabel": "run/recovery",
+          "roundSeconds": [
+            600,
+            600,
+            600
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only if the knee/lower legs are settled during the run and the following morning. Never increase both speed and duration aggressively at the same time.",
+      "order": 376,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.139Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238c1",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill 12-Minute Blocks - Mon 12 Oct",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Progressively rebuild treadmill running tolerance while keeping effort controlled enough to coexist with strength and later rugby training.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set treadmill to 0.5-1.0% incline. Walk 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "2 x 12 min jog at 7.5 km/h, each followed by 2 min walk at 5.0 km/h.",
+          "rounds": 2,
+          "roundLabel": "run/recovery",
+          "roundSeconds": [
+            840,
+            840
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only if the knee/lower legs are settled during the run and the following morning. Never increase both speed and duration aggressively at the same time.",
+      "order": 377,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.145Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238c2",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill 12-Minute Blocks - Wed 14 Oct",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Progressively rebuild treadmill running tolerance while keeping effort controlled enough to coexist with strength and later rugby training.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set treadmill to 0.5-1.0% incline. Walk 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "2 x 12 min jog at 7.5 km/h, each followed by 2 min walk at 5.0 km/h.",
+          "rounds": 2,
+          "roundLabel": "run/recovery",
+          "roundSeconds": [
+            840,
+            840
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only if the knee/lower legs are settled during the run and the following morning. Never increase both speed and duration aggressively at the same time.",
+      "order": 378,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.152Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238c3",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill 12-Minute Blocks - Fri 16 Oct",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Progressively rebuild treadmill running tolerance while keeping effort controlled enough to coexist with strength and later rugby training.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Set treadmill to 0.5-1.0% incline. Walk 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "2 x 12 min jog at 7.5 km/h, each followed by 2 min walk at 5.0 km/h.",
+          "rounds": 2,
+          "roundLabel": "run/recovery",
+          "roundSeconds": [
+            840,
+            840
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+        }
+      ],
+      "howToUse": "Progress only if the knee/lower legs are settled during the run and the following morning. Never increase both speed and duration aggressively at the same time.",
+      "order": 379,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.158Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238c4",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Continuous 3K - Mon 19 Oct",
+      "duration": 34,
+      "category": "Endurance",
+      "purpose": "Transition from interval running into relaxed continuous running before the November prop programme.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min on a 0.5-1.0% incline."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 3.0 km continuously at approximately 7.5 km/h. Keep the effort conversational and do not race the final kilometre."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Distance is the progression. Keep the pace controlled.",
+      "order": 380,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.164Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238c5",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Post-Wedding Continuous 3.5K - Mon 2 Nov",
+      "duration": 38,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 3.5 km continuously at approximately 7.4-7.6 km/h. Stay conversational and finish with reserve."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 381,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.194Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238c6",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Continuous 4K - Wed 4 Nov",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 4.0 km continuously at approximately 7.4-7.6 km/h. This continues from the 28 October 4K rather than restarting run/walk intervals."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 382,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.199Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238c7",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Continuous 4K - Mon 9 Nov",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 4.0 km continuously at approximately 7.5-7.8 km/h. Keep it easy."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 383,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.206Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238c8",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Pre-Match Easy 20 - Wed 11 Nov",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 20 min at approximately 7.2-7.5 km/h. Keep this deliberately easy before the 14 November match."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 384,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.212Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238c9",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Post-Match Easy 25 - Wed 18 Nov",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 25 min at approximately 7.3-7.6 km/h. No pace target beyond easy mechanics."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 385,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.219Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238ca",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Continuous 4K - Mon 23 Nov",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 4.0 km continuously at approximately 7.5-7.8 km/h."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 386,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.225Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238cb",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Continuous 4.5K - Wed 25 Nov",
+      "duration": 46,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 4.5 km continuously at approximately 7.5-7.8 km/h."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 387,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.231Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238cc",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Continuous 4.5K - Mon 30 Nov",
+      "duration": 46,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 4.5 km continuously at approximately 7.5-8.0 km/h."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 388,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.236Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238cd",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Pre-Match Easy 20 - Wed 2 Dec",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 20 min at approximately 7.2-7.5 km/h. Finish very fresh before the 5 December match."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 389,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.241Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238ce",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Between-Matches Easy 20 - Wed 9 Dec",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 20 min at approximately 7.2-7.5 km/h. This is maintenance between consecutive matches."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 390,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.248Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238cf",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Post-Match Easy 25 - Wed 16 Dec",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 25 min at approximately 7.3-7.6 km/h."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 391,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.261Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238d0",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Continuous 30 - Mon 21 Dec",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 30 min at approximately 7.5-7.8 km/h. This is a lower-volume training week."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 392,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.267Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238d1",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Continuous 30 - Wed 23 Dec",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 30 min at approximately 7.5-7.8 km/h. Keep it relaxed."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 393,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.272Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238d2",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Continuous 5K - Mon 28 Dec",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 5.0 km continuously at approximately 7.8-8.2 km/h. Completion and mechanics matter more than pace."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 394,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.278Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238d3",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Continuous 30 - Wed 30 Dec",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 30 min at approximately 7.5-8.0 km/h."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 395,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.289Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238d4",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Continuous 5K - Mon 4 Jan",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 5.0 km continuously at approximately 7.8-8.3 km/h. Keep it conversational."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 396,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.295Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238d5",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Continuous 30 - Wed 6 Jan",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 30 min at approximately 7.5-8.0 km/h."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 397,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.300Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238d6",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Continuous 5K - Mon 11 Jan",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 5.0 km continuously at approximately 7.8-8.3 km/h."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 398,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.312Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238d7",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Pre-Match Easy 20 - Wed 13 Jan",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 20 min at approximately 7.2-7.5 km/h. Keep this very easy before the 16 January match."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 399,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.318Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238d8",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Between-Matches Easy 20 - Wed 20 Jan",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 20 min at approximately 7.2-7.5 km/h. Maintain rhythm only."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 400,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.325Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238d9",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Between-Matches Easy 20 - Wed 27 Jan",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 20 min at approximately 7.2-7.5 km/h. Maintain rhythm only."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 401,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.331Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238da",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Post-Match Easy 30 - Wed 3 Feb",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 30 min at approximately 7.5-8.0 km/h. Re-enter normal running after the January match block."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 402,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.337Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238db",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Continuous 5K - Wed 10 Feb",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 5.0 km continuously at an easy conversational pace, roughly 7.8-8.5 km/h depending on recovery."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 403,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.342Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238dc",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Off-Season Aerobic 35 - Wed 5 May",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Re-establish easy running after the final rugby week while beginning the post-rugby strength and fitness block.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 35 min continuously at approximately 7.8-8.5 km/h, conversational throughout."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 404,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.719Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238dd",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Running Maintenance - Mon 10 May",
+      "duration": 30,
+      "category": "Endurance",
+      "purpose": "Provide a small second weekly running exposure to preserve running economy, impact tolerance and year-round 30-minute 5K readiness without compromising strength.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min on a 0.5-1.0% incline."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 20 min at approximately 7.5-8.0 km/h. Keep this genuinely easy and conversational."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Easy maintenance only. Complete after Upper A or later in the day if preferred; never turn this into tempo work.",
+      "order": 405,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.725Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238de",
+      "user": "6a21752b799de48151c0e715",
+      "name": "5K Pace Maintenance - Wed 12 May",
+      "duration": 41,
+      "category": "Endurance",
+      "purpose": "Maintain comfort near 30-minute 5K pace while strength becomes the main priority.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk/jog easily for 7 min, then complete 3 x 20 sec relaxed strides with 40 sec easy after each stride. Total warm-up: 10 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "4 x 5 min at 10.0 km/h with 2 min very easy jog or walk between repetitions. Finish with reserve.",
+          "rounds": 4,
+          "roundLabel": "work/recovery",
+          "roundSeconds": [
+            420,
+            420,
+            420,
+            300
+          ],
+          "startAtSec": 600
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 406,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.738Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238df",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Continuous 5K - Wed 19 May",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 5.0 km continuously at an easy conversational pace."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 407,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.607Z",
+      "updatedAt": "2026-08-18T13:18:07.753Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238e0",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Running Maintenance - Mon 24 May",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Provide a small second weekly running exposure to preserve running economy, impact tolerance and year-round 30-minute 5K readiness without compromising strength.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min on a 0.5-1.0% incline."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 25 min at approximately 7.5-8.0 km/h. Keep this genuinely easy and conversational."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Easy maintenance only. Complete after Upper A or later in the day if preferred; never turn this into tempo work.",
+      "order": 408,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.769Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238e1",
+      "user": "6a21752b799de48151c0e715",
+      "name": "5K Pace Maintenance - Wed 26 May",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Maintain sustainable time near 30-minute 5K pace without turning the block into running specialization.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk/jog easily for 7 min, then complete 3 x 20 sec relaxed strides with 40 sec easy after each stride. Total warm-up: 10 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "3 x 7 min at 9.8-10.0 km/h with 2 min very easy jog or walk between repetitions. Keep all repetitions controlled and repeatable.",
+          "rounds": 3,
+          "roundLabel": "work/recovery",
+          "roundSeconds": [
+            540,
+            540,
+            420
+          ],
+          "startAtSec": 600
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 409,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.774Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238e2",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Off-Season Aerobic 40 - Wed 2 Jun",
+      "duration": 55,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 40 min continuously at approximately 7.8-8.6 km/h. Keep breathing controlled."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 410,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.782Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238e3",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Running Maintenance - Mon 7 Jun",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Provide a small second weekly running exposure to preserve running economy, impact tolerance and year-round 30-minute 5K readiness without compromising strength.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min on a 0.5-1.0% incline."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 25 min at approximately 7.5-8.0 km/h. Keep this genuinely easy and conversational."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Easy maintenance only. Complete after Upper A or later in the day if preferred; never turn this into tempo work.",
+      "order": 411,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.788Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238e4",
+      "user": "6a21752b799de48151c0e715",
+      "name": "5K Pace Maintenance - Wed 9 Jun",
+      "duration": 43,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk/jog easily for 7 min, then complete 3 x 20 sec relaxed strides with 40 sec easy after each stride. Total warm-up: 10 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "3 x 8 min at 9.8-10.0 km/h with 2 min very easy jog or walk between repetitions. Maintain relaxed mechanics and finish with reserve.",
+          "rounds": 3,
+          "roundLabel": "work/recovery",
+          "roundSeconds": [
+            600,
+            600,
+            480
+          ],
+          "startAtSec": 600
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 412,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.795Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238e5",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Deload Easy 5K - Wed 16 Jun",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 5.0 km continuously at easy conversational effort. No pace target during the lower-volume week."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 413,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.804Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238e6",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Running Maintenance - Mon 21 Jun",
+      "duration": 30,
+      "category": "Endurance",
+      "purpose": "Provide a small second weekly running exposure to preserve running economy, impact tolerance and year-round 30-minute 5K readiness without compromising strength.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min on a 0.5-1.0% incline."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 20 min at approximately 7.5-8.0 km/h. Keep this genuinely easy and conversational."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Easy maintenance only. Complete after Upper A or later in the day if preferred; never turn this into tempo work.",
+      "order": 414,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.810Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238e7",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Controlled Tempo - Wed 23 Jun",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 10 min easy, then 20 min at approximately 9.0-9.5 km/h, then 5 min easy. Stay below race effort."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 415,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.816Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238e8",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Controlled 5K - Wed 30 Jun",
+      "duration": 45,
+      "category": "Endurance",
+      "purpose": "Reconfirm approximately 30-minute 5K capability during the post-rugby strength block.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 5.0 km continuously, targeting approximately 29:30-30:30 if reasonably fresh. Settle close to 10.0 km/h and do not sprint the finish."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "This is a capability check, not an all-out race. The aim is to show the standard is being maintained alongside four-day strength and sprint work.",
+      "order": 416,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.820Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238e9",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Running Maintenance - Mon 5 Jul",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Provide a small second weekly running exposure to preserve running economy, impact tolerance and year-round 30-minute 5K readiness without compromising strength.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min on a 0.5-1.0% incline."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 25 min at approximately 7.5-8.0 km/h. Keep this genuinely easy and conversational."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Easy maintenance only. Complete after Upper A or later in the day if preferred; never turn this into tempo work.",
+      "order": 417,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.827Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238ea",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Easy Aerobic 35 - Wed 7 Jul",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk briskly for 5 min, then jog easily for 3-5 min as needed."
+        },
+        {
+          "name": "Main set",
+          "detail": "Run 35 min continuously at easy conversational effort."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 418,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.833Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238eb",
+      "user": "6a21752b799de48151c0e715",
+      "name": "5K Pace Maintenance - Wed 14 Jul",
+      "duration": 41,
+      "category": "Endurance",
+      "purpose": "Build or maintain aerobic running capacity while protecting strength and recovery.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk/jog easily for 7 min, then complete 3 x 20 sec relaxed strides with 40 sec easy after each stride. Total warm-up: 10 min."
+        },
+        {
+          "name": "Main set",
+          "detail": "4 x 5 min at approximately 10.0 km/h with 2 min very easy jog or walk between repetitions. Finish feeling capable of another repetition.",
+          "rounds": 4,
+          "roundLabel": "work/recovery",
+          "roundSeconds": [
+            420,
+            420,
+            420,
+            300
+          ],
+          "startAtSec": 600
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk easily for 5 min."
+        }
+      ],
+      "howToUse": "Keep the prescribed effort controlled. Progress only if the knee and lower legs are settled during the session and the following morning.",
+      "order": 419,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.840Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238ed",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Mixed Conditioning Circuit",
+      "duration": 40,
+      "category": "HIIT",
+      "purpose": "Build general work capacity using simple repeatable conditioning.",
+      "parts": [
+        {
+          "name": "Choose one location option",
+          "detail": "Complete either the gym-equipment option or the field/no-equipment option for the whole session. Do not combine the two."
+        },
+        {
+          "name": "Gym option",
+          "detail": "8-10 min easy build-up; then 4 rounds of 2 min steady-hard bike/row/ski erg, 30 sec moderate sled push or incline treadmill walk, then 90 sec easy recovery; finish with 5-8 min easy."
+        },
+        {
+          "name": "Field option",
+          "detail": "8-10 min easy walk/jog; then 4 rounds of 60 sec controlled shuttle running, 30 sec bodyweight get-ups, 30 sec fast marching/high-knee running, then 90 sec walking recovery; finish with 5-8 min easy walk."
+        }
+      ],
+      "howToUse": "Work hard but keep every round technically clean and repeatable.",
+      "order": 421,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.903Z"
+    },
+    {
+      "_id": "6a844e1fec00414fa9d238f2",
+      "user": "6a21752b799de48151c0e715",
+      "name": "General Repeat-Effort Conditioning",
+      "duration": 42,
+      "category": "HIIT",
+      "purpose": "Develop repeat-effort capacity after rugby-specific training has ended.",
+      "parts": [
+        {
+          "name": "Choose one location option",
+          "detail": "Complete either the gym-equipment option or the field/no-equipment option for the whole session. Do not combine the two."
+        },
+        {
+          "name": "Gym option",
+          "detail": "10 min progressive machine build-up; then 2 sets of 5 x 30 sec hard on bike, rower or ski erg with 45 sec very easy recovery; rest 3 min between sets; finish with 6-8 min easy."
+        },
+        {
+          "name": "Field option",
+          "detail": "10 min progressive field preparation; then 2 sets of 5 reps: 10 m acceleration, 10 m shuttle back, controlled floor get-up; rest until 45 sec has elapsed; rest 3 min between sets; finish with 6-8 min easy walking."
+        }
+      ],
+      "howToUse": "Selected non-deload Saturdays from May onward. Use one complete location option.",
+      "order": 426,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T12:20:47.608Z",
+      "updatedAt": "2026-08-18T13:18:07.932Z"
+    },
+    {
+      "_id": "6a845b211f6b2efcc769048f",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Saturday Zone 2 Conditioning",
+      "duration": 45,
+      "category": "Endurance",
+      "purpose": "Develop the aerobic engine needed to support repeated rugby efforts and general work capacity.",
+      "parts": [
+        {
+          "name": "Choose one location option",
+          "detail": "Complete either the gym-equipment option or the field/no-equipment option for the whole session. Do not combine the two."
+        },
+        {
+          "name": "Gym option",
+          "detail": "5 min easy on bike, rower, cross-trainer or ski erg; 35 min steady conversational work on the same machine; 5 min easy."
+        },
+        {
+          "name": "Field option",
+          "detail": "5 min easy walk; 35 min continuous easy jog or relaxed run-walk on grass at conversational effort; 5 min easy walk."
+        }
+      ],
+      "howToUse": "Use on selected non-match Saturdays. Keep the entire session easy-to-moderate and choose one location.",
+      "order": 427,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T13:16:17.337Z",
+      "updatedAt": "2026-08-18T13:18:07.851Z"
+    },
+    {
+      "_id": "6a845b211f6b2efcc7690490",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Prop Acceleration & Power Conditioning",
+      "duration": 45,
+      "category": "HIIT",
+      "purpose": "Build prop-relevant short-burst power and repeatability without requiring a mixed gym/field setup.",
+      "parts": [
+        {
+          "name": "Choose one location option",
+          "detail": "Complete either the gym-equipment option or the field/no-equipment option for the whole session. Do not combine the two."
+        },
+        {
+          "name": "Gym option",
+          "detail": "10 min progressive machine build-up; then 2 sets of 5 x 15 sec hard sled push, air-bike or rower effort with 45 sec easy recovery; rest 3 min between sets; finish with 5 min easy on the same modality."
+        },
+        {
+          "name": "Field option",
+          "detail": "10 min progressive field preparation; then 2 sets of 5 reps: 10 m acceleration out, 10 m controlled shuttle back, 1 ground get-up, then walk until 45 sec has elapsed; rest 3 min between sets; finish with 5 min easy walking."
+        }
+      ],
+      "howToUse": "Use on non-match Saturdays. Keep output repeatable rather than maximal.",
+      "order": 428,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T13:16:17.337Z",
+      "updatedAt": "2026-08-18T13:18:07.874Z"
+    },
+    {
+      "_id": "6a845b211f6b2efcc7690491",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Prop Repeat-Effort Conditioning",
+      "duration": 45,
+      "category": "HIIT",
+      "purpose": "Develop the ability to repeat short high-output efforts with incomplete rest.",
+      "parts": [
+        {
+          "name": "Choose one location option",
+          "detail": "Complete either the gym-equipment option or the field/no-equipment option for the whole session. Do not combine the two."
+        },
+        {
+          "name": "Gym option",
+          "detail": "10 min progressive warm-up on one machine; then 2 sets of 5 x 30 sec hard on bike, rower or ski erg with 45 sec very easy recovery; rest 3 min between sets; finish with 6-8 min easy."
+        },
+        {
+          "name": "Field option",
+          "detail": "10 min progressive field preparation; then 2 sets of 5 reps: 10 m acceleration, controlled floor get-up, 10 m shuttle back; rest until 45 sec has elapsed; rest 3 min between sets; finish with 6-8 min easy walk."
+        }
+      ],
+      "howToUse": "Selected non-match Saturdays. Use one full location option only.",
+      "order": 429,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T13:16:17.337Z",
+      "updatedAt": "2026-08-18T13:18:07.880Z"
+    },
+    {
+      "_id": "6a845b211f6b2efcc7690495",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Fitness Performance Check",
+      "duration": 55,
+      "category": "HIIT",
+      "purpose": "Track speed and conditioning without combining barbell strength testing with conditioning.",
+      "parts": [
+        {
+          "name": "Choose one location option",
+          "detail": "Complete either the gym-equipment option or the field/no-equipment option for the whole session. Do not combine the two."
+        },
+        {
+          "name": "Gym option",
+          "detail": "10-12 min progressive machine build-up; record best of 3 x 10 sec peak-output efforts on the same machine with full recovery; then complete 6 min steady-hard and record distance/calories."
+        },
+        {
+          "name": "Field option",
+          "detail": "10-12 min progressive field preparation; record best of 3 x 10 m accelerations using a consistent timing setup when available; then complete 6 min of repeatable 20 m shuttles and record total distance."
+        }
+      ],
+      "howToUse": "Use the same location option in May and July. Strength markers are logged separately during normal strength blocks.",
+      "order": 433,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T13:16:17.337Z",
+      "updatedAt": "2026-08-18T13:18:07.915Z"
+    },
+    {
+      "_id": "6a845b211f6b2efcc7690496",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Off-Season Speed Microdose",
+      "duration": 25,
+      "category": "HIIT",
+      "purpose": "Maintain and improve short-burst speed after rugby ends without turning the session into fatigue-based conditioning.",
+      "parts": [
+        {
+          "name": "Choose one location option",
+          "detail": "Complete either the gym-equipment option or the field/no-equipment option for the whole session. Do not combine the two."
+        },
+        {
+          "name": "Gym option",
+          "detail": "8-10 min progressive easy machine work; then 4 x 10 sec and 3 x 15 sec fast efforts on an air bike, rower or ski erg with 90-120 sec very easy recovery; stop if output falls."
+        },
+        {
+          "name": "Field option",
+          "detail": "8-10 min progressive field preparation; then 4 x 10 m and 3 x 20 m accelerations at approximately 90-95% with 90-120 sec full recovery; stop if mechanics deteriorate."
+        }
+      ],
+      "howToUse": "Most Tuesdays from May to mid-July. This session and Off-Season Lower A must be in separate day-blocks.",
+      "order": 434,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T13:16:17.337Z",
+      "updatedAt": "2026-08-18T13:18:07.921Z"
+    },
+    {
+      "_id": "6a845b211f6b2efcc7690497",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Anaerobic Repeats",
+      "duration": 36,
+      "category": "HIIT",
+      "purpose": "Build high-intensity anaerobic repeatability without forcing one training location.",
+      "parts": [
+        {
+          "name": "Choose one location option",
+          "detail": "Complete either the gym-equipment option or the field/no-equipment option for the whole session. Do not combine the two."
+        },
+        {
+          "name": "Gym option",
+          "detail": "10 min progressive easy-to-moderate work on bike, rower or ski erg; 8 x 30 sec hard with 90 sec very easy on the same machine; 10 min easy."
+        },
+        {
+          "name": "Field option",
+          "detail": "10 min progressive walk/jog; 8 x 30 sec hard shuttle running over 15-20 m with 90 sec walking recovery; 10 min easy walk."
+        }
+      ],
+      "howToUse": "Selected Saturdays after rugby. Keep the first six efforts repeatable.",
+      "order": 435,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-18T13:16:17.337Z",
+      "updatedAt": "2026-08-18T13:18:07.927Z"
+    },
+    {
+      "_id": "6a846eb280f0a0432b57c24a",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Cruise Treadmill Aerobic Intervals",
+      "duration": 30,
+      "category": "Endurance",
+      "purpose": "Build aerobic fitness and running tolerance through controlled treadmill intervals without turning the session into an all-out effort.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "0.5-1.0% incline. Walk 3 min @ 4.5 km/h, then 3 min @ 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "4 min run @ 7.5 km/h, then 2 min walk @ 5.0 km/h. Keep the running controlled and repeatable.",
+          "rounds": 4,
+          "roundLabel": "run/walk",
+          "roundDetails": [
+            "4 min run · 2 min walk",
+            "4 min run · 2 min walk",
+            "4 min run · 2 min walk",
+            "4 min run · 2 min walk"
+          ],
+          "roundSeconds": [
+            360,
+            360,
+            360,
+            360
+          ],
+          "startAtSec": 360
+        }
+      ],
+      "howToUse": "Keep this comfortably below maximum effort. The aim is aerobic work and running consistency rather than testing fitness.",
+      "order": 439,
+      "importBatch": "6a846eb280f0a0432b57c249",
+      "__v": 0,
+      "createdAt": "2026-08-18T14:39:46.133Z",
+      "updatedAt": "2026-08-18T14:39:46.133Z"
+    },
+    {
+      "_id": "6a846eb280f0a0432b57c24b",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Cruise Track Easy Run",
+      "duration": 30,
+      "category": "Endurance",
+      "purpose": "Finish the cruise week with an easy aerobic run that maintains running frequency without adding significant fatigue.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "5 min brisk walking around the track."
+        },
+        {
+          "name": "Main set",
+          "detail": "20 min continuous easy running at conversational effort, approximately RPE 4-5. Ignore pace and keep the effort relaxed."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "5 min easy walking around the track."
+        }
+      ],
+      "howToUse": "This should be the easiest running session of the week. Keep the pace deliberately comfortable and do not turn the final few laps into a harder effort.",
+      "order": 440,
+      "importBatch": "6a846eb280f0a0432b57c249",
+      "__v": 0,
+      "createdAt": "2026-08-18T14:39:46.134Z",
+      "updatedAt": "2026-08-18T14:47:54.749Z"
+    },
+    {
+      "_id": "6a846eb280f0a0432b57c24c",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Cruise Treadmill Tempo Intervals",
+      "duration": 30,
+      "category": "Endurance",
+      "purpose": "Introduce slightly faster controlled running while maintaining good form and avoiding excessive fatigue.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "0.5-1.0% incline. Walk 3 min @ 4.5 km/h, then jog 4 min @ 6.5-7.0 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "3 min controlled hard run @ 8.0 km/h, then 2 min easy walk @ 5.0 km/h. Aim for approximately RPE 7.",
+          "rounds": 4,
+          "roundLabel": "tempo/recovery",
+          "roundDetails": [
+            "3 min run · 2 min walk",
+            "3 min run · 2 min walk",
+            "3 min run · 2 min walk",
+            "3 min run · 2 min walk"
+          ],
+          "roundSeconds": [
+            300,
+            300,
+            300,
+            300
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Cool-down",
+          "detail": "3 min easy walking @ 4.0-4.5 km/h."
+        }
+      ],
+      "howToUse": "This is the quicker session of the week, but it should still feel controlled. Do not increase the speed if your running form starts to deteriorate.",
+      "order": 441,
+      "importBatch": "6a846eb280f0a0432b57c249",
+      "__v": 0,
+      "createdAt": "2026-08-18T14:39:46.134Z",
+      "updatedAt": "2026-08-18T14:39:46.134Z"
+    },
+    {
+      "_id": "6a84b9af80f0a0432b57c459",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Post-Cruise Treadmill Conditioning",
+      "duration": 40,
+      "category": "HIIT",
+      "purpose": "Provide a challenging but controlled return-to-training session after the cruise, building aerobic power and sustained running capacity without requiring an all-out effort.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "0.5-1.0% incline. Walk 3 min @ 4.5 km/h, then 4 min @ 5.2-5.5 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "5 min run @ 7.8-8.0 km/h, then 2 min walk @ 5.0 km/h. The running should feel strong and purposeful but remain controlled throughout.",
+          "rounds": 4,
+          "roundLabel": "run/recovery",
+          "roundDetails": [
+            "5 min run · 2 min walk",
+            "5 min run · 2 min walk",
+            "5 min run · 2 min walk",
+            "5 min run · 2 min walk"
+          ],
+          "roundSeconds": [
+            420,
+            420,
+            420,
+            420
+          ],
+          "startAtSec": 420
+        },
+        {
+          "name": "Controlled finish",
+          "detail": "Run 2 min @ 8.0 km/h if you still feel smooth and controlled. Skip this section if the four main repetitions were already around RPE 8."
+        },
+        {
+          "name": "Cool-down",
+          "detail": "Walk 3 min @ 4.0-4.5 km/h."
+        }
+      ],
+      "howToUse": "Aim for around RPE 7-8 during the running blocks. The final repetition should be difficult but still look like normal running rather than survival. Keep the treadmill at 7.8 km/h if you feel heavy after travelling; use 8.0 km/h only if the first two repetitions feel controlled.",
+      "order": 442,
+      "importBatch": "6a84b9af80f0a0432b57c458",
+      "__v": 0,
+      "createdAt": "2026-08-18T19:59:43.511Z",
+      "updatedAt": "2026-08-18T19:59:43.511Z"
+    }
+  ],
+  "mobility": [
+    {
+      "_id": "6a6fcacbd2bd38d893b5e3be",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Pre-Run Dynamic Mobility",
+      "duration": 10,
+      "purpose": "Prepare the hips, ankles and legs for running or sprinting.",
+      "parts": [
+        {
+          "name": "Walking knee hugs",
+          "detail": "10 steps per side"
+        },
+        {
+          "name": "Walking quad pulls",
+          "detail": "10 steps per side"
+        },
+        {
+          "name": "Leg swings",
+          "detail": "10 forward-and-back and 10 side-to-side per leg"
+        },
+        {
+          "name": "Walking lunges with rotation",
+          "detail": "8 reps per side"
+        },
+        {
+          "name": "A-march",
+          "detail": "2 x 15 metres"
+        },
+        {
+          "name": "Pogo jumps",
+          "detail": "2 x 15 light reps"
+        }
+      ],
+      "howToUse": "Complete immediately before running, sprinting or field training.",
+      "order": 8,
+      "__v": 0,
+      "createdAt": "2026-08-02T22:55:07.699Z",
+      "updatedAt": "2026-08-18T12:31:57.451Z"
+    },
+    {
+      "_id": "6a6fcacbd2bd38d893b5e3bf",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Post-Training Mobility",
+      "duration": 15,
+      "purpose": "Help the body settle after training and reduce feelings of lower-body tightness.",
+      "parts": [
+        {
+          "name": "Half-kneeling hip-flexor stretch",
+          "detail": "60 seconds per side"
+        },
+        {
+          "name": "Hamstring stretch",
+          "detail": "60 seconds per side"
+        },
+        {
+          "name": "Figure-four glute stretch",
+          "detail": "60 seconds per side"
+        },
+        {
+          "name": "Adductor stretch",
+          "detail": "60 seconds per side"
+        },
+        {
+          "name": "Calf stretch",
+          "detail": "45 seconds per side"
+        },
+        {
+          "name": "Relaxed breathing",
+          "detail": "2 minutes, slow breaths through the nose"
+        }
+      ],
+      "howToUse": "Perform after gym, rugby or running sessions. Keep every position comfortable rather than forcing the stretch.",
+      "order": 9,
+      "__v": 0,
+      "createdAt": "2026-08-02T22:55:07.699Z",
+      "updatedAt": "2026-08-18T12:31:57.456Z"
+    },
+    {
+      "_id": "6a78c0e37046174aa09f31c7",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Shoulder Mobility",
+      "duration": 12,
+      "purpose": "Open the shoulders before pressing.",
+      "parts": [
+        {
+          "name": "Wall slides",
+          "detail": "2 x 10 reps"
+        }
+      ],
+      "order": 10,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T18:03:15.115Z",
+      "updatedAt": "2026-08-18T12:20:17.934Z"
+    },
+    {
+      "_id": "6a78c13a7046174aa09f31ec",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Lower-Body Mobility",
+      "duration": 10,
+      "purpose": "Prepare the hips, ankles and calves for squatting, running and rugby.",
+      "parts": [
+        {
+          "name": "90/90 hip switches",
+          "detail": "2 x 8 reps"
+        },
+        {
+          "name": "Knee-to-wall ankle rocks",
+          "detail": "2 x 10 reps per side"
+        },
+        {
+          "name": "Deep squat hold",
+          "detail": "2 x 30 seconds"
+        },
+        {
+          "name": "Slow calf raises",
+          "detail": "2 x 10 reps"
+        }
+      ],
+      "order": 11,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T18:04:42.502Z",
+      "updatedAt": "2026-08-09T18:04:42.502Z"
+    },
+    {
+      "_id": "6a7f8e8fceb5e60f01417f8a",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Pre-Match Mobility Primer",
+      "duration": 10,
+      "purpose": "Prepare hips, ankles, thoracic spine and shoulders for a short pre-match primer without creating fatigue.",
+      "parts": [
+        {
+          "name": "Ankle rocks",
+          "detail": "10 per side"
+        },
+        {
+          "name": "Leg swings",
+          "detail": "10 each direction per side"
+        },
+        {
+          "name": "Walking lunge and rotation",
+          "detail": "6 per side"
+        },
+        {
+          "name": "A-march",
+          "detail": "2 x 10 m"
+        },
+        {
+          "name": "Band pull-aparts",
+          "detail": "2 x 12"
+        },
+        {
+          "name": "Low pogos",
+          "detail": "2 x 10"
+        }
+      ],
+      "howToUse": "Immediately before the Friday Pre-Match Prop Primer.",
+      "order": 13,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-14T21:54:23.320Z",
+      "updatedAt": "2026-08-18T12:31:57.466Z"
+    }
+  ],
+  "recovery": [
+    {
+      "_id": "6a6fcb5dd2bd38d893b5e3ce",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Post-Training Recovery Routine",
+      "duration": 30,
+      "purpose": "Begin the recovery process immediately after a demanding gym, running or rugby session.",
+      "notes": "Complete 10 minutes of easy walking or cycling, drink water, eat a meal containing protein and carbohydrates, then spend the remainder relaxing.",
+      "order": 9,
+      "__v": 0,
+      "createdAt": "2026-08-02T22:57:33.048Z",
+      "updatedAt": "2026-08-18T12:31:57.516Z"
+    },
+    {
+      "_id": "6a78c13a7046174aa09f31f1",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Sunday Complete Rest",
+      "duration": 0,
+      "purpose": "Provide a genuine recovery day after Saturday rugby or cardio.",
+      "notes": "No formal training. Normal daily movement is fine. Prioritise sleep, food and hydration.",
+      "order": 13,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T18:04:42.508Z",
+      "updatedAt": "2026-08-09T18:04:42.508Z"
+    },
+    {
+      "_id": "6a78c13a7046174aa09f31f0",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Wednesday Recovery",
+      "duration": 30,
+      "purpose": "Recover between Tuesday and Thursday rugby training.",
+      "notes": "Easy walk or very easy cycle only. Keep the effort restorative.",
+      "order": 12,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T18:04:42.508Z",
+      "updatedAt": "2026-08-09T18:04:42.508Z"
+    },
+    {
+      "_id": "6a78c13a7046174aa09f31f2",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Sauna Recovery Optional",
+      "duration": 20,
+      "purpose": "Provide optional relaxation without adding mechanical training stress.",
+      "notes": "Use only when well hydrated. Sauna never replaces sleep, food or fluid.",
+      "order": 14,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-09T18:04:42.508Z",
+      "updatedAt": "2026-08-09T18:04:42.508Z"
+    },
+    {
+      "_id": "6a7b9f0b980660405d6117c1",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Rugby Sleep Downshift",
+      "duration": 15,
+      "purpose": "Bring physical and mental arousal down after late Tuesday/Thursday rugby training so recovery starts without adding more exercise and sleep is easier.",
+      "notes": "This is the only planned activity after Tuesday/Thursday evening rugby. Once it is finished, go straight into normal bedtime preparation: low light, no training, no mobility session, no conditioning and ideally no stimulating screen use.",
+      "order": 15,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-11T22:15:39.487Z",
+      "updatedAt": "2026-08-18T12:31:57.520Z"
+    }
+  ],
+  "planEntries": [],
+  "planNotes": [
+    {
+      "_id": "6a6db57423ca4fc7c1da6aa8",
+      "scope": "week",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-08-31",
+      "__v": 0,
+      "color": "coral",
+      "createdAt": "2026-08-01T08:59:32.850Z",
+      "label": "Cruise Week",
+      "updatedAt": "2026-08-01T08:59:43.578Z"
+    },
+    {
+      "_id": "6a6db59c23ca4fc7c1da6aa9",
+      "scope": "day",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-08-29",
+      "__v": 0,
+      "color": "coral",
+      "createdAt": "2026-08-01T09:00:12.023Z",
+      "label": "Cruise",
+      "updatedAt": "2026-08-01T09:00:12.023Z"
+    },
+    {
+      "_id": "6a6db5a223ca4fc7c1da6aaa",
+      "date": "2026-08-30",
+      "scope": "day",
+      "user": "6a21752b799de48151c0e715",
+      "__v": 0,
+      "color": "coral",
+      "createdAt": "2026-08-01T09:00:18.134Z",
+      "label": "Cruise",
+      "updatedAt": "2026-08-01T09:00:18.134Z"
+    },
+    {
+      "_id": "6a6fd2da23ca4fc7c1db5bf2",
+      "scope": "day",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-09-18",
+      "__v": 0,
+      "color": "coral",
+      "createdAt": "2026-08-02T23:29:30.407Z",
+      "label": "Cammy's Stag",
+      "updatedAt": "2026-08-02T23:29:30.407Z"
+    },
+    {
+      "_id": "6a6fd31c23ca4fc7c1db5bf3",
+      "scope": "day",
+      "user": "6a21752b799de48151c0e715",
+      "date": "2026-09-19",
+      "__v": 0,
+      "color": "coral",
+      "createdAt": "2026-08-02T23:30:36.884Z",
+      "label": "Cammy's Stag",
+      "updatedAt": "2026-08-02T23:30:36.884Z"
+    },
+    {
+      "_id": "6a6fd32523ca4fc7c1db5bf4",
+      "date": "2026-09-20",
+      "user": "6a21752b799de48151c0e715",
+      "scope": "day",
+      "__v": 0,
+      "color": "coral",
+      "createdAt": "2026-08-02T23:30:45.889Z",
+      "label": "Cammy's Stag",
+      "updatedAt": "2026-08-02T23:30:45.889Z"
+    },
+    {
+      "_id": "6a706b0223ca4fc7c1db6294",
+      "date": "2026-10-29",
+      "scope": "day",
+      "user": "6a21752b799de48151c0e715",
+      "__v": 0,
+      "color": "sky",
+      "createdAt": "2026-08-03T10:18:42.450Z",
+      "label": "Cammy's Wedding",
+      "updatedAt": "2026-08-03T10:18:42.450Z"
+    },
+    {
+      "_id": "6a706b0623ca4fc7c1db6295",
+      "date": "2026-10-30",
+      "user": "6a21752b799de48151c0e715",
+      "scope": "day",
+      "__v": 0,
+      "color": "sky",
+      "createdAt": "2026-08-03T10:18:46.817Z",
+      "label": "Cammy's Wedding",
+      "updatedAt": "2026-08-03T10:18:51.746Z"
+    },
+    {
+      "_id": "6a706b1223ca4fc7c1db6296",
+      "scope": "day",
+      "date": "2026-10-31",
+      "user": "6a21752b799de48151c0e715",
+      "__v": 0,
+      "color": "sky",
+      "createdAt": "2026-08-03T10:18:58.979Z",
+      "label": "Cammy's Wedding",
+      "updatedAt": "2026-08-03T10:18:58.979Z"
+    }
+  ],
+  "trainingPlans": [],
+  "workoutLogs": [],
+  "conditioningLogs": [],
+  "mobilityLogs": [
+    {
+      "_id": "6a7f03a59a110e765c70ab36",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a6fcacbd2bd38d893b5e3be",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-12",
+      "duration": 10,
+      "createdAt": "2026-08-14T12:01:41.384Z",
+      "updatedAt": "2026-08-14T12:01:41.384Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a7f50f29a110e765c70abaf",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a6fcacbd2bd38d893b5e3be",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-14",
+      "duration": 10,
+      "createdAt": "2026-08-14T17:31:30.512Z",
+      "updatedAt": "2026-08-14T17:31:30.512Z",
+      "__v": 0
+    }
+  ],
+  "recoveryLogs": [
+    {
+      "_id": "6a8456c01f6b2efcc769023c",
+      "user": "6a21752b799de48151c0e715",
+      "recovery": "6a6fcb5dd2bd38d893b5e3ce",
+      "name": "Post-Training Recovery Routine",
+      "date": "2026-08-17",
+      "duration": 30,
+      "createdAt": "2026-08-18T12:57:36.478Z",
+      "updatedAt": "2026-08-18T12:57:36.478Z",
+      "__v": 0
+    }
+  ]
+}
