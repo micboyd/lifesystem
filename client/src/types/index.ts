@@ -584,11 +584,12 @@ export interface ApiResponse<T> {
 export const PARTS = ['morning', 'afternoon', 'evening', 'na'] as const
 export type Part = (typeof PARTS)[number]
 
-export const EVENT_TYPES = ['trip', 'social', 'hobby', 'general'] as const
+export const EVENT_TYPES = ['trip', 'worktrip', 'social', 'hobby', 'general'] as const
 export type EventType = (typeof EVENT_TYPES)[number]
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
     trip: 'Trip',
+    worktrip: 'Work Trip',
     social: 'Social',
     hobby: 'Hobby',
     general: 'General Event',
@@ -604,6 +605,15 @@ export const EVENT_TYPE_COLORS: Record<
         hover: 'hover:bg-blue-200',
         text: 'text-blue-700',
         light: 'bg-blue-50',
+    },
+    // A work trip is a trip, but not one of *your* trips — emerald keeps it a
+    // clear step away from trip blue, and the briefcase icon below settles it
+    // at a glance in a dense week.
+    worktrip: {
+        bg: 'bg-emerald-100',
+        hover: 'hover:bg-emerald-200',
+        text: 'text-emerald-700',
+        light: 'bg-emerald-50',
     },
     social: {
         bg: 'bg-amber-100',
@@ -621,8 +631,8 @@ export const EVENT_TYPE_COLORS: Record<
     },
     // A plain event uses a calm teal — distinct from the grey weekend/past
     // backgrounds and from the other category hues (trip blue, social amber,
-    // hobby indigo, Other purple), while staying quiet enough for the common
-    // catch-all type.
+    // hobby indigo, work-trip emerald, Other purple), while staying quiet
+    // enough for the common catch-all type.
     general: {
         bg: 'bg-teal-200',
         hover: 'hover:bg-teal-300',
@@ -634,6 +644,7 @@ export const EVENT_TYPE_COLORS: Record<
 /** Font Awesome glyphs marking specific event types inside chips. */
 export const EVENT_TYPE_ICONS: Partial<Record<EventType, string>> = {
     hobby: 'fa-solid fa-football',
+    worktrip: 'fa-solid fa-briefcase',
 }
 
 // ─── Calendars (layers) ───────────────────────────────────────────────────────
