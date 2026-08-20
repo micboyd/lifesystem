@@ -72,11 +72,26 @@ function strList(raw: unknown): string[] {
     return raw.map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean)
 }
 
-/** Keep a slot name if recognised, else fall back to the kind's default. */
+/**
+ * Keep a slot name if recognised, else fall back to the kind's default. Plans
+ * are written by hand as often as they're round-tripped out of an export, so the
+ * slot is read loosely: any casing, since a document written for a human says
+ * "Morning" rather than "morning".
+ */
 function toPart(raw: unknown, kind: FitnessPlanKind): FitnessPlanPart {
-    return FITNESS_PLAN_PARTS.includes(raw as FitnessPlanPart)
-        ? (raw as FitnessPlanPart)
+    const name = str(raw)?.toLowerCase()
+    return FITNESS_PLAN_PARTS.includes(name as FitnessPlanPart)
+        ? (name as FitnessPlanPart)
         : DEFAULT_PART[kind]
+}
+
+/**
+ * The slot a row asks for, under either name for the key: `part`, which is what
+ * an export writes, or `slot`, which is what the planner calls it on screen and
+ * so what a hand-written plan tends to use.
+ */
+function rowPart(row: Record<string, unknown>, kind: FitnessPlanKind): FitnessPlanPart {
+    return toPart(row.part ?? row.slot, kind)
 }
 
 // ─── Library reconciliation ─────────────────────────────────────────────────────
@@ -355,7 +370,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
             })
             continue
         }
-        const part = toPart(w.part, 'workout')
+        const part = rowPart(w, 'workout')
         for (const date of weekdaysBetween(planStart, planEnd, weekday)) {
             schedule.add(date, 'workout', 'strength', ref, part, 'recurring')
         }
@@ -383,7 +398,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
             'conditioning',
             'run',
             ref,
-            toPart(s.part, 'conditioning'),
+            rowPart(s, 'conditioning'),
             'dated',
             str(s.notes)
         )
@@ -408,7 +423,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
             'conditioning',
             'conditioning',
             ref,
-            toPart(row.part, 'conditioning'),
+            rowPart(row, 'conditioning'),
             'dated',
             str(row.notes)
         )
@@ -436,15 +451,20 @@ export async function importPlan(req: AuthRequest, res: Response) {
         ] as const
         const libraryOf: Record<'mobility' | 'recovery', Resolved> = { mobility, recovery }
 
+        // A row can name the slot its whole day trains in ("slot": "Morning"),
+        // which wins over each column's default — that's how a plan keeps the
+        // warm-up in the same slot as the session it warms up for. Without one
+        // the columns keep their defaults, so Thursday's stretch still lands in
+        // the evening.
         for (const date of dates) {
             for (const ref of matchAllByName(row.strength, workouts.all)) {
-                schedule.add(date, 'workout', 'strength', ref, DEFAULT_PART.workout, 'recurring')
+                schedule.add(date, 'workout', 'strength', ref, rowPart(row, 'workout'), 'recurring')
             }
             for (const { role, own, other, text } of cells) {
                 const hits = matchAllByName(text, libraryOf[own].all)
                 const kind = hits.length ? own : other
                 for (const ref of hits.length ? hits : matchAllByName(text, libraryOf[other].all)) {
-                    schedule.add(date, kind, role, ref, DEFAULT_PART[role], 'recurring')
+                    schedule.add(date, kind, role, ref, rowPart(row, role), 'recurring')
                 }
             }
         }

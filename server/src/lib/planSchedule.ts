@@ -367,8 +367,12 @@ export function applyOverrides(
     schedule: ScheduleBuilder,
     rows: Record<string, unknown>[],
     libraries: Record<ScheduleKind, NamedRef[]>,
-    part: (raw: unknown, kind: ScheduleKind) => SchedulePart = (raw, kind) =>
-        PART_ORDER.includes(raw as SchedulePart) ? (raw as SchedulePart) : DEFAULT_PART[kind]
+    part: (raw: unknown, kind: ScheduleKind) => SchedulePart = (raw, kind) => {
+        const name = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
+        return PART_ORDER.includes(name as SchedulePart)
+            ? (name as SchedulePart)
+            : DEFAULT_PART[kind]
+    }
 ): OverrideResult {
     const applied: AppliedOverride[] = []
     const refs: OverrideResult['refs'] = []
@@ -435,7 +439,15 @@ export function applyOverrides(
             if (fallback) schedule.remove(fallback, from, to)
             for (const date of daysBetween(from, to)) {
                 for (const ref of found) {
-                    schedule.add(date, kind, role, ref, part(row.part, kind), 'dated', notes)
+                    schedule.add(
+                        date,
+                        kind,
+                        role,
+                        ref,
+                        part(row.part ?? row.slot, kind),
+                        'dated',
+                        notes
+                    )
                 }
             }
             for (const ref of found) refs.push({ kind, role, ref })
