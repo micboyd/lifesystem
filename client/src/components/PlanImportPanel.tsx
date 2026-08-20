@@ -18,7 +18,16 @@ function errorMessage(err: unknown): string {
     return 'Something went wrong during import.'
 }
 
-/** The shape of a plan document, trimmed to one item per section. */
+/**
+ * The shape of a plan document, trimmed to one item per section.
+ *
+ * It doubles as the format's documentation — a plan is usually written against
+ * this rather than exported from an existing one — so the fields that are easy
+ * to not know about are the ones worth showing: `slot` on anything that has to
+ * land in a particular part of the day, and `rounds` + `roundSeconds` +
+ * `startAtSec` on an interval block, which are what put a running clock against
+ * each rep instead of a bare tick-box.
+ */
 const TEMPLATE = JSON.stringify(
     {
         planName: 'Winter Strength Block',
@@ -44,6 +53,7 @@ const TEMPLATE = JSON.stringify(
                 conditioning: null,
                 mobility: 'Shoulder Mobility',
                 recovery: 'Post-Training Recovery Routine',
+                slot: 'Morning',
             },
         ],
         exerciseLibrary: [
@@ -73,11 +83,29 @@ const TEMPLATE = JSON.stringify(
         conditioning: {
             existingRunPlan: [
                 {
-                    name: 'Easy Run - Wed 2 Sep',
-                    duration: 35,
+                    name: 'Intervals - Wed 2 Sep',
+                    date: '2026-09-02',
+                    duration: 33,
                     category: 'Endurance',
                     purpose: 'Aerobic base.',
-                    parts: [{ name: 'Main set', detail: 'Run 4 km easy.' }],
+                    slot: 'Morning',
+                    parts: [
+                        { name: 'Warm-up', detail: 'Walk 3 min at 4.2 km/h, then 4 min at 5.2 km/h.' },
+                        {
+                            name: 'Main set',
+                            detail: '6 x 90s jog at 7.0 km/h, then 2 min walk at 5.0 km/h.',
+                            rounds: 6,
+                            roundLabel: 'jog/walk',
+                            // One entry per rep, in seconds, covering the rep and
+                            // the recovery that follows it. Turns each rep into a
+                            // clock window instead of a bare tick-box.
+                            roundSeconds: [210, 210, 210, 210, 210, 210],
+                            // Where rep 1 starts on the session clock — here, after
+                            // the 7 min warm-up above.
+                            startAtSec: 420,
+                        },
+                        { name: 'Cool-down', detail: 'Walk 2 min at 5.0 km/h, then 3 min at 4.0 km/h.' },
+                    ],
                 },
             ],
             post10KSessionLibrary: [
@@ -85,7 +113,15 @@ const TEMPLATE = JSON.stringify(
                     name: 'Bike Intervals',
                     duration: 30,
                     category: 'HIIT',
-                    parts: [{ name: 'Main set', detail: '8 x 30s hard', rounds: 8 }],
+                    parts: [
+                        {
+                            name: 'Main set',
+                            detail: '8 x 30s hard, 90s easy',
+                            rounds: 8,
+                            roundSeconds: [120, 120, 120, 120, 120, 120, 120, 120],
+                            startAtSec: 300,
+                        },
+                    ],
                 },
             ],
             post10KCalendar: [

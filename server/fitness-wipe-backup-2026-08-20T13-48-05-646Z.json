@@ -1,0 +1,682 @@
+{
+  "email": "michael_boyd@live.co.uk",
+  "takenAt": "2026-08-20T13:48:05.649Z",
+  "exercises": [],
+  "workouts": [],
+  "conditioning": [
+    {
+      "_id": "6a870551b42bf5a1b6d8be8b",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - Starter 8 x 1 min",
+      "duration": 28,
+      "category": "Endurance",
+      "purpose": "Initial return to treadmill running after the layoff.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "8 x 1 min jog with 1 min walking recovery. Running pace progressed approximately 6.5-7.5 km/h.",
+          "rounds": 8
+        }
+      ],
+      "order": 0,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.754Z",
+      "updatedAt": "2026-08-20T13:46:57.754Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be8c",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - Starter Week",
+      "duration": 30,
+      "category": "Endurance",
+      "purpose": "Historical starter-week return-to-running session.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Starter-week controlled run-walk session. Exact original interval prescription is not reliably preserved."
+        }
+      ],
+      "order": 1,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be8d",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 6 x 90 sec",
+      "duration": 33,
+      "category": "Endurance",
+      "purpose": "Progress from the starter week to longer controlled running intervals.",
+      "parts": [
+        {
+          "name": "Warm-up",
+          "detail": "Walk 3 min @ 4.2 km/h, then 4 min @ 5.2 km/h."
+        },
+        {
+          "name": "Main set",
+          "detail": "6 x 90 sec run @ 7.0 km/h, then 2 min walk @ 5.0 km/h.",
+          "rounds": 6
+        },
+        {
+          "name": "Cooldown",
+          "detail": "2 min @ 5.0 km/h, then 3 min @ 4.0 km/h."
+        }
+      ],
+      "order": 2,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be8e",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 6 x 2 min",
+      "duration": 36,
+      "category": "Endurance",
+      "purpose": "Increase each running interval to two minutes.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "6 x 2 min run @ 7.0 km/h, then 2 min walk @ 5.0 km/h.",
+          "rounds": 6
+        }
+      ],
+      "order": 3,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be8f",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 5 x 3 min",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Increase running interval duration while slightly reducing the number of repetitions.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "5 x 3 min run @ 7.0 km/h, then 2 min walk @ 5.0 km/h.",
+          "rounds": 5
+        }
+      ],
+      "order": 4,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be90",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 5 x 4 min",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Increase individual running intervals while keeping the pace easy.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "5 x 4 min run @ 7.0 km/h, then 2 min walk @ 5.0 km/h.",
+          "rounds": 5
+        }
+      ],
+      "order": 5,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be91",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 4 x 5 min",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Finish the pre-cruise block with longer controlled intervals.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "4 x 5 min run @ 7.0 km/h, then 2 min walk @ 5.0 km/h.",
+          "rounds": 4
+        }
+      ],
+      "order": 6,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be92",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - Re-Entry 4 x 4 min",
+      "duration": 36,
+      "category": "Endurance",
+      "purpose": "Ease back into running after the cruise instead of immediately progressing.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "4 x 4 min run @ 7.0 km/h, then 2 min walk @ 5.0 km/h.",
+          "rounds": 4
+        }
+      ],
+      "order": 7,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be93",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 3 x 7 min",
+      "duration": 39,
+      "category": "Endurance",
+      "purpose": "Extend continuous running time within each interval.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "3 x 7 min run @ 7.2 km/h, then 2 min walk @ 5.0 km/h.",
+          "rounds": 3
+        }
+      ],
+      "order": 8,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be94",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 3 x 8 min",
+      "duration": 41,
+      "category": "Endurance",
+      "purpose": "Continue extending running intervals while keeping effort controlled.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "3 x 8 min run @ 7.2 km/h, then 90 sec walk @ 5.0 km/h.",
+          "rounds": 3
+        }
+      ],
+      "order": 9,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be95",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 2 x 10 min",
+      "duration": 36,
+      "category": "Endurance",
+      "purpose": "Reach double-digit continuous running intervals.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "2 x 10 min run @ 7.5 km/h with 2 min walking recovery."
+        }
+      ],
+      "order": 10,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be96",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - Post-Stag 3 x 8 min",
+      "duration": 41,
+      "category": "Endurance",
+      "purpose": "Re-establish rhythm after the stag weekend without forcing progression.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "3 x 8 min run @ 7.5 km/h, then 90 sec walk @ 5.0 km/h.",
+          "rounds": 3
+        }
+      ],
+      "order": 11,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be97",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 2 x 12 min",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Move closer to sustained continuous running.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "2 x 12 min run @ 7.5 km/h with 2 min walking recovery."
+        }
+      ],
+      "order": 12,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be98",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 15 min + 10 min",
+      "duration": 41,
+      "category": "Endurance",
+      "purpose": "Complete one substantially longer continuous running block.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Run 15 min @ 7.5 km/h, walk 2 min, then run 10 min @ 7.5 km/h."
+        }
+      ],
+      "order": 13,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be99",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 20 min Continuous",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Begin the continuous-running phase.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 20 min @ approximately 7.5 km/h."
+        }
+      ],
+      "order": 14,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be9a",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 25 min Continuous",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Extend continuous running toward 30 minutes.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 25 min @ approximately 7.5 km/h."
+        }
+      ],
+      "order": 15,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be9b",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 20 min Easy",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Easy consolidation rather than another progression.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 20 min @ approximately 7.5 km/h. Keep this genuinely easy."
+        }
+      ],
+      "order": 16,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be9c",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 30 min Continuous",
+      "duration": 45,
+      "category": "Endurance",
+      "purpose": "Achieve the first major goal of 30 minutes of continuous running.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 30 min @ approximately 7.5 km/h."
+        }
+      ],
+      "order": 17,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be9d",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 6 x 3 min Faster",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Introduce faster running without requiring it to be sustained continuously.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "6 x 3 min @ 8.5 km/h with 90 sec easy walk or jog between reps.",
+          "rounds": 6
+        }
+      ],
+      "order": 18,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be9e",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 25 min Easy",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Maintain continuous running ability between faster sessions.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 25 min @ 7.5-7.8 km/h."
+        }
+      ],
+      "order": 19,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8be9f",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 32 min Continuous",
+      "duration": 47,
+      "category": "Endurance",
+      "purpose": "Build a small endurance reserve beyond the eventual 30-minute target.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 32 min @ approximately 7.8 km/h."
+        }
+      ],
+      "order": 20,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8bea0",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 5 x 4 min Faster",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Increase the amount of moderately fast running.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "5 x 4 min @ 9.0 km/h with 90 sec easy walk or jog between reps.",
+          "rounds": 5
+        }
+      ],
+      "order": 21,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8bea1",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 35 min Continuous",
+      "duration": 50,
+      "category": "Endurance",
+      "purpose": "Build endurance beyond the time required for the target 5K.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 35 min @ approximately 8.0 km/h."
+        }
+      ],
+      "order": 22,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8bea2",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 4 x 5 min Faster",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Move closer to target 5K pace.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "4 x 5 min @ 9.5 km/h with 2 min easy walk or jog between reps.",
+          "rounds": 4
+        }
+      ],
+      "order": 23,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8bea3",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 30 min Steady",
+      "duration": 45,
+      "category": "Endurance",
+      "purpose": "Increase sustainable continuous running speed.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Run continuously for 30 min @ approximately 8.5 km/h."
+        }
+      ],
+      "order": 24,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.755Z",
+      "updatedAt": "2026-08-20T13:46:57.755Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8bea4",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 3 x 6 min Goal Pace",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Introduce meaningful blocks at the eventual 30-minute 5K pace.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "3 x 6 min @ 10.0 km/h with 2 min easy walk or jog between reps.",
+          "rounds": 3
+        }
+      ],
+      "order": 25,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.756Z",
+      "updatedAt": "2026-08-20T13:46:57.756Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8bea5",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 3 x 8 min Goal Pace",
+      "duration": 46,
+      "category": "Endurance",
+      "purpose": "Accumulate 24 minutes at target 5K pace.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "3 x 8 min @ 10.0 km/h with 2 min easy walk or jog between reps.",
+          "rounds": 3
+        }
+      ],
+      "order": 26,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.756Z",
+      "updatedAt": "2026-08-20T13:46:57.756Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8bea6",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 5K Tune-Up",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Keep the legs moving and briefly touch target pace without creating fatigue.",
+      "parts": [
+        {
+          "name": "Easy running",
+          "detail": "Run 20 min easy @ approximately 8.0 km/h."
+        },
+        {
+          "name": "Goal pace strides",
+          "detail": "4 x 1 min @ 10.0 km/h with 1 min very easy between reps.",
+          "rounds": 4
+        }
+      ],
+      "order": 27,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.756Z",
+      "updatedAt": "2026-08-20T13:46:57.756Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8bea7",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - 30-Minute 5K Attempt",
+      "duration": 45,
+      "category": "Endurance",
+      "purpose": "Attempt the primary goal of a continuous 5 km in approximately 30 minutes.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Set treadmill to 10.0 km/h and run continuously for 5.0 km. Target time: 30:00."
+        }
+      ],
+      "order": 28,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.756Z",
+      "updatedAt": "2026-08-20T13:46:57.756Z"
+    },
+    {
+      "_id": "6a870551b42bf5a1b6d8bea8",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill - Recovery Run",
+      "duration": 30,
+      "category": "Recovery",
+      "purpose": "Recover from the 5K attempt without adding another hard session.",
+      "parts": [
+        {
+          "name": "Main set",
+          "detail": "Run 15-20 min very easy @ approximately 7.5-8.0 km/h. Stop while still feeling fresh."
+        }
+      ],
+      "order": 29,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.756Z",
+      "updatedAt": "2026-08-20T13:46:57.756Z"
+    }
+  ],
+  "mobility": [
+    {
+      "_id": "6a870551b42bf5a1b6d8beac",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Pre-Run Dynamic Mobility",
+      "duration": 8,
+      "purpose": "Prepare the ankles, calves, knees and hips immediately before treadmill running.",
+      "parts": [
+        {
+          "name": "Ankle rocks",
+          "detail": "8-10 reps per side."
+        },
+        {
+          "name": "Calf raises",
+          "detail": "10 controlled reps."
+        },
+        {
+          "name": "Leg swings",
+          "detail": "10 front-to-back and 10 side-to-side per leg."
+        },
+        {
+          "name": "Walking lunges",
+          "detail": "6 reps per side."
+        },
+        {
+          "name": "Marching and light skips",
+          "detail": "60-90 seconds total."
+        }
+      ],
+      "order": 0,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-08-20T13:46:57.773Z",
+      "updatedAt": "2026-08-20T13:46:57.773Z"
+    }
+  ],
+  "recovery": [],
+  "planEntries": [],
+  "planNotes": [],
+  "trainingPlans": [],
+  "workoutLogs": [],
+  "conditioningLogs": [
+    {
+      "_id": "6a870579b42bf5a1b6d8bf3e",
+      "user": "6a21752b799de48151c0e715",
+      "session": "6a870551b42bf5a1b6d8be8b",
+      "name": "Treadmill - Starter 8 x 1 min",
+      "category": "Endurance",
+      "date": "2026-07-27",
+      "duration": 28,
+      "rounds": [
+        {
+          "name": "Main set",
+          "done": 8,
+          "target": 8
+        }
+      ],
+      "createdAt": "2026-08-20T13:47:37.978Z",
+      "updatedAt": "2026-08-20T13:47:37.978Z",
+      "__v": 0
+    }
+  ],
+  "mobilityLogs": [
+    {
+      "_id": "6a870574b42bf5a1b6d8bf3b",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a870551b42bf5a1b6d8beac",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-07-27",
+      "duration": 8,
+      "createdAt": "2026-08-20T13:47:32.037Z",
+      "updatedAt": "2026-08-20T13:47:32.037Z",
+      "__v": 0
+    }
+  ],
+  "recoveryLogs": []
+}
