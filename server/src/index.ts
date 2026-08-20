@@ -43,6 +43,7 @@ import totalsRoutes from './routes/totalsRoutes'
 import trainingPlanRoutes from './routes/trainingPlanRoutes'
 import userRoutes from './routes/userRoutes'
 import weightLogRoutes from './routes/weightLogRoutes'
+import dailyEnergyRoutes from './routes/dailyEnergyRoutes'
 import workoutRoutes from './routes/workoutRoutes'
 import workoutLogRoutes from './routes/workoutLogRoutes'
 import Workout from './models/Workout'
@@ -95,6 +96,7 @@ app.use('/api/exercises', exerciseRoutes)
 app.use('/api/workouts', workoutRoutes)
 app.use('/api/workout-logs', workoutLogRoutes)
 app.use('/api/weight-logs', weightLogRoutes)
+app.use('/api/daily-energy', dailyEnergyRoutes)
 app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)

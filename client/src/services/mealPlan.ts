@@ -9,13 +9,19 @@ export async function listPlanEntries(start: string, end: string): Promise<MealP
     return res.data.data
 }
 
-/** Place a meal into a given day + slot. */
+/** Place a meal into a given day + slot, optionally at a non-standard portion. */
 export async function addPlanEntry(
     date: string,
     slot: MealType,
-    meal: string
+    meal: string,
+    servings?: number
 ): Promise<MealPlanEntry> {
-    const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', { date, slot, meal })
+    const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', {
+        date,
+        slot,
+        meal,
+        ...(servings === undefined ? {} : { servings }),
+    })
     return res.data.data
 }
 
@@ -26,13 +32,15 @@ export async function addPlanEntry(
 export async function addAdhocEntry(
     date: string,
     slot: MealType,
-    adhoc: { name: string; macros: Partial<Macros> }
+    adhoc: { name: string; macros: Partial<Macros> },
+    servings?: number
 ): Promise<MealPlanEntry> {
     const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', {
         date,
         slot,
         adhoc,
         status: 'eaten',
+        ...(servings === undefined ? {} : { servings }),
     })
     return res.data.data
 }
@@ -40,6 +48,15 @@ export async function addAdhocEntry(
 /** Mark an entry eaten, skipped, or back to planned. */
 export async function setEntryStatus(id: string, status: EntryStatus): Promise<MealPlanEntry> {
     const res = await api.patch<ApiResponse<MealPlanEntry>>(`/meal-plan/${id}`, { status })
+    return res.data.data
+}
+
+/**
+ * Change how many servings of an entry are on the plate. Sent on its own so it
+ * never disturbs the logged status — bumping a portion isn't a claim you ate it.
+ */
+export async function setEntryServings(id: string, servings: number): Promise<MealPlanEntry> {
+    const res = await api.patch<ApiResponse<MealPlanEntry>>(`/meal-plan/${id}`, { servings })
     return res.data.data
 }
 

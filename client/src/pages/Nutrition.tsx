@@ -31,12 +31,15 @@ import {
     addPlanEntry,
     addAdhocEntry,
     setEntryStatus,
+    setEntryServings,
     copyPlanEntries,
     clearPlanRange,
     deletePlanEntry,
 } from '../services/mealPlan'
 import { createTask } from '../services/tasks'
 import { estimatePrepTime, formatDuration, DEFAULT_PREP_OVERHEAD } from '../lib/prepTime'
+import { entryMacros, entryName, isCounted, sumMacros, normGoals } from '../lib/nutrition'
+import TodayTab from '../components/nutrition/TodayTab'
 import { useAuth } from '../context/AuthContext'
 import { MEAL_TYPES } from '../types'
 import type {
@@ -176,10 +179,13 @@ type Drawered =
     | { mode: 'edit'; meal: Meal }
     | null
 
-const TOP_TABS = ['Weekly Planner', 'Meals'] as const
+// Today first: the week is where a plan gets designed, but the day is what you
+// actually come here to settle.
+const TOP_TABS = ['Today', 'Weekly Planner', 'Meals'] as const
 type TopTab = (typeof TOP_TABS)[number]
 
 const SUBTITLE: Record<TopTab, string> = {
+    Today: 'Calories in against calories out, read through the phase you are in.',
     Meals: 'Your meal library — macros, ingredients and method for every recipe.',
     'Weekly Planner': 'Plan your week — breakfast, lunch, dinner and snacks, with macros tallied.',
 }
@@ -188,7 +194,7 @@ export default function Nutrition() {
     const { user } = useAuth()
     const goals = useMemo(() => normGoals(user?.settings?.macroGoals), [user?.settings?.macroGoals])
 
-    const [tab, setTab] = useState<TopTab>('Weekly Planner')
+    const [tab, setTab] = useState<TopTab>('Today')
     const [drawer, setDrawer] = useState<Drawered>(null)
 
     // The full library — for the planner's picker and the "is it empty" check.
@@ -331,7 +337,11 @@ export default function Nutrition() {
                 </div>
             </Container>
 
-            {tab === 'Weekly Planner' ? (
+            {tab === 'Today' ? (
+                <Container className="mt-2">
+                    <TodayTab settingsGoals={user?.settings?.macroGoals} />
+                </Container>
+            ) : tab === 'Weekly Planner' ? (
                 <Container fluid className="mt-8">
                     <WeeklyPlanner
                         meals={allMeals}
@@ -1273,22 +1283,6 @@ function MethodEditor({
 
 // ─── Weekly planner ─────────────────────────────────────────────────────────────
 
-const ZERO_MACROS: Macros = { calories: 0, protein: 0, carbs: 0, fat: 0 }
-
-/**
- * Reduce raw macro goals to only the fields with a positive target, returning
- * null when none are set — so callers can treat "no goals" as a single check.
- */
-function normGoals(goals?: MacroGoals): MacroGoals | null {
-    if (!goals) return null
-    const g: MacroGoals = {}
-    if (goals.calories && goals.calories > 0) g.calories = goals.calories
-    if (goals.protein && goals.protein > 0) g.protein = goals.protein
-    if (goals.carbs && goals.carbs > 0) g.carbs = goals.carbs
-    if (goals.fat && goals.fat > 0) g.fat = goals.fat
-    return Object.keys(g).length ? g : null
-}
-
 /** A thin progress bar of `value` toward `goal` — accent up to the target, amber once past it. */
 function GoalBar({ value, goal }: { value: number; goal: number }) {
     const pct = goal > 0 ? (value / goal) * 100 : 0
@@ -1300,41 +1294,6 @@ function GoalBar({ value, goal }: { value: number; goal: number }) {
             />
         </div>
     )
-}
-
-/** The macros an entry contributes: one serving of its recipe, or its own if off-plan. */
-function entryMacros(entry: MealPlanEntry): Macros {
-    return entry.meal?.macros ?? entry.adhoc?.macros ?? ZERO_MACROS
-}
-
-/** What to call an entry — the recipe's name, or the off-plan label. */
-function entryName(entry: MealPlanEntry): string {
-    return entry.meal?.name ?? entry.adhoc?.name ?? 'Unknown'
-}
-
-/**
- * Whether an entry counts toward a day's total. Skipped food doesn't: the whole
- * point of marking it is to take it back out of the tally.
- */
-function isCounted(entry: MealPlanEntry): boolean {
-    return entry.status !== 'skipped'
-}
-
-/**
- * Tally macros across entries (one serving each), ignoring anything skipped.
- * With everything still 'planned' this is the plan; once the day is marked up
- * it's what was actually eaten.
- */
-function sumMacros(entries: MealPlanEntry[]): Macros {
-    return entries.filter(isCounted).reduce<Macros>((acc, e) => {
-        const m = entryMacros(e)
-        return {
-            calories: acc.calories + m.calories,
-            protein: acc.protein + m.protein,
-            carbs: acc.carbs + m.carbs,
-            fat: acc.fat + m.fat,
-        }
-    }, { ...ZERO_MACROS })
 }
 
 /** How much of a stretch of plan has been settled either way. */
@@ -2297,6 +2256,25 @@ function WeeklyPlanner({
         }
     }
 
+    /**
+     * Change a portion. Optimistic like the status toggle, and rolled back the
+     * same way — the macro totals redraw off this, so a failed save that left the
+     * number showing would quietly misreport the day.
+     */
+    async function handleSetServings(id: string, servings: number) {
+        const previous = entries.find((e) => e._id === id)?.servings
+        setEntries((prev) => prev.map((e) => (e._id === id ? { ...e, servings } : e)))
+        try {
+            await setEntryServings(id, servings)
+        } catch {
+            if (previous !== undefined) {
+                setEntries((prev) =>
+                    prev.map((e) => (e._id === id ? { ...e, servings: previous } : e))
+                )
+            }
+        }
+    }
+
     async function handleLogOffPlan(
         date: string,
         slot: MealType,
@@ -2609,6 +2587,7 @@ function WeeklyPlanner({
                                     onAdd={(slot) => setPicker({ date, slot })}
                                     onRemove={handleRemove}
                                     onSetStatus={handleSetStatus}
+                                    onSetServings={handleSetServings}
                                     onLogOffPlan={() => setOffPlan(date)}
                                     onCopyDay={() => handleCopyDay(date)}
                                     onClearDay={() => handleClearDay(date)}
@@ -2827,6 +2806,7 @@ function DayColumn({
     onAdd,
     onRemove,
     onSetStatus,
+    onSetServings,
     onLogOffPlan,
     onCopyDay,
     onClearDay,
@@ -2840,6 +2820,7 @@ function DayColumn({
     onAdd: (slot: MealType) => void
     onRemove: (id: string) => void
     onSetStatus: (id: string, status: EntryStatus) => void
+    onSetServings: (id: string, servings: number) => void
     onLogOffPlan: () => void
     onCopyDay: () => void
     onClearDay: () => void
@@ -2906,6 +2887,7 @@ function DayColumn({
                         onAdd={() => onAdd(slot)}
                         onRemove={onRemove}
                         onSetStatus={onSetStatus}
+                        onSetServings={onSetServings}
                         onViewMeal={onViewMeal}
                     />
                 ))}
@@ -2949,6 +2931,7 @@ function SlotSection({
     onAdd,
     onRemove,
     onSetStatus,
+    onSetServings,
     onViewMeal,
 }: {
     slot: MealType
@@ -2957,6 +2940,7 @@ function SlotSection({
     onAdd: () => void
     onRemove: (id: string) => void
     onSetStatus: (id: string, status: EntryStatus) => void
+    onSetServings: (id: string, servings: number) => void
     onViewMeal: (meal: Meal) => void
 }) {
     // In view mode an empty slot is just noise — collapse it so the plan reads clean.
@@ -2988,6 +2972,9 @@ function SlotSection({
                             onView={e.meal ? () => onViewMeal(e.meal!) : undefined}
                             onRemove={editable ? () => onRemove(e._id) : undefined}
                             onSetStatus={(status) => onSetStatus(e._id, status)}
+                            onSetServings={
+                                editable ? (n) => onSetServings(e._id, n) : undefined
+                            }
                         />
                     ))}
                 </ul>
@@ -3033,22 +3020,77 @@ const STATUS_CYCLE: Record<
     },
 }
 
+/** Portion steps, in servings. Half a portion up or down is the useful grain. */
+const SERVING_STEP = 0.5
+const MIN_SERVINGS = 0.5
+const MAX_SERVINGS = 10
+
+/**
+ * The portion on the plate, as a stepper. Sits on its own rather than inside the
+ * row's view button, since a button inside a button isn't valid markup.
+ */
+function ServingsStepper({
+    servings,
+    name,
+    onChange,
+}: {
+    servings: number
+    name: string
+    onChange: (servings: number) => void
+}) {
+    const step = (delta: number) => {
+        const next = Math.round((servings + delta) / SERVING_STEP) * SERVING_STEP
+        onChange(Math.min(MAX_SERVINGS, Math.max(MIN_SERVINGS, next)))
+    }
+    return (
+        <div className="flex shrink-0 items-center gap-0.5">
+            <button
+                type="button"
+                aria-label={`Smaller portion of ${name}`}
+                disabled={servings <= MIN_SERVINGS}
+                onClick={() => step(-SERVING_STEP)}
+                className="grid h-5 w-5 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+                <i className="fa-solid fa-minus text-[9px]" aria-hidden="true" />
+            </button>
+            <span
+                className="min-w-[1.8rem] text-center text-[10px] font-bold tabular-nums text-neutral-500"
+                aria-label={`${fmt(servings)} servings`}
+            >
+                ×{fmt(servings)}
+            </span>
+            <button
+                type="button"
+                aria-label={`Bigger portion of ${name}`}
+                disabled={servings >= MAX_SERVINGS}
+                onClick={() => step(SERVING_STEP)}
+                className="grid h-5 w-5 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+                <i className="fa-solid fa-plus text-[9px]" aria-hidden="true" />
+            </button>
+        </div>
+    )
+}
+
 function PlannedMealRow({
     entry,
     onView,
     onRemove,
     onSetStatus,
+    onSetServings,
 }: {
     entry: MealPlanEntry
     onView?: () => void
     onRemove?: () => void
     onSetStatus?: (status: EntryStatus) => void
+    onSetServings?: (servings: number) => void
 }) {
     const name = entryName(entry)
     const macros = entryMacros(entry)
     const meta = TYPE_META[entry.slot]
     const cycle = STATUS_CYCLE[entry.status]
     const skipped = entry.status === 'skipped'
+    const servings = entry.servings ?? 1
 
     const details = (
         <>
@@ -3062,15 +3104,17 @@ function PlannedMealRow({
             <p className={`text-[11px] tabular-nums ${meta.sub} ${skipped ? 'opacity-50' : ''}`}>
                 {fmt(macros.calories)} kcal · P{fmt(macros.protein)} C{fmt(macros.carbs)} F
                 {fmt(macros.fat)}
+                {!onSetServings && servings !== 1 && (
+                    <span className="ml-1 font-semibold">· ×{fmt(servings)}</span>
+                )}
                 {entry.adhoc && <span className="ml-1 font-semibold">· off-plan</span>}
             </p>
         </>
     )
 
     return (
-        <li
-            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-2 transition-colors ${meta.block}`}
-        >
+        <li className={`flex flex-col rounded-xl px-2.5 py-2 transition-colors ${meta.block}`}>
+            <div className="flex items-center gap-1.5">
             {onSetStatus && (
                 <button
                     type="button"
@@ -3103,6 +3147,14 @@ function PlannedMealRow({
                 >
                     <i className="fa-solid fa-xmark text-[11px]" aria-hidden="true" />
                 </button>
+            )}
+            </div>
+            {/* On its own line: the day columns are too narrow to take a third
+                control cluster beside the name without pushing the row wide. */}
+            {onSetServings && (
+                <div className="mt-1 flex justify-end">
+                    <ServingsStepper servings={servings} name={name} onChange={onSetServings} />
+                </div>
             )}
         </li>
     )

@@ -20,9 +20,9 @@ export interface IAdhocMeal {
  *
  * An entry is either a library meal (`meal`) or a one-off (`adhoc`) — never
  * both, never neither. Library macros are not stored here; they are read from
- * the referenced meal at display time, so edits to a recipe flow through to
- * every plan it sits in. Ad-hoc entries carry their own macros because there's
- * no recipe to read them from.
+ * the referenced meal at display time and scaled by `servings`, so edits to a
+ * recipe flow through to every plan it sits in. Ad-hoc entries carry their own
+ * macros because there's no recipe to read them from.
  */
 export interface IMealPlanEntry extends Document {
     user: Types.ObjectId
@@ -33,6 +33,13 @@ export interface IMealPlanEntry extends Document {
     meal?: Types.ObjectId
     /** Set instead of `meal` for off-plan food. */
     adhoc?: IAdhocMeal
+    /**
+     * How many servings are on the plate. Recipe macros are stated per serving,
+     * so this scales them — 2 for a double portion, 0.5 for half. Without it a
+     * bulk is inexpressible: eating more of the same meals is the whole method.
+     * Ad-hoc entries scale the same way.
+     */
+    servings: number
     /** Whether it was eaten. Defaults to 'planned'. */
     status: EntryStatus
     /** Position within the day+slot (lower = sooner); mainly for snacks. */
@@ -66,6 +73,9 @@ const mealPlanEntrySchema = new Schema<IMealPlanEntry>(
         slot: { type: String, enum: MEAL_TYPES, required: true },
         meal: { type: Schema.Types.ObjectId, ref: 'Meal' },
         adhoc: { type: adhocSchema, default: undefined },
+        // Fractional portions are allowed; the controller keeps it above zero,
+        // since a zero-serving entry is a skip expressed the confusing way.
+        servings: { type: Number, default: 1, min: 0 },
         status: { type: String, enum: ENTRY_STATUSES, default: 'planned' },
         order: { type: Number, default: 0 },
     },

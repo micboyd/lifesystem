@@ -62,6 +62,22 @@ export interface WeightLog {
     updatedAt: string
 }
 
+/**
+ * One day's total energy expenditure, entered by hand. Total for the whole day —
+ * resting plus movement — not the active-only figure, so the day's balance is
+ * intake minus this and nothing else.
+ */
+export interface DailyEnergy {
+    _id: string
+    /** "YYYY-MM-DD" — the day the burn covers. */
+    date: string
+    /** Total calories burned across the whole day. */
+    caloriesOut: number
+    notes?: string
+    createdAt: string
+    updatedAt: string
+}
+
 export type CourseKind = 'course' | 'block'
 
 export interface Course {
@@ -339,6 +355,11 @@ export interface MealPlanEntry {
     meal?: Meal
     /** Set instead of `meal` for off-plan food, carrying its own macros. */
     adhoc?: AdhocMeal
+    /**
+     * How many servings are on the plate. Macros are per serving, so this scales
+     * them — 2 for a double portion, 0.5 for half.
+     */
+    servings: number
     /** Whether it was eaten. */
     status: EntryStatus
     order: number

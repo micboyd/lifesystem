@@ -24,6 +24,16 @@ function toMacro(raw: unknown): number {
 }
 
 /**
+ * Coerce a servings figure. Anything missing, unparseable or non-positive falls
+ * back to a single serving — a zero-serving entry is a skip written the
+ * confusing way, and the status field already says that properly.
+ */
+function toServings(raw: unknown): number {
+    const n = typeof raw === 'number' ? raw : Number(raw)
+    return Number.isFinite(n) && n > 0 ? n : 1
+}
+
+/**
  * Validate an off-plan meal body: a name plus whatever macros are known. Macros
  * are all optional and default to zero — a rough calorie figure logged now beats
  * a precise one logged never.
@@ -72,9 +82,10 @@ export async function listEntries(req: AuthRequest, res: Response) {
  * Body carries either `meal` (a library meal id) or `adhoc` ({ name, macros })
  * for something eaten off-plan. An optional `status` lets the off-plan path log
  * straight to 'eaten' in one call, since that food is by definition already gone.
+ * An optional `servings` sets the portion; left out, it's a single serving.
  */
 export async function createEntry(req: AuthRequest, res: Response) {
-    const { date, slot, meal: mealId, adhoc: adhocRaw, status } = req.body
+    const { date, slot, meal: mealId, adhoc: adhocRaw, status, servings } = req.body
     if (!isDate(date) || !isSlot(slot)) {
         res.status(400).json({ message: 'date and slot are required' })
         return
@@ -105,6 +116,7 @@ export async function createEntry(req: AuthRequest, res: Response) {
         slot,
         ...(adhoc ? { adhoc } : { meal: meal!._id }),
         ...(isStatus(status) ? { status } : {}),
+        ...(servings === undefined ? {} : { servings: toServings(servings) }),
         order,
     })
     if (entry.meal) await entry.populate('meal')
@@ -112,20 +124,32 @@ export async function createEntry(req: AuthRequest, res: Response) {
 }
 
 /**
- * PATCH /api/meal-plan/:id — mark an entry eaten, skipped, or back to planned.
- * The only mutable field: everything else about a placed meal is edited by
- * removing it and adding another.
+ * PATCH /api/meal-plan/:id — mark an entry eaten, skipped, or back to planned,
+ * and/or change its portion. The two mutable fields: everything else about a
+ * placed meal is edited by removing it and adding another. Either may be sent
+ * alone, so bumping a portion doesn't disturb the logged status and vice versa.
  */
 export async function updateEntryStatus(req: AuthRequest, res: Response) {
-    const { status } = req.body
-    if (!isStatus(status)) {
-        res.status(400).json({ message: `status must be one of: ${ENTRY_STATUSES.join(', ')}` })
+    const { status, servings } = req.body
+
+    const update: { status?: EntryStatus; servings?: number } = {}
+    if (status !== undefined) {
+        if (!isStatus(status)) {
+            res.status(400).json({ message: `status must be one of: ${ENTRY_STATUSES.join(', ')}` })
+            return
+        }
+        update.status = status
+    }
+    if (servings !== undefined) update.servings = toServings(servings)
+
+    if (Object.keys(update).length === 0) {
+        res.status(400).json({ message: 'status or servings is required' })
         return
     }
 
     const entry = await MealPlanEntry.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },
-        { $set: { status } },
+        { $set: update },
         { new: true }
     ).populate('meal')
 
@@ -182,6 +206,7 @@ export async function copyEntries(req: AuthRequest, res: Response) {
             date: dateMap.get(e.date),
             slot: e.slot,
             ...(e.adhoc ? { adhoc: e.adhoc } : { meal: e.meal }),
+            servings: e.servings,
             status: 'planned',
             order: e.order,
         }))

@@ -5,6 +5,7 @@ import Spinner from '../Spinner'
 import { listPlanEntries } from '../../services/mealPlan'
 import { addDays, parseDateKey, formatWeekRange, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
 import { MEAL_TYPES } from '../../types'
+import { sumMacros } from '../../lib/nutrition'
 import type { Macros, MealPlanEntry, MealType } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -14,21 +15,6 @@ function fmt(n: number): string {
     const v = Number(n)
     if (!Number.isFinite(v)) return '0'
     return Number.isInteger(v) ? String(v) : v.toFixed(1)
-}
-
-const ZERO_MACROS: Macros = { calories: 0, protein: 0, carbs: 0, fat: 0 }
-
-/** Tally the per-serving macros of every planned meal (one serving each). */
-function sumMacros(entries: MealPlanEntry[]): Macros {
-    return entries.reduce<Macros>(
-        (acc, e) => ({
-            calories: acc.calories + (e.meal?.macros.calories ?? 0),
-            protein: acc.protein + (e.meal?.macros.protein ?? 0),
-            carbs: acc.carbs + (e.meal?.macros.carbs ?? 0),
-            fat: acc.fat + (e.meal?.macros.fat ?? 0),
-        }),
-        { ...ZERO_MACROS }
-    )
 }
 
 /** The Monday (YYYY-MM-DD) that starts the week containing `date` — matches the planner. */
