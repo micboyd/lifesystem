@@ -1,5 +1,6 @@
 import { daysBetween } from './weightTrend'
 import { usableRate, type TrendGap, type WeightTrend } from './nutritionTrend'
+import { DEFAULT_BAND_WIDTH_KG } from './nutritionConfig'
 import type { NutritionPhase, PhaseGoal } from '../types'
 
 /**
@@ -98,14 +99,15 @@ export function withinBand(kg: number, goal: PhaseGoal): boolean {
 
 /**
  * Whether an observed rate sits inside the goal's acceptable band. Without a
- * band, anything within a quarter-kilo a week of the desired rate passes.
+ * band, one is built around the desired rate at the same default width the rest
+ * of the system uses — rather than a second, quietly different, quarter-kilo.
  */
 export function rateWithinBand(rate: number, goal: PhaseGoal): boolean {
     const band = goal.acceptableWeeklyRateKg
     if (band) return rate >= band.min && rate <= band.max
     const desired = goal.targetWeeklyRateKg
     if (desired === undefined) return false
-    return Math.abs(rate - desired) <= 0.25
+    return Math.abs(rate - desired) <= DEFAULT_BAND_WIDTH_KG
 }
 
 /**
@@ -235,4 +237,127 @@ function statusOf(input: {
  */
 export function dailyDeficitFor(weeklyRateKg: number): number {
     return (weeklyRateKg * 7700) / 7
+}
+
+// ── Body-composition targets ─────────────────────────────────────────────────
+
+/**
+ * What a body-fat target implies for the scale.
+ *
+ * A goal of "16% body fat" says nothing about weight on its own — it depends
+ * entirely on how much lean mass survives the process, which is the one thing
+ * nobody can promise. So this answers a narrower, honest question:
+ *
+ *   *If lean mass were held exactly as it is now, what would the scale read at
+ *   that body fat?*
+ *
+ *     weight = leanMass / (1 − targetBodyFat)
+ *
+ * That is a useful anchor and a terrible prediction. It is deliberately never
+ * written into `targetWeightKg`: lean mass moves, and quietly converting a
+ * composition goal into a scale goal would hand the user a number the system
+ * had invented and then hold them to it.
+ */
+export function weightAtBodyFat(leanMassKg: number, targetBodyFatPct: number): number | null {
+    if (!Number.isFinite(leanMassKg) || leanMassKg <= 0) return null
+    if (!Number.isFinite(targetBodyFatPct) || targetBodyFatPct <= 0 || targetBodyFatPct >= 100) {
+        return null
+    }
+    return leanMassKg / (1 - targetBodyFatPct / 100)
+}
+
+export interface CompositionTarget {
+    /** Scale weight at the target body fat, holding current lean mass. */
+    weightIfLeanHeldKg: number
+    /** Fat mass at the goal, on the same assumption. */
+    fatMassAtGoalKg: number
+    /** Fat that would have to come off to get there. Negative is loss. */
+    fatChangeKg: number
+    /**
+     * Lean mass the *stated* target weight would require at the target body
+     * fat, when a weight target is also set. Null when there is no weight target.
+     */
+    leanMassRequiredKg: number | null
+    /** leanMassRequired − current lean mass. Positive means lean mass must be gained. */
+    leanChangeRequiredKg: number | null
+    /** Whether that implied lean change is large enough to be worth flagging. */
+    demanding: boolean
+}
+
+/**
+ * Lean mass a goal implies you would have to gain before it counts as an
+ * ambitious body-composition target rather than ordinary fat loss.
+ */
+export const DEMANDING_LEAN_GAIN_KG = 1.5
+
+/**
+ * What a weight-and-body-fat pair implies together.
+ *
+ * The two are not mutually exclusive and the app should not force a choice.
+ * Where both are set, the interesting quantity is the lean mass the combination
+ * requires: "95 kg at 20%" and "95 kg at 16%" are the same scale number and
+ * wildly different undertakings, and only this shows the difference.
+ *
+ * Reported, never enforced. Nothing here refuses to save a goal — whether a
+ * target is physiologically reachable is not something this can know.
+ */
+export function compositionTarget(
+    currentWeightKg: number,
+    currentBodyFatPct: number,
+    goal: PhaseGoal
+): CompositionTarget | null {
+    const targetBf = goal.targetBodyFatPct
+    if (targetBf === undefined) return null
+    if (!Number.isFinite(currentWeightKg) || currentWeightKg <= 0) return null
+    if (!Number.isFinite(currentBodyFatPct) || currentBodyFatPct <= 0 || currentBodyFatPct >= 100) {
+        return null
+    }
+
+    const currentFat = (currentWeightKg * currentBodyFatPct) / 100
+    const currentLean = currentWeightKg - currentFat
+
+    const weightIfLeanHeldKg = weightAtBodyFat(currentLean, targetBf)
+    if (weightIfLeanHeldKg === null) return null
+
+    const fatMassAtGoalKg = (weightIfLeanHeldKg * targetBf) / 100
+
+    // If a scale target is also set, the lean mass it would take to hit both.
+    const targetWeight = goal.targetWeightKg ?? null
+    const leanMassRequiredKg =
+        targetWeight === null ? null : targetWeight * (1 - targetBf / 100)
+    const leanChangeRequiredKg =
+        leanMassRequiredKg === null ? null : leanMassRequiredKg - currentLean
+
+    return {
+        weightIfLeanHeldKg,
+        fatMassAtGoalKg,
+        fatChangeKg: fatMassAtGoalKg - currentFat,
+        leanMassRequiredKg,
+        leanChangeRequiredKg,
+        demanding:
+            leanChangeRequiredKg !== null && leanChangeRequiredKg > DEMANDING_LEAN_GAIN_KG,
+    }
+}
+
+/**
+ * A sentence describing what a goal asks for, or null when there is nothing
+ * worth saying. Non-blocking context shown while editing — it explains the
+ * implication and leaves the decision alone.
+ */
+export function goalImplication(target: CompositionTarget | null): string | null {
+    if (!target) return null
+
+    const atBf = `${target.weightIfLeanHeldKg.toFixed(1)} kg`
+    if (target.leanChangeRequiredKg === null) {
+        return `Holding your current lean mass, that body fat would put you around ${atBf}.`
+    }
+
+    const change = target.leanChangeRequiredKg
+    if (Math.abs(change) < 0.5) {
+        return `That pairing is about right for your current lean mass — roughly ${atBf} if it holds.`
+    }
+    if (change > 0) {
+        return `That pairing implies gaining about ${change.toFixed(1)} kg of lean mass while losing fat. It is possible, but it is a more ambitious target than fat loss alone — holding your lean mass exactly as it is would put you nearer ${atBf}.`
+    }
+    return `That pairing implies losing about ${Math.abs(change).toFixed(1)} kg of lean mass along the way. Holding your lean mass instead would put you nearer ${atBf}.`
 }

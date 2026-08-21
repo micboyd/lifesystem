@@ -31,6 +31,7 @@ import { goalProgress } from '../../lib/nutritionGoal'
 import { measurementTrend } from '../../lib/bodyMeasurements'
 import { strengthSummary } from '../../lib/strengthTrend'
 import { readTransformation } from '../../lib/transformation'
+import { resolveConfig } from '../../lib/nutritionConfig'
 import {
     adherence,
     reviewNutrition,
@@ -369,6 +370,8 @@ export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals
         [today, phases, settingsGoals, fitness]
     )
     const { goals, source, phase, dayType, modifier } = targets
+    // The phase as configuration, with application defaults filled in.
+    const config = useMemo(() => resolveConfig(phase), [phase])
     const kind = phase?.kind ?? null
 
     const day = useMemo(
@@ -400,7 +403,8 @@ export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals
         if (!phase?.goal) return null
         return readTransformation({
             rateKgPerWeek: usableRate(trend),
-            rateBand: phase.goal.acceptableWeeklyRateKg,
+            rate: config?.rate ?? null,
+            goalMode: config?.goalMode,
             waist: measurementTrend(logs, 'waist', today),
             strength: strengthSummary(workouts, today),
             adherence: stats,

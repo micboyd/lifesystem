@@ -1768,6 +1768,52 @@ export interface NumberRange {
  * without it behaves exactly as phases always have — the adaptive machinery has
  * nothing to steer towards and stays quiet.
  */
+/**
+ * What the user is trying to do. `kind` says which way the scale should move and
+ * stays as it is; this says what the goal *is* — a recomposition and a plain cut
+ * are both `kind: 'cut'` and want very different things said about a flat scale.
+ */
+export const GOAL_MODES = ['weight-loss', 'recomposition', 'maintenance', 'weight-gain'] as const
+export type GoalMode = (typeof GOAL_MODES)[number]
+
+export const GOAL_MODE_LABELS: Record<GoalMode, string> = {
+    'weight-loss': 'Weight loss',
+    recomposition: 'Recomposition',
+    maintenance: 'Maintenance',
+    'weight-gain': 'Weight gain',
+}
+
+/**
+ * How the review behaves. Every field optional; absent means "use the
+ * application default", so a phase can override one setting without restating
+ * the rest and defaults can improve without rewriting saved records.
+ */
+export interface AdaptiveSettings {
+    enabled?: boolean
+    reviewWindowDays?: number
+    minimumDataDays?: number
+    preferredDataDays?: number
+    maxAdjustmentKcal?: number
+    minAdjustmentKcal?: number
+    calorieAdherenceToleranceKcal?: number
+    /** Fraction of the window that must carry logged intake, 0–1. */
+    minCoverage?: number
+}
+
+/**
+ * Which macros may move when calories change. 'fixed' holds the figure,
+ * 'minimum' treats it as a floor, 'remainder' absorbs what the calorie target
+ * leaves, 'adjustable' scales with calories.
+ */
+export const MACRO_ROLES = ['fixed', 'minimum', 'remainder', 'adjustable'] as const
+export type MacroRole = (typeof MACRO_ROLES)[number]
+
+export interface MacroPolicy {
+    protein?: MacroRole
+    fat?: MacroRole
+    carbs?: MacroRole
+}
+
 export interface PhaseGoal {
     /**
      * 'recomp' means the point is body composition rather than scale weight:
@@ -1776,6 +1822,8 @@ export interface PhaseGoal {
     style?: 'recomp' | 'standard'
     /** Bodyweight in kg when the phase began — the baseline progress is measured from. */
     startWeightKg?: number
+    /** Body fat when the phase began, for composition comparisons. */
+    startBodyFatPct?: number
     /** YYYY-MM-DD the goal is aimed at. Usually, but not necessarily, `endDate`. */
     targetDate?: string
     targetWeightKg?: number
@@ -1805,12 +1853,17 @@ export type AdjustmentSource = (typeof ADJUSTMENT_SOURCES)[number]
  * day was judged against survives every later change.
  */
 export interface PhaseAdjustment {
-    /** YYYY-MM-DD from which these targets apply, inclusive. */
+    /** YYYY-MM-DD from which this revision applies, inclusive. */
     effectiveFrom: string
-    /** The full target set in force from that date — not a delta. */
-    targets: MacroGoals
+    /**
+     * The full target set in force from that date — not a delta. Absent on a
+     * revision that changed only the goal.
+     */
+    targets?: MacroGoals
     /** What it replaced, so the change reads without replaying the chain. */
     previous?: MacroGoals
+    /** The goal as it stood before this revision, when the goal is what changed. */
+    previousGoal?: PhaseGoal
     reason?: string
     source: AdjustmentSource
     createdAt?: string
@@ -1845,7 +1898,10 @@ export interface NutritionPhase {
     /** Intended kg/week, signed: negative for a cut, positive for a gain. */
     weeklyRate?: number
     goal?: PhaseGoal
-    /** Dated target revisions, oldest first. */
+    goalMode?: GoalMode
+    adaptive?: AdaptiveSettings
+    macroPolicy?: MacroPolicy
+    /** Dated revisions, oldest first. */
     adjustments?: PhaseAdjustment[]
     strategy?: TargetStrategy
     notes?: string
@@ -1861,6 +1917,9 @@ export interface NutritionPhaseInput {
     targets: MacroGoals
     weeklyRate?: number
     goal?: PhaseGoal
+    goalMode?: GoalMode
+    adaptive?: AdaptiveSettings
+    macroPolicy?: MacroPolicy
     strategy?: TargetStrategy
     notes?: string
 }

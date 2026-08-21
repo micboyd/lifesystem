@@ -58,11 +58,15 @@ async function seed() {
                 // downstream keeps its existing meaning. That the point is body
                 // composition is said by goal.style, not by a fourth phase kind.
                 kind: 'cut',
+                // What the goal is *for*. `kind` still says which way the scale
+                // moves; this says a flat scale with a falling waist is success.
+                goalMode: 'recomposition',
                 targets: TARGETS,
                 weeklyRate: -0.2,
                 goal: {
                     style: 'recomp',
                     startWeightKg: START_WEIGHT_KG,
+                    startBodyFatPct: START_BODY_FAT_PCT,
                     targetDate: END,
                     targetWeightKg: 95,
                     targetWeightRangeKg: { min: 94, max: 96 },
@@ -74,6 +78,10 @@ async function seed() {
                     proteinFloorG: 210,
                     adaptive: true,
                 },
+                // Only what differs from the application defaults is stored, so
+                // improvements to those defaults reach this phase too.
+                adaptive: { enabled: true },
+                macroPolicy: { protein: 'fixed', fat: 'fixed', carbs: 'remainder' },
                 notes: 'Slow recomp: hold protein at 210 g, adjust carbs, keep training hard.',
             },
         },

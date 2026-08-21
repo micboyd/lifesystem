@@ -1,18 +1,25 @@
-import { currentPhaseTargets, entryMacros, targetsFor } from './nutrition'
+import { entryMacros, targetsFor } from './nutrition'
 import { retargetCalories, proteinFloorOf } from './nutritionTargets'
-import { rateWithinBand } from './nutritionGoal'
+import {
+    DEFAULT_ADAPTIVE_SETTINGS,
+    STEP_ROUNDING_KCAL,
+    calorieTolerance,
+    centreRate,
+    resolveConfig,
+    withinRateBand,
+    type NutritionConfig,
+} from './nutritionConfig'
 import { usableRate, type TrendGap, type WeightTrend } from './nutritionTrend'
 import {
     dailyIntake,
     measuredMaintenance,
-    targetTolerance,
     KCAL_PER_KG,
     type Maintenance,
     type MaintenanceGap,
 } from './energy'
 import { daysBetween, type TrendPoint } from './weightTrend'
 import type { TransformationRead } from './transformation'
-import type { MacroGoals, MealPlanEntry, NutritionPhase } from '../types'
+import type { AdaptiveSettings, MacroGoals, MealPlanEntry, NutritionPhase } from '../types'
 
 /**
  * Should the calorie target change, and by how much.
@@ -36,48 +43,28 @@ import type { MacroGoals, MealPlanEntry, NutritionPhase } from '../types'
  * window returns a reason rather than a number.
  */
 
-/** Days of data the review looks back over. */
-export const REVIEW_WINDOW_DAYS = 21
-
-/** The longer window, used for the maintenance estimate where the data reaches. */
+/**
+ * The window the maintenance estimate reads, when the data reaches that far.
+ * Longer than a review window on purpose: maintenance is a slow-moving quantity
+ * and benefits from every day it can get.
+ */
 export const LONG_WINDOW_DAYS = 28
 
-/** Below this many logged days, nothing is proposed — the window is too thin. */
-export const MIN_REVIEW_DAYS = 21
-
-/** Below this, even the descriptive figures are not worth quoting. */
-export const MIN_ANALYSIS_DAYS = 14
-
-/** Fraction of the window that must carry logged intake before it can be judged. */
-export const MIN_COVERAGE = 0.7
+/** The review window used when a phase names none. Everything else comes from config. */
+export const REVIEW_WINDOW_DAYS = DEFAULT_ADAPTIVE_SETTINGS.reviewWindowDays
 
 /**
  * A day is "logged" only if the intake on it is plausibly a whole day's eating.
  * Marking one breakfast eaten and forgetting the rest would otherwise read as a
  * 400 kcal day and drag the average into recommending a rise.
+ *
+ * A proportion rather than a setting: this is about detecting a half-filled day,
+ * which behaves the same at every calorie level.
  */
 export const MIN_LOGGED_FRACTION = 0.5
 
 /** And when there's no target to take a fraction of, this flat floor stands in. */
 export const MIN_LOGGED_KCAL = 800
-
-/** The smallest change worth making, and the largest allowed at one review. */
-export const MIN_STEP_KCAL = 100
-export const MAX_STEP_KCAL = 150
-
-/** Steps are rounded to this, so targets stay numbers a person would choose. */
-export const STEP_ROUNDING = 25
-
-/**
- * How far past the acceptable rate band the trend must sit before a change is
- * proposed. The two margins differ because the two errors do: a month of
- * apparent stall is rarely anything but a real stall, while a fortnight of
- * rapid loss is very often water — a glycogen drop or less salt empties two
- * kilos and puts them back just as fast — so the fast side gets more room
- * before anyone acts on it.
- */
-export const SLOW_MARGIN_KG = 0.05
-export const FAST_MARGIN_KG = 0.1
 
 // ── Adherence ────────────────────────────────────────────────────────────────
 
@@ -103,9 +90,12 @@ export interface Adherence {
 }
 
 /** Whether the window is complete and consistent enough to judge a target by. */
-export function adherenceIsUsable(a: Adherence): boolean {
-    if (a.loggedDays < MIN_REVIEW_DAYS) return false
-    if (a.coverage < MIN_COVERAGE) return false
+export function adherenceIsUsable(
+    a: Adherence,
+    adaptive: Required<AdaptiveSettings> = DEFAULT_ADAPTIVE_SETTINGS
+): boolean {
+    if (a.loggedDays < adaptive.preferredDataDays) return false
+    if (a.coverage < adaptive.minCoverage) return false
     // Eating a long way off the target, consistently, says nothing about whether
     // the target is right — only that something other than the target is setting
     // intake. The measured maintenance is still true; the prescription isn't in play.
@@ -125,7 +115,8 @@ export function adherence(
     phases: NutritionPhase[],
     settingsGoals: MacroGoals | null | undefined,
     asOf: string,
-    windowDays = REVIEW_WINDOW_DAYS
+    windowDays = DEFAULT_ADAPTIVE_SETTINGS.reviewWindowDays,
+    adaptive: Required<AdaptiveSettings> = DEFAULT_ADAPTIVE_SETTINGS
 ): Adherence {
     const eaten = new Map<string, { calories: number; protein: number }>()
     for (const e of entries) {
@@ -164,7 +155,7 @@ export function adherence(
             targetDays++
             targetSum += target
             diffSum += day.calories - target
-            const tol = targetTolerance(target)
+            const tol = calorieTolerance(target, adaptive)
             toleranceSum += tol
             if (Math.abs(day.calories - target) <= tol) withinTolerance++
         }
@@ -271,19 +262,16 @@ export interface ReviewInput {
  * missing data.
  */
 export function reviewNutrition(input: ReviewInput): Recommendation {
-    const {
-        phase,
-        entries,
-        phases,
-        settingsGoals,
-        trend,
-        weightPoints,
-        asOf,
-        windowDays = REVIEW_WINDOW_DAYS,
-        context = null,
-    } = input
+    const { phase, entries, phases, settingsGoals, trend, weightPoints, asOf, context = null } = input
 
-    const stats = adherence(entries, phases, settingsGoals, asOf, windowDays)
+    // Everything the engine is allowed to assume arrives here, resolved from the
+    // phase with the application defaults merged underneath. Below this line
+    // there is no such thing as a typical goal.
+    const config = resolveConfig(phase)
+    const adaptive = config?.adaptive ?? DEFAULT_ADAPTIVE_SETTINGS
+    const windowDays = input.windowDays ?? adaptive.reviewWindowDays
+
+    const stats = adherence(entries, phases, settingsGoals, asOf, windowDays, adaptive)
     const maintenance = measuredMaintenance(
         dailyIntake(entries),
         weightPoints,
@@ -291,9 +279,8 @@ export function reviewNutrition(input: ReviewInput): Recommendation {
         asOf
     )
     const observedRate = usableRate(trend)
-    const current = phase ? (currentPhaseTargets(phase).calories ?? null) : null
-    const goal = phase?.goal ?? null
-    const desiredRate = goal?.targetWeeklyRateKg ?? phase?.weeklyRate ?? null
+    const current = config?.prescription.calories ?? null
+    const desiredRate = config ? centreRate(config.rate) : null
 
     const base = {
         currentCalories: current,
@@ -307,7 +294,7 @@ export function reviewNutrition(input: ReviewInput): Recommendation {
         desiredRateKgPerWeek: desiredRate,
         desiredDeficitKcal: desiredRate === null ? null : (desiredRate * KCAL_PER_KG) / 7,
         observedDeficitKcal: observedRate === null ? null : (observedRate * KCAL_PER_KG) / 7,
-        confidence: confidenceOf(stats, trend),
+        confidence: confidenceOf(stats, trend, adaptive),
         context,
     }
 
@@ -326,7 +313,7 @@ export function reviewNutrition(input: ReviewInput): Recommendation {
             'Adaptive targets need a nutrition phase with a goal to steer towards.'
         )
     }
-    if (!goal?.adaptive) {
+    if (!config || !adaptive.enabled) {
         return hold(
             'not-adaptive',
             'Adaptive targets are off',
@@ -340,14 +327,14 @@ export function reviewNutrition(input: ReviewInput): Recommendation {
             'This phase has no calorie target, so there is nothing to adjust.'
         )
     }
-    if (stats.loggedDays < MIN_REVIEW_DAYS) {
+    if (stats.loggedDays < adaptive.preferredDataDays) {
         return hold(
             'too-soon',
             `Hold ${Math.round(current).toLocaleString()} kcal`,
-            `Only ${stats.loggedDays} of the last ${windowDays} days have complete intake logged. About ${MIN_REVIEW_DAYS} are needed before a calorie change rests on anything.`
+            `Only ${stats.loggedDays} of the last ${windowDays} days have complete intake logged. About ${adaptive.preferredDataDays} are needed before a calorie change rests on anything.`
         )
     }
-    if (stats.coverage < MIN_COVERAGE) {
+    if (stats.coverage < adaptive.minCoverage) {
         return hold(
             'poor-adherence',
             `Hold ${Math.round(current).toLocaleString()} kcal`,
@@ -374,8 +361,9 @@ export function reviewNutrition(input: ReviewInput): Recommendation {
         )
     }
 
-    const band = acceptableBand(goal, desiredRate)
-    if (!band) {
+    const band = config.rate.acceptable
+    const centre = desiredRate
+    if (!band || centre === null) {
         return hold(
             'no-target',
             `Hold ${Math.round(current).toLocaleString()} kcal`,
@@ -383,16 +371,30 @@ export function reviewNutrition(input: ReviewInput): Recommendation {
         )
     }
 
-    if (rateWithinBand(observedRate, goal) || (observedRate >= band.min && observedRate <= band.max)) {
+    if (withinRateBand(observedRate, config.rate)) {
         return hold(
             'on-target',
             `Keep ${Math.round(current).toLocaleString()} kcal`,
-            `The scale is moving at ${fmtRate(observedRate)} against a target of ${fmtRate(band.min)} to ${fmtRate(band.max)}. Your current intake is producing close to the intended rate — no change needed.`
+            `The scale is moving at ${fmtRate(observedRate)} against an intended ${fmtRate(band.min)} to ${fmtRate(band.max)}. Your current intake is producing close to the intended rate — no change needed.`
         )
     }
 
-    const tooSlow = observedRate > band.max + SLOW_MARGIN_KG
-    const tooFast = observedRate < band.min - FAST_MARGIN_KG
+    /*
+     * Which way to move the food, without any assumption about which way the
+     * scale is meant to go.
+     *
+     * More calories raise the observed rate and fewer lower it — that holds
+     * whether the goal is to lose, hold or gain. So the whole decision is the
+     * sign of (intended − observed): a rate running *above* what was asked for
+     * means eat less, one running *below* it means eat more. On a cut that reads
+     * as "not losing fast enough → reduce"; on a bulk the identical arithmetic
+     * reads as "gaining too fast → reduce". Neither case is special.
+     *
+     * The margins keep ordinary noise from tripping it, and sit outside the
+     * band the user configured.
+     */
+    const aboveBand = observedRate > band.max + config.rate.marginAboveKg
+    const belowBand = observedRate < band.min - config.rate.marginBelowKg
 
     /*
      * The one place the wider picture overrides the arithmetic — and it only
@@ -409,7 +411,7 @@ export function reviewNutrition(input: ReviewInput): Recommendation {
      * reading or one poor session ratchet calories down, which is the failure
      * mode the whole engine is built to avoid.
      */
-    if (tooSlow && context?.holdsAgainstReduction) {
+    if (aboveBand && context?.holdsAgainstReduction) {
         return hold(
             'contradicted',
             `Keep ${Math.round(current).toLocaleString()} kcal`,
@@ -417,7 +419,7 @@ export function reviewNutrition(input: ReviewInput): Recommendation {
         )
     }
 
-    if (!tooSlow && !tooFast) {
+    if (!aboveBand && !belowBand) {
         return hold(
             'on-target',
             `Keep ${Math.round(current).toLocaleString()} kcal`,
@@ -427,16 +429,23 @@ export function reviewNutrition(input: ReviewInput): Recommendation {
 
     // Size the change from the gap between the rates, then hold it to a step.
     // The arithmetic would happily suggest 400 kcal off one slow month; the cap
-    // is what stops a single noisy window from rewriting the prescription.
-    const centre = goal.targetWeeklyRateKg ?? (band.min + band.max) / 2
+    // the user configured is what stops a single noisy window from rewriting the
+    // prescription.
     const rawKcal = ((centre - observedRate) * KCAL_PER_KG) / 7
-    const delta = stepFrom(rawKcal)
+    const delta = stepFrom(rawKcal, adaptive)
 
     const suggested = Math.round(current + delta)
     const floorG = proteinFloorOf(phase)
-    const suggestedTargets = retargetCalories(currentPhaseTargets(phase), suggested, floorG)
+    const suggestedTargets = retargetCalories(
+        config.prescription,
+        suggested,
+        floorG,
+        config.macroPolicy
+    )
+    const lever = leverName(config)
+    const observedPhrase = ratePhrase(observedRate, config.goalMode)
 
-    if (tooSlow) {
+    if (delta < 0) {
         return {
             ...base,
             action: 'reduce',
@@ -445,7 +454,7 @@ export function reviewNutrition(input: ReviewInput): Recommendation {
             deltaKcal: delta,
             suggestedTargets,
             headline: `Reduce to ${suggested.toLocaleString()} kcal`,
-            reason: `The trend has slowed to ${fmtRate(observedRate)} against an intended ${fmtRate(centre)}, across ${stats.loggedDays} of ${windowDays} days logged. Take ${Math.abs(delta)} kcal off the baseline, from carbohydrate — protein stays at ${Math.round(suggestedTargets.protein)} g.`,
+            reason: `${observedPhrase} at ${fmtRate(observedRate)} against an intended ${fmtRate(centre)}, across ${stats.loggedDays} of ${windowDays} days logged. Take ${Math.abs(delta)} kcal off the baseline, from ${lever}${proteinNote(config, suggestedTargets)}.`,
         }
     }
 
@@ -457,22 +466,47 @@ export function reviewNutrition(input: ReviewInput): Recommendation {
         deltaKcal: delta,
         suggestedTargets,
         headline: `Increase to ${suggested.toLocaleString()} kcal`,
-        reason: `Weight is coming off at ${fmtRate(observedRate)}, faster than the intended ${fmtRate(centre)}. Add ${Math.abs(delta)} kcal of carbohydrate back — at this rate you are spending muscle and session quality for time you do not need to save.`,
+        reason: `${observedPhrase} at ${fmtRate(observedRate)} against an intended ${fmtRate(centre)}. Add ${Math.abs(delta)} kcal back, to ${lever}${muscleNote(config, observedRate, centre)}.`,
     }
 }
 
+/** The macro the policy has absorbing the change, named for a sentence. */
+function leverName(config: NutritionConfig): string {
+    const { macroPolicy } = config
+    if (macroPolicy.fat === 'remainder') return 'fat'
+    if (macroPolicy.protein === 'remainder') return 'protein'
+    return 'carbohydrate'
+}
+
+/** " — protein stays at 210 g", when the policy is actually holding it. */
+function proteinNote(config: NutritionConfig, targets: { protein: number }): string {
+    if (config.macroPolicy.protein === 'remainder' || config.macroPolicy.protein === 'adjustable') {
+        return ''
+    }
+    return ` — protein stays at ${Math.round(targets.protein)} g`
+}
+
 /**
- * The acceptable rate band, from the goal or built around the desired rate. A
- * quarter-kilo either side is the default: wide enough that ordinary weeks don't
- * trip it, narrow enough that a real drift eventually does.
+ * The muscle-preservation clause, but only where it is actually true: overshooting
+ * on the way down costs lean tissue, whereas a bulk running hot is just gaining
+ * faster than intended and costs body fat instead.
  */
-function acceptableBand(
-    goal: { acceptableWeeklyRateKg?: { min: number; max: number }; targetWeeklyRateKg?: number },
-    desiredRate: number | null
-): { min: number; max: number } | null {
-    if (goal.acceptableWeeklyRateKg) return goal.acceptableWeeklyRateKg
-    if (desiredRate === null) return null
-    return { min: desiredRate - 0.25, max: desiredRate + 0.25 }
+function muscleNote(config: NutritionConfig, observed: number, centre: number): string {
+    if (config.rate.direction !== 'down' || observed >= centre) return ''
+    return '. At this rate you are spending muscle and session quality for time you do not need to save'
+}
+
+/**
+ * How to describe what the scale is doing, in terms that fit the goal. "Weight
+ * is coming off" is exactly wrong on a bulk, and "the trend has slowed" is
+ * nonsense when the trend has in fact accelerated upward.
+ */
+function ratePhrase(observed: number, goalMode: string): string {
+    if (Math.abs(observed) < 0.05) return 'The scale has been broadly flat'
+    if (observed < 0) return 'Weight is coming off'
+    return goalMode === 'weight-gain' || goalMode === 'recomposition'
+        ? 'Weight is going on'
+        : 'The scale is rising'
 }
 
 /**
@@ -480,23 +514,35 @@ function acceptableBand(
  * than the cap, rounded to something a person would actually choose. Anything
  * under the minimum step is not worth the disruption and comes back as zero.
  */
-export function stepFrom(rawKcal: number): number {
+export function stepFrom(
+    rawKcal: number,
+    adaptive: Required<AdaptiveSettings> = DEFAULT_ADAPTIVE_SETTINGS
+): number {
     const size = Math.abs(rawKcal)
-    if (size < MIN_STEP_KCAL) return 0
-    const capped = Math.min(size, MAX_STEP_KCAL)
-    const rounded = Math.round(capped / STEP_ROUNDING) * STEP_ROUNDING
-    return Math.sign(rawKcal) * Math.min(rounded, MAX_STEP_KCAL)
+    if (size < adaptive.minAdjustmentKcal) return 0
+    const capped = Math.min(size, adaptive.maxAdjustmentKcal)
+    // Rounded for legibility, then re-capped: rounding up must never carry the
+    // change past the ceiling the user set.
+    const rounded = Math.round(capped / STEP_ROUNDING_KCAL) * STEP_ROUNDING_KCAL
+    return Math.sign(rawKcal) * Math.min(rounded, adaptive.maxAdjustmentKcal)
 }
 
 /**
  * How far to trust the figures. High needs a full window, good coverage and a
  * rate fitted to real readings rather than inferred from the smoothed line.
  */
-function confidenceOf(stats: Adherence, trend: WeightTrend | TrendGap): Confidence {
+function confidenceOf(
+    stats: Adherence,
+    trend: WeightTrend | TrendGap,
+    adaptive: Required<AdaptiveSettings>
+): Confidence {
     if (typeof trend === 'string') return 'low'
     const fitted = trend.rateKgPerWeek !== null
-    if (stats.loggedDays >= MIN_REVIEW_DAYS && stats.coverage >= 0.85 && fitted) return 'high'
-    if (stats.loggedDays >= MIN_ANALYSIS_DAYS && fitted) return 'medium'
+    // "Well covered" is a fifth again above the minimum the user set, rather than
+    // a second threshold to configure.
+    const wellCovered = stats.coverage >= Math.min(1, adaptive.minCoverage * 1.2)
+    if (stats.loggedDays >= adaptive.preferredDataDays && wellCovered && fitted) return 'high'
+    if (stats.loggedDays >= adaptive.minimumDataDays && fitted) return 'medium'
     return 'low'
 }
 

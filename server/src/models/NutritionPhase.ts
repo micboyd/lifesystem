@@ -32,11 +32,14 @@ export interface IPhaseGoal {
     /**
      * 'recomp' means the point is body composition rather than scale weight:
      * hold protein, lose slowly, and read lean mass alongside the total. A cut
-     * whose goal is simply to weigh less doesn't need it.
+     * whose goal is simply to weigh less doesn't need it. Superseded by
+     * `goalMode` on the phase; kept because existing phases carry it.
      */
     style?: 'recomp' | 'standard'
     /** Bodyweight in kg when the phase began — the baseline progress is measured from. */
     startWeightKg?: number
+    /** Body fat when the phase began, for composition comparisons. */
+    startBodyFatPct?: number
     /** YYYY-MM-DD the goal is aimed at. Usually, but not necessarily, `endDate`. */
     targetDate?: string
     targetWeightKg?: number
@@ -70,16 +73,83 @@ export type AdjustmentSource = (typeof ADJUSTMENT_SOURCES)[number]
  * before the day being asked about.
  */
 export interface IPhaseAdjustment {
-    /** YYYY-MM-DD from which these targets apply, inclusive. */
+    /** YYYY-MM-DD from which this revision applies, inclusive. */
     effectiveFrom: string
-    /** The full target set in force from that date — not a delta. */
-    targets: IPhaseTargets
+    /**
+     * The full target set in force from that date — not a delta. Absent on a
+     * revision that changed only the goal, which leaves the prescription alone.
+     */
+    targets?: IPhaseTargets
     /** What it replaced, so the change is readable without replaying the chain. */
     previous?: IPhaseTargets
+    /** The goal as it stood before this revision, when the goal is what changed. */
+    previousGoal?: IPhaseGoal
     /** Why, in a sentence. Carries the review's reasoning when accepted from one. */
     reason?: string
     source: AdjustmentSource
     createdAt?: Date
+}
+
+/**
+ * What the user is trying to do, in the engine's terms.
+ *
+ * `kind` already says which way the scale should move and is threaded through
+ * verdict colours, the timeline and the month-load weights, so it stays exactly
+ * as it is. This says what the *goal* is, which is a different question: a
+ * recomposition and a plain cut are both `kind: 'cut'` and want very different
+ * things said about a flat scale.
+ */
+export const GOAL_MODES = [
+    'weight-loss',
+    'recomposition',
+    'maintenance',
+    'weight-gain',
+] as const
+export type GoalMode = (typeof GOAL_MODES)[number]
+
+/**
+ * How the review behaves. Every field is optional and falls back to a documented
+ * default, so a phase can override one setting without restating the rest.
+ *
+ * These live here rather than as constants in the engine because they are
+ * judgements, not mathematics: how long a window has to be before it is worth
+ * acting on, and how big a change is prudent, are things a user is entitled to
+ * disagree with.
+ */
+export interface IAdaptiveSettings {
+    enabled?: boolean
+    /** Days of history the review reads. */
+    reviewWindowDays?: number
+    /** Below this many logged days, nothing is worth quoting. */
+    minimumDataDays?: number
+    /** Below this many logged days, nothing is proposed. */
+    preferredDataDays?: number
+    /** Largest change proposed at one review, kcal/day. */
+    maxAdjustmentKcal?: number
+    /** Smallest change worth making, kcal/day. */
+    minAdjustmentKcal?: number
+    /** How close to target a day must land to count as adherent, kcal. */
+    calorieAdherenceToleranceKcal?: number
+    /** Fraction of the window that must carry logged intake, 0–1. */
+    minCoverage?: number
+}
+
+/**
+ * Which macros may move when calories change.
+ *
+ * 'fixed' holds the current figure, 'minimum' treats it as a floor it may rise
+ * above, 'remainder' absorbs whatever the calorie target leaves, and
+ * 'adjustable' scales with calories. A hard-training cut usually wants protein
+ * and fat fixed with carbohydrate taking the difference — but that is a
+ * preference, not a law, and someone on a low-carb approach wants the opposite.
+ */
+export const MACRO_ROLES = ['fixed', 'minimum', 'remainder', 'adjustable'] as const
+export type MacroRole = (typeof MACRO_ROLES)[number]
+
+export interface IMacroPolicy {
+    protein?: MacroRole
+    fat?: MacroRole
+    carbs?: MacroRole
 }
 
 /** How a day's target is derived from the phase's baseline. */
@@ -124,6 +194,9 @@ export interface INutritionPhase extends Document {
      */
     weeklyRate?: number
     goal?: IPhaseGoal
+    goalMode?: GoalMode
+    adaptive?: IAdaptiveSettings
+    macroPolicy?: IMacroPolicy
     adjustments?: IPhaseAdjustment[]
     strategy?: ITargetStrategy
     notes?: string
@@ -153,6 +226,7 @@ const goalSchema = new Schema<IPhaseGoal>(
     {
         style: { type: String, enum: ['recomp', 'standard'] },
         startWeightKg: { type: Number, min: 0 },
+        startBodyFatPct: { type: Number, min: 0, max: 100 },
         targetDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
         targetWeightKg: { type: Number, min: 0 },
         targetWeightRangeKg: { type: rangeSchema, default: undefined },
@@ -169,11 +243,35 @@ const goalSchema = new Schema<IPhaseGoal>(
 const adjustmentSchema = new Schema<IPhaseAdjustment>(
     {
         effectiveFrom: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
-        targets: { type: targetsSchema, required: true },
+        targets: { type: targetsSchema, default: undefined },
         previous: { type: targetsSchema, default: undefined },
+        previousGoal: { type: goalSchema, default: undefined },
         reason: { type: String, trim: true, maxlength: 400 },
         source: { type: String, enum: ADJUSTMENT_SOURCES, required: true, default: 'manual' },
         createdAt: { type: Date, default: () => new Date() },
+    },
+    { _id: false }
+)
+
+const adaptiveSchema = new Schema<IAdaptiveSettings>(
+    {
+        enabled: { type: Boolean },
+        reviewWindowDays: { type: Number, min: 1 },
+        minimumDataDays: { type: Number, min: 1 },
+        preferredDataDays: { type: Number, min: 1 },
+        maxAdjustmentKcal: { type: Number, min: 0 },
+        minAdjustmentKcal: { type: Number, min: 0 },
+        calorieAdherenceToleranceKcal: { type: Number, min: 0 },
+        minCoverage: { type: Number, min: 0, max: 1 },
+    },
+    { _id: false }
+)
+
+const macroPolicySchema = new Schema<IMacroPolicy>(
+    {
+        protein: { type: String, enum: MACRO_ROLES },
+        fat: { type: String, enum: MACRO_ROLES },
+        carbs: { type: String, enum: MACRO_ROLES },
     },
     { _id: false }
 )
@@ -199,6 +297,9 @@ const nutritionPhaseSchema = new Schema<INutritionPhase>(
         // All three default to undefined rather than an empty object, so a phase
         // that never opted in stores nothing and reads back exactly as before.
         goal: { type: goalSchema, default: undefined },
+        goalMode: { type: String, enum: GOAL_MODES },
+        adaptive: { type: adaptiveSchema, default: undefined },
+        macroPolicy: { type: macroPolicySchema, default: undefined },
         adjustments: { type: [adjustmentSchema], default: undefined },
         strategy: { type: strategySchema, default: undefined },
         notes: { type: String, trim: true },

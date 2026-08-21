@@ -28,6 +28,7 @@ import { goalProgress } from '../../lib/nutritionGoal'
 import { measurementTrend, readingsOf } from '../../lib/bodyMeasurements'
 import { strengthSummary } from '../../lib/strengthTrend'
 import { readTransformation } from '../../lib/transformation'
+import { resolveConfig } from '../../lib/nutritionConfig'
 import { adherence } from '../../lib/nutritionAdjustment'
 import type {
     MacroGoals,
@@ -100,6 +101,9 @@ export default function ProgressTab({ settingsGoals }: { settingsGoals?: MacroGo
     useEffect(load, [load])
 
     const phase = useMemo(() => phaseFor(today, phases), [today, phases])
+    // The phase as configuration, with application defaults filled in. Every
+    // figure below reads this rather than the raw record.
+    const config = useMemo(() => resolveConfig(phase), [phase])
     const trend = useMemo(() => weightTrend(logs, today), [logs, today])
     const points = useMemo(() => trendSeries(logs), [logs])
     const progress = useMemo(() => goalProgress(phase, trend, today), [phase, trend, today])
@@ -120,7 +124,8 @@ export default function ProgressTab({ settingsGoals }: { settingsGoals?: MacroGo
         if (!phase?.goal) return null
         return readTransformation({
             rateKgPerWeek: usableRate(trend),
-            rateBand: phase.goal.acceptableWeeklyRateKg,
+            rate: config?.rate ?? null,
+            goalMode: config?.goalMode,
             waist,
             strength,
             adherence: stats,

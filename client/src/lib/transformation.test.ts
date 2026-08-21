@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import {
     readTransformation,
-    weightDirection,
+    paceOf,
     subjectiveRead,
     POOR_RECOVERY,
     type TransformationInput,
 } from './transformation'
 import { measurementTrend } from './bodyMeasurements'
+import { resolveRate } from './nutritionConfig'
 import { strengthSummary } from './strengthTrend'
 import { adherence, reviewNutrition } from './nutritionAdjustment'
 import { weightTrend } from './nutritionTrend'
@@ -111,7 +112,7 @@ const GOOD_LOG = Array.from({ length: 21 }, (_, i) => entry(plus(ASOF, -(20 - i)
 function build(over: Partial<TransformationInput> = {}): TransformationInput {
     return {
         rateKgPerWeek: -0.2,
-        rateBand: BAND,
+        rate: resolveRate(phase(), 'recomposition'),
         waist: measurementTrend(waistLogs(112, 1.2), 'waist', ASOF),
         strength: strengthSummary(workouts('Back Squat', 120, 0), ASOF),
         adherence: adherence(GOOD_LOG, [phase()], null, ASOF),
@@ -123,35 +124,50 @@ function build(over: Partial<TransformationInput> = {}): TransformationInput {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-describe('weightDirection', () => {
-    it('calls a rate inside the band falling', () => {
-        expect(weightDirection(-0.2, BAND)).toBe('falling')
+const CUT_RATE = resolveRate(phase(), 'recomposition')
+
+describe('paceOf', () => {
+    it('calls a rate inside the band as intended', () => {
+        expect(paceOf(-0.2, CUT_RATE)).toBe('as-intended')
     })
 
-    it('calls a rate well past the band falling fast', () => {
-        expect(weightDirection(-0.55, BAND)).toBe('falling-fast')
-    })
-
-    it('does not call a rate just outside the band fast', () => {
-        expect(weightDirection(-0.35, BAND)).toBe('falling')
+    it('calls losing harder than asked faster', () => {
+        expect(paceOf(-0.55, CUT_RATE)).toBe('faster')
     })
 
     it('calls a near-zero rate flat', () => {
-        expect(weightDirection(-0.02, BAND)).toBe('flat')
-        expect(weightDirection(0.03, BAND)).toBe('flat')
+        expect(paceOf(-0.02, CUT_RATE)).toBe('flat')
     })
 
-    it('calls a rising scale rising', () => {
-        expect(weightDirection(0.2, BAND)).toBe('rising')
+    it('calls gaining on a cut the wrong way', () => {
+        expect(paceOf(0.2, CUT_RATE)).toBe('wrong-way')
     })
 
     it('is unknown without a rate', () => {
-        expect(weightDirection(null, BAND)).toBe('unknown')
+        expect(paceOf(null, CUT_RATE)).toBe('unknown')
     })
 
-    it('falls back to half a kilo a week without a band', () => {
-        expect(weightDirection(-0.4, null)).toBe('falling')
-        expect(weightDirection(-0.7, null)).toBe('falling-fast')
+    it('reads a bulk the same way, mirrored', () => {
+        const bulkRate = resolveRate(
+            { ...phase(), kind: 'gain', weeklyRate: 0.25,
+              goal: { targetWeeklyRateKg: 0.25, acceptableWeeklyRateKg: { min: 0.15, max: 0.35 } } } as NutritionPhase,
+            'weight-gain'
+        )
+        expect(paceOf(0.25, bulkRate)).toBe('as-intended')
+        expect(paceOf(0.6, bulkRate)).toBe('faster')
+        expect(paceOf(0.08, bulkRate)).toBe('slower')
+        expect(paceOf(-0.2, bulkRate)).toBe('wrong-way')
+    })
+
+    it('reads maintenance as holding, drifting either way', () => {
+        const holdRate = resolveRate(
+            { ...phase(), kind: 'maintain', weeklyRate: undefined, goal: {} } as NutritionPhase,
+            'maintenance'
+        )
+        expect(paceOf(0.01, holdRate)).toBe('as-intended')
+        expect(paceOf(-0.01, holdRate)).toBe('as-intended')
+        expect(paceOf(0.4, holdRate)).toBe('wrong-way')
+        expect(paceOf(-0.4, holdRate)).toBe('wrong-way')
     })
 })
 
@@ -250,7 +266,7 @@ describe('readTransformation', () => {
         )
         expect(r.pattern).toBe('stalled')
         expect(r.holdsAgainstReduction).toBe(false)
-        expect(r.detail).toMatch(/small calorie reduction may be appropriate/)
+        expect(r.detail).toMatch(/small calorie adjustment may be appropriate/)
     })
 
     it('will not call a plateau a stall when intake was barely logged', () => {
@@ -273,8 +289,8 @@ describe('readTransformation', () => {
         expect(r.detail).toMatch(/waist measurement/)
     })
 
-    it('reports a rising scale', () => {
-        expect(readTransformation(build({ rateKgPerWeek: 0.25 })).pattern).toBe('gaining')
+    it('reports a scale moving against the plan', () => {
+        expect(readTransformation(build({ rateKgPerWeek: 0.25 })).pattern).toBe('wrong-way')
     })
 
     it('does not pretend certainty without a weight trend', () => {
@@ -283,7 +299,7 @@ describe('readTransformation', () => {
         expect(r.holdsAgainstReduction).toBe(false)
     })
 
-    it('works with no waist, no strength history and no check-ins', () => {
+    it('does not treat an absent waist reading as evidence against progress', () => {
         const r = readTransformation(
             build({ waist: 'none', strength: strengthSummary([], ASOF), checkIns: [] })
         )

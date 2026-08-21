@@ -4,12 +4,14 @@ import {
     adherenceIsUsable,
     reviewNutrition,
     stepFrom,
-    MAX_STEP_KCAL,
-    MIN_STEP_KCAL,
-    MIN_REVIEW_DAYS,
     REVIEW_WINDOW_DAYS,
     type ReviewInput,
 } from './nutritionAdjustment'
+import { DEFAULT_ADAPTIVE_SETTINGS } from './nutritionConfig'
+
+const MAX_STEP_KCAL = DEFAULT_ADAPTIVE_SETTINGS.maxAdjustmentKcal
+const MIN_STEP_KCAL = DEFAULT_ADAPTIVE_SETTINGS.minAdjustmentKcal
+const MIN_REVIEW_DAYS = DEFAULT_ADAPTIVE_SETTINGS.preferredDataDays
 import { weightTrend } from './nutritionTrend'
 import { trendSeries } from './weightTrend'
 import { caloriesOf } from './nutritionTargets'

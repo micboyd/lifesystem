@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Modal from '../Modal'
 import Button from '../Button'
 import Input from '../Input'
@@ -10,14 +10,25 @@ import Badge from '../Badge'
 import EmptyState from '../EmptyState'
 import DatePicker, { type DatePickerValue, type DateRange } from '../DatePicker'
 import {
+    GOAL_MODES,
+    GOAL_MODE_LABELS,
+    MACRO_ROLES,
     NUTRITION_PHASE_KINDS,
     NUTRITION_PHASE_LABELS,
     type MacroGoals,
     type NutritionPhase,
     type NutritionPhaseInput,
+    type GoalMode,
+    type MacroRole,
     type NutritionPhaseKind,
     type PhaseGoal,
 } from '../../types'
+import {
+    DEFAULT_ADAPTIVE_SETTINGS,
+    DEFAULT_MACRO_POLICY,
+    resolveGoalMode,
+} from '../../lib/nutritionConfig'
+import { compositionTarget, goalImplication } from '../../lib/nutritionGoal'
 import { formatDateShort, todayKey } from '../../lib/calendar'
 
 /**
@@ -59,8 +70,9 @@ interface FormState {
      * plain dated target, exactly as phases were before any of this existed.
      */
     adaptive: boolean
-    recomp: boolean
+    goalMode: GoalMode
     startWeight: string
+    startBodyFat: string
     targetWeight: string
     targetWeightMin: string
     targetWeightMax: string
@@ -71,6 +83,15 @@ interface FormState {
     cycling: boolean
     hardKcal: string
     restKcal: string
+    /** Advanced review settings. Blank means "use the application default". */
+    reviewWindowDays: string
+    minimumDataDays: string
+    preferredDataDays: string
+    maxAdjustmentKcal: string
+    adherenceTolerance: string
+    proteinRole: MacroRole
+    fatRole: MacroRole
+    carbsRole: MacroRole
 }
 
 function blankForm(): FormState {
@@ -87,8 +108,9 @@ function blankForm(): FormState {
         weeklyRate: '',
         notes: '',
         adaptive: false,
-        recomp: false,
+        goalMode: 'weight-loss',
         startWeight: '',
+        startBodyFat: '',
         targetWeight: '',
         targetWeightMin: '',
         targetWeightMax: '',
@@ -99,6 +121,14 @@ function blankForm(): FormState {
         cycling: false,
         hardKcal: '',
         restKcal: '',
+        reviewWindowDays: '',
+        minimumDataDays: '',
+        preferredDataDays: '',
+        maxAdjustmentKcal: '',
+        adherenceTolerance: '',
+        proteinRole: DEFAULT_MACRO_POLICY.protein,
+        fatRole: DEFAULT_MACRO_POLICY.fat,
+        carbsRole: DEFAULT_MACRO_POLICY.carbs,
     }
 }
 
@@ -114,9 +144,10 @@ function formFrom(phase: NutritionPhase): FormState {
         fat: phase.targets.fat?.toString() ?? '',
         weeklyRate: phase.weeklyRate?.toString() ?? '',
         notes: phase.notes ?? '',
-        adaptive: phase.goal?.adaptive ?? false,
-        recomp: phase.goal?.style === 'recomp',
+        adaptive: phase.adaptive?.enabled ?? phase.goal?.adaptive ?? false,
+        goalMode: resolveGoalMode(phase),
         startWeight: phase.goal?.startWeightKg?.toString() ?? '',
+        startBodyFat: phase.goal?.startBodyFatPct?.toString() ?? '',
         targetWeight: phase.goal?.targetWeightKg?.toString() ?? '',
         targetWeightMin: phase.goal?.targetWeightRangeKg?.min?.toString() ?? '',
         targetWeightMax: phase.goal?.targetWeightRangeKg?.max?.toString() ?? '',
@@ -127,6 +158,14 @@ function formFrom(phase: NutritionPhase): FormState {
         cycling: phase.strategy?.type === 'activity',
         hardKcal: phase.strategy?.hardKcal?.toString() ?? '',
         restKcal: phase.strategy?.restKcal?.toString() ?? '',
+        reviewWindowDays: phase.adaptive?.reviewWindowDays?.toString() ?? '',
+        minimumDataDays: phase.adaptive?.minimumDataDays?.toString() ?? '',
+        preferredDataDays: phase.adaptive?.preferredDataDays?.toString() ?? '',
+        maxAdjustmentKcal: phase.adaptive?.maxAdjustmentKcal?.toString() ?? '',
+        adherenceTolerance: phase.adaptive?.calorieAdherenceToleranceKcal?.toString() ?? '',
+        proteinRole: phase.macroPolicy?.protein ?? DEFAULT_MACRO_POLICY.protein,
+        fatRole: phase.macroPolicy?.fat ?? DEFAULT_MACRO_POLICY.fat,
+        carbsRole: phase.macroPolicy?.carbs ?? DEFAULT_MACRO_POLICY.carbs,
     }
 }
 
@@ -146,8 +185,11 @@ function goalFrom(form: FormState): PhaseGoal | undefined {
     const wMax = readNumber(form.targetWeightMax)
 
     return {
-        style: form.recomp ? 'recomp' : 'standard',
+        // `style` predates `goalMode` and still drives older reads, so it is kept
+        // in step rather than left to contradict the mode.
+        style: form.goalMode === 'recomposition' ? 'recomp' : 'standard',
         startWeightKg: readNumber(form.startWeight),
+        startBodyFatPct: readNumber(form.startBodyFat),
         targetDate: form.endDate,
         targetWeightKg: readNumber(form.targetWeight),
         targetWeightRangeKg: wMin !== undefined && wMax !== undefined ? { min: wMin, max: wMax } : undefined,
@@ -157,6 +199,14 @@ function goalFrom(form: FormState): PhaseGoal | undefined {
         proteinFloorG: readNumber(form.proteinFloor),
         adaptive: true,
     }
+}
+
+/** What each macro role means, in the words the editor uses. */
+const MACRO_ROLE_LABELS: Record<MacroRole, string> = {
+    fixed: 'Hold',
+    minimum: 'Floor',
+    remainder: 'Remainder',
+    adjustable: 'Scale',
 }
 
 const KIND_VARIANTS: Record<NutritionPhaseKind, 'danger' | 'outline' | 'success'> = {
@@ -191,6 +241,27 @@ export default function NutritionPhasesTab({
     const [open, setOpen] = useState(false)
     const [editing, setEditing] = useState<NutritionPhase | null>(null)
     const [form, setForm] = useState<FormState>(blankForm)
+    const [showAdvanced, setShowAdvanced] = useState(false)
+
+    /*
+     * What the goal being typed actually implies, recomputed as it is typed.
+     *
+     * Purely informative. A weight-and-body-fat pair can quietly demand several
+     * kilos of new lean mass, which is worth knowing before saving and is not a
+     * reason to refuse the goal — nothing here can know what is achievable.
+     */
+    const implication = useMemo(() => {
+        const startKg = readNumber(form.startWeight)
+        const startBf = readNumber(form.startBodyFat)
+        const targetBf = readNumber(form.targetBodyFat)
+        if (startKg === undefined || startBf === undefined || targetBf === undefined) return null
+        return goalImplication(
+            compositionTarget(startKg, startBf, {
+                targetBodyFatPct: targetBf,
+                targetWeightKg: readNumber(form.targetWeight),
+            })
+        )
+    }, [form.startWeight, form.startBodyFat, form.targetBodyFat, form.targetWeight])
 
     useEffect(() => {
         if (!open) return
@@ -222,6 +293,25 @@ export default function NutritionPhasesTab({
                 },
                 weeklyRate: form.weeklyRate.trim() ? Number(form.weeklyRate) : undefined,
                 goal: goalFrom(form),
+                goalMode: form.goalMode,
+                // Only the settings actually filled in are sent. A blank box
+                // means "use the application default", which must not be frozen
+                // into the record as today's value.
+                adaptive: form.adaptive
+                    ? {
+                          enabled: true,
+                          reviewWindowDays: readNumber(form.reviewWindowDays),
+                          minimumDataDays: readNumber(form.minimumDataDays),
+                          preferredDataDays: readNumber(form.preferredDataDays),
+                          maxAdjustmentKcal: readNumber(form.maxAdjustmentKcal),
+                          calorieAdherenceToleranceKcal: readNumber(form.adherenceTolerance),
+                      }
+                    : undefined,
+                macroPolicy: {
+                    protein: form.proteinRole,
+                    fat: form.fatRole,
+                    carbs: form.carbsRole,
+                },
                 strategy: form.cycling
                     ? {
                           type: 'activity',
@@ -439,16 +529,20 @@ export default function NutritionPhasesTab({
                         {form.adaptive && (
                             <div className="mt-4 space-y-4">
                                 <div>
-                                    <Switch
-                                        label="Recomposition"
-                                        checked={form.recomp}
-                                        onChange={(checked: boolean) =>
-                                            setForm((f) => ({ ...f, recomp: checked }))
+                                    <Select
+                                        label="Goal type"
+                                        options={GOAL_MODES.map((m) => ({
+                                            value: m,
+                                            label: GOAL_MODE_LABELS[m],
+                                        }))}
+                                        value={form.goalMode}
+                                        onChange={(v) =>
+                                            setForm((f) => ({ ...f, goalMode: v as GoalMode }))
                                         }
                                     />
                                     <p className="mt-1.5 text-[11px] text-neutral-400">
-                                        The point is body composition rather than scale weight: hold
-                                        protein, lose slowly, and read lean mass alongside the total.
+                                        What the goal is for. Recomposition reads a flat scale with a
+                                        falling waist as success rather than a stall.
                                     </p>
                                 </div>
 
@@ -462,6 +556,17 @@ export default function NutritionPhasesTab({
                                         value={form.startWeight}
                                         onChange={(e) =>
                                             setForm((f) => ({ ...f, startWeight: e.target.value }))
+                                        }
+                                    />
+                                    <Input
+                                        label="Starting body fat (%)"
+                                        type="number"
+                                        step="0.1"
+                                        min={0}
+                                        placeholder="28.8"
+                                        value={form.startBodyFat}
+                                        onChange={(e) =>
+                                            setForm((f) => ({ ...f, startBodyFat: e.target.value }))
                                         }
                                     />
                                     <Input
@@ -542,8 +647,119 @@ export default function NutritionPhasesTab({
                                 </div>
                                 <p className="text-[11px] text-neutral-400">
                                     The band is the range of weekly change that needs no correction.
-                                    Signed, so a cut runs negative — the weekly rate above is its centre.
+                                    Signed throughout: loss is negative, gain positive, maintenance
+                                    around zero. The weekly rate above is its centre.
                                 </p>
+
+                                {/* Non-blocking: says what the pairing implies, never refuses it. */}
+                                {implication && (
+                                    <p className="rounded-xl bg-neutral-50 px-3 py-2 text-[11px] leading-relaxed text-neutral-500">
+                                        {implication}
+                                    </p>
+                                )}
+
+                                <div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAdvanced((v) => !v)}
+                                        className="text-[11px] font-semibold text-neutral-500 underline"
+                                    >
+                                        {showAdvanced ? 'Hide' : 'Show'} advanced settings
+                                    </button>
+
+                                    {showAdvanced && (
+                                        <div className="mt-3 space-y-4">
+                                            <p className="text-[11px] text-neutral-400">
+                                                Leave any of these blank to use the application
+                                                default, shown as the placeholder.
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <Input
+                                                    label="Review window (days)"
+                                                    type="number"
+                                                    min={1}
+                                                    placeholder={String(DEFAULT_ADAPTIVE_SETTINGS.reviewWindowDays)}
+                                                    value={form.reviewWindowDays}
+                                                    onChange={(e) =>
+                                                        setForm((f) => ({ ...f, reviewWindowDays: e.target.value }))
+                                                    }
+                                                />
+                                                <Input
+                                                    label="Max adjustment (kcal)"
+                                                    type="number"
+                                                    min={0}
+                                                    placeholder={String(DEFAULT_ADAPTIVE_SETTINGS.maxAdjustmentKcal)}
+                                                    value={form.maxAdjustmentKcal}
+                                                    onChange={(e) =>
+                                                        setForm((f) => ({ ...f, maxAdjustmentKcal: e.target.value }))
+                                                    }
+                                                />
+                                                <Input
+                                                    label="Minimum data (days)"
+                                                    type="number"
+                                                    min={1}
+                                                    placeholder={String(DEFAULT_ADAPTIVE_SETTINGS.minimumDataDays)}
+                                                    value={form.minimumDataDays}
+                                                    onChange={(e) =>
+                                                        setForm((f) => ({ ...f, minimumDataDays: e.target.value }))
+                                                    }
+                                                />
+                                                <Input
+                                                    label="Days before advising"
+                                                    type="number"
+                                                    min={1}
+                                                    placeholder={String(DEFAULT_ADAPTIVE_SETTINGS.preferredDataDays)}
+                                                    value={form.preferredDataDays}
+                                                    onChange={(e) =>
+                                                        setForm((f) => ({ ...f, preferredDataDays: e.target.value }))
+                                                    }
+                                                />
+                                                <Input
+                                                    label="Adherence tolerance (kcal)"
+                                                    type="number"
+                                                    min={0}
+                                                    placeholder={String(DEFAULT_ADAPTIVE_SETTINGS.calorieAdherenceToleranceKcal)}
+                                                    value={form.adherenceTolerance}
+                                                    onChange={(e) =>
+                                                        setForm((f) => ({ ...f, adherenceTolerance: e.target.value }))
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                                    When calories change
+                                                </p>
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    {(
+                                                        [
+                                                            ['proteinRole', 'Protein'],
+                                                            ['fatRole', 'Fat'],
+                                                            ['carbsRole', 'Carbs'],
+                                                        ] as const
+                                                    ).map(([key, label]) => (
+                                                        <Select
+                                                            key={key}
+                                                            label={label}
+                                                            options={MACRO_ROLES.map((r) => ({
+                                                                value: r,
+                                                                label: MACRO_ROLE_LABELS[r],
+                                                            }))}
+                                                            value={form[key]}
+                                                            onChange={(v) =>
+                                                                setForm((f) => ({ ...f, [key]: v as MacroRole }))
+                                                            }
+                                                        />
+                                                    ))}
+                                                </div>
+                                                <p className="mt-1.5 text-[11px] text-neutral-400">
+                                                    Exactly one macro should take the remainder — it
+                                                    absorbs the change when calories move.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>

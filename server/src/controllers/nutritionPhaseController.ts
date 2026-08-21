@@ -2,13 +2,19 @@ import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import NutritionPhase, {
     ADJUSTMENT_SOURCES,
+    GOAL_MODES,
+    MACRO_ROLES,
     NUTRITION_PHASE_KINDS,
     TARGET_STRATEGIES,
     type AdjustmentSource,
+    type GoalMode,
+    type IAdaptiveSettings,
+    type IMacroPolicy,
     type IPhaseAdjustment,
     type IPhaseGoal,
     type IPhaseTargets,
     type ITargetStrategy,
+    type MacroRole,
     type NutritionPhaseKind,
     type TargetStrategyType,
 } from '../models/NutritionPhase'
@@ -61,6 +67,57 @@ function readPositive(v: unknown): number | undefined {
     return n !== undefined && n >= 0 ? n : undefined
 }
 
+/** A percentage in [0, 100], or undefined. */
+function readPercent(v: unknown): number | undefined {
+    const n = readPositive(v)
+    return n !== undefined && n <= 100 ? n : undefined
+}
+
+/** A whole number of at least `min`, or undefined. */
+function readCount(v: unknown, min = 1): number | undefined {
+    const n = readNumber(v)
+    if (n === undefined || n < min) return undefined
+    return Math.round(n)
+}
+
+/**
+ * The adaptive settings, or undefined when nothing usable was sent.
+ *
+ * Deliberately not defaulted here: an absent field means "use the application
+ * default", and writing the default into the record would freeze today's
+ * judgement into every phase ever saved.
+ */
+function readAdaptive(v: unknown): IAdaptiveSettings | undefined {
+    if (!isObjectBody(v)) return undefined
+    const settings: IAdaptiveSettings = {
+        enabled: typeof v.enabled === 'boolean' ? v.enabled : undefined,
+        reviewWindowDays: readCount(v.reviewWindowDays),
+        minimumDataDays: readCount(v.minimumDataDays),
+        preferredDataDays: readCount(v.preferredDataDays),
+        maxAdjustmentKcal: readPositive(v.maxAdjustmentKcal),
+        minAdjustmentKcal: readPositive(v.minAdjustmentKcal),
+        calorieAdherenceToleranceKcal: readPositive(v.calorieAdherenceToleranceKcal),
+        minCoverage:
+            readPositive(v.minCoverage) !== undefined && (v.minCoverage as number) <= 1
+                ? (v.minCoverage as number)
+                : undefined,
+    }
+    return Object.values(settings).some((x) => x !== undefined) ? settings : undefined
+}
+
+/** The macro adjustment policy, or undefined. */
+function readMacroPolicy(v: unknown): IMacroPolicy | undefined {
+    if (!isObjectBody(v)) return undefined
+    const role = (raw: unknown): MacroRole | undefined =>
+        (MACRO_ROLES as readonly string[]).includes(raw as string) ? (raw as MacroRole) : undefined
+    const policy: IMacroPolicy = {
+        protein: role(v.protein),
+        fat: role(v.fat),
+        carbs: role(v.carbs),
+    }
+    return Object.values(policy).some((x) => x !== undefined) ? policy : undefined
+}
+
 /**
  * A { min, max } pair, normalised so min ≤ max. Rates arrive signed, and a band
  * written the way it reads aloud — "0.15 to 0.30 kg/week off" — comes through as
@@ -85,10 +142,11 @@ function readGoal(v: unknown): IPhaseGoal | undefined {
     const goal: IPhaseGoal = {
         style,
         startWeightKg: readPositive(v.startWeightKg),
+        startBodyFatPct: readPercent(v.startBodyFatPct),
         targetDate: isValidDate(v.targetDate) ? v.targetDate : undefined,
         targetWeightKg: readPositive(v.targetWeightKg),
         targetWeightRangeKg: readRange(v.targetWeightRangeKg),
-        targetBodyFatPct: readPositive(v.targetBodyFatPct),
+        targetBodyFatPct: readPercent(v.targetBodyFatPct),
         targetBodyFatRangePct: readRange(v.targetBodyFatRangePct),
         targetWeeklyRateKg: readNumber(v.targetWeeklyRateKg),
         acceptableWeeklyRateKg: readRange(v.acceptableWeeklyRateKg),
@@ -120,11 +178,15 @@ function readBody(body: unknown):
           targets: IPhaseTargets
           weeklyRate: number | undefined
           goal: IPhaseGoal | undefined
+          goalMode: GoalMode | undefined
+          adaptive: IAdaptiveSettings | undefined
+          macroPolicy: IMacroPolicy | undefined
           strategy: ITargetStrategy | undefined
           notes: string | undefined
       } {
     if (!isObjectBody(body)) return { error: 'a JSON object body is required' }
-    const { name, startDate, endDate, kind, targets, weeklyRate, goal, strategy, notes } = body
+    const { name, startDate, endDate, kind, targets, weeklyRate, goal, goalMode, adaptive, macroPolicy, strategy, notes } =
+        body
     if (typeof name !== 'string' || !name.trim()) return { error: 'name is required' }
     if (!isValidDate(startDate) || !isValidDate(endDate))
         return { error: 'startDate and endDate must be YYYY-MM-DD' }
@@ -139,6 +201,24 @@ function readBody(body: unknown):
         return { error: 'weeklyRate must be a number' }
     if (notes !== undefined && notes !== null && typeof notes !== 'string')
         return { error: 'notes must be a string' }
+    if (goalMode !== undefined && !(GOAL_MODES as readonly string[]).includes(goalMode as string))
+        return { error: `goalMode must be one of: ${GOAL_MODES.join(', ')}` }
+
+    const adaptiveSettings = readAdaptive(adaptive)
+    // A window shorter than the data it needs can never produce a review, which
+    // would look like a broken feature rather than a setting typed the wrong way.
+    if (
+        adaptiveSettings?.reviewWindowDays !== undefined &&
+        adaptiveSettings.minimumDataDays !== undefined &&
+        adaptiveSettings.minimumDataDays > adaptiveSettings.reviewWindowDays
+    )
+        return { error: 'minimumDataDays cannot exceed reviewWindowDays' }
+    if (
+        adaptiveSettings?.reviewWindowDays !== undefined &&
+        adaptiveSettings.preferredDataDays !== undefined &&
+        adaptiveSettings.preferredDataDays > adaptiveSettings.reviewWindowDays
+    )
+        return { error: 'preferredDataDays cannot exceed reviewWindowDays' }
     return {
         name: name.trim().slice(0, 80),
         startDate,
@@ -147,9 +227,36 @@ function readBody(body: unknown):
         targets: readTargets(targets),
         weeklyRate: typeof weeklyRate === 'number' ? weeklyRate : undefined,
         goal: readGoal(goal),
+        goalMode: goalMode as GoalMode | undefined,
+        adaptive: adaptiveSettings,
+        macroPolicy: readMacroPolicy(macroPolicy),
         strategy: readStrategy(strategy),
         notes: typeof notes === 'string' && notes.trim() ? notes.trim() : undefined,
     }
+}
+
+/** What a hand-made revision changed, for the audit trail. */
+function revisionReason(targetsChanged: boolean, goalChanged: boolean): string {
+    if (targetsChanged && goalChanged) return 'Targets and goal edited by hand'
+    return goalChanged ? 'Goal edited by hand' : 'Targets edited by hand'
+}
+
+/** Whether two goals say the same thing. Compared by value, field by field. */
+function sameGoals(a: IPhaseGoal | undefined | null, b: IPhaseGoal | undefined): boolean {
+    if (!a && !b) return true
+    if (!a || !b) return false
+    return JSON.stringify(normaliseGoal(a)) === JSON.stringify(normaliseGoal(b))
+}
+
+/** A goal reduced to plain sorted data, so a Mongoose document compares by value. */
+function normaliseGoal(goal: IPhaseGoal): Record<string, unknown> {
+    const plain = JSON.parse(JSON.stringify(goal)) as Record<string, unknown>
+    delete plain._id
+    return Object.fromEntries(
+        Object.entries(plain)
+            .filter(([, v]) => v !== undefined && v !== null)
+            .sort(([a], [b]) => a.localeCompare(b))
+    )
 }
 
 /** Whether two target sets say the same thing, treating unset and absent alike. */
@@ -215,13 +322,17 @@ export async function updateNutritionPhase(req: AuthRequest, res: Response) {
         return
     }
 
-    const { weeklyRate, notes, goal, strategy, targets, ...rest } = parsed
+    const { weeklyRate, notes, goal, goalMode, adaptive, macroPolicy, strategy, targets, ...rest } =
+        parsed
 
     // Cleared optional fields are removed outright rather than stored as null.
     const unset: Record<string, ''> = {}
     if (weeklyRate === undefined) unset.weeklyRate = ''
     if (notes === undefined) unset.notes = ''
     if (goal === undefined) unset.goal = ''
+    if (goalMode === undefined) unset.goalMode = ''
+    if (adaptive === undefined) unset.adaptive = ''
+    if (macroPolicy === undefined) unset.macroPolicy = ''
     if (strategy === undefined) unset.strategy = ''
 
     const set: Record<string, unknown> = {
@@ -229,19 +340,45 @@ export async function updateNutritionPhase(req: AuthRequest, res: Response) {
         ...(weeklyRate !== undefined ? { weeklyRate } : {}),
         ...(notes !== undefined ? { notes } : {}),
         ...(goal !== undefined ? { goal } : {}),
+        ...(goalMode !== undefined ? { goalMode } : {}),
+        ...(adaptive !== undefined ? { adaptive } : {}),
+        ...(macroPolicy !== undefined ? { macroPolicy } : {}),
         ...(strategy !== undefined ? { strategy } : {}),
     }
 
-    const tracksHistory = Boolean(existing.goal) || (existing.adjustments?.length ?? 0) > 0
+    /*
+     * A phase that hasn't started yet has no history to protect.
+     *
+     * Nobody has eaten a day under its targets, so an edit is a correction to
+     * the plan rather than a change of prescription — and dating a revision to
+     * today would put it *before* the phase begins, leaving the opening targets
+     * permanently shadowed and the audit trail claiming a change nobody ever
+     * followed. Once the phase is live, every edit is dated.
+     */
+    const started = existing.startDate <= todayIso()
+    const tracksHistory =
+        started && (Boolean(existing.goal) || (existing.adjustments?.length ?? 0) > 0)
     const current = effectiveBaseline(existing)
+    const targetsChanged = !sameTargets(current, targets)
+    const goalChanged = tracksHistory && !sameGoals(existing.goal, goal)
 
-    if (tracksHistory && !sameTargets(current, targets)) {
-        // Keep `targets` as the opening prescription and date the change instead.
+    if (tracksHistory && (targetsChanged || goalChanged)) {
+        /*
+         * Date the change rather than overwriting.
+         *
+         * Two different things can change here and they are recorded together
+         * because they happened together. A new prescription has to be dated or
+         * every adherence figure older than it is silently re-judged against a
+         * target that did not exist yet. A new *goal* doesn't affect historical
+         * adherence — it only redirects the projection — but "what was I aiming
+         * at in October" is still a fair question, so the old goal is snapshotted
+         * beside it.
+         */
         const revision: IPhaseAdjustment = {
             effectiveFrom: todayIso(),
-            targets,
-            previous: current,
-            reason: 'Edited by hand',
+            ...(targetsChanged ? { targets, previous: current } : {}),
+            ...(goalChanged ? { previousGoal: existing.goal ?? undefined } : {}),
+            reason: revisionReason(targetsChanged, goalChanged),
             source: 'manual',
             createdAt: new Date(),
         }
@@ -351,10 +488,12 @@ function baselineOn(
 ): IPhaseTargets {
     let best: IPhaseAdjustment | undefined
     for (const a of phase.adjustments ?? []) {
-        if (a.effectiveFrom > date) continue
+        // Revisions that changed only the goal carry no targets and must not
+        // shadow the prescription that was actually in force.
+        if (!a.targets || a.effectiveFrom > date) continue
         if (!best || a.effectiveFrom > best.effectiveFrom) best = a
     }
-    return best ? best.targets : phase.targets
+    return best?.targets ?? phase.targets
 }
 
 /** The targets currently in force — the last revision, or the opening set. */
@@ -362,8 +501,8 @@ function effectiveBaseline(phase: {
     targets: IPhaseTargets
     adjustments?: IPhaseAdjustment[]
 }): IPhaseTargets {
-    const list = phase.adjustments ?? []
-    return list.length > 0 ? list[list.length - 1].targets : phase.targets
+    const withTargets = (phase.adjustments ?? []).filter((a) => a.targets)
+    return withTargets.length > 0 ? withTargets[withTargets.length - 1].targets! : phase.targets
 }
 
 /** Today in UTC as YYYY-MM-DD. */

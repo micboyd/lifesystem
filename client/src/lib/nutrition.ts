@@ -131,10 +131,12 @@ export function phaseFor(date: string, phases: NutritionPhase[]): NutritionPhase
 export function phaseTargetsOn(phase: NutritionPhase, date: string): MacroGoals {
     let best: PhaseAdjustment | null = null
     for (const a of phase.adjustments ?? []) {
-        if (a.effectiveFrom > date) continue
+        // Revisions that changed only the goal carry no targets, and must not
+        // shadow the prescription that was actually in force on the day.
+        if (!a.targets || a.effectiveFrom > date) continue
         if (!best || a.effectiveFrom > best.effectiveFrom) best = a
     }
-    return best ? best.targets : phase.targets
+    return best?.targets ?? phase.targets
 }
 
 /**
@@ -142,8 +144,8 @@ export function phaseTargetsOn(phase: NutritionPhase, date: string): MacroGoals 
  * set. The figure a recommendation is measured against and adjusts from.
  */
 export function currentPhaseTargets(phase: NutritionPhase): MacroGoals {
-    const list = phase.adjustments ?? []
-    return list.length > 0 ? list[list.length - 1].targets : phase.targets
+    const withTargets = (phase.adjustments ?? []).filter((a) => a.targets)
+    return withTargets.length > 0 ? withTargets[withTargets.length - 1].targets! : phase.targets
 }
 
 /** Where a day's targets came from — worth saying out loud in the UI. */

@@ -1,8 +1,9 @@
 import { measurementDirection, type MeasurementGap, type MeasurementTrend } from './bodyMeasurements'
+import { centreRate, type RateIntent } from './nutritionConfig'
 import { PERFORMANCE_LABELS, type PerformanceStatus, type StrengthSummary } from './strengthTrend'
 import { daysBetween } from './weightTrend'
 import type { Adherence } from './nutritionAdjustment'
-import type { ProgressCheckIn } from '../types'
+import type { GoalMode, ProgressCheckIn } from '../types'
 
 /**
  * Is the recomp working?
@@ -27,27 +28,57 @@ import type { ProgressCheckIn } from '../types'
  * with.
  */
 
-/** Which way bodyweight is going, judged against the goal's intended band. */
-export type WeightDirection = 'falling-fast' | 'falling' | 'flat' | 'rising' | 'unknown'
+/**
+ * How the scale is moving *relative to what was asked for*.
+ *
+ * Not "up" or "down" — that framing is what made the first version of this
+ * module quietly assume everyone was dieting, and report a lean bulk gaining
+ * exactly on plan as a failure. What matters is the relationship between the
+ * observed rate and the intended one, which reads the same whether the intent
+ * is to lose, hold or gain.
+ */
+export type Pace = 'as-intended' | 'faster' | 'slower' | 'flat' | 'wrong-way' | 'unknown'
 
-/** Below this a weekly rate is noise rather than direction (kg/week). */
+export const PACE_LABELS: Record<Pace, string> = {
+    'as-intended': 'As intended',
+    faster: 'Faster than intended',
+    slower: 'Slower than intended',
+    flat: 'Flat',
+    'wrong-way': 'Moving the wrong way',
+    unknown: 'Unknown',
+}
+
+/** Below this a weekly rate is noise rather than movement (kg/week). */
 export const FLAT_RATE_KG = 0.05
 
 /**
- * How the scale is moving relative to what was asked for. `band` is the goal's
- * acceptable weekly range, signed; without one, anything faster than half a kilo
- * a week counts as fast.
+ * Where an observed rate sits against the intent.
+ *
+ * "Faster" always means further along the intended direction than asked for, and
+ * "slower" always means short of it — so on a cut, faster is losing harder, and
+ * on a bulk, faster is gaining harder. A maintenance intent has no direction to
+ * be fast in, so any real drift is simply not as intended.
  */
-export function weightDirection(
-    rateKgPerWeek: number | null,
-    band?: { min: number; max: number } | null
-): WeightDirection {
+export function paceOf(rateKgPerWeek: number | null, rate: RateIntent | null): Pace {
     if (rateKgPerWeek === null) return 'unknown'
+    if (!rate) return Math.abs(rateKgPerWeek) < FLAT_RATE_KG ? 'flat' : 'unknown'
+
+    const band = rate.acceptable
+    if (band && rateKgPerWeek >= band.min && rateKgPerWeek <= band.max) return 'as-intended'
+
+    if (rate.direction === 'hold') {
+        return Math.abs(rateKgPerWeek) < FLAT_RATE_KG ? 'as-intended' : 'wrong-way'
+    }
+
+    const intended = rate.direction === 'down' ? -1 : 1
+    const along = rateKgPerWeek * intended // positive = moving the intended way
+
+    if (along <= -FLAT_RATE_KG) return 'wrong-way'
     if (Math.abs(rateKgPerWeek) < FLAT_RATE_KG) return 'flat'
-    if (rateKgPerWeek > 0) return 'rising'
-    // Losing. "Fast" means clearly past the fast edge of the intended band.
-    const fastEdge = band ? band.min - 0.1 : -0.5
-    return rateKgPerWeek < fastEdge ? 'falling-fast' : 'falling'
+
+    const centre = centreRate(rate)
+    if (centre === null) return 'unknown'
+    return Math.abs(rateKgPerWeek) > Math.abs(centre) ? 'faster' : 'slower'
 }
 
 /** How far back check-ins are read for a recovery reading. */
@@ -111,14 +142,15 @@ export const PROGRESS_PATTERNS = [
     'recomp-despite-plateau',
     'too-aggressive',
     'stalled',
-    'gaining',
+    'wrong-way',
     'mixed',
     'insufficient-data',
 ] as const
 export type ProgressPattern = (typeof PROGRESS_PATTERNS)[number]
 
 export interface TransformationSignals {
-    weight: WeightDirection
+    /** Where the scale sits against what was asked for. */
+    pace: Pace
     rateKgPerWeek: number | null
     waist: MeasurementTrend | MeasurementGap
     waistDirection: ReturnType<typeof measurementDirection>
@@ -144,8 +176,17 @@ export interface TransformationRead {
 
 export interface TransformationInput {
     rateKgPerWeek: number | null
-    /** The goal's acceptable weekly range, signed. */
-    rateBand?: { min: number; max: number } | null
+    /**
+     * The goal's rate intent — target, band and direction. Absent for a phase
+     * that never stated one, which limits what can be concluded but breaks
+     * nothing.
+     */
+    rate?: RateIntent | null
+    /**
+     * What the goal is for. Reserved for wording that `rate.direction` cannot
+     * settle on its own; the pattern logic reads the rate intent.
+     */
+    goalMode?: GoalMode
     waist: MeasurementTrend | MeasurementGap
     strength: StrengthSummary
     adherence: Adherence
@@ -166,15 +207,23 @@ const GOOD_COVERAGE = 0.7
  * module could make.
  */
 export function readTransformation(input: TransformationInput): TransformationRead {
-    const { rateKgPerWeek, rateBand, waist, strength, adherence, checkIns, asOf } = input
+    const {
+        rateKgPerWeek,
+        rate = null,
+        waist,
+        strength,
+        adherence,
+        checkIns,
+        asOf,
+    } = input
 
-    const weight = weightDirection(rateKgPerWeek, rateBand)
+    const pace = paceOf(rateKgPerWeek, rate)
     const waistDirection = measurementDirection(waist)
     const subjective = subjectiveRead(checkIns, asOf)
     const adherenceIsGood = adherence.coverage >= GOOD_COVERAGE && adherence.loggedDays >= 14
 
     const signals: TransformationSignals = {
-        weight,
+        pace,
         rateKgPerWeek,
         waist,
         waistDirection,
@@ -192,8 +241,19 @@ export function readTransformation(input: TransformationInput): TransformationRe
 
     const waistPhrase = waistText(waist)
     const strengthPhrase = PERFORMANCE_LABELS[strength.overall].toLowerCase()
+    /*
+     * Whether the tape contradicts the scale — not whether it confirms it.
+     *
+     * The distinction matters because most people will not have measured a waist
+     * at all, and an absent measurement is not evidence against progress. Only a
+     * waist actually going the wrong way counts against a rate that is otherwise
+     * on plan. On a bulk it never does: a slowly growing waist is the expected
+     * cost of gaining, and this model cannot tell slow growth from fast.
+     */
+    const wantsWaistDown = rate?.direction !== 'up'
+    const waistHelping = wantsWaistDown ? waistDirection !== 'rising' : true
 
-    if (weight === 'unknown') {
+    if (pace === 'unknown') {
         return read(
             'insufficient-data',
             'Not enough data yet',
@@ -205,7 +265,7 @@ export function readTransformation(input: TransformationInput): TransformationRe
     // recomposition working, and it is the exact shape a naive system mistakes
     // for a stall and responds to by cutting food.
     if (
-        weight === 'flat' &&
+        (pace === 'flat' || pace === 'slower') &&
         waistDirection === 'falling' &&
         (strength.overall === 'improving' || strength.overall === 'stable')
     ) {
@@ -217,9 +277,10 @@ export function readTransformation(input: TransformationInput): TransformationRe
         )
     }
 
-    // Losing too fast with the training suffering. The priority here is muscle,
-    // not the timetable.
-    if (weight === 'falling-fast' && (strength.overall === 'declining' || poorRecovery(subjective))) {
+    // Moving faster than intended, with the cost showing. On the way down that
+    // cost is muscle and training quality; on the way up it is fat gained faster
+    // than it needs to be. Both are worth flagging, for different reasons.
+    if (pace === 'faster' && rate?.direction === 'down' && (strength.overall === 'declining' || poorRecovery(subjective))) {
         const recoveryNote =
             subjective.recovery !== null && subjective.recovery < POOR_RECOVERY
                 ? ` Recovery has also been rated ${subjective.recovery.toFixed(1)} out of 5 across your recent check-ins.`
@@ -232,36 +293,38 @@ export function readTransformation(input: TransformationInput): TransformationRe
         )
     }
 
-    // The good case.
-    if (
-        weight === 'falling' &&
-        (waistDirection === 'falling' || waistDirection === 'unknown') &&
-        strength.overall !== 'declining'
-    ) {
+    if (pace === 'faster' && rate?.direction === 'up') {
+        return read(
+            'too-aggressive',
+            'Gaining faster than planned',
+            `Weight is going on at ${rateText(rateKgPerWeek)}, faster than the plan asked for. More of that is likely to be fat than you intended — easing the surplus back keeps the gain leaner.`
+        )
+    }
+
+    // The good case: moving as asked, with nothing contradicting it.
+    if (pace === 'as-intended' && waistHelping && strength.overall !== 'declining') {
         const strengthNote =
-            strength.overall === 'insufficient-data'
-                ? ''
-                : ` and strength is ${strengthPhrase}`
+            strength.overall === 'insufficient-data' ? '' : ` and strength is ${strengthPhrase}`
         const waistNote = waistDirection === 'falling' ? `, ${waistPhrase}` : ''
         return read(
             'recomp-going-well',
             'Progressing well',
-            `Bodyweight is falling at ${rateText(rateKgPerWeek)}${waistNote}${strengthNote}. Continue the current nutrition target.`
+            `Bodyweight is moving at ${rateText(rateKgPerWeek)}, inside the intended range${waistNote}${strengthNote}. Continue the current nutrition target.`
         )
     }
 
-    // A genuine stall — but only callable as one when the intake behind it was
-    // actually logged, and the tape agrees with the scale.
-    if (weight === 'flat' && waistDirection !== 'falling') {
+    // Short of the intended pace — but only callable a stall when the intake
+    // behind it was actually logged, and the tape agrees with the scale.
+    if (pace === 'flat' || pace === 'slower') {
         if (!adherenceIsGood) {
             return read(
                 'insufficient-data',
                 'Not enough logged intake to tell',
-                `Weight has been flat, but intake is only logged on ${Math.round(adherence.coverage * 100)}% of recent days. That is not enough to know whether the target is wrong or simply was not followed.`,
+                `Progress has been slower than intended, but intake is only logged on ${Math.round(adherence.coverage * 100)}% of recent days. That is not enough to know whether the target is wrong or simply was not followed.`,
                 true
             )
         }
-        if (waistDirection === 'unknown') {
+        if (waistDirection === 'unknown' && wantsWaistDown) {
             return read(
                 'stalled',
                 'Weight has been flat',
@@ -271,16 +334,16 @@ export function readTransformation(input: TransformationInput): TransformationRe
         }
         return read(
             'stalled',
-            'Weight and waist both flat',
-            'Both bodyweight and waist have been stable despite strong intake adherence. A small calorie reduction may be appropriate.'
+            'Short of the intended pace',
+            `The scale is moving at ${rateText(rateKgPerWeek)}, short of what the plan asked for, and ${waistPhrase}. Adherence has been strong, so a small calorie adjustment may be appropriate.`
         )
     }
 
-    if (weight === 'rising') {
+    if (pace === 'wrong-way') {
         return read(
-            'gaining',
-            'Weight is rising',
-            `The scale is moving up at ${rateText(rateKgPerWeek)} against a phase meant to bring it down. Worth checking intake logging is complete before changing anything.`
+            'wrong-way',
+            'Moving the wrong way',
+            `The scale is moving at ${rateText(rateKgPerWeek)}, against the direction this phase is aiming for. Worth checking intake logging is complete before changing anything.`
         )
     }
 
@@ -289,7 +352,7 @@ export function readTransformation(input: TransformationInput): TransformationRe
     return read(
         'mixed',
         'Signals are mixed',
-        `Weight is ${weight === 'falling-fast' ? 'falling quickly' : weight}, ${waistPhrase}, and strength is ${strengthPhrase}. No single reading here is decisive — give it another few weeks before drawing a conclusion.`
+        `The scale is ${PACE_LABELS[pace].toLowerCase()}, ${waistPhrase}, and strength is ${strengthPhrase}. No single reading here is decisive — give it another few weeks before drawing a conclusion.`
     )
 }
 

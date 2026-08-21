@@ -1,6 +1,7 @@
 import { currentPhaseTargets, normGoals, targetsFor, type ResolvedTargets } from './nutrition'
 import { isHardSession } from './overload'
-import type { FitnessPlanEntry, MacroGoals, NutritionPhase } from '../types'
+import { DEFAULT_MACRO_POLICY } from './nutritionConfig'
+import type { FitnessPlanEntry, MacroGoals, MacroPolicy, MacroRole, NutritionPhase } from '../types'
 
 /**
  * What to eat on a particular day.
@@ -58,9 +59,18 @@ export function caloriesOf(goals: MacroGoals): number {
 }
 
 /**
- * Re-split an existing target to a new calorie figure, keeping protein and fat
- * exactly where they were. The macro half of accepting an adjustment: the
- * calorie number is the decision, this is its consequence.
+ * Re-split an existing target to a new calorie figure under a macro policy.
+ *
+ * The macro half of accepting an adjustment: the calorie number is the decision,
+ * this is its consequence. Which macro absorbs it is a preference, not a law —
+ * a hard-training cut usually wants protein and fat held with carbohydrate
+ * taking the difference, and someone eating low-carb wants precisely the
+ * opposite — so the policy decides and this only applies it.
+ *
+ * Exactly one macro can be the remainder. If a policy names none, or names
+ * several, carbohydrate takes the role: it is the one whose calories are least
+ * structurally spoken for, and refusing to produce a split would be worse than
+ * making a defensible choice.
  *
  * A protein floor overrides whatever protein the old target carried, so a phase
  * that set one can never have it eroded by a run of adjustments.
@@ -68,11 +78,55 @@ export function caloriesOf(goals: MacroGoals): number {
 export function retargetCalories(
     current: MacroGoals,
     calories: number,
-    proteinFloorG?: number
+    proteinFloorG?: number,
+    policy: Required<MacroPolicy> = DEFAULT_MACRO_POLICY
 ): Required<MacroGoals> {
-    const protein = Math.max(proteinFloorG ?? 0, current.protein ?? 0)
-    const fat = current.fat ?? 0
-    return macrosForCalories(calories, protein, fat)
+    const scale = (current.calories ?? 0) > 0 ? calories / current.calories! : 1
+
+    /** What one macro becomes, given its role. */
+    const held = (grams: number, role: MacroRole, floor = 0): number => {
+        if (role === 'adjustable') return Math.max(floor, grams * scale)
+        // 'fixed' and 'minimum' both hold the figure here; 'minimum' differs only
+        // in that the floor below can raise it.
+        return Math.max(floor, grams)
+    }
+
+    const remainderMacro = pickRemainder(policy)
+
+    const protein = held(current.protein ?? 0, policy.protein, proteinFloorG ?? 0)
+    const fat = held(current.fat ?? 0, policy.fat)
+    const carbs = held(current.carbs ?? 0, policy.carbs)
+
+    if (remainderMacro === 'carbs') return macrosForCalories(calories, protein, fat)
+
+    if (remainderMacro === 'fat') {
+        const fromOthers = protein * KCAL_PER_G.protein + carbs * KCAL_PER_G.carbs
+        return {
+            calories: Math.round(calories),
+            protein: Math.round(protein),
+            carbs: Math.round(carbs),
+            fat: Math.max(0, Math.round((calories - fromOthers) / KCAL_PER_G.fat)),
+        }
+    }
+
+    // Protein as the remainder. Unusual, but a coherent thing to ask for, and a
+    // protein floor still holds it up from below.
+    const fromOthers = carbs * KCAL_PER_G.carbs + fat * KCAL_PER_G.fat
+    return {
+        calories: Math.round(calories),
+        protein: Math.max(
+            proteinFloorG ?? 0,
+            Math.max(0, Math.round((calories - fromOthers) / KCAL_PER_G.protein))
+        ),
+        carbs: Math.round(carbs),
+        fat: Math.round(fat),
+    }
+}
+
+/** The single macro absorbing the difference, defaulting to carbohydrate. */
+function pickRemainder(policy: Required<MacroPolicy>): 'protein' | 'carbs' | 'fat' {
+    const named = (['carbs', 'fat', 'protein'] as const).filter((m) => policy[m] === 'remainder')
+    return named.length === 1 ? named[0] : 'carbs'
 }
 
 // ── Activity-based targets ───────────────────────────────────────────────────
