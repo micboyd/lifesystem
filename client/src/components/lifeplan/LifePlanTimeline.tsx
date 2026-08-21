@@ -15,7 +15,9 @@ import EmptyState from '../EmptyState'
 
 /** Column width at which twelve months still stay readable. */
 const MONTH_WIDTH = 88
-const LABEL_WIDTH = 132
+const LABEL_WIDTH = 148
+/** Height of a single packed row, so lanes read as bands rather than hairlines. */
+const ROW_HEIGHT = 52
 
 /** "Jan" for a YYYY-MM key. */
 function shortMonth(month: string): string {
@@ -52,7 +54,10 @@ function LaneBar({
 
     if (item.shape === 'marker') {
         return (
-            <div style={style} className="flex items-center justify-center px-1 py-1">
+            <div
+                style={{ ...style, minHeight: ROW_HEIGHT }}
+                className="flex items-center justify-center px-1 py-1.5"
+            >
                 <button
                     type="button"
                     onClick={() => onSelect(item)}
@@ -60,10 +65,10 @@ function LaneBar({
                     className="group flex min-w-0 items-center gap-1.5"
                 >
                     <span
-                        className={`h-2.5 w-2.5 shrink-0 rotate-45 rounded-[2px] ${colors.dot}`}
+                        className={`h-3 w-3 shrink-0 rotate-45 rounded-[2px] ${colors.dot}`}
                         aria-hidden="true"
                     />
-                    <span className="min-w-0 truncate text-[11px] font-semibold text-neutral-600 group-hover:text-neutral-900">
+                    <span className="min-w-0 truncate text-xs font-semibold text-neutral-600 group-hover:text-neutral-900">
                         {item.label}
                     </span>
                 </button>
@@ -72,13 +77,13 @@ function LaneBar({
     }
 
     return (
-        <div style={style} className="px-1 py-1">
+        <div style={{ ...style, minHeight: ROW_HEIGHT }} className="flex items-center px-1 py-1.5">
             <button
                 type="button"
                 onClick={() => onSelect(item)}
                 title={item.detail ? `${item.label} — ${item.detail}` : item.label}
                 className={[
-                    'flex w-full items-center gap-1.5 truncate px-2.5 py-1.5 text-left text-[11px] font-semibold transition-colors',
+                    'flex w-full items-center gap-1.5 truncate px-3 py-2.5 text-left text-xs font-semibold transition-colors',
                     colors.bg,
                     colors.hover,
                     colors.text,
@@ -88,9 +93,9 @@ function LaneBar({
                     item.clippedEnd ? 'rounded-r-none' : 'rounded-r-full',
                 ].join(' ')}
             >
-                {item.clippedStart && <i className="fa-solid fa-caret-left text-[9px] opacity-60" aria-hidden="true" />}
+                {item.clippedStart && <i className="fa-solid fa-caret-left text-[10px] opacity-60" aria-hidden="true" />}
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                {item.clippedEnd && <i className="fa-solid fa-caret-right text-[9px] opacity-60" aria-hidden="true" />}
+                {item.clippedEnd && <i className="fa-solid fa-caret-right text-[10px] opacity-60" aria-hidden="true" />}
             </button>
         </div>
     )
@@ -160,7 +165,7 @@ export default function LifePlanTimeline({
                 {/* Month headers */}
                 <div
                     style={{ gridColumn: 1, gridRow: headerRow }}
-                    className="sticky left-0 z-20 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400"
+                    className="sticky left-0 z-20 bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400"
                 >
                     Month
                 </div>
@@ -186,7 +191,7 @@ export default function LifePlanTimeline({
                 {/* Season bands — one tinted strip naming the chapter each month sits in. */}
                 <div
                     style={{ gridColumn: 1, gridRow: bandRow }}
-                    className="sticky left-0 z-20 flex items-center bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400"
+                    className="sticky left-0 z-20 flex items-center bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400"
                 >
                     Season
                 </div>
@@ -210,13 +215,13 @@ export default function LifePlanTimeline({
                                 gridColumn: `${startIdx + 2} / span ${endIdx - startIdx + 1}`,
                                 gridRow: bandRow,
                             }}
-                            className="px-1 py-1.5"
+                            className="flex items-center px-1 py-2"
                         >
                             <button
                                 type="button"
                                 onClick={() => onSelectSeason?.(band.season._id)}
                                 title={band.season.focus ?? band.season.name}
-                                className={`w-full truncate rounded-lg px-2 py-1 text-left text-[11px] font-bold ${colors.light} ${colors.text} ring-1 ring-inset ring-black/[0.04] transition-colors hover:brightness-95`}
+                                className={`w-full truncate rounded-lg px-2.5 py-2 text-left text-xs font-bold ${colors.light} ${colors.text} ring-1 ring-inset ring-black/[0.04] transition-colors hover:brightness-95`}
                             >
                                 {band.season.name}
                             </button>
@@ -229,10 +234,10 @@ export default function LifePlanTimeline({
                     <>
                         <div
                             style={{ gridColumn: 1, gridRow: goalRow }}
-                            className="sticky left-0 z-20 flex items-center gap-2 border-t border-black/[0.06] bg-white px-3 py-2"
+                            className="sticky left-0 z-20 flex items-center gap-2 border-t border-black/[0.06] bg-white px-4 py-2"
                         >
-                            <i className="fa-solid fa-bullseye w-4 text-center text-[11px] text-neutral-300" aria-hidden="true" />
-                            <span className="text-xs font-bold text-neutral-700">Goals</span>
+                            <i className="fa-solid fa-bullseye w-4 text-center text-xs text-neutral-300" aria-hidden="true" />
+                            <span className="text-sm font-bold text-neutral-700">Goals</span>
                         </div>
                         <div
                             aria-hidden="true"
@@ -287,13 +292,13 @@ function PillarLane({
         <>
             <div
                 style={{ gridColumn: 1, gridRow: `${startRow} / span ${rowCount}` }}
-                className="sticky left-0 z-20 flex items-center gap-2 border-t border-black/[0.06] bg-white px-3 py-2"
+                className="sticky left-0 z-20 flex items-center gap-2 border-t border-black/[0.06] bg-white px-4 py-2"
             >
                 <i
-                    className={`fa-solid ${LIFE_PILLAR_ICONS[pillar]} w-4 shrink-0 text-center text-[11px] text-neutral-300`}
+                    className={`fa-solid ${LIFE_PILLAR_ICONS[pillar]} w-4 shrink-0 text-center text-xs text-neutral-300`}
                     aria-hidden="true"
                 />
-                <span className="min-w-0 truncate text-xs font-bold text-neutral-700">
+                <span className="min-w-0 truncate text-sm font-bold text-neutral-700">
                     {LIFE_PILLAR_LABELS[pillar]}
                 </span>
             </div>
@@ -305,8 +310,12 @@ function PillarLane({
             />
             {rows.length === 0 ? (
                 <div
-                    style={{ gridColumn: `2 / span ${months.length}`, gridRow: startRow }}
-                    className="px-2 py-2 text-[11px] text-neutral-300"
+                    style={{
+                        gridColumn: `2 / span ${months.length}`,
+                        gridRow: startRow,
+                        minHeight: ROW_HEIGHT,
+                    }}
+                    className="flex items-center px-2 text-[11px] text-neutral-300"
                 >
                     —
                 </div>

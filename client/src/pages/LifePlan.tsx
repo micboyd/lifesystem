@@ -399,74 +399,76 @@ export default function LifePlan() {
     }
 
     return (
-        <Container as="main" className="py-8 sm:py-10">
-            <header className="flex flex-wrap items-end justify-between gap-4">
-                <div className="min-w-0">
-                    <h1 className="text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
-                        Life plan
-                    </h1>
-                    <p className="mt-1 text-sm text-neutral-500">
-                        The long view — what each stretch of time is for, and what it&apos;s carrying.
-                    </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    {plans.length > 0 && (
-                        <Select
-                            className="min-w-[10rem]"
-                            options={plans.map((p) => ({
-                                value: p._id,
-                                label: `${p.name} · ${formatMonthRange(p.start, p.end)}`,
-                            }))}
-                            value={planId ?? undefined}
-                            onChange={setPlanId}
-                        />
-                    )}
-                    {plan && (
-                        <>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setEditingPlan(plan)
-                                    setPlanError(null)
-                                    setPlanFormOpen(true)
-                                }}
-                                aria-label="Edit plan"
-                                className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                            >
-                                <i className="fa-solid fa-pen text-sm" aria-hidden="true" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setDeletingPlan(plan)}
-                                aria-label="Delete plan"
-                                className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                            >
-                                <i className="fa-solid fa-trash text-sm" aria-hidden="true" />
-                            </button>
-                        </>
-                    )}
-                    <Button
-                        icon="fa-solid fa-plus"
-                        size="sm"
-                        onClick={() => {
-                            setEditingPlan(null)
-                            setPlanError(null)
-                            setPlanFormOpen(true)
-                        }}
-                    >
-                        New plan
-                    </Button>
-                </div>
-            </header>
+        <main className="py-8 sm:py-10">
+            <Container>
+                <header className="flex flex-wrap items-end justify-between gap-4">
+                    <div className="min-w-0">
+                        <h1 className="text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
+                            Life plan
+                        </h1>
+                        <p className="mt-1 text-sm text-neutral-500">
+                            The long view — what each stretch of time is for, and what it&apos;s carrying.
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {plans.length > 0 && (
+                            <Select
+                                className="min-w-[10rem]"
+                                options={plans.map((p) => ({
+                                    value: p._id,
+                                    label: `${p.name} · ${formatMonthRange(p.start, p.end)}`,
+                                }))}
+                                value={planId ?? undefined}
+                                onChange={setPlanId}
+                            />
+                        )}
+                        {plan && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditingPlan(plan)
+                                        setPlanError(null)
+                                        setPlanFormOpen(true)
+                                    }}
+                                    aria-label="Edit plan"
+                                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                                >
+                                    <i className="fa-solid fa-pen text-sm" aria-hidden="true" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDeletingPlan(plan)}
+                                    aria-label="Delete plan"
+                                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                >
+                                    <i className="fa-solid fa-trash text-sm" aria-hidden="true" />
+                                </button>
+                            </>
+                        )}
+                        <Button
+                            icon="fa-solid fa-plus"
+                            size="sm"
+                            onClick={() => {
+                                setEditingPlan(null)
+                                setPlanError(null)
+                                setPlanFormOpen(true)
+                            }}
+                        >
+                            New plan
+                        </Button>
+                    </div>
+                </header>
 
-            {error && (
-                <Alert variant="danger" className="mt-6">
-                    {error}
-                </Alert>
-            )}
+                {error && (
+                    <Alert variant="danger" className="mt-6">
+                        {error}
+                    </Alert>
+                )}
+            </Container>
 
             {!plan ? (
-                <div className="mt-10">
+                <Container className="mt-10">
                     <EmptyState
                         icon="fa-compass"
                         title="No life plan yet"
@@ -482,133 +484,140 @@ export default function LifePlan() {
                             </Button>
                         }
                     />
-                </div>
+                </Container>
             ) : (
                 <>
-                    {/* Where you are right now, so the long view still opens on today. */}
-                    <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-black/[0.06] bg-white px-5 py-4">
-                        <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                                {formatMonthKey(thisMonth)}
-                            </p>
-                            {currentSeason ? (
-                                <p className="truncate text-sm font-bold text-neutral-950">
-                                    {currentSeason.name}
-                                    <span className="ml-2 font-semibold text-neutral-400">
-                                        month {seasonProgress(currentSeason, thisMonth).monthIndex} of{' '}
-                                        {seasonProgress(currentSeason, thisMonth).monthCount}
-                                    </span>
+                    <Container>
+                        {/* Where you are right now, so the long view still opens on today. */}
+                        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-black/[0.06] bg-white px-5 py-4">
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                    {formatMonthKey(thisMonth)}
                                 </p>
-                            ) : (
-                                <p className="text-sm font-bold text-neutral-400">
-                                    No season covers this month
-                                </p>
-                            )}
-                            {currentSeason?.focus && (
-                                <p className="mt-0.5 truncate text-xs text-neutral-500">
-                                    {currentSeason.focus}
-                                </p>
+                                {currentSeason ? (
+                                    <p className="truncate text-sm font-bold text-neutral-950">
+                                        {currentSeason.name}
+                                        <span className="ml-2 font-semibold text-neutral-400">
+                                            month {seasonProgress(currentSeason, thisMonth).monthIndex} of{' '}
+                                            {seasonProgress(currentSeason, thisMonth).monthCount}
+                                        </span>
+                                    </p>
+                                ) : (
+                                    <p className="text-sm font-bold text-neutral-400">
+                                        No season covers this month
+                                    </p>
+                                )}
+                                {currentSeason?.focus && (
+                                    <p className="mt-0.5 truncate text-xs text-neutral-500">
+                                        {currentSeason.focus}
+                                    </p>
+                                )}
+                            </div>
+                            {currentLoad && (
+                                <LoadPill
+                                    level={currentLoad.level}
+                                    label={LOAD_LEVEL_LABELS[currentLoad.level]}
+                                    score={currentLoad.score}
+                                />
                             )}
                         </div>
-                        {currentLoad && (
-                            <LoadPill
-                                level={currentLoad.level}
-                                label={LOAD_LEVEL_LABELS[currentLoad.level]}
-                                score={currentLoad.score}
-                            />
-                        )}
-                    </div>
 
-                    {plan.vision && (
-                        <p className="mt-4 rounded-2xl bg-neutral-50 px-5 py-4 text-sm text-neutral-600">
-                            {plan.vision}
-                        </p>
+                        {plan.vision && (
+                            <p className="mt-4 rounded-2xl bg-neutral-50 px-5 py-4 text-sm text-neutral-600">
+                                {plan.vision}
+                            </p>
+                        )}
+
+                        <Tabs
+                            tabs={[...TABS]}
+                            value={tab}
+                            onChange={(t) => setTab(t as Tab)}
+                            className="mt-6"
+                        />
+                    </Container>
+
+                    {tab === 'Timeline' ? (
+                        <Container fluid className="mt-6">
+                            {timeline && (
+                                <>
+                                    {/* The grid needs width to be readable at all — hence the
+                                        full-bleed container; narrow screens get the
+                                        month-by-month read instead. */}
+                                    <div className="hidden lg:block">
+                                        <LifePlanTimeline
+                                            timeline={timeline}
+                                            onSelectItem={setSelectedItem}
+                                            onSelectSeason={(id) => {
+                                                const season = plan.seasons.find((s) => s._id === id)
+                                                if (!season) return
+                                                setEditingSeason(season)
+                                                setSeasonError(null)
+                                                setSeasonFormOpen(true)
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="lg:hidden">
+                                        <TimelineMonthList
+                                            timeline={timeline}
+                                            loads={loads}
+                                            onSelectItem={setSelectedItem}
+                                        />
+                                    </div>
+                                    <p className="mt-4 text-xs text-neutral-400">
+                                        Bars and diamonds are read-only here — tap one to open it in the
+                                        module that owns it. Lanes shown:{' '}
+                                        {plan.pillars.map((p) => LIFE_PILLAR_LABELS[p]).join(', ')}.
+                                    </p>
+                                </>
+                            )}
+                        </Container>
+                    ) : (
+                        <Container className="mt-6">
+                            {tab === 'Seasons' && (
+                                <SeasonsTab
+                                    plan={plan}
+                                    onNew={() => {
+                                        setEditingSeason(null)
+                                        setSeasonError(null)
+                                        setSeasonFormOpen(true)
+                                    }}
+                                    onEdit={(season) => {
+                                        setEditingSeason(season)
+                                        setSeasonError(null)
+                                        setSeasonFormOpen(true)
+                                    }}
+                                    onDelete={setDeletingSeason}
+                                />
+                            )}
+
+                            {tab === 'Nutrition' && (
+                                <NutritionPhasesTab
+                                    phases={records.nutritionPhases}
+                                    saving={phaseSaving}
+                                    error={phaseError}
+                                    onSave={savePhase}
+                                    onDelete={setDeletingPhase}
+                                    openPhaseId={editPhaseId}
+                                    onOpened={() => setEditPhaseId(null)}
+                                />
+                            )}
+
+                            {tab === 'Pressure' && <PressureCheck plan={plan} loads={loads} />}
+
+                            {tab === 'Review' && (
+                                <SeasonReviewTab
+                                    plan={plan}
+                                    seasonId={reviewSeasonId}
+                                    onSelectSeason={setReviewSeasonId}
+                                    scorecard={scorecard}
+                                    loading={reviewLoading}
+                                    saving={reviewSaving}
+                                    error={reviewError}
+                                    onSave={saveReview}
+                                />
+                            )}
+                        </Container>
                     )}
-
-                    <Tabs
-                        tabs={[...TABS]}
-                        value={tab}
-                        onChange={(t) => setTab(t as Tab)}
-                        className="mt-6"
-                    />
-
-                    <div className="mt-6">
-                        {tab === 'Timeline' && timeline && (
-                            <>
-                                {/* The grid needs width to be readable at all, so narrow
-                                    screens get the month-by-month read instead. */}
-                                <div className="hidden lg:block">
-                                    <LifePlanTimeline
-                                        timeline={timeline}
-                                        onSelectItem={setSelectedItem}
-                                        onSelectSeason={(id) => {
-                                            const season = plan.seasons.find((s) => s._id === id)
-                                            if (!season) return
-                                            setEditingSeason(season)
-                                            setSeasonError(null)
-                                            setSeasonFormOpen(true)
-                                        }}
-                                    />
-                                </div>
-                                <div className="lg:hidden">
-                                    <TimelineMonthList
-                                        timeline={timeline}
-                                        loads={loads}
-                                        onSelectItem={setSelectedItem}
-                                    />
-                                </div>
-                                <p className="mt-4 text-xs text-neutral-400">
-                                    Bars and diamonds are read-only here — tap one to open it in the
-                                    module that owns it. Lanes shown:{' '}
-                                    {plan.pillars.map((p) => LIFE_PILLAR_LABELS[p]).join(', ')}.
-                                </p>
-                            </>
-                        )}
-
-                        {tab === 'Seasons' && (
-                            <SeasonsTab
-                                plan={plan}
-                                onNew={() => {
-                                    setEditingSeason(null)
-                                    setSeasonError(null)
-                                    setSeasonFormOpen(true)
-                                }}
-                                onEdit={(season) => {
-                                    setEditingSeason(season)
-                                    setSeasonError(null)
-                                    setSeasonFormOpen(true)
-                                }}
-                                onDelete={setDeletingSeason}
-                            />
-                        )}
-
-                        {tab === 'Nutrition' && (
-                            <NutritionPhasesTab
-                                phases={records.nutritionPhases}
-                                saving={phaseSaving}
-                                error={phaseError}
-                                onSave={savePhase}
-                                onDelete={setDeletingPhase}
-                                openPhaseId={editPhaseId}
-                                onOpened={() => setEditPhaseId(null)}
-                            />
-                        )}
-
-                        {tab === 'Pressure' && <PressureCheck plan={plan} loads={loads} />}
-
-                        {tab === 'Review' && (
-                            <SeasonReviewTab
-                                plan={plan}
-                                seasonId={reviewSeasonId}
-                                onSelectSeason={setReviewSeasonId}
-                                scorecard={scorecard}
-                                loading={reviewLoading}
-                                saving={reviewSaving}
-                                error={reviewError}
-                                onSave={saveReview}
-                            />
-                        )}
-                    </div>
                 </>
             )}
 
@@ -694,6 +703,6 @@ export default function LifePlan() {
                 onConfirm={confirmDeletePhase}
                 onClose={() => setDeletingPhase(null)}
             />
-        </Container>
+        </main>
     )
 }
