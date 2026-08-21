@@ -32,6 +32,8 @@ import mobilityLogRoutes from './routes/mobilityLogRoutes'
 import monthNoteRoutes from './routes/monthNoteRoutes'
 import noteRoutes from './routes/noteRoutes'
 import nutritionPhaseRoutes from './routes/nutritionPhaseRoutes'
+import progressCheckInRoutes from './routes/progressCheckInRoutes'
+import progressPhotoRoutes from './routes/progressPhotoRoutes'
 import path from 'path'
 import recoveryRoutes from './routes/recoveryRoutes'
 import recoveryLogRoutes from './routes/recoveryLogRoutes'
@@ -110,6 +112,8 @@ app.use('/api/checklists', checklistRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
 app.use('/api/life-plans', lifePlanRoutes)
 app.use('/api/nutrition-phases', nutritionPhaseRoutes)
+app.use('/api/progress-check-ins', progressCheckInRoutes)
+app.use('/api/progress-photos', progressPhotoRoutes)
 
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })

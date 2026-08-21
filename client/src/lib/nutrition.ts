@@ -1,4 +1,10 @@
-import type { Macros, MacroGoals, MealPlanEntry, NutritionPhase } from '../types'
+import type {
+    Macros,
+    MacroGoals,
+    MealPlanEntry,
+    NutritionPhase,
+    PhaseAdjustment,
+} from '../types'
 
 /**
  * Shared reading of the meal plan.
@@ -109,6 +115,37 @@ export function phaseFor(date: string, phases: NutritionPhase[]): NutritionPhase
     return best
 }
 
+/**
+ * The targets a phase was prescribing on a given date.
+ *
+ * A long phase is not one prescription. `targets` is the opening set and every
+ * later revision is dated, so the answer depends on when you ask: lowering
+ * calories in January must not retroactively rewrite what December was measured
+ * against, or every adherence figure older than the change silently becomes a
+ * comparison against a target that didn't exist yet. The latest revision
+ * effective on or before `date` wins; before the first one, the opening set does.
+ *
+ * Phases with no revisions — which is all of them until one is accepted — return
+ * `targets` unchanged, so this costs existing data nothing.
+ */
+export function phaseTargetsOn(phase: NutritionPhase, date: string): MacroGoals {
+    let best: PhaseAdjustment | null = null
+    for (const a of phase.adjustments ?? []) {
+        if (a.effectiveFrom > date) continue
+        if (!best || a.effectiveFrom > best.effectiveFrom) best = a
+    }
+    return best ? best.targets : phase.targets
+}
+
+/**
+ * The targets a phase is prescribing now — the last revision, or the opening
+ * set. The figure a recommendation is measured against and adjusts from.
+ */
+export function currentPhaseTargets(phase: NutritionPhase): MacroGoals {
+    const list = phase.adjustments ?? []
+    return list.length > 0 ? list[list.length - 1].targets : phase.targets
+}
+
 /** Where a day's targets came from — worth saying out loud in the UI. */
 export type TargetSource = 'phase' | 'settings' | 'none'
 
@@ -120,9 +157,9 @@ export interface ResolvedTargets {
 }
 
 /**
- * The targets a given day is judged against: its phase's, falling back to the
- * standing macro goals. A cut's numbers only mean anything if the day inside the
- * cut is actually measured against them.
+ * The targets a given day is judged against: its phase's *as they stood on that
+ * day*, falling back to the standing macro goals. A cut's numbers only mean
+ * anything if the day inside the cut is actually measured against them.
  */
 export function targetsFor(
     date: string,
@@ -130,7 +167,7 @@ export function targetsFor(
     settingsGoals?: MacroGoals | null
 ): ResolvedTargets {
     const phase = phaseFor(date, phases)
-    const phaseGoals = normGoals(phase?.targets)
+    const phaseGoals = phase ? normGoals(phaseTargetsOn(phase, date)) : null
     if (phaseGoals) return { goals: phaseGoals, source: 'phase', phase }
 
     const fallback = normGoals(settingsGoals)
@@ -141,4 +178,64 @@ export function targetsFor(
         // a cut either way, and the mode drives how the numbers are coloured.
         phase,
     }
+}
+
+// ── Choosing a meal ──────────────────────────────────────────────────────────
+
+/**
+ * Protein per 100 kcal — the one number that says whether a meal helps a cut.
+ *
+ * Absolute protein flatters big meals: 40 g in a 900 kcal plate is a worse deal
+ * on a deficit than 30 g in 350 kcal, and only the density says so. Null for a
+ * meal with no calories to divide by.
+ */
+export function proteinDensity(macros: Macros): number | null {
+    if (!macros.calories || macros.calories <= 0) return null
+    return (macros.protein / macros.calories) * 100
+}
+
+/** Above this, a meal is doing real work for a cut's protein floor. */
+export const HIGH_PROTEIN_DENSITY = 10
+
+/** A short, factual label for how a meal sits against what's left of the day. */
+export type MealFitLabel = 'high-protein' | 'fits' | 'large' | 'light'
+
+export const MEAL_FIT_LABELS: Record<MealFitLabel, string> = {
+    'high-protein': 'High protein',
+    fits: 'Fits what’s left',
+    large: 'Large meal',
+    light: 'Light meal',
+}
+
+/**
+ * How a meal reads against the calories and protein still unspent today.
+ *
+ * Deliberately descriptive rather than prescriptive: no meal is recommended or
+ * discouraged, and nothing here calls food good or bad. It answers "will this
+ * fit" and "is this protein-dense", which are the two things worth knowing at
+ * the moment of choosing, and leaves the choice alone.
+ *
+ * `remaining` may be null — with no target set there is nothing to fit into, and
+ * only the density label survives.
+ */
+export function mealFit(
+    macros: Macros,
+    remaining: { calories?: number; protein?: number } | null
+): MealFitLabel[] {
+    const labels: MealFitLabel[] = []
+
+    const density = proteinDensity(macros)
+    if (density !== null && density >= HIGH_PROTEIN_DENSITY) labels.push('high-protein')
+
+    const left = remaining?.calories
+    if (left !== undefined && left > 0) {
+        // "Fits" means it lands inside what's left without finishing it off —
+        // a meal that uses the last calorie fits arithmetically and not in practice.
+        if (macros.calories <= left * 0.9) labels.push('fits')
+        else if (macros.calories > left) labels.push('large')
+    }
+
+    if (macros.calories > 0 && macros.calories < 250) labels.push('light')
+
+    return labels
 }

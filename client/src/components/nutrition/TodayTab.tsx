@@ -4,24 +4,44 @@ import Button from '../Button'
 import Input from '../Input'
 import Spinner from '../Spinner'
 import EmptyState from '../EmptyState'
+import NutritionTargetCard from './NutritionTargetCard'
+import NutritionGoalCard from './NutritionGoalCard'
+import NutritionReview from './NutritionReview'
+import { fmt, kcal } from './format'
 import { listPlanEntries, setEntryStatus } from '../../services/mealPlan'
+import { listPlanEntries as listFitnessEntries } from '../../services/fitnessPlan'
 import { listWeightLogs } from '../../services/weightLogs'
-import { listNutritionPhases } from '../../services/nutritionPhases'
-import {
-    listDailyEnergy,
-    saveDailyEnergy,
-    deleteDailyEnergy,
-} from '../../services/dailyEnergy'
+import { listNutritionPhases, addPhaseAdjustment } from '../../services/nutritionPhases'
+import { listDailyEnergy, saveDailyEnergy, deleteDailyEnergy } from '../../services/dailyEnergy'
+import { listLogs as listWorkoutLogs } from '../../services/workoutLogs'
+import { listCheckIns } from '../../services/progress'
 import { addDays, todayKey } from '../../lib/calendar'
-import { entryMacros, entryName, sumEatenMacros, targetsFor } from '../../lib/nutrition'
+import { entryMacros, entryName, sumEatenMacros, sumPendingMacros } from '../../lib/nutrition'
+import { effectiveTargetsFor } from '../../lib/nutritionTargets'
 import { trendSeries } from '../../lib/weightTrend'
+import {
+    weightTrend,
+    compositionSeries,
+    compositionChange,
+    usableRate,
+    type WeightTrend,
+    type TrendGap,
+} from '../../lib/nutritionTrend'
+import { goalProgress } from '../../lib/nutritionGoal'
+import { measurementTrend } from '../../lib/bodyMeasurements'
+import { strengthSummary } from '../../lib/strengthTrend'
+import { readTransformation } from '../../lib/transformation'
+import {
+    adherence,
+    reviewNutrition,
+    REVIEW_WINDOW_DAYS,
+    type Recommendation,
+} from '../../lib/nutritionAdjustment'
 import {
     dailyIntake,
     measuredMaintenance,
     dayEnergy,
     targetVerdict,
-    balanceVerdict,
-    impliedWeeklyRate,
     MAINTENANCE_WINDOW_DAYS,
     type Verdict,
     type Maintenance,
@@ -31,56 +51,37 @@ import { MEAL_TYPES } from '../../types'
 import type {
     DailyEnergy,
     EntryStatus,
+    FitnessPlanEntry,
     MacroGoals,
-    Macros,
     MealPlanEntry,
     NutritionPhase,
     NutritionPhaseKind,
+    ProgressCheckIn,
     WeightLog,
+    WorkoutLog,
 } from '../../types'
 
 /**
- * The day, as calories in against calories out.
+ * The day, against the plan — and the plan, against the goal.
  *
  * The weekly planner is where a week gets designed; this is where a day gets
- * lived. It answers two questions side by side — did I eat what the phase asked
- * for, and was the day actually a deficit — and colours both through the phase's
- * mode, since a surplus is a bulk working and a cut failing.
+ * lived and where the long arc is visible. It answers, in order of how much they
+ * matter: what should I eat today, what have I eaten, am I hitting protein, and
+ * — further down, because it moves on a scale of months — is any of this
+ * actually working.
+ *
+ * All the arithmetic happens in `lib/`. This assembles data and renders results.
  */
 
-// ── Formatting ────────────────────────────────────────────────────────────────
+// ── History window ───────────────────────────────────────────────────────────
 
-/** Whole numbers plain, decimals to one place. */
-function fmt(n: number): string {
-    const v = Number(n)
-    if (!Number.isFinite(v)) return '0'
-    return Number.isInteger(v) ? String(v) : v.toFixed(1)
-}
-
-/** Rounded to the nearest whole calorie, with a thousands separator. */
-function kcal(n: number): string {
-    return Math.round(n).toLocaleString()
-}
-
-/** A signed calorie figure — the sign is the whole message. */
-function signed(n: number): string {
-    const rounded = Math.round(n)
-    return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${Math.abs(rounded).toLocaleString()}`
-}
-
-const VERDICT_TEXT: Record<Verdict, string> = {
-    good: 'text-emerald-600',
-    warn: 'text-amber-600',
-    bad: 'text-red-600',
-    none: 'text-neutral-400',
-}
-
-const VERDICT_BAR: Record<Verdict, string> = {
-    good: 'bg-emerald-500',
-    warn: 'bg-amber-400',
-    bad: 'bg-red-500',
-    none: 'bg-neutral-300',
-}
+/**
+ * How far back the analysis reaches. The review looks at three weeks, the
+ * maintenance estimate at four, and the weight trend wants a good deal more
+ * history than either so its smoothing has something to start from.
+ */
+const ANALYSIS_DAYS = Math.max(MAINTENANCE_WINDOW_DAYS, REVIEW_WINDOW_DAYS)
+const WEIGHT_HISTORY_DAYS = 365
 
 const KIND_LABEL: Record<NutritionPhaseKind, string> = {
     cut: 'Cut',
@@ -94,134 +95,7 @@ const KIND_CHIP: Record<NutritionPhaseKind, string> = {
     gain: 'bg-marigold/20 text-amber-700',
 }
 
-// ── Pieces ────────────────────────────────────────────────────────────────────
-
-/**
- * The three headline figures. `out` carries its own caption because where the
- * number came from changes how much weight to put on it — a watch reading and a
- * figure inferred from the scale are not the same claim.
- */
-function Headline({
-    label,
-    value,
-    caption,
-    tone = 'text-neutral-900',
-}: {
-    label: string
-    value: string
-    caption?: string
-    tone?: string
-}) {
-    return (
-        <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                {label}
-            </p>
-            <p className={`mt-0.5 text-2xl font-bold tabular-nums tracking-tight sm:text-3xl ${tone}`}>
-                {value}
-            </p>
-            {caption && <p className="mt-0.5 truncate text-[11px] text-neutral-400">{caption}</p>}
-        </div>
-    )
-}
-
-/**
- * Intake against expenditure. Eaten is solid; what's still planned is hatched on
- * behind it, so a half-eaten day reads as half-eaten rather than as a triumph of
- * self-control. The expenditure line is the mark to reach, not a cap.
- */
-function IntakeBar({
-    eaten,
-    pending,
-    out,
-    verdict,
-}: {
-    eaten: number
-    pending: number
-    out: number | null
-    verdict: Verdict
-}) {
-    // Scale to whichever is larger so neither bar ever runs off the end.
-    const span = Math.max(eaten + pending, out ?? 0, 1)
-    const pct = (v: number) => `${Math.min(100, (v / span) * 100)}%`
-
-    return (
-        <div className="mt-4">
-            <div className="relative h-3 w-full overflow-hidden rounded-full bg-neutral-100">
-                <div
-                    className={`absolute inset-y-0 left-0 rounded-full ${VERDICT_BAR[verdict]}`}
-                    style={{ width: pct(eaten) }}
-                />
-                <div
-                    className="absolute inset-y-0 rounded-r-full bg-neutral-200"
-                    style={{ left: pct(eaten), width: pct(pending) }}
-                />
-                {out !== null && (
-                    <div
-                        className="absolute inset-y-0 w-0.5 bg-neutral-900"
-                        style={{ left: pct(out) }}
-                        aria-hidden="true"
-                    />
-                )}
-            </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-neutral-400">
-                <span className="inline-flex items-center gap-1">
-                    <span className={`h-2 w-2 rounded-full ${VERDICT_BAR[verdict]}`} />
-                    Eaten {kcal(eaten)}
-                </span>
-                {pending > 0 && (
-                    <span className="inline-flex items-center gap-1">
-                        <span className="h-2 w-2 rounded-full bg-neutral-200" />
-                        Still planned {kcal(pending)}
-                    </span>
-                )}
-                {out !== null && (
-                    <span className="inline-flex items-center gap-1">
-                        <span className="h-2.5 w-0.5 bg-neutral-900" />
-                        Out {kcal(out)}
-                    </span>
-                )}
-            </div>
-        </div>
-    )
-}
-
-/** One macro against its target, with a bar and a met/over readout. */
-function MacroRow({
-    label,
-    unit,
-    value,
-    target,
-    verdict,
-}: {
-    label: string
-    unit: string
-    value: number
-    target?: number
-    verdict: Verdict
-}) {
-    const pct = target && target > 0 ? Math.min(100, (value / target) * 100) : 0
-    return (
-        <div className="flex items-center gap-3">
-            <span className="w-16 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-                {label}
-            </span>
-            <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-neutral-100">
-                <div
-                    className={`h-full rounded-full ${VERDICT_BAR[verdict]}`}
-                    style={{ width: `${pct}%` }}
-                />
-            </div>
-            <span className="shrink-0 text-xs tabular-nums text-neutral-500">
-                <span className={`font-bold ${VERDICT_TEXT[verdict]}`}>{fmt(value)}</span>
-                {target ? (
-                    <span className="text-neutral-400"> / {fmt(target)}</span>
-                ) : null}
-                <span className="ml-0.5 text-neutral-300">{unit}</span>
-            </span>
-        </div>
-    )
-}
+// ── Pieces ───────────────────────────────────────────────────────────────────
 
 /** The manual burn entry — one number, saved or cleared. */
 function BurnEntry({
@@ -232,7 +106,7 @@ function BurnEntry({
 }: {
     logged: DailyEnergy | null
     fallback: Maintenance | MaintenanceGap
-    onSave: (kcal: number) => Promise<void>
+    onSave: (kcalOut: number) => Promise<void>
     onClear: () => Promise<void>
 }) {
     const [value, setValue] = useState(logged ? String(logged.caloriesOut) : '')
@@ -296,7 +170,59 @@ function BurnEntry({
                     </Button>
                 )}
             </div>
-            {!error && <p className="mt-2 text-[11px] text-neutral-400">{logged ? 'Total for the whole day — resting plus movement.' : hint}</p>}
+            {!error && (
+                <p className="mt-2 text-[11px] text-neutral-400">
+                    {logged ? 'Total for the whole day — resting plus movement.' : hint}
+                </p>
+            )}
+        </div>
+    )
+}
+
+/**
+ * Protein over the last three weeks. It gets its own strip because it is the one
+ * macro where the running record matters more than today's figure — a single
+ * short day is nothing, and four in a row during a deficit is how a cut turns
+ * into muscle loss.
+ */
+function ProteinRecord({
+    avgProteinG,
+    hitDays,
+    targetDays,
+    windowDays,
+    targetG,
+}: {
+    avgProteinG: number | null
+    hitDays: number
+    targetDays: number
+    windowDays: number
+    targetG?: number
+}) {
+    if (avgProteinG === null) return null
+    const pct = targetDays > 0 ? Math.round((hitDays / targetDays) * 100) : null
+
+    return (
+        <div className="rounded-2xl border border-neutral-100 bg-white p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <h4 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                    Protein over {windowDays} days
+                </h4>
+                {targetG ? (
+                    <span className="text-[11px] text-neutral-400">Target {fmt(targetG)} g/day</span>
+                ) : null}
+            </div>
+            <div className="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-1">
+                <p className="text-xl font-bold tabular-nums tracking-tight text-neutral-900">
+                    {fmt(avgProteinG)}
+                    <span className="ml-1 text-xs font-medium text-neutral-400">g average</span>
+                </p>
+                {pct !== null && (
+                    <p className="text-sm font-semibold tabular-nums text-neutral-600">
+                        {hitDays}/{targetDays} days on target
+                        <span className="ml-1.5 text-xs font-medium text-neutral-400">{pct}%</span>
+                    </p>
+                )}
+            </div>
         </div>
     )
 }
@@ -380,30 +306,45 @@ function MealList({
     )
 }
 
-// ── The tab ───────────────────────────────────────────────────────────────────
+// ── The tab ──────────────────────────────────────────────────────────────────
 
 export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals }) {
     const today = todayKey()
-    const windowStart = addDays(today, -MAINTENANCE_WINDOW_DAYS)
+    const windowStart = addDays(today, -ANALYSIS_DAYS)
 
     const [entries, setEntries] = useState<MealPlanEntry[]>([])
     const [logs, setLogs] = useState<WeightLog[]>([])
     const [phases, setPhases] = useState<NutritionPhase[]>([])
     const [burns, setBurns] = useState<DailyEnergy[]>([])
+    const [fitness, setFitness] = useState<FitnessPlanEntry[]>([])
+    const [workouts, setWorkouts] = useState<WorkoutLog[]>([])
+    const [checkIns, setCheckIns] = useState<ProgressCheckIn[]>([])
     const [loading, setLoading] = useState(true)
+    const [reviewOpen, setReviewOpen] = useState(false)
 
     const load = useCallback(() => {
         Promise.all([
             listPlanEntries(windowStart, today),
-            listWeightLogs(addDays(today, -180)),
-            listNutritionPhases(today, today),
+            listWeightLogs(addDays(today, -WEIGHT_HISTORY_DAYS)),
+            // The whole window, not just today: resolving what a past day was
+            // measured against needs the phase that covered it.
+            listNutritionPhases(windowStart, today),
             listDailyEnergy(windowStart, today),
+            // Training only matters for today's target, so only today is fetched.
+            listFitnessEntries(today, today).catch(() => [] as FitnessPlanEntry[]),
+            // Supporting context for the review. Both fail soft — they colour
+            // the explanation, and the calorie decision stands without them.
+            listWorkoutLogs().catch(() => [] as WorkoutLog[]),
+            listCheckIns(addDays(today, -180)).catch(() => [] as ProgressCheckIn[]),
         ])
-            .then(([e, w, p, b]) => {
+            .then(([e, w, p, b, f, k, c]) => {
                 setEntries(e)
                 setLogs(w)
                 setPhases(p)
                 setBurns(b)
+                setFitness(f)
+                setWorkouts(k)
+                setCheckIns(c)
             })
             .finally(() => setLoading(false))
     }, [windowStart, today])
@@ -411,36 +352,97 @@ export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals
     useEffect(load, [load])
 
     const todayEntries = useMemo(() => entries.filter((e) => e.date === today), [entries, today])
-    const loggedBurn = useMemo(
-        () => burns.find((b) => b.date === today) ?? null,
-        [burns, today]
+    const loggedBurn = useMemo(() => burns.find((b) => b.date === today) ?? null, [burns, today])
+
+    const points = useMemo(() => trendSeries(logs), [logs])
+    const maintenance = useMemo(
+        () => measuredMaintenance(dailyIntake(entries), points, MAINTENANCE_WINDOW_DAYS, today),
+        [entries, points, today]
     )
 
-    const maintenance = useMemo(
-        () => measuredMaintenance(dailyIntake(entries), trendSeries(logs), MAINTENANCE_WINDOW_DAYS, today),
-        [entries, logs, today]
+    // The trend anchors on today rather than the last weigh-in, so a few days
+    // away from the scale shows as thinning data instead of a frozen figure.
+    const trend: WeightTrend | TrendGap = useMemo(() => weightTrend(logs, today), [logs, today])
+
+    const targets = useMemo(
+        () => effectiveTargetsFor(today, phases, settingsGoals, fitness),
+        [today, phases, settingsGoals, fitness]
     )
+    const { goals, source, phase, dayType, modifier } = targets
+    const kind = phase?.kind ?? null
 
     const day = useMemo(
         () => dayEnergy(todayEntries, loggedBurn, maintenance),
         [todayEntries, loggedBurn, maintenance]
     )
+    const eatenMacros = useMemo(() => sumEatenMacros(todayEntries), [todayEntries])
+    const pendingMacros = useMemo(() => sumPendingMacros(todayEntries), [todayEntries])
 
-    const { goals, source, phase } = useMemo(
-        () => targetsFor(today, phases, settingsGoals),
-        [today, phases, settingsGoals]
+    const progress = useMemo(
+        () => goalProgress(phase, trend, today),
+        [phase, trend, today]
     )
-    const kind = phase?.kind ?? null
 
-    const eatenMacros: Macros = useMemo(() => sumEatenMacros(todayEntries), [todayEntries])
+    const stats = useMemo(
+        () => adherence(entries, phases, settingsGoals, today),
+        [entries, phases, settingsGoals, today]
+    )
 
-    // Judged on the projected day rather than the eaten-so-far figure: before
-    // dinner every day looks like a heroic deficit, and colouring it green then
-    // would train you to trust a number that hasn't happened yet.
-    const balanceForVerdict = day.pending > 0 ? day.projectedBalance : day.balance
-    const balVerdict = balanceVerdict(balanceForVerdict, kind)
-    const calVerdict = targetVerdict(day.projected, goals?.calories, kind)
-    const impliedRate = impliedWeeklyRate(balanceForVerdict)
+    /**
+     * The wider picture behind the calorie decision: waist, strength, recovery.
+     *
+     * It explains the recommendation, and in exactly one case changes it — a
+     * flat scale with the tape still falling and the bar still going up is a
+     * recomposition working, not a stall, and the reduction is withheld. The
+     * traffic is one-way: these signals can stop a cut, never cause one.
+     */
+    const context = useMemo(() => {
+        if (!phase?.goal) return null
+        return readTransformation({
+            rateKgPerWeek: usableRate(trend),
+            rateBand: phase.goal.acceptableWeeklyRateKg,
+            waist: measurementTrend(logs, 'waist', today),
+            strength: strengthSummary(workouts, today),
+            adherence: stats,
+            checkIns,
+            asOf: today,
+        })
+    }, [phase, trend, logs, workouts, stats, checkIns, today])
+
+    const recommendation: Recommendation = useMemo(
+        () =>
+            reviewNutrition({
+                phase,
+                entries,
+                phases,
+                settingsGoals,
+                trend,
+                weightPoints: points,
+                asOf: today,
+                context,
+            }),
+        [phase, entries, phases, settingsGoals, trend, points, today, context]
+    )
+
+    const composition = useMemo(() => compositionSeries(logs), [logs])
+    const latestComposition = composition.length ? composition[composition.length - 1] : null
+    const compChange = useMemo(() => compositionChange(composition), [composition])
+
+    // Judged on the projected day: before dinner every day looks like a heroic
+    // deficit, and colouring it green then would train you to trust a number
+    // that hasn't happened yet.
+    const projected = {
+        calories: eatenMacros.calories + pendingMacros.calories,
+        protein: eatenMacros.protein + pendingMacros.protein,
+        carbs: eatenMacros.carbs + pendingMacros.carbs,
+        fat: eatenMacros.fat + pendingMacros.fat,
+    }
+    const verdicts = {
+        calories: targetVerdict(projected.calories, goals?.calories, kind),
+        protein: macroVerdict(projected.protein, goals?.protein, 'protein', kind),
+        carbs: macroVerdict(projected.carbs, goals?.carbs, 'other', kind),
+        fat: macroVerdict(projected.fat, goals?.fat, 'other', kind),
+    }
 
     async function handleSetStatus(id: string, status: EntryStatus) {
         const previous = entries.find((e) => e._id === id)?.status
@@ -466,6 +468,22 @@ export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals
         setBurns((prev) => prev.filter((b) => b.date !== today))
     }
 
+    /**
+     * Accepting a recommendation appends a dated revision to the phase. It does
+     * not touch `targets`, so every day before today keeps being measured
+     * against the number that was actually live then.
+     */
+    async function handleAccept(rec: Recommendation) {
+        if (!phase || !rec.suggestedTargets) return
+        const saved = await addPhaseAdjustment(phase._id, {
+            effectiveFrom: rec.effectiveFrom,
+            targets: rec.suggestedTargets,
+            reason: rec.reason,
+            source: 'adaptive',
+        })
+        setPhases((prev) => prev.map((p) => (p._id === saved._id ? saved : p)))
+    }
+
     if (loading) {
         return (
             <div className="grid place-items-center py-16">
@@ -473,13 +491,6 @@ export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals
             </div>
         )
     }
-
-    const outCaption =
-        day.source === 'logged'
-            ? 'Logged'
-            : day.source === 'maintenance'
-              ? 'Estimated from your trend'
-              : 'Not logged'
 
     return (
         <div className="flex flex-col gap-4">
@@ -514,54 +525,50 @@ export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals
                 )}
             </div>
 
-            {/* In / out / balance. */}
-            <div className="rounded-3xl bg-white p-5 ring-1 ring-black/[0.06]">
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                    <Headline
-                        label="Calories in"
-                        value={kcal(day.eaten)}
-                        caption={day.pending > 0 ? `${kcal(day.projected)} if today goes to plan` : 'Day logged'}
-                    />
-                    <Headline
-                        label="Calories out"
-                        value={day.out === null ? '—' : kcal(day.out)}
-                        caption={outCaption}
-                        tone={day.out === null ? 'text-neutral-300' : 'text-neutral-900'}
-                    />
-                    <div className="col-span-2 sm:col-span-1">
-                        <Headline
-                            label={
-                                balanceForVerdict === null
-                                    ? 'Balance'
-                                    : balanceForVerdict < 0
-                                      ? 'Deficit'
-                                      : 'Surplus'
-                            }
-                            value={
-                                balanceForVerdict === null ? '—' : signed(balanceForVerdict)
-                            }
-                            tone={VERDICT_TEXT[balVerdict]}
-                            caption={
-                                impliedRate === null
-                                    ? undefined
-                                    : `${impliedRate > 0 ? '+' : '−'}${Math.abs(impliedRate).toFixed(2)} kg/week at this rate`
-                            }
-                        />
-                    </div>
-                </div>
-
-                <IntakeBar
-                    eaten={day.eaten}
-                    pending={day.pending}
-                    out={day.out}
-                    verdict={balVerdict}
+            {goals ? (
+                <NutritionTargetCard
+                    eaten={eatenMacros}
+                    pending={pendingMacros}
+                    goals={goals}
+                    verdicts={verdicts}
+                    dayType={dayType}
+                    modifier={modifier}
+                    expenditure={loggedBurn?.caloriesOut ?? null}
+                    expenditureSource={day.source}
+                    projectedBalance={day.projectedBalance}
+                    maintenanceKcal={typeof maintenance === 'object' ? maintenance.kcal : null}
                 />
+            ) : (
+                <div className="rounded-3xl bg-white p-5 ring-1 ring-black/[0.06]">
+                    <EmptyState
+                        icon="fa-solid fa-bullseye"
+                        title="No targets to measure against"
+                        description="Set macro goals in settings, or start a nutrition phase to give this stretch its own numbers."
+                    />
+                </div>
+            )}
 
-                {/* The one line that says what to do about it. */}
-                <p className="mt-3 text-xs text-neutral-500">
-                    {verdictLine(balVerdict, kind, day.source, maintenance)}
-                </p>
-            </div>
+            <ProteinRecord
+                avgProteinG={stats.avgProteinG}
+                hitDays={stats.proteinHitDays}
+                targetDays={stats.proteinTargetDays}
+                windowDays={stats.windowDays}
+                targetG={goals?.protein}
+            />
+
+            {/* The long arc. Only worth showing once a phase has a goal on it. */}
+            {phase?.goal && (
+                <NutritionGoalCard
+                    phaseName={phase.name}
+                    progress={progress}
+                    trend={trend}
+                    maintenance={maintenance}
+                    currentTargetKcal={targets.baseGoals?.calories}
+                    composition={latestComposition}
+                    compositionChange={compChange}
+                    onReview={() => setReviewOpen(true)}
+                />
+            )}
 
             <BurnEntry
                 key={loggedBurn?.caloriesOut ?? 'unset'}
@@ -571,56 +578,6 @@ export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals
                 onClear={handleClearBurn}
             />
 
-            {/* Macros against the resolved target. */}
-            <div className="rounded-3xl bg-white p-5 ring-1 ring-black/[0.06]">
-                <div className="mb-3 flex items-baseline justify-between gap-3">
-                    <h3 className="text-sm font-bold tracking-tight text-neutral-900">
-                        Against target
-                    </h3>
-                    <span className="text-[11px] text-neutral-400">
-                        {day.pending > 0 ? 'Projected, if today goes to plan' : 'Eaten today'}
-                    </span>
-                </div>
-                {goals ? (
-                    <div className="flex flex-col gap-2.5">
-                        <MacroRow
-                            label="Calories"
-                            unit="kcal"
-                            value={day.pending > 0 ? day.projected : day.eaten}
-                            target={goals.calories}
-                            verdict={calVerdict}
-                        />
-                        <MacroRow
-                            label="Protein"
-                            unit="g"
-                            value={eatenMacros.protein}
-                            target={goals.protein}
-                            verdict={macroVerdict(eatenMacros.protein, goals.protein, 'protein', kind)}
-                        />
-                        <MacroRow
-                            label="Carbs"
-                            unit="g"
-                            value={eatenMacros.carbs}
-                            target={goals.carbs}
-                            verdict={macroVerdict(eatenMacros.carbs, goals.carbs, 'other', kind)}
-                        />
-                        <MacroRow
-                            label="Fat"
-                            unit="g"
-                            value={eatenMacros.fat}
-                            target={goals.fat}
-                            verdict={macroVerdict(eatenMacros.fat, goals.fat, 'other', kind)}
-                        />
-                    </div>
-                ) : (
-                    <EmptyState
-                        icon="fa-solid fa-bullseye"
-                        title="No targets to measure against"
-                        description="Set macro goals in settings, or start a nutrition phase to give this stretch its own numbers."
-                    />
-                )}
-            </div>
-
             {/* Today's food. */}
             <div>
                 <h3 className="mb-2 text-sm font-bold tracking-tight text-neutral-900">
@@ -628,6 +585,13 @@ export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals
                 </h3>
                 <MealList entries={todayEntries} onSetStatus={handleSetStatus} />
             </div>
+
+            <NutritionReview
+                open={reviewOpen}
+                onClose={() => setReviewOpen(false)}
+                recommendation={recommendation}
+                onAccept={phase ? handleAccept : undefined}
+            />
         </div>
     )
 }
@@ -650,40 +614,4 @@ function macroVerdict(
         return value >= target * 0.85 ? 'warn' : 'bad'
     }
     return targetVerdict(value, target, kind)
-}
-
-/** The sentence under the bar: what the balance means, in words. */
-function verdictLine(
-    verdict: Verdict,
-    kind: NutritionPhaseKind | null,
-    source: 'logged' | 'maintenance' | 'unknown',
-    maintenance: Maintenance | MaintenanceGap
-): string {
-    if (source === 'unknown') {
-        if (maintenance === 'not-enough-intake') {
-            return 'Log a burn figure above, or keep marking meals eaten — a fortnight of logged days is enough to measure your maintenance from the scale.'
-        }
-        if (maintenance === 'not-enough-weight') {
-            return 'Log a burn figure above, or add a few weigh-ins — the trend is what turns your intake into a maintenance figure.'
-        }
-        return 'No expenditure figure for today yet.'
-    }
-
-    const mode = kind === 'gain' ? 'bulk' : kind === 'maintain' ? 'maintenance' : 'cut'
-    switch (verdict) {
-        case 'good':
-            return kind === 'maintain'
-                ? 'Close enough to level — that is the job on a maintenance phase.'
-                : `On plan for a ${mode}.`
-        case 'warn':
-            return kind === 'maintain'
-                ? 'Drifting away from level today.'
-                : `Around maintenance — no real progress either way on a ${mode}.`
-        case 'bad':
-            return kind === 'gain'
-                ? 'A deficit on a bulk — this day costs you ground.'
-                : `A surplus on a ${mode} — today works against the phase.`
-        default:
-            return ''
-    }
 }

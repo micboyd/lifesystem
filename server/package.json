@@ -10,6 +10,7 @@
         "fitness:cleanup": "tsx src/scripts/cleanupFitnessLibrary.ts",
         "fitness:restore": "tsx src/scripts/restoreFitnessCleanup.ts",
         "fitness:wipe": "tsx src/scripts/wipeFitness.ts",
+        "nutrition:seed-recomp": "tsx src/scripts/seedRecompPhase.ts",
         "build": "tsc",
         "start": "node dist/index.js",
         "lint": "eslint .",

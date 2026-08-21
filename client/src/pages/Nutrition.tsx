@@ -38,16 +38,31 @@ import {
 } from '../services/mealPlan'
 import { createTask } from '../services/tasks'
 import { estimatePrepTime, formatDuration, DEFAULT_PREP_OVERHEAD } from '../lib/prepTime'
-import { entryMacros, entryName, isCounted, sumMacros, normGoals } from '../lib/nutrition'
+import {
+    entryMacros,
+    entryName,
+    isCounted,
+    sumMacros,
+    normGoals,
+    mealFit,
+    proteinDensity,
+    MEAL_FIT_LABELS,
+} from '../lib/nutrition'
+import { effectiveTargetsFor, DAY_TYPE_LABELS, type DayType } from '../lib/nutritionTargets'
+import { listNutritionPhases } from '../services/nutritionPhases'
+import { listPlanEntries as listFitnessEntries } from '../services/fitnessPlan'
 import TodayTab from '../components/nutrition/TodayTab'
+import ProgressTab from '../components/nutrition/ProgressTab'
 import { useAuth } from '../context/AuthContext'
 import { MEAL_TYPES } from '../types'
 import type {
+    FitnessPlanEntry,
     Meal,
     MealType,
     Ingredient,
     Macros,
     MacroGoals,
+    NutritionPhase,
     MealPlanEntry,
     EntryStatus,
 } from '../types'
@@ -181,13 +196,14 @@ type Drawered =
 
 // Today first: the week is where a plan gets designed, but the day is what you
 // actually come here to settle.
-const TOP_TABS = ['Today', 'Weekly Planner', 'Meals'] as const
+const TOP_TABS = ['Today', 'Weekly Planner', 'Meals', 'Progress'] as const
 type TopTab = (typeof TOP_TABS)[number]
 
 const SUBTITLE: Record<TopTab, string> = {
     Today: 'Calories in against calories out, read through the phase you are in.',
     Meals: 'Your meal library — macros, ingredients and method for every recipe.',
     'Weekly Planner': 'Plan your week — breakfast, lunch, dinner and snacks, with macros tallied.',
+    Progress: 'Weight, waist, strength and photos — whether the recomp is actually working.',
 }
 
 export default function Nutrition() {
@@ -340,6 +356,10 @@ export default function Nutrition() {
             {tab === 'Today' ? (
                 <Container className="mt-2">
                     <TodayTab settingsGoals={user?.settings?.macroGoals} />
+                </Container>
+            ) : tab === 'Progress' ? (
+                <Container className="mt-2">
+                    <ProgressTab settingsGoals={user?.settings?.macroGoals} />
                 </Container>
             ) : tab === 'Weekly Planner' ? (
                 <Container fluid className="mt-8">
@@ -2198,6 +2218,8 @@ function WeeklyPlanner({
 }) {
     const [weekStart, setWeekStart] = useState(() => mondayOf(todayKey()))
     const [entries, setEntries] = useState<MealPlanEntry[]>([])
+    const [phases, setPhases] = useState<NutritionPhase[]>([])
+    const [fitness, setFitness] = useState<FitnessPlanEntry[]>([])
     const [loading, setLoading] = useState(true)
     const [picker, setPicker] = useState<{ date: string; slot: MealType } | null>(null)
     const [showList, setShowList] = useState(false)
@@ -2225,10 +2247,39 @@ function WeeklyPlanner({
         }
     }, [weekStart, weekEnd])
 
+    // The phase covering the week supplies each day's target; the fitness plan
+    // decides which days are hard enough to earn more. Both fail soft: without
+    // them the planner falls back to the standing goals exactly as it always did.
+    useEffect(() => {
+        let active = true
+        Promise.all([
+            listNutritionPhases(weekStart, weekEnd).catch(() => [] as NutritionPhase[]),
+            listFitnessEntries(weekStart, weekEnd).catch(() => [] as FitnessPlanEntry[]),
+        ]).then(([p, f]) => {
+            if (!active) return
+            setPhases(p)
+            setFitness(f)
+        })
+        return () => {
+            active = false
+        }
+    }, [weekStart, weekEnd])
+
     const days = useMemo(
         () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
         [weekStart]
     )
+
+    // One resolution of the week's targets, shared by every day column and the
+    // week total — so the seven daily figures and the week's sum can never
+    // disagree about what was being aimed at.
+    const dayTargets = useMemo(() => {
+        const map = new Map<string, ReturnType<typeof effectiveTargetsFor>>()
+        for (const date of days) {
+            map.set(date, effectiveTargetsFor(date, phases, goals, fitness))
+        }
+        return map
+    }, [days, phases, goals, fitness])
 
     async function handleAdd(date: string, slot: MealType, mealId: string) {
         const entry = await addPlanEntry(date, slot, mealId)
@@ -2451,8 +2502,41 @@ function WeeklyPlanner({
         void pasteWeek(copiedWeek)
     }
 
+    /**
+     * What a day's target still has room for. Measured against everything
+     * planned, not just what's been eaten — food already on the plan is spoken
+     * for, and treating it as headroom is how a day gets planned twice over.
+     */
+    function remainingOn(date: string): { calories?: number; protein?: number } | null {
+        const goalsForDay = dayTargets.get(date)?.goals
+        if (!goalsForDay) return null
+        const planned = sumMacros(entries.filter((e) => e.date === date))
+        return {
+            calories: goalsForDay.calories ? goalsForDay.calories - planned.calories : undefined,
+            protein: goalsForDay.protein ? goalsForDay.protein - planned.protein : undefined,
+        }
+    }
+
     const weekMacros = sumMacros(entries)
     const weekProgress = logProgress(entries)
+    // The week's target is the sum of its days', not one day times seven: with
+    // calorie cycling on, no two days need carry the same number.
+    const weekTargets = useMemo(() => {
+        let calories = 0
+        let protein = 0
+        let carbs = 0
+        let fat = 0
+        let days_ = 0
+        for (const t of dayTargets.values()) {
+            if (!t.goals) continue
+            days_++
+            calories += t.goals.calories ?? 0
+            protein += t.goals.protein ?? 0
+            carbs += t.goals.carbs ?? 0
+            fat += t.goals.fat ?? 0
+        }
+        return days_ > 0 ? { calories, protein, carbs, fat, days: days_ } : null
+    }, [dayTargets])
     const weekCopied = copiedWeek === weekStart
 
     return (
@@ -2553,7 +2637,7 @@ function WeeklyPlanner({
                     </div>
                     <WeekTotals
                         macros={weekMacros}
-                        goals={goals}
+                        targets={weekTargets}
                         progress={weekProgress}
                         total={entries.length}
                     />
@@ -2582,7 +2666,9 @@ function WeeklyPlanner({
                                     date={date}
                                     isToday={date === today}
                                     editable={editing}
-                                    goals={goals}
+                                    goals={dayTargets.get(date)?.goals ?? null}
+                                    dayType={dayTargets.get(date)?.dayType ?? null}
+                                    modifier={dayTargets.get(date)?.modifier ?? 0}
                                     entries={entries.filter((e) => e.date === date)}
                                     onAdd={(slot) => setPicker({ date, slot })}
                                     onRemove={handleRemove}
@@ -2602,6 +2688,7 @@ function WeeklyPlanner({
             <MealPicker
                 target={picker}
                 meals={meals}
+                remaining={picker ? remainingOn(picker.date) : null}
                 entries={
                     picker
                         ? entries.filter((e) => e.date === picker.date && e.slot === picker.slot)
@@ -2735,21 +2822,33 @@ function LogStatus({ progress, total }: { progress: LogProgress; total: number }
     )
 }
 
+/** The week's target: the sum of its days', and how many days supplied one. */
+interface WeekTargets {
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
+    days: number
+}
+
 function WeekTotals({
     macros,
-    goals,
+    targets,
     progress,
     total,
 }: {
     macros: Macros
-    goals: MacroGoals | null
+    targets: WeekTargets | null
     progress: LogProgress
     total: number
 }) {
-    // Goals are per-day; the week's target is seven of them.
-    const weekCals = goals?.calories ? goals.calories * 7 : undefined
-    const times7 = (v?: number) => (v ? v * 7 : undefined)
+    // Summed across the days rather than one day multiplied out, so a week of
+    // cycled targets totals to what it actually asks for.
+    const weekCals = targets?.calories || undefined
+    const per = (v?: number) => (v && targets ? v : undefined)
     const settled = progress.eaten + progress.skipped
+    const avgTarget = targets && targets.days > 0 ? targets.calories / targets.days : undefined
+    const avgProtein = macros.protein / 7
     return (
         <div className="flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-4 py-2.5">
             <div>
@@ -2765,9 +2864,9 @@ function WeekTotals({
             </div>
             <div className="h-8 w-px bg-neutral-200" />
             <div className="flex gap-1.5 text-xs tabular-nums text-neutral-500">
-                <MacroPill label="P" value={macros.protein} goal={times7(goals?.protein)} />
-                <MacroPill label="C" value={macros.carbs} goal={times7(goals?.carbs)} />
-                <MacroPill label="F" value={macros.fat} goal={times7(goals?.fat)} />
+                <MacroPill label="P" value={macros.protein} goal={per(targets?.protein)} />
+                <MacroPill label="C" value={macros.carbs} goal={per(targets?.carbs)} />
+                <MacroPill label="F" value={macros.fat} goal={per(targets?.fat)} />
             </div>
             <div className="hidden h-8 w-px bg-neutral-200 sm:block" />
             <div className="hidden sm:block">
@@ -2776,7 +2875,10 @@ function WeekTotals({
                 </p>
                 <p className="text-sm font-semibold tabular-nums text-neutral-700">
                     {fmt(macros.calories / 7)}
-                    {goals?.calories ? ` / ${fmt(goals.calories)}` : ''} kcal
+                    {avgTarget ? ` / ${fmt(Math.round(avgTarget))}` : ''} kcal
+                </p>
+                <p className="text-[11px] font-medium tabular-nums text-neutral-400">
+                    {fmt(avgProtein)} g protein / day
                 </p>
             </div>
             <div className="hidden h-8 w-px bg-neutral-200 md:block" />
@@ -2802,6 +2904,8 @@ function DayColumn({
     isToday,
     editable,
     goals,
+    dayType,
+    modifier,
     entries,
     onAdd,
     onRemove,
@@ -2815,7 +2919,11 @@ function DayColumn({
     date: string
     isToday: boolean
     editable: boolean
+    /** The day's effective target — the phase's, shifted for how hard it trains. */
     goals: MacroGoals | null
+    dayType: DayType | null
+    /** The activity shift baked into `goals`, signed. Zero on a flat phase. */
+    modifier: number
     entries: MealPlanEntry[]
     onAdd: (slot: MealType) => void
     onRemove: (id: string) => void
@@ -2847,6 +2955,17 @@ function DayColumn({
                     </p>
                 </div>
                 <div className="flex items-center gap-1">
+                    {/* Only shown when cycling actually moved the day's target —
+                        otherwise it is training information in a food planner. */}
+                    {modifier !== 0 && dayType && (
+                        <span
+                            className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold text-neutral-500"
+                            title={`${DAY_TYPE_LABELS[dayType]} day: ${modifier > 0 ? '+' : '−'}${Math.abs(modifier)} kcal`}
+                        >
+                            {modifier > 0 ? '+' : '−'}
+                            {Math.abs(modifier)}
+                        </span>
+                    )}
                     {isToday && (
                         <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-semibold text-coral-600">
                             Today
@@ -2913,6 +3032,16 @@ function DayColumn({
                     </span>
                 </div>
                 {goals?.calories ? <GoalBar value={macros.calories} goal={goals.calories} /> : null}
+                {/* What the plan still has room for — the figure that decides
+                    whether another meal fits, which the totals alone don't say. */}
+                {(goals?.calories || goals?.protein) && (
+                    <p className="text-[10px] tabular-nums text-neutral-400">
+                        {goals.calories ? `${fmt(Math.round(goals.calories - macros.calories))} kcal` : ''}
+                        {goals.calories && goals.protein ? ' · ' : ''}
+                        {goals.protein ? `${fmt(Math.round(goals.protein - macros.protein))} g P` : ''}
+                        {' left'}
+                    </p>
+                )}
                 <LogStatus progress={progress} total={entries.length} />
                 <div className="flex flex-wrap gap-1 text-[11px] tabular-nums text-neutral-500">
                     <MacroPill label="P" value={macros.protein} goal={goals?.protein} />
@@ -3311,9 +3440,37 @@ function OffPlanModal({
  * the drawer open so several (e.g. snacks) can be added in a row; what's already
  * in the slot is listed at the top and can be removed here too.
  */
+/**
+ * How a meal sits against what the day has left. Secondary by design — it is a
+ * cue at the moment of choosing, not a verdict on the food.
+ */
+function MealFitLabels({
+    macros,
+    remaining,
+}: {
+    macros: Macros
+    remaining: { calories?: number; protein?: number } | null
+}) {
+    const labels = mealFit(macros, remaining)
+    if (labels.length === 0) return null
+    return (
+        <div className="mt-1 flex flex-wrap gap-1">
+            {labels.map((label) => (
+                <span
+                    key={label}
+                    className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-500"
+                >
+                    {MEAL_FIT_LABELS[label]}
+                </span>
+            ))}
+        </div>
+    )
+}
+
 function MealPicker({
     target,
     meals,
+    remaining,
     entries,
     onClose,
     onAdd,
@@ -3322,6 +3479,8 @@ function MealPicker({
 }: {
     target: { date: string; slot: MealType } | null
     meals: Meal[]
+    /** Calories and protein the day's target still has room for, if it has one. */
+    remaining: { calories?: number; protein?: number } | null
     entries: MealPlanEntry[]
     onClose: () => void
     onAdd: (date: string, slot: MealType, mealId: string) => Promise<void>
@@ -3414,7 +3573,14 @@ function MealPicker({
                                         <p className="text-xs tabular-nums text-neutral-400">
                                             {fmt(m.macros.calories)} kcal · P{fmt(m.macros.protein)} C
                                             {fmt(m.macros.carbs)} F{fmt(m.macros.fat)}
+                                            {(() => {
+                                                const d = proteinDensity(m.macros)
+                                                return d === null
+                                                    ? null
+                                                    : ` · ${d.toFixed(1)}g P/100 kcal`
+                                            })()}
                                         </p>
+                                        <MealFitLabels macros={m.macros} remaining={remaining} />
                                     </div>
                                     {slot && m.types.includes(slot) && (
                                         <TypeChip type={slot} />

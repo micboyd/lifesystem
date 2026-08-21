@@ -24,10 +24,18 @@ import {
     type BodyFatPoint,
     type RateStatus,
 } from '../lib/weightTrend'
-import type { BodyGoals, WeightLog } from '../types'
+import { MEASUREMENT_FIELDS } from '../types'
+import type { BodyGoals, BodyMeasurements, WeightLog } from '../types'
 
-/** What one weigh-in submission carries. */
-interface WeighInPayload {
+/**
+ * What one weigh-in submission carries.
+ *
+ * The API treats a submission as the *complete* reading for that date and clears
+ * anything absent, so this form has to pass through the fields it does not edit
+ * — the extra circumferences and the note, which are captured on the Nutrition
+ * progress check — or saving a corrected weight here would quietly wipe them.
+ */
+interface WeighInPayload extends BodyMeasurements {
     date: string
     weight: number
     waist?: number
@@ -285,11 +293,19 @@ function WeighInForm({
         }
         setSaving(true)
         try {
+            // Carry through what this form doesn't edit — the other
+            // circumferences and any note — so correcting a weight here never
+            // erases a measuring session recorded elsewhere.
+            const untouched = Object.fromEntries(
+                MEASUREMENT_FIELDS.filter((f) => f !== 'waist').map((f) => [f, initial?.[f]])
+            )
             await onSave({
+                ...untouched,
                 date,
                 weight: kg,
                 waist: cm !== undefined && Number.isFinite(cm) && cm > 0 ? cm : undefined,
                 bodyFat: fat,
+                notes: initial?.notes,
             })
             if (!initial) {
                 setWeight('')

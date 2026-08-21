@@ -1,12 +1,28 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
 import { listPlanEntries } from '../../services/mealPlan'
+import { listNutritionPhases } from '../../services/nutritionPhases'
+import { listWeightLogs } from '../../services/weightLogs'
+import { listPlanEntries as listFitnessEntries } from '../../services/fitnessPlan'
 import { addDays, parseDateKey, formatWeekRange, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
 import { MEAL_TYPES } from '../../types'
-import { sumMacros } from '../../lib/nutrition'
-import type { Macros, MealPlanEntry, MealType } from '../../types'
+import { sumMacros, sumEatenMacros } from '../../lib/nutrition'
+import { effectiveTargetsFor } from '../../lib/nutritionTargets'
+import { weightTrend, usableRate } from '../../lib/nutritionTrend'
+import { goalProgress, GOAL_STATUS_LABELS } from '../../lib/nutritionGoal'
+import { measurementTrend } from '../../lib/bodyMeasurements'
+import { useAuth } from '../../context/AuthContext'
+import type {
+    FitnessPlanEntry,
+    MacroGoals,
+    Macros,
+    MealPlanEntry,
+    MealType,
+    NutritionPhase,
+    WeightLog,
+} from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -67,8 +83,124 @@ function MacroPills({ macros }: { macros: Macros }) {
 
 // ── Today's meals ─────────────────────────────────────────────────────────────
 
-function TodayView({ entries }: { entries: MealPlanEntry[] }) {
-    const totals = sumMacros(entries)
+/** "101.8 kg" — one decimal is all a bathroom scale can honestly claim. */
+function kgLabel(n: number): string {
+    return `${n.toFixed(1)} kg`
+}
+
+/** "−0.21 kg/week", with a real minus sign. */
+function rateLabel(n: number): string {
+    return `${n < 0 ? '−' : '+'}${Math.abs(n).toFixed(2)} kg/week`
+}
+
+/**
+ * The dashboard's version of the question: am I on target today, and is any of
+ * it working. Four figures and a status — anything more belongs on the Nutrition
+ * tab, which is one click away.
+ */
+function StatusBlock({
+    eaten,
+    goals,
+    weightKg,
+    ratePerWeek,
+    waistChangeCm,
+    phaseName,
+    status,
+}: {
+    eaten: Macros
+    goals: MacroGoals | null
+    weightKg: number | null
+    ratePerWeek: number | null
+    /** Waist change across the last four weeks, when there is one. */
+    waistChangeCm: number | null
+    phaseName: string | null
+    status: string | null
+}) {
+    return (
+        <div className="rounded-2xl bg-white p-5 ring-1 ring-black/[0.06]">
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-coral-600">
+                        Calories
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
+                        {fmt(eaten.calories)}
+                        <span className="ml-1 text-sm font-normal text-neutral-400">
+                            {goals?.calories ? `/ ${fmt(goals.calories)}` : 'kcal'}
+                        </span>
+                    </p>
+                </div>
+                <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                        Protein
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
+                        {fmt(eaten.protein)}
+                        <span className="ml-1 text-sm font-normal text-neutral-400">
+                            {goals?.protein ? `/ ${fmt(goals.protein)} g` : 'g'}
+                        </span>
+                    </p>
+                </div>
+            </div>
+
+            {(weightKg !== null || phaseName) && (
+                <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-neutral-100 pt-3">
+                    <p className="text-xs tabular-nums text-neutral-500">
+                        {weightKg === null ? (
+                            <span className="text-neutral-300">No weigh-ins yet</span>
+                        ) : (
+                            <>
+                                <span className="font-semibold text-neutral-700">
+                                    {kgLabel(weightKg)}
+                                </span>
+                                {ratePerWeek !== null && (
+                                    <span className="ml-2 text-neutral-400">
+                                        {rateLabel(ratePerWeek)}
+                                    </span>
+                                )}
+                                {/* One line of the transformation layer, and no
+                                    more — the widget's job is a glance. */}
+                                {waistChangeCm !== null && (
+                                    <span className="ml-2 text-neutral-400">
+                                        waist {waistChangeCm < 0 ? '−' : '+'}
+                                        {Math.abs(waistChangeCm).toFixed(1)} cm
+                                    </span>
+                                )}
+                            </>
+                        )}
+                    </p>
+                    {phaseName && (
+                        <p className="truncate text-[11px] font-semibold text-neutral-500">
+                            {phaseName}
+                            {status ? ` · ${status}` : ''}
+                        </p>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
+
+function TodayView({
+    entries,
+    goals,
+    weightKg,
+    ratePerWeek,
+    waistChangeCm,
+    phaseName,
+    status,
+}: {
+    entries: MealPlanEntry[]
+    goals: MacroGoals | null
+    weightKg: number | null
+    ratePerWeek: number | null
+    waistChangeCm: number | null
+    phaseName: string | null
+    status: string | null
+}) {
+    // What's actually been eaten, not what's on the plan — the widget's job is
+    // to say where the day stands, and the plan says where it might end up.
+    const eaten = sumEatenMacros(entries)
     // Group by slot, keeping the canonical breakfast → snack order.
     const bySlot = MEAL_TYPES.map((slot) => ({
         slot,
@@ -77,21 +209,15 @@ function TodayView({ entries }: { entries: MealPlanEntry[] }) {
 
     return (
         <div className="flex flex-col gap-4">
-            {/* Day macro headline */}
-            <div className="rounded-2xl bg-white p-5 ring-1 ring-black/[0.06]">
-                <div className="flex items-end justify-between gap-4">
-                    <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-coral-600">
-                            Calories today
-                        </p>
-                        <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-neutral-900">
-                            {fmt(totals.calories)}
-                            <span className="ml-1 text-base font-normal text-neutral-400">kcal</span>
-                        </p>
-                    </div>
-                    <MacroPills macros={totals} />
-                </div>
-            </div>
+            <StatusBlock
+                eaten={eaten}
+                goals={goals}
+                weightKg={weightKg}
+                ratePerWeek={ratePerWeek}
+                waistChangeCm={waistChangeCm}
+                phaseName={phaseName}
+                status={status}
+            />
 
             {/* Meals by slot */}
             <ul className="flex flex-col divide-y divide-neutral-100 rounded-2xl ring-1 ring-black/[0.06]">
@@ -220,7 +346,12 @@ export default function NutritionWidget({
     cadence?: 'today' | 'week'
 }) {
     const isWeek = cadence === 'week'
+    const { user } = useAuth()
+    const settingsGoals = user?.settings?.macroGoals
     const [entries, setEntries] = useState<MealPlanEntry[]>([])
+    const [phases, setPhases] = useState<NutritionPhase[]>([])
+    const [logs, setLogs] = useState<WeightLog[]>([])
+    const [fitness, setFitness] = useState<FitnessPlanEntry[]>([])
     // Derive loading from which range finished loading — avoids a synchronous
     // setState inside the fetch effect.
     const [loadedKey, setLoadedKey] = useState<string | null>(null)
@@ -244,6 +375,38 @@ export default function NutritionWidget({
             active = false
         }
     }, [start, end, rangeKey])
+
+    // The goal context. Each fetch fails soft: a widget that renders the day's
+    // meals is more useful than one that renders an error because the weigh-in
+    // history was unreachable.
+    useEffect(() => {
+        if (isWeek) return
+        let active = true
+        Promise.all([
+            listNutritionPhases(date, date).catch(() => [] as NutritionPhase[]),
+            listWeightLogs(addDays(date, -120)).catch(() => [] as WeightLog[]),
+            listFitnessEntries(date, date).catch(() => [] as FitnessPlanEntry[]),
+        ]).then(([p, w, f]) => {
+            if (!active) return
+            setPhases(p)
+            setLogs(w)
+            setFitness(f)
+        })
+        return () => {
+            active = false
+        }
+    }, [date, isWeek])
+
+    const targets = useMemo(
+        () => effectiveTargetsFor(date, phases, settingsGoals, fitness),
+        [date, phases, settingsGoals, fitness]
+    )
+    const trend = useMemo(() => weightTrend(logs, date), [logs, date])
+    const progress = useMemo(
+        () => goalProgress(targets.phase, trend, date),
+        [targets.phase, trend, date]
+    )
+    const waist = useMemo(() => measurementTrend(logs, 'waist', date), [logs, date])
 
     return (
         <Card>
@@ -280,7 +443,15 @@ export default function NutritionWidget({
             ) : isWeek ? (
                 <WeekView weekStart={weekStart} entries={entries} />
             ) : (
-                <TodayView entries={entries} />
+                <TodayView
+                    entries={entries}
+                    goals={targets.goals}
+                    weightKg={typeof trend === 'string' ? null : trend.current.kg}
+                    ratePerWeek={usableRate(trend)}
+                    waistChangeCm={typeof waist === 'string' ? null : waist.recentChangeCm}
+                    phaseName={targets.phase?.name ?? null}
+                    status={progress ? GOAL_STATUS_LABELS[progress.status] : null}
+                />
             )}
         </Card>
     )

@@ -4,6 +4,7 @@ import Button from '../Button'
 import Input from '../Input'
 import Select from '../Select'
 import Textarea from '../Textarea'
+import Switch from '../Switch'
 import Alert from '../Alert'
 import Badge from '../Badge'
 import EmptyState from '../EmptyState'
@@ -15,6 +16,7 @@ import {
     type NutritionPhase,
     type NutritionPhaseInput,
     type NutritionPhaseKind,
+    type PhaseGoal,
 } from '../../types'
 import { formatDateShort, todayKey } from '../../lib/calendar'
 
@@ -34,6 +36,13 @@ function readNumber(value: string): number | undefined {
     return Number.isFinite(n) && n >= 0 ? n : undefined
 }
 
+/** A signed number input, where negatives are meaningful (rates). */
+function readSigned(value: string): number | undefined {
+    if (!value.trim()) return undefined
+    const n = Number(value)
+    return Number.isFinite(n) ? n : undefined
+}
+
 interface FormState {
     name: string
     startDate: string
@@ -45,6 +54,23 @@ interface FormState {
     fat: string
     weeklyRate: string
     notes: string
+    /**
+     * The goal block. Switched on by `adaptive` — without it the phase is a
+     * plain dated target, exactly as phases were before any of this existed.
+     */
+    adaptive: boolean
+    recomp: boolean
+    startWeight: string
+    targetWeight: string
+    targetWeightMin: string
+    targetWeightMax: string
+    targetBodyFat: string
+    rateMin: string
+    rateMax: string
+    proteinFloor: string
+    cycling: boolean
+    hardKcal: string
+    restKcal: string
 }
 
 function blankForm(): FormState {
@@ -60,6 +86,19 @@ function blankForm(): FormState {
         fat: '',
         weeklyRate: '',
         notes: '',
+        adaptive: false,
+        recomp: false,
+        startWeight: '',
+        targetWeight: '',
+        targetWeightMin: '',
+        targetWeightMax: '',
+        targetBodyFat: '',
+        rateMin: '',
+        rateMax: '',
+        proteinFloor: '',
+        cycling: false,
+        hardKcal: '',
+        restKcal: '',
     }
 }
 
@@ -75,6 +114,48 @@ function formFrom(phase: NutritionPhase): FormState {
         fat: phase.targets.fat?.toString() ?? '',
         weeklyRate: phase.weeklyRate?.toString() ?? '',
         notes: phase.notes ?? '',
+        adaptive: phase.goal?.adaptive ?? false,
+        recomp: phase.goal?.style === 'recomp',
+        startWeight: phase.goal?.startWeightKg?.toString() ?? '',
+        targetWeight: phase.goal?.targetWeightKg?.toString() ?? '',
+        targetWeightMin: phase.goal?.targetWeightRangeKg?.min?.toString() ?? '',
+        targetWeightMax: phase.goal?.targetWeightRangeKg?.max?.toString() ?? '',
+        targetBodyFat: phase.goal?.targetBodyFatPct?.toString() ?? '',
+        rateMin: phase.goal?.acceptableWeeklyRateKg?.min?.toString() ?? '',
+        rateMax: phase.goal?.acceptableWeeklyRateKg?.max?.toString() ?? '',
+        proteinFloor: phase.goal?.proteinFloorG?.toString() ?? '',
+        cycling: phase.strategy?.type === 'activity',
+        hardKcal: phase.strategy?.hardKcal?.toString() ?? '',
+        restKcal: phase.strategy?.restKcal?.toString() ?? '',
+    }
+}
+
+/**
+ * The goal block a form describes, or undefined when adaptive targeting is off.
+ *
+ * Kept out of the submit handler because the mapping is fiddly enough to be
+ * worth reading on its own: a blank box means "not set", and a range is only a
+ * range when both ends are filled in.
+ */
+function goalFrom(form: FormState): PhaseGoal | undefined {
+    if (!form.adaptive) return undefined
+
+    const min = readSigned(form.rateMin)
+    const max = readSigned(form.rateMax)
+    const wMin = readNumber(form.targetWeightMin)
+    const wMax = readNumber(form.targetWeightMax)
+
+    return {
+        style: form.recomp ? 'recomp' : 'standard',
+        startWeightKg: readNumber(form.startWeight),
+        targetDate: form.endDate,
+        targetWeightKg: readNumber(form.targetWeight),
+        targetWeightRangeKg: wMin !== undefined && wMax !== undefined ? { min: wMin, max: wMax } : undefined,
+        targetBodyFatPct: readNumber(form.targetBodyFat),
+        targetWeeklyRateKg: readSigned(form.weeklyRate),
+        acceptableWeeklyRateKg: min !== undefined && max !== undefined ? { min, max } : undefined,
+        proteinFloorG: readNumber(form.proteinFloor),
+        adaptive: true,
     }
 }
 
@@ -140,6 +221,14 @@ export default function NutritionPhasesTab({
                     fat: readNumber(form.fat),
                 },
                 weeklyRate: form.weeklyRate.trim() ? Number(form.weeklyRate) : undefined,
+                goal: goalFrom(form),
+                strategy: form.cycling
+                    ? {
+                          type: 'activity',
+                          hardKcal: readNumber(form.hardKcal),
+                          restKcal: readNumber(form.restKcal),
+                      }
+                    : undefined,
                 notes: form.notes.trim() ? form.notes.trim() : undefined,
             },
             editing?._id
@@ -329,6 +418,173 @@ export default function NutritionPhasesTab({
                         value={form.weeklyRate}
                         onChange={(e) => setForm((f) => ({ ...f, weeklyRate: e.target.value }))}
                     />
+
+                    {/*
+                      Adaptive targeting. Off by default and entirely optional:
+                      a phase without it behaves exactly as phases always have,
+                      and the review engine stays quiet because it has nothing to
+                      steer towards.
+                    */}
+                    <div className="rounded-2xl border border-neutral-200 p-4">
+                        <Switch
+                            label="Adaptive targets"
+                            checked={form.adaptive}
+                            onChange={(checked: boolean) => setForm((f) => ({ ...f, adaptive: checked }))}
+                        />
+                        <p className="mt-1.5 text-[11px] text-neutral-400">
+                            Track a goal weight and let the review suggest calorie changes from your
+                            weight trend. Nothing changes without your say-so.
+                        </p>
+
+                        {form.adaptive && (
+                            <div className="mt-4 space-y-4">
+                                <div>
+                                    <Switch
+                                        label="Recomposition"
+                                        checked={form.recomp}
+                                        onChange={(checked: boolean) =>
+                                            setForm((f) => ({ ...f, recomp: checked }))
+                                        }
+                                    />
+                                    <p className="mt-1.5 text-[11px] text-neutral-400">
+                                        The point is body composition rather than scale weight: hold
+                                        protein, lose slowly, and read lean mass alongside the total.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Input
+                                        label="Start weight (kg)"
+                                        type="number"
+                                        step="0.1"
+                                        min={0}
+                                        placeholder="103"
+                                        value={form.startWeight}
+                                        onChange={(e) =>
+                                            setForm((f) => ({ ...f, startWeight: e.target.value }))
+                                        }
+                                    />
+                                    <Input
+                                        label="Target weight (kg)"
+                                        type="number"
+                                        step="0.1"
+                                        min={0}
+                                        placeholder="95"
+                                        value={form.targetWeight}
+                                        onChange={(e) =>
+                                            setForm((f) => ({ ...f, targetWeight: e.target.value }))
+                                        }
+                                    />
+                                    <Input
+                                        label="Acceptable from (kg)"
+                                        type="number"
+                                        step="0.1"
+                                        min={0}
+                                        placeholder="94"
+                                        value={form.targetWeightMin}
+                                        onChange={(e) =>
+                                            setForm((f) => ({ ...f, targetWeightMin: e.target.value }))
+                                        }
+                                    />
+                                    <Input
+                                        label="Acceptable to (kg)"
+                                        type="number"
+                                        step="0.1"
+                                        min={0}
+                                        placeholder="96"
+                                        value={form.targetWeightMax}
+                                        onChange={(e) =>
+                                            setForm((f) => ({ ...f, targetWeightMax: e.target.value }))
+                                        }
+                                    />
+                                    <Input
+                                        label="Target body fat (%)"
+                                        type="number"
+                                        step="0.1"
+                                        min={0}
+                                        placeholder="20"
+                                        value={form.targetBodyFat}
+                                        onChange={(e) =>
+                                            setForm((f) => ({ ...f, targetBodyFat: e.target.value }))
+                                        }
+                                    />
+                                    <Input
+                                        label="Protein floor (g)"
+                                        type="number"
+                                        min={0}
+                                        placeholder="210"
+                                        hint="Held flat when calories move."
+                                        value={form.proteinFloor}
+                                        onChange={(e) =>
+                                            setForm((f) => ({ ...f, proteinFloor: e.target.value }))
+                                        }
+                                    />
+                                    <Input
+                                        label="Rate band from (kg/wk)"
+                                        type="number"
+                                        step="0.05"
+                                        placeholder="-0.3"
+                                        value={form.rateMin}
+                                        onChange={(e) =>
+                                            setForm((f) => ({ ...f, rateMin: e.target.value }))
+                                        }
+                                    />
+                                    <Input
+                                        label="Rate band to (kg/wk)"
+                                        type="number"
+                                        step="0.05"
+                                        placeholder="-0.15"
+                                        value={form.rateMax}
+                                        onChange={(e) =>
+                                            setForm((f) => ({ ...f, rateMax: e.target.value }))
+                                        }
+                                    />
+                                </div>
+                                <p className="text-[11px] text-neutral-400">
+                                    The band is the range of weekly change that needs no correction.
+                                    Signed, so a cut runs negative — the weekly rate above is its centre.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Optional calorie cycling. The week still averages the baseline. */}
+                    <div className="rounded-2xl border border-neutral-200 p-4">
+                        <Switch
+                            label="Cycle calories by training day"
+                            checked={form.cycling}
+                            onChange={(checked: boolean) => setForm((f) => ({ ...f, cycling: checked }))}
+                        />
+                        <p className="mt-1.5 text-[11px] text-neutral-400">
+                            Shift the daily target by how hard the fitness planner says the day
+                            trains. Carbohydrate absorbs the difference, so the week still averages
+                            the baseline.
+                        </p>
+                        {form.cycling && (
+                            <div className="mt-4 grid grid-cols-2 gap-3">
+                                <Input
+                                    label="Hard day (+kcal)"
+                                    type="number"
+                                    min={0}
+                                    placeholder="100"
+                                    value={form.hardKcal}
+                                    onChange={(e) =>
+                                        setForm((f) => ({ ...f, hardKcal: e.target.value }))
+                                    }
+                                />
+                                <Input
+                                    label="Rest day (−kcal)"
+                                    type="number"
+                                    min={0}
+                                    placeholder="150"
+                                    value={form.restKcal}
+                                    onChange={(e) =>
+                                        setForm((f) => ({ ...f, restKcal: e.target.value }))
+                                    }
+                                />
+                            </div>
+                        )}
+                    </div>
 
                     <Textarea
                         label="Notes"

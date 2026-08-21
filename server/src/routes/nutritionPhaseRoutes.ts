@@ -4,6 +4,7 @@ import {
     createNutritionPhase,
     updateNutritionPhase,
     deleteNutritionPhase,
+    addNutritionPhaseAdjustment,
 } from '../controllers/nutritionPhaseController'
 import { requireAuth } from '../middleware/auth'
 
@@ -13,6 +14,7 @@ router.use(requireAuth)
 router.get('/', listNutritionPhases)
 router.post('/', createNutritionPhase)
 router.put('/:id', updateNutritionPhase)
+router.post('/:id/adjustments', addNutritionPhaseAdjustment)
 router.delete('/:id', deleteNutritionPhase)
 
 export default router

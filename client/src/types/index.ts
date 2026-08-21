@@ -46,8 +46,51 @@ export interface UserSettings {
     bodyGoals?: BodyGoals
 }
 
-/** One weigh-in. At most one per day — a second reading replaces the first. */
-export interface WeightLog {
+/**
+ * Circumference measurements in centimetres. All optional — the cadence that
+ * survives real life is weight daily, waist weekly, the rest occasionally.
+ */
+export interface BodyMeasurements {
+    waist?: number
+    chest?: number
+    hips?: number
+    neck?: number
+    armLeft?: number
+    armRight?: number
+    thighLeft?: number
+    thighRight?: number
+}
+
+/** Every circumference field, so readers and writers can't drift apart. */
+export const MEASUREMENT_FIELDS = [
+    'waist',
+    'chest',
+    'hips',
+    'neck',
+    'armLeft',
+    'armRight',
+    'thighLeft',
+    'thighRight',
+] as const
+export type MeasurementField = (typeof MEASUREMENT_FIELDS)[number]
+
+export const MEASUREMENT_LABELS: Record<MeasurementField, string> = {
+    waist: 'Waist',
+    chest: 'Chest',
+    hips: 'Hips',
+    neck: 'Neck',
+    armLeft: 'Left arm',
+    armRight: 'Right arm',
+    thighLeft: 'Left thigh',
+    thighRight: 'Right thigh',
+}
+
+/**
+ * One weigh-in. At most one per day — a second reading replaces the first.
+ * Circumferences ride along on the same record because they are one measuring
+ * session taken on one morning.
+ */
+export interface WeightLog extends BodyMeasurements {
     _id: string
     /** "YYYY-MM-DD" — the morning the reading was taken. */
     date: string
@@ -58,6 +101,81 @@ export interface WeightLog {
     /** Body fat as a percentage of bodyweight, if measured. */
     bodyFat?: number
     notes?: string
+    createdAt: string
+    updatedAt: string
+}
+
+// ─── Progress tracking ─────────────────────────────────────────────────────────
+
+/** How clothes are sitting compared to last time. */
+export const CLOTHES_FITS = ['tighter', 'same', 'looser'] as const
+export type ClothesFit = (typeof CLOTHES_FITS)[number]
+
+/** The 1–5 ratings a check-in carries. */
+export const RATING_FIELDS = ['hunger', 'energy', 'recovery', 'trainingFeel'] as const
+export type RatingField = (typeof RATING_FIELDS)[number]
+
+export const RATING_LABELS: Record<RatingField, string> = {
+    hunger: 'Hunger',
+    energy: 'Energy',
+    recovery: 'Recovery',
+    trainingFeel: 'Training',
+}
+
+/**
+ * A monthly check-in: how the recomp feels, as distinct from what it measures.
+ * Context only — none of it is allowed to move a calorie target on its own.
+ */
+export interface ProgressCheckIn {
+    _id: string
+    /** "YYYY-MM-DD" — the day the check-in describes. */
+    date: string
+    clothesFit?: ClothesFit
+    /** 1 (ravenous) – 5 (comfortable). */
+    hunger?: number
+    /** 1 (flat) – 5 (excellent). */
+    energy?: number
+    /** 1 (wrecked) – 5 (fully recovered). */
+    recovery?: number
+    /** 1 (going backwards) – 5 (strong). */
+    trainingFeel?: number
+    notes?: string
+    createdAt: string
+    updatedAt: string
+}
+
+export interface ProgressCheckInInput {
+    date: string
+    clothesFit?: ClothesFit
+    hunger?: number
+    energy?: number
+    recovery?: number
+    trainingFeel?: number
+    notes?: string
+}
+
+/** Which angle a progress photo was taken from. */
+export const PHOTO_VIEWS = ['front', 'side', 'back'] as const
+export type PhotoView = (typeof PHOTO_VIEWS)[number]
+
+export const PHOTO_VIEW_LABELS: Record<PhotoView, string> = {
+    front: 'Front',
+    side: 'Side',
+    back: 'Back',
+}
+
+/**
+ * A progress photo's metadata. The image itself is fetched separately, through
+ * an authenticated route — it is never carried in a listing and never sits at a
+ * public URL.
+ */
+export interface ProgressPhoto {
+    _id: string
+    /** "YYYY-MM-DD" — the day the photo was taken. */
+    date: string
+    view: PhotoView
+    contentType: string
+    bytes: number
     createdAt: string
     updatedAt: string
 }
@@ -1636,6 +1754,85 @@ export const NUTRITION_PHASE_LABELS: Record<NutritionPhaseKind, string> = {
  * something to draw and gives adherence a target with dates on it, rather than
  * one global setting standing in for every month of the year.
  */
+/** A signed range, min ≤ max. Rates run negative for loss, so min is the faster end. */
+export interface NumberRange {
+    min: number
+    max: number
+}
+
+/**
+ * What a phase is *for*, beyond a direction and a set of numbers.
+ *
+ * `kind` says which way the scale should move; this says where it is going, how
+ * fast, and what counts as arriving. Every field is optional, and a phase
+ * without it behaves exactly as phases always have — the adaptive machinery has
+ * nothing to steer towards and stays quiet.
+ */
+export interface PhaseGoal {
+    /**
+     * 'recomp' means the point is body composition rather than scale weight:
+     * hold protein, lose slowly, and read lean mass alongside the total.
+     */
+    style?: 'recomp' | 'standard'
+    /** Bodyweight in kg when the phase began — the baseline progress is measured from. */
+    startWeightKg?: number
+    /** YYYY-MM-DD the goal is aimed at. Usually, but not necessarily, `endDate`. */
+    targetDate?: string
+    targetWeightKg?: number
+    targetWeightRangeKg?: NumberRange
+    targetBodyFatPct?: number
+    targetBodyFatRangePct?: NumberRange
+    /** Intended kg/week, signed. The centre of the band below. */
+    targetWeeklyRateKg?: number
+    /** The range of weekly rates that needs no correction, signed and min ≤ max. */
+    acceptableWeeklyRateKg?: NumberRange
+    /** Protein floor in grams, held flat when calories move. */
+    proteinFloorG?: number
+    /** Whether the review may propose calorie changes for this phase. */
+    adaptive?: boolean
+}
+
+/** Whether a target change was proposed by the review or typed in by hand. */
+export const ADJUSTMENT_SOURCES = ['manual', 'adaptive'] as const
+export type AdjustmentSource = (typeof ADJUSTMENT_SOURCES)[number]
+
+/**
+ * A dated change of target within a phase.
+ *
+ * A nine-month phase is not one prescription; it's a starting prescription plus
+ * whatever the data made of it. `targets` stays the opening set and each
+ * revision is appended here with the date it took effect, so the target a past
+ * day was judged against survives every later change.
+ */
+export interface PhaseAdjustment {
+    /** YYYY-MM-DD from which these targets apply, inclusive. */
+    effectiveFrom: string
+    /** The full target set in force from that date — not a delta. */
+    targets: MacroGoals
+    /** What it replaced, so the change reads without replaying the chain. */
+    previous?: MacroGoals
+    reason?: string
+    source: AdjustmentSource
+    createdAt?: string
+}
+
+/** How a day's target is derived from the phase's baseline. */
+export const TARGET_STRATEGIES = ['flat', 'activity'] as const
+export type TargetStrategyType = (typeof TARGET_STRATEGIES)[number]
+
+/**
+ * Optional calorie cycling. 'flat' — the default, and what every existing phase
+ * gets — means every day carries the same target. 'activity' shifts it by the
+ * day's training demand, with carbohydrate absorbing the difference.
+ */
+export interface TargetStrategy {
+    type: TargetStrategyType
+    /** kcal added on a hard training day. */
+    hardKcal?: number
+    /** kcal removed on a rest day. */
+    restKcal?: number
+}
+
 export interface NutritionPhase {
     _id: string
     name: string
@@ -1643,9 +1840,14 @@ export interface NutritionPhase {
     startDate: string
     endDate: string
     kind: NutritionPhaseKind
+    /** The phase's opening prescription. Revisions live in `adjustments`. */
     targets: MacroGoals
     /** Intended kg/week, signed: negative for a cut, positive for a gain. */
     weeklyRate?: number
+    goal?: PhaseGoal
+    /** Dated target revisions, oldest first. */
+    adjustments?: PhaseAdjustment[]
+    strategy?: TargetStrategy
     notes?: string
     createdAt: string
     updatedAt: string
@@ -1658,5 +1860,15 @@ export interface NutritionPhaseInput {
     kind: NutritionPhaseKind
     targets: MacroGoals
     weeklyRate?: number
+    goal?: PhaseGoal
+    strategy?: TargetStrategy
     notes?: string
+}
+
+/** The body of a POST to a phase's adjustments — one accepted target change. */
+export interface PhaseAdjustmentInput {
+    effectiveFrom: string
+    targets: MacroGoals
+    reason?: string
+    source?: AdjustmentSource
 }

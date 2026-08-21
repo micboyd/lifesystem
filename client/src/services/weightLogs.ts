@@ -1,7 +1,12 @@
 import api from './api'
-import type { ApiResponse, WeightLog } from '../types'
+import type { ApiResponse, BodyMeasurements, WeightLog } from '../types'
 
-export interface WeightLogPayload {
+/**
+ * One weigh-in as it is sent. Every measurement is optional and every omitted
+ * one is *cleared* server-side, so a partial payload is a deliberate erasure —
+ * send what the reading actually contained.
+ */
+export interface WeightLogPayload extends BodyMeasurements {
     /** "YYYY-MM-DD" — the day the reading was taken. */
     date: string
     /** Bodyweight in kilograms. */

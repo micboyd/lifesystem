@@ -1,6 +1,6 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
-import WeightLog, { ISO_DATE_PATTERN } from '../models/WeightLog'
+import WeightLog, { ISO_DATE_PATTERN, MEASUREMENT_FIELDS } from '../models/WeightLog'
 
 function isDate(v: unknown): v is string {
     return typeof v === 'string' && ISO_DATE_PATTERN.test(v)
@@ -51,7 +51,6 @@ export async function upsertWeightLog(req: AuthRequest, res: Response) {
         return
     }
 
-    const cm = toMeasure(waist)
     const fat = toPercent(bodyFat)
     const note = typeof notes === 'string' ? notes.trim() : ''
 
@@ -59,8 +58,16 @@ export async function upsertWeightLog(req: AuthRequest, res: Response) {
     // re-saving a day with an emptied field actually clears it.
     const set: Record<string, unknown> = { weight: kg }
     const unset: Record<string, 1> = {}
-    if (cm !== undefined) set.waist = cm
-    else unset.waist = 1
+
+    // Every circumference is handled the same way, driven off the model's own
+    // list — so adding one there can't leave the write path silently dropping it.
+    const body = req.body as Record<string, unknown>
+    for (const field of MEASUREMENT_FIELDS) {
+        const cm = toMeasure(field === 'waist' ? waist : body[field])
+        if (cm !== undefined) set[field] = cm
+        else unset[field] = 1
+    }
+
     if (fat !== undefined) set.bodyFat = fat
     else unset.bodyFat = 1
     if (note) set.notes = note
