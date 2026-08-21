@@ -7,6 +7,8 @@ import {
     packLaneRows,
     seasonForMonth,
     seasonProgress,
+    LANE_SOURCE_ROUTES,
+    type LaneSource,
 } from './lifeTimeline'
 import type { Course, Goal, LifePlan, MonthNote, NutritionPhase, SavingsTarget, Season, TrainingPlan } from '../types'
 import { EMPTY_SEASON_LINKS } from '../types'
@@ -379,5 +381,31 @@ describe('packLaneRows', () => {
 
     it('is empty for an empty lane', () => {
         expect(packLaneRows([])).toEqual([])
+    })
+})
+
+describe('LANE_SOURCE_ROUTES', () => {
+    it('names a route for every lane source', () => {
+        for (const source of Object.keys(LANE_SOURCE_ROUTES) as LaneSource[]) {
+            expect(LANE_SOURCE_ROUTES[source]).toMatch(/^\//)
+        }
+    })
+
+    /*
+     * The timeline drawer's footer links to wherever a record is edited. For
+     * most sources that is another page and a plain link works. A nutrition
+     * phase is edited on the Life Plan page itself — the page the drawer is
+     * already on — so a link there navigates nowhere and looks broken, which is
+     * exactly the bug this documents. Those sources need the drawer's
+     * `onOpenHere` handler instead.
+     *
+     * If a new source is ever edited on Life Plan too, this fails and points at
+     * the handler that needs extending.
+     */
+    it('flags the sources edited on the Life Plan page itself', () => {
+        const samePage = (Object.keys(LANE_SOURCE_ROUTES) as LaneSource[]).filter(
+            (s) => LANE_SOURCE_ROUTES[s] === '/life-plan'
+        )
+        expect(samePage).toEqual(['nutritionPhase'])
     })
 })

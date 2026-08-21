@@ -231,12 +231,18 @@ export default function NutritionPhasesTab({
     error,
     onSave,
     onDelete,
+    openPhaseId,
+    onOpened,
 }: {
     phases: NutritionPhase[]
     saving: boolean
     error: string | null
     onSave: (input: NutritionPhaseInput, id?: string) => Promise<boolean>
     onDelete: (phase: NutritionPhase) => void
+    /** A phase to open for editing on arrival — set when coming from the timeline. */
+    openPhaseId?: string | null
+    /** Called once that request has been honoured, so it fires only once. */
+    onOpened?: () => void
 }) {
     const [open, setOpen] = useState(false)
     const [editing, setEditing] = useState<NutritionPhase | null>(null)
@@ -267,6 +273,18 @@ export default function NutritionPhasesTab({
         if (!open) return
         setForm(editing ? formFrom(editing) : blankForm())
     }, [open, editing])
+
+    // Arriving from the timeline drawer with a phase to edit. Cleared through
+    // `onOpened` so re-rendering can't reopen the editor after it is dismissed.
+    useEffect(() => {
+        if (!openPhaseId) return
+        const wanted = phases.find((p) => p._id === openPhaseId)
+        if (wanted) {
+            setEditing(wanted)
+            setOpen(true)
+        }
+        onOpened?.()
+    }, [openPhaseId, phases, onOpened])
 
     function startNew() {
         setEditing(null)

@@ -89,6 +89,8 @@ function errorMessage(err: unknown, fallback: string): string {
 
 export default function LifePlan() {
     const [tab, setTab] = useState<Tab>('Timeline')
+    // A phase the timeline drawer asked to edit, handed to the Nutrition tab.
+    const [editPhaseId, setEditPhaseId] = useState<string | null>(null)
     const [plans, setPlans] = useState<LifePlanType[]>([])
     const [planId, setPlanId] = useState<string | null>(null)
     const [records, setRecords] = useState<LinkedRecords>(EMPTY_RECORDS)
@@ -587,6 +589,8 @@ export default function LifePlan() {
                                 error={phaseError}
                                 onSave={savePhase}
                                 onDelete={setDeletingPhase}
+                                openPhaseId={editPhaseId}
+                                onOpened={() => setEditPhaseId(null)}
                             />
                         )}
 
@@ -612,6 +616,16 @@ export default function LifePlan() {
                 item={selectedItem}
                 records={records}
                 onClose={() => setSelectedItem(null)}
+                // Nutrition phases are edited on this page, so the drawer's
+                // action has nowhere to navigate to — it switches tab and opens
+                // the editor instead.
+                onOpenHere={(item) => {
+                    setSelectedItem(null)
+                    if (item.source === 'nutritionPhase') {
+                        setTab('Nutrition')
+                        setEditPhaseId(item.recordId)
+                    }
+                }}
             />
 
             <PlanForm

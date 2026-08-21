@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import Drawer from '../Drawer'
 import Badge from '../Badge'
 import Progress from '../Progress'
@@ -66,12 +66,27 @@ export default function LaneItemDrawer({
     item,
     records,
     onClose,
+    onOpenHere,
 }: {
     item: LaneItem | null
     records: LaneItemRecords
     onClose: () => void
+    /**
+     * Handles the action when the item already lives on this page.
+     *
+     * Nutrition phases are edited on the Life Plan page — the same page the
+     * timeline and this drawer are on — so linking to that route navigates to
+     * where you already are and appears to do nothing at all. Given a handler,
+     * the footer becomes a button that actually goes somewhere: it closes the
+     * drawer and opens the record for editing in place.
+     */
+    onOpenHere?: (item: LaneItem) => void
 }) {
     const source = item?.source
+    const { pathname } = useLocation()
+    // Whether following the link would land on the page we are already on.
+    const isHere = item ? LANE_SOURCE_ROUTES[item.source] === pathname : false
+    const handledHere = isHere && Boolean(onOpenHere)
 
     return (
         <Drawer
@@ -81,7 +96,17 @@ export default function LaneItemDrawer({
             badge={source ? SOURCE_LABELS[source] : undefined}
             size="lg"
             footer={
-                item && (
+                item &&
+                (handledHere ? (
+                    <button
+                        type="button"
+                        onClick={() => onOpenHere!(item)}
+                        className="flex w-full items-center justify-center gap-2 rounded-full bg-neutral-950 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-neutral-800"
+                    >
+                        {SOURCE_LINK_LABELS[item.source]}
+                        <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
+                    </button>
+                ) : (
                     <Link
                         to={LANE_SOURCE_ROUTES[item.source]}
                         className="flex items-center justify-center gap-2 rounded-full bg-neutral-950 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-neutral-800"
@@ -89,7 +114,7 @@ export default function LaneItemDrawer({
                         {SOURCE_LINK_LABELS[item.source]}
                         <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
                     </Link>
-                )
+                ))
             }
         >
             {item && (
