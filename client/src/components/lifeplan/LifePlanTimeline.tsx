@@ -17,7 +17,7 @@ import EmptyState from '../EmptyState'
 const MONTH_WIDTH = 88
 const LABEL_WIDTH = 148
 /** Height of a single packed row, so lanes read as bands rather than hairlines. */
-const ROW_HEIGHT = 52
+const ROW_HEIGHT = 64
 
 /** "Jan" for a YYYY-MM key. */
 function shortMonth(month: string): string {
@@ -54,10 +54,7 @@ function LaneBar({
 
     if (item.shape === 'marker') {
         return (
-            <div
-                style={{ ...style, minHeight: ROW_HEIGHT }}
-                className="flex items-center justify-center px-1 py-1.5"
-            >
+            <div style={style} className="flex items-center justify-center px-1 py-1.5">
                 <button
                     type="button"
                     onClick={() => onSelect(item)}
@@ -77,13 +74,13 @@ function LaneBar({
     }
 
     return (
-        <div style={{ ...style, minHeight: ROW_HEIGHT }} className="flex items-center px-1 py-1.5">
+        <div style={style} className="flex items-center px-1 py-1.5">
             <button
                 type="button"
                 onClick={() => onSelect(item)}
                 title={item.detail ? `${item.label} — ${item.detail}` : item.label}
                 className={[
-                    'flex w-full items-center gap-1.5 truncate px-3 py-2.5 text-left text-xs font-semibold transition-colors',
+                    'flex w-full items-center gap-1.5 truncate px-3 py-3 text-left text-xs font-semibold transition-colors',
                     colors.bg,
                     colors.hover,
                     colors.text,
@@ -130,24 +127,28 @@ export default function LifePlanTimeline({
     const bandRow = 2
     const goalRow = goals.length > 0 ? 3 : 0
     const firstLaneRow = (goalRow || bandRow) + 1
-    const packed = lanes.map((lane) => {
-        const rows = packLaneRows(lane.items)
-        return { lane, rows, rowCount: Math.max(1, rows.length) }
-    })
+    const packed = lanes.map((lane) => ({ lane, rows: packLaneRows(lane.items) }))
+    // Every lane is as tall as the busiest one, so the eye can compare pillars
+    // without the row height itself carrying meaning.
+    const laneRowCount = Math.max(1, ...packed.map((e) => e.rows.length))
     const laneLayout = packed.map((entry, i) => ({
         ...entry,
-        startRow: firstLaneRow + packed.slice(0, i).reduce((sum, e) => sum + e.rowCount, 0),
+        startRow: firstLaneRow + i * laneRowCount,
     }))
-    const totalRows =
-        firstLaneRow - 1 + packed.reduce((sum, e) => sum + e.rowCount, 0)
+    const totalRows = firstLaneRow - 1 + lanes.length * laneRowCount
 
     const gridStyle = {
         gridTemplateColumns: `${LABEL_WIDTH}px repeat(${months.length}, minmax(${MONTH_WIDTH}px, 1fr))`,
+        // Fixed row tracks keep every lane — and every row inside a lane — the
+        // same height regardless of what it carries.
+        gridTemplateRows: `auto auto ${goalRow ? `${ROW_HEIGHT}px ` : ''}repeat(${
+            lanes.length * laneRowCount
+        }, ${ROW_HEIGHT}px)`,
         minWidth: LABEL_WIDTH + months.length * MONTH_WIDTH,
     }
 
     return (
-        <div className="overflow-x-auto rounded-2xl border border-black/[0.06] bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-black/[0.06] bg-white pb-6">
             <div className="grid items-stretch" style={gridStyle}>
                 {/* Month column guides, drawn behind everything as full-height cells. */}
                 {months.map((month, i) => (
@@ -257,13 +258,13 @@ export default function LifePlanTimeline({
                 )}
 
                 {/* One lane per pillar, growing downwards when commitments overlap. */}
-                {laneLayout.map(({ lane, rows, startRow, rowCount }) => (
+                {laneLayout.map(({ lane, rows, startRow }) => (
                     <PillarLane
                         key={lane.pillar}
                         pillar={lane.pillar}
                         rows={rows}
                         startRow={startRow}
-                        rowCount={rowCount}
+                        rowCount={laneRowCount}
                         months={months}
                         onSelectItem={onSelectItem}
                     />
@@ -310,11 +311,7 @@ function PillarLane({
             />
             {rows.length === 0 ? (
                 <div
-                    style={{
-                        gridColumn: `2 / span ${months.length}`,
-                        gridRow: startRow,
-                        minHeight: ROW_HEIGHT,
-                    }}
+                    style={{ gridColumn: `2 / span ${months.length}`, gridRow: startRow }}
                     className="flex items-center px-2 text-[11px] text-neutral-300"
                 >
                     —
