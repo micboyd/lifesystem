@@ -745,14 +745,15 @@ export const EVENT_TYPE_COLORS: Record<
         text: 'text-blue-700',
         light: 'bg-blue-50',
     },
-    // A work trip is a trip, but not one of *your* trips — emerald keeps it a
-    // clear step away from trip blue, and the briefcase icon below settles it
-    // at a glance in a dense week.
+    // A work trip is a trip, but not one of *your* trips. Fuchsia is unused
+    // elsewhere and sits well clear of trip blue and of the greens in the
+    // Year-view Leave row (annual leave, bank holidays); the briefcase icon
+    // below settles it at a glance in a dense week.
     worktrip: {
-        bg: 'bg-emerald-100',
-        hover: 'hover:bg-emerald-200',
-        text: 'text-emerald-700',
-        light: 'bg-emerald-50',
+        bg: 'bg-fuchsia-100',
+        hover: 'hover:bg-fuchsia-200',
+        text: 'text-fuchsia-700',
+        light: 'bg-fuchsia-50',
     },
     social: {
         bg: 'bg-amber-100',
@@ -770,7 +771,7 @@ export const EVENT_TYPE_COLORS: Record<
     },
     // A plain event uses a calm teal — distinct from the grey weekend/past
     // backgrounds and from the other category hues (trip blue, social amber,
-    // hobby indigo, work-trip emerald, Other purple), while staying quiet
+    // hobby indigo, work-trip fuchsia, Other purple), while staying quiet
     // enough for the common catch-all type.
     general: {
         bg: 'bg-teal-200',
