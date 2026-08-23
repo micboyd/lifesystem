@@ -40,6 +40,12 @@ export interface IFitnessPlanEntry extends Document {
      * for one session and beside the point for another.
      */
     ignoreClash: boolean
+    /**
+     * When true the planner's overload warning is suppressed for this entry — the
+     * doubled-up slot has been seen and accepted. Set on every hard session in the
+     * slot, so a session moved in later brings the warning back with it.
+     */
+    ignoreOverload: boolean
     createdAt: Date
     updatedAt: Date
 }
@@ -57,6 +63,7 @@ const fitnessPlanEntrySchema = new Schema<IFitnessPlanEntry>(
         plan: { type: Schema.Types.ObjectId, ref: 'TrainingPlan', default: null },
         order: { type: Number, default: 0 },
         ignoreClash: { type: Boolean, default: false },
+        ignoreOverload: { type: Boolean, default: false },
     },
     { timestamps: true }
 )

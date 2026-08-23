@@ -256,6 +256,7 @@ function snapshotWeek(
                     plan: e.plan,
                     order: e.order,
                     ignoreClash: e.ignoreClash === true,
+                    ignoreOverload: e.ignoreOverload === true,
                 },
             ]
         }),
@@ -420,9 +421,27 @@ function eventWhenLabel(event: Event, date: string): string {
  */
 type DayOverload = Overload<FitnessPlanEntry>
 
+/**
+ * A day's overloaded slot as the planner shows it: the slot itself, plus whether
+ * its load has been accepted. An accepted one stays in the list so it can be
+ * taken back, but stops counting as a live warning.
+ */
+interface SlotOverload extends DayOverload {
+    acknowledged: boolean
+}
+
 /** The slots of one day holding more than one hard session, in slot order. */
 function overloadsIn(dayEntries: FitnessPlanEntry[]): DayOverload[] {
     return findOverloads([...dayEntries].sort((a, b) => a.order - b.order))
+}
+
+/**
+ * Whether a slot's load has been accepted. Every session sharing the slot has to
+ * carry the flag: a session moved in afterwards hasn't been weighed against the
+ * others, so it brings the warning back with it.
+ */
+function overloadAcknowledged(overload: DayOverload): boolean {
+    return overload.entries.every((e) => e.ignoreOverload === true)
 }
 
 /**
@@ -776,6 +795,25 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         }
     }
 
+    // Accept an overloaded slot's load, or think better of it. The decision is
+    // the slot's rather than one session's, so it's written to every session
+    // sharing it: keeping one of a pair silenced would leave the slot warning on
+    // half its contents. Optimistic, and a failed save puts every flag back.
+    async function handleOverrideOverload(ids: string[], ignoreOverload: boolean) {
+        const flip = (on: boolean) =>
+            setEntries((prev) =>
+                prev.map((e) => (ids.includes(e._id) ? { ...e, ignoreOverload: on } : e))
+            )
+        flip(ignoreOverload)
+        markDirty()
+        try {
+            await Promise.all(ids.map((id) => updatePlanEntry(id, { ignoreOverload })))
+        } catch {
+            flip(!ignoreOverload)
+            toast.show('Could not save that — the overload warning is back.', 'danger')
+        }
+    }
+
     // Reorder a slot from a week-view drag — and, when the dragged item came from
     // another slot or day, move it in at the chosen spot. `ids` is the target
     // slot's new top-to-bottom order. Optimistic: rewrite the listed entries' date,
@@ -859,13 +897,16 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     }, [entries, events])
 
     // Overloaded slots keyed by day: each slot holding two hard sessions.
-    // Days with nothing doubled up are absent from the map.
+    // Days with nothing doubled up are absent from the map. Accepted slots stay
+    // in the map, marked, so they can still be taken back — it's the day's badge
+    // that stops sounding the alarm for them, not this.
     const overloadsByDate = useMemo(() => {
-        const m = new Map<string, DayOverload[]>()
+        const m = new Map<string, SlotOverload[]>()
         for (const overload of overloadsIn(entries)) {
             const list = m.get(overload.date)
-            if (list) list.push(overload)
-            else m.set(overload.date, [overload])
+            const slot: SlotOverload = { ...overload, acknowledged: overloadAcknowledged(overload) }
+            if (list) list.push(slot)
+            else m.set(overload.date, [slot])
         }
         return m
     }, [entries])
@@ -1143,6 +1184,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 dayEntries={overloadDate ? entries.filter((e) => e.date === overloadDate) : []}
                 events={events}
                 onMove={handleMove}
+                onOverride={handleOverrideOverload}
                 onClose={() => setOverloadDate(null)}
             />
 
@@ -1409,6 +1451,10 @@ function SlotChoices({
  * Lists a day's overloaded slots: each slot asking for two hard sessions back to
  * back, with a one-press move of either session to the nearest slot of the day
  * that's free to take it.
+ *
+ * As with a calendar clash, the load can also simply be accepted — some days two
+ * hard sessions in a row is the plan — and the warning goes quiet for that slot
+ * until it's taken back, which the accepted list below keeps within reach.
  */
 function OverloadModal({
     date,
@@ -1416,17 +1462,23 @@ function OverloadModal({
     dayEntries,
     events,
     onMove,
+    onOverride,
     onClose,
 }: {
     date: string | null
-    overloads: DayOverload[]
+    overloads: SlotOverload[]
     /** Every planned item on this day — used to gauge each slot's spare capacity. */
     dayEntries: FitnessPlanEntry[]
     /** The week's calendar events, so a session is never moved into a busy slot. */
     events: Event[]
     onMove: (id: string, part: FitnessPlanPart) => void
+    /** Accept a slot's load (or take that back) across every session sharing it. */
+    onOverride: (ids: string[], ignoreOverload: boolean) => void
     onClose: () => void
 }) {
+    const live = overloads.filter((o) => !o.acknowledged)
+    const accepted = overloads.filter((o) => o.acknowledged)
+
     return (
         <Modal
             open={date !== null}
@@ -1455,18 +1507,18 @@ function OverloadModal({
                     </p>
                 </div>
             )}
-            {date && overloads.length > 0 && (
+            {date && live.length > 0 && (
                 <div className="flex flex-col gap-4">
                     <p className="text-sm text-neutral-500">
                         On{' '}
                         <span className="font-semibold text-neutral-700">
                             {shortDayLabel(date)}
                         </span>{' '}
-                        {overloads.length === 1 ? 'a slot stacks' : 'slots stack'} two hard sessions
+                        {live.length === 1 ? 'a slot stacks' : 'slots stack'} two hard sessions
                         together. Move one to another slot to spread the load.
                     </p>
                     <ul className="flex flex-col gap-3">
-                        {overloads.map((overload) => (
+                        {live.map((overload) => (
                             <li
                                 key={overload.part}
                                 className="rounded-xl border border-violet-200 bg-violet-50/50 p-3"
@@ -1520,6 +1572,67 @@ function OverloadModal({
                                         )
                                     })}
                                 </div>
+                                <div className="mt-2 flex items-center border-t border-violet-200/70 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            onOverride(
+                                                overload.entries.map((e) => e._id),
+                                                true
+                                            )
+                                        }
+                                        title="Keep both sessions in this slot and stop warning about the load"
+                                        className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-violet-300 px-3 py-1 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100"
+                                    >
+                                        <i
+                                            className="fa-solid fa-bell-slash text-[11px]"
+                                            aria-hidden="true"
+                                        />
+                                        Keep anyway
+                                    </button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {date && accepted.length > 0 && (
+                <div className={`flex flex-col gap-2 ${live.length > 0 ? 'mt-5' : ''}`}>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                        Accepted on this day
+                    </p>
+                    <ul className="flex flex-col gap-1.5">
+                        {accepted.map((overload) => (
+                            <li
+                                key={overload.part}
+                                className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2"
+                            >
+                                <i
+                                    className={`${PART_META[overload.part].icon} shrink-0 text-xs text-neutral-400`}
+                                    aria-hidden="true"
+                                />
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium text-neutral-600">
+                                        {PART_META[overload.part].label}
+                                    </p>
+                                    <p className="truncate text-xs text-neutral-400">
+                                        {overload.entries
+                                            .map((e) => planItemName(e) ?? KIND_META[e.kind].noun)
+                                            .join(' + ')}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        onOverride(
+                                            overload.entries.map((e) => e._id),
+                                            false
+                                        )
+                                    }
+                                    className="shrink-0 rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:border-neutral-300 hover:text-neutral-800"
+                                >
+                                    Warn again
+                                </button>
                             </li>
                         ))}
                     </ul>
@@ -1730,7 +1843,7 @@ function WeekView({
     weekNote: FitnessPlanNote | null
     dayNotes: Map<string, FitnessPlanNote>
     clashesByDate: Map<string, Clash[]>
-    overloadsByDate: Map<string, DayOverload[]>
+    overloadsByDate: Map<string, SlotOverload[]>
     /** Whether a planned item has a matching completion log on its day. */
     isDone: (entry: FitnessPlanEntry) => boolean
     onAdd: (date: string, part: FitnessPlanPart) => void
@@ -1806,7 +1919,10 @@ function WeekView({
             acceptedClashCount={
                 (clashesByDate.get(date) ?? []).filter((c) => c.acknowledged).length
             }
-            overloadCount={overloadsByDate.get(date)?.length ?? 0}
+            overloadCount={(overloadsByDate.get(date) ?? []).filter((o) => !o.acknowledged).length}
+            acceptedOverloadCount={
+                (overloadsByDate.get(date) ?? []).filter((o) => o.acknowledged).length
+            }
             isDone={isDone}
             onAdd={(part) => onAdd(date, part)}
             onOpen={onOpen}
@@ -1963,6 +2079,7 @@ function DayColumn({
     clashCount,
     acceptedClashCount,
     overloadCount,
+    acceptedOverloadCount,
     isDone,
     onAdd,
     onOpen,
@@ -1989,8 +2106,10 @@ function DayColumn({
     clashCount: number
     /** How many of its clashes have been accepted, so they no longer warn. */
     acceptedClashCount: number
-    /** How many of this day's slots stack two hard sessions together. */
+    /** How many of this day's slots stack two hard sessions together, unaccepted. */
     overloadCount: number
+    /** How many of its overloaded slots have been accepted, so they no longer warn. */
+    acceptedOverloadCount: number
     /** Whether a planned item has a matching completion log on its day. */
     isDone: (entry: FitnessPlanEntry) => boolean
     onAdd: (part: FitnessPlanPart) => void
@@ -2070,7 +2189,7 @@ function DayColumn({
                             </button>
                         )
                     )}
-                    {overloadCount > 0 && (
+                    {overloadCount > 0 ? (
                         <button
                             type="button"
                             onClick={onShowOverloads}
@@ -2080,6 +2199,23 @@ function DayColumn({
                         >
                             <i className="fa-solid fa-gauge-high text-[13px]" aria-hidden="true" />
                         </button>
+                    ) : (
+                        // Every overloaded slot on this day has been accepted: no
+                        // warning, but a quiet mark keeping it one press from coming back.
+                        acceptedOverloadCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={onShowOverloads}
+                                aria-label={`${acceptedOverloadCount} accepted overloaded slot${acceptedOverloadCount === 1 ? '' : 's'} — view`}
+                                title={`${acceptedOverloadCount} accepted overloaded slot${acceptedOverloadCount === 1 ? '' : 's'}`}
+                                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-500"
+                            >
+                                <i
+                                    className="fa-solid fa-gauge-high text-[13px]"
+                                    aria-hidden="true"
+                                />
+                            </button>
+                        )
                     )}
                     {isToday && (
                         <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-semibold text-coral-600">

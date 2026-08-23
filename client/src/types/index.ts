@@ -552,6 +552,8 @@ export interface FitnessPlanEntry {
     order: number
     /** When true this item's calendar clash has been accepted, so it stops warning. */
     ignoreClash?: boolean
+    /** When true this item's overloaded slot has been accepted, so it stops warning. */
+    ignoreOverload?: boolean
     createdAt: string
     updatedAt: string
 }

@@ -155,16 +155,18 @@ export async function createEntry(req: AuthRequest, res: Response) {
 
 /**
  * PATCH /api/fitness-plan/:id — move an entry to a different slot of its day,
- * and/or accept its calendar clash. A move appends the entry to the end of the
- * target slot; `ignoreClash` silences the planner's warning for this entry.
- * Body: { part?, ignoreClash? } — at least one, either on its own.
+ * and/or accept a warning raised against it. A move appends the entry to the end
+ * of the target slot; `ignoreClash` silences the calendar-clash warning for this
+ * entry, `ignoreOverload` the doubled-up-slot one.
+ * Body: { part?, ignoreClash?, ignoreOverload? } — at least one, any on its own.
  */
 export async function updateEntry(req: AuthRequest, res: Response) {
-    const { part, ignoreClash } = req.body
+    const { part, ignoreClash, ignoreOverload } = req.body
     const moving = part !== undefined
     const overriding = ignoreClash !== undefined
-    if (!moving && !overriding) {
-        res.status(400).json({ message: 'part or ignoreClash is required' })
+    const overloading = ignoreOverload !== undefined
+    if (!moving && !overriding && !overloading) {
+        res.status(400).json({ message: 'part, ignoreClash or ignoreOverload is required' })
         return
     }
     if (moving && !isPart(part)) {
@@ -173,6 +175,10 @@ export async function updateEntry(req: AuthRequest, res: Response) {
     }
     if (overriding && typeof ignoreClash !== 'boolean') {
         res.status(400).json({ message: 'ignoreClash must be true or false' })
+        return
+    }
+    if (overloading && typeof ignoreOverload !== 'boolean') {
+        res.status(400).json({ message: 'ignoreOverload must be true or false' })
         return
     }
 
@@ -192,6 +198,7 @@ export async function updateEntry(req: AuthRequest, res: Response) {
         entry.order = last ? last.order + 1 : 0
     }
     if (overriding) entry.ignoreClash = ignoreClash
+    if (overloading) entry.ignoreOverload = ignoreOverload
 
     if (entry.isModified()) await entry.save()
 
@@ -367,6 +374,8 @@ interface RestoredEntry {
     order: number
     /** Whether its calendar clash had been accepted. */
     ignoreClash: boolean
+    /** Whether its overloaded slot had been accepted. */
+    ignoreOverload: boolean
 }
 
 /**
@@ -406,6 +415,7 @@ export async function restoreWeek(req: AuthRequest, res: Response) {
             plan: typeof r.plan === 'string' ? r.plan : null,
             order: typeof r.order === 'number' ? r.order : i,
             ignoreClash: r.ignoreClash === true,
+            ignoreOverload: r.ignoreOverload === true,
         })
     })
 
@@ -445,6 +455,7 @@ export async function restoreWeek(req: AuthRequest, res: Response) {
             plan: e.plan && plans.has(e.plan) ? e.plan : null,
             order: e.order,
             ignoreClash: e.ignoreClash,
+            ignoreOverload: e.ignoreOverload,
         }))
 
     const noteDocs = rows(req.body.notes)
