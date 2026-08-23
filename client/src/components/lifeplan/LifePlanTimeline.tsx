@@ -1,7 +1,7 @@
 import { CALENDAR_COLOR_CLASSES, LIFE_PILLAR_ICONS, LIFE_PILLAR_LABELS } from '../../types'
 import type { LifePillar } from '../../types'
 import { MONTHS, monthKey } from '../../lib/calendar'
-import { packLaneRows, type LaneItem, type Timeline } from '../../lib/lifeTimeline'
+import { packLaneRows, placeOnGrid, type LaneItem, type Timeline } from '../../lib/lifeTimeline'
 import EmptyState from '../EmptyState'
 
 /**
@@ -34,7 +34,13 @@ function currentMonthKey(): string {
     return monthKey(now.getFullYear(), now.getMonth())
 }
 
-/** A bar or diamond, positioned across the month columns it covers. */
+/**
+ * A bar or diamond, positioned across the month columns it covers.
+ *
+ * The grid gives it whole columns; the inset percentages then pull each end in to
+ * the quarter of the month the record actually starts and finishes on, so a phase
+ * ending on the 15th visibly stops halfway through its last column.
+ */
 function LaneBar({
     item,
     months,
@@ -46,20 +52,23 @@ function LaneBar({
     row: number
     onSelect: (item: LaneItem) => void
 }) {
-    const startIdx = months.indexOf(item.startMonth)
-    const endIdx = months.indexOf(item.endMonth)
-    if (startIdx < 0 || endIdx < 0) return null
+    const placement = placeOnGrid(item, months)
+    if (!placement) return null
+    const { startIndex, span, left, right } = placement
     const colors = CALENDAR_COLOR_CLASSES[item.color]
-    const style = { gridColumn: `${startIdx + 2} / span ${endIdx - startIdx + 1}`, gridRow: row }
+    const style = { gridColumn: `${startIndex + 2} / span ${span}`, gridRow: row }
 
     if (item.shape === 'marker') {
         return (
-            <div style={style} className="flex items-center justify-center px-1 py-1.5">
+            <div style={style} className="relative">
                 <button
                     type="button"
                     onClick={() => onSelect(item)}
                     title={item.label}
-                    className="group flex min-w-0 items-center gap-1.5"
+                    // Anchored on the diamond, which is the part that carries the
+                    // date; the label reads off to its right.
+                    style={{ left: `${left}%` }}
+                    className="group absolute top-1/2 flex max-w-[160px] -translate-y-1/2 -translate-x-[7px] items-center gap-1.5"
                 >
                     <span
                         className={`h-3 w-3 shrink-0 rotate-45 rounded-[2px] ${colors.dot}`}
@@ -74,13 +83,14 @@ function LaneBar({
     }
 
     return (
-        <div style={style} className="flex items-center px-1 py-1.5">
+        <div style={style} className="relative">
             <button
                 type="button"
                 onClick={() => onSelect(item)}
                 title={item.detail ? `${item.label} — ${item.detail}` : item.label}
+                style={{ left: `calc(${left}% + 2px)`, right: `calc(${right}% + 2px)` }}
                 className={[
-                    'flex w-full items-center gap-1.5 truncate px-3 py-3 text-left text-xs font-semibold transition-colors',
+                    'absolute inset-y-1.5 flex items-center gap-1.5 truncate px-2.5 text-left text-xs font-semibold transition-colors',
                     colors.bg,
                     colors.hover,
                     colors.text,

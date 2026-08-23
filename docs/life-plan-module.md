@@ -137,6 +137,10 @@ seasons as a tinted band spanning every lane so you read a column as one chapter
   nutrition phases, savings targets, courses, month flags.
 - **Diamonds** for point-in-time markers: goal `targetDate`s, race days,
   savings target months.
+- **Quarter-month resolution.** Bars and diamonds are placed to the nearest
+  quarter of a month, so a phase ending on 15 November stops halfway through the
+  November column instead of filling it. Records that only store a month
+  (savings targets, month flags) still cover their whole column.
 - Horizontally scrollable, one lane per pillar, ~12 months in view on desktop;
   on mobile it collapses to a vertical month list (the nav-cluster overflow
   trap applies here — the lane header cluster must shrink).
@@ -231,6 +235,10 @@ Two server-side invariants worth knowing about:
   links.** Seeing an unclaimed commitment is the point. The Review is the opposite
   — it scores only linked records, because an unlinked target isn't that season's
   business.
+- **Quarters, not days, are the timeline's resolution.** Day-accurate bars ask the
+  eye to measure a few pixels on an 88px column; whole-month bars overstate every
+  commitment by up to a month. Quarters read as "starts mid-month" at a glance and
+  keep row packing honest — two things can share November without overlapping.
 - **Small screens get a vertical month list, not a squeezed grid.** On a phone the
   useful question is the column ("what is this month carrying"), so that one is
   answered properly rather than showing a worse version of both axes.

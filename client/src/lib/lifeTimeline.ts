@@ -1,4 +1,4 @@
-import { monthKeyOf, addMonthsToKey } from './calendar'
+import { monthKey, monthKeyOf, addMonthsToKey, daysInMonth, parseDateKey } from './calendar'
 import type {
     CalendarColor,
     Course,
@@ -44,6 +44,13 @@ export const LANE_SOURCE_ROUTES: Record<LaneSource, string> = {
 /**
  * One thing drawn on a lane. A `bar` spans months; a `marker` sits on a single
  * month (a deadline, a race day) and is drawn as a diamond.
+ *
+ * Bounds are a month plus an offset into it, because most of what lands here has
+ * real dates: a cut that ends on 15 November ended halfway through November, and
+ * a bar filling the whole column says something that isn't true. Offsets are
+ * rounded to quarters of a month — enough to read "starts mid-month" at a
+ * glance, coarse enough that the eye isn't asked to measure days on an 88px
+ * column.
  */
 export interface LaneItem {
     /** Unique within a timeline — `${source}:${recordId}`. */
@@ -60,6 +67,10 @@ export interface LaneItem {
     /** Inclusive YYYY-MM bounds, clipped to the timeline window. */
     startMonth: string
     endMonth: string
+    /** How far into `startMonth` the item begins — 0, 0.25, 0.5 or 0.75. */
+    startOffset: number
+    /** How much of `endMonth` the item covers — 0.25, 0.5, 0.75 or 1. */
+    endOffset: number
     /** True when the record extends past the window and the bar was cut. */
     clippedStart: boolean
     clippedEnd: boolean
@@ -120,21 +131,111 @@ export function overlapsWindow(
     return startMonth <= winEnd && endMonth >= winStart
 }
 
+/** The timeline's resolution: a quarter of a month. */
+export const QUARTER = 0.25
+
 /**
- * Clip a record's range to the window, recording which ends were cut so the bar
- * can be drawn open-ended rather than pretending the commitment stops there.
+ * Positions on the month axis are a month ordinal plus a fraction of that month,
+ * so any two dates can be compared and clipped as plain numbers. Ends are
+ * exclusive, which is what makes "runs to the end of November" and "runs to 1
+ * December" the same position rather than an off-by-one.
  */
-function clip(
-    startMonth: string,
-    endMonth: string,
+function monthOrdinal(month: string): number {
+    const [year, m] = month.split('-').map(Number)
+    return year * 12 + (m - 1)
+}
+
+function monthFromOrdinal(ordinal: number): string {
+    return monthKey(Math.floor(ordinal / 12), ordinal % 12)
+}
+
+/** Snap a fraction of a month to the nearest quarter. */
+function toQuarter(fraction: number): number {
+    return Math.round(fraction * 4) / 4
+}
+
+/**
+ * Where a date sits on the month axis.
+ *
+ * `end` counts the whole day as covered, so something ending on the 15th reaches
+ * the middle of the month rather than stopping just short of it, and something
+ * ending on the last day reaches the month boundary exactly. `point` uses the
+ * middle of the day, which is what a deadline diamond wants. A YYYY-MM value has
+ * no day to read, so it covers its whole month.
+ */
+function positionOf(date: string, edge: 'start' | 'end' | 'point'): number {
+    const ordinal = monthOrdinal(monthKeyOf(date))
+    if (date.length <= 7) return edge === 'start' ? ordinal : ordinal + 1
+    const { year, month, day } = parseDateKey(date)
+    const days = daysInMonth(year, month)
+    const raw =
+        edge === 'start' ? (day - 1) / days : edge === 'end' ? day / days : (day - 0.5) / days
+    return ordinal + toQuarter(raw)
+}
+
+/**
+ * Clip a record's span to the window and split it back into month + offset,
+ * recording which ends were cut so the bar can be drawn open-ended rather than
+ * pretending the commitment stops there.
+ */
+function place(
+    startPos: number,
+    endPos: number,
     winStart: string,
     winEnd: string
-): { startMonth: string; endMonth: string; clippedStart: boolean; clippedEnd: boolean } {
+): Pick<
+    LaneItem,
+    'startMonth' | 'endMonth' | 'startOffset' | 'endOffset' | 'clippedStart' | 'clippedEnd'
+> {
+    const lo = monthOrdinal(winStart)
+    const hi = monthOrdinal(winEnd) + 1
+    const clippedStart = startPos < lo
+    const clippedEnd = endPos > hi
+    const start = Math.min(Math.max(startPos, lo), hi)
+    const end = Math.min(Math.max(endPos, start), hi)
+    // A marker has no width and stays put. A bar clipped hard against the window's
+    // end would otherwise have nowhere to sit; keeping its last quarter still says
+    // "this was running when the window closed".
+    const isPoint = endPos === startPos
+    const from = isPoint ? start : Math.min(start, end - QUARTER)
+    const startOrdinal = Math.min(Math.floor(from), hi - 1)
+    const endOrdinal = isPoint ? startOrdinal : Math.max(Math.ceil(end) - 1, startOrdinal)
     return {
-        startMonth: startMonth < winStart ? winStart : startMonth,
-        endMonth: endMonth > winEnd ? winEnd : endMonth,
-        clippedStart: startMonth < winStart,
-        clippedEnd: endMonth > winEnd,
+        startMonth: monthFromOrdinal(startOrdinal),
+        endMonth: monthFromOrdinal(endOrdinal),
+        startOffset: from - startOrdinal,
+        endOffset: end - endOrdinal,
+        clippedStart,
+        clippedEnd,
+    }
+}
+
+/**
+ * Where an item sits on the grid: which month column it starts in, how many
+ * columns it spans, and how far in from each edge of that span it begins and
+ * ends, as a percentage of the span's width.
+ */
+export function placeOnGrid(
+    item: LaneItem,
+    months: string[]
+): { startIndex: number; span: number; left: number; right: number } | null {
+    const startIndex = months.indexOf(item.startMonth)
+    const endIndex = months.indexOf(item.endMonth)
+    if (startIndex < 0 || endIndex < 0) return null
+    const span = endIndex - startIndex + 1
+    return {
+        startIndex,
+        span,
+        left: (item.startOffset / span) * 100,
+        right: ((1 - item.endOffset) / span) * 100,
+    }
+}
+
+/** An item's start and end as absolute positions on the month axis. */
+export function itemSpan(item: LaneItem): { start: number; end: number } {
+    return {
+        start: monthOrdinal(item.startMonth) + item.startOffset,
+        end: monthOrdinal(item.endMonth) + item.endOffset,
     }
 }
 
@@ -169,19 +270,29 @@ export function buildTimeline(input: TimelineInput): Timeline {
 
     const items: LaneItem[] = []
 
-    const push = (
+    /**
+     * `start` and `end` are YYYY-MM-DD where the source records a real date and
+     * YYYY-MM where it only knows a month; a marker reads its point from `start`.
+     * Returns null when the record misses the window entirely.
+     */
+    const makeItem = (
         source: LaneSource,
         recordId: string,
         pillar: LifePillar,
         label: string,
-        startMonth: string,
-        endMonth: string,
+        start: string,
+        end: string,
         color: CalendarColor,
         shape: 'bar' | 'marker' = 'bar',
         detail?: string
-    ) => {
-        if (!overlapsWindow(startMonth, endMonth, winStart, winEnd)) return
-        items.push({
+    ): LaneItem | null => {
+        if (!overlapsWindow(monthKeyOf(start), monthKeyOf(end), winStart, winEnd)) return null
+        const startPos = positionOf(start, shape === 'marker' ? 'point' : 'start')
+        // Never let rounding collapse a bar to nothing — a four-day block is still
+        // a block, and the shortest thing the grid can draw is a quarter.
+        const endPos =
+            shape === 'marker' ? startPos : Math.max(positionOf(end, 'end'), startPos + QUARTER)
+        return {
             id: `${source}:${recordId}`,
             source,
             recordId,
@@ -190,8 +301,13 @@ export function buildTimeline(input: TimelineInput): Timeline {
             detail,
             shape,
             color,
-            ...clip(startMonth, endMonth, winStart, winEnd),
-        })
+            ...place(startPos, endPos, winStart, winEnd),
+        }
+    }
+
+    const push = (...args: Parameters<typeof makeItem>) => {
+        const item = makeItem(...args)
+        if (item) items.push(item)
     }
 
     for (const tp of input.trainingPlans ?? []) {
@@ -200,8 +316,8 @@ export function buildTimeline(input: TimelineInput): Timeline {
             tp._id,
             'training',
             tp.name,
-            monthKeyOf(tp.planStart),
-            monthKeyOf(tp.planEnd),
+            tp.planStart,
+            tp.planEnd,
             'blue',
             'bar',
             tp.phases.length > 0 ? `${tp.phases.length} phases` : undefined
@@ -214,8 +330,8 @@ export function buildTimeline(input: TimelineInput): Timeline {
             phase._id,
             'nutrition',
             phase.name,
-            monthKeyOf(phase.startDate),
-            monthKeyOf(phase.endDate),
+            phase.startDate,
+            phase.endDate,
             PHASE_COLORS[phase.kind] ?? 'neutral',
             'bar',
             phaseDetail(phase)
@@ -240,15 +356,14 @@ export function buildTimeline(input: TimelineInput): Timeline {
         // A course with no deadline has no position on the grid, so it's left off
         // rather than parked arbitrarily.
         if (!course.targetDate) continue
-        const month = monthKeyOf(course.targetDate)
         const remaining = Math.max(0, course.requiredHours - course.completedHours)
         push(
             'course',
             course._id,
             'study',
             course.name,
-            month,
-            month,
+            course.targetDate,
+            course.targetDate,
             'indigo',
             'marker',
             remaining > 0 ? `${remaining}h remaining` : 'Complete'
@@ -262,34 +377,36 @@ export function buildTimeline(input: TimelineInput): Timeline {
     const goals: LaneItem[] = []
     for (const goal of input.goals ?? []) {
         if (!goal.targetDate || goal.status !== 'active') continue
-        const month = monthKeyOf(goal.targetDate)
-        if (!overlapsWindow(month, month, winStart, winEnd)) continue
-        goals.push({
-            id: `goal:${goal._id}`,
-            source: 'goal',
-            recordId: goal._id,
-            pillar: 'life',
-            label: goal.title,
-            detail: `${Math.round(goal.progress)}% done`,
-            shape: 'marker',
-            color: 'purple',
-            ...clip(month, month, winStart, winEnd),
-        })
+        const item = makeItem(
+            'goal',
+            goal._id,
+            'life',
+            goal.title,
+            goal.targetDate,
+            goal.targetDate,
+            'purple',
+            'marker',
+            `${Math.round(goal.progress)}% done`
+        )
+        if (item) goals.push(item)
     }
 
     const lanes: TimelineLane[] = plan.pillars.map((pillar) => ({
         pillar,
         items: items
             .filter((i) => i.pillar === pillar)
-            .sort((a, b) => a.startMonth.localeCompare(b.startMonth) || a.label.localeCompare(b.label)),
+            .sort((a, b) => itemSpan(a).start - itemSpan(b).start || a.label.localeCompare(b.label)),
     }))
 
     const bands: SeasonBand[] = plan.seasons
         .filter((s) => overlapsWindow(s.startMonth, s.endMonth, winStart, winEnd))
-        .map((season) => {
-            const { startMonth, endMonth } = clip(season.startMonth, season.endMonth, winStart, winEnd)
-            return { season, startMonth, endMonth }
-        })
+        // A season is authored in whole months, so it needs no sub-month placement —
+        // only clamping to the window.
+        .map((season) => ({
+            season,
+            startMonth: season.startMonth < winStart ? winStart : season.startMonth,
+            endMonth: season.endMonth > winEnd ? winEnd : season.endMonth,
+        }))
         .sort((a, b) => a.startMonth.localeCompare(b.startMonth))
 
     return { months, lanes, goals, bands }
@@ -320,8 +437,8 @@ export function seasonProgress(
 }
 
 /**
- * Pack a lane's items into as few rows as possible without two of them sharing a
- * month. A lane is one pillar, and a pillar routinely has concurrent
+ * Pack a lane's items into as few rows as possible without two of them
+ * overlapping in time. A lane is one pillar, and a pillar routinely has concurrent
  * commitments — two savings targets, a cut overlapping a maintain — so the lane
  * grows downwards rather than drawing bars on top of each other.
  *
@@ -330,11 +447,14 @@ export function seasonProgress(
  */
 export function packLaneRows(items: LaneItem[]): LaneItem[][] {
     const ordered = [...items].sort(
-        (a, b) => a.startMonth.localeCompare(b.startMonth) || a.endMonth.localeCompare(b.endMonth)
+        (a, b) => itemSpan(a).start - itemSpan(b).start || itemSpan(a).end - itemSpan(b).end
     )
     const rows: LaneItem[][] = []
     for (const item of ordered) {
-        const row = rows.find((r) => r[r.length - 1].endMonth < item.startMonth)
+        const { start } = itemSpan(item)
+        // Ends are exclusive, so a bar ending mid-November and one starting
+        // mid-November share a row and meet at the join.
+        const row = rows.find((r) => itemSpan(r[r.length - 1]).end <= start)
         if (row) row.push(item)
         else rows.push([item])
     }

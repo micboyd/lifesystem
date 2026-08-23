@@ -5,6 +5,7 @@ import {
     monthRange,
     overlapsWindow,
     packLaneRows,
+    placeOnGrid,
     seasonForMonth,
     seasonProgress,
     LANE_SOURCE_ROUTES,
@@ -192,6 +193,63 @@ describe('buildTimeline', () => {
         })
     })
 
+    /*
+     * 15 September to 15 November is two months, not three: the bar has to start
+     * halfway through its first column and stop halfway through its last, or the
+     * timeline reads as a month longer than the phase actually is.
+     */
+    it('starts and ends a dated bar part-way through its months', () => {
+        const lane = buildTimeline(input).lanes.find((l) => l.pillar === 'nutrition')
+        expect(lane?.items[0]).toMatchObject({
+            startMonth: '2026-09',
+            startOffset: 0.5,
+            endMonth: '2026-11',
+            endOffset: 0.5,
+        })
+    })
+
+    it('fills whole months for a bar that runs from the 1st to a month end', () => {
+        const lane = buildTimeline(input).lanes.find((l) => l.pillar === 'training')
+        expect(lane?.items[0]).toMatchObject({ startOffset: 0, endOffset: 1 })
+    })
+
+    it('rounds an offset to the nearest quarter of a month', () => {
+        const timeline = buildTimeline({
+            plan: plan(),
+            nutritionPhases: [{ ...nutritionPhase, startDate: '2026-02-08', endDate: '2026-02-27' }],
+        })
+        // February: the 8th is a quarter in, the 27th rounds up to the last quarter.
+        expect(timeline.lanes.find((l) => l.pillar === 'nutrition')?.items[0]).toMatchObject({
+            startOffset: 0.25,
+            endOffset: 1,
+        })
+    })
+
+    it('never rounds a short bar away to nothing', () => {
+        const timeline = buildTimeline({
+            plan: plan(),
+            nutritionPhases: [{ ...nutritionPhase, startDate: '2026-02-08', endDate: '2026-02-09' }],
+        })
+        const item = timeline.lanes.find((l) => l.pillar === 'nutrition')?.items[0]
+        expect(item?.endOffset).toBeGreaterThan(item!.startOffset)
+    })
+
+    it('covers a whole month for a record that only knows months', () => {
+        const lane = buildTimeline(input).lanes.find((l) => l.pillar === 'money')
+        expect(lane?.items[0]).toMatchObject({
+            startMonth: '2026-01',
+            startOffset: 0,
+            endMonth: '2026-12',
+            endOffset: 1,
+        })
+    })
+
+    it('sits a deadline marker on the day, not the middle of the month', () => {
+        const timeline = buildTimeline(input)
+        // The 8th of a 30-day November is a quarter of the way in.
+        expect(timeline.goals[0]).toMatchObject({ startOffset: 0.25, endOffset: 0.25 })
+    })
+
     it('colours a nutrition phase by its kind and summarises its targets', () => {
         const lane = buildTimeline(input).lanes.find((l) => l.pillar === 'nutrition')
         expect(lane?.items[0]).toMatchObject({
@@ -237,6 +295,8 @@ describe('buildTimeline', () => {
         expect(timeline.lanes[0].items[0]).toMatchObject({
             startMonth: '2026-10',
             endMonth: '2026-10',
+            startOffset: 0,
+            endOffset: 1,
             clippedStart: true,
             clippedEnd: true,
         })
@@ -328,8 +388,14 @@ describe('seasonProgress', () => {
 })
 
 describe('packLaneRows', () => {
-    /** A bar spanning the given months. */
-    function bar(id: string, startMonth: string, endMonth: string) {
+    /** A bar spanning the given months, optionally starting/ending part-way in. */
+    function bar(
+        id: string,
+        startMonth: string,
+        endMonth: string,
+        startOffset = 0,
+        endOffset = 1
+    ) {
         return {
             id,
             source: 'monthNote' as const,
@@ -340,6 +406,8 @@ describe('packLaneRows', () => {
             color: 'neutral' as const,
             startMonth,
             endMonth,
+            startOffset,
+            endOffset,
             clippedStart: false,
             clippedEnd: false,
         }
@@ -381,6 +449,72 @@ describe('packLaneRows', () => {
 
     it('is empty for an empty lane', () => {
         expect(packLaneRows([])).toEqual([])
+    })
+
+    /*
+     * The whole point of quarter placement: two things can share a month without
+     * sharing any time, and forcing them onto separate rows would say they
+     * overlapped when they didn't.
+     */
+    it('keeps items that split a month on one row', () => {
+        const rows = packLaneRows([
+            bar('a', '2026-01', '2026-03', 0, 0.5),
+            bar('b', '2026-03', '2026-05', 0.5, 1),
+        ])
+        expect(rows.map((r) => r.map((i) => i.id))).toEqual([['a', 'b']])
+    })
+
+    it('still separates items that genuinely overlap inside a month', () => {
+        const rows = packLaneRows([
+            bar('a', '2026-01', '2026-03', 0, 0.75),
+            bar('b', '2026-03', '2026-05', 0.5, 1),
+        ])
+        expect(rows).toHaveLength(2)
+    })
+})
+
+describe('placeOnGrid', () => {
+    const months = monthRange('2026-01', '2026-12')
+
+    function bar(startMonth: string, endMonth: string, startOffset: number, endOffset: number) {
+        return {
+            id: 'x',
+            source: 'monthNote' as const,
+            recordId: 'x',
+            pillar: 'life' as const,
+            label: 'x',
+            shape: 'bar' as const,
+            color: 'neutral' as const,
+            startMonth,
+            endMonth,
+            startOffset,
+            endOffset,
+            clippedStart: false,
+            clippedEnd: false,
+        }
+    }
+
+    it('spans whole columns for a whole-month bar with no inset', () => {
+        expect(placeOnGrid(bar('2026-03', '2026-05', 0, 1), months)).toEqual({
+            startIndex: 2,
+            span: 3,
+            left: 0,
+            right: 0,
+        })
+    })
+
+    it('insets each end by its share of the span', () => {
+        // Half of one month out of a two-month span is a quarter of the width.
+        expect(placeOnGrid(bar('2026-03', '2026-04', 0.5, 0.5), months)).toEqual({
+            startIndex: 2,
+            span: 2,
+            left: 25,
+            right: 25,
+        })
+    })
+
+    it('is null for a bar whose months are off the grid', () => {
+        expect(placeOnGrid(bar('2025-03', '2025-04', 0, 1), months)).toBeNull()
     })
 })
 
