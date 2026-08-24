@@ -5,7 +5,13 @@ import {
 } from '../../types'
 import type { LifePillar } from '../../types'
 import { formatMonthKey, monthKey } from '../../lib/calendar'
-import type { LaneItem, Timeline } from '../../lib/lifeTimeline'
+import {
+    LANE_SOURCE_CHIPS,
+    LANE_SOURCE_ICONS,
+    LANE_SOURCE_LABELS,
+    type LaneItem,
+    type Timeline,
+} from '../../lib/lifeTimeline'
 import { LOAD_LEVEL_LABELS, type MonthLoad } from '../../lib/lifeLoad'
 import LoadPill from './LoadPill'
 
@@ -103,9 +109,17 @@ export default function TimelineMonthList({
                                                     key={item.id}
                                                     type="button"
                                                     onClick={() => onSelectItem(item)}
-                                                    className={`max-w-full truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ${CALENDAR_COLOR_CLASSES[item.color].bg} ${CALENDAR_COLOR_CLASSES[item.color].text}`}
+                                                    title={`${item.label} — ${LANE_SOURCE_LABELS[item.source]}`}
+                                                    className={`flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${CALENDAR_COLOR_CLASSES[item.color].bg} ${CALENDAR_COLOR_CLASSES[item.color].text}`}
                                                 >
-                                                    {item.label}
+                                                    <span className="min-w-0 truncate">{item.label}</span>
+                                                    <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/70 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                                                        <i
+                                                            className={`fa-solid ${LANE_SOURCE_ICONS[item.source]} text-[8px]`}
+                                                            aria-hidden="true"
+                                                        />
+                                                        {LANE_SOURCE_CHIPS[item.source]}
+                                                    </span>
                                                 </button>
                                             ))}
                                         </div>
@@ -130,7 +144,14 @@ export default function TimelineMonthList({
                                                         className="h-2 w-2 shrink-0 rotate-45 rounded-[2px] bg-purple-400"
                                                         aria-hidden="true"
                                                     />
-                                                    <span className="truncate">{goal.label}</span>
+                                                    <span className="min-w-0 truncate">{goal.label}</span>
+                                                    <span className="flex shrink-0 items-center gap-1 rounded-full bg-neutral-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-neutral-500">
+                                                        <i
+                                                            className={`fa-solid ${LANE_SOURCE_ICONS[goal.source]} text-[8px]`}
+                                                            aria-hidden="true"
+                                                        />
+                                                        {LANE_SOURCE_CHIPS[goal.source]}
+                                                    </span>
                                                 </button>
                                             ))}
                                         </div>

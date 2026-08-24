@@ -1,7 +1,15 @@
 import { CALENDAR_COLOR_CLASSES, LIFE_PILLAR_ICONS, LIFE_PILLAR_LABELS } from '../../types'
 import type { LifePillar } from '../../types'
 import { MONTHS, monthKey } from '../../lib/calendar'
-import { packLaneRows, placeOnGrid, type LaneItem, type Timeline } from '../../lib/lifeTimeline'
+import {
+    LANE_SOURCE_CHIPS,
+    LANE_SOURCE_ICONS,
+    LANE_SOURCE_LABELS,
+    packLaneRows,
+    placeOnGrid,
+    type LaneItem,
+    type Timeline,
+} from '../../lib/lifeTimeline'
 import EmptyState from '../EmptyState'
 
 /**
@@ -35,6 +43,41 @@ function currentMonthKey(): string {
 }
 
 /**
+ * The "what is this" tag carried by every item on the grid.
+ *
+ * The lane label on the left already gives the pillar, but a pillar holds
+ * several kinds of record at once — a Money lane mixes savings targets with
+ * month flags — so the bar says its own kind rather than leaving it to be
+ * inferred from the colour.
+ */
+function SourceChip({
+    item,
+    withText = true,
+    className,
+}: {
+    item: LaneItem
+    withText?: boolean
+    className: string
+}) {
+    return (
+        <span
+            className={`flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${className}`}
+        >
+            <i
+                className={`fa-solid ${LANE_SOURCE_ICONS[item.source]} text-[8px]`}
+                aria-hidden="true"
+            />
+            {withText ? (
+                LANE_SOURCE_CHIPS[item.source]
+            ) : (
+                // Icon-only bars still need the name read out loud.
+                <span className="sr-only">{LANE_SOURCE_CHIPS[item.source]}</span>
+            )}
+        </span>
+    )
+}
+
+/**
  * A bar or diamond, positioned across the month columns it covers.
  *
  * The grid gives it whole columns; the inset percentages then pull each end in to
@@ -64,11 +107,11 @@ function LaneBar({
                 <button
                     type="button"
                     onClick={() => onSelect(item)}
-                    title={item.label}
+                    title={`${item.label} — ${LANE_SOURCE_LABELS[item.source]}`}
                     // Anchored on the diamond, which is the part that carries the
                     // date; the label reads off to its right.
                     style={{ left: `${left}%` }}
-                    className="group absolute top-1/2 flex max-w-[160px] -translate-y-1/2 -translate-x-[7px] items-center gap-1.5"
+                    className="group absolute top-1/2 flex max-w-[210px] -translate-y-1/2 -translate-x-[7px] items-center gap-1.5"
                 >
                     <span
                         className={`h-3 w-3 shrink-0 rotate-45 rounded-[2px] ${colors.dot}`}
@@ -77,17 +120,25 @@ function LaneBar({
                     <span className="min-w-0 truncate text-xs font-semibold text-neutral-600 group-hover:text-neutral-900">
                         {item.label}
                     </span>
+                    <SourceChip item={item} className="bg-neutral-100 text-neutral-500" />
                 </button>
             </div>
         )
     }
+
+    // A bar only gets the word "Savings" if the months it covers leave room for
+    // it; anything shorter keeps the icon alone rather than eating the label.
+    const coveredMonths = span - item.startOffset - (1 - item.endOffset)
+    const showChipText = coveredMonths * MONTH_WIDTH >= 150
 
     return (
         <div style={style} className="relative">
             <button
                 type="button"
                 onClick={() => onSelect(item)}
-                title={item.detail ? `${item.label} — ${item.detail}` : item.label}
+                title={`${item.label} — ${LANE_SOURCE_LABELS[item.source]}${
+                    item.detail ? ` · ${item.detail}` : ''
+                }`}
                 style={{ left: `calc(${left}% + 2px)`, right: `calc(${right}% + 2px)` }}
                 className={[
                     'absolute inset-y-1.5 flex items-center gap-1.5 truncate px-2.5 text-left text-xs font-semibold transition-colors',
@@ -102,6 +153,11 @@ function LaneBar({
             >
                 {item.clippedStart && <i className="fa-solid fa-caret-left text-[10px] opacity-60" aria-hidden="true" />}
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                <SourceChip
+                    item={item}
+                    withText={showChipText}
+                    className={`bg-white/70 ${colors.text}`}
+                />
                 {item.clippedEnd && <i className="fa-solid fa-caret-right text-[10px] opacity-60" aria-hidden="true" />}
             </button>
         </div>

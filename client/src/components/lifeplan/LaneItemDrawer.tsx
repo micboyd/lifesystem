@@ -3,7 +3,12 @@ import Drawer from '../Drawer'
 import Badge from '../Badge'
 import Progress from '../Progress'
 import { formatDateLong, formatMonthRange } from '../../lib/calendar'
-import { LANE_SOURCE_ROUTES, type LaneItem, type LaneSource } from '../../lib/lifeTimeline'
+import {
+    LANE_SOURCE_LABELS,
+    LANE_SOURCE_ROUTES,
+    type LaneItem,
+    type LaneSource,
+} from '../../lib/lifeTimeline'
 import {
     NUTRITION_PHASE_LABELS,
     type Course,
@@ -22,15 +27,6 @@ import {
  * never edits anything itself — the alternative is two places that can write the
  * same record and disagree about it.
  */
-
-const SOURCE_LABELS: Record<LaneSource, string> = {
-    trainingPlan: 'Training plan',
-    nutritionPhase: 'Nutrition phase',
-    savingsTarget: 'Savings target',
-    course: 'Study',
-    monthNote: 'Month flag',
-    goal: 'Goal',
-}
 
 const SOURCE_LINK_LABELS: Record<LaneSource, string> = {
     trainingPlan: 'Open in Fitness',
@@ -93,7 +89,7 @@ export default function LaneItemDrawer({
             open={!!item}
             onClose={onClose}
             title={item?.label}
-            badge={source ? SOURCE_LABELS[source] : undefined}
+            badge={source ? LANE_SOURCE_LABELS[source] : undefined}
             size="lg"
             footer={
                 item &&
