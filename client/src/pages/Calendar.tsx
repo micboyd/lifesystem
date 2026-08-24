@@ -34,9 +34,10 @@ import { listMonthNotes } from '../services/monthNotes'
 import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from '../services/totals'
 import { useAuth } from '../context/AuthContext'
 import { useCalendars } from '../context/CalendarsContext'
-import { useHiddenEventTypes } from '../components/useHiddenEventTypes'
+import { useCalendarFilters } from '../components/useCalendarFilters'
 import { DAY_STATUS_OPTIONS } from '../types'
 import type { Event, Part, DayStatus, TotalRow, Reminder, MonthNote, Birthday } from '../types'
+import type { CalendarRow } from '../lib/calendarFilters'
 import Container from '../components/Container'
 import Checkbox from '../components/Checkbox'
 import ConfirmModal from '../components/ConfirmModal'
@@ -111,7 +112,7 @@ export default function Calendar() {
     const nav = useNavigate()
     const { user } = useAuth()
     const { byId: calendarsById, setVisible } = useCalendars()
-    const hiddenTypes = useHiddenEventTypes()
+    const { types: hiddenTypes, rows: hiddenRows } = useCalendarFilters()
     const [view, setView] = useState<CalendarView>('Year')
     const [showPastMonths, setShowPastMonths] = useState(false)
     const [focusDate, setFocusDate] = useState(todayKey())
@@ -549,6 +550,13 @@ export default function Calendar() {
         return map
     }, [events, onVisibleCalendar, hiddenTypes])
 
+    // Hiding the Leave row hides leave everywhere it's drawn, so the statuses are
+    // withheld rather than each view being told about the filter separately.
+    const visibleStatuses = useMemo(
+        () => (hiddenRows.has('leave') ? [] : statuses),
+        [statuses, hiddenRows]
+    )
+
     // Birthdays keyed by their MM-DD, so any year in view can look up a day's
     // birthdays without expanding them into per-year rows.
     const birthdaysByDay = useMemo(() => {
@@ -569,7 +577,8 @@ export default function Calendar() {
     const sharedProps = {
         focusDate,
         events: visibleEvents,
-        statuses,
+        statuses: visibleStatuses,
+        hiddenRows,
         reminders,
         today,
         hiddenByDate,
@@ -700,9 +709,10 @@ export default function Calendar() {
                                     today={today}
                                     events={visibleEvents}
                                     hiddenByDate={hiddenByDate}
+                                    hiddenRows={hiddenRows}
                                     birthdaysByDay={birthdaysByDay}
                                     onRevealCalendar={revealCalendar}
-                                    statuses={statuses}
+                                    statuses={visibleStatuses}
                                     reminders={reminders}
                                     monthNotes={monthNotes}
                                     onEditMonthNote={(note) =>
@@ -966,6 +976,8 @@ interface MonthBlockProps {
     hiddenByDate: Map<string, Event[]>
     /** Birthdays keyed by MM-DD — drawn as a cake in the day header. */
     birthdaysByDay: Map<string, Birthday[]>
+    /** Grid rows the user has filtered out of the toolbar's Filters menu. */
+    hiddenRows: ReadonlySet<CalendarRow>
     onRevealCalendar: (calendarId: string) => void
     statuses: DayStatus[]
     reminders: Reminder[]
@@ -1004,6 +1016,7 @@ function MonthBlock({
     events,
     hiddenByDate,
     birthdaysByDay,
+    hiddenRows,
     onRevealCalendar,
     statuses,
     reminders,
@@ -1202,122 +1215,127 @@ function MonthBlock({
                         ))}
 
                         {/* Other row */}
-                        <tr className="border-t border-neutral-200">
-                            <th
-                                scope="row"
-                                className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
-                            >
-                                <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
-                                    <i
-                                        className="fa-solid fa-ellipsis w-4 text-center text-neutral-400"
-                                        aria-hidden="true"
-                                    />
-                                    Other
-                                </span>
-                            </th>
-                            {dayNums.map((day) => {
-                                const weekday = new Date(year, month, day).getDay()
-                                const weekend = weekday === 0 || weekday === 6
-                                const key = dateKey(year, month, day)
-                                const slotEvents = events.filter(
-                                    (e) =>
-                                        e.startPart === 'na' &&
-                                        key >= e.startDate &&
-                                        key <= e.endDate
-                                )
-                                const otherPast = key < tk
-                                return (
-                                    <td
-                                        key={day}
-                                        className={[
-                                            'h-12 p-0.5 align-top',
-                                            isToday(day)
-                                                ? 'border-r border-neutral-400'
-                                                : 'border-l border-neutral-100',
-                                            weekend ? 'bg-neutral-100/60' : '',
-                                        ].join(' ')}
-                                    >
-                                        <EventStack
-                                            events={slotEvents}
-                                            disabled={otherPast}
-                                            onEventClick={onEventClick}
-                                            onAdd={() => onOpenPart(key, 'na')}
-                                            onPick={onPickEvents}
-                                            onCopyEvent={onCopyEvent}
-                                            onDeleteEvent={onDeleteEvent}
-                                            onPaste={() => onPasteEvent(key, 'na')}
-                                            canPaste={canPaste}
+                        {!hiddenRows.has('other') && (
+                            <tr className="border-t border-neutral-200">
+                                <th
+                                    scope="row"
+                                    className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
+                                >
+                                    <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
+                                        <i
+                                            className="fa-solid fa-ellipsis w-4 text-center text-neutral-400"
+                                            aria-hidden="true"
                                         />
-                                    </td>
-                                )
-                            })}
-                            {totalsOn && (
-                                <td className="border-l border-neutral-200 bg-neutral-50/50" />
-                            )}
-                        </tr>
+                                        Other
+                                    </span>
+                                </th>
+                                {dayNums.map((day) => {
+                                    const weekday = new Date(year, month, day).getDay()
+                                    const weekend = weekday === 0 || weekday === 6
+                                    const key = dateKey(year, month, day)
+                                    const slotEvents = events.filter(
+                                        (e) =>
+                                            e.startPart === 'na' &&
+                                            key >= e.startDate &&
+                                            key <= e.endDate
+                                    )
+                                    const otherPast = key < tk
+                                    return (
+                                        <td
+                                            key={day}
+                                            className={[
+                                                'h-12 p-0.5 align-top',
+                                                isToday(day)
+                                                    ? 'border-r border-neutral-400'
+                                                    : 'border-l border-neutral-100',
+                                                weekend ? 'bg-neutral-100/60' : '',
+                                            ].join(' ')}
+                                        >
+                                            <EventStack
+                                                events={slotEvents}
+                                                disabled={otherPast}
+                                                onEventClick={onEventClick}
+                                                onAdd={() => onOpenPart(key, 'na')}
+                                                onPick={onPickEvents}
+                                                onCopyEvent={onCopyEvent}
+                                                onDeleteEvent={onDeleteEvent}
+                                                onPaste={() => onPasteEvent(key, 'na')}
+                                                canPaste={canPaste}
+                                            />
+                                        </td>
+                                    )
+                                })}
+                                {totalsOn && (
+                                    <td className="border-l border-neutral-200 bg-neutral-50/50" />
+                                )}
+                            </tr>
+                        )}
 
                         {/* Leave row */}
-                        <tr className="border-t border-neutral-200">
-                            <th
-                                scope="row"
-                                className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
-                            >
-                                <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
-                                    <i
-                                        className="fa-solid fa-umbrella-beach w-4 text-center text-neutral-400"
-                                        aria-hidden="true"
-                                    />
-                                    Leave
-                                </span>
-                            </th>
-                            {dayNums.map((day) => {
-                                const weekday = new Date(year, month, day).getDay()
-                                const weekend = weekday === 0 || weekday === 6
-                                const key = dateKey(year, month, day)
-                                const status =
-                                    statuses.find((s) => s.startDate <= key && s.endDate >= key) ??
-                                    null
-                                const colors = status
-                                    ? DAY_STATUS_OPTIONS.find((o) => o.value === status.status)
-                                    : null
-                                return (
-                                    <td
-                                        key={day}
-                                        className={[
-                                            'h-12 p-0.5 align-top',
-                                            isToday(day)
-                                                ? 'border-r border-neutral-400'
-                                                : 'border-l border-neutral-100',
-                                            weekend ? 'bg-neutral-100/60' : '',
-                                        ].join(' ')}
-                                    >
-                                        {status && colors ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => onLeaveClick(key)}
-                                                title={colors.label}
-                                                className={`flex h-full w-full items-center overflow-hidden rounded-lg px-1.5 text-left transition-colors ${colors.bg} ${colors.hover} ${colors.text}`}
-                                            >
-                                                <span className="truncate text-[11px] font-semibold leading-tight">
-                                                    {colors.label}
-                                                </span>
-                                            </button>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => onLeaveClick(key)}
-                                                className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100"
-                                            >
-                                                <i className="fa-solid fa-plus text-[10px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100" />
-                                            </button>
-                                        )}
-                                    </td>
-                                )
-                            })}
-                            {totalsOn && (
-                                <td className="border-l border-neutral-200 bg-neutral-50/50" />
-                            )}
-                        </tr>
+                        {!hiddenRows.has('leave') && (
+                            <tr className="border-t border-neutral-200">
+                                <th
+                                    scope="row"
+                                    className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
+                                >
+                                    <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
+                                        <i
+                                            className="fa-solid fa-umbrella-beach w-4 text-center text-neutral-400"
+                                            aria-hidden="true"
+                                        />
+                                        Leave
+                                    </span>
+                                </th>
+                                {dayNums.map((day) => {
+                                    const weekday = new Date(year, month, day).getDay()
+                                    const weekend = weekday === 0 || weekday === 6
+                                    const key = dateKey(year, month, day)
+                                    const status =
+                                        statuses.find(
+                                            (s) => s.startDate <= key && s.endDate >= key
+                                        ) ?? null
+                                    const colors = status
+                                        ? DAY_STATUS_OPTIONS.find((o) => o.value === status.status)
+                                        : null
+                                    return (
+                                        <td
+                                            key={day}
+                                            className={[
+                                                'h-12 p-0.5 align-top',
+                                                isToday(day)
+                                                    ? 'border-r border-neutral-400'
+                                                    : 'border-l border-neutral-100',
+                                                weekend ? 'bg-neutral-100/60' : '',
+                                            ].join(' ')}
+                                        >
+                                            {status && colors ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onLeaveClick(key)}
+                                                    title={colors.label}
+                                                    className={`flex h-full w-full items-center overflow-hidden rounded-lg px-1.5 text-left transition-colors ${colors.bg} ${colors.hover} ${colors.text}`}
+                                                >
+                                                    <span className="truncate text-[11px] font-semibold leading-tight">
+                                                        {colors.label}
+                                                    </span>
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onLeaveClick(key)}
+                                                    className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100"
+                                                >
+                                                    <i className="fa-solid fa-plus text-[10px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100" />
+                                                </button>
+                                            )}
+                                        </td>
+                                    )
+                                })}
+                                {totalsOn && (
+                                    <td className="border-l border-neutral-200 bg-neutral-50/50" />
+                                )}
+                            </tr>
+                        )}
 
                         {/* Totals rows */}
                         {totalsOn &&

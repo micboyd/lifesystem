@@ -11,8 +11,15 @@ import {
     EVENT_TYPE_LABELS,
 } from '../../types'
 import { useCalendars } from '../../context/CalendarsContext'
-import { useHiddenEventTypes } from '../useHiddenEventTypes'
-import { showAllEventTypes, toggleEventType } from '../../lib/eventTypeFilter'
+import { useCalendarFilters } from '../useCalendarFilters'
+import {
+    CALENDAR_ROWS,
+    CALENDAR_ROW_ICONS,
+    CALENDAR_ROW_LABELS,
+    showAllCalendarFilters,
+    toggleEventType,
+    toggleRow,
+} from '../../lib/calendarFilters'
 import { createCalendar, deleteCalendar, updateCalendar } from '../../services/calendars'
 import type { Calendar, CalendarColor, EventType } from '../../types'
 
@@ -22,8 +29,9 @@ import type { Calendar, CalendarColor, EventType } from '../../types'
  * Two kinds of switch live behind one button, because from the toolbar they do
  * the same job — decide what the grid draws:
  *
- *  - event categories (trip, social, …) are a *view*, so they're per-device and
- *    remembered locally, and hidden ones simply don't render, and
+ *  - event categories (trip, social, …) and the standalone Other/Leave rows are
+ *    a *view*, so they're per-device and remembered locally, and hidden ones
+ *    simply don't render, and
  *  - calendars are layers that belong to the calendar itself, so their
  *    visibility is server-side and the grid looks the same on every device;
  *    a hidden layer still leaves a presence dot on the days it touches.
@@ -33,13 +41,13 @@ import type { Calendar, CalendarColor, EventType } from '../../types'
  */
 export default function CalendarFilterBar({ onChanged }: { onChanged: () => void }) {
     const { calendars, setVisible, reload } = useCalendars()
-    const hiddenTypes = useHiddenEventTypes()
+    const { types: hiddenTypes, rows: hiddenRows } = useCalendarFilters()
     const [open, setOpen] = useState(false)
     const [managing, setManaging] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
 
     const hiddenCalendars = calendars.filter((c) => !c.visible).length
-    const activeFilters = hiddenTypes.size + hiddenCalendars
+    const activeFilters = hiddenTypes.size + hiddenRows.size + hiddenCalendars
 
     useEffect(() => {
         if (!open) return
@@ -60,7 +68,7 @@ export default function CalendarFilterBar({ onChanged }: { onChanged: () => void
     }, [open])
 
     function resetAll() {
-        showAllEventTypes()
+        showAllCalendarFilters()
         for (const calendar of calendars) {
             if (!calendar.visible) void setVisible(calendar._id, true)
         }
@@ -105,6 +113,19 @@ export default function CalendarFilterBar({ onChanged }: { onChanged: () => void
                                 swatch={EVENT_TYPE_DOTS[type]}
                                 checked={!hiddenTypes.has(type)}
                                 onToggle={() => toggleEventType(type as EventType)}
+                            />
+                        ))}
+
+                        <div className="my-1 h-px bg-neutral-100" />
+                        <SectionLabel>Rows</SectionLabel>
+                        {CALENDAR_ROWS.map((row) => (
+                            <FilterRow
+                                key={row}
+                                label={CALENDAR_ROW_LABELS[row]}
+                                icon={CALENDAR_ROW_ICONS[row]}
+                                swatch="bg-neutral-400"
+                                checked={!hiddenRows.has(row)}
+                                onToggle={() => toggleRow(row)}
                             />
                         ))}
 
