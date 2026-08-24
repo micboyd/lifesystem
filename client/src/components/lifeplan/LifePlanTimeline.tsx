@@ -1,7 +1,13 @@
-import { CALENDAR_COLOR_CLASSES, LIFE_PILLAR_ICONS, LIFE_PILLAR_LABELS } from '../../types'
+import { CALENDAR_COLOR_CLASSES, LIFE_PILLAR_ICONS } from '../../types'
 import type { LifePillar } from '../../types'
 import { MONTHS, monthKey } from '../../lib/calendar'
-import { packLaneRows, placeOnGrid, type LaneItem, type Timeline } from '../../lib/lifeTimeline'
+import {
+    packLaneRows,
+    placeOnGrid,
+    TIMELINE_LANE_LABELS,
+    type LaneItem,
+    type Timeline,
+} from '../../lib/lifeTimeline'
 import EmptyState from '../EmptyState'
 
 /**
@@ -310,7 +316,7 @@ function PillarLane({
                     aria-hidden="true"
                 />
                 <span className="min-w-0 truncate text-sm font-bold text-neutral-700">
-                    {LIFE_PILLAR_LABELS[pillar]}
+                    {TIMELINE_LANE_LABELS[pillar]}
                 </span>
             </div>
             {/* The lane's top rule, drawn across the month columns. */}

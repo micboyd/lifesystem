@@ -1,4 +1,5 @@
 import { monthKey, monthKeyOf, addMonthsToKey, daysInMonth, parseDateKey } from './calendar'
+import { LIFE_PILLAR_LABELS } from '../types'
 import type {
     CalendarColor,
     Course,
@@ -21,6 +22,19 @@ import type {
  * can draw without knowing where anything came from, which is what lets the
  * lanes sit side by side and be compared at all.
  */
+
+/**
+ * What each lane is called on the timeline.
+ *
+ * The pillar names come from `LIFE_PILLAR_LABELS`, except Money: the only thing
+ * that lands in that lane is savings targets, so naming the row "Money" promises
+ * a lane carrying more than it ever does. The pillar keeps its own name
+ * everywhere else — this override is the timeline's alone.
+ */
+export const TIMELINE_LANE_LABELS: Record<LifePillar, string> = {
+    ...LIFE_PILLAR_LABELS,
+    money: 'Savings',
+}
 
 /** Which module a lane item came from — drives its drawer and its deep link. */
 export type LaneSource =

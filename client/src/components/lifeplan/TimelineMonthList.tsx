@@ -1,11 +1,7 @@
-import {
-    CALENDAR_COLOR_CLASSES,
-    LIFE_PILLAR_ICONS,
-    LIFE_PILLAR_LABELS,
-} from '../../types'
+import { CALENDAR_COLOR_CLASSES, LIFE_PILLAR_ICONS } from '../../types'
 import type { LifePillar } from '../../types'
 import { formatMonthKey, monthKey } from '../../lib/calendar'
-import type { LaneItem, Timeline } from '../../lib/lifeTimeline'
+import { TIMELINE_LANE_LABELS, type LaneItem, type Timeline } from '../../lib/lifeTimeline'
 import { LOAD_LEVEL_LABELS, type MonthLoad } from '../../lib/lifeLoad'
 import LoadPill from './LoadPill'
 
@@ -95,7 +91,7 @@ export default function TimelineMonthList({
                                         <i
                                             className={`fa-solid ${LIFE_PILLAR_ICONS[pillar]} mt-1 w-4 shrink-0 text-center text-[11px] text-neutral-300`}
                                             aria-hidden="true"
-                                            title={LIFE_PILLAR_LABELS[pillar]}
+                                            title={TIMELINE_LANE_LABELS[pillar]}
                                         />
                                         <div className="flex min-w-0 flex-wrap gap-1.5">
                                             {items.map((item) => (
