@@ -18,6 +18,7 @@ import { listExercises } from '../services/exercises'
 import {
     createLog as createWorkoutLog,
     listLogs as listWorkoutLogs,
+    deleteLog as deleteWorkoutLog,
     type WorkoutLogInput,
 } from '../services/workoutLogs'
 import WorkoutLogWeightsDrawer from './WorkoutLogWeightsDrawer'
@@ -25,14 +26,17 @@ import PlannerExportDrawer from './PlannerExportDrawer'
 import {
     createLog as createConditioningLog,
     listLogs as listConditioningLogs,
+    deleteLog as deleteConditioningLog,
 } from '../services/conditioningLogs'
 import {
     createLog as createMobilityLog,
     listLogs as listMobilityLogs,
+    deleteLog as deleteMobilityLog,
 } from '../services/mobilityLogs'
 import {
     createLog as createRecoveryLog,
     listLogs as listRecoveryLogs,
+    deleteLog as deleteRecoveryLog,
 } from '../services/recoveryLogs'
 import { useToast } from '../context/ToastContext'
 import { listEvents } from '../services/events'
@@ -507,9 +511,10 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     const [notes, setNotes] = useState<FitnessPlanNote[]>([])
     // Calendar events across the displayed week, used to flag slot clashes.
     const [events, setEvents] = useState<Event[]>([])
-    // Keys (kind:libId:date) of completed items in the displayed week, so a
-    // planned row can show a tick once its matching log exists.
-    const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
+    // Completed items in the displayed week: kind:libId:date → the id of the log
+    // that completed it, so a planned row can show a tick once its matching log
+    // exists — and undo it by deleting that log again.
+    const [doneLogs, setDoneLogs] = useState<Map<string, string>>(new Map())
     const [loading, setLoading] = useState(true)
     // The picker always targets one day + slot; the type (strength / conditioning /
     // recovery) and the slot are then chosen inside the drawer.
@@ -559,18 +564,35 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     const toast = useToast()
 
     // Mark a kind's library item as done on a date, so its planned rows tick.
-    function markDoneKey(kind: FitnessPlanKind, libId: string, date: string) {
-        setDoneKeys((prev) => {
-            const next = new Set(prev)
-            next.add(doneKey(kind, libId, date))
+    function markDoneKey(kind: FitnessPlanKind, libId: string, date: string, logId: string) {
+        setDoneLogs((prev) => new Map(prev).set(doneKey(kind, libId, date), logId))
+    }
+
+    // Untick a planned item — its completion log has just been deleted.
+    function clearDoneKey(kind: FitnessPlanKind, libId: string, date: string) {
+        setDoneLogs((prev) => {
+            const next = new Map(prev)
+            next.delete(doneKey(kind, libId, date))
             return next
         })
     }
 
+    // Undo a completion: delete the log behind it, in whichever category's log it
+    // was recorded, then untick the row. Marking done can always be redone.
+    async function handleUnlog(entry: FitnessPlanEntry, logId: string) {
+        const libId = entryLibId(entry)
+        if (!libId) return
+        if (entry.kind === 'workout') await deleteWorkoutLog(logId)
+        else if (entry.kind === 'conditioning') await deleteConditioningLog(logId)
+        else if (entry.kind === 'mobility') await deleteMobilityLog(logId)
+        else await deleteRecoveryLog(logId)
+        clearDoneKey(entry.kind, libId, entry.date)
+    }
+
     // Log a planned workout with the per-set weights entered in the weight drawer.
     async function handleLogWeights(workout: Workout, fields: WorkoutLogInput) {
-        await createWorkoutLog(fields)
-        markDoneKey('workout', workout._id, fields.date)
+        const log = await createWorkoutLog(fields)
+        markDoneKey('workout', workout._id, fields.date, log._id)
         toast.show(`Logged “${workout.name}”.`, 'success')
     }
 
@@ -630,20 +652,20 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 setLoadedWeek(range.start)
                 // Build the week's completion keys from each kind's logs. Logs with
                 // no library link (their item was deleted) can't match a plan row.
-                const keys = new Set<string>()
+                const keys = new Map<string, string>()
                 for (const l of wLogs)
                     if (l.workout && inRange(l.date))
-                        keys.add(doneKey('workout', l.workout, l.date))
+                        keys.set(doneKey('workout', l.workout, l.date), l._id)
                 for (const l of cLogs)
                     if (l.session && inRange(l.date))
-                        keys.add(doneKey('conditioning', l.session, l.date))
+                        keys.set(doneKey('conditioning', l.session, l.date), l._id)
                 for (const l of mLogs)
                     if (l.mobility && inRange(l.date))
-                        keys.add(doneKey('mobility', l.mobility, l.date))
+                        keys.set(doneKey('mobility', l.mobility, l.date), l._id)
                 for (const l of rLogs)
                     if (l.recovery && inRange(l.date))
-                        keys.add(doneKey('recovery', l.recovery, l.date))
-                setDoneKeys(keys)
+                        keys.set(doneKey('recovery', l.recovery, l.date), l._id)
+                setDoneLogs(keys)
             })
             .finally(() => active && setLoading(false))
         return () => {
@@ -930,7 +952,13 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     // Whether a planned item has a matching completion log on its day.
     const isDone = (entry: FitnessPlanEntry) => {
         const k = entryDoneKey(entry)
-        return k ? doneKeys.has(k) : false
+        return k ? doneLogs.has(k) : false
+    }
+
+    // The id of the log that completed a planned item, when there is one.
+    const doneLogIdOf = (entry: FitnessPlanEntry) => {
+        const k = entryDoneKey(entry)
+        return (k ? doneLogs.get(k) : undefined) ?? null
     }
 
     // Count and label the items a pending clear would remove, for the confirm dialog.
@@ -1096,11 +1124,13 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 entry={detail}
                 exercisesById={exercisesById}
                 done={detail ? isDone(detail) : false}
+                doneLogId={detail ? doneLogIdOf(detail) : null}
                 onClose={() => setDetail(null)}
-                onLogged={(entry) => {
+                onLogged={(entry, logId) => {
                     const id = entryLibId(entry)
-                    if (id) markDoneKey(entry.kind, id, entry.date)
+                    if (id) markDoneKey(entry.kind, id, entry.date, logId)
                 }}
+                onUnlog={handleUnlog}
                 onLogWeights={(workout, date) => {
                     setDetail(null)
                     setLogTarget({ workout, date })
@@ -3068,17 +3098,23 @@ function PlannedDetailDrawer({
     entry,
     exercisesById,
     done,
+    doneLogId,
     onClose,
     onLogged,
+    onUnlog,
     onLogWeights,
 }: {
     entry: FitnessPlanEntry | null
     exercisesById: Map<string, Exercise>
     /** Whether this item already has a completion log on its day. */
     done: boolean
+    /** The id of the log that completed it, when the tick can be undone. */
+    doneLogId: string | null
     onClose: () => void
     /** Called after an item is logged, so the planner can tick its row. */
-    onLogged: (entry: FitnessPlanEntry) => void
+    onLogged: (entry: FitnessPlanEntry, logId: string) => void
+    /** Delete the completion log behind a ticked item, so it counts as not done. */
+    onUnlog: (entry: FitnessPlanEntry, logId: string) => Promise<void>
     /** Open the per-set weight logger for a planned workout, dated to its day. */
     onLogWeights: (workout: Workout, date: string) => void
 }) {
@@ -3090,6 +3126,8 @@ function PlannedDetailDrawer({
 
     const toast = useToast()
     const [logging, setLogging] = useState(false)
+    // An undo of "Mark as done" awaiting confirmation — it deletes the log.
+    const [confirmUndo, setConfirmUndo] = useState(false)
 
     // Completed-round tallies for a conditioning session, keyed by part index.
     // Reset whenever a different entry opens; snapshotted into the log on "done".
@@ -3117,8 +3155,9 @@ function PlannedDetailDrawer({
         if (!e) return
         setLogging(true)
         try {
+            let logId = ''
             if (e.kind === 'workout' && e.workout) {
-                await createWorkoutLog({ workout: e.workout._id, date: e.date })
+                logId = (await createWorkoutLog({ workout: e.workout._id, date: e.date }))._id
                 toast.show(`Logged “${e.workout.name}”.`, 'success')
             } else if (e.kind === 'conditioning' && e.session) {
                 // Snapshot the tapped-out rounds for each counted part.
@@ -3129,29 +3168,35 @@ function PlannedDetailDrawer({
                             : null
                     )
                     .filter((r): r is RoundProgress => r !== null)
-                await createConditioningLog({
-                    session: e.session._id,
-                    date: e.date,
-                    duration: e.session.duration,
-                    rounds: rounds.length > 0 ? rounds : undefined,
-                })
+                logId = (
+                    await createConditioningLog({
+                        session: e.session._id,
+                        date: e.date,
+                        duration: e.session.duration,
+                        rounds: rounds.length > 0 ? rounds : undefined,
+                    })
+                )._id
                 toast.show(`Logged “${e.session.name}”.`, 'success')
             } else if (e.kind === 'mobility' && e.mobility) {
-                await createMobilityLog({
-                    mobility: e.mobility._id,
-                    date: e.date,
-                    duration: e.mobility.duration,
-                })
+                logId = (
+                    await createMobilityLog({
+                        mobility: e.mobility._id,
+                        date: e.date,
+                        duration: e.mobility.duration,
+                    })
+                )._id
                 toast.show(`Logged “${e.mobility.name}”.`, 'success')
             } else if (e.kind === 'recovery' && e.recovery) {
-                await createRecoveryLog({
-                    recovery: e.recovery._id,
-                    date: e.date,
-                    duration: e.recovery.duration,
-                })
+                logId = (
+                    await createRecoveryLog({
+                        recovery: e.recovery._id,
+                        date: e.date,
+                        duration: e.recovery.duration,
+                    })
+                )._id
                 toast.show(`Logged “${e.recovery.name}”.`, 'success')
             }
-            onLogged(e)
+            onLogged(e, logId)
             onClose()
         } catch {
             toast.show('Could not log that — please try again.', 'danger')
@@ -3160,60 +3205,108 @@ function PlannedDetailDrawer({
         }
     }
 
+    // The other direction: a tick put on by mistake — an item marked done that
+    // wasn't, or a future day tapped early — is undone by deleting the log it
+    // wrote, which is what the tick is read from in the first place.
+    async function undoDone() {
+        if (!e || !doneLogId) return
+        setLogging(true)
+        try {
+            await onUnlog(e, doneLogId)
+            toast.show(`“${planItemName(e) ?? 'Item'}” is no longer marked done.`, 'success')
+            onClose()
+        } catch {
+            toast.show('Could not undo that — please try again.', 'danger')
+        } finally {
+            setLogging(false)
+        }
+    }
+
     return (
-        <Drawer
-            open={!!entry}
-            onClose={onClose}
-            size="xl"
-            title={title}
-            badge={e ? shortDayLabel(e.date) : undefined}
-            footer={
-                <>
-                    <Button variant="ghost" className="mr-auto" onClick={onClose}>
-                        Close
-                    </Button>
-                    {done && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700">
-                            <i className="fa-solid fa-circle-check" aria-hidden="true" />
-                            Done
-                        </span>
-                    )}
-                    {canMarkDone && (
-                        <Button
-                            variant="secondary"
-                            icon="fa-solid fa-check"
-                            onClick={markDone}
-                            disabled={logging}
-                        >
-                            {logging ? 'Logging…' : 'Mark as done'}
+        <>
+            <Drawer
+                open={!!entry}
+                onClose={onClose}
+                size="xl"
+                title={title}
+                badge={e ? shortDayLabel(e.date) : undefined}
+                footer={
+                    <>
+                        <Button variant="ghost" className="mr-auto" onClick={onClose}>
+                            Close
                         </Button>
-                    )}
-                    {e?.kind === 'workout' && e.workout && (
-                        <Button
-                            icon="fa-solid fa-dumbbell"
-                            onClick={() => e.workout && onLogWeights(e.workout, e.date)}
-                        >
-                            Log sets
-                        </Button>
-                    )}
-                </>
-            }
-        >
-            {e &&
-                (e.kind === 'workout' && e.workout ? (
-                    <WorkoutDetail workout={e.workout} exercisesById={exercisesById} />
-                ) : e.kind === 'conditioning' && e.session ? (
-                    <ConditioningSessionDetail
-                        session={e.session}
-                        counts={counts}
-                        onCount={(i, next) => setCounts((c) => ({ ...c, [i]: next }))}
-                    />
-                ) : e.kind === 'mobility' && e.mobility ? (
-                    <MobilityDetail mobility={e.mobility} />
-                ) : e.recovery ? (
-                    <RecoveryDetail recovery={e.recovery} />
-                ) : null)}
-        </Drawer>
+                        {done && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700">
+                                <i className="fa-solid fa-circle-check" aria-hidden="true" />
+                                Done
+                            </span>
+                        )}
+                        {done && doneLogId && (
+                            <Button
+                                variant="ghost"
+                                icon="fa-solid fa-rotate-left"
+                                onClick={() => setConfirmUndo(true)}
+                                disabled={logging}
+                            >
+                                Mark as not done
+                            </Button>
+                        )}
+                        {canMarkDone && (
+                            <Button
+                                variant="secondary"
+                                icon="fa-solid fa-check"
+                                onClick={markDone}
+                                disabled={logging}
+                            >
+                                {logging ? 'Logging…' : 'Mark as done'}
+                            </Button>
+                        )}
+                        {e?.kind === 'workout' && e.workout && (
+                            <Button
+                                icon="fa-solid fa-dumbbell"
+                                onClick={() => e.workout && onLogWeights(e.workout, e.date)}
+                            >
+                                Log sets
+                            </Button>
+                        )}
+                    </>
+                }
+            >
+                {e &&
+                    (e.kind === 'workout' && e.workout ? (
+                        <WorkoutDetail workout={e.workout} exercisesById={exercisesById} />
+                    ) : e.kind === 'conditioning' && e.session ? (
+                        <ConditioningSessionDetail
+                            session={e.session}
+                            counts={counts}
+                            onCount={(i, next) => setCounts((c) => ({ ...c, [i]: next }))}
+                        />
+                    ) : e.kind === 'mobility' && e.mobility ? (
+                        <MobilityDetail mobility={e.mobility} />
+                    ) : e.recovery ? (
+                        <RecoveryDetail recovery={e.recovery} />
+                    ) : null)}
+            </Drawer>
+
+            <ConfirmModal
+                open={confirmUndo}
+                danger
+                title="Mark as not done?"
+                message={
+                    <>
+                        The log this wrote to your{' '}
+                        <span className="font-semibold">{e ? KIND_META[e.kind].label : ''}</span>{' '}
+                        history on{' '}
+                        <span className="font-semibold">{e ? shortDayLabel(e.date) : ''}</span> will
+                        be deleted, along with anything recorded on it. The item stays in the plan
+                        and can be marked done again.
+                    </>
+                }
+                confirmLabel="Mark as not done"
+                onConfirm={undoDone}
+                onClose={() => setConfirmUndo(false)}
+            />
+        </>
     )
 }
 

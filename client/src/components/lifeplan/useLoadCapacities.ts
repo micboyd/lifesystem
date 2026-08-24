@@ -5,7 +5,14 @@ import { dailyIntake, measuredMaintenance } from '../../lib/energy'
 import { trendSeries } from '../../lib/weightTrend'
 import { computeMonthLoads, type LoadInput } from '../../lib/lifeLoad'
 import { monthRange } from '../../lib/lifeTimeline'
-import { calibrate, monthOutcome, type Calibration } from '../../lib/lifeCalibration'
+import {
+    calibrate,
+    capacitiesFrom,
+    monthOutcome,
+    sustainedVolume,
+    type Calibration,
+} from '../../lib/lifeCalibration'
+import { DEFAULT_CAPACITIES, type Capacities } from '../../lib/lifeLoad'
 import { monthEndDate, monthStartDate } from '../../lib/seasonReview'
 import { listGroups, listRows } from '../../services/finances'
 import { listPlanEntries as listMealEntries } from '../../services/mealPlan'
@@ -40,6 +47,14 @@ export interface LoadCapacities {
     freeCash?: Record<string, number>
     /** Maintenance calories, so a phase's deficit is read at its true depth. */
     maintenanceKcal?: number
+    /**
+     * Capacity overrides, ready to pass to `computeMonthLoads`. The volume
+     * baseline lands here as soon as there are logs; a fitted ceiling replaces it
+     * when the history pass finds one, since adherence is the better evidence.
+     */
+    capacities: Partial<Capacities>
+    /** The body ceiling read off logged training volume, before any fit. */
+    volumeCeiling?: number
     /** Ceilings fitted from history. Empty until history has been asked for and found. */
     calibration: Calibration
     /** True once the history pass has finished, whatever it concluded. */
@@ -48,7 +63,12 @@ export interface LoadCapacities {
     historyMonths: number
 }
 
-const EMPTY: LoadCapacities = { calibration: {}, calibrated: false, historyMonths: 0 }
+const EMPTY: LoadCapacities = {
+    capacities: {},
+    calibration: {},
+    calibrated: false,
+    historyMonths: 0,
+}
 
 /**
  * `months` is the plan's window, `history` turns on the calibration pass, and
@@ -76,17 +96,45 @@ export function useLoadCapacities(
         let cancelled = false
         const since = monthStartDate(addMonthsToKey(months[0], -2))
 
-        Promise.all([listGroups(), listRows(), listMealEntries(since, todayKey()), listWeightLogs(since)])
-            .then(([groups, rows, mealEntries, weightLogs]) => {
+        Promise.all([
+            listGroups(),
+            listRows(),
+            listMealEntries(since, todayKey()),
+            listWeightLogs(since),
+            listWorkoutLogs(),
+            listConditioningLogs(),
+        ])
+            .then(([groups, rows, mealEntries, weightLogs, workoutLogs, conditioningLogs]) => {
                 if (cancelled) return
                 const maintenance = measuredMaintenance(
                     dailyIntake(mealEntries),
                     trendSeries(weightLogs)
                 )
+                // The body ceiling you have proven, rather than the shipped guess
+                // about people in general. Never below the default: erring
+                // generous beats nagging someone about a week they run every week.
+                const volume = sustainedVolume(
+                    [...workoutLogs, ...conditioningLogs],
+                    todayKey()
+                )
+                const ceiling =
+                    volume === null
+                        ? undefined
+                        : Math.max(volume, DEFAULT_CAPACITIES.body ?? volume)
+
                 setCapacities((c) => ({
                     ...c,
                     freeCash: freeCashByMonth(groups, rows, months),
                     maintenanceKcal: typeof maintenance === 'string' ? undefined : maintenance.kcal,
+                    volumeCeiling: ceiling,
+                    capacities:
+                        ceiling === undefined
+                            ? c.capacities
+                            : {
+                                  body: { value: ceiling, basis: 'measured' },
+                                  // A fitted ceiling is better evidence, so it wins.
+                                  ...c.capacities,
+                              },
                 }))
             })
             // A missing denominator is a reason to score nothing, not to break the
@@ -164,11 +212,13 @@ export function useLoadCapacities(
                         habitCount: habits.length,
                     })
                 )
+                const calibration = calibrate(pastLoads, outcomes)
                 setCapacities((c) => ({
                     ...c,
-                    calibration: calibrate(pastLoads, outcomes),
+                    calibration,
                     calibrated: true,
                     historyMonths: outcomes.filter((o) => o.adherence !== null).length,
+                    capacities: { ...c.capacities, ...capacitiesFrom(calibration) },
                 }))
             })
             .catch(() => {

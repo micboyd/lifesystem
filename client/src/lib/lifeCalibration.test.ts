@@ -3,11 +3,14 @@ import {
     MIN_BUCKET,
     MIN_DROP,
     MIN_MONTHS,
+    SUSTAINED_WEEKS,
+    VOLUME_HEADROOM,
     calibrate,
     calibrateReserve,
     capacitiesFrom,
     explain,
     monthOutcome,
+    sustainedVolume,
     type MonthOutcome,
     type OutcomeInput,
     type Sample,
@@ -321,5 +324,72 @@ describe('explain', () => {
         ).toBe(
             '4 months at or above 8 typically ran at 61% adherence, against 88% across the 5 below it.'
         )
+    })
+})
+
+describe('sustainedVolume', () => {
+    /**
+     * `count` sessions in the week beginning `monday`.
+     *
+     * Formatted locally rather than through `toISOString`, which would push a
+     * local midnight back into the previous day — and so the previous week —
+     * anywhere east of UTC.
+     */
+    function weekOf(monday: string, count: number): { date: string }[] {
+        const start = new Date(`${monday}T00:00:00`)
+        return Array.from({ length: count }, (_, i) => {
+            const d = new Date(start)
+            d.setDate(d.getDate() + (i % 7))
+            const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+            return { date: iso }
+        })
+    }
+
+    const today = '2026-08-24'
+
+    it('says nothing on too few weeks of logs', () => {
+        expect(sustainedVolume([...weekOf('2026-08-17', 5)], today)).toBeNull()
+        expect(sustainedVolume([], today)).toBeNull()
+    })
+
+    it('reads the volume you have repeatedly managed, plus headroom', () => {
+        const logs = [
+            ...weekOf('2026-08-17', 6),
+            ...weekOf('2026-08-10', 6),
+            ...weekOf('2026-08-03', 6),
+            ...weekOf('2026-07-27', 4),
+        ]
+        // Six in three separate weeks, so six is proven; the ceiling sits above it.
+        expect(sustainedVolume(logs, today)).toBe(6 + VOLUME_HEADROOM)
+    })
+
+    it('ignores a single freak week', () => {
+        const logs = [
+            ...weekOf('2026-08-17', 10),
+            ...weekOf('2026-08-10', 4),
+            ...weekOf('2026-08-03', 4),
+            ...weekOf('2026-07-27', 4),
+        ]
+        expect(sustainedVolume(logs, today)).toBe(4 + VOLUME_HEADROOM)
+        expect(SUSTAINED_WEEKS).toBeGreaterThan(1)
+    })
+
+    it('is not raised by weeks off, nor lowered by them', () => {
+        const busy = [
+            ...weekOf('2026-08-17', 5),
+            ...weekOf('2026-08-10', 5),
+            ...weekOf('2026-08-03', 5),
+        ]
+        const withBreak = [...busy, ...weekOf('2026-06-15', 0)]
+        expect(sustainedVolume(withBreak, today)).toBe(sustainedVolume(busy, today))
+    })
+
+    it('looks no further back than its window', () => {
+        const old = [
+            ...weekOf('2026-01-05', 8),
+            ...weekOf('2026-01-12', 8),
+            ...weekOf('2026-01-19', 8),
+        ]
+        expect(sustainedVolume(old, today)).toBeNull()
     })
 })

@@ -4,7 +4,6 @@ import { formatMonthKey, monthKey } from '../../lib/calendar'
 import { TIMELINE_LANE_LABELS, type LaneItem, type Timeline } from '../../lib/lifeTimeline'
 import { RESERVE_LABELS, type MonthLoad } from '../../lib/lifeLoad'
 import LoadPill from './LoadPill'
-import ReserveMeter from './ReserveMeter'
 
 /**
  * The timeline read vertically, a month at a time.
@@ -87,16 +86,6 @@ export default function TimelineMonthList({
                                 </button>
                             )}
                         </div>
-
-                        {load && load.contributors.length > 0 && (
-                            <button
-                                type="button"
-                                onClick={() => onSelectMonth(month)}
-                                className="mt-3 w-full text-left"
-                            >
-                                <ReserveMeter load={load} compact />
-                            </button>
-                        )}
 
                         {load && load.conflicts.length > 0 && (
                             <p className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-coral-600">

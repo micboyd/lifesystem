@@ -48,6 +48,28 @@ function template(strength = 3, conditioning = 2): PlanWeekDay[] {
     }))
 }
 
+/** A week with the given weekday indexes filled for each role. Mon = 0. */
+function week(spec: { strength?: number[]; conditioning?: number[] }): PlanWeekDay[] {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    return days.map((day, i) => ({
+        day,
+        strength: spec.strength?.includes(i) ? 'Upper A' : '',
+        conditioning: spec.conditioning?.includes(i) ? 'Intervals' : '',
+    }))
+}
+
+/** Strength sessions on the given days of a month, as a materialised schedule. */
+function mondays(month: string, days: number[]): PlanScheduleEntry[] {
+    return days.map((d) => ({
+        date: `${month}-${String(d).padStart(2, '0')}`,
+        part: 'morning' as const,
+        kind: 'workout' as const,
+        role: 'strength' as const,
+        item: `w${d}`,
+        label: 'Upper A',
+    }))
+}
+
 function trainingPlan(
     planStart: string,
     planEnd: string,
@@ -273,20 +295,43 @@ describe('body', () => {
     const build = { trainingPlans: [trainingPlan('2026-01-01', '2026-12-31', '10K build')] }
     const cut = { nutritionPhases: [phase('2026-01-01', '2026-12-31', 'cut', 'Autumn cut')] }
 
-    it('counts a deficit and hard sessions as the same reserve', () => {
+    it('counts the hard sessions the week actually contains', () => {
         expect(demandFor('2026-05', 'body', build)).toBe(5)
-        expect(demandFor('2026-05', 'body', cut)).toBe(2.2)
     })
 
-    it('overloads on two commitments, because both come out of recovery', () => {
+    it('lets a deficit lower the ceiling rather than fill it', () => {
+        const load = loadFor('2026-05', cut).reserves.body
+        // −550 kcal/day at 10% per 500 costs 11% of the ceiling.
+        expect(load.demand).toBe(0)
+        expect(load.baseCapacity).toBe(6)
+        expect(load.adjustments).toHaveLength(1)
+        expect(load.adjustments[0].factor).toBeCloseTo(0.89, 2)
+        expect(load.capacity).toBeCloseTo(5.34, 2)
+    })
+
+    it('costs the body nothing at all to cut while doing no training', () => {
+        const load = loadFor('2026-05', cut).reserves.body
+        expect(load.ratio).toBe(0)
+        expect(load.level).toBe('quiet')
+    })
+
+    it('calls an ordinary cut alongside an ordinary block busy, not overloaded', () => {
+        // The case that exposed the old model: five hard sessions and a cut is a
+        // normal thing to be doing, and summing them called it an overload.
         const load = loadFor('2026-05', { ...build, ...cut })
-        expect(load.contributors).toHaveLength(2)
-        expect(load.reserves.body.demand).toBe(7.2)
-        expect(load.reserves.body.level).toBe('overloaded')
-        // And the same month is nowhere near overloaded on the reserve a summed
-        // score would have blamed.
-        expect(load.reserves.time.level).toBe('steady')
+        expect(load.reserves.body.demand).toBe(5)
+        expect(load.reserves.body.level).toBe('busy')
         expect(load.peak).toBe('body')
+    })
+
+    it('does tip over once the deficit is deep enough', () => {
+        const load = loadFor('2026-05', {
+            ...build,
+            nutritionPhases: [
+                phase('2026-05-01', '2026-05-31', 'cut', 'Crash', { weeklyRate: -1.2 }),
+            ],
+        })
+        expect(load.reserves.body.level).toBe('overloaded')
     })
 
     it('reads the true depth off measured maintenance when it is known', () => {
@@ -296,15 +341,18 @@ describe('body', () => {
             ],
             maintenanceKcal: 2500,
         }
-        expect(demandFor('2026-05', 'body', input)).toBe(2)
-        expect(loadFor('2026-05', input).contributors[0].detail).toBe('−500 kcal/day')
+        const load = loadFor('2026-05', input)
+        expect(load.reserves.body.adjustments[0].factor).toBeCloseTo(0.9, 2)
+        expect(load.contributors[0].detail).toBe('−500 kcal/day')
     })
 
-    it('costs nothing for a surplus — eating over maintenance is not a recovery debt', () => {
+    it('takes nothing off the ceiling for a surplus', () => {
         const gain = { nutritionPhases: [phase('2026-05-01', '2026-05-31', 'gain', 'Off-season')] }
-        expect(demandFor('2026-05', 'body', gain)).toBe(0)
+        const load = loadFor('2026-05', gain)
+        expect(load.reserves.body.adjustments).toEqual([])
+        expect(load.reserves.body.capacity).toBe(6)
         expect(demandFor('2026-05', 'focus', gain)).toBe(1)
-        expect(loadFor('2026-05', gain).contributors[0].detail).toBe('+275 kcal/day')
+        expect(load.contributors[0].detail).toBe('+275 kcal/day')
     })
 
     it('costs nothing at all for a maintain phase, but still lists it', () => {
@@ -313,15 +361,85 @@ describe('body', () => {
         })
         expect(load.contributors).toHaveLength(1)
         expect(load.contributors[0].label).toBe('Off-season')
-        expect(load.reserves.body.demand).toBe(0)
+        expect(load.reserves.body.adjustments).toEqual([])
         expect(load.reserves.focus.demand).toBe(0)
-        expect(load.reserves.body.contributions).toEqual([])
     })
 
-    it('charges a phase only for the part of the month it covers', () => {
-        // Half of May at 2.2 units is 1.1.
+    it('takes only a part-month cut off the ceiling in proportion', () => {
         const half = { nutritionPhases: [phase('2026-05-01', '2026-05-16', 'cut')] }
-        expect(demandFor('2026-05', 'body', half)).toBeCloseTo(1.14, 1)
+        // Half of May at 11% is about 5.7% off the ceiling.
+        expect(loadFor('2026-05', half).reserves.body.capacity).toBeCloseTo(5.66, 1)
+    })
+})
+
+describe('two blocks are still one week', () => {
+    it('counts overlapping plans once, not twice', () => {
+        const same = {
+            trainingPlans: [
+                trainingPlan('2026-05-01', '2026-05-31', 'Strength'),
+                trainingPlan('2026-05-01', '2026-05-31', 'Base'),
+            ],
+        }
+        // Both prescribe the same five sessions. Summing them would say ten.
+        expect(demandFor('2026-05', 'body', same)).toBe(5)
+        expect(demandFor('2026-05', 'time', same)).toBe(4.5)
+    })
+
+    it('says which block a duplicate is duplicating', () => {
+        const load = loadFor('2026-05', {
+            trainingPlans: [
+                trainingPlan('2026-05-01', '2026-05-31', 'Strength'),
+                trainingPlan('2026-05-01', '2026-05-31', 'Base'),
+            ],
+        })
+        expect(load.contributors[0].detail).toContain('5 hard sessions/wk')
+        expect(load.contributors[1].detail).toBe('same week as Strength — counted once')
+    })
+
+    it('still adds up two blocks that genuinely fill different days', () => {
+        const complementary = {
+            trainingPlans: [
+                trainingPlan('2026-05-01', '2026-05-31', 'Lifting', {
+                    weeklyTemplate: week({ strength: [0, 1, 2] }),
+                }),
+                trainingPlan('2026-05-01', '2026-05-31', 'Running', {
+                    weeklyTemplate: week({ conditioning: [3, 4, 5] }),
+                }),
+            ],
+        }
+        expect(demandFor('2026-05', 'body', complementary)).toBe(6)
+    })
+
+    it('charges a partly-overlapping block only for what it adds', () => {
+        const overlapping = {
+            trainingPlans: [
+                trainingPlan('2026-05-01', '2026-05-31', 'Lifting', {
+                    weeklyTemplate: week({ strength: [0, 1, 2] }),
+                }),
+                trainingPlan('2026-05-01', '2026-05-31', 'Extra', {
+                    weeklyTemplate: week({ strength: [2, 3] }),
+                }),
+            ],
+        }
+        expect(demandFor('2026-05', 'body', overlapping)).toBe(4)
+        expect(loadFor('2026-05', overlapping).contributors[1].detail).toBe(
+            'adds 1 hard sessions/wk on top of Lifting'
+        )
+    })
+
+    it('matches a dated schedule against a template by the weekday it lands on', () => {
+        // February 2026 opens on a Sunday, so the 2nd, 9th, 16th and 23rd are Mondays.
+        const both = {
+            trainingPlans: [
+                trainingPlan('2026-02-01', '2026-02-28', 'Dated', {
+                    schedule: mondays('2026-02', [2, 9, 16, 23]),
+                }),
+                trainingPlan('2026-02-01', '2026-02-28', 'Templated', {
+                    weeklyTemplate: week({ strength: [0] }),
+                }),
+            ],
+        }
+        expect(demandFor('2026-02', 'body', both)).toBe(1)
     })
 })
 
@@ -449,9 +567,20 @@ describe('conflicts', () => {
     it('flags a deep cut under a heavy training week', () => {
         const load = loadFor('2026-05', {
             trainingPlans: [trainingPlan('2026-05-01', '2026-05-31', '10K build')],
-            nutritionPhases: [phase('2026-05-01', '2026-05-31', 'cut')],
+            nutritionPhases: [
+                phase('2026-05-01', '2026-05-31', 'cut', 'Crash', { weeklyRate: -0.9 }),
+            ],
         })
         expect(load.conflicts.map((c) => c.kind)).toEqual(['deep-cut-in-heavy-block'])
+    })
+
+    it('stays quiet about a normal cut under the same week', () => {
+        // −0.5 kg/wk under five sessions is what most cuts actually look like.
+        const load = loadFor('2026-05', {
+            trainingPlans: [trainingPlan('2026-05-01', '2026-05-31', '10K build')],
+            nutritionPhases: [phase('2026-05-01', '2026-05-31', 'cut')],
+        })
+        expect(load.conflicts).toEqual([])
     })
 
     it('stays quiet about an ordinary cut alongside ordinary training', () => {
@@ -484,13 +613,26 @@ describe('conflicts', () => {
 })
 
 describe('findPressurePoints', () => {
-    it('returns the months where a reserve went over, or two things fought', () => {
+    it('leaves an ordinary autumn alone', () => {
+        // A 10K build, a cut, a savings target and a holiday. Every one of these
+        // is a normal thing to be doing, and the first model called three months
+        // of it overloaded.
         const loads = computeMonthLoads({
             plan: plan(),
             trainingPlans: [trainingPlan('2026-09-01', '2026-11-30', '10K build')],
             nutritionPhases: [phase('2026-09-15', '2026-11-15', 'cut', 'Autumn cut')],
             savingsTargets: [savings('2026-01', '2026-12')],
             monthNotes: [flag('2026-10', '2026-10')],
+        })
+        expect(findPressurePoints(loads)).toEqual([])
+    })
+
+    it('returns the months where a reserve genuinely went over', () => {
+        const loads = computeMonthLoads({
+            plan: plan('2026-09', '2026-11'),
+            trainingPlans: [trainingPlan('2026-09-01', '2026-11-30', '10K build')],
+            // 200 hours of revision to find before December.
+            courses: [course('2026-11-30', 'Finals', 200, 0)],
         })
         expect(findPressurePoints(loads).map((l) => l.month)).toEqual([
             '2026-09',
@@ -521,7 +663,7 @@ describe('overloadedReserves', () => {
             courses: [course('2026-09-30', 'Exam', 80, 0)],
             monthNotes: [flag('2026-09', '2026-09')],
         })
-        expect(overloadedReserves(load).map((r) => r.reserve)).toEqual(['time', 'body', 'focus'])
+        expect(overloadedReserves(load).map((r) => r.reserve)).toEqual(['time', 'focus'])
     })
 })
 

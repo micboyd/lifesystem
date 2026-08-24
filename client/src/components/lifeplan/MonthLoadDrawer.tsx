@@ -26,7 +26,8 @@ import { summarise } from './ReserveMeter'
 
 /** A reserve's demand broken into its contributors, drawn as one stacked bar. */
 function ReserveSection({ load }: { load: ReserveLoad }) {
-    const { reserve, demand, capacity, ratio, level, contributions } = load
+    const { reserve, demand, capacity, baseCapacity, adjustments, ratio, level, contributions } =
+        load
     const over = capacity !== null && demand > capacity
     // The bar is scaled to whichever is larger, so an overspend shows how far
     // past the line it went rather than just pinning at full.
@@ -74,6 +75,26 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
                 <p className="mt-2 text-xs font-bold text-coral-600">
                     Over by {formatDemand(reserve, demand - capacity!)} {RESERVE_UNITS[reserve]}
                 </p>
+            )}
+
+            {/* Something that moved the ceiling rather than spending it. Shown as
+                its own line, because "you can carry less this month" is a
+                different fact from "this month contains more". */}
+            {adjustments.length > 0 && baseCapacity !== null && (
+                <div className="mt-3 rounded-xl bg-neutral-50 p-3">
+                    <p className="text-[11px] font-bold text-neutral-600">
+                        Ceiling {formatDemand(reserve, baseCapacity)} →{' '}
+                        {formatDemand(reserve, capacity!)} {RESERVE_UNITS[reserve]}
+                    </p>
+                    <ul className="mt-1.5 space-y-1">
+                        {adjustments.map((a) => (
+                            <li key={a.contributorId} className="text-[11px] text-neutral-500">
+                                <span className="font-semibold text-neutral-700">{a.label}</span> —{' '}
+                                {a.detail} ({Math.round((1 - a.factor) * 100)}%)
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             )}
             {capacity === null && demand > 0 && (
                 <p className="mt-2 text-xs text-neutral-400">

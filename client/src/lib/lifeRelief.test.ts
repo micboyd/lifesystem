@@ -42,7 +42,12 @@ function trainingPlan(planStart: string, planEnd: string, name = 'Build'): Train
     }
 }
 
-function phase(startDate: string, endDate: string, name = 'Cut'): NutritionPhase {
+/**
+ * A deep cut — deep enough to take the ceiling below a five-session week.
+ * An ordinary −0.5 kg/wk cut alongside a block is not an overload and has
+ * nothing for `findRelief` to say about it, which is the point of the model.
+ */
+function phase(startDate: string, endDate: string, name = 'Cut', weeklyRate = -1.2): NutritionPhase {
     return {
         _id: `np-${name}`,
         name,
@@ -50,7 +55,7 @@ function phase(startDate: string, endDate: string, name = 'Cut'): NutritionPhase
         endDate,
         kind: 'cut',
         targets: {},
-        weeklyRate: -0.5,
+        weeklyRate,
         createdAt: '',
         updatedAt: '',
     }
@@ -107,12 +112,22 @@ describe('findRelief', () => {
         expect(reliefFor('2026-05', { savingsTargets: [savings('2026-01', '2026-12')] })).toEqual([])
     })
 
+    it('has nothing to say about an ordinary cut under an ordinary block', () => {
+        expect(
+            reliefFor('2026-05', {
+                trainingPlans: [trainingPlan('2026-05-01', '2026-05-31', '10K build')],
+                nutritionPhases: [phase('2026-05-01', '2026-05-31', 'Autumn cut', -0.5)],
+            })
+        ).toEqual([])
+    })
+
     it('has nothing to say about a month outside the window', () => {
         expect(reliefFor('2027-05', {})).toEqual([])
     })
 
     it('names the commitment to move and where it should go', () => {
-        // A cut and a build block share May: 7.2 body units against a capacity of 6.
+        // A crash cut and a build block share May: five hard sessions against a
+        // ceiling the deficit has pulled down to about 4.4.
         const input = {
             trainingPlans: [trainingPlan('2026-05-01', '2026-05-31', '10K build')],
             nutritionPhases: [phase('2026-05-01', '2026-05-31', 'Autumn cut')],

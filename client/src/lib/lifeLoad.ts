@@ -224,12 +224,29 @@ export const SESSION_HOURS: Record<PlanRole, number> = {
 export const HARD_ROLES: PlanRole[] = ['strength', 'run', 'conditioning']
 
 /**
- * One unit of `body` is 250 kcal/day of deficit, so a −500 cut reads as two
- * units — the recovery cost of two extra hard sessions a week, which is about
- * how it feels. A surplus costs nothing: like a mobility session, eating over
- * maintenance is what you'd pair hard training with.
+ * What a deficit does to the body reserve.
+ *
+ * The first version added it to the demand — a −500 cut counted as two extra
+ * hard sessions a week. That's the wrong shape, and it's the reason an ordinary
+ * setup (a cut and the training you were already doing) read as an overload.
+ *
+ * A deficit doesn't make the week busier. It makes you worse at recovering from
+ * the week you already have. So it belongs on the **capacity** side, as a
+ * multiplier on the training ceiling, not on the demand side as an addend. The
+ * physiology and the arithmetic agree: cutting while training hard is risky
+ * because the ceiling comes down, and a cut with no training at all costs your
+ * body nothing — which the old model couldn't say, and this one gets right for
+ * free.
+ *
+ * A surplus doesn't raise the ceiling here. Eating over maintenance helps
+ * recovery, but crediting it would let a bulk license a volume the person has
+ * never actually run, which is not a trade this should be making on their
+ * behalf.
  */
-export const BODY_UNIT_KCAL = 250
+export const RECOVERY_COST_PER_500 = 0.1
+
+/** However deep the cut, never model away more than half the ceiling. */
+export const MIN_RECOVERY_FACTOR = 0.5
 
 /** Kilocalories in a kilogram of bodyweight — matches `energy.ts:KCAL_PER_KG`. */
 const KCAL_PER_KG = 7700
@@ -270,8 +287,11 @@ export const FOCUS_COSTS = {
  */
 export const MONTH_NOTE_HOURS = 2
 
-/** A cut at or past this many `body` units counts as deep — roughly −500 kcal/day. */
-export const DEEP_CUT_UNITS = 2
+/**
+ * A cut costing at least this share of the training ceiling counts as deep —
+ * with the default coefficient, roughly −750 kcal/day.
+ */
+export const DEEP_CUT_COST = 0.15
 
 /** Hard sessions a week at or past which the training week counts as heavy. */
 export const HEAVY_WEEK_SESSIONS = 4
@@ -287,10 +307,31 @@ export interface ReserveContribution {
     amount: number
 }
 
+/**
+ * Something that moved a reserve's capacity rather than spending it.
+ *
+ * Kept separate from the contributors so the drawer can say "7 → 6, because of
+ * the cut" rather than burying it in a total. A commitment that lowers what you
+ * can carry is a different fact from one that carries something.
+ */
+export interface CapacityAdjustment {
+    /** `LoadContributor.id` of whatever caused it. */
+    contributorId: string
+    label: string
+    /** Multiplier on the base capacity — 0.85 costs 15% of it. */
+    factor: number
+    detail: string
+}
+
 export interface ReserveLoad {
     reserve: Reserve
     /** Total demand in the reserve's own unit. */
     demand: number
+    /** The capacity before anything adjusted it. */
+    baseCapacity: number | null
+    /** What moved it, and why. */
+    adjustments: CapacityAdjustment[]
+    /** The capacity actually measured against, after `adjustments`. */
     capacity: number | null
     capacityBasis: CapacityBasis
     /** demand ÷ capacity. Null when the capacity is unknown. */
@@ -387,53 +428,110 @@ function monthsUntil(from: string, to: string): number {
 /** A cell of a plan's weekly template that names no session. */
 const EMPTY_CELL = /^(|-|–|—|rest|none|off|n\/a)$/i
 
-/** Sessions a week by role, and whether that came off the plan's own schedule. */
-interface WeeklySessions {
+/**
+ * Mon = 0 … Sun = 6 for a YYYY-MM-DD.
+ *
+ * Shifted off `Date.getDay()`'s Sunday-first numbering so a dated session lands
+ * on the same index as the matching row of a `weeklyTemplate`, which is what
+ * lets a plan carrying a schedule and a plan carrying only a template be
+ * compared at all.
+ */
+function weekdayOf(date: string): number {
+    return (new Date(`${date}T00:00:00`).getDay() + 6) % 7
+}
+
+/** One plan's share of a month's training, after overlaps with the plans before it. */
+interface PlanShare {
+    plan: TrainingPlan
     byRole: Record<PlanRole, number>
     basis: DemandBasis
+    /** The plan that had already claimed part of this one's week, if any. */
+    overlaps?: string
+    /** 0–1: how much of this plan's week was still unclaimed. */
+    share: number
+}
+
+function emptyRoles(): Record<PlanRole, number> {
+    return { strength: 0, run: 0, conditioning: 0, mobility: 0, recovery: 0 }
 }
 
 /**
- * How many sessions of each role a training plan asks of a given month, per week.
+ * What every training plan asks of a month, with overlaps counted once.
  *
- * The materialised `schedule` is the truth when it's loaded — it already knows
- * about deloads, overrides and a plan that starts on the 6th — so entries are
- * counted in the month and divided by the month's own weeks. That division is
- * what makes a plan covering half of October cost October half as much, which is
- * the right answer for a bucket a month wide.
+ * The version this replaced summed the plans, which is wrong for a reason that
+ * shows up the first time two blocks run at the same time: **a week is a week**.
+ * Two plans live in the same month are two prescriptions for the same seven
+ * days, not fourteen days of training. Summing them turned "a strength block and
+ * a running block" into ten hard sessions a week and called a perfectly ordinary
+ * setup an overload.
  *
- * The list endpoint omits `schedule`, so the recurring `weeklyTemplate` stands in:
- * a rate off the template, scaled by how much of the month the plan actually
- * covers. It can't see overrides, so it's marked assumed.
+ * So the plans are unioned on the slots they claim — the same move
+ * `overload.ts` makes at day grain, where a slot holds one hard session however
+ * many things want it. Slots are keyed by weekday and role: a plan that wants
+ * Monday strength and another that also wants Monday strength are describing one
+ * Monday, while Monday strength and Monday intervals are genuinely two sessions.
+ * Weekday rather than date because most plans reach this function through the
+ * list endpoint, which omits `schedule` — keying on what both paths can always
+ * produce keeps a dated plan and a templated one comparable.
+ *
+ * Plans are walked in order and each is charged only for the share of its own
+ * week nothing before it had claimed, so the shares still add up to the union.
+ * A plan that adds nothing is kept and says whose week it duplicates, because
+ * "these two blocks are the same block" is the useful thing to learn.
  */
-function weeklySessions(plan: TrainingPlan, month: string): WeeklySessions {
-    const byRole: Record<PlanRole, number> = {
-        strength: 0,
-        run: 0,
-        conditioning: 0,
-        mobility: 0,
-        recovery: 0,
-    }
+function trainingShares(plans: TrainingPlan[], month: string): PlanShare[] {
+    const live = plans.filter((p) =>
+        overlapsWindow(monthKeyOf(p.planStart), monthKeyOf(p.planEnd), month, month)
+    )
+    const claimedBy = new Map<string, string>()
+    const weeks = weeksInMonth(month)
 
-    if (plan.schedule && plan.schedule.length > 0) {
-        const weeks = weeksInMonth(month)
-        for (const entry of plan.schedule) {
-            if (monthKeyOf(entry.date) !== month) continue
-            byRole[entry.role] = (byRole[entry.role] ?? 0) + 1
-        }
-        for (const role of Object.keys(byRole) as PlanRole[]) byRole[role] /= weeks
-        return { byRole, basis: 'measured' }
-    }
+    return live.map((plan) => {
+        /** This plan's week as slot keys, and what each is worth per week. */
+        const slots = new Map<string, { role: PlanRole; perWeek: number }>()
+        let basis: DemandBasis
 
-    const coverage = coverageOf(month, plan.planStart, plan.planEnd)
-    for (const day of plan.weeklyTemplate) {
-        for (const role of ['strength', 'conditioning', 'mobility', 'recovery'] as const) {
-            const cell = day[role]
-            if (!cell || EMPTY_CELL.test(cell.trim())) continue
-            byRole[role] += coverage
+        if (plan.schedule && plan.schedule.length > 0) {
+            basis = 'measured'
+            for (const entry of plan.schedule) {
+                if (monthKeyOf(entry.date) !== month) continue
+                const key = `${weekdayOf(entry.date)}|${entry.role}`
+                const existing = slots.get(key)
+                // A slot recurring three times in a four-week month is 0.75/wk, not 1.
+                if (existing) existing.perWeek += 1 / weeks
+                else slots.set(key, { role: entry.role, perWeek: 1 / weeks })
+            }
+        } else {
+            basis = 'assumed'
+            const coverage = coverageOf(month, plan.planStart, plan.planEnd)
+            for (const [i, day] of plan.weeklyTemplate.entries()) {
+                for (const role of ['strength', 'conditioning', 'mobility', 'recovery'] as const) {
+                    const cell = day[role]
+                    if (!cell || EMPTY_CELL.test(cell.trim())) continue
+                    slots.set(`${i}|${role}`, { role, perWeek: coverage })
+                }
+            }
         }
-    }
-    return { byRole, basis: 'assumed' }
+
+        const byRole = emptyRoles()
+        let total = 0
+        let kept = 0
+        let overlaps: string | undefined
+
+        for (const [key, slot] of slots) {
+            total += slot.perWeek
+            const owner = claimedBy.get(key)
+            if (owner) {
+                overlaps ??= owner
+                continue
+            }
+            claimedBy.set(key, plan.name)
+            byRole[slot.role] += slot.perWeek
+            kept += slot.perWeek
+        }
+
+        return { plan, byRole, basis, overlaps, share: total > 0 ? kept / total : 1 }
+    })
 }
 
 /**
@@ -458,16 +556,19 @@ function contributorsForMonth(input: LoadInput, month: string): LoadContributor[
     const out: LoadContributor[] = []
     const weeks = weeksInMonth(month)
 
-    for (const tp of input.trainingPlans ?? []) {
-        if (!overlapsWindow(monthKeyOf(tp.planStart), monthKeyOf(tp.planEnd), month, month)) continue
-        const { byRole, basis } = weeklySessions(tp, month)
+    for (const { plan: tp, byRole, basis, overlaps, share } of trainingShares(
+        input.trainingPlans ?? [],
+        month
+    )) {
         const roles = Object.keys(byRole) as PlanRole[]
         const hours = roles.reduce((sum, r) => sum + byRole[r] * SESSION_HOURS[r], 0)
         const hard = HARD_ROLES.reduce((sum, r) => sum + byRole[r], 0)
         const demand = emptyDemand()
         demand.time = hours
         demand.body = hard
-        demand.focus = FOCUS_COSTS.trainingPlan
+        // Following a second plan that adds nothing to the week is still a
+        // second thing to keep track of, but it isn't half a plan's worth.
+        demand.focus = FOCUS_COSTS.trainingPlan * (share > 0 ? 1 : 0.5)
         out.push({
             id: `trainingPlan:${tp._id}`,
             source: 'trainingPlan',
@@ -476,10 +577,13 @@ function contributorsForMonth(input: LoadInput, month: string): LoadContributor[
             pillar: 'training',
             demand,
             basis,
-            detail:
-                hard > 0
-                    ? `${round(hard, 1)} hard sessions/wk · ${round(hours, 1)}h`
-                    : `${round(hours, 1)}h/wk`,
+            detail: overlaps
+                ? share > 0
+                    ? `adds ${round(hard, 1)} hard sessions/wk on top of ${overlaps}`
+                    : `same week as ${overlaps} — counted once`
+                : hard > 0
+                  ? `${round(hard, 1)} hard sessions/wk · ${round(hours, 1)}h`
+                  : `${round(hours, 1)}h/wk`,
         })
     }
 
@@ -488,11 +592,10 @@ function contributorsForMonth(input: LoadInput, month: string): LoadContributor[
             continue
         const coverage = coverageOf(month, phase.startDate, phase.endDate)
         const deficit = phaseDeficit(phase, input.maintenanceKcal)
-        // Only a deficit costs recovery; a surplus is what you'd pair training with.
-        const bodyUnits = deficit && deficit > 0 ? (deficit / BODY_UNIT_KCAL) * coverage : 0
         const demand = emptyDemand()
         demand.time = PHASE_HOURS[phase.kind] * coverage
-        demand.body = bodyUnits
+        // No body demand: a deficit lowers the ceiling rather than filling it —
+        // see `RECOVERY_COST_PER_500` and `recoveryAdjustments`.
         demand.focus = FOCUS_COSTS.phase[phase.kind] * coverage
         out.push({
             id: `nutritionPhase:${phase._id}`,
@@ -602,11 +705,47 @@ function round(n: number, dp: number): number {
     return Math.round(n * f) / f
 }
 
+/**
+ * How much of the body ceiling this month's eating takes away.
+ *
+ * Only a deficit, and only for the share of the month it actually covers — a cut
+ * starting on the 20th has taken three weeks off nothing.
+ */
+function recoveryAdjustments(
+    input: LoadInput,
+    month: string,
+    contributors: LoadContributor[]
+): CapacityAdjustment[] {
+    const out: CapacityAdjustment[] = []
+
+    for (const phase of input.nutritionPhases ?? []) {
+        if (!overlapsWindow(monthKeyOf(phase.startDate), monthKeyOf(phase.endDate), month, month))
+            continue
+        const deficit = phaseDeficit(phase, input.maintenanceKcal)
+        if (!deficit || deficit <= 0) continue
+
+        const id = `nutritionPhase:${phase._id}`
+        if (!contributors.some((c) => c.id === id)) continue
+
+        const coverage = coverageOf(month, phase.startDate, phase.endDate)
+        const cost = (deficit / 500) * RECOVERY_COST_PER_500 * coverage
+        out.push({
+            contributorId: id,
+            label: phase.name,
+            factor: Math.max(MIN_RECOVERY_FACTOR, 1 - cost),
+            detail: `−${Math.round(deficit)} kcal/day leaves less to recover with`,
+        })
+    }
+
+    return out
+}
+
 /** Roll a month's contributors up into one reserve. */
 function rollUp(
     reserve: Reserve,
     contributors: LoadContributor[],
-    capacity: Capacity
+    capacity: Capacity,
+    adjustments: CapacityAdjustment[] = []
 ): ReserveLoad {
     const contributions = contributors
         .map((contributor) => ({ contributor, amount: contributor.demand[reserve] }))
@@ -617,12 +756,18 @@ function rollUp(
     const assumed = contributions
         .filter((c) => c.contributor.basis === 'assumed')
         .reduce((sum, c) => sum + c.amount, 0)
-    const ratio = capacity.value && capacity.value > 0 ? demand / capacity.value : null
+
+    const base = capacity.value
+    const adjusted =
+        base === null ? null : adjustments.reduce((v, a) => v * a.factor, base)
+    const ratio = adjusted && adjusted > 0 ? demand / adjusted : null
 
     return {
         reserve,
         demand: round(demand, 2),
-        capacity: capacity.value,
+        baseCapacity: base,
+        adjustments,
+        capacity: adjusted === null ? null : round(adjusted, 2),
         capacityBasis: capacity.basis,
         ratio: ratio === null ? null : round(ratio, 3),
         level: ratio === null ? null : levelForRatio(ratio),
@@ -666,18 +811,17 @@ function findConflicts(
     }
 
     const training = contributors.filter((c) => c.source === 'trainingPlan')
-    const hardSessions = training.reduce((sum, c) => sum + c.demand.body, 0)
-    const deepCuts = contributors.filter(
-        (c) => c.source === 'nutritionPhase' && c.demand.body >= DEEP_CUT_UNITS
-    )
+    // The union, not the sum — two blocks describing one week are one week.
+    const hardSessions = reserves.body.demand
     if (hardSessions >= HEAVY_WEEK_SESSIONS) {
-        for (const cut of deepCuts) {
+        for (const adjustment of reserves.body.adjustments) {
+            if (adjustment.factor > 1 - DEEP_CUT_COST) continue
             conflicts.push({
                 kind: 'deep-cut-in-heavy-block',
                 month,
-                between: [cut.id, ...training.map((t) => t.id)],
+                between: [adjustment.contributorId, ...training.map((t) => t.id)],
                 title: 'A deep cut under a heavy week',
-                detail: `${cut.detail ?? 'The deficit'} alongside ${round(hardSessions, 1)} hard sessions a week. The deficit and the training are both asking recovery for the same thing.`,
+                detail: `${adjustment.label} takes ${Math.round((1 - adjustment.factor) * 100)}% off what you can recover from, and the week is already asking for ${round(hardSessions, 1)} hard sessions.`,
             })
         }
     }
@@ -726,7 +870,12 @@ export function computeMonthLoads(input: LoadInput): MonthLoad[] {
 
         const reserves = {
             time: rollUp('time', contributors, capacities.time),
-            body: rollUp('body', contributors, capacities.body),
+            body: rollUp(
+                'body',
+                contributors,
+                capacities.body,
+                recoveryAdjustments(input, month, contributors)
+            ),
             money: rollUp('money', contributors, capacities.money),
             focus: rollUp('focus', contributors, capacities.focus),
         }

@@ -323,7 +323,9 @@ export default function PressureCheck({
                                         {fitted
                                             ? explain(fitted)
                                             : sample?.capacityBasis === 'measured'
-                                              ? 'Read from your finance rows: income less ordinary outgoings, savings excluded.'
+                                              ? reserve === 'body'
+                                                  ? `The busiest week you've repeatedly managed, plus a session of headroom — read from your own logs${capacities.volumeCeiling ? ` (${capacities.volumeCeiling} hard sessions)` : ''}. A cut lowers it for the months it runs.`
+                                                  : 'Read from your finance rows: income less ordinary outgoings, savings excluded.'
                                               : sample?.capacity === null
                                                 ? 'Nothing to measure against — free cash comes from the finance rows, and none were found.'
                                                 : `A shipped default, not yours. ${RESERVE_DESCRIPTIONS[reserve]}`}

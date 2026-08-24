@@ -299,7 +299,7 @@ whole point:
 | Reserve | Unit | Capacity from |
 | ------- | ---- | ------------- |
 | `time` | h/wk | Default (9h discretionary) |
-| `body` | recovery load/wk | Default (6 hard sessions) or calibrated |
+| `body` | hard sessions/wk | **Measured** — `sustainedVolume` over your own logs; calibrated once history allows |
 | `money` | £/mo | **Measured** — `freeCashByMonth` over the finance rows |
 | `focus` | concurrent behaviour changes | Default (3) or calibrated |
 
@@ -327,8 +327,8 @@ rework:
 | ------- | --------- |
 | `time` (training) | `schedule[]` entries in the month ÷ the month's weeks, × per-role hours. Falls back to `weeklyTemplate` × coverage when the list endpoint omits `schedule`. |
 | `time` (study) | `requiredHours − completedHours`, spread over the months to `targetDate` — so the rate visibly rises as the deadline closes. |
-| `body` (training) | Hard sessions/week. Mobility and recovery count 0, exactly as in `overload.ts:isHardSession`. |
-| `body` (nutrition) | Deficit ÷ 250 kcal. Depth is `maintenance − targets.calories` when `measuredMaintenance` is available, else implied from `weeklyRate`. A **surplus costs 0** — like a mobility session, it's what you'd pair hard training with. |
+| `body` (training) | Hard sessions/week, **unioned across plans** — see §8.10. Mobility and recovery count 0, exactly as in `overload.ts:isHardSession`. |
+| `body` (nutrition) | Not a demand at all — a deficit lowers the ceiling instead. See §8.10. |
 | `money` | `SavingsTarget.requiredMonthly`, exactly. |
 | `focus` | Phase 1, plan 0.5, course 1, flag 0.5, deadline 1 (its month only). |
 
@@ -399,11 +399,19 @@ the pile-up are shown, marked "moves the problem". Nothing is ever written.
   track is the capacity, so a full bar means "all of it"; past full the bar keeps
   its width and grows a nub, since letting it stretch would rescale every bar
   beside it.
-- **Capacity ribbon** — four strips below the timeline lanes, on the *same grid*,
-  so a column of cost sits directly under the commitments that caused it. Reading
-  a strip across is one reserve's whole year: where pressure builds, peaks and
-  clears. The capacity line sits at 62% of the strip height so an overspend can be
-  drawn as an overspend.
+- **Load row** — one row on the timeline, sitting with the season band: a cell a
+  month, naming the reserve under most strain. Quiet and steady months are drawn
+  almost invisibly on purpose, so a row where only the difficult months carry a
+  mark can be read across in one pass.
+
+  This started as a four-strip capacity ribbon below the lanes — one per reserve,
+  on the same grid, with a dashed capacity line. It was honest and unreadable: it
+  asked you to decode a chart before learning anything, on a screen whose job is
+  *what is happening, when*. The month only ever has one answer worth putting
+  beside the lanes — which reserve is hot, and how hot — so the ribbon moved to
+  the Pressure tab ("the window at a glance"), where there is room to label it,
+  and the detail lives one click away in the month drawer. The mobile month list
+  makes the same trade: the pill names the reserve, the drawer carries the gauges.
 - **Month drawer** (`MonthLoadDrawer`) reads as a budget statement: what it costs,
   what there is, what is spending it.
 - **Season shape** on the Seasons tab — a season that runs heavy in three reserves
@@ -423,3 +431,67 @@ the pile-up are shown, marked "moves the problem". Nothing is ever written.
 - **`time` and `focus` capacities are still shipped defaults** until enough
   history accumulates to fit them. `money` is measured from day one; `body` is the
   one most likely to calibrate first.
+
+### 8.10 The body model, revisited
+
+_Reported from use: "a nutrition plan and two gym blocks reads as an overload,
+and it isn't."_ Two separate faults, one a plain bug and one a modelling error.
+
+**Fault 1 — two plans were summed, so a shared week counted twice.**
+
+`weeklySessions` was called per plan and the results added, so a strength block
+and a running block covering the same month produced ten hard sessions a week.
+A week is a week: two plans live in the same month are two prescriptions for the
+same seven days, not fourteen days of training.
+
+`trainingShares` now unions them, which is the move `overload.ts` already makes
+at day grain — a slot holds one hard session however many things want it. Slots
+are keyed by **weekday and role**: two plans wanting Monday strength describe one
+Monday, while Monday strength and Monday intervals are genuinely two sessions.
+Weekday rather than date because the list endpoint omits `schedule`, and keying
+on what both paths can always produce keeps a dated plan and a templated one
+comparable. Plans are walked in order, each charged only for the share of its
+week nothing before it claimed, so the shares still sum to the union — and a
+plan that adds nothing is kept and *says whose week it duplicates*, because
+"these two blocks are the same block" is the useful thing to learn.
+
+**Fault 2 — a deficit was on the wrong side of the equation.**
+
+v2 added the deficit to the demand: −500 kcal/day counted as two extra hard
+sessions. Wrong shape. **A deficit doesn't make the week busier; it makes you
+worse at recovering from the week you already have.** So it belongs on the
+capacity side as a multiplier, not the demand side as an addend.
+
+`ReserveLoad` gained `baseCapacity` and `adjustments[]`, and
+`recoveryAdjustments` turns each live cut into a factor —
+`RECOVERY_COST_PER_500 = 0.10`, pro-rated for the share of the month it covers,
+floored at `MIN_RECOVERY_FACTOR`. The drawer renders it as "Ceiling 7 → 6.2,
+Autumn cut −11%", which is a clearer sentence than any total.
+
+Three things fall out for free:
+
+- A cut with **no** training now costs the body nothing, which is correct and
+  which v2 could not express.
+- The `deep-cut-in-heavy-block` conflict stops being a separate special case and
+  becomes the same physics read at a threshold.
+- An ordinary cut under an ordinary block lands on **busy**, not overloaded —
+  which is the reported case, and is now a test.
+
+**And the real answer: measure the ceiling.**
+
+Both faults were inflating the numerator, but the denominator was a guess too —
+a flat 6 for everybody. `sustainedVolume` reads the busiest week you have hit in
+at least `SUSTAINED_WEEKS` (3) separate weeks of the last `VOLUME_WEEKS` (12),
+plus `VOLUME_HEADROOM` (1). Sustaining a volume is evidence it is *under* your
+ceiling, not at it, so a capacity equal to what you already do would score your
+ordinary week at 100% and cry wolf every month. It never goes below the shipped
+default, and a fitted ceiling from the adherence pass overrides it when one
+exists — adherence is the better evidence. Unlike that fit, this is available
+from the first month of logs.
+
+**Honest about the constants.** `RECOVERY_COST_PER_500` and `VOLUME_HEADROOM`
+are priors, and they are the two most arbitrary numbers left in the model. They
+are also exactly what §8.5 exists to replace: once there are eight months of
+history, the ceiling stops being anyone's opinion. Until then they are set
+conservatively, on the principle that an alarm which cries wolf is worse than no
+alarm.

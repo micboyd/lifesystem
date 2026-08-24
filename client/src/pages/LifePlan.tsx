@@ -37,7 +37,6 @@ import {
 import { formatMonthKey, formatMonthRange, monthKey, todayKey } from '../lib/calendar'
 import { activePlan, buildTimeline, seasonForMonth, seasonProgress, type LaneItem } from '../lib/lifeTimeline'
 import { RESERVE_LABELS, computeMonthLoads } from '../lib/lifeLoad'
-import { capacitiesFrom } from '../lib/lifeCalibration'
 import { useLoadCapacities } from '../components/lifeplan/useLoadCapacities'
 import { buildScorecard, monthEndDate, monthStartDate, type SeasonScorecard } from '../lib/seasonReview'
 import * as lifePlans from '../services/lifePlans'
@@ -199,7 +198,7 @@ export default function LifePlan() {
                       ...timelineInput,
                       freeCash: capacities.freeCash,
                       maintenanceKcal: capacities.maintenanceKcal,
-                      capacities: capacitiesFrom(capacities.calibration),
+                      capacities: capacities.capacities,
                   }
                 : null,
         [timelineInput, capacities]
@@ -603,9 +602,9 @@ export default function LifePlan() {
                                         Bars and diamonds are read-only here — tap one to open it in the
                                         module that owns it. Lanes shown:{' '}
                                         {plan.pillars.map((p) => LIFE_PILLAR_LABELS[p]).join(', ')}.
-                                        The strips below the lanes are what those commitments cost:
-                                        each column is a month, and the dashed line is that reserve&apos;s
-                                        capacity. Tap one for the month&apos;s breakdown.
+                                        The Load row names the reserve each month is
+                                        leaning on hardest — tap it for the full breakdown, or
+                                        the Pressure tab for the whole window.
                                     </p>
                                 </>
                             )}

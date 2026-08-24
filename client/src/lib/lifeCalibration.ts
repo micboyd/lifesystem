@@ -1,4 +1,5 @@
 import { daysInMonth } from './calendar'
+import { weekStartOf } from './budget'
 import { RESERVES, type Capacities, type Capacity, type MonthLoad, type Reserve } from './lifeLoad'
 import type { EntryStatus, FitnessPlanKind } from '../types'
 
@@ -103,6 +104,69 @@ export function monthOutcome(month: string, input: OutcomeInput): MonthOutcome {
     const planned = pairs.reduce((sum, p) => sum + p.planned, 0)
     const done = pairs.reduce((sum, p) => sum + Math.min(p.done, p.planned), 0)
     return { month, adherence: ratio(done, planned), signals: pairs.length }
+}
+
+// ─── The volume baseline ────────────────────────────────────────────────────
+
+/** How far back the volume baseline looks. */
+export const VOLUME_WEEKS = 12
+
+/** Weeks a volume has to have been hit in before it counts as sustained. */
+export const SUSTAINED_WEEKS = 3
+
+/**
+ * How far above your proven volume the ceiling sits.
+ *
+ * Sustaining a volume is evidence it's *under* your ceiling, not at it — so a
+ * capacity set equal to what you already do would score your ordinary week at
+ * 100% and call it an overload every time. One session of headroom is the
+ * smallest honest gap.
+ */
+export const VOLUME_HEADROOM = 1
+
+/** `n` days before a YYYY-MM-DD. */
+function daysBefore(date: string, n: number): string {
+    const d = new Date(`${date}T00:00:00`)
+    d.setDate(d.getDate() - n)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * The training volume you have actually proven you can carry, plus headroom.
+ *
+ * This is the honest answer to "is five hard sessions a week a lot" — it isn't a
+ * number anyone can pick for you, and the shipped default of six is a guess
+ * about people in general. What isn't a guess is that you have done this before:
+ * the busiest week you have repeatedly managed is a measurement, available from
+ * the first month of logs rather than after the eight the adherence fit needs.
+ *
+ * "Repeatedly" is doing real work. One freak week says nothing about a ceiling,
+ * so a volume only counts once it has been hit in `SUSTAINED_WEEKS` separate
+ * weeks. Weeks with nothing logged are left in the denominator on purpose —
+ * a fortnight off doesn't raise your ceiling, and it shouldn't lower it either.
+ *
+ * Returns null when there isn't enough logged to say, leaving the prior in place.
+ */
+export function sustainedVolume(
+    logs: { date: string }[],
+    today: string,
+    weeks = VOLUME_WEEKS
+): number | null {
+    const since = daysBefore(today, weeks * 7)
+    const perWeek = new Map<string, number>()
+    for (const log of logs) {
+        if (log.date < since || log.date > today) continue
+        const week = weekStartOf(log.date)
+        perWeek.set(week, (perWeek.get(week) ?? 0) + 1)
+    }
+    if (perWeek.size < SUSTAINED_WEEKS) return null
+
+    const counts = [...perWeek.values()]
+    const highest = Math.max(...counts)
+    for (let v = highest; v >= 1; v--) {
+        if (counts.filter((c) => c >= v).length >= SUSTAINED_WEEKS) return v + VOLUME_HEADROOM
+    }
+    return null
 }
 
 // ─── Fitting ────────────────────────────────────────────────────────────────
