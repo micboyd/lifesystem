@@ -2,6 +2,14 @@ import { CALENDAR_COLOR_CLASSES, LIFE_PILLAR_ICONS, LIFE_PILLAR_LABELS } from '.
 import type { LifePlan, Season, SeasonLinks } from '../../types'
 import { formatMonthKey, formatMonthRange, monthKey } from '../../lib/calendar'
 import { monthRange, seasonProgress } from '../../lib/lifeTimeline'
+import {
+    LEVEL_THRESHOLDS,
+    RESERVES,
+    RESERVE_ICONS,
+    RESERVE_LABELS,
+    reserveShape,
+    type MonthLoad,
+} from '../../lib/lifeLoad'
 import Button from '../Button'
 import EmptyState from '../EmptyState'
 
@@ -55,13 +63,75 @@ function findGaps(plan: LifePlan): { startMonth: string; endMonth: string }[] {
     return gaps
 }
 
+/**
+ * The shape of a season: which reserves it leans on hardest.
+ *
+ * A season with a point runs heavy in one reserve and quiet in the rest. One that
+ * runs heavy in three isn't a season, it's a wish list — and since seasons are
+ * the one thing this module actually authors, that's worth saying out loud at the
+ * moment it's being written rather than in the review three months later.
+ */
+function SeasonShape({ season, loads }: { season: Season; loads: MonthLoad[] }) {
+    const within = loads.filter(
+        (l) => l.month >= season.startMonth && l.month <= season.endMonth
+    )
+    if (within.length === 0) return null
+
+    const shape = reserveShape(within)
+    const heavy = RESERVES.filter((r) => (shape[r] ?? 0) >= LEVEL_THRESHOLDS.busy)
+
+    return (
+        <div className="mt-4 border-t border-neutral-100 pt-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {RESERVES.map((reserve) => {
+                    const peak = shape[reserve]
+                    return (
+                        <span
+                            key={reserve}
+                            className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-500"
+                            title={`${RESERVE_LABELS[reserve]} at its heaviest month of the season`}
+                        >
+                            <i
+                                className={`fa-solid ${RESERVE_ICONS[reserve]} w-3.5 text-center text-[10px] text-neutral-300`}
+                                aria-hidden="true"
+                            />
+                            {RESERVE_LABELS[reserve]}
+                            <span
+                                className={
+                                    peak === null
+                                        ? 'text-neutral-300'
+                                        : peak >= 1
+                                          ? 'text-coral-600'
+                                          : peak >= LEVEL_THRESHOLDS.busy
+                                            ? 'text-amber-700'
+                                            : 'text-neutral-400'
+                                }
+                            >
+                                {peak === null ? '—' : `${Math.round(peak * 100)}%`}
+                            </span>
+                        </span>
+                    )
+                })}
+            </div>
+            {heavy.length >= 3 && (
+                <p className="mt-2 text-[11px] font-semibold text-amber-700">
+                    Heavy on {heavy.map((r) => RESERVE_LABELS[r].toLowerCase()).join(', ')} at once.
+                    A season usually only survives one.
+                </p>
+            )}
+        </div>
+    )
+}
+
 export default function SeasonsTab({
     plan,
+    loads,
     onNew,
     onEdit,
     onDelete,
 }: {
     plan: LifePlan
+    loads: MonthLoad[]
     onNew: () => void
     onEdit: (season: Season) => void
     onDelete: (season: Season) => void
@@ -157,6 +227,8 @@ export default function SeasonsTab({
                                         </button>
                                     </div>
                                 </div>
+
+                                <SeasonShape season={season} loads={loads} />
 
                                 {season.intent.length > 0 && (
                                     <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4">

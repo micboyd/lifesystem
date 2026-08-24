@@ -158,16 +158,15 @@ and a line of intent per pillar.
 
 Scale up the idea already in `lib/overload.ts` from a day-slot to a season.
 That module weighs two hard sessions in one slot; the same shape of question at
-month grain is "how many demanding commitments are live at once".
+month grain is "how much is this month being asked to carry".
 
-Per month, count what's active and weight it — a training plan in a build phase,
-an aggressive cut, a savings target above the usual contribution, a course with
-an exam, a house move. Flag the months where the count piles up, and say
-_which_ commitments collide. This is the module's sharpest output: it catches
-the overcommitment while it's still a plan and not yet a failure.
+Flag the months that are asking for more than they have, and say _which_
+commitments are doing it. This is the module's sharpest output: it catches the
+overcommitment while it's still a plan and not yet a failure.
 
 Keep the rule in `lib/lifeLoad.ts` alongside `lib/overload.ts`, pure and unit
-tested — same pattern, same reasoning, coarser grain.
+tested — same pattern, same reasoning, coarser grain. **The measurement itself
+was reworked after first use; §8 records what it is now and why.**
 
 ### 5.4 Review
 
@@ -266,3 +265,161 @@ Two server-side invariants worth knowing about:
   at the phase covering the day is the natural follow-up.
 - **Habit count is a snapshot.** The review's habit denominator uses how many
   habits exist now, not how many existed during the season.
+
+---
+
+## 8. Measuring load — the rework
+
+_August 2026. The first version shipped a single weighted score per month; this
+replaced it._
+
+### 8.1 What was wrong with a score
+
+v1 gave every commitment a weight (training plan 2, cut 2, savings target 1,
+deadline 1 …), summed them, and called a month overloaded at 6. Three problems,
+all visible within a few minutes of real use:
+
+1. **It added up things that don't compete.** A savings plan could push a month
+   into "overloaded" alongside a training block. Saving £400 a month costs
+   nothing physically — those two commitments compete for nothing, so summing
+   them measured nothing.
+2. **It counted presence, not intensity.** A savings target weighed 1 at £50/mo
+   and at £900/mo. A cut weighed 2 at −200 kcal and at −800. A training plan
+   weighed 2 at three sessions a week and at six. All three numbers were already
+   in the database and none of them were read.
+3. **It had no denominator.** "Six of what?" The threshold was a constant
+   somebody chose, unconnected to this person's income, calendar or history.
+
+### 8.2 Reserves, not pillars
+
+Load is a **vector over reserves** — the thing actually being spent — and
+overload is per-reserve. The reserves cut *across* the pillars, which is the
+whole point:
+
+| Reserve | Unit | Capacity from |
+| ------- | ---- | ------------- |
+| `time` | h/wk | Default (9h discretionary) |
+| `body` | recovery load/wk | Default (6 hard sessions) or calibrated |
+| `money` | £/mo | **Measured** — `freeCashByMonth` over the finance rows |
+| `focus` | concurrent behaviour changes | Default (3) or calibrated |
+
+| Commitment | time | body | money | focus |
+| ---------- | ---- | ---- | ----- | ----- |
+| Training plan | ●●● | ●●● | – | ● |
+| Cut phase | – | ●●● | – | ●●● |
+| Gain phase | ● | – | – | ●● |
+| Savings target | – | – | ●●● | – |
+| Course | ●●● | – | – | ●●● |
+| Month flag | ●● | – | – | ● |
+| Goal deadline | – | – | – | ●● |
+
+Two consequences worth stating plainly, because they're the reason for the
+rework:
+
+- **A cut plus a build block is two commitments and overloads `body`.** v1 scored
+  that 4 and said "Busy". It's the single most reliable way to fail a block.
+- **Four savings targets can only ever overload `money`,** and they do it when
+  they cost more than there is to spend — not when there happen to be four.
+
+### 8.3 Intensity comes off the records
+
+| Reserve | Read from |
+| ------- | --------- |
+| `time` (training) | `schedule[]` entries in the month ÷ the month's weeks, × per-role hours. Falls back to `weeklyTemplate` × coverage when the list endpoint omits `schedule`. |
+| `time` (study) | `requiredHours − completedHours`, spread over the months to `targetDate` — so the rate visibly rises as the deadline closes. |
+| `body` (training) | Hard sessions/week. Mobility and recovery count 0, exactly as in `overload.ts:isHardSession`. |
+| `body` (nutrition) | Deficit ÷ 250 kcal. Depth is `maintenance − targets.calories` when `measuredMaintenance` is available, else implied from `weeklyRate`. A **surplus costs 0** — like a mobility session, it's what you'd pair hard training with. |
+| `money` | `SavingsTarget.requiredMonthly`, exactly. |
+| `focus` | Phase 1, plan 0.5, course 1, flag 0.5, deadline 1 (its month only). |
+
+Everything is charged pro-rata for the fraction of the month it actually covers.
+
+### 8.4 Measured vs assumed
+
+Some inputs can't be read (a month flag labelled "Portugal" could be a house move
+or a dry January), so those carry a flat prior. Every contributor records
+`basis: 'measured' | 'assumed'` and every reserve reports `assumedShare`, so a
+month reads as "four of five inputs measured" rather than asking to be trusted
+whole. `money` has no honest prior at all, so its capacity is `null` until the
+finance rows supply one, and a null capacity scores `null` — the same call
+`measuredMaintenance` makes, for the same reason.
+
+### 8.5 Calibration — the ceiling from your own history
+
+`lib/lifeCalibration.ts`. The question isn't "is six sessions a lot", it's
+**"the last time a month looked like this, what happened?"** — which the app can
+answer, because it has the receipts.
+
+Each past month carries a demand (scored by the same `computeMonthLoads`) and an
+outcome: sessions logged against sessions planned, meals eaten against meals
+planned, habit ticks landed against ticks available, pooled and weighted by how
+much each signal was measuring. Every observed demand is then tried as a split
+point, and the one where adherence most clearly falls away becomes that reserve's
+capacity, with `basis: 'calibrated'`.
+
+Guards, all of which earned their place:
+
+- `MIN_MONTHS` (8) months of history before any fit is attempted.
+- `MIN_BUCKET` (3) months either side of a split.
+- `MIN_DROP` (0.1) — below ten points of adherence, the split is noise.
+- **Medians, not means.** A three-month bucket's mean is dragged far enough by
+  one catastrophic month to invent a ceiling out of two good months standing next
+  to a bad one. This was caught by a test, not by inspection.
+- `TIE_MARGIN` (0.05) — where two splits explain the history equally well, the
+  **higher** ceiling wins. A ceiling set too low nags about months that went fine,
+  and an alarm that cries wolf is worse than no alarm.
+
+Fits nothing and keeps the priors when there isn't enough to go on, and says so.
+
+### 8.6 Conflicts, kept apart from load
+
+A conflict is a pair that can't both go well however much room there is — a
+different claim from "this month is expensive", and not fixable by moving
+something. Three rules, all **gated on intensity rather than presence**, because
+cutting while training is ordinary and often the entire point of a season:
+
+- `opposing-phases` — a cut and a gain overlapping.
+- `deep-cut-in-heavy-block` — a cut at ≥2 body units (≈ −500 kcal/day) under ≥4
+  hard sessions a week.
+- `unfundable` — committed beyond free cash. Not heavy; it doesn't add up.
+
+### 8.7 Relief — `findFreeSlot` at month grain
+
+`lib/lifeRelief.ts` is the direct scale-up of `overload.ts:findFreeSlot`: a slot
+is carrying two hard sessions, so look for somewhere nearby to put one of them.
+Each candidate move **shifts the record and rescores the whole window**, rather
+than subtracting the commitment's cost from the month — those two answers differ,
+and the second is wrong, because a shifted commitment lands somewhere else and
+where it lands is exactly what you need to know. Suggestions that only relocate
+the pile-up are shown, marked "moves the problem". Nothing is ever written.
+
+### 8.8 Surfaces
+
+- **Reserve meter** (`ReserveMeter`) replaces the single pill everywhere. The
+  track is the capacity, so a full bar means "all of it"; past full the bar keeps
+  its width and grows a nub, since letting it stretch would rescale every bar
+  beside it.
+- **Capacity ribbon** — four strips below the timeline lanes, on the *same grid*,
+  so a column of cost sits directly under the commitments that caused it. Reading
+  a strip across is one reserve's whole year: where pressure builds, peaks and
+  clears. The capacity line sits at 62% of the strip height so an overspend can be
+  drawn as an overspend.
+- **Month drawer** (`MonthLoadDrawer`) reads as a budget statement: what it costs,
+  what there is, what is spending it.
+- **Season shape** on the Seasons tab — a season that runs heavy in three reserves
+  is a wish list, said at the moment it's being written rather than in the review.
+- **"How this is measured"** on the Pressure tab names every denominator and where
+  it came from.
+
+### 8.9 Still open
+
+- **Extending a savings target isn't offered as relief.** It's the natural move
+  for `money` — a longer deadline means a smaller monthly — but `requiredMonthly`
+  is computed server-side with interest and a starting balance, and approximating
+  it here would disagree with the Forecast screen. Only shifting is modelled.
+- **Free cash uses recurring amounts, not per-month entries.** Right for planning
+  a year, and it keeps the page to two requests instead of one per month; it will
+  differ from what a given month actually did.
+- **`time` and `focus` capacities are still shipped defaults** until enough
+  history accumulates to fit them. `money` is measured from day one; `body` is the
+  one most likely to calibrate first.

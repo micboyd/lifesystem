@@ -1,35 +1,35 @@
-import type { LoadLevel } from '../../lib/lifeLoad'
+import { LOAD_LEVEL_LABELS, type LoadLevel } from '../../lib/lifeLoad'
+import { LEVEL_PILL, UNKNOWN_PILL } from './loadStyles'
 
 /**
- * A month's load, as a pill. Quiet reads as unremarkable and overloaded reads as
- * a warning, because the whole point of the score is that one of those is worth
- * stopping on and the others aren't.
+ * A month's level, as a pill.
+ *
+ * `level` is null when nothing in the month could be priced — which is a
+ * different statement from "quiet", and reads as one.
  */
-const LEVEL_CLASSES: Record<LoadLevel, string> = {
-    quiet: 'bg-neutral-100 text-neutral-500',
-    steady: 'bg-herb/15 text-herb',
-    busy: 'bg-marigold/20 text-amber-700',
-    overloaded: 'bg-red-50 text-red-600',
-}
-
 export default function LoadPill({
     level,
     label,
-    score,
+    detail,
 }: {
-    level: LoadLevel
-    label: string
-    score?: number
+    level: LoadLevel | null
+    label?: string
+    /** What tipped it, e.g. "Body". Shown after the level. */
+    detail?: string
 }) {
+    const text = label ?? (level ? LOAD_LEVEL_LABELS[level] : 'Unscored')
+
     return (
         <span
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${LEVEL_CLASSES[level]}`}
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                level ? LEVEL_PILL[level] : UNKNOWN_PILL
+            }`}
         >
             {level === 'overloaded' && (
                 <i className="fa-solid fa-triangle-exclamation text-[9px]" aria-hidden="true" />
             )}
-            {label}
-            {score !== undefined && <span className="tabular-nums opacity-70">{score}</span>}
+            {text}
+            {detail && <span className="opacity-70">{detail}</span>}
         </span>
     )
 }

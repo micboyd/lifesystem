@@ -67,3 +67,44 @@ export function rowVisibleInMonth(row: FinanceRow, month: string, group?: Financ
     }
     return visibleInMonth(row, month)
 }
+
+/**
+ * What each month has free to commit: income in, ordinary outgoings out.
+ *
+ * This is the denominator the Life Plan's money reserve is measured against, and
+ * it's the reason that reserve can be scored at all — without it "£1,600 a month
+ * committed" is a number with nothing to compare against, and the module refuses
+ * to guess.
+ *
+ * Two decisions worth knowing about:
+ *
+ * - **Savings groups are left out of the outgoings.** Savings targets *are* the
+ *   commitment being weighed, so counting them here as well would charge them
+ *   twice and make every month look unaffordable.
+ * - **Recurring amounts, not per-month entries.** A month's actual entries are
+ *   what happened; the recurring amounts are what standingly happens, which is
+ *   the right thing to plan a year against. It also keeps this to two requests
+ *   rather than one per month.
+ */
+export function freeCashByMonth(
+    groups: FinanceGroup[],
+    rows: FinanceRow[],
+    months: string[]
+): Record<string, number> {
+    const groupById = new Map(groups.map((g) => [g._id, g]))
+    const out: Record<string, number> = {}
+
+    for (const month of months) {
+        let free = 0
+        for (const row of rows) {
+            const group = groupById.get(row.group)
+            if (!group || group.type === 'savings') continue
+            if (!rowVisibleInMonth(row, month, group)) continue
+            const amount = recurringAmountForMonth(row, month) ?? 0
+            free += group.type === 'income' ? amount : -amount
+        }
+        out[month] = Math.max(0, free)
+    }
+
+    return out
+}

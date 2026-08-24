@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { CALENDAR_COLOR_CLASSES, LIFE_PILLAR_ICONS } from '../../types'
 import type { LifePillar } from '../../types'
 import { MONTHS, monthKey } from '../../lib/calendar'
@@ -8,6 +9,15 @@ import {
     type LaneItem,
     type Timeline,
 } from '../../lib/lifeTimeline'
+import {
+    RESERVES,
+    RESERVE_ICONS,
+    RESERVE_LABELS,
+    type MonthLoad,
+    type Reserve,
+} from '../../lib/lifeLoad'
+import { LEVEL_BAR, formatDemand } from './loadStyles'
+import { summarise } from './ReserveMeter'
 import EmptyState from '../EmptyState'
 
 /**
@@ -24,6 +34,19 @@ const MONTH_WIDTH = 88
 const LABEL_WIDTH = 148
 /** Height of a single packed row, so lanes read as bands rather than hairlines. */
 const ROW_HEIGHT = 64
+/** Height of one reserve's strip in the ribbon below the lanes. */
+const RIBBON_HEIGHT = 30
+
+/**
+ * Where a reserve's capacity sits inside its strip, as a fraction of the height.
+ *
+ * Not at the top: leaving a third of the strip above the line is what lets an
+ * overspend be drawn *as* an overspend rather than a bar that has run out of
+ * room. Anything past `RIBBON_CEILING` of capacity is clamped, since by then the
+ * exact height has stopped telling you anything the colour hasn't.
+ */
+const CAPACITY_LINE = 0.62
+const RIBBON_CEILING = 1.6
 
 /** "Jan" for a YYYY-MM key. */
 function shortMonth(month: string): string {
@@ -114,14 +137,54 @@ function LaneBar({
     )
 }
 
+/**
+ * One reserve in one month, as a column rising towards its capacity line.
+ *
+ * The lanes above say what is happening; this says what it costs. Reading a
+ * ribbon row across is one reserve's whole year — where the pressure builds,
+ * where it peaks, and when it clears — which no single month's number can show
+ * and which is the question a plan is actually made of.
+ */
+function RibbonCell({ load, reserve }: { load: MonthLoad; reserve: Reserve }) {
+    const r = load.reserves[reserve]
+    const title = `${RESERVE_LABELS[reserve]} · ${load.month} — ${
+        r.capacity === null
+            ? `${formatDemand(reserve, r.demand)} (no capacity set)`
+            : `${formatDemand(reserve, r.demand)} of ${formatDemand(reserve, r.capacity)}`
+    }`
+
+    if (r.ratio === null) {
+        return (
+            <div className="flex h-full items-end justify-center px-1.5 pb-1" title={title}>
+                <div className="h-px w-full bg-neutral-200" />
+            </div>
+        )
+    }
+
+    const height = Math.min(r.ratio, RIBBON_CEILING) * CAPACITY_LINE * 100
+
+    return (
+        <div className="flex h-full items-end px-1.5 pb-1" title={title}>
+            <div
+                className={`w-full rounded-sm ${r.level ? LEVEL_BAR[r.level] : 'bg-neutral-200'}`}
+                style={{ height: `${Math.max(height, 2)}%` }}
+            />
+        </div>
+    )
+}
+
 export default function LifePlanTimeline({
     timeline,
+    loads,
     onSelectItem,
     onSelectSeason,
+    onSelectMonth,
 }: {
     timeline: Timeline
+    loads: MonthLoad[]
     onSelectItem: (item: LaneItem) => void
     onSelectSeason?: (seasonId: string) => void
+    onSelectMonth: (month: string) => void
 }) {
     const { months, lanes, goals, bands } = timeline
     const today = currentMonthKey()
@@ -151,7 +214,13 @@ export default function LifePlanTimeline({
         ...entry,
         startRow: firstLaneRow + i * laneRowCount,
     }))
-    const totalRows = firstLaneRow - 1 + lanes.length * laneRowCount
+    const laneRowsEnd = firstLaneRow - 1 + lanes.length * laneRowCount
+    // The ribbon is the same grid, so a column of it lines up exactly under the
+    // commitments that caused it — the whole point of putting it here rather than
+    // in a chart of its own.
+    const firstRibbonRow = laneRowsEnd + 1
+    const loadByMonth = new Map(loads.map((l) => [l.month, l]))
+    const totalRows = laneRowsEnd + RESERVES.length
 
     const gridStyle = {
         gridTemplateColumns: `${LABEL_WIDTH}px repeat(${months.length}, minmax(${MONTH_WIDTH}px, 1fr))`,
@@ -159,7 +228,7 @@ export default function LifePlanTimeline({
         // same height regardless of what it carries.
         gridTemplateRows: `auto auto ${goalRow ? `${ROW_HEIGHT}px ` : ''}repeat(${
             lanes.length * laneRowCount
-        }, ${ROW_HEIGHT}px)`,
+        }, ${ROW_HEIGHT}px) repeat(${RESERVES.length}, ${RIBBON_HEIGHT}px)`,
         minWidth: LABEL_WIDTH + months.length * MONTH_WIDTH,
     }
 
@@ -285,6 +354,64 @@ export default function LifePlanTimeline({
                         onSelectItem={onSelectItem}
                     />
                 ))}
+
+                {/* The capacity ribbon: what the lanes above cost, reserve by reserve. */}
+                {RESERVES.map((reserve, i) => {
+                    const row = firstRibbonRow + i
+                    return (
+                        <Fragment key={`ribbon-${reserve}`}>
+                            <div
+                                style={{ gridColumn: 1, gridRow: row }}
+                                className={`sticky left-0 z-20 flex items-center gap-2 bg-white px-4 ${
+                                    i === 0 ? 'border-t-2 border-black/[0.08]' : ''
+                                }`}
+                            >
+                                <i
+                                    className={`fa-solid ${RESERVE_ICONS[reserve]} w-4 shrink-0 text-center text-[10px] text-neutral-300`}
+                                    aria-hidden="true"
+                                />
+                                <span className="min-w-0 truncate text-[11px] font-bold text-neutral-500">
+                                    {RESERVE_LABELS[reserve]}
+                                </span>
+                            </div>
+                            {i === 0 && (
+                                <div
+                                    aria-hidden="true"
+                                    style={{ gridColumn: `2 / span ${months.length}`, gridRow: row }}
+                                    className="border-t-2 border-black/[0.08]"
+                                />
+                            )}
+                            {/* The capacity line, drawn once across every column so the
+                                row reads as one chart rather than twelve. */}
+                            <div
+                                aria-hidden="true"
+                                style={{ gridColumn: `2 / span ${months.length}`, gridRow: row }}
+                                className="pointer-events-none relative"
+                            >
+                                <div
+                                    className="absolute inset-x-0 border-t border-dashed border-neutral-400/60"
+                                    style={{ bottom: `calc(${CAPACITY_LINE * 100}% + 4px)` }}
+                                />
+                            </div>
+                            {months.map((month, m) => {
+                                const load = loadByMonth.get(month)
+                                if (!load) return null
+                                return (
+                                    <button
+                                        key={`${reserve}-${month}`}
+                                        type="button"
+                                        onClick={() => onSelectMonth(month)}
+                                        style={{ gridColumn: m + 2, gridRow: row }}
+                                        title={summarise(load)}
+                                        className="transition-opacity hover:opacity-70"
+                                    >
+                                        <RibbonCell load={load} reserve={reserve} />
+                                    </button>
+                                )
+                            })}
+                        </Fragment>
+                    )
+                })}
             </div>
         </div>
     )

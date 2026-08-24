@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest'
 import {
     recurringAmountForMonth,
     addMonths,
+    freeCashByMonth,
     visibleInMonth,
     rowVisibleInMonth,
 } from './finance'
+import type { FinanceRow } from '../types'
 import { row, group } from './__fixtures'
 
 describe('addMonths', () => {
@@ -100,5 +102,75 @@ describe('rowVisibleInMonth', () => {
         expect(rowVisibleInMonth(r, '2026-02')).toBe(false)
         expect(rowVisibleInMonth(r, '2026-05')).toBe(true)
         expect(rowVisibleInMonth(r, '2026-11')).toBe(false)
+    })
+})
+
+describe('freeCashByMonth', () => {
+    const groups = [
+        group({ _id: 'inc', type: 'income' }),
+        group({ _id: 'exp', type: 'expense' }),
+        group({ _id: 'sav', type: 'savings' }),
+    ]
+
+    /** A recurring row in one of the groups above. */
+    function line(
+        _id: string,
+        groupId: string,
+        recurringAmount: number,
+        over: Partial<FinanceRow> = {}
+    ): FinanceRow {
+        return row({ _id, group: groupId, name: _id, recurringAmount, ...over })
+    }
+
+    it('is income less ordinary outgoings', () => {
+        const rows = [
+            line('salary', 'inc', 3000),
+            line('rent', 'exp', 1200),
+            line('bills', 'exp', 300),
+        ]
+        expect(freeCashByMonth(groups, rows, ['2026-05'])).toEqual({ '2026-05': 1500 })
+    })
+
+    it('leaves savings out — they are the thing being measured, not a cost', () => {
+        const rows = [line('salary', 'inc', 3000), line('house fund', 'sav', 900)]
+        expect(freeCashByMonth(groups, rows, ['2026-05'])).toEqual({ '2026-05': 3000 })
+    })
+
+    it('follows each row through its own lifecycle', () => {
+        const rows = [
+            line('salary', 'inc', 3000),
+            line('gym', 'exp', 50, { startMonth: '2026-06' }),
+            line('loan', 'exp', 200, { endMonth: '2026-05' }),
+        ]
+        const free = freeCashByMonth(groups, rows, ['2026-05', '2026-06'])
+        expect(free['2026-05']).toBe(2800)
+        expect(free['2026-06']).toBe(2950)
+    })
+
+    it('uses the amount that was current in the month, not just the latest', () => {
+        const rows = [
+            line('salary', 'inc', 3400, {
+                pastAmounts: [{ beforeMonth: '2026-06', amount: 3000 }],
+            }),
+        ]
+        const free = freeCashByMonth(groups, rows, ['2026-05', '2026-06'])
+        expect(free['2026-05']).toBe(3000)
+        expect(free['2026-06']).toBe(3400)
+    })
+
+    it('never reports a negative figure — there is no such thing as less than nothing free', () => {
+        const rows = [line('salary', 'inc', 1000), line('rent', 'exp', 1800)]
+        expect(freeCashByMonth(groups, rows, ['2026-05'])).toEqual({ '2026-05': 0 })
+    })
+
+    it('hides a row whose group is hidden that month', () => {
+        const scoped = [
+            group({ _id: 'inc', type: 'income' }),
+            group({ _id: 'exp', type: 'expense', endMonth: '2026-05' }),
+        ]
+        const rows = [line('salary', 'inc', 3000), line('rent', 'exp', 1200)]
+        const free = freeCashByMonth(scoped, rows, ['2026-05', '2026-06'])
+        expect(free['2026-05']).toBe(1800)
+        expect(free['2026-06']).toBe(3000)
     })
 })

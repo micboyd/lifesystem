@@ -2,8 +2,9 @@ import { CALENDAR_COLOR_CLASSES, LIFE_PILLAR_ICONS } from '../../types'
 import type { LifePillar } from '../../types'
 import { formatMonthKey, monthKey } from '../../lib/calendar'
 import { TIMELINE_LANE_LABELS, type LaneItem, type Timeline } from '../../lib/lifeTimeline'
-import { LOAD_LEVEL_LABELS, type MonthLoad } from '../../lib/lifeLoad'
+import { RESERVE_LABELS, type MonthLoad } from '../../lib/lifeLoad'
 import LoadPill from './LoadPill'
+import ReserveMeter from './ReserveMeter'
 
 /**
  * The timeline read vertically, a month at a time.
@@ -17,10 +18,12 @@ export default function TimelineMonthList({
     timeline,
     loads,
     onSelectItem,
+    onSelectMonth,
 }: {
     timeline: Timeline
     loads: MonthLoad[]
     onSelectItem: (item: LaneItem) => void
+    onSelectMonth: (month: string) => void
 }) {
     const today = (() => {
         const now = new Date()
@@ -71,8 +74,36 @@ export default function TimelineMonthList({
                                     </span>
                                 )}
                             </div>
-                            {load && <LoadPill level={load.level} label={LOAD_LEVEL_LABELS[load.level]} />}
+                            {load && (
+                                <button
+                                    type="button"
+                                    onClick={() => onSelectMonth(month)}
+                                    className="shrink-0"
+                                >
+                                    <LoadPill
+                                        level={load.level}
+                                        detail={load.peak ? RESERVE_LABELS[load.peak] : undefined}
+                                    />
+                                </button>
+                            )}
                         </div>
+
+                        {load && load.contributors.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => onSelectMonth(month)}
+                                className="mt-3 w-full text-left"
+                            >
+                                <ReserveMeter load={load} compact />
+                            </button>
+                        )}
+
+                        {load && load.conflicts.length > 0 && (
+                            <p className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-coral-600">
+                                <i className="fa-solid fa-circle-exclamation text-[10px]" aria-hidden="true" />
+                                {load.conflicts[0].title}
+                            </p>
+                        )}
 
                         {band && (
                             <p

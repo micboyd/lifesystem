@@ -17,6 +17,8 @@ import PressureCheck from '../components/lifeplan/PressureCheck'
 import SeasonReviewTab from '../components/lifeplan/SeasonReviewTab'
 import PlanForm from '../components/lifeplan/PlanForm'
 import LoadPill from '../components/lifeplan/LoadPill'
+import MonthLoadDrawer from '../components/lifeplan/MonthLoadDrawer'
+import ReserveMeter from '../components/lifeplan/ReserveMeter'
 import {
     LIFE_PILLAR_LABELS,
     type Course,
@@ -34,7 +36,9 @@ import {
 } from '../types'
 import { formatMonthKey, formatMonthRange, monthKey, todayKey } from '../lib/calendar'
 import { activePlan, buildTimeline, seasonForMonth, seasonProgress, type LaneItem } from '../lib/lifeTimeline'
-import { LOAD_LEVEL_LABELS, computeMonthLoads } from '../lib/lifeLoad'
+import { RESERVE_LABELS, computeMonthLoads } from '../lib/lifeLoad'
+import { capacitiesFrom } from '../lib/lifeCalibration'
+import { useLoadCapacities } from '../components/lifeplan/useLoadCapacities'
 import { buildScorecard, monthEndDate, monthStartDate, type SeasonScorecard } from '../lib/seasonReview'
 import * as lifePlans from '../services/lifePlans'
 import * as phaseService from '../services/nutritionPhases'
@@ -118,6 +122,7 @@ export default function LifePlan() {
 
     // Timeline drawer
     const [selectedItem, setSelectedItem] = useState<LaneItem | null>(null)
+    const [selectedMonth, setSelectedMonth] = useState<string | null>(null)
 
     // Review
     const [reviewSeasonId, setReviewSeasonId] = useState<string | null>(null)
@@ -182,10 +187,24 @@ export default function LifePlan() {
         () => (timelineInput ? buildTimeline(timelineInput) : null),
         [timelineInput]
     )
-    const loads = useMemo(
-        () => (timelineInput ? computeMonthLoads(timelineInput) : []),
-        [timelineInput]
+
+    // The denominators: free cash and measured maintenance with the page, fitted
+    // ceilings once the Pressure tab asks for them.
+    const capacities = useLoadCapacities(plan?.start, plan?.end, records, tab === 'Pressure')
+
+    const loadInput = useMemo(
+        () =>
+            timelineInput
+                ? {
+                      ...timelineInput,
+                      freeCash: capacities.freeCash,
+                      maintenanceKcal: capacities.maintenanceKcal,
+                      capacities: capacitiesFrom(capacities.calibration),
+                  }
+                : null,
+        [timelineInput, capacities]
     )
+    const loads = useMemo(() => (loadInput ? computeMonthLoads(loadInput) : []), [loadInput])
 
     const currentSeason = plan ? seasonForMonth(plan, thisMonth) : undefined
     const currentLoad = loads.find((l) => l.month === thisMonth)
@@ -514,11 +533,25 @@ export default function LifePlan() {
                                 )}
                             </div>
                             {currentLoad && (
-                                <LoadPill
-                                    level={currentLoad.level}
-                                    label={LOAD_LEVEL_LABELS[currentLoad.level]}
-                                    score={currentLoad.score}
-                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedMonth(currentLoad.month)}
+                                    className="w-full shrink-0 text-left sm:w-56"
+                                >
+                                    <div className="flex justify-end">
+                                        <LoadPill
+                                            level={currentLoad.level}
+                                            detail={
+                                                currentLoad.peak
+                                                    ? RESERVE_LABELS[currentLoad.peak]
+                                                    : undefined
+                                            }
+                                        />
+                                    </div>
+                                    <div className="mt-2.5">
+                                        <ReserveMeter load={currentLoad} />
+                                    </div>
+                                </button>
                             )}
                         </div>
 
@@ -546,7 +579,9 @@ export default function LifePlan() {
                                     <div className="hidden lg:block">
                                         <LifePlanTimeline
                                             timeline={timeline}
+                                            loads={loads}
                                             onSelectItem={setSelectedItem}
+                                            onSelectMonth={setSelectedMonth}
                                             onSelectSeason={(id) => {
                                                 const season = plan.seasons.find((s) => s._id === id)
                                                 if (!season) return
@@ -561,12 +596,16 @@ export default function LifePlan() {
                                             timeline={timeline}
                                             loads={loads}
                                             onSelectItem={setSelectedItem}
+                                            onSelectMonth={setSelectedMonth}
                                         />
                                     </div>
                                     <p className="mt-4 text-xs text-neutral-400">
                                         Bars and diamonds are read-only here — tap one to open it in the
                                         module that owns it. Lanes shown:{' '}
                                         {plan.pillars.map((p) => LIFE_PILLAR_LABELS[p]).join(', ')}.
+                                        The strips below the lanes are what those commitments cost:
+                                        each column is a month, and the dashed line is that reserve&apos;s
+                                        capacity. Tap one for the month&apos;s breakdown.
                                     </p>
                                 </>
                             )}
@@ -576,6 +615,7 @@ export default function LifePlan() {
                             {tab === 'Seasons' && (
                                 <SeasonsTab
                                     plan={plan}
+                                    loads={loads}
                                     onNew={() => {
                                         setEditingSeason(null)
                                         setSeasonError(null)
@@ -602,7 +642,15 @@ export default function LifePlan() {
                                 />
                             )}
 
-                            {tab === 'Pressure' && <PressureCheck plan={plan} loads={loads} />}
+                            {tab === 'Pressure' && (
+                                <PressureCheck
+                                    plan={plan}
+                                    loads={loads}
+                                    input={loadInput}
+                                    capacities={capacities}
+                                    onSelectMonth={setSelectedMonth}
+                                />
+                            )}
 
                             {tab === 'Review' && (
                                 <SeasonReviewTab
@@ -619,6 +667,14 @@ export default function LifePlan() {
                         </Container>
                     )}
                 </>
+            )}
+
+            {plan && (
+                <MonthLoadDrawer
+                    plan={plan}
+                    load={loads.find((l) => l.month === selectedMonth) ?? null}
+                    onClose={() => setSelectedMonth(null)}
+                />
             )}
 
             <LaneItemDrawer
