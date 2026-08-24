@@ -34,6 +34,7 @@ import { listMonthNotes } from '../services/monthNotes'
 import { listRows, createRow, updateRow, deleteRow, listValues, setValue } from '../services/totals'
 import { useAuth } from '../context/AuthContext'
 import { useCalendars } from '../context/CalendarsContext'
+import { useHiddenEventTypes } from '../components/useHiddenEventTypes'
 import { DAY_STATUS_OPTIONS } from '../types'
 import type { Event, Part, DayStatus, TotalRow, Reminder, MonthNote, Birthday } from '../types'
 import Container from '../components/Container'
@@ -110,6 +111,7 @@ export default function Calendar() {
     const nav = useNavigate()
     const { user } = useAuth()
     const { byId: calendarsById, setVisible } = useCalendars()
+    const hiddenTypes = useHiddenEventTypes()
     const [view, setView] = useState<CalendarView>('Year')
     const [showPastMonths, setShowPastMonths] = useState(false)
     const [focusDate, setFocusDate] = useState(todayKey())
@@ -514,7 +516,7 @@ export default function Calendar() {
 
     // An event is drawn when its calendar is visible. Events with no calendar
     // aren't a layer you manage, so they're always shown.
-    const isShown = useCallback(
+    const onVisibleCalendar = useCallback(
         (event: Event) => {
             if (!event.calendar) return true
             return calendarsById.get(event.calendar)?.visible ?? true
@@ -522,14 +524,22 @@ export default function Calendar() {
         [calendarsById]
     )
 
+    // …and when its category hasn't been filtered out in the toolbar.
+    const isShown = useCallback(
+        (event: Event) => onVisibleCalendar(event) && !hiddenTypes.has(event.eventType),
+        [onVisibleCalendar, hiddenTypes]
+    )
+
     const visibleEvents = useMemo(() => events.filter(isShown), [events, isShown])
 
     // Everything on a hidden layer, indexed by every date it touches, so each
     // day cell can show a presence dot without re-scanning the whole list.
+    // Only layer-hidden events count: a dot promises that turning the layer
+    // back on reveals something, which isn't true if the type is filtered too.
     const hiddenByDate = useMemo(() => {
         const map = new Map<string, Event[]>()
         for (const event of events) {
-            if (isShown(event)) continue
+            if (onVisibleCalendar(event) || hiddenTypes.has(event.eventType)) continue
             for (let d = event.startDate; d <= event.endDate; d = addDays(d, 1)) {
                 const bucket = map.get(d)
                 if (bucket) bucket.push(event)
@@ -537,7 +547,7 @@ export default function Calendar() {
             }
         }
         return map
-    }, [events, isShown])
+    }, [events, onVisibleCalendar, hiddenTypes])
 
     // Birthdays keyed by their MM-DD, so any year in view can look up a day's
     // birthdays without expanding them into per-year rows.

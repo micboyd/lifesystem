@@ -783,6 +783,18 @@ export const EVENT_TYPE_COLORS: Record<
     },
 }
 
+/**
+ * Solid dot per event type, for legends and filter menus where the chip tints
+ * above are too pale to read at a few pixels. Same hues, one step darker.
+ */
+export const EVENT_TYPE_DOTS: Record<EventType, string> = {
+    trip: 'bg-blue-400',
+    worktrip: 'bg-fuchsia-400',
+    social: 'bg-amber-400',
+    hobby: 'bg-indigo-400',
+    general: 'bg-teal-400',
+}
+
 /** Font Awesome glyphs marking specific event types inside chips. */
 export const EVENT_TYPE_ICONS: Partial<Record<EventType, string>> = {
     hobby: 'fa-solid fa-football',
