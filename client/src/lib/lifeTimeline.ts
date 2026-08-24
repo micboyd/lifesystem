@@ -42,43 +42,6 @@ export const LANE_SOURCE_ROUTES: Record<LaneSource, string> = {
 }
 
 /**
- * What a lane item actually is, in the words its own module uses.
- *
- * The lane it sits in already says which pillar it belongs to, but "Money" and
- * "a savings target" are not the same claim — the timeline mixes plans, phases,
- * targets and flags in one row, and naming the kind on the item itself is the
- * difference between reading a bar and guessing at it.
- */
-export const LANE_SOURCE_LABELS: Record<LaneSource, string> = {
-    trainingPlan: 'Training plan',
-    nutritionPhase: 'Nutrition phase',
-    savingsTarget: 'Savings target',
-    course: 'Study',
-    monthNote: 'Month flag',
-    goal: 'Goal',
-}
-
-/** The same names, shortened to survive on an 88px-wide month column. */
-export const LANE_SOURCE_CHIPS: Record<LaneSource, string> = {
-    trainingPlan: 'Training',
-    nutritionPhase: 'Nutrition',
-    savingsTarget: 'Savings',
-    course: 'Study',
-    monthNote: 'Flag',
-    goal: 'Goal',
-}
-
-/** The icon that stands in for the name when a bar is too short for words. */
-export const LANE_SOURCE_ICONS: Record<LaneSource, string> = {
-    trainingPlan: 'fa-dumbbell',
-    nutritionPhase: 'fa-bowl-food',
-    savingsTarget: 'fa-piggy-bank',
-    course: 'fa-graduation-cap',
-    monthNote: 'fa-flag',
-    goal: 'fa-bullseye',
-}
-
-/**
  * One thing drawn on a lane. A `bar` spans months; a `marker` sits on a single
  * month (a deadline, a race day) and is drawn as a diamond.
  *
