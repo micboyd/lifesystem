@@ -1,5 +1,4 @@
-/** Brand shown before every page name in the document title. */
-export const BRAND = 'AdminLife'
+import { WORKSPACES, navItemForPath, workspaceForPath } from './workspace'
 
 /**
  * Map a router pathname to its human page name. Order matters: more specific
@@ -7,6 +6,12 @@ export const BRAND = 'AdminLife'
  * /finances). Unknown paths fall back to the brand alone.
  */
 export function pageNameForPath(pathname: string): string | null {
+    // Work pages take their name straight from the nav config, so a module
+    // renamed there is renamed in the tab title too.
+    if (workspaceForPath(pathname) === 'work') {
+        return navItemForPath(pathname)?.label ?? null
+    }
+
     if (pathname === '/') return 'Dashboard'
     if (pathname === '/login') return 'Sign in'
     if (pathname === '/calendar') return 'Calendar'
@@ -33,8 +38,13 @@ export function pageNameForPath(pathname: string): string | null {
     return null
 }
 
-/** "AdminLife - Calendar", or just "AdminLife" for unknown/landing paths. */
+/**
+ * "AdminLife - Calendar", or "AdminWork - Tasks" — the brand follows the
+ * workspace so a background tab says which mode it was left in. Unknown paths
+ * fall back to the brand alone.
+ */
 export function documentTitleForPath(pathname: string): string {
+    const brand = WORKSPACES[workspaceForPath(pathname)].name
     const name = pageNameForPath(pathname)
-    return name ? `${BRAND} - ${name}` : BRAND
+    return name ? `${brand} - ${name}` : brand
 }

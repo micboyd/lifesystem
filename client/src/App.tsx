@@ -31,9 +31,13 @@ import Login from './pages/Login'
 import Profile from './pages/Profile'
 import StyleGuide from './pages/StyleGuide'
 import NotFound from './pages/NotFound'
+import WorkDashboard from './pages/work/Dashboard'
+import ModulePlaceholder from './pages/work/ModulePlaceholder'
+import { WORK_MODULES, workspaceForPath } from './lib/workspace'
 
 /** The signed-in app shell: sidebar nav plus the matched page. */
 function AppLayout() {
+    const { pathname } = useLocation()
     // Persist the desktop rail's collapsed state across reloads.
     const [collapsed, setCollapsed] = useState(
         () => localStorage.getItem('sidebarCollapsed') !== '0'
@@ -52,7 +56,9 @@ function AppLayout() {
                 <main className="flex-1">
                     <Outlet />
                 </main>
-                <QuickLog />
+                {/* QuickLog logs personal spending — it has no business in the
+                    work workspace, which gets its own capture surface later. */}
+                {workspaceForPath(pathname) === 'life' && <QuickLog />}
             </div>
         </div>
     )
@@ -105,6 +111,14 @@ export default function App() {
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/checklists" element={<Checklists />} />
                 <Route path="/styleguide" element={<StyleGuide />} />
+
+                {/* Work workspace. The module routes are generated from the nav
+                    config so a new entry there can't leave a dead link here. */}
+                <Route path="/work" element={<WorkDashboard />} />
+                {WORK_MODULES.map(({ to }) => (
+                    <Route key={to} path={to} element={<ModulePlaceholder />} />
+                ))}
+
                 <Route path="*" element={<NotFound />} />
             </Route>
         </Routes>

@@ -27,6 +27,15 @@
     --color-coral-600: #e11d48;
     --color-coral-700: #be123c;
 
+    /* Brand navy — the work workspace's accent, chosen to read as unmistakably
+       "not life" the moment the rail changes colour. Ramped around the existing
+       --color-brand so both modes stay in the same family. */
+    --color-brand-50: #eff5f8;
+    --color-brand-100: #d7e6ee;
+    --color-brand-500: #0b5c7d;
+    --color-brand-600: #044b6b;
+    --color-brand-700: #013d5a;
+
     /* Warm canvas + ink so white cards feel cosy rather than clinical. */
     --color-canvas: #f7f6f3;
     --color-ink: #222222;
