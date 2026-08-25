@@ -9,7 +9,11 @@ import EmptyState from './EmptyState'
 import DropdownMenu from './DropdownMenu'
 import Drawer from './Drawer'
 import DatePicker from './DatePicker'
+import Pagination from './Pagination'
 import LineIcon from './LineIcon'
+import LogFilterBar, { useLogFilters } from './LogFilterBar'
+import { todayKey } from '../lib/calendar'
+import { formatLogDate, weekStartMonday } from '../lib/logFilters'
 
 // ─── Shared shapes ──────────────────────────────────────────────────────────────
 
@@ -61,33 +65,7 @@ export interface ActivityLogConfig {
 // ─── Date helpers ─────────────────────────────────────────────────────────────────
 
 function todayISO(): string {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-/** Monday-based start of the ISO week containing `iso`, as YYYY-MM-DD. */
-function weekStartISO(iso: string): string {
-    const d = new Date(`${iso}T00:00:00`)
-    const dow = d.getDay() // 0 = Sun
-    const back = dow === 0 ? 6 : dow - 1
-    d.setDate(d.getDate() - back)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function formatDate(iso: string): string {
-    const d = new Date(`${iso}T00:00:00`)
-    const today = todayISO()
-    if (iso === today) return 'Today'
-    const yd = new Date(`${today}T00:00:00`)
-    yd.setDate(yd.getDate() - 1)
-    const ydIso = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`
-    if (iso === ydIso) return 'Yesterday'
-    return d.toLocaleDateString('en-GB', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    })
+    return todayKey()
 }
 
 // ─── Log ──────────────────────────────────────────────────────────────────────────
@@ -98,12 +76,17 @@ type Drawered = { mode: 'create' } | { mode: 'edit'; log: ActivityRecord } | nul
  * A log of completed activities (mobility routines or recovery items). Each entry
  * is recorded against a library item, snapshotting its name so the record stays
  * stable even if the library item is later edited or deleted.
+ *
+ * Filtered and paged ten at a time by the shared log controls, the same as the
+ * strength and conditioning logs.
  */
 export default function SimpleActivityLog({ config }: { config: ActivityLogConfig }) {
     const { library } = config
     const [loading, setLoading] = useState(true)
     const [logs, setLogs] = useState<ActivityRecord[]>([])
     const [drawer, setDrawer] = useState<Drawered>(null)
+
+    const controls = useLogFilters(logs, { haystack: (l) => [l.notes] })
 
     useEffect(() => {
         config.listLogs()
@@ -127,29 +110,22 @@ export default function SimpleActivityLog({ config }: { config: ActivityLogConfi
         await config.deleteLog(id)
     }
 
-    // This-week summary, derived from the log.
+    // This-week summary, derived from the whole log rather than the filtered view —
+    // it's a training readout, not a description of what's on screen.
     const summary = useMemo(() => {
-        const start = weekStartISO(todayISO())
+        const start = weekStartMonday(todayISO())
         const thisWeek = logs.filter((l) => l.date >= start)
         const minutes = thisWeek.reduce((sum, l) => sum + (l.duration || 0), 0)
         return { count: thisWeek.length, minutes }
     }, [logs])
 
-    // Group the log by day for date headers.
-    const grouped = useMemo(() => {
-        const map = new Map<string, ActivityRecord[]>()
-        for (const l of logs) {
-            const arr = map.get(l.date) ?? []
-            arr.push(l)
-            map.set(l.date, arr)
-        }
-        return [...map.entries()] // already sorted: logs come newest-first
-    }, [logs])
+    const hasHistory = logs.length > 0
+    const plural = `${config.noun}s`
 
     return (
         <>
             <div className="flex flex-wrap items-center justify-between gap-3">
-                {logs.length > 0 ? (
+                {hasHistory ? (
                     <p className="text-sm text-neutral-500">
                         <span className="font-semibold text-neutral-900">{summary.count}</span>{' '}
                         {summary.count === 1 ? config.noun : `${config.noun}s`} this week
@@ -179,13 +155,13 @@ export default function SimpleActivityLog({ config }: { config: ActivityLogConfi
                 <div className="grid place-items-center py-16">
                     <Spinner />
                 </div>
-            ) : library.length === 0 ? (
+            ) : library.length === 0 && !hasHistory ? (
                 <EmptyState
                     icon={config.icon}
                     title={config.emptyLibraryTitle}
                     description={config.emptyLibraryDescription}
                 />
-            ) : logs.length === 0 ? (
+            ) : !hasHistory ? (
                 <EmptyState
                     icon="fa-solid fa-check-double"
                     title={config.emptyLogsTitle}
@@ -197,24 +173,56 @@ export default function SimpleActivityLog({ config }: { config: ActivityLogConfi
                     }
                 />
             ) : (
-                <div className="flex flex-col gap-6">
-                    {grouped.map(([date, dayLogs]) => (
-                        <section key={date} className="flex flex-col gap-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                {formatDate(date)}
-                            </p>
-                            <div className="flex flex-col gap-2">
-                                {dayLogs.map((log) => (
-                                    <LogRow
-                                        key={log._id}
-                                        log={log}
-                                        onEdit={() => setDrawer({ mode: 'edit', log })}
-                                        onDelete={() => handleDelete(log._id)}
-                                    />
+                <div className="flex flex-col gap-4">
+                    <LogFilterBar
+                        controls={controls}
+                        searchPlaceholder={`Search ${plural}, notes…`}
+                        nameLabel={`All ${plural}`}
+                        nameIcon={config.icon}
+                        noun={`logged ${config.noun}`}
+                    />
+
+                    {controls.filtered.length === 0 ? (
+                        <EmptyState
+                            icon="fa-solid fa-magnifying-glass"
+                            title="No matches"
+                            description={`No logged ${plural} match these filters.`}
+                            action={
+                                <Button variant="secondary" onClick={controls.clear}>
+                                    Clear filters
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <>
+                            <div className="flex flex-col gap-6">
+                                {controls.grouped.map(([date, dayLogs]) => (
+                                    <section key={date} className="flex flex-col gap-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                            {formatLogDate(date, todayISO())}
+                                        </p>
+                                        <div className="flex flex-col gap-2">
+                                            {dayLogs.map((log) => (
+                                                <LogRow
+                                                    key={log._id}
+                                                    log={log}
+                                                    onEdit={() => setDrawer({ mode: 'edit', log })}
+                                                    onDelete={() => handleDelete(log._id)}
+                                                />
+                                            ))}
+                                        </div>
+                                    </section>
                                 ))}
                             </div>
-                        </section>
-                    ))}
+
+                            <Pagination
+                                page={controls.page}
+                                pageCount={controls.pageCount}
+                                onChange={controls.setPage}
+                                className="mt-2 justify-center"
+                            />
+                        </>
+                    )}
                 </div>
             )}
 
@@ -237,6 +245,10 @@ function sortLogs(logs: ActivityRecord[]): ActivityRecord[] {
 
 // ─── Log row ──────────────────────────────────────────────────────────────────────
 
+/**
+ * One logged activity. Notes clamp to two lines so a page of ten stays scannable;
+ * the row opens to show them in full.
+ */
 function LogRow({
     log,
     onEdit,
@@ -246,22 +258,51 @@ function LogRow({
     onEdit: () => void
     onDelete: () => void
 }) {
+    const [open, setOpen] = useState(false)
+    const expandable = !!log.notes
+
     return (
         <Card as="div" hover={false} className="flex items-start gap-3 !p-4">
-            <div className="min-w-0 flex-1">
-                <p className="font-semibold text-neutral-900">{log.name}</p>
-                {log.duration > 0 && (
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
-                        <span>
-                            <i className="fa-regular fa-clock mr-1" aria-hidden="true" />
-                            {log.duration} min
-                        </span>
-                    </div>
+            <button
+                type="button"
+                onClick={() => expandable && setOpen((o) => !o)}
+                aria-expanded={expandable ? open : undefined}
+                className={[
+                    'flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left',
+                    expandable ? 'cursor-pointer' : 'cursor-default',
+                ].join(' ')}
+            >
+                <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-neutral-900">{log.name}</p>
+                    {log.duration > 0 && (
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+                            <span>
+                                <i className="fa-regular fa-clock mr-1" aria-hidden="true" />
+                                {log.duration} min
+                            </span>
+                        </div>
+                    )}
+                    {log.notes && (
+                        <p
+                            className={[
+                                'mt-2 whitespace-pre-wrap text-sm text-neutral-500',
+                                open ? '' : 'line-clamp-2',
+                            ].join(' ')}
+                        >
+                            {log.notes}
+                        </p>
+                    )}
+                </div>
+                {expandable && (
+                    <i
+                        className={[
+                            'fa-solid fa-chevron-down mt-1 shrink-0 text-xs text-neutral-300 transition-transform duration-150',
+                            open ? 'rotate-180' : '',
+                        ].join(' ')}
+                        aria-hidden="true"
+                    />
                 )}
-                {log.notes && (
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-500">{log.notes}</p>
-                )}
-            </div>
+            </button>
             <DropdownMenu
                 align="right"
                 className="-mr-1 -mt-1 shrink-0"
