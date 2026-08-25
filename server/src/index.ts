@@ -34,6 +34,9 @@ import noteRoutes from './routes/noteRoutes'
 import nutritionPhaseRoutes from './routes/nutritionPhaseRoutes'
 import progressCheckInRoutes from './routes/progressCheckInRoutes'
 import progressPhotoRoutes from './routes/progressPhotoRoutes'
+import personRoutes from './routes/personRoutes'
+import workProjectRoutes from './routes/workProjectRoutes'
+import workTaskRoutes from './routes/workTaskRoutes'
 import path from 'path'
 import recoveryRoutes from './routes/recoveryRoutes'
 import recoveryLogRoutes from './routes/recoveryLogRoutes'
@@ -114,6 +117,12 @@ app.use('/api/life-plans', lifePlanRoutes)
 app.use('/api/nutrition-phases', nutritionPhaseRoutes)
 app.use('/api/progress-check-ins', progressCheckInRoutes)
 app.use('/api/progress-photos', progressPhotoRoutes)
+
+// The work workspace namespaces its routes so the two sets of concerns
+// stay legible side by side — /api/work/tasks is never the day planner's.
+app.use('/api/work/people', personRoutes)
+app.use('/api/work/projects', workProjectRoutes)
+app.use('/api/work/tasks', workTaskRoutes)
 
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })

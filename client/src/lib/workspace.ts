@@ -19,10 +19,16 @@ export interface NavItem {
     /** Font Awesome class suffix, e.g. "fa-house". */
     icon: string
     /**
-     * One line on what the module is for. Work modules are unbuilt, so this is
-     * what the dashboard and the placeholder page show in place of the feature.
+     * One line on what the module is for. For an unbuilt module this is what
+     * the dashboard and the placeholder page show in place of the feature.
      */
     blurb?: string
+    /**
+     * Whether the module has a real page behind it. Kept here rather than in
+     * the router so the dashboard, the placeholder and the routes can't
+     * disagree about what exists.
+     */
+    built?: boolean
 }
 
 export interface WorkspaceMeta {
@@ -97,27 +103,30 @@ const LIFE_NAV: NavItem[] = [
 ]
 
 /**
- * The work modules. None are built yet — this is the intended shape of the
- * workspace, and each entry currently routes to a placeholder. Delete or
- * reorder freely; nothing downstream depends on the list beyond the routes in
- * App.tsx matching the `to` values.
+ * The work modules, in nav order. Anything without `built` routes to a
+ * placeholder, so the shape of the workspace stays visible while it fills in.
+ * Delete or reorder freely; nothing downstream depends on the list beyond
+ * App.tsx knowing which component a built route renders.
  */
 const WORK_NAV: NavItem[] = [
     { label: 'Dashboard', to: '/work', icon: 'fa-gauge-high' },
     {
         label: 'Tasks',
+        built: true,
         to: '/work/tasks',
         icon: 'fa-list-check',
         blurb: 'Work to-dos, each carrying where it came from and what it belongs to.',
     },
     {
         label: 'Waiting On',
+        built: true,
         to: '/work/waiting',
         icon: 'fa-hourglass-half',
         blurb: "What you're blocked on, who owes it, and how long it's been sitting.",
     },
     {
         label: 'Projects',
+        built: true,
         to: '/work/projects',
         icon: 'fa-diagram-project',
         blurb: 'Workstreams between a task and an objective — status and current state.',
@@ -130,6 +139,7 @@ const WORK_NAV: NavItem[] = [
     },
     {
         label: 'People',
+        built: true,
         to: '/work/people',
         icon: 'fa-user-group',
         blurb: 'Who you work with, what they care about, and the threads still open.',

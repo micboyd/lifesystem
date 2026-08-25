@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { Routes, Route, Outlet, useLocation } from 'react-router-dom'
 import { documentTitleForPath } from './lib/pageTitle'
 import Sidebar from './components/Sidebar'
@@ -33,6 +33,10 @@ import StyleGuide from './pages/StyleGuide'
 import NotFound from './pages/NotFound'
 import WorkDashboard from './pages/work/Dashboard'
 import ModulePlaceholder from './pages/work/ModulePlaceholder'
+import WorkTasks from './pages/work/Tasks'
+import WorkWaiting from './pages/work/Waiting'
+import WorkProjects from './pages/work/Projects'
+import WorkPeople from './pages/work/People'
 import { WORK_MODULES, workspaceForPath } from './lib/workspace'
 
 /** The signed-in app shell: sidebar nav plus the matched page. */
@@ -62,6 +66,15 @@ function AppLayout() {
             </div>
         </div>
     )
+}
+
+/** The work modules that have a real page. Everything else falls through to
+ *  the placeholder. Keyed by the same route the nav config uses. */
+const WORK_PAGES: Record<string, ReactElement> = {
+    '/work/tasks': <WorkTasks />,
+    '/work/waiting': <WorkWaiting />,
+    '/work/projects': <WorkProjects />,
+    '/work/people': <WorkPeople />,
 }
 
 export default function App() {
@@ -112,11 +125,12 @@ export default function App() {
                 <Route path="/checklists" element={<Checklists />} />
                 <Route path="/styleguide" element={<StyleGuide />} />
 
-                {/* Work workspace. The module routes are generated from the nav
-                    config so a new entry there can't leave a dead link here. */}
+                {/* Work workspace. Every module in the nav config gets a route
+                    here — the built ones render their page, the rest a
+                    placeholder — so a new entry there can't leave a dead link. */}
                 <Route path="/work" element={<WorkDashboard />} />
                 {WORK_MODULES.map(({ to }) => (
-                    <Route key={to} path={to} element={<ModulePlaceholder />} />
+                    <Route key={to} path={to} element={WORK_PAGES[to] ?? <ModulePlaceholder />} />
                 ))}
 
                 <Route path="*" element={<NotFound />} />

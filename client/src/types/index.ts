@@ -1946,3 +1946,98 @@ export interface PhaseAdjustmentInput {
     reason?: string
     source?: AdjustmentSource
 }
+
+/* ── Work workspace ─────────────────────────────────────────────────────────
+ *
+ * Deliberately its own set of shapes rather than reusing the life types. A
+ * life `Task` belongs to a day and sorts within it; a work task belongs to a
+ * project and a status, and may sit for weeks without a date at all — the two
+ * only look alike from a distance.
+ */
+
+export const RELATIONSHIPS = ['manager', 'report', 'peer', 'stakeholder', 'external'] as const
+export type Relationship = (typeof RELATIONSHIPS)[number]
+
+export interface Person {
+    _id: string
+    name: string
+    role?: string
+    team?: string
+    relationship: Relationship
+    notes?: string
+    /** Archived people keep their history but drop out of the pickers. */
+    archived: boolean
+    createdAt: string
+    updatedAt: string
+}
+
+export const WORK_PROJECT_STATUSES = ['active', 'paused', 'done', 'archived'] as const
+export type WorkProjectStatus = (typeof WORK_PROJECT_STATUSES)[number]
+
+export const WORK_PROJECT_COLORS = [
+    'slate',
+    'blue',
+    'violet',
+    'emerald',
+    'amber',
+    'rose',
+    'teal',
+] as const
+export type WorkProjectColor = (typeof WORK_PROJECT_COLORS)[number]
+
+/** Task counts the server rolls up per project, so the cards mean something. */
+export interface ProjectStats {
+    open: number
+    done: number
+    waiting: number
+    overdue: number
+    /** Earliest due date among the project's open tasks. */
+    nextDue: string | null
+}
+
+export interface WorkProject {
+    _id: string
+    name: string
+    /** What the project is. */
+    summary?: string
+    /** Where it's at now — see `stateUpdatedAt` for how stale that is. */
+    state?: string
+    stateUpdatedAt?: string | null
+    status: WorkProjectStatus
+    dueDate?: string
+    color: WorkProjectColor
+    order: number
+    stats: ProjectStats
+    createdAt: string
+    updatedAt: string
+}
+
+export const WORK_TASK_STATUSES = ['todo', 'doing', 'waiting', 'done'] as const
+export type WorkTaskStatus = (typeof WORK_TASK_STATUSES)[number]
+
+export const WORK_TASK_PRIORITIES = ['low', 'normal', 'high'] as const
+export type WorkTaskPriority = (typeof WORK_TASK_PRIORITIES)[number]
+
+export interface WorkTask {
+    _id: string
+    title: string
+    notes?: string
+    status: WorkTaskStatus
+    priority: WorkTaskPriority
+    /** Owning project, or null for unfiled work. */
+    project: string | null
+    dueDate?: string
+    /** Where it came from — an email, a meeting, a corridor conversation. */
+    source?: string
+    /** Who owes it, while the status is 'waiting'. */
+    waitingOn: string | null
+    waitingFor?: string
+    /** Server-stamped on entering 'waiting'; the age shown on the Waiting page. */
+    waitingSince?: string
+    /** Server-stamped date of the last chase. */
+    nudgedAt?: string
+    completedAt?: string | null
+    order: number
+    createdAt: string
+    updatedAt: string
+}
