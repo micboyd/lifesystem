@@ -11,44 +11,20 @@ import Drawer from './Drawer'
 import DatePicker from './DatePicker'
 import Pagination from './Pagination'
 import LineIcon from './LineIcon'
+import LogFilterBar, { useLogFilters } from './LogFilterBar'
+import { todayKey } from '../lib/calendar'
+import { formatLogDate, weekStartMonday } from '../lib/logFilters'
 import { listWorkouts } from '../services/workouts'
 import { listLogs, createLog, updateLog, deleteLog, type WorkoutLogInput } from '../services/workoutLogs'
 import type { LoggedSet, Workout, WorkoutLog, WorkoutLogExercise } from '../types'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 10
-
 /** How many exercise chips a collapsed row shows before it says "+N more". */
 const CHIP_LIMIT = 6
 
 function todayISO(): string {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-/** `iso` shifted by `days`, as YYYY-MM-DD. */
-function shiftISO(iso: string, days: number): string {
-    const d = new Date(`${iso}T00:00:00`)
-    d.setDate(d.getDate() + days)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-/** Monday-based start of the ISO week containing `iso`, as YYYY-MM-DD. */
-function weekStartISO(iso: string): string {
-    const d = new Date(`${iso}T00:00:00`)
-    const dow = d.getDay() // 0 = Sun
-    const back = dow === 0 ? 6 : dow - 1
-    d.setDate(d.getDate() - back)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function formatDate(iso: string): string {
-    const d = new Date(`${iso}T00:00:00`)
-    const today = todayISO()
-    if (iso === today) return 'Today'
-    if (iso === shiftISO(today, -1)) return 'Yesterday'
-    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+    return todayKey()
 }
 
 /** Compact "3 × 8-12" / "3 sets" / "8-12 reps" label, or '' when neither is set. */
@@ -103,20 +79,13 @@ type Drawered =
     | { mode: 'edit'; log: WorkoutLog }
     | null
 
-const RANGE_OPTIONS = [
-    { label: 'All time', value: 'all' },
-    { label: 'This week', value: 'week' },
-    { label: 'Last 30 days', value: '30d' },
-    { label: 'Last 90 days', value: '90d' },
-]
-
 /**
  * The Workouts view is a log of completed strength workouts. Each entry is
  * recorded against a library workout, snapshotting its name and exercise lines.
  *
- * The history grows without bound, so it's filtered (search, workout, date
- * range) and paged 10 at a time; rows collapse to a chip summary and open to the
- * full set-by-set breakdown.
+ * The history grows without bound, so it's filtered and paged ten at a time by
+ * the shared log controls; rows collapse to a chip summary and open to the full
+ * set-by-set breakdown.
  */
 export default function WorkoutsLog() {
     const [loading, setLoading] = useState(true)
@@ -124,10 +93,9 @@ export default function WorkoutsLog() {
     const [workouts, setWorkouts] = useState<Workout[]>([])
     const [drawer, setDrawer] = useState<Drawered>(null)
 
-    const [search, setSearch] = useState('')
-    const [nameFilter, setNameFilter] = useState('')
-    const [range, setRange] = useState('all')
-    const [page, setPage] = useState(1)
+    const controls = useLogFilters(logs, {
+        haystack: (l) => [l.notes, ...l.exercises.map((e) => e.name)],
+    })
 
     useEffect(() => {
         Promise.all([listLogs(), listWorkouts()])
@@ -156,7 +124,7 @@ export default function WorkoutsLog() {
     // This-week summary, derived from the whole log rather than the filtered view —
     // it's a training readout, not a description of what's on screen.
     const summary = useMemo(() => {
-        const start = weekStartISO(todayISO())
+        const start = weekStartMonday(todayISO())
         const thisWeek = logs.filter((l) => l.date >= start)
         return {
             count: thisWeek.length,
@@ -165,80 +133,7 @@ export default function WorkoutsLog() {
         }
     }, [logs])
 
-    // Workout names actually present in the log — filtering on the snapshot name
-    // keeps entries whose library workout has since been deleted reachable.
-    const nameOptions = useMemo(() => {
-        const names = [...new Set(logs.map((l) => l.name))].sort((a, b) => a.localeCompare(b))
-        return [{ label: 'All workouts', value: '' }, ...names.map((n) => ({ label: n, value: n }))]
-    }, [logs])
-
-    const filtered = useMemo(() => {
-        const q = search.trim().toLowerCase()
-        const today = todayISO()
-        const from =
-            range === 'week'
-                ? weekStartISO(today)
-                : range === '30d'
-                  ? shiftISO(today, -29)
-                  : range === '90d'
-                    ? shiftISO(today, -89)
-                    : ''
-
-        return logs.filter((l) => {
-            if (from && l.date < from) return false
-            if (nameFilter && l.name !== nameFilter) return false
-            if (!q) return true
-            return (
-                l.name.toLowerCase().includes(q) ||
-                (l.notes ?? '').toLowerCase().includes(q) ||
-                l.exercises.some((e) => e.name.toLowerCase().includes(q))
-            )
-        })
-    }, [logs, search, nameFilter, range])
-
-    const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-
-    // A new filter or a deleted log can leave `page` past the end — pull it back.
-    useEffect(() => {
-        if (page > pageCount) setPage(pageCount)
-    }, [page, pageCount])
-
-    const pageItems = useMemo(
-        () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-        [filtered, page]
-    )
-
-    // Group the current page by day for date headers.
-    const grouped = useMemo(() => {
-        const map = new Map<string, WorkoutLog[]>()
-        for (const l of pageItems) {
-            const arr = map.get(l.date) ?? []
-            arr.push(l)
-            map.set(l.date, arr)
-        }
-        return [...map.entries()] // already sorted: logs come newest-first
-    }, [pageItems])
-
-    const filtersActive = search.trim() !== '' || nameFilter !== '' || range !== 'all'
-
-    function clearFilters() {
-        setSearch('')
-        setNameFilter('')
-        setRange('all')
-        setPage(1)
-    }
-
-    // Every filter change re-pages from the top.
-    function withReset<T>(set: (v: T) => void) {
-        return (v: T) => {
-            set(v)
-            setPage(1)
-        }
-    }
-
     const hasHistory = logs.length > 0
-    const first = (page - 1) * PAGE_SIZE + 1
-    const last = Math.min(page * PAGE_SIZE, filtered.length)
 
     return (
         <>
@@ -309,68 +204,32 @@ export default function WorkoutsLog() {
                 />
             ) : (
                 <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                        <Input
-                            icon="fa-solid fa-magnifying-glass"
-                            type="search"
-                            aria-label="Search logged workouts"
-                            placeholder="Search workouts, exercises, notes…"
-                            value={search}
-                            onChange={(e) => withReset(setSearch)(e.target.value)}
-                            className="w-full sm:w-72"
-                        />
-                        <Select
-                            options={nameOptions}
-                            value={nameFilter}
-                            onChange={withReset(setNameFilter)}
-                            placeholder="All workouts"
-                            icon="fa-solid fa-dumbbell"
-                            className="w-full sm:w-52"
-                        />
-                        <Select
-                            options={RANGE_OPTIONS}
-                            value={range}
-                            onChange={withReset(setRange)}
-                            icon="fa-regular fa-calendar"
-                            className="w-full sm:w-44"
-                        />
-                        {filtersActive && (
-                            <Button variant="ghost" icon="fa-solid fa-xmark" onClick={clearFilters}>
-                                Clear
-                            </Button>
-                        )}
-                    </div>
+                    <LogFilterBar
+                        controls={controls}
+                        searchPlaceholder="Search workouts, exercises, notes…"
+                        nameLabel="All workouts"
+                        nameIcon="fa-solid fa-dumbbell"
+                        noun="logged workout"
+                    />
 
-                    {filtered.length === 0 ? (
+                    {controls.filtered.length === 0 ? (
                         <EmptyState
                             icon="fa-solid fa-magnifying-glass"
                             title="No matches"
                             description="No logged workouts match these filters."
                             action={
-                                <Button variant="secondary" onClick={clearFilters}>
+                                <Button variant="secondary" onClick={controls.clear}>
                                     Clear filters
                                 </Button>
                             }
                         />
                     ) : (
                         <>
-                            <p className="text-xs text-neutral-400">
-                                Showing{' '}
-                                <span className="font-semibold text-neutral-600 tabular-nums">
-                                    {first}–{last}
-                                </span>{' '}
-                                of{' '}
-                                <span className="font-semibold text-neutral-600 tabular-nums">
-                                    {filtered.length}
-                                </span>{' '}
-                                logged {filtered.length === 1 ? 'workout' : 'workouts'}
-                            </p>
-
                             <div className="flex flex-col gap-6">
-                                {grouped.map(([date, dayLogs]) => (
+                                {controls.grouped.map(([date, dayLogs]) => (
                                     <section key={date} className="flex flex-col gap-2">
                                         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                            {formatDate(date)}
+                                            {formatLogDate(date, todayISO())}
                                         </p>
                                         <div className="flex flex-col gap-2">
                                             {dayLogs.map((log) => (
@@ -387,9 +246,9 @@ export default function WorkoutsLog() {
                             </div>
 
                             <Pagination
-                                page={page}
-                                pageCount={pageCount}
-                                onChange={setPage}
+                                page={controls.page}
+                                pageCount={controls.pageCount}
+                                onChange={controls.setPage}
                                 className="mt-2 justify-center"
                             />
                         </>
@@ -433,7 +292,8 @@ function LogRow({
 
     const hasWeights = log.exercises.some((e) => e.loggedSets && e.loggedSets.length > 0)
     const volume = hasWeights ? logVolume(log) : 0
-    const expandable = log.exercises.length > 0
+    // Notes make a row worth opening too — collapsed they're clamped to two lines.
+    const expandable = log.exercises.length > 0 || !!log.notes
     const chips = log.exercises.slice(0, CHIP_LIMIT)
     const hidden = log.exercises.length - chips.length
 
@@ -474,7 +334,7 @@ function LogRow({
                             )}
                         </div>
 
-                        {expandable && (
+                        {log.exercises.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1.5">
                                 {chips.map((ex, i) => {
                                     const best = topSet(ex)
@@ -504,13 +364,7 @@ function LogRow({
                                         +{hidden} more
                                     </span>
                                 )}
-        
-                        {!open && log.notes && (
-                            <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-neutral-500">
-                                {log.notes}
-                            </p>
-                        )}
-                    </div>
+                            </div>
                         )}
 
                         {!open && log.notes && (
@@ -599,7 +453,6 @@ function LogRow({
         </Card>
     )
 }
-
 
 // ─── Log form drawer ────────────────────────────────────────────────────────────
 

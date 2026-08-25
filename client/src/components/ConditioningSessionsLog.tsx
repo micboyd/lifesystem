@@ -9,7 +9,11 @@ import EmptyState from './EmptyState'
 import DropdownMenu from './DropdownMenu'
 import Drawer from './Drawer'
 import DatePicker from './DatePicker'
+import Pagination from './Pagination'
 import LineIcon from './LineIcon'
+import LogFilterBar, { useLogFilters } from './LogFilterBar'
+import { todayKey } from '../lib/calendar'
+import { formatLogDate, weekStartMonday } from '../lib/logFilters'
 import { listSessions } from '../services/conditioning'
 import {
     listLogs,
@@ -23,29 +27,11 @@ import type { ConditioningLog, ConditioningSession, ConditioningCategory } from 
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
+/** How many round chips a collapsed row shows before it says "+N more". */
+const CHIP_LIMIT = 6
+
 function todayISO(): string {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-/** Monday-based start of the ISO week containing `iso`, as YYYY-MM-DD. */
-function weekStartISO(iso: string): string {
-    const d = new Date(`${iso}T00:00:00`)
-    const dow = d.getDay() // 0 = Sun
-    const back = dow === 0 ? 6 : dow - 1
-    d.setDate(d.getDate() - back)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function formatDate(iso: string): string {
-    const d = new Date(`${iso}T00:00:00`)
-    const today = todayISO()
-    if (iso === today) return 'Today'
-    const yd = new Date(`${today}T00:00:00`)
-    yd.setDate(yd.getDate() - 1)
-    const ydIso = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`
-    if (iso === ydIso) return 'Yesterday'
-    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+    return todayKey()
 }
 
 const CATEGORY_META: Record<ConditioningCategory, string> = {
@@ -66,6 +52,11 @@ function CategoryChip({ category }: { category: ConditioningCategory }) {
     )
 }
 
+const CATEGORY_OPTIONS = [
+    { label: 'All categories', value: '' },
+    ...CONDITIONING_CATEGORIES.map((c) => ({ label: c, value: c })),
+]
+
 // ─── Sessions log ─────────────────────────────────────────────────────────────────
 
 type Drawered =
@@ -76,12 +67,25 @@ type Drawered =
 /**
  * The Sessions view is a log of completed conditioning sessions. Each entry is
  * recorded against a library session, snapshotting its name and category.
+ *
+ * Like the strength log it's filtered and paged ten at a time by the shared log
+ * controls, with a category select slotted in alongside them.
  */
 export default function ConditioningSessionsLog() {
     const [loading, setLoading] = useState(true)
     const [logs, setLogs] = useState<ConditioningLog[]>([])
     const [sessions, setSessions] = useState<ConditioningSession[]>([])
     const [drawer, setDrawer] = useState<Drawered>(null)
+    const [category, setCategory] = useState('')
+
+    const controls = useLogFilters(logs, {
+        haystack: (l) => [l.notes, l.category, ...(l.rounds ?? []).map((r) => r.name)],
+        extra: {
+            match: (l) => !category || l.category === category,
+            value: category,
+            clear: () => setCategory(''),
+        },
+    })
 
     useEffect(() => {
         Promise.all([listLogs(), listSessions()])
@@ -107,42 +111,55 @@ export default function ConditioningSessionsLog() {
         await deleteLog(id)
     }
 
-    // This-week summary, derived from the log.
+    // This-week summary, derived from the whole log rather than the filtered view —
+    // it's a training readout, not a description of what's on screen.
     const summary = useMemo(() => {
-        const start = weekStartISO(todayISO())
+        const start = weekStartMonday(todayISO())
         const thisWeek = logs.filter((l) => l.date >= start)
-        const minutes = thisWeek.reduce((sum, l) => sum + (l.duration || 0), 0)
-        return { count: thisWeek.length, minutes }
+        const rated = thisWeek.filter((l) => l.rpe != null)
+        return {
+            count: thisWeek.length,
+            minutes: thisWeek.reduce((sum, l) => sum + (l.duration || 0), 0),
+            rpe: rated.length
+                ? Math.round((rated.reduce((sum, l) => sum + (l.rpe ?? 0), 0) / rated.length) * 10) / 10
+                : null,
+        }
     }, [logs])
 
-    // Group the log by day for date headers.
-    const grouped = useMemo(() => {
-        const map = new Map<string, ConditioningLog[]>()
-        for (const l of logs) {
-            const arr = map.get(l.date) ?? []
-            arr.push(l)
-            map.set(l.date, arr)
-        }
-        return [...map.entries()] // already sorted: logs come newest-first
-    }, [logs])
+    const hasHistory = logs.length > 0
 
     return (
         <>
             <div className="flex flex-wrap items-center justify-between gap-3">
-                {logs.length > 0 ? (
-                    <p className="text-sm text-neutral-500">
-                        <span className="font-semibold text-neutral-900">{summary.count}</span>{' '}
-                        {summary.count === 1 ? 'session' : 'sessions'} this week
+                {hasHistory ? (
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-neutral-500">
+                        <span>
+                            <span className="font-semibold text-neutral-900">{summary.count}</span>{' '}
+                            {summary.count === 1 ? 'session' : 'sessions'} this week
+                        </span>
                         {summary.minutes > 0 && (
-                            <>
-                                {' · '}
+                            <span>
+                                <i
+                                    className="fa-regular fa-clock mr-1.5 text-neutral-300"
+                                    aria-hidden="true"
+                                />
                                 <span className="font-semibold text-neutral-900">
                                     {summary.minutes}
                                 </span>{' '}
                                 min
-                            </>
+                            </span>
                         )}
-                    </p>
+                        {summary.rpe != null && (
+                            <span>
+                                <i
+                                    className="fa-solid fa-gauge-high mr-1.5 text-neutral-300"
+                                    aria-hidden="true"
+                                />
+                                avg RPE{' '}
+                                <span className="font-semibold text-neutral-900">{summary.rpe}</span>
+                            </span>
+                        )}
+                    </div>
                 ) : (
                     <span />
                 )}
@@ -159,13 +176,13 @@ export default function ConditioningSessionsLog() {
                 <div className="grid place-items-center py-16">
                     <Spinner />
                 </div>
-            ) : sessions.length === 0 ? (
+            ) : sessions.length === 0 && !hasHistory ? (
                 <EmptyState
                     icon="fa-solid fa-heart-pulse"
                     title="No sessions to log"
                     description="Add a session to your Session Library first, then record it here once completed."
                 />
-            ) : logs.length === 0 ? (
+            ) : !hasHistory ? (
                 <EmptyState
                     icon="fa-solid fa-stopwatch"
                     title="No sessions logged yet"
@@ -177,24 +194,68 @@ export default function ConditioningSessionsLog() {
                     }
                 />
             ) : (
-                <div className="flex flex-col gap-6">
-                    {grouped.map(([date, dayLogs]) => (
-                        <section key={date} className="flex flex-col gap-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                {formatDate(date)}
-                            </p>
-                            <div className="flex flex-col gap-2">
-                                {dayLogs.map((log) => (
-                                    <LogRow
-                                        key={log._id}
-                                        log={log}
-                                        onEdit={() => setDrawer({ mode: 'edit', log })}
-                                        onDelete={() => handleDelete(log._id)}
-                                    />
+                <div className="flex flex-col gap-4">
+                    <LogFilterBar
+                        controls={controls}
+                        searchPlaceholder="Search sessions, rounds, notes…"
+                        nameLabel="All sessions"
+                        nameIcon="fa-solid fa-heart-pulse"
+                        noun="logged session"
+                    >
+                        <Select
+                            options={CATEGORY_OPTIONS}
+                            value={category}
+                            onChange={(v) => {
+                                setCategory(v)
+                                controls.setPage(1)
+                            }}
+                            placeholder="All categories"
+                            icon="fa-solid fa-tag"
+                            className="w-full sm:w-44"
+                        />
+                    </LogFilterBar>
+
+                    {controls.filtered.length === 0 ? (
+                        <EmptyState
+                            icon="fa-solid fa-magnifying-glass"
+                            title="No matches"
+                            description="No logged sessions match these filters."
+                            action={
+                                <Button variant="secondary" onClick={controls.clear}>
+                                    Clear filters
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <>
+                            <div className="flex flex-col gap-6">
+                                {controls.grouped.map(([date, dayLogs]) => (
+                                    <section key={date} className="flex flex-col gap-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                            {formatLogDate(date, todayISO())}
+                                        </p>
+                                        <div className="flex flex-col gap-2">
+                                            {dayLogs.map((log) => (
+                                                <LogRow
+                                                    key={log._id}
+                                                    log={log}
+                                                    onEdit={() => setDrawer({ mode: 'edit', log })}
+                                                    onDelete={() => handleDelete(log._id)}
+                                                />
+                                            ))}
+                                        </div>
+                                    </section>
                                 ))}
                             </div>
-                        </section>
-                    ))}
+
+                            <Pagination
+                                page={controls.page}
+                                pageCount={controls.pageCount}
+                                onChange={controls.setPage}
+                                className="mt-2 justify-center"
+                            />
+                        </>
+                    )}
                 </div>
             )}
 
@@ -217,6 +278,10 @@ function sortLogs(logs: ConditioningLog[]): ConditioningLog[] {
 
 // ─── Log row ──────────────────────────────────────────────────────────────────────
 
+/**
+ * One logged session. Collapsed it's a scannable line with the first few rounds;
+ * expanding it shows every round and the full notes.
+ */
 function LogRow({
     log,
     onEdit,
@@ -226,68 +291,119 @@ function LogRow({
     onEdit: () => void
     onDelete: () => void
 }) {
+    const [open, setOpen] = useState(false)
+
+    const rounds = log.rounds ?? []
+    const hidden = open ? 0 : Math.max(0, rounds.length - CHIP_LIMIT)
+    const shown = open ? rounds : rounds.slice(0, CHIP_LIMIT)
+    // Only worth opening when something is actually held back.
+    const expandable = hidden > 0 || rounds.length > CHIP_LIMIT || !!log.notes
+
     return (
-        <Card as="div" hover={false} className="flex items-start gap-3 !p-4">
-            <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold text-neutral-900">{log.name}</p>
-                    <CategoryChip category={log.category} />
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
-                    <span>
-                        <i className="fa-regular fa-clock mr-1" aria-hidden="true" />
-                        {log.duration} min
-                    </span>
-                    {log.rpe != null && (
-                        <span>
-                            <i className="fa-solid fa-gauge-high mr-1" aria-hidden="true" />
-                            RPE {log.rpe}
-                        </span>
-                    )}
-                </div>
-                {log.rounds && log.rounds.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                        {log.rounds.map((r, i) => {
-                            const done = r.done >= r.target
-                            return (
-                                <span
-                                    key={i}
-                                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${
-                                        done
-                                            ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
-                                            : 'bg-neutral-50 text-neutral-600 ring-neutral-300'
-                                    }`}
-                                >
-                                    <i
-                                        className={`fa-solid ${done ? 'fa-check' : 'fa-repeat'} text-[9px]`}
-                                        aria-hidden="true"
-                                    />
-                                    {r.name} {r.done}/{r.target}
+        <Card as="div" hover={false} className="!p-0">
+            <div className="flex items-start gap-2 p-4">
+                <button
+                    type="button"
+                    onClick={() => expandable && setOpen((o) => !o)}
+                    aria-expanded={expandable ? open : undefined}
+                    className={[
+                        'flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left',
+                        expandable ? 'cursor-pointer' : 'cursor-default',
+                    ].join(' ')}
+                >
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-neutral-900">{log.name}</p>
+                            <CategoryChip category={log.category} />
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+                            <span>
+                                <i className="fa-regular fa-clock mr-1" aria-hidden="true" />
+                                {log.duration} min
+                            </span>
+                            {log.rpe != null && (
+                                <span>
+                                    <i className="fa-solid fa-gauge-high mr-1" aria-hidden="true" />
+                                    RPE {log.rpe}
                                 </span>
-                            )
-                        })}
+                            )}
+                            {rounds.length > 0 && (
+                                <span>
+                                    <i className="fa-solid fa-repeat mr-1" aria-hidden="true" />
+                                    {rounds.length} {rounds.length === 1 ? 'round' : 'rounds'}
+                                </span>
+                            )}
+                        </div>
+
+                        {shown.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                {shown.map((r, i) => {
+                                    const done = r.done >= r.target
+                                    return (
+                                        <span
+                                            key={i}
+                                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${
+                                                done
+                                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
+                                                    : 'bg-neutral-50 text-neutral-600 ring-neutral-300'
+                                            }`}
+                                        >
+                                            <i
+                                                className={`fa-solid ${done ? 'fa-check' : 'fa-repeat'} text-[9px]`}
+                                                aria-hidden="true"
+                                            />
+                                            {r.name} {r.done}/{r.target}
+                                        </span>
+                                    )
+                                })}
+                                {hidden > 0 && (
+                                    <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium text-neutral-400">
+                                        +{hidden} more
+                                    </span>
+                                )}
+                            </div>
+                        )}
+
+                        {log.notes && (
+                            <p
+                                className={[
+                                    'mt-2 whitespace-pre-wrap text-sm text-neutral-500',
+                                    open ? '' : 'line-clamp-2',
+                                ].join(' ')}
+                            >
+                                {log.notes}
+                            </p>
+                        )}
                     </div>
-                )}
-                {log.notes && (
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-500">{log.notes}</p>
-                )}
+
+                    {expandable && (
+                        <i
+                            className={[
+                                'fa-solid fa-chevron-down mt-1 shrink-0 text-xs text-neutral-300 transition-transform duration-150',
+                                open ? 'rotate-180' : '',
+                            ].join(' ')}
+                            aria-hidden="true"
+                        />
+                    )}
+                </button>
+
+                <DropdownMenu
+                    align="right"
+                    className="-mr-1 -mt-1 shrink-0"
+                    trigger={
+                        <span
+                            aria-label="Log actions"
+                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                        >
+                            <LineIcon name="more" className="h-4 w-4" />
+                        </span>
+                    }
+                    items={[
+                        { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onEdit },
+                        { label: 'Delete', icon: 'fa-solid fa-trash-can', danger: true, onClick: onDelete },
+                    ]}
+                />
             </div>
-            <DropdownMenu
-                align="right"
-                className="-mr-1 -mt-1 shrink-0"
-                trigger={
-                    <span
-                        aria-label="Log actions"
-                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                    >
-                        <LineIcon name="more" className="h-4 w-4" />
-                    </span>
-                }
-                items={[
-                    { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onEdit },
-                    { label: 'Delete', icon: 'fa-solid fa-trash-can', danger: true, onClick: onDelete },
-                ]}
-            />
         </Card>
     )
 }
