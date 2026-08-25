@@ -34,6 +34,12 @@ export interface WorkoutLogDraft {
     date: string
     notes: string
     exercises: DraftExercise[]
+    /**
+     * The log this session has already been saved to, once it has been. Kept with
+     * the draft so reopening the workout carries on writing to the same record
+     * instead of logging the session a second time.
+     */
+    logId?: string
     /** ms since epoch of the last write. */
     savedAt: number
 }
@@ -124,6 +130,7 @@ export function readDraft(
             date: parsed.date,
             notes: typeof parsed.notes === 'string' ? parsed.notes : '',
             exercises,
+            ...(typeof parsed.logId === 'string' && parsed.logId ? { logId: parsed.logId } : {}),
             savedAt: parsed.savedAt,
         }
     } catch {

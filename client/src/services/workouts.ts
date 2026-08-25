@@ -11,9 +11,38 @@ export interface WorkoutInput {
     exercises?: WorkoutExercise[]
 }
 
+/** The server's paginated list envelope: workouts plus page metadata. */
+interface WorkoutListResponse extends ApiResponse<Workout[]> {
+    page: number
+    pages: number
+    total: number
+}
+
+/** One page of the workout library. */
+export interface WorkoutsPage {
+    workouts: Workout[]
+    page: number
+    pages: number
+    total: number
+}
+
+/** The whole library in one go — for the planner, the export centre and the log. */
 export async function listWorkouts(): Promise<Workout[]> {
-    const res = await api.get<ApiResponse<Workout[]>>('/workouts')
+    const res = await api.get<WorkoutListResponse>('/workouts', { params: { all: 1 } })
     return res.data.data
+}
+
+/**
+ * A single page of the library (20 per page), optionally filtered by a search
+ * term that the server matches against the workout's name and description and
+ * the names of the exercises it contains.
+ */
+export async function listWorkoutsPage(page: number, search?: string): Promise<WorkoutsPage> {
+    const res = await api.get<WorkoutListResponse>('/workouts', {
+        params: { page, search: search?.trim() || undefined },
+    })
+    const d = res.data
+    return { workouts: d.data, page: d.page, pages: d.pages, total: d.total }
 }
 
 export async function createWorkout(fields: WorkoutInput): Promise<Workout> {

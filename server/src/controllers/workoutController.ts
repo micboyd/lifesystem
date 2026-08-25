@@ -64,10 +64,57 @@ async function toWorkoutExercises(raw: unknown, userId: unknown): Promise<IWorko
         .map((e) => ({ exercise: new Types.ObjectId(e.id), ...e.line }))
 }
 
-/** GET /api/workouts — list the user's workouts in library order. */
+/** Workouts returned per page by the paginated list endpoint. */
+const PAGE_SIZE = 20
+
+/** Escape a user-supplied search term so it's matched literally by $regex. */
+function escapeRegExp(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * GET /api/workouts — list the user's workouts in library order.
+ *
+ * Paginated by default (20 per page): `?page=2`. A `?search=` term matches the
+ * workout's name or description, or the name of any exercise it contains — the
+ * same three fields the library grid used to filter on client-side. Pass
+ * `?all=1` to get the whole library in one go (the planner, the export centre
+ * and the workout log all need every workout). The response carries `page`,
+ * `pages` and `total` alongside `data`.
+ */
 export async function listWorkouts(req: AuthRequest, res: Response) {
-    const workouts = await Workout.find({ user: req.userId }).sort({ order: 1, createdAt: 1 })
-    res.json({ message: 'OK', data: workouts })
+    const query: Record<string, unknown> = { user: req.userId }
+
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''
+    if (search) {
+        const rx = { $regex: escapeRegExp(search), $options: 'i' }
+        // Workouts don't store exercise names, so resolve the matching library
+        // exercises first and match their ids against the workout's lines.
+        const matched = await Exercise.find({ user: req.userId, name: rx }).select('_id')
+        query.$or = [
+            { name: rx },
+            { description: rx },
+            ...(matched.length ? [{ 'exercises.exercise': { $in: matched.map((e) => e._id) } }] : []),
+        ]
+    }
+
+    const sort = { order: 1 as const, createdAt: 1 as const }
+
+    if (req.query.all) {
+        const workouts = await Workout.find(query).sort(sort)
+        res.json({ message: 'OK', data: workouts, page: 1, pages: 1, total: workouts.length })
+        return
+    }
+
+    const page = Math.max(1, Math.floor(Number(req.query.page)) || 1)
+    const total = await Workout.countDocuments(query)
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+    const workouts = await Workout.find(query)
+        .sort(sort)
+        .skip((page - 1) * PAGE_SIZE)
+        .limit(PAGE_SIZE)
+
+    res.json({ message: 'OK', data: workouts, page, pages, total })
 }
 
 /** POST /api/workouts — create a workout, appended to the end of the library. */

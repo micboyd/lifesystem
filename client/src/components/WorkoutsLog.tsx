@@ -9,6 +9,7 @@ import EmptyState from './EmptyState'
 import DropdownMenu from './DropdownMenu'
 import Drawer from './Drawer'
 import DatePicker from './DatePicker'
+import Pagination from './Pagination'
 import LineIcon from './LineIcon'
 import { listWorkouts } from '../services/workouts'
 import { listLogs, createLog, updateLog, deleteLog, type WorkoutLogInput } from '../services/workoutLogs'
@@ -16,8 +17,20 @@ import type { LoggedSet, Workout, WorkoutLog, WorkoutLogExercise } from '../type
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 10
+
+/** How many exercise chips a collapsed row shows before it says "+N more". */
+const CHIP_LIMIT = 6
+
 function todayISO(): string {
     const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** `iso` shifted by `days`, as YYYY-MM-DD. */
+function shiftISO(iso: string, days: number): string {
+    const d = new Date(`${iso}T00:00:00`)
+    d.setDate(d.getDate() + days)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
@@ -34,10 +47,7 @@ function formatDate(iso: string): string {
     const d = new Date(`${iso}T00:00:00`)
     const today = todayISO()
     if (iso === today) return 'Today'
-    const yd = new Date(`${today}T00:00:00`)
-    yd.setDate(yd.getDate() - 1)
-    const ydIso = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`
-    if (iso === ydIso) return 'Yesterday'
+    if (iso === shiftISO(today, -1)) return 'Yesterday'
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 }
 
@@ -59,6 +69,22 @@ function formatSet(s: LoggedSet): string {
     return ''
 }
 
+/** Heaviest set performed on an exercise — what a collapsed row is worth showing. */
+function topSet(e: WorkoutLogExercise): LoggedSet | undefined {
+    let best: LoggedSet | undefined
+    for (const s of e.loggedSets ?? []) {
+        if (s.weight == null && s.reps == null) continue
+        if (!best) {
+            best = s
+            continue
+        }
+        const bw = best.weight ?? -1
+        const sw = s.weight ?? -1
+        if (sw > bw || (sw === bw && (s.reps ?? 0) > (best.reps ?? 0))) best = s
+    }
+    return best
+}
+
 /** Total training volume (Σ weight × reps) recorded across a log, in kg. */
 function logVolume(log: WorkoutLog): number {
     let total = 0
@@ -77,15 +103,31 @@ type Drawered =
     | { mode: 'edit'; log: WorkoutLog }
     | null
 
+const RANGE_OPTIONS = [
+    { label: 'All time', value: 'all' },
+    { label: 'This week', value: 'week' },
+    { label: 'Last 30 days', value: '30d' },
+    { label: 'Last 90 days', value: '90d' },
+]
+
 /**
  * The Workouts view is a log of completed strength workouts. Each entry is
  * recorded against a library workout, snapshotting its name and exercise lines.
+ *
+ * The history grows without bound, so it's filtered (search, workout, date
+ * range) and paged 10 at a time; rows collapse to a chip summary and open to the
+ * full set-by-set breakdown.
  */
 export default function WorkoutsLog() {
     const [loading, setLoading] = useState(true)
     const [logs, setLogs] = useState<WorkoutLog[]>([])
     const [workouts, setWorkouts] = useState<Workout[]>([])
     const [drawer, setDrawer] = useState<Drawered>(null)
+
+    const [search, setSearch] = useState('')
+    const [nameFilter, setNameFilter] = useState('')
+    const [range, setRange] = useState('all')
+    const [page, setPage] = useState(1)
 
     useEffect(() => {
         Promise.all([listLogs(), listWorkouts()])
@@ -111,42 +153,127 @@ export default function WorkoutsLog() {
         await deleteLog(id)
     }
 
-    // This-week summary, derived from the log.
+    // This-week summary, derived from the whole log rather than the filtered view —
+    // it's a training readout, not a description of what's on screen.
     const summary = useMemo(() => {
         const start = weekStartISO(todayISO())
         const thisWeek = logs.filter((l) => l.date >= start)
-        const minutes = thisWeek.reduce((sum, l) => sum + (l.durationMin || 0), 0)
-        return { count: thisWeek.length, minutes }
+        return {
+            count: thisWeek.length,
+            minutes: thisWeek.reduce((sum, l) => sum + (l.durationMin || 0), 0),
+            volume: thisWeek.reduce((sum, l) => sum + logVolume(l), 0),
+        }
     }, [logs])
 
-    // Group the log by day for date headers.
+    // Workout names actually present in the log — filtering on the snapshot name
+    // keeps entries whose library workout has since been deleted reachable.
+    const nameOptions = useMemo(() => {
+        const names = [...new Set(logs.map((l) => l.name))].sort((a, b) => a.localeCompare(b))
+        return [{ label: 'All workouts', value: '' }, ...names.map((n) => ({ label: n, value: n }))]
+    }, [logs])
+
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase()
+        const today = todayISO()
+        const from =
+            range === 'week'
+                ? weekStartISO(today)
+                : range === '30d'
+                  ? shiftISO(today, -29)
+                  : range === '90d'
+                    ? shiftISO(today, -89)
+                    : ''
+
+        return logs.filter((l) => {
+            if (from && l.date < from) return false
+            if (nameFilter && l.name !== nameFilter) return false
+            if (!q) return true
+            return (
+                l.name.toLowerCase().includes(q) ||
+                (l.notes ?? '').toLowerCase().includes(q) ||
+                l.exercises.some((e) => e.name.toLowerCase().includes(q))
+            )
+        })
+    }, [logs, search, nameFilter, range])
+
+    const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+
+    // A new filter or a deleted log can leave `page` past the end — pull it back.
+    useEffect(() => {
+        if (page > pageCount) setPage(pageCount)
+    }, [page, pageCount])
+
+    const pageItems = useMemo(
+        () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+        [filtered, page]
+    )
+
+    // Group the current page by day for date headers.
     const grouped = useMemo(() => {
         const map = new Map<string, WorkoutLog[]>()
-        for (const l of logs) {
+        for (const l of pageItems) {
             const arr = map.get(l.date) ?? []
             arr.push(l)
             map.set(l.date, arr)
         }
         return [...map.entries()] // already sorted: logs come newest-first
-    }, [logs])
+    }, [pageItems])
+
+    const filtersActive = search.trim() !== '' || nameFilter !== '' || range !== 'all'
+
+    function clearFilters() {
+        setSearch('')
+        setNameFilter('')
+        setRange('all')
+        setPage(1)
+    }
+
+    // Every filter change re-pages from the top.
+    function withReset<T>(set: (v: T) => void) {
+        return (v: T) => {
+            set(v)
+            setPage(1)
+        }
+    }
+
+    const hasHistory = logs.length > 0
+    const first = (page - 1) * PAGE_SIZE + 1
+    const last = Math.min(page * PAGE_SIZE, filtered.length)
 
     return (
         <>
             <div className="flex flex-wrap items-center justify-between gap-3">
-                {logs.length > 0 ? (
-                    <p className="text-sm text-neutral-500">
-                        <span className="font-semibold text-neutral-900">{summary.count}</span>{' '}
-                        {summary.count === 1 ? 'workout' : 'workouts'} this week
+                {hasHistory ? (
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-neutral-500">
+                        <span>
+                            <span className="font-semibold text-neutral-900">{summary.count}</span>{' '}
+                            {summary.count === 1 ? 'workout' : 'workouts'} this week
+                        </span>
                         {summary.minutes > 0 && (
-                            <>
-                                {' · '}
+                            <span>
+                                <i
+                                    className="fa-regular fa-clock mr-1.5 text-neutral-300"
+                                    aria-hidden="true"
+                                />
                                 <span className="font-semibold text-neutral-900">
                                     {summary.minutes}
                                 </span>{' '}
                                 min
-                            </>
+                            </span>
                         )}
-                    </p>
+                        {summary.volume > 0 && (
+                            <span>
+                                <i
+                                    className="fa-solid fa-weight-hanging mr-1.5 text-neutral-300"
+                                    aria-hidden="true"
+                                />
+                                <span className="font-semibold text-neutral-900">
+                                    {summary.volume.toLocaleString()}
+                                </span>{' '}
+                                kg
+                            </span>
+                        )}
+                    </div>
                 ) : (
                     <span />
                 )}
@@ -163,13 +290,13 @@ export default function WorkoutsLog() {
                 <div className="grid place-items-center py-16">
                     <Spinner />
                 </div>
-            ) : workouts.length === 0 ? (
+            ) : workouts.length === 0 && !hasHistory ? (
                 <EmptyState
                     icon="fa-solid fa-dumbbell"
                     title="No workouts to log"
                     description="Build a workout in your Workouts Library first, then record it here once completed — or hit Done from a workout."
                 />
-            ) : logs.length === 0 ? (
+            ) : !hasHistory ? (
                 <EmptyState
                     icon="fa-solid fa-clipboard-check"
                     title="No workouts logged yet"
@@ -181,24 +308,92 @@ export default function WorkoutsLog() {
                     }
                 />
             ) : (
-                <div className="flex flex-col gap-6">
-                    {grouped.map(([date, dayLogs]) => (
-                        <section key={date} className="flex flex-col gap-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                {formatDate(date)}
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                        <Input
+                            icon="fa-solid fa-magnifying-glass"
+                            type="search"
+                            aria-label="Search logged workouts"
+                            placeholder="Search workouts, exercises, notes…"
+                            value={search}
+                            onChange={(e) => withReset(setSearch)(e.target.value)}
+                            className="w-full sm:w-72"
+                        />
+                        <Select
+                            options={nameOptions}
+                            value={nameFilter}
+                            onChange={withReset(setNameFilter)}
+                            placeholder="All workouts"
+                            icon="fa-solid fa-dumbbell"
+                            className="w-full sm:w-52"
+                        />
+                        <Select
+                            options={RANGE_OPTIONS}
+                            value={range}
+                            onChange={withReset(setRange)}
+                            icon="fa-regular fa-calendar"
+                            className="w-full sm:w-44"
+                        />
+                        {filtersActive && (
+                            <Button variant="ghost" icon="fa-solid fa-xmark" onClick={clearFilters}>
+                                Clear
+                            </Button>
+                        )}
+                    </div>
+
+                    {filtered.length === 0 ? (
+                        <EmptyState
+                            icon="fa-solid fa-magnifying-glass"
+                            title="No matches"
+                            description="No logged workouts match these filters."
+                            action={
+                                <Button variant="secondary" onClick={clearFilters}>
+                                    Clear filters
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <>
+                            <p className="text-xs text-neutral-400">
+                                Showing{' '}
+                                <span className="font-semibold text-neutral-600 tabular-nums">
+                                    {first}–{last}
+                                </span>{' '}
+                                of{' '}
+                                <span className="font-semibold text-neutral-600 tabular-nums">
+                                    {filtered.length}
+                                </span>{' '}
+                                logged {filtered.length === 1 ? 'workout' : 'workouts'}
                             </p>
-                            <div className="flex flex-col gap-2">
-                                {dayLogs.map((log) => (
-                                    <LogRow
-                                        key={log._id}
-                                        log={log}
-                                        onEdit={() => setDrawer({ mode: 'edit', log })}
-                                        onDelete={() => handleDelete(log._id)}
-                                    />
+
+                            <div className="flex flex-col gap-6">
+                                {grouped.map(([date, dayLogs]) => (
+                                    <section key={date} className="flex flex-col gap-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                            {formatDate(date)}
+                                        </p>
+                                        <div className="flex flex-col gap-2">
+                                            {dayLogs.map((log) => (
+                                                <LogRow
+                                                    key={log._id}
+                                                    log={log}
+                                                    onEdit={() => setDrawer({ mode: 'edit', log })}
+                                                    onDelete={() => handleDelete(log._id)}
+                                                />
+                                            ))}
+                                        </div>
+                                    </section>
                                 ))}
                             </div>
-                        </section>
-                    ))}
+
+                            <Pagination
+                                page={page}
+                                pageCount={pageCount}
+                                onChange={setPage}
+                                className="mt-2 justify-center"
+                            />
+                        </>
+                    )}
                 </div>
             )}
 
@@ -221,6 +416,10 @@ function sortLogs(logs: WorkoutLog[]): WorkoutLog[] {
 
 // ─── Log row ──────────────────────────────────────────────────────────────────────
 
+/**
+ * One logged session. Collapsed it's a single scannable line — name, totals and
+ * a chip per exercise with its top set. Expanding it itemises every set.
+ */
 function LogRow({
     log,
     onEdit,
@@ -230,122 +429,177 @@ function LogRow({
     onEdit: () => void
     onDelete: () => void
 }) {
-    // When any set weights were recorded, itemise them per exercise; otherwise
-    // fall back to the compact name + prescription pills.
+    const [open, setOpen] = useState(false)
+
     const hasWeights = log.exercises.some((e) => e.loggedSets && e.loggedSets.length > 0)
     const volume = hasWeights ? logVolume(log) : 0
+    const expandable = log.exercises.length > 0
+    const chips = log.exercises.slice(0, CHIP_LIMIT)
+    const hidden = log.exercises.length - chips.length
 
     return (
-        <Card as="div" hover={false} className="flex items-start gap-3 !p-4">
-            <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <p className="font-semibold text-neutral-900">{log.name}</p>
-                    <span className="text-xs text-neutral-400">
-                        <i className="fa-solid fa-dumbbell mr-1" aria-hidden="true" />
-                        {log.exercises.length}{' '}
-                        {log.exercises.length === 1 ? 'exercise' : 'exercises'}
-                    </span>
-                    {volume > 0 && (
-                        <span className="text-xs text-neutral-400">
-                            <i className="fa-solid fa-weight-hanging mr-1" aria-hidden="true" />
-                            {volume.toLocaleString()} kg
-                        </span>
+        <Card as="div" hover={false} className="!p-0">
+            <div className="flex items-start gap-2 p-4">
+                <button
+                    type="button"
+                    onClick={() => expandable && setOpen((o) => !o)}
+                    aria-expanded={expandable ? open : undefined}
+                    className={[
+                        'flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left',
+                        expandable ? 'cursor-pointer' : 'cursor-default',
+                    ].join(' ')}
+                >
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <p className="font-semibold text-neutral-900">{log.name}</p>
+                            <span className="text-xs text-neutral-400">
+                                <i className="fa-solid fa-dumbbell mr-1" aria-hidden="true" />
+                                {log.exercises.length}{' '}
+                                {log.exercises.length === 1 ? 'exercise' : 'exercises'}
+                            </span>
+                            {volume > 0 && (
+                                <span className="text-xs text-neutral-400">
+                                    <i
+                                        className="fa-solid fa-weight-hanging mr-1"
+                                        aria-hidden="true"
+                                    />
+                                    {volume.toLocaleString()} kg
+                                </span>
+                            )}
+                            {log.durationMin != null && log.durationMin > 0 && (
+                                <span className="text-xs text-neutral-400">
+                                    <i className="fa-regular fa-clock mr-1" aria-hidden="true" />
+                                    {log.durationMin} min
+                                </span>
+                            )}
+                        </div>
+
+                        {expandable && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                {chips.map((ex, i) => {
+                                    const best = topSet(ex)
+                                    const detail = best ? formatSet(best) : formatSetsReps(ex)
+                                    return (
+                                        <span
+                                            key={i}
+                                            className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600"
+                                        >
+                                            {ex.name}
+                                            {detail && (
+                                                <span
+                                                    className={
+                                                        best
+                                                            ? 'font-semibold tabular-nums text-coral-600'
+                                                            : 'text-coral-600'
+                                                    }
+                                                >
+                                                    {detail}
+                                                </span>
+                                            )}
+                                        </span>
+                                    )
+                                })}
+                                {hidden > 0 && (
+                                    <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium text-neutral-400">
+                                        +{hidden} more
+                                    </span>
+                                )}
+        
+                        {!open && log.notes && (
+                            <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-neutral-500">
+                                {log.notes}
+                            </p>
+                        )}
+                    </div>
+                        )}
+
+                        {!open && log.notes && (
+                            <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-neutral-500">
+                                {log.notes}
+                            </p>
+                        )}
+                    </div>
+
+                    {expandable && (
+                        <i
+                            className={[
+                                'fa-solid fa-chevron-down mt-1 shrink-0 text-xs text-neutral-300 transition-transform duration-150',
+                                open ? 'rotate-180' : '',
+                            ].join(' ')}
+                            aria-hidden="true"
+                        />
                     )}
-                    {log.durationMin != null && log.durationMin > 0 && (
-                        <span className="text-xs text-neutral-400">
-                            <i className="fa-regular fa-clock mr-1" aria-hidden="true" />
-                            {log.durationMin} min
+                </button>
+
+                <DropdownMenu
+                    align="right"
+                    className="-mr-1 -mt-1 shrink-0"
+                    trigger={
+                        <span
+                            aria-label="Log actions"
+                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                        >
+                            <LineIcon name="more" className="h-4 w-4" />
                         </span>
+                    }
+                    items={[
+                        { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onEdit },
+                        { label: 'Delete', icon: 'fa-solid fa-trash-can', danger: true, onClick: onDelete },
+                    ]}
+                />
+            </div>
+
+            {open && expandable && (
+                <div className="border-t border-neutral-100 px-4 py-3">
+                    <ul className="flex flex-col gap-1.5">
+                        {log.exercises.map((ex, i) => {
+                            const sets = ex.loggedSets ?? []
+                            return (
+                                <li key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                    <span className="text-sm font-medium text-neutral-800">
+                                        {ex.name}
+                                    </span>
+                                    {ex.substitutedFor && (
+                                        <span
+                                            className="text-[11px] text-neutral-400"
+                                            title={`Swapped in for ${ex.substitutedFor}`}
+                                        >
+                                            for {ex.substitutedFor}
+                                        </span>
+                                    )}
+                                    {sets.length > 0 ? (
+                                        sets.map((s, j) => {
+                                            const label = formatSet(s)
+                                            return label ? (
+                                                <span
+                                                    key={j}
+                                                    className="inline-flex items-center rounded-md bg-coral-50 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-coral-700"
+                                                >
+                                                    {label}
+                                                </span>
+                                            ) : null
+                                        })
+                                    ) : (
+                                        <span className="text-[11px] text-neutral-400">
+                                            {formatSetsReps(ex) || 'no sets recorded'}
+                                        </span>
+                                    )}
+                                </li>
+                            )
+                        })}
+                    </ul>
+
+                    {log.notes && (
+                        <p className="mt-3 whitespace-pre-wrap border-t border-neutral-100 pt-3 text-sm text-neutral-500">
+                            {log.notes}
+                        </p>
                     )}
                 </div>
-
-                {log.exercises.length > 0 &&
-                    (hasWeights ? (
-                        <ul className="mt-2.5 flex flex-col gap-1.5">
-                            {log.exercises.map((ex, i) => {
-                                const sets = ex.loggedSets ?? []
-                                return (
-                                    <li key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                                        <span className="text-sm font-medium text-neutral-800">
-                                            {ex.name}
-                                        </span>
-                                        {ex.substitutedFor && (
-                                            <span
-                                                className="text-[11px] text-neutral-400"
-                                                title={`Swapped in for ${ex.substitutedFor}`}
-                                            >
-                                                for {ex.substitutedFor}
-                                            </span>
-                                        )}
-                                        {sets.length > 0 ? (
-                                            sets.map((s, j) => {
-                                                const label = formatSet(s)
-                                                return label ? (
-                                                    <span
-                                                        key={j}
-                                                        className="inline-flex items-center rounded-md bg-coral-50 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-coral-700"
-                                                    >
-                                                        {label}
-                                                    </span>
-                                                ) : null
-                                            })
-                                        ) : (
-                                            <span className="text-[11px] text-neutral-400">
-                                                {formatSetsReps(ex) || 'no sets recorded'}
-                                            </span>
-                                        )}
-                                    </li>
-                                )
-                            })}
-                        </ul>
-                    ) : (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                            {log.exercises.map((ex, i) => {
-                                const sr = formatSetsReps(ex)
-                                return (
-                                    <span
-                                        key={i}
-                                        className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600"
-                                    >
-                                        {ex.name}
-                                        {ex.substitutedFor && (
-                                            <span
-                                                className="text-neutral-400"
-                                                title={`Swapped in for ${ex.substitutedFor}`}
-                                            >
-                                                for {ex.substitutedFor}
-                                            </span>
-                                        )}
-                                        {sr && <span className="text-coral-600">{sr}</span>}
-                                    </span>
-                                )
-                            })}
-                        </div>
-                    ))}
-
-                {log.notes && (
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-500">{log.notes}</p>
-                )}
-            </div>
-            <DropdownMenu
-                align="right"
-                className="-mr-1 -mt-1 shrink-0"
-                trigger={
-                    <span
-                        aria-label="Log actions"
-                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                    >
-                        <LineIcon name="more" className="h-4 w-4" />
-                    </span>
-                }
-                items={[
-                    { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onEdit },
-                    { label: 'Delete', icon: 'fa-solid fa-trash-can', danger: true, onClick: onDelete },
-                ]}
-            />
+            )}
         </Card>
     )
 }
+
 
 // ─── Log form drawer ────────────────────────────────────────────────────────────
 

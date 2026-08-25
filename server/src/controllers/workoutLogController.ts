@@ -194,26 +194,49 @@ export async function updateLog(req: AuthRequest, res: Response) {
     if (b.durationMin !== undefined) fields.durationMin = toDuration(b.durationMin)
     if (typeof b.notes === 'string') fields.notes = b.notes.trim() || undefined
 
-    // Overlay edited weights onto the log's existing (already-snapshotted) lines,
-    // aligned by index — the edit drawer sends one set-list per exercise in order.
     if (Array.isArray(b.loggedSets)) {
         const existing = await WorkoutLog.findOne({
             _id: req.params.id,
             user: req.userId,
-        }).select('exercises')
+        }).select('workout exercises')
         if (!existing) {
             res.status(404).json({ message: 'Log not found' })
             return
         }
-        fields.exercises = applyLoggedSets(
-            existing.exercises.map((e) => ({
-                name: e.name,
-                sets: e.sets,
-                reps: e.reps,
-                ...(e.substitutedFor ? { substitutedFor: e.substitutedFor } : {}),
-            })),
-            b.loggedSets
-        )
+
+        // The in-session logger saves repeatedly as the workout goes on, sending
+        // the whole picture each time — what was swapped, what was skipped. Its
+        // saves rebuild the lines from the linked workout, exactly as the first
+        // save did, so a row skipped (or put back) after that save still lands.
+        const src =
+            b.rebuild === true && existing.workout
+                ? await Workout.findOne({ _id: existing.workout, user: req.userId })
+                : null
+
+        fields.exercises = src
+            ? applyOmissions(
+                  applyLoggedSets(
+                      await applySubstitutions(
+                          await snapshotExercises(src, req.userId),
+                          b.substitutions,
+                          req.userId
+                      ),
+                      b.loggedSets
+                  ),
+                  b.omitted
+              )
+            : // Otherwise overlay edited weights onto the log's existing
+              // (already-snapshotted) lines, aligned by index — the edit drawer
+              // sends one set-list per exercise in order.
+              applyLoggedSets(
+                  existing.exercises.map((e) => ({
+                      name: e.name,
+                      sets: e.sets,
+                      reps: e.reps,
+                      ...(e.substitutedFor ? { substitutedFor: e.substitutedFor } : {}),
+                  })),
+                  b.loggedSets
+              )
     }
 
     const log = await WorkoutLog.findOneAndUpdate(

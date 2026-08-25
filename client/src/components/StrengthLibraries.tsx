@@ -24,6 +24,7 @@ import {
 } from '../services/exercises'
 import {
     listWorkouts,
+    listWorkoutsPage,
     createWorkout,
     updateWorkout,
     deleteWorkout,
@@ -75,21 +76,19 @@ const PAGE_SIZE = 9
 
 /**
  * The Strength area holds two linked libraries: reusable exercises, and workouts
- * that are built from them. Both are loaded up front so the workout builder can
- * resolve exercise names without a second round-trip.
+ * that are built from them. The exercise library is loaded in full up front so
+ * the workout builder and the workout cards can resolve exercise names without a
+ * second round-trip; workouts are fetched a page at a time by the grid itself.
  */
 export default function StrengthLibraries() {
     const [sub, setSub] = useState<SubTab>('Workouts')
     const [loading, setLoading] = useState(true)
     const [exercises, setExercises] = useState<Exercise[]>([])
-    const [workouts, setWorkouts] = useState<Workout[]>([])
 
-    // Refetch both libraries. Used after a bulk import — a workout import can
-    // create new exercises too, so both lists may change.
+    // Refetch the exercise library. Used after a bulk import — a workout import
+    // can create new exercises too, so it runs for either library's import.
     const reload = useCallback(async () => {
-        const [ex, wk] = await Promise.all([listExercises(), listWorkouts()])
-        setExercises(ex)
-        setWorkouts(wk)
+        setExercises(await listExercises())
     }, [])
 
     useEffect(() => {
@@ -113,16 +112,10 @@ export default function StrengthLibraries() {
                 <ExerciseLibrary
                     exercises={exercises}
                     setExercises={setExercises}
-                    setWorkouts={setWorkouts}
                     reload={reload}
                 />
             ) : sub === 'Workouts Library' ? (
-                <WorkoutLibrary
-                    exercises={exercises}
-                    workouts={workouts}
-                    setWorkouts={setWorkouts}
-                    reload={reload}
-                />
+                <WorkoutLibrary exercises={exercises} reload={reload} />
             ) : (
                 <WorkoutsLog />
             )}
@@ -140,12 +133,10 @@ type ExerciseDrawered =
 function ExerciseLibrary({
     exercises,
     setExercises,
-    setWorkouts,
     reload,
 }: {
     exercises: Exercise[]
     setExercises: React.Dispatch<React.SetStateAction<Exercise[]>>
-    setWorkouts: React.Dispatch<React.SetStateAction<Workout[]>>
     reload: () => Promise<void>
 }) {
     const [drawer, setDrawer] = useState<ExerciseDrawered>(null)
@@ -222,14 +213,9 @@ function ExerciseLibrary({
 
     async function handleDelete(id: string) {
         setExercises((prev) => prev.filter((e) => e._id !== id))
-        // The exercise is pulled from any workouts server-side; mirror that locally.
-        setWorkouts((prev) =>
-            prev.map((w) =>
-                w.exercises.some((e) => e.exercise === id)
-                    ? { ...w, exercises: w.exercises.filter((e) => e.exercise !== id) }
-                    : w
-            )
-        )
+        // The exercise is pulled from any workouts server-side. The workout grid
+        // fetches its own page on mount, so it picks that up when the user
+        // switches back to it — nothing to mirror locally.
         await deleteExercise(id)
     }
 
@@ -545,20 +531,29 @@ function formatSetsReps(e: { sets?: number; reps?: string }): string {
 
 function WorkoutLibrary({
     exercises,
-    workouts,
-    setWorkouts,
     reload,
 }: {
     exercises: Exercise[]
-    workouts: Workout[]
-    setWorkouts: React.Dispatch<React.SetStateAction<Workout[]>>
     reload: () => Promise<void>
 }) {
     const toast = useToast()
     const [drawer, setDrawer] = useState<WorkoutDrawered>(null)
     const [importing, setImporting] = useState(false)
+    const [openingImport, setOpeningImport] = useState(false)
     const [search, setSearch] = useState('')
+    const [debouncedSearch, setDebouncedSearch] = useState('')
     const [page, setPage] = useState(1)
+    // One server page of the library (20 workouts), plus the page count and the
+    // matching total — the total tells "no workouts yet" apart from "no matches".
+    const [lib, setLib] = useState<{ workouts: Workout[]; pages: number; total: number }>({
+        workouts: [],
+        pages: 1,
+        total: 0,
+    })
+    const [libLoading, setLibLoading] = useState(true)
+    // The whole library, pulled only when the import panel opens — it needs
+    // every name to spot clashes against what's already there.
+    const [allWorkouts, setAllWorkouts] = useState<Workout[]>([])
 
     // Fast id → exercise lookup for rendering workout contents. Declared before
     // any early return so the hook order stays stable.
@@ -568,36 +563,64 @@ function WorkoutLibrary({
         return m
     }, [exercises])
 
-    // Match on the workout's name/description and any exercise names it contains,
-    // then paginate the matches 9 at a time.
-    const filtered = useMemo(() => {
-        const q = search.trim().toLowerCase()
-        if (!q) return workouts
-        return workouts.filter(
-            (w) =>
-                w.name.toLowerCase().includes(q) ||
-                (w.description ?? '').toLowerCase().includes(q) ||
-                w.exercises.some((e) => byId.get(e.exercise)?.name.toLowerCase().includes(q))
-        )
-    }, [workouts, search, byId])
-
-    const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-
-    // A new search or a shrinking list can leave `page` past the end — pull it back.
+    // Debounce the search box so we query the server ~300ms after typing stops.
+    // A new term resets to page 1 so matches aren't hidden past the end.
     useEffect(() => {
-        if (page > pageCount) setPage(pageCount)
-    }, [page, pageCount])
+        const id = setTimeout(() => {
+            setDebouncedSearch(search.trim())
+            setPage(1)
+        }, 300)
+        return () => clearTimeout(id)
+    }, [search])
 
-    const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+    // Fetch the current page. The server matches `search` against the workout's
+    // name and description and the names of the exercises it contains, which is
+    // what the grid used to filter on locally.
+    const reloadPage = useCallback(() => {
+        // No spinner on refetch — the grid keeps the cards it has until the new
+        // page lands, so paging and searching never flash. The first paint is
+        // covered by `libLoading` starting true.
+        return listWorkoutsPage(page, debouncedSearch)
+            .then((r) => {
+                setLib({ workouts: r.workouts, pages: r.pages, total: r.total })
+                // Deletes can leave `page` past the end — step back onto a real one.
+                if (page > r.pages) setPage(r.pages)
+            })
+            .finally(() => setLibLoading(false))
+    }, [page, debouncedSearch])
+
+    useEffect(() => {
+        reloadPage()
+    }, [reloadPage])
+
+    // After an import (or its undo): exercises may have been created too, and the
+    // full list the clash check reads from is now stale.
+    const refreshAll = useCallback(async () => {
+        const [, wk] = await Promise.all([reload(), listWorkouts()])
+        setAllWorkouts(wk)
+        await reloadPage()
+    }, [reload, reloadPage])
+
+    async function openImport() {
+        setOpeningImport(true)
+        try {
+            setAllWorkouts(await listWorkouts())
+            setImporting(true)
+        } catch {
+            toast.show('Could not load the workout library.')
+        } finally {
+            setOpeningImport(false)
+        }
+    }
 
     if (importing) {
         return (
             <WorkoutImportPanel
                 onBack={() => setImporting(false)}
-                onLibraryChanged={reload}
-                existingWorkouts={workouts}
+                onLibraryChanged={refreshAll}
+                existingWorkouts={allWorkouts}
                 onImported={async () => {
-                    await reload()
+                    await refreshAll()
                     setImporting(false)
                 }}
             />
@@ -605,18 +628,28 @@ function WorkoutLibrary({
     }
 
     async function handleAdd(fields: WorkoutInput) {
-        const workout = await createWorkout(fields)
-        setWorkouts((prev) => [...prev, workout])
+        const created = await createWorkout(fields)
+        const r = await listWorkoutsPage(page, debouncedSearch)
+        setLib({ workouts: r.workouts, pages: r.pages, total: r.total })
+        // New workouts are appended to the end of the library, so once a page is
+        // full the new one lands on the last page — follow it there rather than
+        // leave the user looking at a page that seems unchanged.
+        if (!debouncedSearch && !r.workouts.some((w) => w._id === created._id)) setPage(r.pages)
     }
 
     async function handleSave(id: string, fields: WorkoutInput) {
         const updated = await updateWorkout(id, fields)
-        setWorkouts((prev) => prev.map((w) => (w._id === id ? updated : w)))
+        // Keep an open view drawer showing the saved data.
+        setDrawer((d) =>
+            d?.mode === 'view' && d.workout._id === id ? { mode: 'view', workout: updated } : d
+        )
+        await reloadPage()
     }
 
     async function handleDelete(id: string) {
-        setWorkouts((prev) => prev.filter((w) => w._id !== id))
+        setDrawer((d) => (d && d.mode !== 'create' && d.workout._id === id ? null : d))
         await deleteWorkout(id)
+        await reloadPage()
     }
 
     // Record a completed workout — snapshotted server-side from the library
@@ -629,8 +662,10 @@ function WorkoutLibrary({
     // Record a workout with the actual weight × reps of each set, entered in the
     // weight-logging drawer. Shares the same log store as the quick Done above.
     async function handleLogWeights(workout: Workout, fields: WorkoutLogInput) {
-        await createWorkoutLog(fields)
+        const log = await createWorkoutLog(fields)
         toast.show(`Logged “${workout.name}”.`, 'success')
+        // Handed back so the drawer can keep saving into this log as the session runs.
+        return log
     }
 
     return (
@@ -641,17 +676,15 @@ function WorkoutLibrary({
                     type="search"
                     placeholder="Search workouts…"
                     value={search}
-                    onChange={(e) => {
-                        setSearch(e.target.value)
-                        setPage(1)
-                    }}
+                    onChange={(e) => setSearch(e.target.value)}
                     className="w-full sm:w-64"
                 />
                 <div className="flex items-center gap-2">
                     <Button
                         variant="secondary"
                         icon="fa-solid fa-file-import"
-                        onClick={() => setImporting(true)}
+                        onClick={openImport}
+                        disabled={openingImport}
                     >
                         Import
                     </Button>
@@ -661,7 +694,11 @@ function WorkoutLibrary({
                 </div>
             </div>
 
-            {workouts.length === 0 ? (
+            {libLoading && lib.workouts.length === 0 ? (
+                <div className="grid place-items-center py-16">
+                    <Spinner />
+                </div>
+            ) : lib.total === 0 && !debouncedSearch ? (
                 <EmptyState
                     icon="fa-solid fa-list-check"
                     title="No workouts yet"
@@ -672,16 +709,16 @@ function WorkoutLibrary({
                         </Button>
                     }
                 />
-            ) : filtered.length === 0 ? (
+            ) : lib.total === 0 ? (
                 <EmptyState
                     icon="fa-solid fa-magnifying-glass"
                     title="No matches"
-                    description={`No workouts match “${search.trim()}”.`}
+                    description={`No workouts match “${debouncedSearch}”.`}
                 />
             ) : (
               <>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {pageItems.map((workout) => (
+                    {lib.workouts.map((workout) => (
                         <Card key={workout._id} as="div" className="relative flex flex-col gap-3">
                             {/* Stretched overlay: clicking the card opens the workout.
                                 Interactive children (the actions menu) sit above it. */}
@@ -769,7 +806,7 @@ function WorkoutLibrary({
                 </div>
                 <Pagination
                     page={page}
-                    pageCount={pageCount}
+                    pageCount={lib.pages}
                     onChange={setPage}
                     className="mt-6 justify-center"
                 />

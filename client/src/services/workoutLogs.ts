@@ -27,6 +27,13 @@ export interface WorkoutLogInput {
      * out of time) is dropped from the log rather than saved empty.
      */
     omitted?: number[]
+    /**
+     * Update only: re-derive the exercise lines from the linked workout instead of
+     * overlaying onto the ones already stored. The in-session logger sends the whole
+     * picture on every save, so a row skipped — or put back — after the first save
+     * still lands correctly. The edit drawer, which only touches weights, omits it.
+     */
+    rebuild?: boolean
 }
 
 export async function listLogs(): Promise<WorkoutLog[]> {

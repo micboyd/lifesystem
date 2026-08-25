@@ -4,8 +4,9 @@ import Button from './Button'
 import DatePicker from './DatePicker'
 import Textarea from './Textarea'
 import ExerciseSwapPicker from './ExerciseSwapPicker'
-import type { Exercise, LoggedSet, Workout, WorkoutExercise } from '../types'
-import type { WorkoutLogInput } from '../services/workoutLogs'
+import type { Exercise, LoggedSet, Workout, WorkoutExercise, WorkoutLog } from '../types'
+import { updateLog, type WorkoutLogInput } from '../services/workoutLogs'
+import { useToast } from '../context/ToastContext'
 import {
     clearDraft,
     describeAge,
@@ -83,6 +84,15 @@ function signatureOf(workout: Workout, byId: Map<string, Exercise>): string {
     )
 }
 
+/** True for a 404 — the log this session was writing to is gone. */
+function isMissing(err: unknown): boolean {
+    return (
+        typeof err === 'object' &&
+        err !== null &&
+        (err as { response?: { status?: number } }).response?.status === 404
+    )
+}
+
 function toNum(s: string): number | undefined {
     const t = s.trim()
     if (t === '') return undefined
@@ -110,14 +120,22 @@ export default function WorkoutLogWeightsDrawer({
     /** Day to pre-fill, e.g. the planned day when opened from the planner. Defaults to today. */
     defaultDate?: string
     onClose: () => void
-    onSubmit: (workout: Workout, fields: WorkoutLogInput) => Promise<void>
+    /** Record the session for the first time, resolving to the log it created —
+     *  the drawer keeps the id so later saves update that log instead of adding another. */
+    onSubmit: (workout: Workout, fields: WorkoutLogInput) => Promise<WorkoutLog>
 }) {
+    const toast = useToast()
     // Retain the last workout while the drawer animates closed.
     const [view, setView] = useState<Workout | null>(workout)
     const [date, setDate] = useState(defaultDate ?? todayISO())
     const [notes, setNotes] = useState('')
     const [drafts, setDrafts] = useState<ExerciseDraft[]>([])
-    const [saving, setSaving] = useState(false)
+    /** Which button is mid-save, so only that one shows its progress. */
+    const [saving, setSaving] = useState<'save' | 'close' | null>(null)
+    /** The log this session has been saved to, once it has been saved at all. */
+    const [logId, setLogId] = useState<string | null>(null)
+    /** Edits made since the last save to the server — what a Save would commit. */
+    const [unsaved, setUnsaved] = useState(false)
     /** Index of the row whose swap picker is open, or null when none is. */
     const [swapping, setSwapping] = useState<number | null>(null)
     /** When the device-local draft was last written, or null while there isn't one. */
@@ -141,11 +159,15 @@ export default function WorkoutLogWeightsDrawer({
         setNotes(draft?.notes ?? '')
         setDrafts(draft?.exercises ?? seeded)
         setSwapping(null)
-        setSaving(false)
-        // A restored draft is already on the device — keep saving over it.
+        setSaving(null)
+        // A restored draft is already on the device — keep saving over it. If it
+        // carries a log id, this session is already in the record and every save
+        // from here updates it.
         dirty.current = !!draft
         setSavedAt(draft?.savedAt ?? null)
         setRestoredFrom(draft?.savedAt ?? null)
+        setLogId(draft?.logId ?? null)
+        setUnsaved(false)
     }, [workout, byId, defaultDate])
 
     /**
@@ -157,15 +179,20 @@ export default function WorkoutLogWeightsDrawer({
         if (!view || !dirty.current) return
         const timer = setTimeout(() => {
             const now = Date.now()
-            writeDraft(view._id, { signature, date, notes, exercises: drafts }, now)
+            writeDraft(
+                view._id,
+                { signature, date, notes, exercises: drafts, ...(logId ? { logId } : {}) },
+                now
+            )
             setSavedAt(now)
         }, 400)
         return () => clearTimeout(timer)
-    }, [view, signature, date, notes, drafts])
+    }, [view, signature, date, notes, drafts, logId])
 
     /** Arm the autosave — called by every edit before it changes state. */
     function markDirty() {
         dirty.current = true
+        setUnsaved(true)
     }
 
     /** Throw the draft away and start the log from the workout as written. */
@@ -179,6 +206,7 @@ export default function WorkoutLogWeightsDrawer({
         dirty.current = false
         setSavedAt(null)
         setRestoredFrom(null)
+        setUnsaved(false)
     }
 
     const library = useMemo(() => [...byId.values()], [byId])
@@ -304,7 +332,16 @@ export default function WorkoutLogWeightsDrawer({
         )
     }
 
-    async function submit() {
+    /**
+     * Commit the session as it stands. The first save records the log; every save
+     * after it rewrites that same log, so you can save at the squat rack, again
+     * after the accessories, and finally on the way out without ending up with
+     * three records of one session.
+     *
+     * `close` is what separates the two buttons: Save leaves the drawer open and
+     * the draft in place (there's more to log), Save & close finishes the session.
+     */
+    async function save(close: boolean) {
         if (!view) return
         // Align one set-list per exercise, in the same order the server snapshots.
         // Skipped rows keep their slot — the indices below all have to agree —
@@ -332,25 +369,74 @@ export default function WorkoutLogWeightsDrawer({
         // The rows to leave out of the record entirely.
         const omitted = drafts.flatMap((ex, i) => (ex.removed ? [i] : []))
 
-        setSaving(true)
+        const fields: WorkoutLogInput = {
+            workout: view._id,
+            date,
+            // Always a string on the update path, so clearing the notes clears them.
+            notes: notes.trim(),
+            loggedSets,
+            ...(swapped ? { substitutions } : {}),
+            ...(omitted.length ? { omitted } : {}),
+        }
+
+        setSaving(close ? 'close' : 'save')
         try {
-            await onSubmit(view, {
-                workout: view._id,
-                date,
-                notes: notes.trim() || undefined,
-                loggedSets,
-                ...(swapped ? { substitutions } : {}),
-                ...(omitted.length ? { omitted } : {}),
-            })
-            // It's history now, so the in-progress copy has done its job.
-            clearDraft(view._id)
-            onClose()
+            let written = false
+            if (logId) {
+                try {
+                    // Rebuild the record from the workout rather than patching the
+                    // stored lines — a row skipped (or put back) since the last
+                    // save has to be able to leave or rejoin the log.
+                    await updateLog(logId, { ...fields, rebuild: true })
+                    written = true
+                    if (!close) toast.show('Progress saved.', 'success')
+                } catch (err) {
+                    // The log was deleted while the session was open (unlogged
+                    // from the planner, say) — record it afresh rather than
+                    // stranding everything typed since.
+                    if (!isMissing(err)) throw err
+                    setLogId(null)
+                }
+            }
+            if (!written) {
+                const log = await onSubmit(view, fields)
+                setLogId(log._id)
+                // Keep the draft pointing at the log, so closing the drawer and
+                // coming back carries on writing to it instead of logging twice.
+                writeDraft(view._id, {
+                    signature,
+                    date,
+                    notes,
+                    exercises: drafts,
+                    logId: log._id,
+                })
+            }
+            setUnsaved(false)
+            if (close) {
+                // It's history now, so the in-progress copy has done its job.
+                clearDraft(view._id)
+                onClose()
+            }
+        } catch {
+            toast.error('Could not save the log. Your entries are still here.')
         } finally {
-            setSaving(false)
+            setSaving(null)
         }
     }
 
     const w = view
+
+    /**
+     * Where this session currently stands, in one line under the volume: in the
+     * record, in the record but ahead of it, or only on this device so far.
+     */
+    const status: { icon: string; label: string } | null = logId
+        ? unsaved
+            ? { icon: 'fa-solid fa-pen', label: 'Edited since your last save' }
+            : { icon: 'fa-solid fa-check', label: 'Saved to your workout log' }
+        : savedAt !== null
+          ? { icon: 'fa-solid fa-mobile-screen', label: 'Kept on this device — not logged yet' }
+          : null
 
     return (
         <Drawer
@@ -359,7 +445,7 @@ export default function WorkoutLogWeightsDrawer({
             size="2xl"
             title={w ? `Log · ${w.name}` : 'Log workout'}
             footer={
-                <div className="flex w-full items-center justify-between gap-3">
+                <div className="flex w-full flex-wrap items-center justify-between gap-3">
                     <div className="flex min-w-0 flex-col gap-0.5">
                         <span className="text-sm text-neutral-500">
                             Volume{' '}
@@ -367,19 +453,32 @@ export default function WorkoutLogWeightsDrawer({
                                 {volume.toLocaleString()} kg
                             </span>
                         </span>
-                        {savedAt !== null && (
+                        {status && (
                             <span className="inline-flex items-center gap-1.5 text-[11px] text-neutral-400">
-                                <i className="fa-solid fa-check text-[9px]" aria-hidden="true" />
-                                Progress kept on this device
+                                <i className={`${status.icon} text-[9px]`} aria-hidden="true" />
+                                {status.label}
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-2">
                         <Button variant="ghost" onClick={onClose}>
-                            Cancel
+                            Close
                         </Button>
-                        <Button icon="fa-solid fa-check" onClick={submit} disabled={saving}>
-                            {saving ? 'Saving…' : 'Save log'}
+                        <Button
+                            variant="secondary"
+                            icon="fa-solid fa-floppy-disk"
+                            onClick={() => save(false)}
+                            // Nothing to commit once a save has caught up with the form.
+                            disabled={saving !== null || (logId !== null && !unsaved)}
+                        >
+                            {saving === 'save' ? 'Saving…' : 'Save'}
+                        </Button>
+                        <Button
+                            icon="fa-solid fa-check"
+                            onClick={() => save(true)}
+                            disabled={saving !== null}
+                        >
+                            {saving === 'close' ? 'Saving…' : 'Save & close'}
                         </Button>
                     </div>
                 </div>
@@ -394,15 +493,21 @@ export default function WorkoutLogWeightsDrawer({
                                     className="fa-solid fa-clock-rotate-left text-[11px]"
                                     aria-hidden="true"
                                 />
-                                Picked up where you left off — saved {describeAge(restoredFrom)}.
+                                {logId
+                                    ? `Back in this session — saved to your log ${describeAge(restoredFrom)}.`
+                                    : `Picked up where you left off — saved ${describeAge(restoredFrom)}.`}
                             </span>
-                            <button
-                                type="button"
-                                onClick={discardDraft}
-                                className="font-semibold text-amber-900 underline-offset-2 transition-colors hover:underline"
-                            >
-                                Start fresh
-                            </button>
+                            {/* Only before the first save: once the session is in
+                                the log, throwing the draft away would strand it. */}
+                            {!logId && (
+                                <button
+                                    type="button"
+                                    onClick={discardDraft}
+                                    className="font-semibold text-amber-900 underline-offset-2 transition-colors hover:underline"
+                                >
+                                    Start fresh
+                                </button>
+                            )}
                         </div>
                     )}
 

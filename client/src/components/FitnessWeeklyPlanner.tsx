@@ -594,6 +594,8 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         const log = await createWorkoutLog(fields)
         markDoneKey('workout', workout._id, fields.date, log._id)
         toast.show(`Logged “${workout.name}”.`, 'success')
+        // Handed back so the drawer can keep saving into this log as the session runs.
+        return log
     }
 
     // The week to fetch — and to tally totals over. Planning is week by week.

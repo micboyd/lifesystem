@@ -86,6 +86,14 @@ describe('readDraft / writeDraft', () => {
         expect(draft?.exercises[1].removed).toBe(true)
     })
 
+    it('remembers the log a saved-mid-session draft belongs to', () => {
+        save({ logId: 'log1' })
+        expect(readDraft('w1', SIG, NOW)?.logId).toBe('log1')
+        // An unsaved session has none — the next save creates the log.
+        save()
+        expect(readDraft('w1', SIG, NOW)?.logId).toBeUndefined()
+    })
+
     it('keeps drafts apart per workout', () => {
         save()
         expect(readDraft('w2', SIG, NOW)).toBeNull()
