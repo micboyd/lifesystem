@@ -21,6 +21,12 @@ export interface WorkoutLogInput {
      * prescribed. Omit when nothing was swapped.
      */
     substitutions?: (string | null)[]
+    /**
+     * Exercises to leave out of the record — indices into the same array the
+     * fields above are aligned to. A row skipped mid-session (machine taken, ran
+     * out of time) is dropped from the log rather than saved empty.
+     */
+    omitted?: number[]
 }
 
 export async function listLogs(): Promise<WorkoutLog[]> {

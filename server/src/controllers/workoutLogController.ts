@@ -83,6 +83,23 @@ async function applySubstitutions(
     })
 }
 
+/**
+ * Drop the lines the user skipped this session. `raw` is a list of indices into
+ * the snapshotted lines — a machine that was taken, an exercise cut for time.
+ * The log records what was actually done, so a skipped line leaves no trace
+ * rather than sitting in history with no sets against it.
+ */
+function applyOmissions(lines: IWorkoutLogExercise[], raw: unknown): IWorkoutLogExercise[] {
+    if (!Array.isArray(raw)) return lines
+    const drop = new Set(
+        raw
+            .map((i) => (typeof i === 'number' ? i : Number(i)))
+            .filter((i) => Number.isInteger(i) && i >= 0)
+    )
+    if (drop.size === 0) return lines
+    return lines.filter((_, i) => !drop.has(i))
+}
+
 /** Validate a YYYY-MM-DD date string. */
 function isValidDate(raw: unknown): raw is string {
     return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)
@@ -149,13 +166,18 @@ export async function createLog(req: AuthRequest, res: Response) {
         workout: src._id,
         name,
         date: b.date,
-        exercises: applyLoggedSets(
-            await applySubstitutions(
-                await snapshotExercises(src, req.userId),
-                b.substitutions,
-                req.userId
+        // Snapshot, then overlay swaps and sets by index, then drop the skipped
+        // lines — omission comes last so every index above means the same thing.
+        exercises: applyOmissions(
+            applyLoggedSets(
+                await applySubstitutions(
+                    await snapshotExercises(src, req.userId),
+                    b.substitutions,
+                    req.userId
+                ),
+                b.loggedSets
             ),
-            b.loggedSets
+            b.omitted
         ),
         durationMin: toDuration(b.durationMin),
         notes: typeof b.notes === 'string' ? b.notes.trim() || undefined : undefined,
