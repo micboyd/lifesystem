@@ -59,6 +59,47 @@ button {
     }
 }
 
+/* Toasts arrive unannounced over whatever the page was showing, so they get an
+   entrance that reads as "this just landed" rather than "this was always here",
+   and a rail that drains over the toast's life so a message about to vanish on
+   its own gives some warning first. The rail's duration is set inline, from the
+   same constant that schedules the dismissal. */
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(0.75rem) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes toast-drain {
+    from {
+        transform: scaleX(1);
+    }
+    to {
+        transform: scaleX(0);
+    }
+}
+
+.toast-enter {
+    animation: toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-drain {
+    transform-origin: left;
+    animation: toast-drain linear forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toast-enter,
+    .toast-drain {
+        animation: none;
+    }
+}
+
 /* Scroll container that stays swipeable but hides its scrollbar — used by
    horizontal strips (e.g. tabs) that overflow on narrow screens. */
 .scrollbar-none {

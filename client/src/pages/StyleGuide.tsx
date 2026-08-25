@@ -29,6 +29,7 @@ import DropdownMenu from '../components/DropdownMenu'
 import Modal from '../components/Modal'
 import Drawer from '../components/Drawer'
 import CodeBlock from '../components/CodeBlock'
+import { useToast } from '../context/ToastContext'
 
 interface SectionProps {
     title: string
@@ -75,6 +76,26 @@ function ChipDemo() {
 function PaginationDemo() {
     const [page, setPage] = useState(1)
     return <Pagination page={page} pageCount={10} onChange={setPage} />
+}
+
+function ToastDemo() {
+    const toast = useToast()
+    const variants = ['info', 'success', 'warning', 'danger'] as const
+    const messages: Record<(typeof variants)[number], string> = {
+        info: '3 sessions were left where they were.',
+        success: 'Imported “Winter Strength Block”.',
+        warning: 'Two hard sessions share Monday morning.',
+        danger: "Couldn't save your changes. Please try again.",
+    }
+    return (
+        <div className="flex flex-wrap gap-2">
+            {variants.map((v) => (
+                <Button key={v} variant="secondary" onClick={() => toast.show(messages[v], v)}>
+                    {v}
+                </Button>
+            ))}
+        </div>
+    )
 }
 
 function ModalDemo() {
@@ -421,6 +442,19 @@ export default function StyleGuide() {
 
 {/* Override the auto icon */}
 <Alert variant="info" icon="fa-solid fa-rocket" title="Launched">Override the default icon.</Alert>`}
+                />
+
+                <Section
+                    title="Toasts"
+                    description="The floating counterpart to an alert: raised off the page, entering from below, and draining a rail as it counts down to dismissing itself. Fired from anywhere with useToast rather than rendered inline."
+                    preview={<ToastDemo />}
+                    code={`const toast = useToast()
+
+toast.show('Imported “Winter Strength Block”.', 'success')
+toast.show('Two hard sessions share Monday morning.', 'warning')
+
+{/* Shorthand for the common case — reporting a failed action */}
+toast.error("Couldn't save your changes.")`}
                 />
 
                 <Section

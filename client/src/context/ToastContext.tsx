@@ -1,10 +1,9 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import Alert from '../components/Alert'
+import Toast, { type ToastVariant } from '../components/Toast'
 
-type ToastVariant = 'info' | 'success' | 'warning' | 'danger'
-
-interface Toast {
+/** One queued message. Named apart from the `Toast` component it renders into. */
+interface ToastItem {
     id: number
     variant: ToastVariant
     message: string
@@ -23,7 +22,7 @@ const ToastContext = createContext<ToastValue | undefined>(undefined)
 const TIMEOUT = 5000
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-    const [toasts, setToasts] = useState<Toast[]>([])
+    const [toasts, setToasts] = useState<ToastItem[]>([])
     const nextId = useRef(0)
 
     const dismiss = useCallback((id: number) => {
@@ -49,14 +48,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {children}
             {/* Bottom-centre, above every overlay — modals, drawers and the
                 portaled picker menus all sit at z-50/z-[100], so a toast
-                reporting a failure inside one has to clear them. */}
-            <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[200] flex flex-col items-center gap-2 p-4 sm:p-6">
+                reporting a failure inside one has to clear them. The stack is
+                one live region, so a screen reader announces each arrival
+                without the toasts fighting each other for it. */}
+            <div
+                aria-live="polite"
+                className="pointer-events-none fixed inset-x-0 bottom-0 z-[200] flex flex-col items-center gap-2 p-4 sm:p-6"
+            >
                 {toasts.map((t) => (
-                    <div key={t.id} className="pointer-events-auto w-full max-w-sm shadow-lg">
-                        <Alert variant={t.variant} onClose={() => dismiss(t.id)}>
-                            {t.message}
-                        </Alert>
-                    </div>
+                    <Toast
+                        key={t.id}
+                        variant={t.variant}
+                        duration={TIMEOUT}
+                        onClose={() => dismiss(t.id)}
+                        className="pointer-events-auto w-full max-w-sm"
+                    >
+                        {t.message}
+                    </Toast>
                 ))}
             </div>
         </ToastContext.Provider>
