@@ -22,18 +22,21 @@ function CategoryChip({ category }: { category: ConditioningCategory }) {
 /**
  * The read-only body of a conditioning session — category, purpose, ordered
  * parts (each with its tap-to-count rep counter) and how-to-use. Shared by the
- * Session Library view drawer and the weekly planner's detail drawer so both
- * render identically. The parent owns the per-part `counts` so completed reps can
- * be persisted when a planned session is marked done.
+ * Session Library view drawer, the weekly planner's detail drawer and the
+ * Sessions log recap so all three render identically. The parent owns the
+ * per-part `counts` so completed reps can be persisted when a planned session is
+ * marked done; in `readOnly` mode the counts are a recap and the tap controls go.
  */
 export default function ConditioningSessionDetail({
     session,
-    counts,
+    counts = {},
     onCount,
+    readOnly = false,
 }: {
     session: ConditioningSession
-    counts: Record<number, number>
-    onCount: (index: number, next: number) => void
+    counts?: Record<number, number>
+    onCount?: (index: number, next: number) => void
+    readOnly?: boolean
 }) {
     return (
         <div className="flex flex-col gap-6">
@@ -77,7 +80,8 @@ export default function ConditioningSessionDetail({
                                             seconds={part.roundSeconds}
                                             startAtSec={part.startAtSec}
                                             done={counts[i] ?? 0}
-                                            onChange={(next) => onCount(i, next)}
+                                            onChange={(next) => onCount?.(i, next)}
+                                            readOnly={readOnly}
                                         />
                                     )}
                                 </div>

@@ -12,6 +12,7 @@ import DatePicker from './DatePicker'
 import Pagination from './Pagination'
 import LineIcon from './LineIcon'
 import LogFilterBar, { useLogFilters } from './LogFilterBar'
+import ConditioningSessionDetail from './ConditioningSessionDetail'
 import { todayKey } from '../lib/calendar'
 import { formatLogDate, weekStartMonday } from '../lib/logFilters'
 import { listSessions } from '../services/conditioning'
@@ -23,7 +24,12 @@ import {
     type ConditioningLogInput,
 } from '../services/conditioningLogs'
 import { CONDITIONING_CATEGORIES } from '../types'
-import type { ConditioningLog, ConditioningSession, ConditioningCategory } from '../types'
+import type {
+    ConditioningLog,
+    ConditioningSession,
+    ConditioningCategory,
+    RoundProgress,
+} from '../types'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -62,6 +68,7 @@ const CATEGORY_OPTIONS = [
 type Drawered =
     | { mode: 'create' }
     | { mode: 'edit'; log: ConditioningLog }
+    | { mode: 'view'; log: ConditioningLog }
     | null
 
 /**
@@ -239,6 +246,7 @@ export default function ConditioningSessionsLog() {
                                                 <LogRow
                                                     key={log._id}
                                                     log={log}
+                                                    onOpen={() => setDrawer({ mode: 'view', log })}
                                                     onEdit={() => setDrawer({ mode: 'edit', log })}
                                                     onDelete={() => handleDelete(log._id)}
                                                 />
@@ -259,8 +267,19 @@ export default function ConditioningSessionsLog() {
                 </div>
             )}
 
+            <LogViewDrawer
+                log={drawer?.mode === 'view' ? drawer.log : null}
+                sessions={sessions}
+                onClose={() => setDrawer(null)}
+                onEdit={(log) => setDrawer({ mode: 'edit', log })}
+                onDelete={(id) => {
+                    setDrawer(null)
+                    handleDelete(id)
+                }}
+            />
+
             <LogFormDrawer
-                form={drawer}
+                form={drawer?.mode === 'view' ? null : drawer}
                 sessions={sessions}
                 onClose={() => setDrawer(null)}
                 onAdd={handleAdd}
@@ -279,117 +298,78 @@ function sortLogs(logs: ConditioningLog[]): ConditioningLog[] {
 // ─── Log row ──────────────────────────────────────────────────────────────────────
 
 /**
- * One logged session. Collapsed it's a scannable line with the first few rounds;
- * expanding it shows every round and the full notes.
+ * One logged session — a scannable line carrying the first few round tallies.
+ * The whole card opens the recap drawer, where the full session it came from
+ * (warm-up, parts, reps, pacing, cool-down) and every round live.
  */
 function LogRow({
     log,
+    onOpen,
     onEdit,
     onDelete,
 }: {
     log: ConditioningLog
+    onOpen: () => void
     onEdit: () => void
     onDelete: () => void
 }) {
-    const [open, setOpen] = useState(false)
-
     const rounds = log.rounds ?? []
-    const hidden = open ? 0 : Math.max(0, rounds.length - CHIP_LIMIT)
-    const shown = open ? rounds : rounds.slice(0, CHIP_LIMIT)
-    // Only worth opening when something is actually held back.
-    const expandable = hidden > 0 || rounds.length > CHIP_LIMIT || !!log.notes
+    // The row stays a summary — the rest is a tap away in the recap.
+    const hidden = Math.max(0, rounds.length - CHIP_LIMIT)
 
     return (
-        <Card as="div" hover={false} className="!p-0">
+        <Card as="div" className="relative !p-0">
+            {/* Full-card hit area, under the actions menu, opening the recap. */}
+            <button
+                type="button"
+                aria-label={`View ${log.name}`}
+                onClick={onOpen}
+                className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
+            />
+
             <div className="flex items-start gap-2 p-4">
-                <button
-                    type="button"
-                    onClick={() => expandable && setOpen((o) => !o)}
-                    aria-expanded={expandable ? open : undefined}
-                    className={[
-                        'flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left',
-                        expandable ? 'cursor-pointer' : 'cursor-default',
-                    ].join(' ')}
-                >
-                    <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-semibold text-neutral-900">{log.name}</p>
-                            <CategoryChip category={log.category} />
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+                <div className="relative z-0 min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-neutral-900">{log.name}</p>
+                        <CategoryChip category={log.category} />
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+                        <span>
+                            <i className="fa-regular fa-clock mr-1" aria-hidden="true" />
+                            {log.duration} min
+                        </span>
+                        {log.rpe != null && (
                             <span>
-                                <i className="fa-regular fa-clock mr-1" aria-hidden="true" />
-                                {log.duration} min
+                                <i className="fa-solid fa-gauge-high mr-1" aria-hidden="true" />
+                                RPE {log.rpe}
                             </span>
-                            {log.rpe != null && (
-                                <span>
-                                    <i className="fa-solid fa-gauge-high mr-1" aria-hidden="true" />
-                                    RPE {log.rpe}
-                                </span>
-                            )}
-                            {rounds.length > 0 && (
-                                <span>
-                                    <i className="fa-solid fa-repeat mr-1" aria-hidden="true" />
-                                    {rounds.length} {rounds.length === 1 ? 'round' : 'rounds'}
-                                </span>
-                            )}
-                        </div>
-
-                        {shown.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                                {shown.map((r, i) => {
-                                    const done = r.done >= r.target
-                                    return (
-                                        <span
-                                            key={i}
-                                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${
-                                                done
-                                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
-                                                    : 'bg-neutral-50 text-neutral-600 ring-neutral-300'
-                                            }`}
-                                        >
-                                            <i
-                                                className={`fa-solid ${done ? 'fa-check' : 'fa-repeat'} text-[9px]`}
-                                                aria-hidden="true"
-                                            />
-                                            {r.name} {r.done}/{r.target}
-                                        </span>
-                                    )
-                                })}
-                                {hidden > 0 && (
-                                    <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium text-neutral-400">
-                                        +{hidden} more
-                                    </span>
-                                )}
-                            </div>
                         )}
-
-                        {log.notes && (
-                            <p
-                                className={[
-                                    'mt-2 whitespace-pre-wrap text-sm text-neutral-500',
-                                    open ? '' : 'line-clamp-2',
-                                ].join(' ')}
-                            >
-                                {log.notes}
-                            </p>
+                        {rounds.length > 0 && (
+                            <span>
+                                <i className="fa-solid fa-repeat mr-1" aria-hidden="true" />
+                                {rounds.length} {rounds.length === 1 ? 'round' : 'rounds'}
+                            </span>
                         )}
                     </div>
 
-                    {expandable && (
-                        <i
-                            className={[
-                                'fa-solid fa-chevron-down mt-1 shrink-0 text-xs text-neutral-300 transition-transform duration-150',
-                                open ? 'rotate-180' : '',
-                            ].join(' ')}
-                            aria-hidden="true"
+                    {rounds.length > 0 && (
+                        <RoundChips
+                            rounds={rounds.slice(0, CHIP_LIMIT)}
+                            hidden={hidden}
+                            className="mt-2"
                         />
                     )}
-                </button>
+
+                    {log.notes && (
+                        <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-neutral-500">
+                            {log.notes}
+                        </p>
+                    )}
+                </div>
 
                 <DropdownMenu
                     align="right"
-                    className="-mr-1 -mt-1 shrink-0"
+                    className="relative z-20 -mr-1 -mt-1 shrink-0"
                     trigger={
                         <span
                             aria-label="Log actions"
@@ -405,6 +385,168 @@ function LogRow({
                 />
             </div>
         </Card>
+    )
+}
+
+/**
+ * Completed-round tallies as chips — green once a part was finished. `hidden`
+ * trails a "+N more" marker for the rounds a collapsed row is holding back.
+ */
+function RoundChips({
+    rounds,
+    hidden = 0,
+    className = '',
+}: {
+    rounds: RoundProgress[]
+    hidden?: number
+    className?: string
+}) {
+    return (
+        <div className={`flex flex-wrap gap-1.5 ${className}`}>
+            {rounds.map((r, i) => {
+                const done = r.done >= r.target
+                return (
+                    <span
+                        key={i}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${
+                            done
+                                ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
+                                : 'bg-neutral-50 text-neutral-600 ring-neutral-300'
+                        }`}
+                    >
+                        <i
+                            className={`fa-solid ${done ? 'fa-check' : 'fa-repeat'} text-[9px]`}
+                            aria-hidden="true"
+                        />
+                        {r.name} {r.done}/{r.target}
+                    </span>
+                )
+            })}
+            {hidden > 0 && (
+                <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium text-neutral-400">
+                    +{hidden} more
+                </span>
+            )}
+        </div>
+    )
+}
+
+// ─── Log view drawer ────────────────────────────────────────────────────────────
+
+/**
+ * Read-only recap of one logged session: what was actually recorded (date,
+ * minutes, effort, notes) followed by the library session it came from — warm-up,
+ * parts, reps and cool-down — with the round counters showing what was ticked off.
+ */
+function LogViewDrawer({
+    log,
+    sessions,
+    onClose,
+    onEdit,
+    onDelete,
+}: {
+    log: ConditioningLog | null
+    sessions: ConditioningSession[]
+    onClose: () => void
+    onEdit: (log: ConditioningLog) => void
+    onDelete: (id: string) => void
+}) {
+    // Retain the last log while the drawer animates closed.
+    const [view, setView] = useState<ConditioningLog | null>(log)
+    useEffect(() => {
+        if (log) setView(log)
+    }, [log])
+
+    // The library session behind the log, if it still exists.
+    const source = useMemo(
+        () => (view?.session ? (sessions.find((s) => s._id === view.session) ?? null) : null),
+        [view, sessions]
+    )
+
+    // Map the snapshotted tallies back onto the session's parts by name, so the
+    // recap shows which reps were ticked off against each part.
+    const counts = useMemo(() => {
+        const out: Record<number, number> = {}
+        if (!source || !view?.rounds) return out
+        source.parts.forEach((part, i) => {
+            const hit = view.rounds!.find((r) => r.name === part.name)
+            if (hit) out[i] = hit.done
+        })
+        return out
+    }, [source, view])
+
+    return (
+        <Drawer
+            open={!!log}
+            onClose={onClose}
+            size="2xl"
+            title={view?.name ?? 'Session'}
+            footer={
+                view && (
+                    <>
+                        <Button
+                            variant="ghost"
+                            icon="fa-solid fa-trash-can"
+                            onClick={() => onDelete(view._id)}
+                        >
+                            Delete
+                        </Button>
+                        <Button icon="fa-solid fa-pen" onClick={() => onEdit(view)}>
+                            Edit
+                        </Button>
+                    </>
+                )
+            }
+        >
+            {view && (
+                <div className="flex flex-col gap-6">
+                    <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 p-4">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-600">
+                            <span className="font-semibold text-neutral-900">
+                                {formatLogDate(view.date, todayISO())}
+                            </span>
+                            <span>
+                                <i className="fa-regular fa-clock mr-1.5" aria-hidden="true" />
+                                {view.duration} min
+                            </span>
+                            {view.rpe != null && (
+                                <span>
+                                    <i className="fa-solid fa-gauge-high mr-1.5" aria-hidden="true" />
+                                    RPE {view.rpe}
+                                </span>
+                            )}
+                        </div>
+                        {view.notes && (
+                            <p className="whitespace-pre-wrap text-sm text-neutral-500">
+                                {view.notes}
+                            </p>
+                        )}
+                    </div>
+
+                    {source ? (
+                        <ConditioningSessionDetail session={source} counts={counts} readOnly />
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <CategoryChip category={view.category} />
+                            </div>
+                            {view.rounds && view.rounds.length > 0 && (
+                                <section>
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                        Rounds completed
+                                    </p>
+                                    <RoundChips rounds={view.rounds} />
+                                </section>
+                            )}
+                            <p className="text-sm text-neutral-500">
+                                This session is no longer in your Session Library, so its parts,
+                                reps and pacing can&apos;t be shown.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
+        </Drawer>
     )
 }
 

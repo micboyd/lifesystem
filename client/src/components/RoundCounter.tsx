@@ -22,6 +22,7 @@ export default function RoundCounter({
     startAtSec = 0,
     done,
     onChange,
+    readOnly = false,
 }: {
     target: number
     label?: string
@@ -32,7 +33,9 @@ export default function RoundCounter({
     /** Clock offset (seconds) when rep 1 begins, e.g. after a warm-up. */
     startAtSec?: number
     done: number
-    onChange: (next: number) => void
+    onChange?: (next: number) => void
+    /** Recap mode (e.g. a logged session): show the progress, hide the tap controls. */
+    readOnly?: boolean
 }) {
     const complete = done >= target
     const one = (label?.trim() || 'round').toLowerCase()
@@ -68,7 +71,7 @@ export default function RoundCounter({
 
             {hasDetails || hasTimes ? (
                 /* Per-rep checklist — each rep shows its own info and clock window. */
-                <ol className="mb-3 flex flex-col gap-1.5">
+                <ol className={`${readOnly ? '' : 'mb-3'} flex flex-col gap-1.5`}>
                     {Array.from({ length: target }, (_, i) => {
                         const isDone = i < done
                         const isNext = i === done && !complete
@@ -123,7 +126,7 @@ export default function RoundCounter({
                 </ol>
             ) : (
                 /* Progress dots — one per round, filled as you go. */
-                <div className="mb-3 flex flex-wrap gap-1.5">
+                <div className={`${readOnly ? '' : 'mb-3'} flex flex-wrap gap-1.5`}>
                     {Array.from({ length: target }, (_, i) => (
                         <span
                             key={i}
@@ -136,36 +139,38 @@ export default function RoundCounter({
                 </div>
             )}
 
-            <div className="flex items-center gap-2">
-                <button
-                    type="button"
-                    onClick={() => onChange(Math.min(target, done + 1))}
-                    disabled={complete}
-                    className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
-                        complete
-                            ? 'cursor-default bg-emerald-100 text-emerald-700'
-                            : 'bg-coral-500 text-white hover:bg-coral-600 active:bg-coral-700'
-                    }`}
-                >
-                    {complete ? (
-                        <>
-                            <i className="fa-solid fa-check mr-1.5" />
-                            All {target} done
-                        </>
-                    ) : (
-                        <>Tap after each {one}</>
-                    )}
-                </button>
-                <button
-                    type="button"
-                    aria-label="Undo one"
-                    onClick={() => onChange(Math.max(0, done - 1))}
-                    disabled={done === 0}
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:bg-white hover:text-neutral-800 disabled:opacity-40"
-                >
-                    <i className="fa-solid fa-rotate-left" />
-                </button>
-            </div>
+            {!readOnly && (
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => onChange?.(Math.min(target, done + 1))}
+                        disabled={complete}
+                        className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
+                            complete
+                                ? 'cursor-default bg-emerald-100 text-emerald-700'
+                                : 'bg-coral-500 text-white hover:bg-coral-600 active:bg-coral-700'
+                        }`}
+                    >
+                        {complete ? (
+                            <>
+                                <i className="fa-solid fa-check mr-1.5" />
+                                All {target} done
+                            </>
+                        ) : (
+                            <>Tap after each {one}</>
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        aria-label="Undo one"
+                        onClick={() => onChange?.(Math.max(0, done - 1))}
+                        disabled={done === 0}
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:bg-white hover:text-neutral-800 disabled:opacity-40"
+                    >
+                        <i className="fa-solid fa-rotate-left" />
+                    </button>
+                </div>
+            )}
         </div>
     )
 }
