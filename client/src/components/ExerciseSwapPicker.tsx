@@ -12,12 +12,6 @@ import type { Exercise } from '../types'
 import Button from './Button'
 import Input from './Input'
 
-/**
- * 16px on phones so iOS doesn't zoom the whole drawer when a field takes focus
- * mid-session; back to the library's `text-sm` from the small breakpoint up.
- */
-const NO_ZOOM = 'text-base sm:text-sm'
-
 const SUGGESTION_LIMIT = 6
 
 /** A small tag chip — muscle group or equipment. */
@@ -291,7 +285,6 @@ export default function ExerciseSwapPicker({
                         spellCheck={false}
                         enterKeyHint="search"
                         aria-label="Search exercises"
-                        className={NO_ZOOM}
                     />
 
                     {shown.length === 0 ? (
@@ -341,7 +334,6 @@ export default function ExerciseSwapPicker({
                         autoCorrect="off"
                         enterKeyHint="done"
                         aria-label="Exercise name"
-                        className={NO_ZOOM}
                     />
 
                     <TagPills

@@ -1,4 +1,4 @@
-import { daysBetween } from '../../lib/weightTrend'
+import { daysBetween } from '../lib/weightTrend'
 
 /**
  * One measurement over time, drawn the way the bodyweight chart already is: a
@@ -31,6 +31,7 @@ export default function MetricChart({
     target,
     targetLabel,
     tone = 'stroke-coral-500',
+    format = (v) => v.toFixed(1),
 }: {
     points: ChartPoint[]
     unit: string
@@ -39,6 +40,11 @@ export default function MetricChart({
     target?: number
     targetLabel?: string
     tone?: string
+    /**
+     * How the first and last values read underneath. The default's one decimal
+     * place suits a bodyweight in kilos; a session's total tonnage wants none.
+     */
+    format?: (value: number) => string
 }) {
     if (points.length < 2) {
         return (
@@ -123,10 +129,10 @@ export default function MetricChart({
             </svg>
             <div className="flex justify-between px-1 text-[11px] tabular-nums text-neutral-400">
                 <span>
-                    {points[0].value.toFixed(1)} {unit}
+                    {format(points[0].value)} {unit}
                 </span>
                 <span>
-                    {points[points.length - 1].value.toFixed(1)} {unit}
+                    {format(points[points.length - 1].value)} {unit}
                 </span>
             </div>
         </div>

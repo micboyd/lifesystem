@@ -22,6 +22,7 @@ import FitnessWeeklyPlanner from '../components/FitnessWeeklyPlanner'
 import PlanLibrary from '../components/PlanLibrary'
 import BodyMetrics from '../components/BodyMetrics'
 import FitnessExportCenter from '../components/FitnessExportCenter'
+import FitnessStats from '../components/stats/FitnessStats'
 import ConditioningSessionDetail from '../components/ConditioningSessionDetail'
 import JsonImportPanel from '../components/JsonImportPanel'
 import {
@@ -89,6 +90,7 @@ const SESSION_TEMPLATE = JSON.stringify(
 const TABS = [
     'Planner',
     'Plans',
+    'Stats',
     'Body',
     'Strength',
     'Conditioning',
@@ -101,6 +103,7 @@ const SUBTITLE: Record<Tab, string> = {
     Planner:
         'Plan your training — drop strength, conditioning, mobility and recovery into each day.',
     Plans: 'Whole training blocks — import a plan, then apply it to fill the planner day by day.',
+    Stats: 'What the logs already know — progression per exercise, how often you train, records, and where the volume goes.',
     Body: 'Weigh in and watch the trend, not the scale — the smoothed line is what tracks fat.',
     Strength: 'Track your training programmes, sessions and progress.',
     Conditioning: 'Track your training programmes, sessions and progress.',
@@ -166,6 +169,8 @@ export default function Fitness() {
                                 setTab('Planner')
                             }}
                         />
+                    ) : tab === 'Stats' ? (
+                        <FitnessStats />
                     ) : tab === 'Body' ? (
                         <BodyMetrics />
                     ) : tab === 'Strength' ? (
