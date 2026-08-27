@@ -827,6 +827,9 @@ function WorkoutLibrary({
                 workout={drawer?.mode === 'log' ? drawer.workout : null}
                 byId={byId}
                 onClose={() => setDrawer(null)}
+                // Created mid-session from the swap picker — pull it into the
+                // exercise library so both grids show it without a refresh.
+                onExerciseCreated={() => void reload()}
                 onSubmit={handleLogWeights}
             />
 

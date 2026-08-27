@@ -1144,6 +1144,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 byId={exercisesById}
                 defaultDate={logTarget?.date}
                 onClose={() => setLogTarget(null)}
+                onExerciseCreated={(exercise) => setExercises((prev) => [...prev, exercise])}
                 onSubmit={handleLogWeights}
             />
 

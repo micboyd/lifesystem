@@ -6,6 +6,7 @@ import Textarea from './Textarea'
 import ExerciseSwapPicker from './ExerciseSwapPicker'
 import type { Exercise, LoggedSet, Workout, WorkoutExercise, WorkoutLog } from '../types'
 import { updateLog, type WorkoutLogInput } from '../services/workoutLogs'
+import { createExercise, type ExerciseInput } from '../services/exercises'
 import { useToast } from '../context/ToastContext'
 import {
     clearDraft,
@@ -111,6 +112,7 @@ export default function WorkoutLogWeightsDrawer({
     byId,
     defaultDate,
     onClose,
+    onExerciseCreated,
     onSubmit,
 }: {
     workout: Workout | null
@@ -120,6 +122,12 @@ export default function WorkoutLogWeightsDrawer({
     /** Day to pre-fill, e.g. the planned day when opened from the planner. Defaults to today. */
     defaultDate?: string
     onClose: () => void
+    /**
+     * An exercise was created from the swap picker mid-session. The drawer already
+     * holds it locally; this lets the page it opened from take it into its own
+     * library state rather than waiting for a reload.
+     */
+    onExerciseCreated?: (exercise: Exercise) => void
     /** Record the session for the first time, resolving to the log it created —
      *  the drawer keeps the id so later saves update that log instead of adding another. */
     onSubmit: (workout: Workout, fields: WorkoutLogInput) => Promise<WorkoutLog>
@@ -209,7 +217,32 @@ export default function WorkoutLogWeightsDrawer({
         setUnsaved(false)
     }
 
-    const library = useMemo(() => [...byId.values()], [byId])
+    /**
+     * Exercises added from the swap picker during this session. They're kept
+     * beside `byId` rather than folded into it, so seeding and the draft
+     * signature still see exactly the library the workout was written against —
+     * a brand-new exercise can't be part of a prescription, only a stand-in for one.
+     */
+    const [created, setCreated] = useState<Exercise[]>([])
+
+    /** The library as the picker sees it: what the page passed, plus tonight's additions. */
+    const resolved = useMemo(() => {
+        if (created.length === 0) return byId
+        const m = new Map(byId)
+        for (const ex of created) m.set(ex._id, ex)
+        return m
+    }, [byId, created])
+
+    const library = useMemo(() => [...resolved.values()], [resolved])
+
+    /** Add an exercise to the library from inside the picker, mid-session. */
+    async function handleCreateExercise(fields: ExerciseInput): Promise<Exercise> {
+        const exercise = await createExercise(fields)
+        setCreated((prev) => [...prev, exercise])
+        onExerciseCreated?.(exercise)
+        toast.show(`${exercise.name} added to your library.`, 'success')
+        return exercise
+    }
 
     // Everything already in this session — the picker shouldn't offer a movement
     // back to you that you're doing two rows down anyway. A skipped row is fair
@@ -593,12 +626,13 @@ export default function WorkoutLogWeightsDrawer({
                                             </p>
                                         )}
 
-                                        {swapping === ei && byId.get(ex.exerciseId) && (
+                                        {swapping === ei && resolved.get(ex.exerciseId) && (
                                             <ExerciseSwapPicker
-                                                target={byId.get(ex.exerciseId)!}
+                                                target={resolved.get(ex.exerciseId)!}
                                                 library={library}
                                                 excludeIds={inSession}
                                                 onPick={(picked) => applySwap(ei, picked)}
+                                                onCreate={handleCreateExercise}
                                                 onCancel={() => setSwapping(null)}
                                             />
                                         )}
