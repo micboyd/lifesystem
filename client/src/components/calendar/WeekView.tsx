@@ -162,7 +162,7 @@ export default function WeekView({
                                         >
                                             <EventStack
                                                 events={slotEvents}
-                                                disabled={past}
+                                                past={past}
                                                 onEventClick={onEventClick}
                                                 onAdd={() => onOpenPart(date, period.key)}
                                                 onPick={onPickEvents}
@@ -212,7 +212,7 @@ export default function WeekView({
                                         >
                                             <EventStack
                                                 events={slotEvents}
-                                                disabled={pastDay && slotEvents.length === 0}
+                                                past={pastDay}
                                                 onEventClick={onEventClick}
                                                 onAdd={() => onOpenPart(date, 'na')}
                                                 onPick={onPickEvents}

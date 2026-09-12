@@ -10,7 +10,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 // Whose library to clear. Defaults to the seeded test user; override with
 // CLEAR_EMAIL. Set CLEAR_ALL_USERS=1 to wipe every user's meals instead — a
 // deliberately separate, louder flag so a stray run can't nuke everyone.
-const email = process.env.CLEAR_EMAIL ?? 'katy-mcdonald@sky.com'
+const email = process.env.CLEAR_EMAIL ?? 'michael_boyd@live.co.uk'
 const allUsers = process.env.CLEAR_ALL_USERS === '1'
 
 async function clearMeals() {

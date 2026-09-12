@@ -341,9 +341,8 @@ function PartRow({ label, icon, events, date, past = false, onEdit, onAdd }: Par
                         <button
                             key={event._id}
                             type="button"
-                            disabled={past}
                             onClick={() => onEdit(event)}
-                            className="group -mx-2 mt-1 block w-[calc(100%+1rem)] rounded-lg px-2 py-1 text-left transition-colors enabled:hover:bg-neutral-100 disabled:cursor-default"
+                            className="group -mx-2 mt-1 block w-[calc(100%+1rem)] rounded-lg px-2 py-1 text-left transition-colors hover:bg-neutral-100"
                         >
                             <p className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
                                 <span

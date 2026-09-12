@@ -8,7 +8,11 @@ import type { Event } from '../../types'
 
 interface EventStackProps {
     events: Event[]
-    disabled?: boolean
+    /**
+     * Slot lies in the past: nothing new can be added or pasted here, but the
+     * events already in it stay open-able so they can be viewed or deleted.
+     */
+    past?: boolean
     onEventClick: (event: Event) => void
     onAdd: () => void
     onPick: (events: Event[]) => void
@@ -25,13 +29,14 @@ interface EventStackProps {
 function Chip({
     event,
     mini = false,
-    disabled = false,
+    muted = false,
     onClick,
     onContextMenu,
 }: {
     event: Event
     mini?: boolean
-    disabled?: boolean
+    /** Dim the chip (a past slot) — it stays clickable. */
+    muted?: boolean
     onClick: () => void
     onContextMenu?: (e: ReactMouseEvent) => void
 }) {
@@ -59,23 +64,17 @@ function Chip({
     )
     return (
         <div className={`group/chip relative ${sizing}`} onContextMenu={onContextMenu}>
-            {disabled ? (
-                <div title={event.title} className={`${base} opacity-50`}>
-                    {title}
-                </div>
-            ) : (
-                <button
-                    type="button"
-                    title={event.title}
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        onClick()
-                    }}
-                    className={`${base} ${hover} transition-colors`}
-                >
-                    {title}
-                </button>
-            )}
+            <button
+                type="button"
+                title={event.title}
+                onClick={(e) => {
+                    e.stopPropagation()
+                    onClick()
+                }}
+                className={`${base} ${hover} transition-colors ${muted ? 'opacity-50 hover:opacity-100' : ''}`}
+            >
+                {title}
+            </button>
         </div>
     )
 }
@@ -92,7 +91,7 @@ function Chip({
  */
 export default function EventStack({
     events,
-    disabled = false,
+    past = false,
     onEventClick,
     onAdd,
     onPick,
@@ -149,7 +148,7 @@ export default function EventStack({
         ) : null
 
     if (events.length === 0) {
-        if (disabled) return <div className="h-full w-full" />
+        if (past) return <div className="h-full w-full" />
         return (
             <>
                 <button
@@ -171,7 +170,7 @@ export default function EventStack({
             <>
                 <Chip
                     event={events[0]}
-                    disabled={disabled}
+                    muted={past}
                     onClick={() => onEventClick(events[0])}
                     onContextMenu={(e) => openMenu(e, events[0])}
                 />
@@ -188,19 +187,18 @@ export default function EventStack({
                     <Chip
                         event={events[0]}
                         mini
-                        disabled={disabled}
+                        muted={past}
                         onClick={() => onEventClick(events[0])}
                         onContextMenu={(e) => openMenu(e, events[0])}
                     />
                     <button
                         type="button"
-                        disabled={disabled}
                         onClick={(e) => {
                             e.stopPropagation()
                             onPick(events)
                         }}
                         onContextMenu={(e) => openMenu(e, null)}
-                        className="flex min-h-0 flex-1 items-center justify-center rounded-md bg-neutral-200 text-[10px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-300 disabled:opacity-50"
+                        className={`flex min-h-0 flex-1 items-center justify-center rounded-md bg-neutral-200 text-[10px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-300 ${past ? 'opacity-50 hover:opacity-100' : ''}`}
                     >
                         +{events.length - 1} more
                     </button>
@@ -211,7 +209,7 @@ export default function EventStack({
                         key={e._id}
                         event={e}
                         mini
-                        disabled={disabled}
+                        muted={past}
                         onClick={() => onEventClick(e)}
                         onContextMenu={(ev) => openMenu(ev, e)}
                     />

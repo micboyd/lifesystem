@@ -1196,7 +1196,7 @@ function MonthBlock({
                                         >
                                             <EventStack
                                                 events={slotEvents}
-                                                disabled={past}
+                                                past={past}
                                                 onEventClick={onEventClick}
                                                 onAdd={() => onOpenPart(key, period.key)}
                                                 onPick={onPickEvents}
@@ -1253,7 +1253,7 @@ function MonthBlock({
                                         >
                                             <EventStack
                                                 events={slotEvents}
-                                                disabled={otherPast}
+                                                past={otherPast}
                                                 onEventClick={onEventClick}
                                                 onAdd={() => onOpenPart(key, 'na')}
                                                 onPick={onPickEvents}
