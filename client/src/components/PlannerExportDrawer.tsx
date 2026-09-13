@@ -11,27 +11,57 @@ import { listLogs as listConditioningLogs } from '../services/conditioningLogs'
 import { listLogs as listMobilityLogs } from '../services/mobilityLogs'
 import { listLogs as listRecoveryLogs } from '../services/recoveryLogs'
 import type { Exercise, FitnessPlanEntry, FitnessPlanNote } from '../types'
-import { addDays, formatWeekRange } from '../lib/calendar'
+import {
+    addDays,
+    dateKey,
+    daysInMonth,
+    formatMonthRange,
+    formatWeekRange,
+    monthKeyOf,
+} from '../lib/calendar'
 import {
     buildPlannerExport,
+    countCompleted,
     countEntries,
     exportFilename,
-    logKey,
     weekRangeFor,
     DEFAULT_EXPORT_OPTIONS,
+    type PlannerExportLogs,
     type PlannerExportOptions,
 } from '../lib/plannerExport'
 
 // ─── Range presets ──────────────────────────────────────────────────────────────
 
-type PresetKey = 'week' | 'four' | 'twelve' | 'custom'
+type PresetKey =
+    | 'week'
+    | 'four'
+    | 'twelve'
+    | 'lastFour'
+    | 'lastTwelve'
+    | 'months'
+    | 'custom'
 
-const PRESETS: { key: PresetKey; label: string; weeks?: number }[] = [
+/** `back` counts the weeks backwards from the planner's week instead of forwards. */
+const PRESETS: { key: PresetKey; label: string; weeks?: number; back?: true }[] = [
     { key: 'week', label: 'This week', weeks: 1 },
-    { key: 'four', label: '4 weeks', weeks: 4 },
-    { key: 'twelve', label: '12 weeks', weeks: 12 },
+    { key: 'four', label: 'Next 4 weeks', weeks: 4 },
+    { key: 'twelve', label: 'Next 12 weeks', weeks: 12 },
+    { key: 'lastFour', label: 'Last 4 weeks', weeks: 4, back: true },
+    { key: 'lastTwelve', label: 'Last 12 weeks', weeks: 12, back: true },
+    { key: 'months', label: 'Months' },
     { key: 'custom', label: 'Custom' },
 ]
+
+/** The first day of a "YYYY-MM" month key. */
+function monthFirst(month: string): string {
+    return `${month}-01`
+}
+
+/** The last day of a "YYYY-MM" month key. */
+function monthLast(month: string): string {
+    const [year, m] = month.split('-').map(Number)
+    return dateKey(year, m - 1, daysInMonth(year, m - 1))
+}
 
 // ─── Option toggles ─────────────────────────────────────────────────────────────
 
@@ -47,9 +77,14 @@ const TOGGLES: { key: keyof PlannerExportOptions; label: string; hint: string }[
         hint: 'Marks each item done or not, from the logs for its day.',
     },
     {
+        key: 'logs',
+        label: 'Completed sessions',
+        hint: 'Everything actually done each day — including sessions never planned.',
+    },
+    {
         key: 'details',
         label: 'Item details',
-        hint: 'Expands each item into its sets and reps, or its parts.',
+        hint: 'Expands each item into its sets and reps, and each completed session into the sets and rounds performed.',
     },
     {
         key: 'emptyDays',
@@ -64,16 +99,19 @@ interface Loaded {
     end: string
     entries: FitnessPlanEntry[]
     notes: FitnessPlanNote[]
-    doneKeys: Set<string>
+    logs: PlannerExportLogs
     exercisesById: Map<string, Exercise>
 }
 
 /**
  * Exports the planner as it currently stands — the items sitting on each day and
- * slot of a range of weeks, with their flags and completion. This is the state,
- * not the training plan: a plan is the template that places items, and lives in
- * the Plans tab; what came out of it, and everything changed by hand since, is
- * what this writes out.
+ * slot of a range of weeks, with their flags, and what was actually done. This is
+ * the state, not the training plan: a plan is the template that places items, and
+ * lives in the Plans tab; what came out of it, and everything changed by hand
+ * since, is what this writes out.
+ *
+ * The range runs backwards as readily as forwards, by weeks or by whole months,
+ * so a past stretch can be pulled out for analysis alongside a planned one.
  */
 export default function PlannerExportDrawer({
     open,
@@ -89,6 +127,8 @@ export default function PlannerExportDrawer({
     // Null until a custom range is actually picked, so the default keeps tracking
     // the week the planner is on rather than the one it was on at first render.
     const [custom, setCustom] = useState<DateRange | null>(null)
+    // Likewise for the month range, which defaults to the month the planner is in.
+    const [months, setMonths] = useState<DateRange | null>(null)
     const [options, setOptions] = useState<PlannerExportOptions>(DEFAULT_EXPORT_OPTIONS)
     const [loaded, setLoaded] = useState<Loaded | null>(null)
     const [loading, setLoading] = useState(false)
@@ -96,14 +136,27 @@ export default function PlannerExportDrawer({
     const [copied, setCopied] = useState(false)
 
     const customRange: DateRange = custom ?? { start: weekStart, end: addDays(weekStart, 6) }
+    const monthRange: DateRange = months ?? {
+        start: monthKeyOf(weekStart),
+        end: monthKeyOf(weekStart),
+    }
 
     // The range on offer, always widened to whole Monday–Sunday weeks so a week
-    // is never exported half-full.
+    // is never exported half-full — which means a month range spills a few days
+    // into its neighbours rather than cutting a week in half.
     const range = useMemo(() => {
-        const weeks = PRESETS.find((p) => p.key === preset)?.weeks
-        if (weeks) return weekRangeFor(weekStart, addDays(weekStart, weeks * 7 - 1))
+        const p = PRESETS.find((x) => x.key === preset)
+        if (p?.weeks) {
+            // A backwards preset ends with the week the planner is on, so "last 12
+            // weeks" is the twelve up to and including now.
+            return p.back
+                ? weekRangeFor(addDays(weekStart, -(p.weeks - 1) * 7), addDays(weekStart, 6))
+                : weekRangeFor(weekStart, addDays(weekStart, p.weeks * 7 - 1))
+        }
+        if (preset === 'months')
+            return weekRangeFor(monthFirst(monthRange.start), monthLast(monthRange.end))
         return weekRangeFor(customRange.start, customRange.end || customRange.start)
-    }, [preset, customRange.start, customRange.end, weekStart])
+    }, [preset, customRange.start, customRange.end, monthRange.start, monthRange.end, weekStart])
 
     // Load the range from the server rather than reusing the grid's copy: the
     // planner saves every change as it is made, so the server is the state on
@@ -114,7 +167,6 @@ export default function PlannerExportDrawer({
         let active = true
         setLoading(true)
         setError(null)
-        const inRange = (date: string) => date >= range.start && date <= range.end
         Promise.all([
             listPlanEntries(range.start, range.end),
             listPlanNotes(range.start, range.end),
@@ -126,25 +178,19 @@ export default function PlannerExportDrawer({
         ])
             .then(([entries, notes, exercises, wLogs, cLogs, mLogs, rLogs]) => {
                 if (!active) return
-                const doneKeys = new Set<string>()
-                for (const l of wLogs)
-                    if (l.workout && inRange(l.date))
-                        doneKeys.add(logKey('workout', l.workout, l.date))
-                for (const l of cLogs)
-                    if (l.session && inRange(l.date))
-                        doneKeys.add(logKey('conditioning', l.session, l.date))
-                for (const l of mLogs)
-                    if (l.mobility && inRange(l.date))
-                        doneKeys.add(logKey('mobility', l.mobility, l.date))
-                for (const l of rLogs)
-                    if (l.recovery && inRange(l.date))
-                        doneKeys.add(logKey('recovery', l.recovery, l.date))
                 setLoaded({
                     start: range.start,
                     end: range.end,
                     entries,
                     notes,
-                    doneKeys,
+                    // Handed over whole: the builder narrows them to the range and
+                    // decides what counts as done.
+                    logs: {
+                        workout: wLogs,
+                        conditioning: cLogs,
+                        mobility: mLogs,
+                        recovery: rLogs,
+                    },
                     exercisesById: new Map(exercises.map((e) => [e._id, e])),
                 })
             })
@@ -162,6 +208,7 @@ export default function PlannerExportDrawer({
 
     const json = useMemo(() => (payload ? JSON.stringify(payload, null, 2) : ''), [payload])
     const total = payload ? countEntries(payload) : 0
+    const completed = payload ? countCompleted(payload) : 0
     const canExport = !!payload && !loading
 
     function toggle(key: keyof PlannerExportOptions) {
@@ -211,7 +258,7 @@ export default function PlannerExportDrawer({
                         {copied ? 'Copied' : 'Copy JSON'}
                     </Button>
                     <Button icon="fa-solid fa-download" onClick={download} disabled={!canExport}>
-                        Download{canExport ? ` (${total})` : ''}
+                        Download{canExport ? ` (${total + completed})` : ''}
                     </Button>
                 </>
             }
@@ -219,8 +266,9 @@ export default function PlannerExportDrawer({
             <div className="flex flex-col gap-5">
                 <p className="text-sm text-neutral-500">
                     The planner exactly as it stands — what sits on each day and slot, with its
-                    flags and what has been done. This is the state, not a plan: applying a plan is
-                    one of the things that put items here.
+                    flags and what was actually done. This is the state, not a plan: applying a
+                    plan is one of the things that put items here. Ranges run backwards as well as
+                    forwards, so a past stretch comes out alongside a planned one.
                 </p>
 
                 <section className="flex flex-col gap-2">
@@ -243,6 +291,24 @@ export default function PlannerExportDrawer({
                             </button>
                         ))}
                     </div>
+                    {preset === 'months' && (
+                        <DatePicker
+                            mode="range"
+                            precision="month"
+                            value={monthRange}
+                            onChange={(v: DatePickerValue) => {
+                                if (v && typeof v === 'object' && 'start' in v) {
+                                    const r = v as DateRange
+                                    // Mid-selection the end comes back empty; hold
+                                    // the old one so the range stays valid.
+                                    setMonths({
+                                        start: r.start || monthRange.start,
+                                        end: r.end || r.start || monthRange.end,
+                                    })
+                                }
+                            }}
+                        />
+                    )}
                     {preset === 'custom' && (
                         <DatePicker
                             mode="range"
@@ -261,6 +327,9 @@ export default function PlannerExportDrawer({
                         />
                     )}
                     <p className="text-xs text-neutral-500">
+                        {preset === 'months' && (
+                            <>{formatMonthRange(monthRange.start, monthRange.end)} · </>
+                        )}
                         {formatWeekRange(range.start, range.end)} — whole weeks, Monday to Sunday.
                     </p>
                 </section>
@@ -312,14 +381,15 @@ export default function PlannerExportDrawer({
                                 Preview
                             </p>
                             <p className="text-xs text-neutral-500">
-                                {total} item{total === 1 ? '' : 's'} · {weekCount} week
+                                {total} planned
+                                {options.logs ? ` · ${completed} completed` : ''} · {weekCount} week
                                 {weekCount === 1 ? '' : 's'}
                             </p>
                         </div>
-                        {total === 0 && !options.emptyDays ? (
+                        {total === 0 && completed === 0 && !options.emptyDays ? (
                             <p className="rounded-xl bg-neutral-50 px-3 py-2.5 text-sm text-neutral-500 ring-1 ring-neutral-200">
-                                Nothing planned in this range — pick a wider one, or keep empty days
-                                to export the bare dates.
+                                Nothing planned or logged in this range — pick a wider one, or keep
+                                empty days to export the bare dates.
                             </p>
                         ) : (
                             <pre className="max-h-72 overflow-auto rounded-xl bg-neutral-900 p-3 text-[11px] leading-relaxed text-neutral-100">

@@ -1,15 +1,18 @@
 import { describe, it, expect } from 'vitest'
 import {
     buildPlannerExport,
+    countCompleted,
     countEntries,
     exportFilename,
-    logKey,
     weekRangeFor,
     DEFAULT_EXPORT_OPTIONS,
+    NO_LOGS,
     type PlannerExportInput,
+    type PlannerExportLogs,
     type PlannerExportOptions,
 } from './plannerExport'
 import type {
+    ConditioningLog,
     ConditioningSession,
     Exercise,
     FitnessFlagColor,
@@ -18,8 +21,11 @@ import type {
     FitnessPlanKind,
     FitnessPlanNote,
     FitnessPlanPart,
+    MobilityLog,
     Recovery,
+    RecoveryLog,
     Workout,
+    WorkoutLog,
 } from '../types'
 
 const STAMP = { createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }
@@ -83,21 +89,72 @@ function note(
     return { _id: `${scope}-${date}`, scope, date, color, label, ...STAMP }
 }
 
+function workoutLog(over: Partial<WorkoutLog> & { date: string }): WorkoutLog {
+    return {
+        _id: `wl-${over.date}`,
+        workout: 'w1',
+        name: 'Lower A',
+        exercises: [{ name: 'Back Squat', sets: 3, reps: '8-12' }],
+        ...STAMP,
+        ...over,
+    }
+}
+
+function conditioningLog(over: Partial<ConditioningLog> & { date: string }): ConditioningLog {
+    return {
+        _id: `cl-${over.date}`,
+        session: 's1',
+        name: 'Bike Intervals',
+        category: 'HIIT',
+        duration: 25,
+        ...STAMP,
+        ...over,
+    }
+}
+
+function mobilityLog(over: Partial<MobilityLog> & { date: string }): MobilityLog {
+    return {
+        _id: `ml-${over.date}`,
+        mobility: 'm1',
+        name: 'Hips',
+        duration: 10,
+        ...STAMP,
+        ...over,
+    }
+}
+
+function recoveryLog(over: Partial<RecoveryLog> & { date: string }): RecoveryLog {
+    return {
+        _id: `rl-${over.date}`,
+        recovery: 'r1',
+        name: 'Sauna',
+        duration: 20,
+        ...STAMP,
+        ...over,
+    }
+}
+
+function logs(over: Partial<PlannerExportLogs> = {}): PlannerExportLogs {
+    return { ...NO_LOGS, ...over }
+}
+
 function input(over: Partial<PlannerExportInput> = {}): PlannerExportInput {
     return {
         start: '2026-08-17',
         end: '2026-08-23',
         entries: [],
         notes: [],
-        doneKeys: new Set<string>(),
+        logs: NO_LOGS,
         exercisesById: new Map<string, Exercise>(),
-        options: DEFAULT_EXPORT_OPTIONS,
+        // Logs off by default here so the existing expectations stay about the
+        // plan alone; the suites below turn them on deliberately.
+        options: { ...DEFAULT_EXPORT_OPTIONS, logs: false },
         ...over,
     }
 }
 
 function options(over: Partial<PlannerExportOptions>): PlannerExportOptions {
-    return { ...DEFAULT_EXPORT_OPTIONS, ...over }
+    return { ...DEFAULT_EXPORT_OPTIONS, logs: false, ...over }
 }
 
 describe('weekRangeFor', () => {
@@ -312,7 +369,7 @@ describe('buildPlannerExport — completion', () => {
     it('marks an entry done when a log matches its item and day', () => {
         const payload = buildPlannerExport(
             input({
-                doneKeys: new Set([logKey('workout', 'w1', '2026-08-19')]),
+                logs: logs({ workout: [workoutLog({ date: '2026-08-19' })] }),
                 entries: [
                     entry({ date: '2026-08-19', kind: 'workout', workout: workout() }),
                     entry({ date: '2026-08-20', kind: 'workout', workout: workout() }),
@@ -328,8 +385,8 @@ describe('buildPlannerExport — completion', () => {
     it('omits done entirely when completion is off', () => {
         const payload = buildPlannerExport(
             input({
-                options: options({ completion: false }),
-                doneKeys: new Set([logKey('workout', 'w1', '2026-08-19')]),
+                options: options({ completion: false, logs: false }),
+                logs: logs({ workout: [workoutLog({ date: '2026-08-19' })] }),
                 entries: [entry({ date: '2026-08-19', kind: 'workout', workout: workout() })],
             }),
             NOW
@@ -426,6 +483,223 @@ describe('buildPlannerExport — empty days', () => {
         expect(payload.weeks[0].days).toHaveLength(7)
         expect(payload.weeks[1].days).toHaveLength(7)
         expect(payload.weeks[1].days.every((d) => !d.morning && !d.evening)).toBe(true)
+    })
+})
+
+describe('buildPlannerExport — completed sessions', () => {
+    const withLogs = options({ logs: true })
+
+    it('carries each day\u2019s logs, whatever category they came from', () => {
+        const payload = buildPlannerExport(
+            input({
+                options: withLogs,
+                logs: logs({
+                    workout: [workoutLog({ date: '2026-08-19', durationMin: 52 })],
+                    conditioning: [conditioningLog({ date: '2026-08-19', rpe: 8 })],
+                    mobility: [mobilityLog({ date: '2026-08-21' })],
+                    recovery: [recoveryLog({ date: '2026-08-21' })],
+                }),
+            }),
+            NOW
+        )
+
+        const days = payload.weeks[0].days
+        expect(days.map((d) => d.date)).toEqual(['2026-08-19', '2026-08-21'])
+        expect(days[0].completed?.map((c) => [c.kind, c.name])).toEqual([
+            ['workout', 'Lower A'],
+            ['conditioning', 'Bike Intervals'],
+        ])
+        expect(days[0].completed?.[0].durationMin).toBe(52)
+        expect(days[0].completed?.[1].rpe).toBe(8)
+        expect(days[0].completed?.[1].category).toBe('HIIT')
+        expect(days[1].completed?.map((c) => c.kind)).toEqual(['recovery', 'mobility'])
+    })
+
+    it('keeps a day nothing was planned on but something was done on', () => {
+        const payload = buildPlannerExport(
+            input({
+                options: withLogs,
+                logs: logs({ workout: [workoutLog({ date: '2026-08-20' })] }),
+            }),
+            NOW
+        )
+        const day = payload.weeks[0].days[0]
+        expect(day.date).toBe('2026-08-20')
+        expect(day).not.toHaveProperty('morning')
+        expect(day.completed?.[0].planned).toBe(false)
+    })
+
+    it('flags a log the plan had asked for as planned', () => {
+        const payload = buildPlannerExport(
+            input({
+                options: withLogs,
+                entries: [entry({ date: '2026-08-19', kind: 'workout', workout: workout() })],
+                logs: logs({
+                    workout: [
+                        workoutLog({ date: '2026-08-19' }),
+                        // Same workout, a day it was never planned for.
+                        workoutLog({ date: '2026-08-21' }),
+                    ],
+                }),
+            }),
+            NOW
+        )
+        const byDate = new Map(payload.weeks[0].days.map((d) => [d.date, d]))
+        expect(byDate.get('2026-08-19')?.completed?.[0].planned).toBe(true)
+        expect(byDate.get('2026-08-21')?.completed?.[0].planned).toBe(false)
+    })
+
+    it('ignores logs outside the range', () => {
+        const payload = buildPlannerExport(
+            input({
+                options: options({ logs: true, emptyDays: true }),
+                logs: logs({ workout: [workoutLog({ date: '2026-09-01' })] }),
+            }),
+            NOW
+        )
+        expect(payload.weeks[0].days.every((d) => !d.completed)).toBe(true)
+        expect(countCompleted(payload)).toBe(0)
+    })
+
+    it('totals what was completed beside what was planned', () => {
+        const payload = buildPlannerExport(
+            input({
+                options: withLogs,
+                entries: [entry({ date: '2026-08-19', kind: 'workout', workout: workout() })],
+                logs: logs({
+                    workout: [workoutLog({ date: '2026-08-19' })],
+                    recovery: [recoveryLog({ date: '2026-08-22' })],
+                }),
+            }),
+            NOW
+        )
+        expect(payload.totals).toEqual({ workout: 1, conditioning: 0, mobility: 0, recovery: 0 })
+        expect(payload.completed).toEqual({
+            workout: 1,
+            conditioning: 0,
+            mobility: 0,
+            recovery: 1,
+        })
+        expect(payload.weeks[0].completed).toEqual(payload.completed)
+        expect(countEntries(payload)).toBe(1)
+        expect(countCompleted(payload)).toBe(2)
+    })
+
+    it('still marks planned rows done, and keeps a log of a deleted item', () => {
+        const payload = buildPlannerExport(
+            input({
+                options: withLogs,
+                entries: [entry({ date: '2026-08-19', kind: 'workout', workout: workout() })],
+                logs: logs({
+                    workout: [
+                        workoutLog({ date: '2026-08-19' }),
+                        workoutLog({ date: '2026-08-20', workout: null, name: 'Old Lower' }),
+                    ],
+                }),
+            }),
+            NOW
+        )
+        expect(payload.weeks[0].days[0].morning?.[0].done).toBe(true)
+        const orphan = payload.weeks[0].days[1].completed?.[0]
+        expect(orphan).toMatchObject({ item: null, name: 'Old Lower', planned: false })
+    })
+
+    it('omits the logs entirely when the option is off', () => {
+        const payload = buildPlannerExport(
+            input({
+                options: options({ logs: false }),
+                entries: [entry({ date: '2026-08-19', kind: 'workout', workout: workout() })],
+                logs: logs({
+                    workout: [
+                        workoutLog({ date: '2026-08-19' }),
+                        workoutLog({ date: '2026-08-20' }),
+                    ],
+                }),
+            }),
+            NOW
+        )
+        expect(payload).not.toHaveProperty('completed')
+        expect(payload.weeks[0]).not.toHaveProperty('completed')
+        // The unplanned day goes with them, but the planned row is still marked done.
+        expect(payload.weeks[0].days.map((d) => d.date)).toEqual(['2026-08-19'])
+        expect(payload.weeks[0].days[0].morning?.[0].done).toBe(true)
+    })
+
+    it('expands a log into the sets performed when details are on', () => {
+        const payload = buildPlannerExport(
+            input({
+                options: options({ logs: true, details: true }),
+                logs: logs({
+                    workout: [
+                        workoutLog({
+                            date: '2026-08-19',
+                            exercises: [
+                                {
+                                    name: 'Back Squat',
+                                    sets: 3,
+                                    reps: '8-12',
+                                    loggedSets: [
+                                        { weight: 80, reps: 10 },
+                                        { weight: 85, reps: 8 },
+                                    ],
+                                },
+                            ],
+                        }),
+                    ],
+                    conditioning: [
+                        conditioningLog({
+                            date: '2026-08-19',
+                            rounds: [{ name: 'Main set', done: 6, target: 8 }],
+                        }),
+                    ],
+                }),
+            }),
+            NOW
+        )
+        const done = payload.weeks[0].days[0].completed ?? []
+        expect(done[0].details).toEqual({
+            exercises: [
+                {
+                    name: 'Back Squat',
+                    sets: 3,
+                    reps: '8-12',
+                    performed: [
+                        { weight: 80, reps: 10 },
+                        { weight: 85, reps: 8 },
+                    ],
+                },
+            ],
+        })
+        expect(done[1].details).toEqual({ rounds: [{ name: 'Main set', done: 6, target: 8 }] })
+    })
+
+    it('leaves the sets out when details are off', () => {
+        const payload = buildPlannerExport(
+            input({
+                options: withLogs,
+                logs: logs({ workout: [workoutLog({ date: '2026-08-19' })] }),
+            }),
+            NOW
+        )
+        expect(payload.weeks[0].days[0].completed?.[0]).not.toHaveProperty('details')
+    })
+})
+
+describe('weekRangeFor — past and month ranges', () => {
+    it('widens a whole month to the weeks holding it', () => {
+        // September 2026 runs Tue 1st to Wed 30th.
+        expect(weekRangeFor('2026-09-01', '2026-09-30')).toEqual({
+            start: '2026-08-31',
+            end: '2026-10-04',
+        })
+    })
+
+    it('widens a range that runs back from a week', () => {
+        // The four weeks up to and including the week of 17 Aug.
+        expect(weekRangeFor('2026-07-27', '2026-08-23')).toEqual({
+            start: '2026-07-27',
+            end: '2026-08-23',
+        })
     })
 })
 

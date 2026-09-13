@@ -6,10 +6,16 @@
  * A plan is a template; this is the state it produced, plus everything added,
  * moved or removed by hand since.
  *
+ * Two things sit on each day: what was *planned* there, and what was actually
+ * *completed* — the logs. They are exported side by side rather than folded
+ * together, because a session done off-plan is as much a fact about the day as
+ * a planned one skipped, and analysis over a past range wants both.
+ *
  * Pure functions over already-loaded data so the shaping can be tested without
  * a network or a rendered drawer.
  */
 import type {
+    ConditioningLog,
     Exercise,
     FitnessFlagColor,
     FitnessNoteScope,
@@ -17,10 +23,13 @@ import type {
     FitnessPlanKind,
     FitnessPlanNote,
     FitnessPlanPart,
+    MobilityLog,
+    RecoveryLog,
     SessionPart,
     Workout,
+    WorkoutLog,
 } from '../types'
-import { FITNESS_PLAN_PARTS } from '../types'
+import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS } from '../types'
 import { addDays, formatWeekRange, WEEKDAYS_LONG, parseDateKey } from './calendar'
 
 // ─── Options ────────────────────────────────────────────────────────────────────
@@ -34,6 +43,12 @@ export interface PlannerExportOptions {
     details: boolean
     /** Keep days that hold nothing, so every date in the range appears. */
     emptyDays: boolean
+    /**
+     * Carry the logs themselves on each day — everything actually completed,
+     * including sessions that were never on the plan. Without this only the
+     * planned rows appear, each merely marked done or not.
+     */
+    logs: boolean
 }
 
 export const DEFAULT_EXPORT_OPTIONS: PlannerExportOptions = {
@@ -41,6 +56,7 @@ export const DEFAULT_EXPORT_OPTIONS: PlannerExportOptions = {
     completion: true,
     details: false,
     emptyDays: false,
+    logs: true,
 }
 
 /** Everything the payload is built from, all already loaded. */
@@ -50,11 +66,29 @@ export interface PlannerExportInput {
     end: string
     entries: FitnessPlanEntry[]
     notes: FitnessPlanNote[]
-    /** Completion keys, as `kind:libraryId:date` — see `logKey`. */
-    doneKeys: Set<string>
+    /**
+     * Every log, of every category. Filtered to the range by the builder, and the
+     * single source of both what was completed and which planned rows are done.
+     */
+    logs: PlannerExportLogs
     /** Library exercises by id, for naming a workout's lines when details are on. */
     exercisesById: Map<string, Exercise>
     options: PlannerExportOptions
+}
+
+/** The logs, as the four categories keep them. */
+export interface PlannerExportLogs {
+    workout: WorkoutLog[]
+    conditioning: ConditioningLog[]
+    mobility: MobilityLog[]
+    recovery: RecoveryLog[]
+}
+
+export const NO_LOGS: PlannerExportLogs = {
+    workout: [],
+    conditioning: [],
+    mobility: [],
+    recovery: [],
 }
 
 // ─── Payload shape ──────────────────────────────────────────────────────────────
@@ -81,6 +115,26 @@ export interface ExportedEntry {
     details?: Record<string, unknown>
 }
 
+/** One session actually completed on a day — a log, whatever put it there. */
+export interface ExportedLog {
+    kind: FitnessPlanKind
+    /** The name as it was when logged, which may since have changed in the library. */
+    name: string
+    /** The library item behind it, or null once that item has been deleted. */
+    item: string | null
+    /** Whether the plan held a matching item on this day, or it was done off-plan. */
+    planned: boolean
+    /** Minutes actually spent, when recorded. */
+    durationMin?: number
+    /** Conditioning only: the category it was logged under. */
+    category?: string
+    /** Conditioning only: rate of perceived exertion, 1 (easy) – 10 (max). */
+    rpe?: number
+    notes?: string
+    /** Only present when details are included — the sets, or rounds, performed. */
+    details?: Record<string, unknown>
+}
+
 export interface ExportedDay {
     date: string
     weekday: string
@@ -89,6 +143,8 @@ export interface ExportedDay {
     morning?: ExportedEntry[]
     afternoon?: ExportedEntry[]
     evening?: ExportedEntry[]
+    /** What was actually done that day. Only present when logs are included. */
+    completed?: ExportedLog[]
 }
 
 export interface ExportedWeek {
@@ -96,7 +152,10 @@ export interface ExportedWeek {
     end: string
     label: string
     flag?: ExportedFlag
+    /** How many items the week held, by category. */
     totals: PlannerTotals
+    /** How many were actually done, by category. Only present when logs are included. */
+    completed?: PlannerTotals
     days: ExportedDay[]
 }
 
@@ -107,6 +166,8 @@ export interface PlannerExportPayload {
     source: 'AdminLife Planner'
     range: { start: string; end: string }
     totals: PlannerTotals
+    /** Completed totals across the range. Only present when logs are included. */
+    completed?: PlannerTotals
     weeks: ExportedWeek[]
 }
 
@@ -232,7 +293,8 @@ function entryDetails(
  */
 function shapeEntry(
     entry: FitnessPlanEntry,
-    input: Pick<PlannerExportInput, 'doneKeys' | 'exercisesById' | 'options'>
+    input: Pick<PlannerExportInput, 'exercisesById' | 'options'>,
+    doneKeys: Set<string>
 ): ExportedEntry | null {
     const item = entryLibId(entry)
     const name = entryName(entry)
@@ -246,10 +308,120 @@ function shapeEntry(
         plan: entry.plan,
         ...(entry.ignoreClash === true ? { ignoreClash: true as const } : {}),
         ...(input.options.completion
-            ? { done: input.doneKeys.has(logKey(entry.kind, item, entry.date)) }
+            ? { done: doneKeys.has(logKey(entry.kind, item, entry.date)) }
             : {}),
         ...(details ? { details } : {}),
     }
+}
+
+/** What a logged workout's exercises actually came to — prescribed and performed. */
+function shapeWorkoutLog(log: WorkoutLog) {
+    return {
+        exercises: log.exercises.map((x) => ({
+            name: x.name,
+            ...(x.substitutedFor ? { substitutedFor: x.substitutedFor } : {}),
+            ...(x.sets != null ? { sets: x.sets } : {}),
+            ...(x.reps ? { reps: x.reps } : {}),
+            ...(x.loggedSets?.length
+                ? {
+                      performed: x.loggedSets.map((set) => ({
+                          ...(set.weight != null ? { weight: set.weight } : {}),
+                          ...(set.reps != null ? { reps: set.reps } : {}),
+                      })),
+                  }
+                : {}),
+        })),
+    }
+}
+
+/**
+ * Every log in the range, flattened to one shape across the four categories and
+ * bucketed by the day it was logged against. `plannedKeys` says which of them
+ * the plan had asked for — the rest were done off-plan.
+ */
+function logsByDate(
+    logs: PlannerExportLogs,
+    range: { start: string; end: string },
+    plannedKeys: Set<string>,
+    includeDetails: boolean
+): Map<string, ExportedLog[]> {
+    const out = new Map<string, ExportedLog[]>()
+
+    function add(date: string, row: ExportedLog) {
+        if (date < range.start || date > range.end) return
+        const day = out.get(date)
+        if (day) day.push(row)
+        else out.set(date, [row])
+    }
+
+    /** Done off-plan unless the plan held this very item on this very day. */
+    const wasPlanned = (kind: FitnessPlanKind, item: string | null, date: string) =>
+        !!item && plannedKeys.has(logKey(kind, item, date))
+
+    for (const l of logs.workout)
+        add(l.date, {
+            kind: 'workout',
+            name: l.name,
+            item: l.workout,
+            planned: wasPlanned('workout', l.workout, l.date),
+            ...(l.durationMin != null ? { durationMin: l.durationMin } : {}),
+            ...(l.notes ? { notes: l.notes } : {}),
+            ...(includeDetails ? { details: shapeWorkoutLog(l) } : {}),
+        })
+
+    for (const l of logs.conditioning)
+        add(l.date, {
+            kind: 'conditioning',
+            name: l.name,
+            item: l.session,
+            planned: wasPlanned('conditioning', l.session, l.date),
+            ...(l.duration != null ? { durationMin: l.duration } : {}),
+            category: l.category,
+            ...(l.rpe != null ? { rpe: l.rpe } : {}),
+            ...(l.notes ? { notes: l.notes } : {}),
+            ...(includeDetails && l.rounds?.length ? { details: { rounds: l.rounds } } : {}),
+        })
+
+    for (const l of logs.mobility)
+        add(l.date, {
+            kind: 'mobility',
+            name: l.name,
+            item: l.mobility,
+            planned: wasPlanned('mobility', l.mobility, l.date),
+            ...(l.duration != null ? { durationMin: l.duration } : {}),
+            ...(l.notes ? { notes: l.notes } : {}),
+        })
+
+    for (const l of logs.recovery)
+        add(l.date, {
+            kind: 'recovery',
+            name: l.name,
+            item: l.recovery,
+            planned: wasPlanned('recovery', l.recovery, l.date),
+            ...(l.duration != null ? { durationMin: l.duration } : {}),
+            ...(l.notes ? { notes: l.notes } : {}),
+        })
+
+    // A day's logs read in the planner's own category order, then by name, so two
+    // exports of the same day come out identical however the logs were fetched.
+    const kindOrder = new Map(FITNESS_PLAN_KINDS.map((k, i) => [k, i]))
+    for (const rows of out.values())
+        rows.sort(
+            (a, b) =>
+                kindOrder.get(a.kind)! - kindOrder.get(b.kind)! || a.name.localeCompare(b.name)
+        )
+    return out
+}
+
+/** Every `kind:item:date` that was logged — what marks a planned row done. */
+function completionKeys(logs: PlannerExportLogs): Set<string> {
+    const keys = new Set<string>()
+    for (const l of logs.workout) if (l.workout) keys.add(logKey('workout', l.workout, l.date))
+    for (const l of logs.conditioning)
+        if (l.session) keys.add(logKey('conditioning', l.session, l.date))
+    for (const l of logs.mobility) if (l.mobility) keys.add(logKey('mobility', l.mobility, l.date))
+    for (const l of logs.recovery) if (l.recovery) keys.add(logKey('recovery', l.recovery, l.date))
+    return keys
 }
 
 /** The flag for one day or week, or undefined when there isn't one / flags are off. */
@@ -284,13 +456,18 @@ export function buildPlannerExport(
     const range = weekRangeFor(input.start, input.end)
     const { options, notes } = input
 
+    const doneKeys = completionKeys(input.logs)
+
     // Bucket the entries by date + slot once, in the order they should read:
     // slot order first (morning → evening), then each slot's own `order`.
     const byDate = new Map<string, Record<FitnessPlanPart, ExportedEntry[]>>()
+    // What the plan asked for, so a log can say whether it was planned or not.
+    const plannedKeys = new Set<string>()
     for (const entry of input.entries) {
         if (entry.date < range.start || entry.date > range.end) continue
-        const shaped = shapeEntry(entry, input)
+        const shaped = shapeEntry(entry, input, doneKeys)
         if (!shaped) continue
+        plannedKeys.add(logKey(entry.kind, shaped.item, entry.date))
         let slots = byDate.get(entry.date)
         if (!slots) {
             slots = { morning: [], afternoon: [], evening: [] }
@@ -302,21 +479,30 @@ export function buildPlannerExport(
         for (const part of FITNESS_PLAN_PARTS) slots[part].sort((a, b) => a.order - b.order)
     }
 
+    const doneByDate = options.logs
+        ? logsByDate(input.logs, range, plannedKeys, options.details)
+        : new Map<string, ExportedLog[]>()
+
     const total = emptyTotals()
+    const completedTotal = emptyTotals()
     const weeks: ExportedWeek[] = []
 
     for (let weekStart = range.start; weekStart <= range.end; weekStart = addDays(weekStart, 7)) {
         const weekEnd = addDays(weekStart, 6)
         const weekTotals = emptyTotals()
+        const weekCompleted = emptyTotals()
         const days: ExportedDay[] = []
 
         for (const date of datesBetween(weekStart, weekEnd)) {
             const slots = byDate.get(date)
             const dayFlag = flagFor(notes, 'day', date, options.flags)
+            const done = doneByDate.get(date) ?? []
             const count = slots
                 ? slots.morning.length + slots.afternoon.length + slots.evening.length
                 : 0
-            if (count === 0 && !dayFlag && !options.emptyDays) continue
+            // A day nothing was planned on but something was done on still says
+            // something — it is carried for the log alone.
+            if (count === 0 && !done.length && !dayFlag && !options.emptyDays) continue
 
             const day: ExportedDay = { date, weekday: weekdayName(date) }
             if (dayFlag) day.flag = dayFlag
@@ -327,6 +513,13 @@ export function buildPlannerExport(
                 for (const row of rows) {
                     weekTotals[row.kind] += 1
                     total[row.kind] += 1
+                }
+            }
+            if (done.length) {
+                day.completed = done
+                for (const row of done) {
+                    weekCompleted[row.kind] += 1
+                    completedTotal[row.kind] += 1
                 }
             }
             days.push(day)
@@ -343,6 +536,7 @@ export function buildPlannerExport(
             label: formatWeekRange(weekStart, weekEnd),
             ...(weekFlag ? { flag: weekFlag } : {}),
             totals: weekTotals,
+            ...(options.logs ? { completed: weekCompleted } : {}),
             days,
         })
     }
@@ -352,6 +546,7 @@ export function buildPlannerExport(
         source: 'AdminLife Planner',
         range,
         totals: total,
+        ...(options.logs ? { completed: completedTotal } : {}),
         weeks,
     }
 }
@@ -359,6 +554,13 @@ export function buildPlannerExport(
 /** How many entries a payload carries — what the download button counts. */
 export function countEntries(payload: PlannerExportPayload): number {
     return Object.values(payload.totals).reduce((sum, n) => sum + n, 0)
+}
+
+/** How many completed sessions a payload carries, logs included or not. */
+export function countCompleted(payload: PlannerExportPayload): number {
+    return payload.completed
+        ? Object.values(payload.completed).reduce((sum, n) => sum + n, 0)
+        : 0
 }
 
 /** The filename for a payload: one week is named by its Monday, a span by both ends. */
