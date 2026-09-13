@@ -996,7 +996,6 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                             value={range.start}
                             displayLabel={rangeLabel}
                             clearable={false}
-                            highlightRange={range}
                             onChange={(value) => {
                                 if (typeof value === 'string' && value) setAnchor(value)
                             }}

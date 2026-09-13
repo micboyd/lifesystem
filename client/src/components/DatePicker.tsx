@@ -45,11 +45,6 @@ interface DatePickerProps {
     displayLabel?: string
     /** Whether the trigger offers an "x" to empty the picker. */
     clearable?: boolean
-    /**
-     * A span to shade behind the days in single mode, so one click can still
-     * read as picking a whole stretch (the week a day belongs to, for example).
-     */
-    highlightRange?: DateRange
     className?: string
 }
 
@@ -175,7 +170,6 @@ export default function DatePicker({
     errorDates,
     displayLabel,
     clearable = true,
-    highlightRange,
     className = '',
 }: DatePickerProps) {
     const isRange = mode === 'range'
@@ -331,19 +325,14 @@ export default function DatePicker({
             : { vStart: end, vEnd: rangeStart }
     })()
 
-    // The shaded band behind the day grid: the range being picked, or — in single
-    // mode — the span the caller asked to highlight.
-    const bandStart = isRange ? vStart : parseISO(highlightRange?.start)
-    const bandEnd = isRange ? vEnd : parseISO(highlightRange?.end)
-
     function isInRange(day: PickerDay) {
-        return !!bandStart && !!bandEnd && day.date >= bandStart && day.date <= bandEnd
+        return !!vStart && !!vEnd && day.date >= vStart && day.date <= vEnd
     }
     function isVisualStart(day: PickerDay) {
-        return !!bandStart && sameDay(day.date, bandStart)
+        return !!vStart && sameDay(day.date, vStart)
     }
     function isVisualEnd(day: PickerDay) {
-        return !!bandEnd && sameDay(day.date, bandEnd)
+        return !!vEnd && sameDay(day.date, vEnd)
     }
 
     function emitSingle(date: Date | null) {
@@ -676,7 +665,7 @@ export default function DatePicker({
                                         key={day.date.toISOString()}
                                         className="relative flex h-9 items-center justify-center"
                                     >
-                                        {isInRange(day) && (
+                                        {isRange && isInRange(day) && (
                                             <>
                                                 {!isVisualStart(day) && (
                                                     <div className="pointer-events-none absolute inset-y-0.5 left-0 right-1/2 bg-neutral-100" />
