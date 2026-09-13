@@ -37,6 +37,19 @@ interface DatePickerProps {
     disabledDates?: DateMatcher
     /** Dates flagged as errors — shown in red and not selectable. */
     errorDates?: DateMatcher
+    /**
+     * Trigger text to show in place of the picked date's own label. For pickers
+     * where the click stands for something wider than the day itself — a week,
+     * say — the trigger should read as that wider thing.
+     */
+    displayLabel?: string
+    /** Whether the trigger offers an "x" to empty the picker. */
+    clearable?: boolean
+    /**
+     * A span to shade behind the days in single mode, so one click can still
+     * read as picking a whole stretch (the week a day belongs to, for example).
+     */
+    highlightRange?: DateRange
     className?: string
 }
 
@@ -160,6 +173,9 @@ export default function DatePicker({
     maxDate,
     disabledDates,
     errorDates,
+    displayLabel,
+    clearable = true,
+    highlightRange,
     className = '',
 }: DatePickerProps) {
     const isRange = mode === 'range'
@@ -315,14 +331,19 @@ export default function DatePicker({
             : { vStart: end, vEnd: rangeStart }
     })()
 
+    // The shaded band behind the day grid: the range being picked, or — in single
+    // mode — the span the caller asked to highlight.
+    const bandStart = isRange ? vStart : parseISO(highlightRange?.start)
+    const bandEnd = isRange ? vEnd : parseISO(highlightRange?.end)
+
     function isInRange(day: PickerDay) {
-        return !!vStart && !!vEnd && day.date >= vStart && day.date <= vEnd
+        return !!bandStart && !!bandEnd && day.date >= bandStart && day.date <= bandEnd
     }
     function isVisualStart(day: PickerDay) {
-        return !!vStart && sameDay(day.date, vStart)
+        return !!bandStart && sameDay(day.date, bandStart)
     }
     function isVisualEnd(day: PickerDay) {
-        return !!vEnd && sameDay(day.date, vEnd)
+        return !!bandEnd && sameDay(day.date, bandEnd)
     }
 
     function emitSingle(date: Date | null) {
@@ -569,9 +590,9 @@ export default function DatePicker({
                 <span
                     className={`flex-1 text-left whitespace-nowrap ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-400'}`}
                 >
-                    {hasValue ? triggerLabel : placeholder}
+                    {hasValue ? (displayLabel ?? triggerLabel) : placeholder}
                 </span>
-                {hasValue && !disabled ? (
+                {hasValue && clearable && !disabled ? (
                     <span
                         onClick={clearValue}
                         role="button"
@@ -655,7 +676,7 @@ export default function DatePicker({
                                         key={day.date.toISOString()}
                                         className="relative flex h-9 items-center justify-center"
                                     >
-                                        {isRange && isInRange(day) && (
+                                        {isInRange(day) && (
                                             <>
                                                 {!isVisualStart(day) && (
                                                     <div className="pointer-events-none absolute inset-y-0.5 left-0 right-1/2 bg-neutral-100" />

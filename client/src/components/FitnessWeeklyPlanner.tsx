@@ -10,6 +10,7 @@ import Checkbox from './Checkbox'
 import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
 import ConditioningSessionDetail from './ConditioningSessionDetail'
+import DatePicker from './DatePicker'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
@@ -988,9 +989,19 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                             icon="fa-solid fa-chevron-left"
                             onClick={() => step(-1)}
                         />
-                        <div className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-neutral-900 sm:min-w-[10rem] sm:flex-none">
-                            {rangeLabel}
-                        </div>
+                        {/* The range label doubles as the week picker: picking
+                            any day jumps to the week holding it, so a week months
+                            out is one click away rather than a run of arrows. */}
+                        <DatePicker
+                            value={range.start}
+                            displayLabel={rangeLabel}
+                            clearable={false}
+                            highlightRange={range}
+                            onChange={(value) => {
+                                if (typeof value === 'string' && value) setAnchor(value)
+                            }}
+                            className="min-w-0 flex-1 sm:w-[13.5rem] sm:flex-none"
+                        />
                         <IconButton
                             label="Next week"
                             icon="fa-solid fa-chevron-right"
