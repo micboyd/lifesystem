@@ -8,7 +8,9 @@ import {
     placeOnGrid,
     seasonForMonth,
     seasonProgress,
+    stretchLaneRow,
     LANE_SOURCE_ROUTES,
+    type LaneItem,
     type LaneSource,
 } from './lifeTimeline'
 import type { Course, Goal, LifePlan, MonthNote, NutritionPhase, SavingsTarget, Season, TrainingPlan } from '../types'
@@ -222,6 +224,33 @@ describe('buildTimeline', () => {
         expect(timeline.lanes.find((l) => l.pillar === 'nutrition')?.items[0]).toMatchObject({
             startOffset: 0.25,
             endOffset: 1,
+        })
+    })
+
+    it('keeps a bar that runs out the last days of a month in that month', () => {
+        const timeline = buildTimeline({
+            plan: plan(),
+            // Rounded to the nearest quarter the 29th reaches the month boundary,
+            // which would put a three-day block in March.
+            nutritionPhases: [{ ...nutritionPhase, startDate: '2026-02-26', endDate: '2026-02-28' }],
+        })
+        expect(timeline.lanes.find((l) => l.pillar === 'nutrition')?.items[0]).toMatchObject({
+            startMonth: '2026-02',
+            startOffset: 0.75,
+            endMonth: '2026-02',
+            endOffset: 1,
+        })
+    })
+
+    it('keeps a deadline on the last day of a month out of the next one', () => {
+        const timeline = buildTimeline({
+            plan: plan(),
+            goals: [{ ...activeGoal, targetDate: '2026-11-30' }],
+        })
+        expect(timeline.goals[0]).toMatchObject({
+            startMonth: '2026-11',
+            startOffset: 0.75,
+            endMonth: '2026-11',
         })
     })
 
@@ -470,6 +499,104 @@ describe('packLaneRows', () => {
             bar('b', '2026-03', '2026-05', 0.5, 1),
         ])
         expect(rows).toHaveLength(2)
+    })
+})
+
+describe('stretchLaneRow', () => {
+    const months = monthRange('2026-01', '2026-12')
+    /** Roughly what the timeline asks for: 64px of an 88px column. */
+    const MIN = 64 / 88
+
+    function bar(
+        id: string,
+        startMonth: string,
+        endMonth: string,
+        startOffset = 0,
+        endOffset = 1,
+        shape: 'bar' | 'marker' = 'bar'
+    ): LaneItem {
+        return {
+            id,
+            source: 'monthNote',
+            recordId: id,
+            pillar: 'life',
+            label: id,
+            shape,
+            color: 'neutral',
+            startMonth,
+            endMonth,
+            startOffset,
+            endOffset,
+            clippedStart: false,
+            clippedEnd: false,
+        }
+    }
+
+    it('leaves a bar wide enough for its label alone', () => {
+        const [drawn] = stretchLaneRow([bar('a', '2026-03', '2026-05')], months, MIN)
+        expect(drawn.stretched).toBe(false)
+        expect(drawn.drawn).toBe(drawn.item)
+    })
+
+    it('widens a bar too short to label, keeping its start where it is', () => {
+        // A week at the end of March, with the rest of the year free.
+        const [drawn] = stretchLaneRow([bar('a', '2026-03', '2026-03', 0.75, 1)], months, MIN)
+        expect(drawn.stretched).toBe(true)
+        expect(drawn.drawn).toMatchObject({
+            startMonth: '2026-03',
+            startOffset: 0.75,
+            endMonth: '2026-04',
+        })
+        expect(drawn.drawn.endOffset).toBeCloseTo(0.75 + MIN - 1)
+    })
+
+    it('stops where the next bar in the row begins', () => {
+        const [short, next] = stretchLaneRow(
+            [bar('a', '2026-03', '2026-03', 0.75, 1), bar('b', '2026-04', '2026-06', 0.25, 1)],
+            months,
+            MIN
+        )
+        // Grown to the neighbour's start and not a quarter further.
+        expect(short.drawn).toMatchObject({ endMonth: '2026-04', endOffset: 0.25 })
+        expect(next.stretched).toBe(false)
+    })
+
+    it('leaves a bar alone when the next one starts right after it', () => {
+        const [short] = stretchLaneRow(
+            [bar('a', '2026-03', '2026-03', 0.75, 1), bar('b', '2026-04', '2026-06', 0, 1)],
+            months,
+            MIN
+        )
+        expect(short.stretched).toBe(false)
+        expect(short.drawn).toMatchObject({ endMonth: '2026-03', endOffset: 1 })
+    })
+
+    it('never grows a bar past the end of the window', () => {
+        const [short] = stretchLaneRow([bar('a', '2026-12', '2026-12', 0.75, 1)], months, MIN)
+        expect(short.stretched).toBe(false)
+        expect(short.drawn).toMatchObject({ endMonth: '2026-12', endOffset: 1 })
+    })
+
+    it('leaves markers alone — their labels sit beside them already', () => {
+        const [drawn] = stretchLaneRow(
+            [bar('a', '2026-03', '2026-03', 0.25, 0.25, 'marker')],
+            months,
+            MIN
+        )
+        expect(drawn.stretched).toBe(false)
+        expect(drawn.drawn).toBe(drawn.item)
+    })
+
+    it('hands on the true item, so a click still opens the real dates', () => {
+        const item = bar('a', '2026-03', '2026-03', 0.75, 1)
+        const [drawn] = stretchLaneRow([item], months, MIN)
+        expect(drawn.item).toBe(item)
+        expect(drawn.item.endOffset).toBe(1)
+    })
+
+    it('places a widened bar on the grid without running off it', () => {
+        const [drawn] = stretchLaneRow([bar('a', '2026-03', '2026-03', 0.75, 1)], months, MIN)
+        expect(placeOnGrid(drawn.drawn, months)).not.toBeNull()
     })
 })
 

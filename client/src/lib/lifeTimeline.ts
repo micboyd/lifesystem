@@ -176,6 +176,10 @@ function toQuarter(fraction: number): number {
  * ending on the last day reaches the month boundary exactly. `point` uses the
  * middle of the day, which is what a deadline diamond wants. A YYYY-MM value has
  * no day to read, so it covers its whole month.
+ *
+ * Only an end may land on the month boundary. A start or a point rounded up to it
+ * would leave its own month altogether — a block run over the last days of
+ * December would be drawn in January — so those stop at the final quarter.
  */
 function positionOf(date: string, edge: 'start' | 'end' | 'point'): number {
     const ordinal = monthOrdinal(monthKeyOf(date))
@@ -184,7 +188,8 @@ function positionOf(date: string, edge: 'start' | 'end' | 'point'): number {
     const days = daysInMonth(year, month)
     const raw =
         edge === 'start' ? (day - 1) / days : edge === 'end' ? day / days : (day - 0.5) / days
-    return ordinal + toQuarter(raw)
+    const snapped = edge === 'end' ? toQuarter(raw) : Math.min(toQuarter(raw), 1 - QUARTER)
+    return ordinal + snapped
 }
 
 /**
@@ -251,6 +256,58 @@ export function itemSpan(item: LaneItem): { start: number; end: number } {
         start: monthOrdinal(item.startMonth) + item.startOffset,
         end: monthOrdinal(item.endMonth) + item.endOffset,
     }
+}
+
+/**
+ * Split an absolute end position back into the month it falls in and how much of
+ * that month it covers. Ends are exclusive, so a position sitting exactly on a
+ * boundary belongs to the month before it, covering all of it.
+ */
+function splitEnd(position: number): { month: string; offset: number } {
+    const ordinal = Math.ceil(position) - 1
+    return { month: monthFromOrdinal(ordinal), offset: position - ordinal }
+}
+
+/** A bar as it should be drawn: the record itself, and the span to draw for it. */
+export interface DrawnBar {
+    /** The item as it really is — what a click opens, and what the drawer reads. */
+    item: LaneItem
+    /** The same item with its end pushed out when it was too short to label. */
+    drawn: LaneItem
+    /** Whether `drawn` runs past where `item` actually ends. */
+    stretched: boolean
+}
+
+/**
+ * Give the bars of one packed row room for their labels.
+ *
+ * A block of a few days is a sliver of a column — narrower than the padding on
+ * its own pill, so it draws as a blank stub and reads as a rendering fault. Such
+ * a bar is widened to `minMonths`, keeping its start exactly where it belongs and
+ * growing only rightwards, and only into space that is provably free: it stops at
+ * the next bar in the row, and at the end of the window. Nothing is covered up,
+ * and the row's order and packing are untouched.
+ *
+ * The cost is that a stretched bar's right-hand edge is no longer its real end
+ * date, which is why the true span is what a click hands on — the drawer and the
+ * month list still report the dates the record actually holds.
+ */
+export function stretchLaneRow(row: LaneItem[], months: string[], minMonths: number): DrawnBar[] {
+    const windowEnd =
+        months.length > 0 ? monthOrdinal(months[months.length - 1]) + 1 : Number.NEGATIVE_INFINITY
+    return row.map((item, i) => {
+        const plain = { item, drawn: item, stretched: false }
+        // A marker is a point with its label already drawn beside it.
+        if (item.shape === 'marker') return plain
+        const { start, end } = itemSpan(item)
+        if (end - start >= minMonths) return plain
+        const next = row[i + 1]
+        const ceiling = Math.min(next ? itemSpan(next).start : windowEnd, windowEnd)
+        const target = Math.min(start + minMonths, ceiling)
+        if (target <= end) return plain
+        const { month, offset } = splitEnd(target)
+        return { item, drawn: { ...item, endMonth: month, endOffset: offset }, stretched: true }
+    })
 }
 
 const PHASE_COLORS: Record<NutritionPhase['kind'], CalendarColor> = {

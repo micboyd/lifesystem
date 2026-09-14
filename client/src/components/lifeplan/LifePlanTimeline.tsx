@@ -4,6 +4,7 @@ import { formatMonthKey, MONTHS, monthKey } from '../../lib/calendar'
 import {
     packLaneRows,
     placeOnGrid,
+    stretchLaneRow,
     TIMELINE_LANE_LABELS,
     type LaneItem,
     type Timeline,
@@ -29,6 +30,13 @@ const LABEL_WIDTH = 148
 const ROW_HEIGHT = 64
 /** Height of the load row — one line, sitting with the season band. */
 const LOAD_HEIGHT = 26
+/**
+ * The narrowest a bar can be and still show a word or two of its label inside.
+ * A block of a few days is a fifth of this, so it is widened to reach it — see
+ * `stretchLaneRow`, which only ever takes space no other bar wants.
+ */
+const MIN_BAR_WIDTH = 64
+const MIN_BAR_MONTHS = MIN_BAR_WIDTH / MONTH_WIDTH
 
 /** "Jan" for a YYYY-MM key. */
 function shortMonth(month: string): string {
@@ -54,16 +62,23 @@ function currentMonthKey(): string {
  */
 function LaneBar({
     item,
+    drawn = item,
     months,
     row,
     onSelect,
 }: {
     item: LaneItem
+    /**
+     * The span to draw, when it isn't the item's own — a bar too short to label
+     * is widened into the free space beside it. A click still hands on `item`,
+     * so the drawer reports the dates the record really holds.
+     */
+    drawn?: LaneItem
     months: string[]
     row: number
     onSelect: (item: LaneItem) => void
 }) {
-    const placement = placeOnGrid(item, months)
+    const placement = placeOnGrid(drawn, months)
     if (!placement) return null
     const { startIndex, span, left, right } = placement
     const colors = CALENDAR_COLOR_CLASSES[item.color]
@@ -419,10 +434,13 @@ function PillarLane({
                 </div>
             ) : (
                 rows.flatMap((row, i) =>
-                    row.map((item) => (
+                    // Widened here rather than in the packing, so a stretched bar
+                    // never pushes anything onto another row.
+                    stretchLaneRow(row, months, MIN_BAR_MONTHS).map(({ item, drawn }) => (
                         <LaneBar
                             key={item.id}
                             item={item}
+                            drawn={drawn}
                             months={months}
                             row={startRow + i}
                             onSelect={onSelectItem}
