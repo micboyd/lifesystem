@@ -1,6 +1,6 @@
 import { daysInMonth, monthKeyOf, parseDateKey } from './calendar'
 import { monthRange, overlapsWindow, type LaneSource } from './lifeTimeline'
-import type { LifePillar, NutritionPhase, PlanRole, TrainingPlan } from '../types'
+import type { LifePillar, NutritionPhase, PlanRole, TrainingPlan, WorkProject } from '../types'
 import type { TimelineInput } from './lifeTimeline'
 
 /**
@@ -91,7 +91,7 @@ export const RESERVE_DESCRIPTIONS: Record<Reserve, string> = {
     time: 'Hours a week the month is already spoken for.',
     body: 'Recovery demand — hard sessions plus how deep the deficit runs.',
     money: 'Committed each month, against what is free to commit.',
-    focus: 'Deliberate behaviour changes running at once. Few people hold more than three.',
+    focus: 'What needs deliberate attention at once — new habits, study, work projects. Settled routines cost little.',
 }
 
 /** What one commitment costs, reserve by reserve. Zero where it costs nothing. */
@@ -125,6 +125,8 @@ export interface LoadContributor {
     basis: DemandBasis
     /** Where the numbers came from, e.g. "5 sessions/wk · 4.5h". */
     detail?: string
+    /** Why it costs the focus it does — "week 6 · settling", "one of 4 projects". */
+    focusNote?: string
 }
 
 // ─── Capacity ───────────────────────────────────────────────────────────────
@@ -263,20 +265,64 @@ export const PHASE_HOURS: Record<NutritionPhase['kind'], number> = {
 }
 
 /**
- * `focus` costs, in concurrent deliberate behaviour changes.
+ * `focus` costs, in concurrent deliberate behaviour changes — each at the price
+ * it has while still new. `noveltyFactor` tapers them as they settle.
  *
- * A phase is a whole change (weighing food, hitting protein every day). Running
- * a written plan is half of one — the decisions are already made, you only have
- * to turn up. A deadline is a spike in the month it lands rather than a load
- * across the months before it.
+ * A phase is a whole change (weighing food, hitting protein every day). Starting
+ * to train from nothing is one too; a new block of training you were already
+ * doing is a quarter of one — the habit exists, only the programme is new. A
+ * deadline is a spike in the month it lands rather than a load across the months
+ * before it. A course is charged in full throughout: studying toward a deadline
+ * doesn't become automatic the way a routine does.
  */
 export const FOCUS_COSTS = {
     phase: { cut: 1, gain: 1, maintain: 0 } as Record<NutritionPhase['kind'], number>,
-    trainingPlan: 0.5,
+    trainingRoutine: 1,
+    trainingBlock: 0.25,
     course: 1,
     monthNote: 0.5,
     goalDeadline: 1,
+    workProject: 0.5,
 } as const
+
+/**
+ * What a change still costs once it has settled, as a share of its new price.
+ *
+ * Training settles to nothing — a routine you've run for months is turning up,
+ * not deciding. Eating to a deficit or a surplus never fully does: the hunger,
+ * or the forcing it down, is there every day of the phase, so half stays.
+ */
+export const FOCUS_FLOORS = {
+    phase: 0.5,
+    training: 0,
+} as const
+
+/** Weeks a new behaviour costs full price before it starts to settle. */
+export const NOVELTY_FULL_WEEKS = 4
+
+/**
+ * Weeks by which it has settled to its floor. Habit formation studies put the
+ * median around 66 days — ten weeks is that, rounded to the week.
+ */
+export const NOVELTY_SETTLED_WEEKS = 10
+
+/**
+ * However many projects are live, work is charged at most this much focus.
+ *
+ * Past three or four projects the extra ones are being juggled, not held — the
+ * cost shows up as things slipping, which the Work module already tracks, rather
+ * than as a bar that climbs without end and drowns out everything beside it.
+ */
+export const WORK_FOCUS_CAP = 1.5
+
+/**
+ * Logged sessions in the four weeks before a plan starts that mark the training
+ * as already a habit — a session and a half a week.
+ */
+export const ESTABLISHED_SESSIONS = 6
+
+/** Days between two blocks that still count as one unbroken routine. */
+export const ROUTINE_GAP_DAYS = 14
 
 /**
  * What a month flag costs when all that's known is a label and a date range.
@@ -391,6 +437,14 @@ export interface LoadInput extends TimelineInput {
     maintenanceKcal?: number
     /** Overrides for the shipped priors — measured or calibrated capacities. */
     capacities?: Partial<Capacities>
+    /**
+     * YYYY-MM-DD of every logged training session, strength and conditioning.
+     * Tells a plan that continues training you were already doing from one that
+     * starts it — the first costs a quarter of the focus of the second.
+     */
+    trainingDates?: string[]
+    /** Work projects — the attention a job takes, which no other record carries. */
+    workProjects?: WorkProject[]
 }
 
 // ─── Month arithmetic ───────────────────────────────────────────────────────
@@ -421,6 +475,51 @@ function monthsUntil(from: string, to: string): number {
     const [fy, fm] = from.split('-').map(Number)
     const [ty, tm] = to.split('-').map(Number)
     return Math.max(0.25, (ty - fy) * 12 + (tm - fm) + 1)
+}
+
+/** Whole days from one YYYY-MM-DD to another. Negative when `to` is earlier. */
+function daysBetween(from: string, to: string): number {
+    const a = Date.UTC(+from.slice(0, 4), +from.slice(5, 7) - 1, +from.slice(8, 10))
+    const b = Date.UTC(+to.slice(0, 4), +to.slice(5, 7) - 1, +to.slice(8, 10))
+    return Math.round((b - a) / 86_400_000)
+}
+
+/** YYYY-MM-DD `days` after `date`. */
+function addDays(date: string, days: number): string {
+    const d = new Date(Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10) + days))
+    return d.toISOString().slice(0, 10)
+}
+
+/**
+ * How new a behaviour started on `since` still is across `month`, as a share of
+ * its full focus cost: 1 for the first four weeks, easing to `floor` by week
+ * ten, averaged over the days of the month it is actually running (`until`
+ * inclusive, when it ends inside the month).
+ *
+ * The reason focus exists as a reserve is that deliberate change is expensive
+ * and there is only so much of it to go round. The same reason says it gets
+ * cheaper: the tenth week of a routine is habit, not decision, and charging it
+ * like the first is what let a long-running training plan dominate the bar.
+ */
+export function noveltyFactor(month: string, since: string, floor: number, until?: string): number {
+    const [year, m] = month.split('-').map(Number)
+    const total = daysInMonth(year, m - 1)
+    const first = `${month}-01`
+    let sum = 0
+    let days = 0
+    for (let d = 0; d < total; d++) {
+        const date = addDays(first, d)
+        if (date < since) continue
+        if (until && date > until) break
+        const weeks = daysBetween(since, date) / 7
+        const t = Math.min(
+            1,
+            Math.max(0, (weeks - NOVELTY_FULL_WEEKS) / (NOVELTY_SETTLED_WEEKS - NOVELTY_FULL_WEEKS))
+        )
+        sum += 1 - t * (1 - floor)
+        days++
+    }
+    return days > 0 ? sum / days : 0
 }
 
 // ─── Reading intensity off the records ──────────────────────────────────────
@@ -550,25 +649,101 @@ function phaseDeficit(phase: NutritionPhase, maintenanceKcal?: number): number |
     return null
 }
 
+/** A training plan's focus cost for a month, and the reason for it. */
+interface TrainingFocus {
+    cost: number
+    note: string
+}
+
+/**
+ * The focus the month's training costs, charged once — to the plan that costs
+ * the most — however many plans are live.
+ *
+ * Training is one routine however many documents describe it. What varies is
+ * how new it is: a plan that starts training from nothing is a whole behaviour
+ * change, while one that follows straight on from another block, or from weeks
+ * of logged sessions, only changes the programme. Either way it settles, and a
+ * routine ten weeks in costs nothing to hold.
+ */
+function trainingFocus(
+    plans: TrainingPlan[],
+    live: TrainingPlan[],
+    month: string,
+    trainingDates: string[]
+): Map<string, TrainingFocus> {
+    const priced = live.map((plan) => {
+        const follows = plans.find(
+            (p) =>
+                p._id !== plan._id &&
+                p.planStart < plan.planStart &&
+                daysBetween(p.planEnd, plan.planStart) <= ROUTINE_GAP_DAYS
+        )
+        const windowStart = addDays(plan.planStart, -28)
+        const logged = trainingDates.filter((d) => d >= windowStart && d < plan.planStart).length
+        const established = Boolean(follows) || logged >= ESTABLISHED_SESSIONS
+        const novelty = noveltyFactor(month, plan.planStart, FOCUS_FLOORS.training, plan.planEnd)
+        const base = established ? FOCUS_COSTS.trainingBlock : FOCUS_COSTS.trainingRoutine
+        const week = Math.max(1, Math.floor(daysBetween(plan.planStart, `${month}-01`) / 7) + 1)
+        const why = follows
+            ? `new block after ${follows.name}`
+            : established
+              ? `${logged} sessions logged the month before — already a habit`
+              : 'new routine'
+        const settled = novelty === 0 ? 'settled' : novelty < 1 ? 'settling' : 'new'
+        return { plan, cost: base * novelty, note: `${why} · from week ${week}, ${settled}` }
+    })
+
+    const out = new Map<string, TrainingFocus>()
+    const heaviest = priced.reduce<(typeof priced)[number] | null>(
+        (top, p) => (!top || p.cost > top.cost ? p : top),
+        null
+    )
+    for (const p of priced) {
+        out.set(
+            p.plan._id,
+            p === heaviest
+                ? { cost: p.cost, note: p.note }
+                : { cost: 0, note: `training is one routine — charged to ${heaviest!.plan.name}` }
+        )
+    }
+    return out
+}
+
+/** Whether a work project is running in `month`, and how sure that is. */
+function workProjectLive(project: WorkProject, month: string): 'measured' | 'assumed' | null {
+    if (project.status === 'paused' || project.status === 'archived') return null
+    const from = monthKeyOf(project.createdAt.slice(0, 10))
+    if (month < from) return null
+    if (project.status === 'done') {
+        return month <= monthKeyOf(project.updatedAt.slice(0, 10)) ? 'measured' : null
+    }
+    if (project.dueDate) return month <= monthKeyOf(project.dueDate) ? 'measured' : null
+    // Active with no due date: running as far ahead as the plan looks, which is a guess.
+    return 'assumed'
+}
+
 // ─── Building a month ───────────────────────────────────────────────────────
 
 function contributorsForMonth(input: LoadInput, month: string): LoadContributor[] {
     const out: LoadContributor[] = []
     const weeks = weeksInMonth(month)
-
-    for (const { plan: tp, byRole, basis, overlaps, share } of trainingShares(
+    const shares = trainingShares(input.trainingPlans ?? [], month)
+    const focusByPlan = trainingFocus(
         input.trainingPlans ?? [],
-        month
-    )) {
+        shares.map((s) => s.plan),
+        month,
+        input.trainingDates ?? []
+    )
+
+    for (const { plan: tp, byRole, basis, overlaps, share } of shares) {
         const roles = Object.keys(byRole) as PlanRole[]
         const hours = roles.reduce((sum, r) => sum + byRole[r] * SESSION_HOURS[r], 0)
         const hard = HARD_ROLES.reduce((sum, r) => sum + byRole[r], 0)
         const demand = emptyDemand()
         demand.time = hours
         demand.body = hard
-        // Following a second plan that adds nothing to the week is still a
-        // second thing to keep track of, but it isn't half a plan's worth.
-        demand.focus = FOCUS_COSTS.trainingPlan * (share > 0 ? 1 : 0.5)
+        const focus = focusByPlan.get(tp._id)
+        demand.focus = focus?.cost ?? 0
         out.push({
             id: `trainingPlan:${tp._id}`,
             source: 'trainingPlan',
@@ -584,6 +759,7 @@ function contributorsForMonth(input: LoadInput, month: string): LoadContributor[
                 : hard > 0
                   ? `${round(hard, 1)} hard sessions/wk · ${round(hours, 1)}h`
                   : `${round(hours, 1)}h/wk`,
+            focusNote: focus?.note,
         })
     }
 
@@ -596,7 +772,10 @@ function contributorsForMonth(input: LoadInput, month: string): LoadContributor[
         demand.time = PHASE_HOURS[phase.kind] * coverage
         // No body demand: a deficit lowers the ceiling rather than filling it —
         // see `RECOVERY_COST_PER_500` and `recoveryAdjustments`.
-        demand.focus = FOCUS_COSTS.phase[phase.kind] * coverage
+        // Coverage is already inside the novelty average — it's taken over the
+        // days the phase runs — so it multiplies in once, here.
+        const novelty = noveltyFactor(month, phase.startDate, FOCUS_FLOORS.phase, phase.endDate)
+        demand.focus = FOCUS_COSTS.phase[phase.kind] * novelty * coverage
         out.push({
             id: `nutritionPhase:${phase._id}`,
             source: 'nutritionPhase',
@@ -612,6 +791,14 @@ function contributorsForMonth(input: LoadInput, month: string): LoadContributor[
                     : deficit && deficit < 0
                       ? `+${Math.round(-deficit)} kcal/day`
                       : 'no rate set',
+            focusNote:
+                phase.kind === 'maintain'
+                    ? undefined
+                    : novelty >= 1
+                      ? 'new — full attention'
+                      : novelty <= FOCUS_FLOORS.phase
+                        ? 'routine now, but never automatic'
+                        : 'settling in',
         })
     }
 
@@ -694,6 +881,34 @@ function contributorsForMonth(input: LoadInput, month: string): LoadContributor[
             demand,
             basis: 'measured',
             detail: 'Deadline lands this month',
+        })
+    }
+
+    const liveProjects = (input.workProjects ?? [])
+        .map((project) => ({ project, basis: workProjectLive(project, month) }))
+        .filter((p): p is { project: WorkProject; basis: DemandBasis } => p.basis !== null)
+    // Shared evenly once the projects between them would pass the cap.
+    const perProject =
+        liveProjects.length > 0
+            ? Math.min(FOCUS_COSTS.workProject, WORK_FOCUS_CAP / liveProjects.length)
+            : 0
+    for (const { project, basis } of liveProjects) {
+        const demand = emptyDemand()
+        demand.focus = perProject
+        const dueHere = project.dueDate && monthKeyOf(project.dueDate) === month
+        out.push({
+            id: `workProject:${project._id}`,
+            source: 'workProject',
+            recordId: project._id,
+            label: project.name,
+            pillar: 'life',
+            demand,
+            basis,
+            detail: dueHere ? 'Due this month' : project.dueDate ? `Due ${project.dueDate}` : 'Ongoing',
+            focusNote:
+                perProject < FOCUS_COSTS.workProject
+                    ? `one of ${liveProjects.length} live projects — work capped at ${WORK_FOCUS_CAP}`
+                    : undefined,
         })
     }
 

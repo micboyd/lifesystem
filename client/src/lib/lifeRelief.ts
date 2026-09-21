@@ -155,6 +155,9 @@ function withRecordShifted(
                         : g
                 ),
             }
+        case 'workProject':
+            // The job isn't the Life Plan's to reschedule — nothing to move.
+            return input
     }
 }
 

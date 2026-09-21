@@ -112,8 +112,15 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
                             className="flex items-baseline justify-between gap-3 text-xs"
                         >
                             <span className="flex min-w-0 items-center gap-1.5">
-                                <span className="truncate font-semibold text-neutral-700">
-                                    {contributor.label}
+                                <span className="min-w-0">
+                                    <span className="block truncate font-semibold text-neutral-700">
+                                        {contributor.label}
+                                    </span>
+                                    {reserve === 'focus' && contributor.focusNote && (
+                                        <span className="block truncate text-[11px] text-neutral-400">
+                                            {contributor.focusNote}
+                                        </span>
+                                    )}
                                 </span>
                                 {contributor.basis === 'assumed' && (
                                     <span

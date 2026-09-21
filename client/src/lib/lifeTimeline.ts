@@ -44,6 +44,8 @@ export type LaneSource =
     | 'course'
     | 'monthNote'
     | 'goal'
+    /** Load only — work projects spend focus but aren't drawn as a lane. */
+    | 'workProject'
 
 /** Where the "edit this" link on a lane item points. */
 export const LANE_SOURCE_ROUTES: Record<LaneSource, string> = {
@@ -53,6 +55,7 @@ export const LANE_SOURCE_ROUTES: Record<LaneSource, string> = {
     course: '/study',
     monthNote: '/calendar',
     goal: '/goals',
+    workProject: '/work',
 }
 
 /**

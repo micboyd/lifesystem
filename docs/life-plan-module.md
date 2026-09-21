@@ -309,13 +309,14 @@ whole point:
 
 | Commitment | time | body | money | focus |
 | ---------- | ---- | ---- | ----- | ----- |
-| Training plan | ●●● | ●●● | – | ● |
+| Training plan | ●●● | ●●● | – | ● (new only) |
 | Cut phase | – | ●●● | – | ●●● |
 | Gain phase | ● | – | – | ●● |
 | Savings target | – | – | ●●● | – |
 | Course | ●●● | – | – | ●●● |
 | Month flag | ●● | – | – | ● |
 | Goal deadline | – | – | – | ●● |
+| Work project | – | – | – | ●● |
 
 Two consequences worth stating plainly, because they're the reason for the
 rework:
@@ -334,7 +335,7 @@ rework:
 | `body` (training) | Hard sessions/week, **unioned across plans** — see §8.10. Mobility and recovery count 0, exactly as in `overload.ts:isHardSession`. |
 | `body` (nutrition) | Not a demand at all — a deficit lowers the ceiling instead. See §8.10. |
 | `money` | `SavingsTarget.requiredMonthly`, exactly. |
-| `focus` | Phase 1, plan 0.5, course 1, flag 0.5, deadline 1 (its month only). |
+| `focus` | Phase 1, new routine 1 / new block 0.25 (charged once across plans), course 1, flag 0.5, deadline 1 (its month only), work project 0.5 (capped at 1.5). Phases and training taper as they settle — see §8.11. |
 
 Everything is charged pro-rata for the fraction of the month it actually covers.
 
@@ -499,3 +500,31 @@ are also exactly what §8.5 exists to replace: once there are eight months of
 history, the ceiling stops being anyone's opinion. Until then they are set
 conservatively, on the principle that an alarm which cries wolf is worse than no
 alarm.
+
+### 8.11 Focus, revisited
+
+_Reported from use (2026-09-21): "why is focus dominated by fitness? That doesn't
+take a huge amount of focus."_ Three faults.
+
+**Only recorded commitments counted, and work had no record.** Fitness led the bar
+because it was nearly the only thing being measured. Work projects now feed focus
+(`LoadInput.workProjects`): 0.5 each while live — `createdAt` to `dueDate`, to the
+month it was marked done, or open-ended (`assumed`) — shared evenly past a cap of
+1.5, because the fifth project shows up as things slipping, not as a bar that
+climbs forever. Paused and archived projects cost nothing. Projects carry the
+`life` pillar rather than a new one, and relief never offers to move them.
+
+**Costs were flat in time.** Week 30 of a routine cost what week 1 did.
+`noveltyFactor` now charges full price for four weeks and eases to a floor by
+week ten (≈ the 66-day median for habit formation), averaged over the days the
+commitment runs. Training's floor is 0 — a settled routine is turning up, not
+deciding. A cut or gain keeps half: the hunger is there every day. Courses,
+flags and deadlines don't taper.
+
+**Every plan was its own change.** Training is now charged once per month, to
+whichever live plan costs most. A plan is a *new routine* (1) unless it follows
+another plan within 14 days or comes after ≥ 6 logged sessions in the prior four
+weeks (`LoadInput.trainingDates`, from workout + conditioning logs), in which case
+it's a *new block* (0.25). Each contributor carries a `focusNote` the month drawer
+shows under its name, so the cost explains itself.
+

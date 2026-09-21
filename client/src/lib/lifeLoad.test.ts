@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
     DEFAULT_CAPACITIES,
+    WORK_FOCUS_CAP,
     computeMonthLoads,
+    noveltyFactor,
     findPressurePoints,
     levelForRatio,
     overloadedReserves,
@@ -21,6 +23,7 @@ import type {
     PlanWeekDay,
     SavingsTarget,
     TrainingPlan,
+    WorkProject,
 } from '../types'
 
 /** A one-year plan, the window every case below is scored over. */
@@ -193,6 +196,23 @@ function goal(targetDate: string, title = 'Sub-45 10K', status: Goal['status'] =
         linkedHabits: [],
         createdAt: '',
         updatedAt: '',
+    }
+}
+
+function project(
+    name: string,
+    extra: Partial<WorkProject> = {}
+): WorkProject {
+    return {
+        _id: `wp-${name}`,
+        name,
+        status: 'active',
+        color: 'blue',
+        order: 0,
+        stats: { open: 0, done: 0, waiting: 0, overdue: 0, nextDue: null },
+        createdAt: '2026-01-05T09:00:00.000Z',
+        updatedAt: '2026-01-05T09:00:00.000Z',
+        ...extra,
     }
 }
 
@@ -512,9 +532,100 @@ describe('focus', () => {
             monthNotes: [flag('2026-09', '2026-09')],
             goals: [goal('2026-09-30')],
         })
-        // cut 1 + plan 0.5 + course 1 + flag 0.5 + deadline 1
-        expect(load.reserves.focus.demand).toBe(4)
+        // cut 1 + new routine 1 + course 1 + flag 0.5 + deadline 1
+        expect(load.reserves.focus.demand).toBe(4.5)
         expect(load.reserves.focus.level).toBe('overloaded')
+    })
+})
+
+describe('focus settles as things become habit', () => {
+    it('charges full price for four weeks, then eases to the floor by week ten', () => {
+        // Only the last three days of January are past week four.
+        expect(noveltyFactor('2026-01', '2026-01-01', 0)).toBeCloseTo(1, 2)
+        // All of April is past week 13: settled.
+        expect(noveltyFactor('2026-04', '2026-01-01', 0)).toBe(0)
+        expect(noveltyFactor('2026-04', '2026-01-01', 0.5)).toBe(0.5)
+        const feb = noveltyFactor('2026-02', '2026-01-01', 0)
+        expect(feb).toBeGreaterThan(0.5)
+        expect(feb).toBeLessThan(1)
+    })
+
+    it('stops charging for a training routine once it has settled', () => {
+        const input = { trainingPlans: [trainingPlan('2026-01-01', '2026-12-31')] }
+        expect(demandFor('2026-01', 'focus', input)).toBe(1)
+        expect(demandFor('2026-05', 'focus', input)).toBe(0)
+        // The body and the diary still pay for it.
+        expect(demandFor('2026-05', 'body', input)).toBe(5)
+    })
+
+    it('never lets a cut drop below half', () => {
+        const input = { nutritionPhases: [phase('2026-01-01', '2026-06-30')] }
+        expect(demandFor('2026-01', 'focus', input)).toBe(1)
+        expect(demandFor('2026-05', 'focus', input)).toBe(0.5)
+    })
+
+    it('charges a block that follows straight on from another a quarter', () => {
+        const input = {
+            trainingPlans: [
+                trainingPlan('2026-01-01', '2026-02-28', 'Base'),
+                trainingPlan('2026-03-07', '2026-04-30', 'Build'),
+            ],
+        }
+        const march = loadFor('2026-03', input)
+        expect(march.reserves.focus.demand).toBe(0.25)
+        expect(march.contributors[0].focusNote).toContain('new block after Base')
+    })
+
+    it('reads weeks of logged sessions as a routine already running', () => {
+        const trainingDates = Array.from({ length: 8 }, (_, i) => `2026-08-${String(i * 3 + 4).padStart(2, '0')}`)
+        const plan = trainingPlan('2026-09-01', '2026-10-31')
+        expect(demandFor('2026-09', 'focus', { trainingPlans: [plan] })).toBe(1)
+        expect(demandFor('2026-09', 'focus', { trainingPlans: [plan], trainingDates })).toBe(0.25)
+    })
+
+    it('charges training once however many plans are live', () => {
+        const load = loadFor('2026-05', {
+            trainingPlans: [
+                trainingPlan('2026-05-01', '2026-05-31', 'Lifting', { weeklyTemplate: week({ strength: [0, 2] }) }),
+                trainingPlan('2026-05-01', '2026-05-31', 'Running', { weeklyTemplate: week({ conditioning: [1, 3] }) }),
+            ],
+        })
+        expect(load.reserves.focus.demand).toBe(1)
+        expect(load.reserves.focus.contributions).toHaveLength(1)
+        expect(load.contributors[1].focusNote).toBe('training is one routine — charged to Lifting')
+    })
+})
+
+describe('work projects', () => {
+    it('charges half a change per live project', () => {
+        const input = { workProjects: [project('Launch'), project('Migration')] }
+        expect(demandFor('2026-03', 'focus', input)).toBe(1)
+    })
+
+    it('caps work however many projects are live', () => {
+        const input = { workProjects: ['A', 'B', 'C', 'D', 'E'].map((n) => project(n)) }
+        expect(demandFor('2026-03', 'focus', input)).toBe(WORK_FOCUS_CAP)
+        expect(loadFor('2026-03', input).contributors[0].focusNote).toContain('one of 5')
+    })
+
+    it('counts a project only while it runs', () => {
+        const input = {
+            workProjects: [
+                project('Paused', { status: 'paused' }),
+                project('Shipped', { status: 'done', updatedAt: '2026-04-20T00:00:00.000Z' }),
+                project('Dated', { dueDate: '2026-06-30' }),
+                project('Later', { createdAt: '2026-09-01T00:00:00.000Z' }),
+            ],
+        }
+        expect(demandFor('2026-04', 'focus', input)).toBe(1)
+        expect(demandFor('2026-06', 'focus', input)).toBe(0.5)
+        expect(demandFor('2026-08', 'focus', input)).toBe(0)
+        expect(demandFor('2026-09', 'focus', input)).toBe(0.5)
+    })
+
+    it('marks an open-ended project as assumed', () => {
+        const load = loadFor('2026-03', { workProjects: [project('Ongoing')] })
+        expect(load.contributors[0].basis).toBe('assumed')
     })
 })
 
@@ -692,7 +803,8 @@ describe('reserveShape', () => {
         const shape = reserveShape(loads)
         expect(shape.body).toBeCloseTo(5 / 6, 2)
         expect(shape.time).toBeCloseTo(4.5 / 9, 2)
-        expect(shape.focus).toBeCloseTo(0.5 / 3, 2)
+        // A routine starting from nothing, in its first month: one whole change.
+        expect(shape.focus).toBeCloseTo(1 / 3, 2)
         // Unpriceable, so it reports nothing rather than zero.
         expect(shape.money).toBeNull()
     })

@@ -160,6 +160,8 @@ export function useLoadCapacities(
         records.savingsTargets?.length ?? 0,
         records.courses?.length ?? 0,
         records.goals?.length ?? 0,
+        records.workProjects?.length ?? 0,
+        records.trainingDates?.length ?? 0,
     ].join(':')
 
     // Calibration: seven collections over eighteen months, so it waits to be asked.

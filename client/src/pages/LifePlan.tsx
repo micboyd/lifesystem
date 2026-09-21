@@ -22,6 +22,7 @@ import {
     LIFE_PILLAR_LABELS,
     type Course,
     type Goal,
+    type WorkProject,
     type LifePlan as LifePlanType,
     type LifePlanInput,
     type MonthNote,
@@ -47,6 +48,7 @@ import { listMonthNotes } from '../services/monthNotes'
 import { listPlanEntries as listFitnessEntries } from '../services/fitnessPlan'
 import { listPlanEntries as listMealEntries } from '../services/mealPlan'
 import { listLogs as listWorkoutLogs } from '../services/workoutLogs'
+import { listProjects } from '../services/workProjects'
 import { listLogs as listConditioningLogs } from '../services/conditioningLogs'
 import { listWeightLogs } from '../services/weightLogs'
 import { listHabits, listLogs as listHabitLogs } from '../services/habits'
@@ -71,6 +73,9 @@ interface LinkedRecords {
     courses: Course[]
     monthNotes: MonthNote[]
     goals: Goal[]
+    workProjects: WorkProject[]
+    /** Dates of every logged session — tells a new routine from a new block. */
+    trainingDates: string[]
 }
 
 const EMPTY_RECORDS: LinkedRecords = {
@@ -80,6 +85,8 @@ const EMPTY_RECORDS: LinkedRecords = {
     courses: [],
     monthNotes: [],
     goals: [],
+    workProjects: [],
+    trainingDates: [],
 }
 
 /** The message an API error carries, or a fallback. */
@@ -148,6 +155,23 @@ export default function LifePlan() {
             cancelled = true
         }
     }, [thisMonth])
+
+    // Focus inputs that no lane draws: work, and the training history that says
+    // whether a plan starts a routine or continues one. Neither is worth failing
+    // the page over.
+    useEffect(() => {
+        let cancelled = false
+        Promise.all([listProjects(), listWorkoutLogs(), listConditioningLogs()])
+            .then(([workProjects, workoutLogs, conditioningLogs]) => {
+                if (cancelled) return
+                const trainingDates = [...workoutLogs, ...conditioningLogs].map((l) => l.date)
+                setRecords((r) => ({ ...r, workProjects, trainingDates }))
+            })
+            .catch(() => {})
+        return () => {
+            cancelled = true
+        }
+    }, [])
 
     const plan = plans.find((p) => p._id === planId) ?? null
     const planStart = plan?.start

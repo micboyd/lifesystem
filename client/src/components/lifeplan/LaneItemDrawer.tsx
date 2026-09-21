@@ -30,6 +30,7 @@ const SOURCE_LABELS: Record<LaneSource, string> = {
     course: 'Study',
     monthNote: 'Month flag',
     goal: 'Goal',
+    workProject: 'Work project',
 }
 
 const SOURCE_LINK_LABELS: Record<LaneSource, string> = {
@@ -39,6 +40,7 @@ const SOURCE_LINK_LABELS: Record<LaneSource, string> = {
     course: 'Open in Studying',
     monthNote: 'Open in Calendar',
     goal: 'Open in Goals',
+    workProject: 'Open in Work',
 }
 
 /** A labelled row of detail. */
