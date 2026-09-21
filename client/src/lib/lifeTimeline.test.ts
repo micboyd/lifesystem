@@ -10,6 +10,7 @@ import {
     seasonProgress,
     stretchLaneRow,
     LANE_SOURCE_ROUTES,
+    laneItemHref,
     type LaneItem,
     type LaneSource,
 } from './lifeTimeline'
@@ -653,20 +654,26 @@ describe('LANE_SOURCE_ROUTES', () => {
     })
 
     /*
-     * The timeline drawer's footer links to wherever a record is edited. For
-     * most sources that is another page and a plain link works. A nutrition
-     * phase is edited on the Life Plan page itself — the page the drawer is
-     * already on — so a link there navigates nowhere and looks broken, which is
-     * exactly the bug this documents. Those sources need the drawer's
-     * `onOpenHere` handler instead.
-     *
-     * If a new source is ever edited on Life Plan too, this fails and points at
-     * the handler that needs extending.
+     * The timeline drawer only ever links out. Life Plan reads every lane's
+     * records but edits none of them, so no source may route back to the page
+     * the drawer is already on — a link there would navigate nowhere.
      */
-    it('flags the sources edited on the Life Plan page itself', () => {
+    it('routes no source back to the Life Plan page itself', () => {
         const samePage = (Object.keys(LANE_SOURCE_ROUTES) as LaneSource[]).filter(
             (s) => LANE_SOURCE_ROUTES[s] === '/life-plan'
         )
-        expect(samePage).toEqual(['nutritionPhase'])
+        expect(samePage).toEqual([])
+    })
+})
+
+describe('laneItemHref', () => {
+    it('deep-links a nutrition phase into the Nutrition Phases tab', () => {
+        expect(laneItemHref({ source: 'nutritionPhase', recordId: 'abc' })).toBe(
+            '/nutrition?tab=phases&phase=abc'
+        )
+    })
+
+    it('uses the plain module route for every other source', () => {
+        expect(laneItemHref({ source: 'trainingPlan', recordId: 'abc' })).toBe('/fitness')
     })
 })

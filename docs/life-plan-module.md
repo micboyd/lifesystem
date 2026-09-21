@@ -219,17 +219,21 @@ Two server-side invariants worth knowing about:
 
 `pages/LifePlan.tsx` at `/life-plan`, with `components/lifeplan/`:
 `LifePlanTimeline` (desktop grid), `TimelineMonthList` (small screens),
-`LaneItemDrawer`, `SeasonsTab`, `SeasonForm`, `NutritionPhasesTab`,
-`PressureCheck`, `SeasonReviewTab`, `PlanForm`, `LoadPill`.
+`LaneItemDrawer`, `SeasonsTab`, `SeasonForm`, `PressureCheck`, `SeasonReviewTab`,
+`PlanForm`, `LoadPill`. The phase editor lives in Nutrition
+(`components/nutrition/PhasesTab` + `PhaseLibrary`) — see the decision below.
 
 ### Decisions made during the build
 
 - **Training-plan phases are not sub-bars.** `PlanPhase.dates` is free text in the
   import format ("Sep 1 – Oct 12"), so phases can't be placed on a month grid
   reliably. They're listed as written in the drawer instead.
-- **Nutrition phases are authored in Life Plan, not Nutrition.** A dated phase is a
-  planning artifact; Nutrition owns what was eaten on a day, and the phase is the
-  target that day gets judged against.
+- **Nutrition phases are authored in Nutrition, not Life Plan** _(reversed
+  2026-09-21)_. They started here as a planning artifact, but adaptive nutrition
+  made Nutrition the module that runs on them — Today reads the live targets and
+  appends dated adjustments, Progress and the planner judge against them. Life
+  Plan now reads phases like every other lane: the timeline drawer links to
+  `/nutrition?tab=phases&phase=<id>`, which opens that phase's editor.
 - **The timeline shows everything live in the window, not only what a season
   links.** Seeing an unclaimed commitment is the point. The Review is the opposite
   — it scores only linked records, because an unlinked target isn't that season's

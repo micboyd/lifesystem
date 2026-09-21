@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import Container from '../components/Container'
 import { Card } from '../components/Card'
 import Spinner from '../components/Spinner'
@@ -53,6 +53,7 @@ import { listNutritionPhases } from '../services/nutritionPhases'
 import { listPlanEntries as listFitnessEntries } from '../services/fitnessPlan'
 import TodayTab from '../components/nutrition/TodayTab'
 import ProgressTab from '../components/nutrition/ProgressTab'
+import PhasesTab from '../components/nutrition/PhasesTab'
 import { useAuth } from '../context/AuthContext'
 import { MEAL_TYPES } from '../types'
 import type {
@@ -196,7 +197,7 @@ type Drawered =
 
 // Today first: the week is where a plan gets designed, but the day is what you
 // actually come here to settle.
-const TOP_TABS = ['Today', 'Weekly Planner', 'Meals', 'Progress'] as const
+const TOP_TABS = ['Today', 'Weekly Planner', 'Meals', 'Progress', 'Phases'] as const
 type TopTab = (typeof TOP_TABS)[number]
 
 const SUBTITLE: Record<TopTab, string> = {
@@ -204,13 +205,28 @@ const SUBTITLE: Record<TopTab, string> = {
     Meals: 'Your meal library — macros, ingredients and method for every recipe.',
     'Weekly Planner': 'Plan your week — breakfast, lunch, dinner and snacks, with macros tallied.',
     Progress: 'Weight, waist, strength and photos — whether the recomp is actually working.',
+    Phases: 'Dated cuts, bulks and maintenance stretches — the targets every day is judged against.',
 }
 
 export default function Nutrition() {
     const { user } = useAuth()
     const goals = useMemo(() => normGoals(user?.settings?.macroGoals), [user?.settings?.macroGoals])
 
-    const [tab, setTab] = useState<TopTab>('Today')
+    // `?tab=phases&phase=<id>` is how the Life Plan timeline hands off a phase
+    // to edit. Read once on arrival, then dropped from the URL so a reload or a
+    // tab switch can't reopen the editor.
+    const [searchParams, setSearchParams] = useSearchParams()
+    const [tab, setTab] = useState<TopTab>(() =>
+        searchParams.get('tab') === 'phases' ? 'Phases' : 'Today'
+    )
+    const [openPhaseId, setOpenPhaseId] = useState<string | null>(() => searchParams.get('phase'))
+    const clearOpenPhase = useCallback(() => setOpenPhaseId(null), [])
+    useEffect(() => {
+        if (searchParams.has('tab') || searchParams.has('phase')) {
+            setSearchParams({}, { replace: true })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
     const [drawer, setDrawer] = useState<Drawered>(null)
 
     // The full library — for the planner's picker and the "is it empty" check.
@@ -360,6 +376,10 @@ export default function Nutrition() {
             ) : tab === 'Progress' ? (
                 <Container className="mt-2">
                     <ProgressTab settingsGoals={user?.settings?.macroGoals} />
+                </Container>
+            ) : tab === 'Phases' ? (
+                <Container className="mt-2">
+                    <PhasesTab openPhaseId={openPhaseId} onOpened={clearOpenPhase} />
                 </Container>
             ) : tab === 'Weekly Planner' ? (
                 <Container fluid className="mt-8">

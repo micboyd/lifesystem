@@ -34,10 +34,10 @@ import { formatDateShort, todayKey } from '../../lib/calendar'
 /**
  * The phase library: dated stretches of eating with their own targets.
  *
- * Phases are authored here rather than in Nutrition because they're a planning
- * artifact — Nutrition owns what was eaten on a given day, and a phase is the
- * target that day is judged against. Day-precise on purpose: a cut rarely starts
- * on the 1st of a month.
+ * Phases live in Nutrition because this module is what runs on them — Today reads
+ * the live targets and appends dated adjustments, Progress and the planner judge
+ * against them. Life Plan only reads them for its timeline and season links.
+ * Day-precise on purpose: a cut rarely starts on the 1st of a month.
  */
 
 /** A number input's value as a target, treating a blank box as "no target". */
@@ -225,7 +225,7 @@ function targetSummary(targets: MacroGoals): string {
     return bits.length > 0 ? bits.join(' · ') : 'No targets set'
 }
 
-export default function NutritionPhasesTab({
+export default function PhaseLibrary({
     phases,
     saving,
     error,
@@ -239,7 +239,7 @@ export default function NutritionPhasesTab({
     error: string | null
     onSave: (input: NutritionPhaseInput, id?: string) => Promise<boolean>
     onDelete: (phase: NutritionPhase) => void
-    /** A phase to open for editing on arrival — set when coming from the timeline. */
+    /** A phase to open for editing on arrival — set when coming from the Life Plan timeline. */
     openPhaseId?: string | null
     /** Called once that request has been honoured, so it fires only once. */
     onOpened?: () => void
@@ -274,7 +274,7 @@ export default function NutritionPhasesTab({
         setForm(editing ? formFrom(editing) : blankForm())
     }, [open, editing])
 
-    // Arriving from the timeline drawer with a phase to edit. Cleared through
+    // Arriving from the Life Plan timeline drawer with a phase to edit. Cleared through
     // `onOpened` so re-rendering can't reopen the editor after it is dismissed.
     useEffect(() => {
         if (!openPhaseId) return

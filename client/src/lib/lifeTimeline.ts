@@ -48,11 +48,24 @@ export type LaneSource =
 /** Where the "edit this" link on a lane item points. */
 export const LANE_SOURCE_ROUTES: Record<LaneSource, string> = {
     trainingPlan: '/fitness',
-    nutritionPhase: '/life-plan',
+    nutritionPhase: '/nutrition',
     savingsTarget: '/finances/forecast',
     course: '/study',
     monthNote: '/calendar',
     goal: '/goals',
+}
+
+/**
+ * The link for one lane item: its module's route, deep-linked to the record where
+ * that module can open it directly. Nutrition opens a phase straight into its
+ * editor on the Phases tab.
+ */
+export function laneItemHref(item: Pick<LaneItem, 'source' | 'recordId'>): string {
+    const route = LANE_SOURCE_ROUTES[item.source]
+    if (item.source === 'nutritionPhase') {
+        return `${route}?tab=phases&phase=${encodeURIComponent(item.recordId)}`
+    }
+    return route
 }
 
 /**

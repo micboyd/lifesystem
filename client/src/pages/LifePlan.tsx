@@ -12,7 +12,6 @@ import TimelineMonthList from '../components/lifeplan/TimelineMonthList'
 import LaneItemDrawer from '../components/lifeplan/LaneItemDrawer'
 import SeasonsTab from '../components/lifeplan/SeasonsTab'
 import SeasonForm from '../components/lifeplan/SeasonForm'
-import NutritionPhasesTab from '../components/lifeplan/NutritionPhasesTab'
 import PressureCheck from '../components/lifeplan/PressureCheck'
 import SeasonReviewTab from '../components/lifeplan/SeasonReviewTab'
 import PlanForm from '../components/lifeplan/PlanForm'
@@ -27,7 +26,6 @@ import {
     type LifePlanInput,
     type MonthNote,
     type NutritionPhase,
-    type NutritionPhaseInput,
     type SavingsTarget,
     type Season,
     type SeasonInput,
@@ -62,7 +60,7 @@ import { listHabits, listLogs as listHabitLogs } from '../services/habits'
  * app can answer.
  */
 
-const TABS = ['Timeline', 'Seasons', 'Nutrition', 'Pressure', 'Review'] as const
+const TABS = ['Timeline', 'Seasons', 'Pressure', 'Review'] as const
 type Tab = (typeof TABS)[number]
 
 /** Everything the timeline and the pressure check read, none of it owned here. */
@@ -92,8 +90,6 @@ function errorMessage(err: unknown, fallback: string): string {
 
 export default function LifePlan() {
     const [tab, setTab] = useState<Tab>('Timeline')
-    // A phase the timeline drawer asked to edit, handed to the Nutrition tab.
-    const [editPhaseId, setEditPhaseId] = useState<string | null>(null)
     const [plans, setPlans] = useState<LifePlanType[]>([])
     const [planId, setPlanId] = useState<string | null>(null)
     const [records, setRecords] = useState<LinkedRecords>(EMPTY_RECORDS)
@@ -114,10 +110,6 @@ export default function LifePlan() {
     const [seasonError, setSeasonError] = useState<string | null>(null)
     const [deletingSeason, setDeletingSeason] = useState<Season | null>(null)
 
-    // Nutrition phases
-    const [phaseSaving, setPhaseSaving] = useState(false)
-    const [phaseError, setPhaseError] = useState<string | null>(null)
-    const [deletingPhase, setDeletingPhase] = useState<NutritionPhase | null>(null)
 
     // Timeline drawer
     const [selectedItem, setSelectedItem] = useState<LaneItem | null>(null)
@@ -365,46 +357,6 @@ export default function LifePlan() {
         }
     }
 
-    // ─── Nutrition phase actions ──────────────────────────────────────────────
-
-    async function savePhase(input: NutritionPhaseInput, id?: string): Promise<boolean> {
-        setPhaseSaving(true)
-        setPhaseError(null)
-        try {
-            const saved = id
-                ? await phaseService.updateNutritionPhase(id, input)
-                : await phaseService.createNutritionPhase(input)
-            setRecords((r) => ({
-                ...r,
-                nutritionPhases: id
-                    ? r.nutritionPhases.map((p) => (p._id === saved._id ? saved : p))
-                    : [...r.nutritionPhases, saved].sort((a, b) =>
-                          a.startDate.localeCompare(b.startDate)
-                      ),
-            }))
-            return true
-        } catch (err) {
-            setPhaseError(errorMessage(err, 'Could not save the phase.'))
-            return false
-        } finally {
-            setPhaseSaving(false)
-        }
-    }
-
-    async function confirmDeletePhase() {
-        if (!deletingPhase) return
-        try {
-            await phaseService.deleteNutritionPhase(deletingPhase._id)
-            setRecords((r) => ({
-                ...r,
-                nutritionPhases: r.nutritionPhases.filter((p) => p._id !== deletingPhase._id),
-            }))
-        } catch (err) {
-            setPhaseError(errorMessage(err, 'Could not delete the phase.'))
-        } finally {
-            setDeletingPhase(null)
-        }
-    }
 
     if (loading) {
         return (
@@ -629,18 +581,6 @@ export default function LifePlan() {
                                 />
                             )}
 
-                            {tab === 'Nutrition' && (
-                                <NutritionPhasesTab
-                                    phases={records.nutritionPhases}
-                                    saving={phaseSaving}
-                                    error={phaseError}
-                                    onSave={savePhase}
-                                    onDelete={setDeletingPhase}
-                                    openPhaseId={editPhaseId}
-                                    onOpened={() => setEditPhaseId(null)}
-                                />
-                            )}
-
                             {tab === 'Pressure' && (
                                 <PressureCheck
                                     plan={plan}
@@ -680,16 +620,6 @@ export default function LifePlan() {
                 item={selectedItem}
                 records={records}
                 onClose={() => setSelectedItem(null)}
-                // Nutrition phases are edited on this page, so the drawer's
-                // action has nowhere to navigate to — it switches tab and opens
-                // the editor instead.
-                onOpenHere={(item) => {
-                    setSelectedItem(null)
-                    if (item.source === 'nutritionPhase') {
-                        setTab('Nutrition')
-                        setEditPhaseId(item.recordId)
-                    }
-                }}
             />
 
             <PlanForm
@@ -742,21 +672,6 @@ export default function LifePlan() {
                 danger
                 onConfirm={confirmDeleteSeason}
                 onClose={() => setDeletingSeason(null)}
-            />
-
-            <ConfirmModal
-                open={!!deletingPhase}
-                title="Delete phase"
-                message={
-                    <>
-                        Delete <strong>{deletingPhase?.name}</strong>? Any season linking it will
-                        simply stop showing it.
-                    </>
-                }
-                confirmLabel="Delete"
-                danger
-                onConfirm={confirmDeletePhase}
-                onClose={() => setDeletingPhase(null)}
             />
         </main>
     )
