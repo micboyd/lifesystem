@@ -2205,6 +2205,7 @@ export default function SavingsForecast() {
                         tabs={['Projection', 'Savings to date', 'Target planner']}
                         value={view}
                         onChange={(t) => setView(t as typeof view)}
+                        className="self-start"
                     />
 
                     {view === 'Savings to date' ? (
