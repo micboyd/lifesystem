@@ -2178,7 +2178,7 @@ export default function SavingsForecast() {
     const milestoneYears = HORIZONS.filter((y) => y <= horizon).slice(-4)
 
     return (
-        <>
+        <div className="max-w-4xl">
             <header className="mb-8">
                 <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">
                     Savings Forecast
@@ -2399,6 +2399,6 @@ export default function SavingsForecast() {
                     />
                 )
             })()}
-        </>
+        </div>
     )
 }
