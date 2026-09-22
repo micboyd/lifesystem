@@ -768,50 +768,127 @@ function mo(n: number): string {
     return Math.abs(n) === 1 ? 'month' : 'months'
 }
 
-/** Start and finish dates side by side, each with a months-away countdown. */
-function PlanDatesGrid({ target }: { target: SavingsTarget }) {
+/** The plan's one number: the monthly ask for a target, the end balance for a fixed amount. */
+function PlanHeadline({ target }: { target: SavingsTarget }) {
+    const isContribution = target.mode === 'contribution'
+
+    const label = isContribution ? 'Projected balance' : 'Save each month'
+    const sub = isContribution
+        ? `£${fmt(target.requiredMonthly)} a month for ${target.contributionMonths} ${mo(target.contributionMonths)}`
+        : target.onTrack
+          ? `Interest alone reaches £${fmt(target.targetAmount, 0)}`
+          : `to reach £${fmt(target.targetAmount, 0)} over ${target.contributionMonths} ${mo(target.contributionMonths)}`
+
+    return (
+        <div className="mt-4 rounded-2xl bg-neutral-50 px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                {label}
+            </p>
+            <p
+                className={`mt-0.5 text-2xl font-bold tabular-nums tracking-tight sm:text-3xl ${
+                    !isContribution && target.onTrack ? 'text-emerald-600' : 'text-neutral-900'
+                }`}
+            >
+                {isContribution ? (
+                    `£${fmt(target.targetAmount, 0)}`
+                ) : target.onTrack ? (
+                    'On track'
+                ) : (
+                    <>
+                        £{fmt(target.requiredMonthly)}
+                        <span className="ml-1 text-sm font-semibold text-neutral-400">/ mo</span>
+                    </>
+                )}
+            </p>
+            <p className="mt-0.5 text-xs tabular-nums text-neutral-500">{sub}</p>
+        </div>
+    )
+}
+
+/** Where the end amount comes from: what you have, what you add, what interest adds. */
+function PlanComposition({ target }: { target: SavingsTarget }) {
+    const interest =
+        target.mode !== 'contribution' && target.onTrack
+            ? Math.max(0, target.growthOnly - target.startingBalance)
+            : Math.max(0, target.interestEarned)
+    const parts = [
+        { label: 'Starting', value: Math.max(0, target.startingBalance), color: 'bg-neutral-300' },
+        { label: 'Saved', value: Math.max(0, target.totalContributions), color: 'bg-neutral-900' },
+        { label: `Interest ${fmt(target.annualInterestRate, 2)}%`, value: interest, color: 'bg-emerald-500' },
+    ]
+    const total = parts.reduce((s, p) => s + p.value, 0)
+
+    return (
+        <div className="mt-4">
+            <div className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-neutral-100">
+                {total > 0 &&
+                    parts
+                        .filter((p) => p.value > 0)
+                        .map((p) => (
+                            <div
+                                key={p.label}
+                                className={p.color}
+                                style={{ width: `${(p.value / total) * 100}%` }}
+                            />
+                        ))}
+            </div>
+            <dl className="mt-2.5 grid grid-cols-3 gap-2">
+                {parts.map((p) => (
+                    <div key={p.label} className="min-w-0">
+                        <dt className="flex items-center gap-1.5 text-[11px] text-neutral-400">
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${p.color}`} />
+                            <span className="truncate">{p.label}</span>
+                        </dt>
+                        <dd className="mt-0.5 truncate text-sm font-bold tabular-nums text-neutral-900">
+                            {fmtCompact(p.value)}
+                        </dd>
+                    </div>
+                ))}
+            </dl>
+        </div>
+    )
+}
+
+/** Start → finish with how far through the saving window we are. */
+function PlanTimeline({ target }: { target: SavingsTarget }) {
     const now = currentMonth()
     const untilStart = monthsUntil(now, target.startMonth)
     const untilFinish = monthsUntil(now, target.targetMonth)
+    const span = Math.max(1, monthsUntil(target.startMonth, target.targetMonth) + 1)
+    const elapsed = Math.min(span, Math.max(0, -untilStart))
+    const pct = untilFinish < 0 ? 100 : (elapsed / span) * 100
 
-    const startLabel =
+    const status =
         untilStart > 0
-            ? `in ${untilStart} ${mo(untilStart)}`
-            : untilStart === 0
-              ? 'this month'
-              : `started ${-untilStart} ${mo(untilStart)} ago`
-    const finishLabel =
-        untilFinish > 0
-            ? `in ${untilFinish} ${mo(untilFinish)}`
-            : untilFinish === 0
-              ? 'due this month'
-              : `${-untilFinish} ${mo(untilFinish)} overdue`
-    const finishTone =
+            ? `Starts in ${untilStart} ${mo(untilStart)}`
+            : untilFinish > 0
+              ? `${untilFinish} ${mo(untilFinish)} to go`
+              : untilFinish === 0
+                ? 'Due this month'
+                : `${-untilFinish} ${mo(untilFinish)} overdue`
+    const tone =
         untilFinish < 0
             ? 'text-red-500'
-            : untilFinish <= 3
+            : untilStart <= 0 && untilFinish <= 3
               ? 'text-amber-600'
-              : 'text-neutral-400'
+              : 'text-neutral-500'
 
     return (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-neutral-50 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                    Starts
-                </p>
-                <p className="mt-0.5 truncate text-xs font-bold text-neutral-900">
-                    {monthLabelLong(target.startMonth)}
-                </p>
-                <p className="text-[11px] text-neutral-400">{startLabel}</p>
+        <div className="mt-4">
+            <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="font-semibold text-neutral-900">
+                    {monthLabelShort(target.startMonth)}
+                </span>
+                <span className={`font-semibold ${tone}`}>{status}</span>
+                <span className="font-semibold text-neutral-900">
+                    {monthLabelShort(target.targetMonth)}
+                </span>
             </div>
-            <div className="rounded-xl bg-neutral-50 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                    Finishes
-                </p>
-                <p className="mt-0.5 truncate text-xs font-bold text-neutral-900">
-                    {monthLabelLong(target.targetMonth)}
-                </p>
-                <p className={`text-[11px] font-semibold ${finishTone}`}>{finishLabel}</p>
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-neutral-100">
+                <div
+                    className={`h-full rounded-full ${untilFinish < 0 ? 'bg-red-400' : 'bg-neutral-900'}`}
+                    style={{ width: `${pct}%` }}
+                />
             </div>
         </div>
     )
@@ -895,6 +972,8 @@ function SavedTargetCard({
         }
     }
 
+    const isContribution = target.mode === 'contribution'
+
     return (
         <div
             draggable
@@ -920,7 +999,7 @@ function SavedTargetCard({
                 onDragEnd()
             }}
             className={[
-                'rounded-3xl border bg-white p-4 sm:p-6 transition-colors duration-200',
+                'flex min-w-0 flex-col rounded-3xl border bg-white p-5 transition-colors duration-200',
                 target.priority
                     ? 'border-amber-300 hover:border-amber-400'
                     : 'border-neutral-200 hover:border-neutral-300',
@@ -930,59 +1009,28 @@ function SavedTargetCard({
                 .filter(Boolean)
                 .join(' ')}
         >
-            <div className="flex items-start gap-2">
-                <button
-                    type="button"
-                    aria-label="Drag to reorder"
-                    onMouseDown={() => (dragReady.current = true)}
-                    onTouchStart={() => (dragReady.current = true)}
-                    className="mt-1 -ml-1 grid h-8 w-5 shrink-0 cursor-grab touch-none place-items-center rounded text-neutral-300 transition-colors hover:text-neutral-500 active:cursor-grabbing"
-                >
-                    <i className="fa-solid fa-grip-vertical text-xs" aria-hidden="true" />
-                </button>
-                <div className="min-w-0 flex-1">
-                    {editing ? (
-                        <input
-                            autoFocus
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            onBlur={commitRename}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') e.currentTarget.blur()
-                                if (e.key === 'Escape') {
-                                    setName(target.name)
-                                    setEditing(false)
-                                }
-                            }}
-                            className="w-full rounded-lg border border-neutral-200 px-2 py-1 text-lg font-bold tracking-tight text-neutral-900 outline-none focus:border-neutral-950"
-                        />
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setName(target.name)
-                                setEditing(true)
-                            }}
-                            title="Rename"
-                            className="group flex items-center gap-2 text-left"
-                        >
-                            <span className="truncate text-lg font-bold tracking-tight text-neutral-900">
-                                {target.name}
-                            </span>
-                            <i
-                                className="fa-solid fa-pen text-[10px] text-neutral-300 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
-                                aria-hidden="true"
-                            />
-                        </button>
-                    )}
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
+            {/* Meta row: what kind of plan it is, and the card's controls. */}
+            <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
+                    <i
+                        className={`fa-solid ${isContribution ? 'fa-arrow-trend-up' : 'fa-bullseye'} text-[10px]`}
+                        aria-hidden="true"
+                    />
+                    {isContribution ? 'Fixed monthly' : 'Target'}
+                </span>
+                {target.priority && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                        <i className="fa-solid fa-flag text-[10px]" aria-hidden="true" />
+                        Priority
+                    </span>
+                )}
+                <div className="ml-auto flex shrink-0 items-center">
                     <button
                         type="button"
                         title={target.priority ? 'Remove priority' : 'Mark as priority'}
                         onClick={() => onUpdate(target._id, { priority: !target.priority })}
                         className={[
-                            'grid h-7 w-7 place-items-center rounded-full transition-colors',
+                            'grid h-8 w-8 place-items-center rounded-full transition-colors',
                             target.priority
                                 ? 'text-amber-500 hover:bg-amber-50 hover:text-amber-600'
                                 : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500',
@@ -995,12 +1043,61 @@ function SavedTargetCard({
                     </button>
                     <button
                         type="button"
+                        title="Delete plan"
                         onClick={() => setConfirming(true)}
-                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
+                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
                     >
                         <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
                     </button>
+                    <button
+                        type="button"
+                        aria-label="Drag to reorder"
+                        title="Drag to reorder"
+                        onMouseDown={() => (dragReady.current = true)}
+                        onTouchStart={() => (dragReady.current = true)}
+                        className="grid h-8 w-6 cursor-grab touch-none place-items-center rounded text-neutral-300 transition-colors hover:text-neutral-500 active:cursor-grabbing"
+                    >
+                        <i className="fa-solid fa-grip-vertical text-xs" aria-hidden="true" />
+                    </button>
                 </div>
+            </div>
+
+            {/* Title gets its own full-width line and wraps instead of colliding with controls. */}
+            <div className="mt-3">
+                {editing ? (
+                    <input
+                        autoFocus
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        onBlur={commitRename}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur()
+                            if (e.key === 'Escape') {
+                                setName(target.name)
+                                setEditing(false)
+                            }
+                        }}
+                        className="w-full rounded-lg border border-neutral-200 px-2 py-1 text-lg font-bold tracking-tight text-neutral-900 outline-none focus:border-neutral-950"
+                    />
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setName(target.name)
+                            setEditing(true)
+                        }}
+                        title="Rename"
+                        className="group w-full text-left"
+                    >
+                        <span className="break-words text-lg font-bold leading-snug tracking-tight text-neutral-900">
+                            {target.name}
+                        </span>
+                        <i
+                            className="fa-solid fa-pen ml-2 align-middle text-[10px] text-neutral-300 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                            aria-hidden="true"
+                        />
+                    </button>
+                )}
             </div>
 
             {confirming ? (
@@ -1026,73 +1123,52 @@ function SavedTargetCard({
                 </div>
             ) : (
                 <>
-                    <p className="mt-4 text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
-                        {target.mode === 'contribution' ? (
-                            <>£{fmt(target.targetAmount, 0)} <span className="text-sm font-semibold text-neutral-400">projected</span></>
-                        ) : target.onTrack ? (
-                            <span className="text-emerald-600">On track — £0 / month</span>
-                        ) : (
-                            <>£{fmt(target.requiredMonthly)} <span className="text-sm font-semibold text-neutral-400">/ month</span></>
-                        )}
-                    </p>
-                    <p className="mt-1 text-xs text-neutral-500 tabular-nums">
-                        {target.mode === 'contribution' ? (
-                            <>Saving £{fmt(target.requiredMonthly)} / month ·{' '}
-                            {target.contributionMonths} {mo(target.contributionMonths)} of saving</>
-                        ) : (
-                            <>£{fmt(target.targetAmount, 0)} target
-                            {!target.onTrack && (
-                                <> · {target.contributionMonths}{' '}
-                                {mo(target.contributionMonths)} of saving</>
-                            )}</>
-                        )}
-                    </p>
+                    <PlanHeadline target={target} />
+                    <PlanComposition target={target} />
+                    <PlanTimeline target={target} />
 
-                    <PlanDatesGrid target={target} />
-                    <p className="mt-3 border-t border-neutral-100 pt-3 text-xs text-neutral-400 tabular-nums">
-                        From £{fmt(target.startingBalance, 0)} at {fmt(target.annualInterestRate, 2)}% ·
-                        contributions £{fmt(target.totalContributions, 0)} · interest £
-                        {fmt(target.interestEarned, 0)}
-                    </p>
-                    {editingNotes ? (
-                        <textarea
-                            autoFocus
-                            value={notesDraft}
-                            onChange={(e) => setNotesDraft(e.target.value)}
-                            onBlur={commitNotes}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Escape') setEditingNotes(false)
-                            }}
-                            rows={3}
-                            placeholder="Notes…"
-                            className="mt-3 w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-xs text-neutral-700 outline-none transition-all placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
-                        />
-                    ) : target.notes ? (
-                        <button
-                            type="button"
-                            onClick={openNotesEditor}
-                            title="Edit notes"
-                            className="group mt-3 w-full text-left"
-                        >
-                            <p className="whitespace-pre-wrap text-xs text-neutral-500">
-                                {target.notes}
-                                <i
-                                    className="fa-solid fa-pen ml-2 text-[9px] text-neutral-300 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
-                                    aria-hidden="true"
-                                />
-                            </p>
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={openNotesEditor}
-                            className="mt-3 text-xs font-semibold text-neutral-300 transition-colors hover:text-neutral-500"
-                        >
-                            <i className="fa-solid fa-plus mr-1 text-[9px]" aria-hidden="true" />
-                            Add notes
-                        </button>
-                    )}
                     <div className="mt-4 border-t border-neutral-100 pt-3">
+                        {editingNotes ? (
+                            <textarea
+                                autoFocus
+                                value={notesDraft}
+                                onChange={(e) => setNotesDraft(e.target.value)}
+                                onBlur={commitNotes}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Escape') setEditingNotes(false)
+                                }}
+                                rows={3}
+                                placeholder="Notes…"
+                                className="w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-xs text-neutral-700 outline-none transition-all placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
+                            />
+                        ) : target.notes ? (
+                            <button
+                                type="button"
+                                onClick={openNotesEditor}
+                                title="Edit notes"
+                                className="group w-full text-left"
+                            >
+                                <p className="whitespace-pre-wrap break-words text-xs text-neutral-500">
+                                    {target.notes}
+                                    <i
+                                        className="fa-solid fa-pen ml-2 text-[9px] text-neutral-300 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                                        aria-hidden="true"
+                                    />
+                                </p>
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={openNotesEditor}
+                                className="text-xs font-semibold text-neutral-300 transition-colors hover:text-neutral-500"
+                            >
+                                <i className="fa-solid fa-plus mr-1 text-[9px]" aria-hidden="true" />
+                                Add notes
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="mt-auto pt-4">
                         <Checkbox
                             checked={selected}
                             onChange={onToggleSelect}
@@ -1763,7 +1839,7 @@ function TargetPlannerSection({
                         snapshot of it.
                     </p>
                 ) : (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-2">
                         {snapshots.map((t, i) => (
                             <SavedTargetCard
                                 key={t._id}
@@ -1811,7 +1887,7 @@ function TargetPlannerSection({
                             : 'Fix a monthly amount and see how much you end up with.'}
                     </p>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                     {mode === 'target' ? (
                         <SettingField
                             label="Target amount"
@@ -2301,7 +2377,7 @@ export default function SavingsForecast() {
                                 <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                                     Accounts &amp; assumptions
                                 </h2>
-                                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                <div className="grid gap-4 sm:grid-cols-2">
                                     {savingsGroups.map((group) => (
                                         <GroupSettingsCard
                                             key={group._id}
