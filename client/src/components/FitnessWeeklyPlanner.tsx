@@ -1003,7 +1003,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     }
 
     return (
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 sm:gap-5">
+        <div className="flex flex-col gap-4 sm:gap-5">
             <WeekHero
                 weekStart={range.start}
                 selected={anchor}
@@ -2911,7 +2911,7 @@ function SlotSection({
         return (
             <div className="flex flex-col gap-2">
                 {label}
-                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{rows}</ul>
+                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{rows}</ul>
             </div>
         )
     }
