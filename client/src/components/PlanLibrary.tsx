@@ -135,6 +135,8 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
     const [applying, setApplying] = useState<TrainingPlan | null>(null)
     const [exporting, setExporting] = useState<TrainingPlan | null>(null)
     const [confirming, setConfirming] = useState<TrainingPlan | null>(null)
+    // Whether deleting keeps the planner entries that have already been done.
+    const [keepCompleted, setKeepCompleted] = useState(true)
     // The plan ids the overload drawer is open on — one plan, or every plan.
     // Held as ids rather than plans so the drawer keeps reading the live rows as
     // fixes land. Null keeps it closed.
@@ -189,11 +191,16 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
         toast.show(`Moved “${entry.label}” to the ${to}.`, 'success')
     }
 
-    async function handleDelete(plan: TrainingPlan) {
+    async function handleDelete(plan: TrainingPlan, keep: boolean) {
         setPlans((prev) => prev.filter((p) => p._id !== plan._id))
         if (openId === plan._id) setOpenId(null)
-        await deletePlan(plan._id)
-        toast.show(`Deleted “${plan.name}”.`, 'success')
+        const { kept } = await deletePlan(plan._id, { keepCompleted: keep })
+        toast.show(
+            kept
+                ? `Deleted “${plan.name}”. Kept ${kept} completed session${kept === 1 ? '' : 's'} on the planner.`
+                : `Deleted “${plan.name}”.`,
+            'success'
+        )
     }
 
     async function handleUnapply(plan: TrainingPlan) {
@@ -327,14 +334,33 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                 title="Delete this plan?"
                 message={
                     <>
-                        “{confirming?.name}” and any planner entries it placed will be removed. The
-                        workouts, sessions and routines it added to your libraries are kept.
+                        <p>
+                            “{confirming?.name}” and any planner entries it placed will be removed.
+                            The workouts, sessions and routines it added to your libraries are kept.
+                        </p>
+                        {(confirming?.appliedEntries ?? 0) > 0 && (
+                            <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-neutral-700">
+                                <input
+                                    type="checkbox"
+                                    className="mt-0.5"
+                                    checked={keepCompleted}
+                                    onChange={(e) => setKeepCompleted(e.target.checked)}
+                                />
+                                <span>
+                                    Keep completed items on the planner
+                                    <span className="block text-xs text-neutral-500">
+                                        Anything you’ve already logged stays where it is, so your
+                                        history isn’t lost.
+                                    </span>
+                                </span>
+                            </label>
+                        )}
                     </>
                 }
                 confirmLabel="Delete plan"
                 danger
                 onConfirm={() => {
-                    if (confirming) handleDelete(confirming)
+                    if (confirming) handleDelete(confirming, keepCompleted)
                     setConfirming(null)
                 }}
                 onClose={() => setConfirming(null)}

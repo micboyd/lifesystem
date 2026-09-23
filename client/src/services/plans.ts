@@ -108,9 +108,20 @@ export async function movePlanScheduleEntry(
     return res.data.data
 }
 
-/** Delete a plan and any planner entries it placed. Library items are kept. */
-export async function deletePlan(id: string): Promise<void> {
-    await api.delete(`/plans/${id}`)
+/**
+ * Delete a plan and any planner entries it placed. Library items are kept. With
+ * `keepCompleted`, entries that have already been done stay on the planner as
+ * ordinary entries. Returns how many were removed and how many kept.
+ */
+export async function deletePlan(
+    id: string,
+    opts: { keepCompleted?: boolean } = {}
+): Promise<{ removed: number; kept: number }> {
+    const res = await api.delete<{ removedEntries?: number; keptEntries?: number }>(
+        `/plans/${id}`,
+        { params: opts.keepCompleted ? { keepCompleted: 1 } : undefined }
+    )
+    return { removed: res.data.removedEntries ?? 0, kept: res.data.keptEntries ?? 0 }
 }
 
 /** How much of a plan to roll out. Omitted fields default to the whole plan. */

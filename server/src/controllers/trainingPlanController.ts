@@ -16,6 +16,10 @@ import ConditioningSession, {
 } from '../models/ConditioningSession'
 import Mobility from '../models/Mobility'
 import Recovery from '../models/Recovery'
+import WorkoutLog from '../models/WorkoutLog'
+import ConditioningLog from '../models/ConditioningLog'
+import MobilityLog from '../models/MobilityLog'
+import RecoveryLog from '../models/RecoveryLog'
 import { toSessionParts } from '../lib/sessionParts'
 import { buildPlanExport } from '../lib/planExport'
 import {
@@ -716,8 +720,40 @@ export async function updatePlan(req: AuthRequest, res: Response) {
 }
 
 /**
- * DELETE /api/plans/:id — remove a plan and any planner entries it placed. The
+ * The ids of the given planner entries that have been done — a log exists for
+ * their library item on their day. Matches the planner's own tick, which keys
+ * completion by kind + library id + date.
+ */
+async function completedEntryIds(
+    userId: string,
+    entries: { _id: Types.ObjectId; kind: FitnessPlanKind; date: string; [k: string]: unknown }[]
+): Promise<Types.ObjectId[]> {
+    if (entries.length === 0) return []
+    const dates = [...new Set(entries.map((e) => e.date))]
+    const byDate = { user: userId, date: { $in: dates } }
+    const [w, c, m, r] = await Promise.all([
+        WorkoutLog.find(byDate).select('workout date').lean(),
+        ConditioningLog.find(byDate).select('session date').lean(),
+        MobilityLog.find(byDate).select('mobility date').lean(),
+        RecoveryLog.find(byDate).select('recovery date').lean(),
+    ])
+    const done = new Set<string>()
+    for (const l of w) if (l.workout) done.add(`workout:${l.workout}:${l.date}`)
+    for (const l of c) if (l.session) done.add(`conditioning:${l.session}:${l.date}`)
+    for (const l of m) if (l.mobility) done.add(`mobility:${l.mobility}:${l.date}`)
+    for (const l of r) if (l.recovery) done.add(`recovery:${l.recovery}:${l.date}`)
+    return entries
+        .filter((e) => done.has(`${e.kind}:${e[REF_FIELD[e.kind]]}:${e.date}`))
+        .map((e) => e._id)
+}
+
+/**
+ * DELETE /api/plans/:id — remove a plan and the planner entries it placed. The
  * library items it created stay; they're shared with the rest of the app.
+ *
+ * `?keepCompleted=1` keeps the entries that have already been done, so the
+ * planner's history survives the plan. They lose their `plan` stamp and become
+ * ordinary hand-placed entries — the plan they pointed at is gone.
  */
 export async function deletePlan(req: AuthRequest, res: Response) {
     const plan = await TrainingPlan.findOneAndDelete({ _id: req.params.id, user: req.userId })
@@ -725,8 +761,26 @@ export async function deletePlan(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Plan not found' })
         return
     }
+    const keepCompleted = req.query.keepCompleted === '1' || req.query.keepCompleted === 'true'
+
+    let kept: Types.ObjectId[] = []
+    if (keepCompleted) {
+        const placed = await FitnessPlanEntry.find({ user: req.userId, plan: plan._id })
+            .select('kind date workout session recovery mobility')
+            .lean()
+        kept = await completedEntryIds(req.userId!, placed)
+        if (kept.length > 0)
+            await FitnessPlanEntry.updateMany({ _id: { $in: kept } }, { $set: { plan: null } })
+    }
+
+    // Kept entries no longer carry the plan's stamp, so this leaves them be.
     const { deletedCount } = await FitnessPlanEntry.deleteMany({ user: req.userId, plan: plan._id })
-    res.json({ message: `Deleted “${plan.name}”`, data: plan, removedEntries: deletedCount ?? 0 })
+    res.json({
+        message: `Deleted “${plan.name}”`,
+        data: plan,
+        removedEntries: deletedCount ?? 0,
+        keptEntries: kept.length,
+    })
 }
 
 // ─── Apply ──────────────────────────────────────────────────────────────────────
