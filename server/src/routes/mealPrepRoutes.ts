@@ -12,6 +12,7 @@ import {
     cookBatch,
     updateBatch,
     adjustBatch,
+    deleteBatch,
     listMovements,
     listFoods,
     createFood,
@@ -39,6 +40,7 @@ router.get('/batches', listBatches)
 router.post('/batches', cookBatch)
 router.patch('/batches/:id', updateBatch)
 router.post('/batches/:id/adjust', adjustBatch)
+router.delete('/batches/:id', deleteBatch)
 router.get('/batches/:id/movements', listMovements)
 
 router.get('/foods', listFoods)

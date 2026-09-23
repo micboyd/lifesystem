@@ -128,6 +128,17 @@ export async function adjustBatch(
     return res.data.data
 }
 
+/**
+ * Take a batch off Available food: deleted outright if nothing logged was eaten
+ * from it, otherwise closed as discarded so logged meals keep their figures.
+ */
+export async function deleteBatch(id: string, date: string): Promise<{ deleted: boolean; message: string }> {
+    const res = await api.delete<ApiResponse<FoodBatch> & { deleted: boolean }>(`/meal-prep/batches/${id}`, {
+        data: { date },
+    })
+    return { deleted: res.data.deleted, message: res.data.message }
+}
+
 export async function listMovements(id: string): Promise<StockMovement[]> {
     const res = await api.get<ApiResponse<StockMovement[]>>(`/meal-prep/batches/${id}/movements`)
     return res.data.data

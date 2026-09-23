@@ -5,6 +5,7 @@ import PrepRecipe, { PREP_CATEGORIES, PrepCategory } from '../models/PrepRecipe'
 import FoodBatch, { STORAGE, Storage } from '../models/FoodBatch'
 import StockMovement from '../models/StockMovement'
 import Food from '../models/Food'
+import MealPlanEntry from '../models/MealPlanEntry'
 import PrepContainer from '../models/PrepContainer'
 import { newBatchId } from '../lib/importBatch'
 import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
@@ -623,6 +624,70 @@ export async function adjustBatch(req: AuthRequest, res: Response) {
         res.json({ message: 'Saved', data: batch })
     } catch (err) {
         if (isDuplicateKey(err) && (await replay())) return
+        sendError(res, err)
+    }
+}
+
+/**
+ * DELETE /api/meal-prep/batches/:id — take a batch off Available food.
+ *
+ * A batch no logged meal has eaten from (typically one added by mistake) is
+ * deleted outright, stock history and all. One that has been eaten from can't
+ * be: those meals' snapshots point at it. It is closed as discarded instead —
+ * gone from Available food and the forecast, while every logged meal keeps its
+ * figures. Planned meals that named it fall back to its recipe when opened.
+ * `date` (YYYY-MM-DD) dates the closing movement in your calendar.
+ */
+export async function deleteBatch(req: AuthRequest, res: Response) {
+    const id = toId(req.params.id)
+    if (!id) {
+        res.status(400).json({ message: 'Bad id' })
+        return
+    }
+    const date = isIsoDate(req.body?.date) ? req.body.date : new Date().toISOString().slice(0, 10)
+    try {
+        const result = await inTransaction(async (session) => {
+            const batch = await FoodBatch.findOne({ _id: id, user: req.userId }).session(session)
+            if (!batch) throw new HttpError(404, 'Batch not found')
+            const eatenFrom = await MealPlanEntry.exists({
+                user: req.userId,
+                status: 'eaten',
+                'buffet.components.batch': id,
+            }).session(session)
+            if (!eatenFrom) {
+                await StockMovement.deleteMany({ user: req.userId, batch: id }, { session })
+                await FoodBatch.deleteOne({ _id: id, user: req.userId }, { session })
+                return { deleted: true, batch }
+            }
+            const before = batch.remainingGrams
+            batch.remainingGrams = 0
+            batch.status = 'discarded'
+            batch.reconciledAt = new Date()
+            await batch.save({ session })
+            await StockMovement.create(
+                [
+                    {
+                        user: req.userId,
+                        batch: id,
+                        kind: 'discard',
+                        grams: -before,
+                        balanceAfter: 0,
+                        date,
+                        note: 'Removed from available food',
+                    },
+                ],
+                { session }
+            )
+            return { deleted: false, batch }
+        })
+        res.json({
+            message: result.deleted
+                ? 'Deleted'
+                : 'Removed from available food — meals already logged from it keep their figures',
+            deleted: result.deleted,
+            data: result.batch,
+        })
+    } catch (err) {
         sendError(res, err)
     }
 }

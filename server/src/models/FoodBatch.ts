@@ -26,8 +26,8 @@ export type Storage = (typeof STORAGE)[number]
  * `reconciledAt` is the last time the balance was *measured* rather than
  * derived; meals logged before it no longer move the stock when edited.
  *
- * Batches are never deleted — meal history points at them. They are finished or
- * discarded.
+ * A batch is only ever deleted if no logged meal has eaten from it; otherwise
+ * meal history points at it, and it is finished or discarded instead.
  */
 export interface IFoodBatch extends Document {
     user: Types.ObjectId

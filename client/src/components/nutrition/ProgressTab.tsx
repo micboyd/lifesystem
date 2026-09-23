@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import Button from '../Button'
 import Spinner from '../Spinner'
 import EmptyState from '../EmptyState'
@@ -61,7 +60,14 @@ const HISTORY_DAYS = 400
 /** The window the adherence figures on this screen are measured over. */
 const ADHERENCE_WINDOW_DAYS = 28
 
-export default function ProgressTab({ settingsGoals }: { settingsGoals?: MacroGoals }) {
+export default function ProgressTab({
+    settingsGoals,
+    onOpenPhases,
+}: {
+    settingsGoals?: MacroGoals
+    /** Jump to the Phases tab — where a phase and its goal are set up. */
+    onOpenPhases?: () => void
+}) {
     const today = todayKey()
     const since = addDays(today, -HISTORY_DAYS)
 
@@ -198,9 +204,11 @@ export default function ProgressTab({ settingsGoals }: { settingsGoals?: MacroGo
                         title="No goal to track against"
                         description="Give the phase covering today a goal — a target weight and date — and this becomes a picture of whether it is working."
                         action={
-                            <Link to="/life-plan">
-                                <Button variant="secondary">Set up a phase</Button>
-                            </Link>
+                            onOpenPhases && (
+                                <Button variant="secondary" onClick={onOpenPhases}>
+                                    Set up a phase
+                                </Button>
+                            )
                         }
                     />
                 </div>

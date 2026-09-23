@@ -327,10 +327,13 @@ function MealList({
 export default function TodayTab({
     settingsGoals,
     onOpenMealPrep,
+    onOpenPhases,
 }: {
     settingsGoals?: MacroGoals
     /** Jump to the Meal Prep tab — where stock notices lead. */
     onOpenMealPrep?: () => void
+    /** Jump to the Phases tab — where phases are set up. */
+    onOpenPhases?: () => void
 }) {
     const today = todayKey()
     const windowStart = addDays(today, -ANALYSIS_DAYS)
@@ -561,13 +564,14 @@ export default function TodayTab({
                           ? 'Targets from your standing goals'
                           : 'No targets set'}
                 </span>
-                {source !== 'phase' && (
-                    <Link
-                        to="/life-plan"
+                {source !== 'phase' && onOpenPhases && (
+                    <button
+                        type="button"
+                        onClick={onOpenPhases}
                         className="text-[11px] font-semibold text-neutral-600 underline"
                     >
                         Set up a phase
-                    </Link>
+                    </button>
                 )}
             </div>
 

@@ -10,6 +10,7 @@ import { listPlanEntries } from '../../services/mealPlan'
 import {
     archiveFood,
     archiveRecipe,
+    deleteBatch,
     deleteContainer,
     duplicateRecipe,
     importRecipes,
@@ -170,6 +171,7 @@ export default function MealPrepTab() {
     const [foodForm, setFoodForm] = useState<{ food: Food | null } | null>(null)
     const [confirmArchive, setConfirmArchive] = useState<PrepRecipe | null>(null)
     const [importing, setImporting] = useState(false)
+    const [confirmDelete, setConfirmDelete] = useState<FoodBatch | null>(null)
 
     const recipes = useMemo(
         () => prep.recipes.filter((r) => filter === 'all' || r.category === filter),
@@ -305,6 +307,7 @@ export default function MealPrepTab() {
                                             })
                                         }
                                         onAdjust={setAdjusting}
+                                        onDelete={setConfirmDelete}
                                         onCook={f.recipe ? () => setCooking(f.recipe) : undefined}
                                     />
                                 ))}
@@ -407,6 +410,36 @@ export default function MealPrepTab() {
                 onSaved={() => void prep.reload()}
             />
             <ConfirmModal
+                open={!!confirmDelete}
+                title="Delete this batch?"
+                message={
+                    <>
+                        {confirmDelete && (
+                            <span className="font-semibold text-neutral-800">
+                                {confirmDelete.name} · {confirmDelete.label || `cooked ${batchDate(confirmDelete.cookedDate)}`}
+                            </span>
+                        )}
+                        <br />
+                        If you haven’t logged any meals from it, it’s deleted completely. If you have, those meals keep
+                        their figures and the batch is closed as discarded instead, so it leaves Available food without
+                        changing your history.
+                    </>
+                }
+                confirmLabel="Delete"
+                danger
+                onConfirm={async () => {
+                    if (!confirmDelete) return
+                    try {
+                        const { deleted, message } = await deleteBatch(confirmDelete._id, today)
+                        toast.show(deleted ? `${confirmDelete.name} deleted` : message, 'success')
+                    } catch {
+                        toast.error('Could not delete that batch')
+                    }
+                    await Promise.all([prep.reload(), reloadEntries()])
+                }}
+                onClose={() => setConfirmDelete(null)}
+            />
+            <ConfirmModal
                 open={!!confirmArchive}
                 title="Archive this recipe?"
                 message="It leaves the library. Batches already cooked from it, and meals logged from them, are kept."
@@ -429,12 +462,14 @@ function FoodGroup({
     plannedPerBatch,
     onLog,
     onAdjust,
+    onDelete,
     onCook,
 }: {
     forecast: FoodForecast
     plannedPerBatch: Map<string, number>
     onLog: (b: FoodBatch) => void
     onAdjust: (b: FoodBatch) => void
+    onDelete: (b: FoodBatch) => void
     onCook?: () => void
 }) {
     const portionNote = f.portion.source === 'default' ? 'default portion' : f.portion.source === 'recent' ? 'your recent portion' : 'your portion'
@@ -459,7 +494,7 @@ function FoodGroup({
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {f.batches.map((b) => (
-                    <BatchCard key={b._id} batch={b} portion={f.portion.grams} planned={plannedPerBatch.get(b._id) ?? 0} severity={f.severity} onLog={() => onLog(b)} onAdjust={() => onAdjust(b)} />
+                    <BatchCard key={b._id} batch={b} portion={f.portion.grams} planned={plannedPerBatch.get(b._id) ?? 0} severity={f.severity} onLog={() => onLog(b)} onAdjust={() => onAdjust(b)} onDelete={() => onDelete(b)} />
                 ))}
             </div>
         </section>
@@ -473,6 +508,7 @@ function BatchCard({
     severity,
     onLog,
     onAdjust,
+    onDelete,
 }: {
     batch: FoodBatch
     portion: number
@@ -480,6 +516,7 @@ function BatchCard({
     severity: FoodForecast['severity']
     onLog: () => void
     onAdjust: () => void
+    onDelete: () => void
 }) {
     const pct = b.cookedGrams > 0 ? Math.min(100, (b.remainingGrams / b.cookedGrams) * 100) : 0
     const frozen = b.storage === 'freezer'
@@ -534,6 +571,15 @@ function BatchCard({
                 <Button size="sm" variant="secondary" onClick={onAdjust}>
                     Adjust stock
                 </Button>
+                <button
+                    type="button"
+                    aria-label={`Delete ${b.name} batch`}
+                    title="Delete batch"
+                    onClick={onDelete}
+                    className="ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                >
+                    <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                </button>
             </div>
         </div>
     )

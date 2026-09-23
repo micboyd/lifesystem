@@ -52,6 +52,7 @@ import { effectiveTargetsFor, DAY_TYPE_LABELS, type DayType } from '../lib/nutri
 import { listNutritionPhases } from '../services/nutritionPhases'
 import { listPlanEntries as listFitnessEntries } from '../services/fitnessPlan'
 import TodayTab from '../components/nutrition/TodayTab'
+import PlannerTargets from '../components/nutrition/PlannerTargets'
 import ProgressTab from '../components/nutrition/ProgressTab'
 import PhasesTab from '../components/nutrition/PhasesTab'
 import MealPrepTab, { useForecast, usePrepWindow } from '../components/nutrition/MealPrepTab'
@@ -379,11 +380,15 @@ export default function Nutrition() {
 
             {tab === 'Today' ? (
                 <Container className="mt-2">
-                    <TodayTab settingsGoals={user?.settings?.macroGoals} onOpenMealPrep={() => setTab('Meal Prep')} />
+                    <TodayTab
+                        settingsGoals={user?.settings?.macroGoals}
+                        onOpenMealPrep={() => setTab('Meal Prep')}
+                        onOpenPhases={() => setTab('Phases')}
+                    />
                 </Container>
             ) : tab === 'Progress' ? (
                 <Container className="mt-2">
-                    <ProgressTab settingsGoals={user?.settings?.macroGoals} />
+                    <ProgressTab settingsGoals={user?.settings?.macroGoals} onOpenPhases={() => setTab('Phases')} />
                 </Container>
             ) : tab === 'Phases' ? (
                 <Container className="mt-2">
@@ -400,6 +405,7 @@ export default function Nutrition() {
                         mealsLoading={allLoading}
                         goals={goals}
                         onViewMeal={(meal) => setDrawer({ mode: 'view', meal, fromPlanner: true })}
+                        onOpenPhases={() => setTab('Phases')}
                     />
                 </Container>
             ) : (
@@ -2285,11 +2291,13 @@ function WeeklyPlanner({
     mealsLoading,
     goals,
     onViewMeal,
+    onOpenPhases,
 }: {
     meals: Meal[]
     mealsLoading: boolean
     goals: MacroGoals | null
     onViewMeal: (meal: Meal) => void
+    onOpenPhases?: () => void
 }) {
     const [weekStart, setWeekStart] = useState(() => mondayOf(todayKey()))
     const [entries, setEntries] = useState<MealPlanEntry[]>([])
@@ -2685,6 +2693,12 @@ function WeeklyPlanner({
         () => weekSummary(entries, days, (d) => dayTargets.get(d)?.goals ?? null, today),
         [entries, days, dayTargets, today]
     )
+    // Everything counted on each day, for the targets panel — the same sum the
+    // day cards show, so the two can't disagree.
+    const plannedByDay = useMemo(
+        () => new Map(days.map((d) => [d, sumMacros(entries.filter((e) => e.date === d))])),
+        [entries, days]
+    )
     // Trays to cook before the week in view runs out, for the shopping list.
     const cooks = useMemo(
         () => forecasts.filter((f) => f.recipe && f.prepareBy && !f.thawInstead && f.prepareBy <= weekEnd),
@@ -2803,37 +2817,47 @@ function WeeklyPlanner({
                     description="Add meals to your library, or a tray or side in Meal Prep, then drop them into the week."
                 />
             ) : (
-                // Mon–Fri on one row, the weekend on its own below it. Both rows use
-                // the same column template so the weekend days keep the weekday width.
                 <div className="flex flex-col gap-4">
-                    {[days.slice(0, 5), days.slice(5)].map((row) => (
-                        <div key={row[0]} className={WEEK_ROW_GRID}>
-                            {row.map((date) => (
-                                <DayColumn
-                                    key={date}
-                                    date={date}
-                                    isToday={date === today}
-                                    editable={editing}
-                                    goals={dayTargets.get(date)?.goals ?? null}
-                                    dayType={dayTargets.get(date)?.dayType ?? null}
-                                    modifier={dayTargets.get(date)?.modifier ?? 0}
-                                    entries={entries.filter((e) => e.date === date)}
-                                    onAdd={(slot) => setPicker({ date, slot })}
-                                    onRemove={handleRemove}
-                                    onSetStatus={handleSetStatus}
-                                    onSetServings={handleSetServings}
-                                    onSetMode={(slot, mode) => handleSetMode(date, slot, mode)}
-                                    onAddBuffet={(slot) => setBuffet({ mode: 'plan', date, slot })}
-                                    onOpenBuffet={openBuffet}
-                                    onLogBuffet={() => setBuffet({ mode: 'log', date })}
-                                    onLogOffPlan={() => setOffPlan(date)}
-                                    onCopyDay={() => handleCopyDay(date)}
-                                    onClearDay={() => handleClearDay(date)}
-                                    onViewMeal={onViewMeal}
-                                />
-                            ))}
-                        </div>
-                    ))}
+                    <PlannerTargets
+                        days={days}
+                        today={today}
+                        targets={dayTargets}
+                        planned={plannedByDay}
+                        weekTarget={week.target}
+                        onOpenPhases={onOpenPhases}
+                    />
+                    {/* Mon–Fri on one row, the weekend on its own below it. Both rows use
+                        the same column template so the weekend days keep the weekday width. */}
+                    <div className="flex flex-col gap-4">
+                        {[days.slice(0, 5), days.slice(5)].map((row) => (
+                            <div key={row[0]} className={WEEK_ROW_GRID}>
+                                {row.map((date) => (
+                                    <DayColumn
+                                        key={date}
+                                        date={date}
+                                        isToday={date === today}
+                                        editable={editing}
+                                        goals={dayTargets.get(date)?.goals ?? null}
+                                        dayType={dayTargets.get(date)?.dayType ?? null}
+                                        modifier={dayTargets.get(date)?.modifier ?? 0}
+                                        entries={entries.filter((e) => e.date === date)}
+                                        onAdd={(slot) => setPicker({ date, slot })}
+                                        onRemove={handleRemove}
+                                        onSetStatus={handleSetStatus}
+                                        onSetServings={handleSetServings}
+                                        onSetMode={(slot, mode) => handleSetMode(date, slot, mode)}
+                                        onAddBuffet={(slot) => setBuffet({ mode: 'plan', date, slot })}
+                                        onOpenBuffet={openBuffet}
+                                        onLogBuffet={() => setBuffet({ mode: 'log', date })}
+                                        onLogOffPlan={() => setOffPlan(date)}
+                                        onCopyDay={() => handleCopyDay(date)}
+                                        onClearDay={() => handleClearDay(date)}
+                                        onViewMeal={onViewMeal}
+                                    />
+                                ))}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
