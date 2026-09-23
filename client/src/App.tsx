@@ -22,6 +22,7 @@ import Spaces from './pages/Spaces'
 import FinanceBreakdown from './pages/FinanceBreakdown'
 import Birthdays from './pages/Birthdays'
 import DaysSince from './pages/DaysSince'
+import DaysUntil from './pages/DaysUntil'
 import Goals from './pages/Goals'
 import LifePlan from './pages/LifePlan'
 import Notes from './pages/Notes'
@@ -118,6 +119,7 @@ export default function App() {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/birthdays" element={<Birthdays />} />
                 <Route path="/days-since" element={<DaysSince />} />
+                <Route path="/days-until" element={<DaysUntil />} />
                 <Route path="/weather" element={<Weather />} />
                 <Route path="/goals" element={<Goals />} />
                 <Route path="/life-plan" element={<LifePlan />} />

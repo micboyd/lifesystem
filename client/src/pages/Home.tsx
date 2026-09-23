@@ -11,6 +11,7 @@ import TomorrowWidget, { useTomorrowVisible } from '../components/dashboard/Tomo
 import NextTimeOffWidget from '../components/dashboard/NextTimeOffWidget'
 import BirthdayWidget from '../components/dashboard/BirthdayWidget'
 import DaysSinceWidget from '../components/dashboard/DaysSinceWidget'
+import DaysUntilWidget from '../components/dashboard/DaysUntilWidget'
 import HabitsWidget from '../components/dashboard/HabitsWidget'
 import NutritionWidget from '../components/dashboard/NutritionWidget'
 import FitnessWidget from '../components/dashboard/FitnessWidget'
@@ -64,6 +65,7 @@ export default function Home() {
                         <NutritionWidget date={date} cadence="today" />
                         <BudgetWidget date={date} cadence="today" />
                         <DaysSinceWidget />
+                        <DaysUntilWidget />
                         <WeatherWidget variant="hourly" />
                     </div>
                 </>

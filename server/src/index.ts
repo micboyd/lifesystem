@@ -14,6 +14,7 @@ import checklistRoutes from './routes/checklistRoutes'
 import conditioningRoutes from './routes/conditioningRoutes'
 import conditioningLogRoutes from './routes/conditioningLogRoutes'
 import daysSinceRoutes from './routes/daysSinceRoutes'
+import daysUntilRoutes from './routes/daysUntilRoutes'
 import goalRoutes from './routes/goalRoutes'
 import courseRoutes from './routes/courseRoutes'
 import dayStatusRoutes from './routes/dayStatusRoutes'
@@ -94,6 +95,7 @@ app.use('/api/courses', courseRoutes)
 app.use('/api/finances', financeRoutes)
 app.use('/api/birthdays', birthdayRoutes)
 app.use('/api/days-since', daysSinceRoutes)
+app.use('/api/days-until', daysUntilRoutes)
 app.use('/api/goals', goalRoutes)
 app.use('/api/conditioning', conditioningRoutes)
 app.use('/api/conditioning-logs', conditioningLogRoutes)

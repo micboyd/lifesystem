@@ -1257,6 +1257,23 @@ export interface DaysSinceItem {
     updatedAt: string
 }
 
+// Same accent palette as Days Since — one enum of counter colours for both.
+export const DAYS_UNTIL_COLORS = DAYS_SINCE_COLORS
+export type DaysUntilColor = DaysSinceColor
+export const DAYS_UNTIL_COLOR_CLASSES = DAYS_SINCE_COLOR_CLASSES
+
+export interface DaysUntilItem {
+    _id: string
+    label: string
+    /** YYYY-MM-DD — the day the count reaches zero. */
+    targetDate: string
+    /** Font Awesome class string, e.g. "fa-solid fa-plane-departure". */
+    icon: string
+    color: DaysUntilColor
+    createdAt: string
+    updatedAt: string
+}
+
 export interface Event {
     _id: string
     /** Id of the calendar (layer) this event lives on. Absent on synthetic events. */
