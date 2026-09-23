@@ -15,6 +15,7 @@ import DaysUntilWidget from '../components/dashboard/DaysUntilWidget'
 import HabitsWidget from '../components/dashboard/HabitsWidget'
 import NutritionWidget from '../components/dashboard/NutritionWidget'
 import FitnessWidget from '../components/dashboard/FitnessWidget'
+import TodaysReportBanner from '../components/dashboard/TodaysReportBanner'
 import { todayKey } from '../lib/calendar'
 
 const TABS = ['Today', 'Week ahead'] as const
@@ -42,6 +43,11 @@ export default function Home() {
 
             {tab === 'Today' ? (
                 <>
+                    {/* From 9pm until noon the next day: the day read back. */}
+                    <div className="mt-6 empty:hidden">
+                        <TodaysReportBanner />
+                    </div>
+
                     {/* Today's schedule — the core of the day. */}
                     <section className="mt-6">
                         <TodayWidget date={date} />

@@ -82,6 +82,12 @@ export async function deleteMeal(id: string): Promise<void> {
     await api.delete(`/meals/${id}`)
 }
 
+/** Delete every meal in the library, plus the planner entries that used them. */
+export async function clearMeals(): Promise<{ meals: number; entries: number }> {
+    const res = await api.delete<ApiResponse<{ meals: number; entries: number }>>('/meals')
+    return res.data.data
+}
+
 /** Outcome of an import: how many meals were created, overwritten and skipped. */
 export interface ImportResult {
     created: number

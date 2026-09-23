@@ -1690,6 +1690,23 @@ export interface StarlingSpace {
     currency: string
 }
 
+/** One money-out transaction from a spending space, as the daily report reads it. */
+export interface StarlingSpendItem {
+    /** Starling feedItemUid. */
+    id: string
+    /** Local calendar day, YYYY-MM-DD. */
+    date: string
+    /** ISO timestamp of the transaction. */
+    time: string
+    /** Pounds, always positive. */
+    amount: number
+    merchant: string | null
+    /** Starling's spending category, e.g. "EATING_OUT". */
+    category: string | null
+    /** The spending space it left from. */
+    space: string
+}
+
 /** Why a Starling movement didn't count as a budget transaction. */
 export type StarlingMovementReason =
     | 'transfer_in'

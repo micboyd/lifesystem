@@ -11,6 +11,7 @@ import type {
     BudgetTopUp,
     FinanceSubItem,
     StarlingSpace,
+    StarlingSpendItem,
     StarlingMovement,
     StarlingExclusion,
 } from '../types'
@@ -243,6 +244,17 @@ export async function moveBudgetSpend(id: string, rowId: string): Promise<Budget
 /** List linkable Starling Spaces. Throws 501 if Starling isn't configured server-side. */
 export async function listStarlingSpaces(): Promise<StarlingSpace[]> {
     const res = await api.get<ApiResponse<StarlingSpace[]>>('/finances/starling/spaces')
+    return res.data.data
+}
+
+/**
+ * Every money-out transaction across all spending spaces for [from, to]
+ * (inclusive, YYYY-MM-DD). Throws 501 if Starling isn't configured.
+ */
+export async function listStarlingSpend(from: string, to: string): Promise<StarlingSpendItem[]> {
+    const res = await api.get<ApiResponse<StarlingSpendItem[]>>('/finances/starling/spend', {
+        params: { from, to },
+    })
     return res.data.data
 }
 

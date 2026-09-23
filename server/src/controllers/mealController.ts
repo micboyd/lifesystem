@@ -1,6 +1,7 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import Meal, { MEAL_TYPES, MealType, IIngredient, IMacros } from '../models/Meal'
+import MealPlanEntry from '../models/MealPlanEntry'
 
 /** Coerce a request value to a non-negative number, or a fallback if invalid. */
 function toAmount(raw: unknown, fallback = 0): number {
@@ -342,4 +343,18 @@ export async function deleteMeal(req: AuthRequest, res: Response) {
         return
     }
     res.json({ message: 'Deleted', data: meal })
+}
+
+/**
+ * DELETE /api/meals — clear the whole library. Planner entries that point at a
+ * library meal go too: they carry no macro snapshot, so they'd otherwise linger
+ * as "Unknown · 0 kcal". Ad-hoc entries and buffet plates are left alone.
+ */
+export async function clearMeals(req: AuthRequest, res: Response) {
+    const meals = await Meal.deleteMany({ user: req.userId })
+    const entries = await MealPlanEntry.deleteMany({ user: req.userId, meal: { $exists: true, $ne: null } })
+    res.json({
+        message: 'Cleared',
+        data: { meals: meals.deletedCount ?? 0, entries: entries.deletedCount ?? 0 },
+    })
 }

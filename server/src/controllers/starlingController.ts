@@ -66,7 +66,8 @@ function classifyMonth(
 type MovementReason = 'transfer_in' | 'transfer_out' | 'refund' | 'declined' | 'reversed'
 
 function movementReason(it: StarlingFeedItem): MovementReason {
-    if (NON_SPENDING_SOURCES.has(it.source ?? '')) return it.direction === 'IN' ? 'transfer_in' : 'transfer_out'
+    if (NON_SPENDING_SOURCES.has(it.source ?? ''))
+        return it.direction === 'IN' ? 'transfer_in' : 'transfer_out'
     if (it.status === 'DECLINED' || it.status === 'REFUSED') return 'declined'
     if (it.status === 'REVERSED') return 'reversed'
     return 'refund' // direction IN, a real refund/payment received — not counted as negative spend
@@ -245,6 +246,90 @@ export async function getStarlingReconciliation(req: AuthRequest, res: Response)
     res.json({ message: 'OK', data: { balance, movements: data } })
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Longest range the spend endpoint will fetch in one go — about two months. */
+const MAX_SPEND_RANGE_DAYS = 70
+
+/** How long a fetched range is reused. A report page and the dashboard banner
+ *  both ask for the same days within moments of each other; Starling doesn't
+ *  need to hear about it twice. */
+const SPEND_CACHE_MS = 5 * 60_000
+const spendCache = new Map<string, { at: number; data: unknown }>()
+
+/**
+ * GET /finances/starling/spend?from=YYYY-MM-DD&to=YYYY-MM-DD — every genuine
+ * money-out transaction across all spending spaces, bucketed by local date.
+ * Independent of budgets and syncs: it's the raw "what left the spaces" figure
+ * the daily report totals. Transfers, declines and reversals are left out, the
+ * same rule the budget sync applies.
+ */
+export async function getStarlingSpend(req: AuthRequest, res: Response) {
+    if (!starlingConfigured()) {
+        res.status(501).json({ message: 'Starling is not configured on the server' })
+        return
+    }
+
+    const { from, to } = req.query
+    if (
+        typeof from !== 'string' ||
+        typeof to !== 'string' ||
+        !DATE_RE.test(from) ||
+        !DATE_RE.test(to) ||
+        from > to
+    ) {
+        res.status(400).json({ message: 'from and to must be YYYY-MM-DD, from on or before to' })
+        return
+    }
+    const start = new Date(`${from}T00:00:00Z`)
+    const end = new Date(`${to}T00:00:00Z`)
+    if ((end.getTime() - start.getTime()) / 86_400_000 > MAX_SPEND_RANGE_DAYS) {
+        res.status(400).json({ message: `Range can be at most ${MAX_SPEND_RANGE_DAYS} days` })
+        return
+    }
+
+    const key = `${req.userId}|${from}|${to}`
+    const hit = spendCache.get(key)
+    if (hit && Date.now() - hit.at < SPEND_CACHE_MS) {
+        res.json({ message: 'OK', data: hit.data })
+        return
+    }
+
+    // Widen a day either side and bucket by local date, as the monthly sync does.
+    start.setUTCDate(start.getUTCDate() - 1)
+    end.setUTCDate(end.getUTCDate() + 2)
+
+    let data
+    try {
+        const spaces = (await listSpaces()).filter((s) => s.type === 'spending')
+        const feeds = await Promise.all(
+            spaces.map((s) => getFeedBetween(s.id, start.toISOString(), end.toISOString()))
+        )
+        data = feeds
+            .flatMap((items, i) =>
+                items
+                    .filter((it) => it.direction === 'OUT' && !isNonSpending(it))
+                    .map((it) => ({
+                        id: it.feedItemUid,
+                        date: localDate(it.transactionTime),
+                        time: it.transactionTime,
+                        amount: minorToMajor(it.amount.minorUnits),
+                        merchant: (it.counterPartyName || it.reference || '').trim() || null,
+                        category: it.spendingCategory ?? null,
+                        space: spaces[i].name,
+                    }))
+            )
+            .filter((t) => t.date >= from && t.date <= to)
+            .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
+    } catch (err) {
+        if (handleStarlingError(res, err)) return
+        throw err
+    }
+
+    spendCache.set(key, { at: Date.now(), data })
+    res.json({ message: 'OK', data })
+}
+
 /**
  * GET /finances/starling/exclusions — transactions deleted or moved away from a
  * Starling-linked budget, kept out of future syncs. Feeds the "removed
@@ -299,7 +384,12 @@ export async function recoverStarlingExclusion(req: AuthRequest, res: Response) 
             // belongs, so no future sync can duplicate or reclaim it unexpectedly.
             const spend = await BudgetSpend.findOneAndUpdate(
                 { _id: exclusion.spendId, user: req.userId },
-                { $set: { row: exclusion.originalRow, starlingFeedItemUid: exclusion.feedItemUid } },
+                {
+                    $set: {
+                        row: exclusion.originalRow,
+                        starlingFeedItemUid: exclusion.feedItemUid,
+                    },
+                },
                 { new: true }
             )
             if (spend) {
@@ -314,7 +404,11 @@ export async function recoverStarlingExclusion(req: AuthRequest, res: Response) 
         let targetRowId = exclusion.originalRow
         if (exclusion.reason === 'moved') {
             let destinationRow = exclusion.movedToRow
-                ? await FinanceRow.findOne({ _id: exclusion.movedToRow, user: req.userId, budgeted: true })
+                ? await FinanceRow.findOne({
+                      _id: exclusion.movedToRow,
+                      user: req.userId,
+                      budgeted: true,
+                  })
                 : null
             // Legacy tombstones written before movedToRow existed only have the name.
             if (!destinationRow && exclusion.movedToRowName) {

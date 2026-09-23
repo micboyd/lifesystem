@@ -98,6 +98,7 @@ const LIFE_NAV: NavItem[] = [
     { label: 'Fitness', to: '/fitness', icon: 'fa-dumbbell' },
     { label: 'Nutrition', to: '/nutrition', icon: 'fa-bowl-food' },
     { label: 'Notes', to: '/notes', icon: 'fa-note-sticky' },
+    { label: 'Reports', to: '/reports', icon: 'fa-file-lines' },
     { label: 'Checklists', to: '/checklists', icon: 'fa-list-check' },
     { label: 'Weather', to: '/weather', icon: 'fa-cloud-sun' },
 ]

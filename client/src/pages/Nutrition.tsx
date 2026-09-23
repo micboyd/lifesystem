@@ -22,6 +22,7 @@ import {
     createMeal,
     updateMeal,
     deleteMeal,
+    clearMeals,
     mealsToExportJson,
     type MealInput,
     type MealSort,
@@ -224,15 +225,14 @@ type Drawered =
     | { mode: 'edit'; meal: Meal }
     | null
 
-// Today first: the week is where a plan gets designed, but the day is what you
-// actually come here to settle.
-const TOP_TABS = ['Today', 'Weekly Planner', 'Meal Prep', 'Meals', 'Progress', 'Phases'] as const
+// Planner first: the week is where meals get designed, so it's the default landing tab.
+const TOP_TABS = ['Planner', 'Today', 'Meal Prep', 'Meals', 'Progress', 'Phases'] as const
 type TopTab = (typeof TOP_TABS)[number]
 
 const SUBTITLE: Record<TopTab, string> = {
     Today: 'Calories in against calories out, read through the phase you are in.',
     Meals: 'Your meal library — macros, ingredients and method for every recipe.',
-    'Weekly Planner': 'Plan your week — breakfast, lunch, dinner and snacks, with macros tallied.',
+    Planner: 'Plan your week — breakfast, lunch, dinner and snacks, with macros tallied.',
     'Meal Prep':
         'Trays and sides cooked in bulk — what’s left, what it’s made of, and when to cook more.',
     Progress: 'Weight, waist, strength and photos — whether the recomp is actually working.',
@@ -248,7 +248,7 @@ export default function Nutrition() {
     // tab switch can't reopen the editor.
     const [searchParams, setSearchParams] = useSearchParams()
     const [tab, setTab] = useState<TopTab>(() =>
-        searchParams.get('tab') === 'phases' ? 'Phases' : 'Today'
+        searchParams.get('tab') === 'phases' ? 'Phases' : 'Planner'
     )
     const [openPhaseId, setOpenPhaseId] = useState<string | null>(() => searchParams.get('phase'))
     const clearOpenPhase = useCallback(() => setOpenPhaseId(null), [])
@@ -377,6 +377,15 @@ export default function Nutrition() {
         await Promise.all([reloadLibrary(), reloadAll()])
     }
 
+    const [confirmClear, setConfirmClear] = useState(false)
+    async function handleClearAll() {
+        setConfirmClear(false)
+        setDrawer(null)
+        await clearMeals()
+        setPage(1)
+        await Promise.all([reloadLibrary(), reloadAll(), reloadWeek()])
+    }
+
     // Download the whole library as import-ready JSON.
     function handleExport() {
         const json = mealsToExportJson(allMeals)
@@ -427,7 +436,7 @@ export default function Nutrition() {
                 <Container className="mt-2">
                     <MealPrepTab />
                 </Container>
-            ) : tab === 'Weekly Planner' ? (
+            ) : tab === 'Planner' ? (
                 <Container className="mt-2">
                     <WeeklyPlanner
                         meals={allMeals}
@@ -439,7 +448,15 @@ export default function Nutrition() {
                 </Container>
             ) : (
                 <Container>
-                    <div className="mb-6 flex items-center justify-end gap-2">
+                    <div className="mb-6 flex flex-wrap items-center justify-end gap-2">
+                        <Button
+                            variant="ghost"
+                            icon="fa-solid fa-trash-can"
+                            onClick={() => setConfirmClear(true)}
+                            disabled={allMeals.length === 0}
+                        >
+                            Delete all
+                        </Button>
                         <Button
                             variant="secondary"
                             icon="fa-solid fa-file-export"
@@ -460,6 +477,16 @@ export default function Nutrition() {
                             Add meal
                         </Button>
                     </div>
+
+                    <ConfirmModal
+                        open={confirmClear}
+                        title="Delete every meal?"
+                        message={`This removes all ${allMeals.length} meals from your library, and any planner entries that use them. It can't be undone — export first if you want a backup.`}
+                        confirmLabel="Delete all"
+                        danger
+                        onConfirm={() => void handleClearAll()}
+                        onClose={() => setConfirmClear(false)}
+                    />
 
                     {allLoading ? (
                         <div className="grid place-items-center py-16">

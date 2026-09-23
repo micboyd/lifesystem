@@ -31,6 +31,7 @@ import {
     getStarlingReconciliation,
     listStarlingExclusions,
     recoverStarlingExclusion,
+    getStarlingSpend,
 } from '../controllers/starlingController'
 import {
     listBudgetTopUps,
@@ -89,6 +90,7 @@ router.put('/budget-exclusions/:date', setBudgetExclusion)
 router.get('/starling/spaces', listStarlingSpaces)
 router.post('/starling/sync', syncStarlingRow)
 router.get('/starling/reconcile', getStarlingReconciliation)
+router.get('/starling/spend', getStarlingSpend)
 router.get('/starling/exclusions', listStarlingExclusions)
 router.post('/starling/exclusions/:id/recover', recoverStarlingExclusion)
 
