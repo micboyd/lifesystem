@@ -1742,7 +1742,7 @@ function WeekCopyControls({
 
     return (
         <div className="flex items-center gap-2">
-            <div ref={panelRef} className="relative inline-block">
+            <div ref={panelRef} className="inline-block sm:relative">
                 <Button
                     variant="secondary"
                     size="sm"
@@ -1752,7 +1752,9 @@ function WeekCopyControls({
                     Copy week
                 </Button>
                 {open && (
-                    <div className="absolute right-0 z-50 mt-2 min-w-56 rounded-xl border border-neutral-100 bg-white p-3 shadow-lg">
+                    // On a phone the panel spans the edit bar (its positioned parent) so it
+                    // can't open off-screen; from sm up it hangs under the button.
+                    <div className="absolute inset-x-0 top-full z-50 mt-2 rounded-xl border border-neutral-100 bg-white p-3 shadow-lg sm:inset-x-auto sm:right-0 sm:top-auto sm:min-w-56">
                         <div className="mb-2 flex items-center justify-between">
                             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                 Copy which categories
@@ -2454,7 +2456,7 @@ function DayCard({
                 </div>
             ) : (
                 parts.length > 0 && (
-                    <div className={editable ? 'grid gap-3 md:grid-cols-3' : 'flex flex-col gap-4'}>
+                    <div className={editable ? 'grid gap-3 lg:grid-cols-3' : 'flex flex-col gap-4'}>
                         {parts.map((part) => (
                             <SlotSection
                                 key={part}

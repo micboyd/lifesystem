@@ -3458,14 +3458,18 @@ function MealDayCard({
                     {quickLog}
                 </div>
             ) : (
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                // The macro panel only sits beside the meals when viewing on a
+                // wide screen; editing needs the full width for its slot lanes.
+                <div
+                    className={`flex flex-col gap-4 ${editable ? '' : 'xl:flex-row xl:items-start'}`}
+                >
                     <DayMacros
                         macros={macros}
                         goals={goals}
-                        className="shrink-0 lg:order-last lg:w-72"
+                        className={`shrink-0 ${editable ? '' : 'xl:order-last xl:w-72'}`}
                     />
                     <div className="flex min-w-0 flex-1 flex-col gap-4">
-                        <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+                        <div className="grid gap-3 md:grid-cols-2">
                             {slots.map((slot) => (
                                 <MealSlot
                                     key={slot}
@@ -3528,7 +3532,7 @@ function MealSlot({
 
     return (
         <div className={`flex flex-col gap-2 ${editable ? 'rounded-2xl bg-neutral-50 p-2.5' : ''}`}>
-            <div className="flex items-center gap-2 pl-1">
+            <div className="flex flex-wrap items-center gap-2 pl-1">
                 <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} aria-hidden="true" />
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                     {meta.label}
@@ -3539,9 +3543,9 @@ function MealSlot({
                     </span>
                 )}
                 {editable && (
-                    <>
+                    <div className="ml-auto flex items-center gap-1.5">
                         <div
-                            className="ml-auto flex rounded-full bg-white p-0.5 ring-1 ring-black/[0.06]"
+                            className="flex rounded-full bg-white p-0.5 ring-1 ring-black/[0.06]"
                             role="group"
                             aria-label={`${meta.label} mode`}
                         >
@@ -3580,7 +3584,7 @@ function MealSlot({
                         >
                             <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
                         </button>
-                    </>
+                    </div>
                 )}
             </div>
             {entries.length > 0 ? (
@@ -3790,25 +3794,31 @@ function PlannedMealRow({
                     type="button"
                     onClick={onView}
                     aria-label={`View ${name}`}
-                    className="min-w-0 flex-1 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-300"
+                    className="min-w-0 flex-1 basis-40 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-300"
                 >
                     {details}
                 </button>
             ) : (
-                <div className="min-w-0 flex-1">{details}</div>
+                <div className="min-w-0 flex-1 basis-40">{details}</div>
             )}
-            {onSetServings && (
-                <ServingsStepper servings={servings} name={name} onChange={onSetServings} />
-            )}
-            {onRemove && (
-                <button
-                    type="button"
-                    aria-label={`Remove ${name}`}
-                    onClick={onRemove}
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                >
-                    <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
-                </button>
+            {/* Kept together so, in a narrow lane, they drop under the name as
+                one right-aligned group rather than squeezing it to nothing. */}
+            {(onSetServings || onRemove) && (
+                <div className="ml-auto flex shrink-0 items-center gap-1">
+                    {onSetServings && (
+                        <ServingsStepper servings={servings} name={name} onChange={onSetServings} />
+                    )}
+                    {onRemove && (
+                        <button
+                            type="button"
+                            aria-label={`Remove ${name}`}
+                            onClick={onRemove}
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                        >
+                            <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
+                        </button>
+                    )}
+                </div>
             )}
         </li>
     )
