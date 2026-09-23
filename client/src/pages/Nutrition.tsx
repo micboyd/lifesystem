@@ -52,15 +52,34 @@ import { effectiveTargetsFor, DAY_TYPE_LABELS, type DayType } from '../lib/nutri
 import { listNutritionPhases } from '../services/nutritionPhases'
 import { listPlanEntries as listFitnessEntries } from '../services/fitnessPlan'
 import TodayTab from '../components/nutrition/TodayTab'
-import PlannerTargets from '../components/nutrition/PlannerTargets'
+import PlannerPhase, { gapTone } from '../components/nutrition/PlannerPhase'
+import {
+    WeekHero,
+    HeroButton,
+    HeroJumpPicker,
+    ProgressRing,
+    DayStrip,
+    DayPill,
+    EditBar,
+    DayBadge,
+    DayCardShell,
+    SwipeHint,
+    dayCardId,
+    isWide,
+    scrollToDay,
+    relativeWeekLabel,
+    useDaySwipe,
+} from '../components/planner/WeekPlannerUI'
 import ProgressTab from '../components/nutrition/ProgressTab'
 import PhasesTab from '../components/nutrition/PhasesTab'
 import MealPrepTab, { useForecast, usePrepWindow } from '../components/nutrition/MealPrepTab'
-import BuffetMealModal, { type BuffetTarget } from '../components/nutrition/mealprep/BuffetMealModal'
+import BuffetMealModal, {
+    type BuffetTarget,
+} from '../components/nutrition/mealprep/BuffetMealModal'
 import { useMealPrep } from '../components/nutrition/mealprep/useMealPrep'
 import { EstimateBadge } from '../components/nutrition/mealprep/ui'
 import { componentGrams, grams as fmtGrams } from '../lib/mealPrep'
-import { weekSummary, type WeekSummary } from '../lib/nutritionWeek'
+import { weekSummary } from '../lib/nutritionWeek'
 import type { FoodForecast } from '../lib/mealPrepForecast'
 import { useAuth } from '../context/AuthContext'
 import { MEAL_TYPES } from '../types'
@@ -89,7 +108,7 @@ import {
 
 const TYPE_META: Record<
     MealType,
-    { label: string; chip: string; block: string; name: string; sub: string }
+    { label: string; chip: string; block: string; name: string; sub: string; dot: string }
 > = {
     breakfast: {
         label: 'Breakfast',
@@ -97,6 +116,7 @@ const TYPE_META: Record<
         block: 'bg-amber-50 hover:bg-amber-100/70 ring-1 ring-inset ring-amber-600/15',
         name: 'text-amber-900',
         sub: 'text-amber-700/70',
+        dot: 'bg-amber-500',
     },
     lunch: {
         label: 'Lunch',
@@ -104,6 +124,7 @@ const TYPE_META: Record<
         block: 'bg-emerald-50 hover:bg-emerald-100/70 ring-1 ring-inset ring-emerald-600/15',
         name: 'text-emerald-900',
         sub: 'text-emerald-700/70',
+        dot: 'bg-emerald-500',
     },
     dinner: {
         label: 'Dinner',
@@ -111,6 +132,7 @@ const TYPE_META: Record<
         block: 'bg-indigo-50 hover:bg-indigo-100/70 ring-1 ring-inset ring-indigo-600/15',
         name: 'text-indigo-900',
         sub: 'text-indigo-700/70',
+        dot: 'bg-indigo-500',
     },
     snack: {
         label: 'Snack',
@@ -118,6 +140,7 @@ const TYPE_META: Record<
         block: 'bg-rose-50 hover:bg-rose-100/70 ring-1 ring-inset ring-rose-600/15',
         name: 'text-rose-900',
         sub: 'text-rose-700/70',
+        dot: 'bg-rose-500',
     },
 }
 
@@ -143,9 +166,7 @@ function sortMeals(meals: Meal[], sort: MealSort): Meal[] {
     const copy = [...meals]
     switch (sort) {
         case 'recent':
-            return copy.sort(
-                (a, b) => b.createdAt.localeCompare(a.createdAt) || b.order - a.order
-            )
+            return copy.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.order - a.order)
         case 'protein':
             return copy.sort(
                 (a, b) => (b.macros.protein ?? 0) - (a.macros.protein ?? 0) || byOrder(a, b)
@@ -212,7 +233,8 @@ const SUBTITLE: Record<TopTab, string> = {
     Today: 'Calories in against calories out, read through the phase you are in.',
     Meals: 'Your meal library — macros, ingredients and method for every recipe.',
     'Weekly Planner': 'Plan your week — breakfast, lunch, dinner and snacks, with macros tallied.',
-    'Meal Prep': 'Trays and sides cooked in bulk — what’s left, what it’s made of, and when to cook more.',
+    'Meal Prep':
+        'Trays and sides cooked in bulk — what’s left, what it’s made of, and when to cook more.',
     Progress: 'Weight, waist, strength and photos — whether the recomp is actually working.',
     Phases: 'Dated cuts, bulks and maintenance stretches — the targets every day is judged against.',
 }
@@ -343,7 +365,9 @@ export default function Nutrition() {
     async function handleSave(id: string, fields: MealInput) {
         const updated = await updateMeal(id, fields)
         // Keep an open view drawer in sync with the saved data.
-        setDrawer((d) => (d && d.mode === 'view' && d.meal._id === id ? { ...d, meal: updated } : d))
+        setDrawer((d) =>
+            d && d.mode === 'view' && d.meal._id === id ? { ...d, meal: updated } : d
+        )
         await Promise.all([reloadLibrary(), reloadAll()])
     }
 
@@ -369,11 +393,13 @@ export default function Nutrition() {
         <main className="py-10">
             <Container>
                 <header className="mb-6">
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Nutrition</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">
+                        Nutrition
+                    </h1>
                     <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
                 </header>
 
-                <div className={tab === 'Weekly Planner' ? '' : 'mb-8'}>
+                <div className="mb-8">
                     <Tabs tabs={[...TOP_TABS]} value={tab} onChange={(t) => setTab(t as TopTab)} />
                 </div>
             </Container>
@@ -388,7 +414,10 @@ export default function Nutrition() {
                 </Container>
             ) : tab === 'Progress' ? (
                 <Container className="mt-2">
-                    <ProgressTab settingsGoals={user?.settings?.macroGoals} onOpenPhases={() => setTab('Phases')} />
+                    <ProgressTab
+                        settingsGoals={user?.settings?.macroGoals}
+                        onOpenPhases={() => setTab('Phases')}
+                    />
                 </Container>
             ) : tab === 'Phases' ? (
                 <Container className="mt-2">
@@ -399,7 +428,7 @@ export default function Nutrition() {
                     <MealPrepTab />
                 </Container>
             ) : tab === 'Weekly Planner' ? (
-                <Container fluid className="mt-8">
+                <Container className="mt-2">
                     <WeeklyPlanner
                         meals={allMeals}
                         mealsLoading={allLoading}
@@ -424,7 +453,10 @@ export default function Nutrition() {
                                 Import
                             </Button>
                         </Link>
-                        <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
+                        <Button
+                            icon="fa-solid fa-plus"
+                            onClick={() => setDrawer({ mode: 'create' })}
+                        >
                             Add meal
                         </Button>
                     </div>
@@ -439,7 +471,10 @@ export default function Nutrition() {
                             title="No meals yet"
                             description="Add your first meal to start building a library of recipes and their macros."
                             action={
-                                <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
+                                <Button
+                                    icon="fa-solid fa-plus"
+                                    onClick={() => setDrawer({ mode: 'create' })}
+                                >
                                     Add meal
                                 </Button>
                             }
@@ -500,7 +535,11 @@ export default function Nutrition() {
                                         ))}
                                     </div>
                                     {!isWeekFilter && lib.pages > 1 && (
-                                        <Pagination page={page} pages={lib.pages} onChange={setPage} />
+                                        <Pagination
+                                            page={page}
+                                            pages={lib.pages}
+                                            onChange={setPage}
+                                        />
                                     )}
                                 </>
                             )}
@@ -511,7 +550,7 @@ export default function Nutrition() {
 
             <MealViewDrawer
                 meal={drawer?.mode === 'view' ? drawer.meal : null}
-                fromPlanner={drawer?.mode === 'view' ? drawer.fromPlanner ?? false : false}
+                fromPlanner={drawer?.mode === 'view' ? (drawer.fromPlanner ?? false) : false}
                 onClose={() => setDrawer(null)}
                 onEdit={(meal) => setDrawer({ mode: 'edit', meal })}
                 onDelete={handleDelete}
@@ -576,7 +615,12 @@ function MealCard({
                     }
                     items={[
                         { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onEdit },
-                        { label: 'Delete', icon: 'fa-solid fa-trash-can', danger: true, onClick: onDelete },
+                        {
+                            label: 'Delete',
+                            icon: 'fa-solid fa-trash-can',
+                            danger: true,
+                            onClick: onDelete,
+                        },
                     ]}
                 />
             </div>
@@ -729,7 +773,11 @@ function MealViewDrawer({
                             {m.servingLabel ? ` · ${m.servingLabel}` : ''}
                         </p>
                         <div className="grid grid-cols-4 gap-2">
-                            <MacroStat label="Calories" value={`${fmt(m.macros.calories)}`} unit="kcal" />
+                            <MacroStat
+                                label="Calories"
+                                value={`${fmt(m.macros.calories)}`}
+                                unit="kcal"
+                            />
                             <MacroStat label="Protein" value={fmt(m.macros.protein)} unit="g" />
                             <MacroStat label="Carbs" value={fmt(m.macros.carbs)} unit="g" />
                             <MacroStat label="Fat" value={fmt(m.macros.fat)} unit="g" />
@@ -746,7 +794,10 @@ function MealViewDrawer({
                     {m.prepTime != null && m.prepTime > 0 && (
                         <section className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
                             <div className="flex items-center gap-2.5">
-                                <i className="fa-regular fa-clock text-neutral-400" aria-hidden="true" />
+                                <i
+                                    className="fa-regular fa-clock text-neutral-400"
+                                    aria-hidden="true"
+                                />
                                 <div>
                                     <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                         Est. prep time
@@ -758,7 +809,8 @@ function MealViewDrawer({
                             </div>
                             <span className="text-lg font-semibold tabular-nums text-neutral-800">
                                 {formatDuration(
-                                    estimatePrepTime(m.prepTime, servings, m.prepOverhead) ?? m.prepTime
+                                    estimatePrepTime(m.prepTime, servings, m.prepOverhead) ??
+                                        m.prepTime
                                 )}
                             </span>
                         </section>
@@ -783,7 +835,10 @@ function MealViewDrawer({
                                             aria-label="Reduce servings"
                                             className="grid h-10 w-10 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
                                         >
-                                            <i className="fa-solid fa-minus text-sm" aria-hidden="true" />
+                                            <i
+                                                className="fa-solid fa-minus text-sm"
+                                                aria-hidden="true"
+                                            />
                                         </button>
                                         <span className="min-w-[7rem] text-center text-base font-semibold tabular-nums text-neutral-800">
                                             {servings} {servings === 1 ? 'serving' : 'servings'}
@@ -794,7 +849,10 @@ function MealViewDrawer({
                                             aria-label="Add serving"
                                             className="grid h-10 w-10 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-100"
                                         >
-                                            <i className="fa-solid fa-plus text-sm" aria-hidden="true" />
+                                            <i
+                                                className="fa-solid fa-plus text-sm"
+                                                aria-hidden="true"
+                                            />
                                         </button>
                                     </div>
                                 </div>
@@ -804,7 +862,9 @@ function MealViewDrawer({
                                             Week servings
                                         </span>
                                         {weekMsg && (
-                                            <span className="text-xs text-neutral-400">{weekMsg}</span>
+                                            <span className="text-xs text-neutral-400">
+                                                {weekMsg}
+                                            </span>
                                         )}
                                     </div>
                                     <DatePicker
@@ -860,7 +920,9 @@ function MealViewDrawer({
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                 Notes
                             </p>
-                            <p className="whitespace-pre-wrap text-sm text-neutral-600">{m.notes}</p>
+                            <p className="whitespace-pre-wrap text-sm text-neutral-600">
+                                {m.notes}
+                            </p>
                         </section>
                     )}
 
@@ -921,8 +983,9 @@ function PrepEstimatePreview({ prepTime, overheadPct }: { prepTime: string; over
         return (
             <p className="text-xs text-neutral-400">
                 Add a 1-serving time to estimate how long larger batches take. Setup % is the share
-                that&rsquo;s one-time (preheating, chopping setup, cleanup) — higher means batches scale
-                more gently. Leave it blank to use the {Math.round(DEFAULT_PREP_OVERHEAD * 100)}% default.
+                that&rsquo;s one-time (preheating, chopping setup, cleanup) — higher means batches
+                scale more gently. Leave it blank to use the{' '}
+                {Math.round(DEFAULT_PREP_OVERHEAD * 100)}% default.
             </p>
         )
     }
@@ -1275,7 +1338,13 @@ function IngredientEditor({
                     ))}
                 </div>
             )}
-            <Button variant="ghost" size="sm" icon="fa-solid fa-plus" onClick={add} className="w-fit">
+            <Button
+                variant="ghost"
+                size="sm"
+                icon="fa-solid fa-plus"
+                onClick={add}
+                className="w-fit"
+            >
                 Add ingredient
             </Button>
         </div>
@@ -1332,7 +1401,13 @@ function MethodEditor({
                     ))}
                 </div>
             )}
-            <Button variant="ghost" size="sm" icon="fa-solid fa-plus" onClick={add} className="w-fit">
+            <Button
+                variant="ghost"
+                size="sm"
+                icon="fa-solid fa-plus"
+                onClick={add}
+                className="w-fit"
+            >
                 Add step
             </Button>
         </div>
@@ -1340,19 +1415,6 @@ function MethodEditor({
 }
 
 // ─── Weekly planner ─────────────────────────────────────────────────────────────
-
-/** A thin progress bar of `value` toward `goal` — accent up to the target, amber once past it. */
-function GoalBar({ value, goal }: { value: number; goal: number }) {
-    const pct = goal > 0 ? (value / goal) * 100 : 0
-    return (
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
-            <div
-                className={`h-full rounded-full ${pct > 100 ? 'bg-amber-400' : 'bg-coral-500'}`}
-                style={{ width: `${Math.min(100, pct)}%` }}
-            />
-        </div>
-    )
-}
 
 /** How much of a stretch of plan has been settled either way. */
 interface LogProgress {
@@ -1514,7 +1576,9 @@ function ShoppingListModal({
                 return `- ${amt ? `${amt} ` : ''}${i.name}`
             }),
             ...cooks.flatMap((c) =>
-                (c.recipe?.ingredients ?? []).map((ing) => `- ${fmtQty(ing.quantity)} ${ing.unit} ${ing.name} (${c.name})`)
+                (c.recipe?.ingredients ?? []).map(
+                    (ing) => `- ${fmtQty(ing.quantity)} ${ing.unit} ${ing.name} (${c.name})`
+                )
             ),
         ].join('\n')
         navigator.clipboard?.writeText(text).then(() => {
@@ -1546,7 +1610,8 @@ function ShoppingListModal({
         >
             {items.length === 0 && cooks.length === 0 ? (
                 <p className="py-6 text-center text-sm text-neutral-400">
-                    Nothing planned this week yet — add meals to the planner to build a shopping list.
+                    Nothing planned this week yet — add meals to the planner to build a shopping
+                    list.
                 </p>
             ) : (
                 <div className="flex flex-col gap-3">
@@ -1556,8 +1621,8 @@ function ShoppingListModal({
                                 Batches to cook
                             </p>
                             <p className="text-xs text-neutral-400">
-                                Suggested by your stock forecast, at each recipe’s usual amounts. Pantry stock isn’t
-                                tracked, so check what you already have.
+                                Suggested by your stock forecast, at each recipe’s usual amounts.
+                                Pantry stock isn’t tracked, so check what you already have.
                             </p>
                             {cooks.map((c) => (
                                 <div key={c.key} className="rounded-xl border border-neutral-200">
@@ -1566,7 +1631,10 @@ function ShoppingListModal({
                                     </p>
                                     <ul className="flex flex-col divide-y divide-neutral-100">
                                         {(c.recipe?.ingredients ?? []).map((ing, i) => (
-                                            <li key={i} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                                            <li
+                                                key={i}
+                                                className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                                            >
                                                 <span className="text-neutral-700">{ing.name}</span>
                                                 <span className="shrink-0 font-medium tabular-nums text-neutral-500">
                                                     {fmtQty(ing.quantity)} {ing.unit}
@@ -1579,26 +1647,26 @@ function ShoppingListModal({
                         </section>
                     )}
                     {items.length > 0 && (
-                    <>
-                    <p className="text-xs text-neutral-400">
-                        Totalled across the week, assuming one serving per planned meal.
-                    </p>
-                    <ul className="flex flex-col divide-y divide-neutral-100 rounded-xl border border-neutral-200">
-                        {items.map((item) => (
-                            <li
-                                key={item.name}
-                                className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
-                            >
-                                <span className="text-neutral-700">{item.name}</span>
-                                {amountLabel(item) && (
-                                    <span className="shrink-0 font-medium tabular-nums text-neutral-500">
-                                        {amountLabel(item)}
-                                    </span>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
-                    </>
+                        <>
+                            <p className="text-xs text-neutral-400">
+                                Totalled across the week, assuming one serving per planned meal.
+                            </p>
+                            <ul className="flex flex-col divide-y divide-neutral-100 rounded-xl border border-neutral-200">
+                                {items.map((item) => (
+                                    <li
+                                        key={item.name}
+                                        className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
+                                    >
+                                        <span className="text-neutral-700">{item.name}</span>
+                                        {amountLabel(item) && (
+                                            <span className="shrink-0 font-medium tabular-nums text-neutral-500">
+                                                {amountLabel(item)}
+                                            </span>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
                     )}
                 </div>
             )}
@@ -1772,7 +1840,7 @@ function WeekCookingDrawer({
         }
     }, [open, weekStart])
 
-    const selected = selectedId ? planned.find((p) => p.meal._id === selectedId) ?? null : null
+    const selected = selectedId ? (planned.find((p) => p.meal._id === selectedId) ?? null) : null
 
     // Whole-week cooking estimate: each meal's batch estimate at its planned
     // serving count, summed. Meals with no prep time recorded can't be counted.
@@ -1827,7 +1895,10 @@ function WeekCookingDrawer({
                         <div className="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-2.5">
-                                    <i className="fa-regular fa-clock text-neutral-400" aria-hidden="true" />
+                                    <i
+                                        className="fa-regular fa-clock text-neutral-400"
+                                        aria-hidden="true"
+                                    />
                                     <div>
                                         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                             Est. total cooking time
@@ -1863,13 +1934,18 @@ function WeekCookingDrawer({
                                         onClick={addCookingTask}
                                         disabled={addingTask || !taskDate}
                                     >
-                                        {addingTask ? 'Adding…' : `Add to day (${formatDuration(taskMinutes)})`}
+                                        {addingTask
+                                            ? 'Adding…'
+                                            : `Add to day (${formatDuration(taskMinutes)})`}
                                     </Button>
                                 </div>
                                 <p className="text-xs text-neutral-400">
                                     {addedTo ? (
                                         <span className="font-medium text-emerald-600">
-                                            <i className="fa-solid fa-check mr-1" aria-hidden="true" />
+                                            <i
+                                                className="fa-solid fa-check mr-1"
+                                                aria-hidden="true"
+                                            />
                                             Added a {formatDuration(taskMinutes)} task to{' '}
                                             {formatDateLong(addedTo)}.
                                         </span>
@@ -2124,7 +2200,11 @@ function RandomiseWeekModal({
                                         type="button"
                                         onClick={() => has && toggleSlot(t)}
                                         disabled={!has}
-                                        title={has ? undefined : `No meals tagged ${TYPE_META[t].label}`}
+                                        title={
+                                            has
+                                                ? undefined
+                                                : `No meals tagged ${TYPE_META[t].label}`
+                                        }
                                         className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                                             !has
                                                 ? 'cursor-not-allowed bg-neutral-50 text-neutral-300'
@@ -2201,16 +2281,23 @@ function RandomiseWeekModal({
                         </div>
                         {limitVariety && varietyCeiling > 1 && (
                             <div className="flex items-center justify-between gap-3">
-                                <p className="text-sm text-neutral-600">Different meals this week</p>
+                                <p className="text-sm text-neutral-600">
+                                    Different meals this week
+                                </p>
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => setMaxVariety(Math.max(1, effectiveVariety - 1))}
+                                        onClick={() =>
+                                            setMaxVariety(Math.max(1, effectiveVariety - 1))
+                                        }
                                         disabled={effectiveVariety <= 1}
                                         aria-label="Fewer meal variations"
                                         className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
                                     >
-                                        <i className="fa-solid fa-minus text-sm" aria-hidden="true" />
+                                        <i
+                                            className="fa-solid fa-minus text-sm"
+                                            aria-hidden="true"
+                                        />
                                     </button>
                                     <span className="min-w-[2ch] text-center text-base font-semibold tabular-nums text-neutral-800">
                                         {effectiveVariety}
@@ -2218,13 +2305,18 @@ function RandomiseWeekModal({
                                     <button
                                         type="button"
                                         onClick={() =>
-                                            setMaxVariety(Math.min(varietyCeiling, effectiveVariety + 1))
+                                            setMaxVariety(
+                                                Math.min(varietyCeiling, effectiveVariety + 1)
+                                            )
                                         }
                                         disabled={effectiveVariety >= varietyCeiling}
                                         aria-label="More meal variations"
                                         className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
                                     >
-                                        <i className="fa-solid fa-plus text-sm" aria-hidden="true" />
+                                        <i
+                                            className="fa-solid fa-plus text-sm"
+                                            aria-hidden="true"
+                                        />
                                     </button>
                                 </div>
                             </div>
@@ -2283,9 +2375,6 @@ function RandomiseWeekModal({
     )
 }
 
-/** Shared column template for the weekday and weekend rows of the planner grid. */
-const WEEK_ROW_GRID = 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
-
 function WeeklyPlanner({
     meals,
     mealsLoading,
@@ -2320,10 +2409,33 @@ function WeeklyPlanner({
     const prepWindow = usePrepWindow()
     const forecasts = useForecast(prep, prepWindow.entries, prepWindow.today)
     const [buffet, setBuffet] = useState<BuffetTarget | null>(null)
-    const hasFood = meals.length > 0 || prep.recipes.length > 0 || prep.batches.length > 0 || prep.foods.length > 0
+    const hasFood =
+        meals.length > 0 ||
+        prep.recipes.length > 0 ||
+        prep.batches.length > 0 ||
+        prep.foods.length > 0
 
     const weekEnd = addDays(weekStart, 6)
     const today = todayKey()
+    // The focused day — the only one a phone shows. Wide screens show the whole
+    // week, where picking a day scrolls to it instead.
+    const [selected, setSelected] = useState(today)
+
+    function focusDay(date: string) {
+        setSelected(date)
+        const monday = mondayOf(date)
+        if (monday !== weekStart) setWeekStart(monday)
+        else if (isWide()) scrollToDay('meal', date)
+    }
+
+    function stepWeek(dir: -1 | 1) {
+        const next = addDays(weekStart, dir * 7)
+        setWeekStart(next)
+        setSelected(next)
+    }
+
+    // Swipe left/right on a phone to move a day, carrying across week edges.
+    const swipeProps = useDaySwipe((dir) => focusDay(addDays(selected, dir)))
 
     useEffect(() => {
         // Refetch silently on week change — the grid keeps the previous week's
@@ -2460,8 +2572,12 @@ function WeeklyPlanner({
      */
     function handleSetMode(date: string, slot: MealType, mode: 'individual' | 'buffet') {
         const inSlot = entries.filter((e) => e.date === date && e.slot === slot)
-        const toReplace = inSlot.filter((e) => e.status === 'planned' && (mode === 'buffet' ? !e.buffet : !!e.buffet))
-        const kept = inSlot.filter((e) => e.status !== 'planned' && (mode === 'buffet' ? !e.buffet : !!e.buffet))
+        const toReplace = inSlot.filter(
+            (e) => e.status === 'planned' && (mode === 'buffet' ? !e.buffet : !!e.buffet)
+        )
+        const kept = inSlot.filter(
+            (e) => e.status !== 'planned' && (mode === 'buffet' ? !e.buffet : !!e.buffet)
+        )
         const open = () =>
             mode === 'buffet' ? setBuffet({ mode: 'plan', date, slot }) : setPicker({ date, slot })
         if (toReplace.length === 0) {
@@ -2495,7 +2611,12 @@ function WeeklyPlanner({
     // Fill the visible week with random meals from the library. Each selected
     // slot is dealt from its own shuffled list of tagged meals, cycling once the
     // list runs out, so a week varies as much as the library allows.
-    async function generateRandomWeek({ slots, dayOffsets, maxVariety, replace }: RandomiseOptions) {
+    async function generateRandomWeek({
+        slots,
+        dayOffsets,
+        maxVariety,
+        replace,
+    }: RandomiseOptions) {
         const orderedSlots = MEAL_TYPES.filter((t) => slots.includes(t))
         // Only fill the days the user selected; `days` is Monday-first, so its
         // index is the offset the modal reports.
@@ -2506,7 +2627,11 @@ function WeeklyPlanner({
         // distinct meals — covering each slot type at least once, then adding
         // variety up to the budget — and restrict every slot to that set.
         const pools = new Map<MealType, Meal[]>()
-        for (const slot of orderedSlots) pools.set(slot, meals.filter((m) => m.types.includes(slot)))
+        for (const slot of orderedSlots)
+            pools.set(
+                slot,
+                meals.filter((m) => m.types.includes(slot))
+            )
 
         const queues = new Map<MealType, Meal[]>()
         if (maxVariety == null) {
@@ -2522,7 +2647,9 @@ function WeeklyPlanner({
             }
             // 2) Spend any remaining budget on extra variety across the slots.
             const rest = shuffle(
-                meals.filter((m) => !chosen.has(m._id) && orderedSlots.some((s) => m.types.includes(s)))
+                meals.filter(
+                    (m) => !chosen.has(m._id) && orderedSlots.some((s) => m.types.includes(s))
+                )
             )
             for (const m of rest) {
                 if (chosen.size >= maxVariety) break
@@ -2701,110 +2828,173 @@ function WeeklyPlanner({
     )
     // Trays to cook before the week in view runs out, for the shopping list.
     const cooks = useMemo(
-        () => forecasts.filter((f) => f.recipe && f.prepareBy && !f.thawInstead && f.prepareBy <= weekEnd),
+        () =>
+            forecasts.filter(
+                (f) => f.recipe && f.prepareBy && !f.thawInstead && f.prepareBy <= weekEnd
+            ),
         [forecasts, weekEnd]
     )
     const weekCopied = copiedWeek === weekStart
+    const isThisWeek = weekStart === mondayOf(today)
+    const weekTarget = week.target
+    const pct = (v: number, goal?: number | null) => (goal ? Math.min(100, (v / goal) * 100) : 0)
+    const r = (v: number) => fmt(Math.round(v))
 
     return (
-        <div className="flex flex-col gap-6">
-            {/* Week navigation + totals */}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                {/* Full-width on phones with a shrinkable label, so "This week"
-                    stops breaking mid-word next to the 10rem range label. */}
-                <div className="flex w-full items-center gap-2 sm:w-auto">
-                    <IconButton
-                        label="Previous week"
-                        icon="fa-solid fa-chevron-left"
-                        onClick={() => setWeekStart(addDays(weekStart, -7))}
+        <div className="flex flex-col gap-4 sm:gap-5">
+            <WeekHero
+                title={relativeWeekLabel(weekStart, mondayOf(today))}
+                subtitle={formatWeekRange(weekStart, weekEnd)}
+                isThisWeek={isThisWeek}
+                onStep={stepWeek}
+                onToday={() => focusDay(today)}
+                ring={
+                    <ProgressRing
+                        value={weekProgress.eaten + weekProgress.skipped}
+                        max={entries.length}
+                        label="logged"
+                        completeLabel="Week fully logged"
                     />
-                    <div className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-neutral-900 sm:min-w-[10rem] sm:flex-none">
-                        {formatWeekRange(weekStart, weekEnd)}
-                    </div>
-                    <IconButton
-                        label="Next week"
-                        icon="fa-solid fa-chevron-right"
-                        onClick={() => setWeekStart(addDays(weekStart, 7))}
+                }
+            >
+                <PlannerPhase days={days} targets={dayTargets} onOpenPhases={onOpenPhases} />
+
+                {/* Planned vs target, what's been eaten, and the honest daily average. */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <HeroStat
+                        label="Planned"
+                        value={r(week.projected.calories)}
+                        unit="kcal"
+                        sub={
+                            weekTarget
+                                ? `of ${r(weekTarget.calories)}`
+                                : `P ${r(week.projected.protein)} g`
+                        }
+                        bar={
+                            weekTarget
+                                ? pct(week.projected.calories, weekTarget.calories)
+                                : undefined
+                        }
                     />
+                    <HeroStat
+                        label="Eaten"
+                        value={r(week.consumed.calories)}
+                        unit="kcal"
+                        sub={`P ${r(week.consumed.protein)} g`}
+                    />
+                    <HeroStat
+                        label="Daily avg"
+                        value={week.avgConsumed ? r(week.avgConsumed.calories) : '—'}
+                        unit={week.avgConsumed ? 'kcal' : ''}
+                        sub={
+                            week.completeDays > 0
+                                ? `${week.completeDays} full day${week.completeDays === 1 ? '' : 's'}`
+                                : 'No full days yet'
+                        }
+                        title="A day counts once at least half its calorie target is logged as eaten. Unlogged and future days are left out rather than counted as zero."
+                    />
+                </div>
+
+                <DayStrip>
+                    {days.map((date) => {
+                        const dayEntries = entries.filter((e) => e.date === date)
+                        const goal = dayTargets.get(date)?.goals?.calories
+                        const planned = plannedByDay.get(date)?.calories ?? 0
+                        const progress = logProgress(dayEntries)
+                        // One dot for how the day's plan sits against its calorie target.
+                        const dots =
+                            dayEntries.length === 0
+                                ? []
+                                : !goal
+                                  ? ['bg-white/60']
+                                  : [DAY_TONE_DOT[gapTone('calories', planned, goal)]]
+                        return (
+                            <DayPill
+                                key={date}
+                                date={date}
+                                active={date === selected}
+                                isToday={date === today}
+                                dots={dots}
+                                allDone={dayEntries.length > 0 && progress.pending === 0}
+                                onClick={() => focusDay(date)}
+                            />
+                        )
+                    })}
+                </DayStrip>
+
+                <div className="flex flex-wrap items-center gap-2">
+                    {hasFood && !editing && (
+                        <HeroButton
+                            primary
+                            icon="fa-solid fa-pen"
+                            onClick={() => {
+                                setPicker(null)
+                                setEditing(true)
+                            }}
+                        >
+                            Edit plan
+                        </HeroButton>
+                    )}
+                    <HeroButton
+                        icon="fa-solid fa-basket-shopping"
+                        onClick={() => setShowList(true)}
+                    >
+                        Shopping
+                    </HeroButton>
+                    <HeroButton icon="fa-solid fa-utensils" onClick={() => setShowCooking(true)}>
+                        Cooking
+                    </HeroButton>
+                    <HeroJumpPicker value={selected} onPick={focusDay} className="ml-auto" />
+                </div>
+            </WeekHero>
+
+            {editing && (
+                <EditBar
+                    onDone={() => {
+                        setPicker(null)
+                        setEditing(false)
+                    }}
+                >
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        icon="fa-solid fa-dice"
+                        onClick={() => setShowRandom(true)}
+                        disabled={meals.length === 0}
+                    >
+                        Randomise
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={weekCopied ? 'fa-solid fa-check' : 'fa-solid fa-copy'}
+                        onClick={() => setCopiedWeek(weekStart)}
+                        disabled={entries.length === 0}
+                    >
+                        {weekCopied ? 'Copied' : 'Copy week'}
+                    </Button>
+                    {copiedWeek && !weekCopied && (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            icon="fa-solid fa-paste"
+                            onClick={handlePasteWeek}
+                        >
+                            Paste week
+                        </Button>
+                    )}
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setWeekStart(mondayOf(today))}
-                        className="ml-1 shrink-0 whitespace-nowrap"
+                        icon="fa-solid fa-broom"
+                        onClick={handleClearWeek}
+                        disabled={entries.length === 0}
+                        className="text-red-500 hover:bg-red-50 hover:text-red-600"
                     >
-                        This week
+                        Clear week
                     </Button>
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                        {hasFood && (
-                            <Button
-                                variant={editing ? 'primary' : 'secondary'}
-                                icon={editing ? 'fa-solid fa-check' : 'fa-solid fa-pen'}
-                                onClick={() => {
-                                    setPicker(null)
-                                    setEditing((e) => !e)
-                                }}
-                            >
-                                {editing ? 'Done' : 'Edit plan'}
-                            </Button>
-                        )}
-                        {editing && (
-                            <>
-                                <Button
-                                    variant="secondary"
-                                    icon="fa-solid fa-dice"
-                                    onClick={() => setShowRandom(true)}
-                                    disabled={meals.length === 0}
-                                >
-                                    Randomise
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    icon={weekCopied ? 'fa-solid fa-check' : 'fa-solid fa-copy'}
-                                    onClick={() => setCopiedWeek(weekStart)}
-                                    disabled={entries.length === 0}
-                                >
-                                    {weekCopied ? 'Week copied' : 'Copy week'}
-                                </Button>
-                                {copiedWeek && !weekCopied && (
-                                    <Button
-                                        variant="secondary"
-                                        icon="fa-solid fa-paste"
-                                        onClick={handlePasteWeek}
-                                    >
-                                        Paste week
-                                    </Button>
-                                )}
-                                <Button
-                                    variant="ghost"
-                                    icon="fa-solid fa-broom"
-                                    onClick={handleClearWeek}
-                                    disabled={entries.length === 0}
-                                    className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                                >
-                                    Clear week
-                                </Button>
-                            </>
-                        )}
-                        <Button
-                            variant="secondary"
-                            icon="fa-solid fa-basket-shopping"
-                            onClick={() => setShowList(true)}
-                        >
-                            Shopping list
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            icon="fa-solid fa-utensils"
-                            onClick={() => setShowCooking(true)}
-                        >
-                            Cooking instructions
-                        </Button>
-                    </div>
-                    <WeekTotals week={week} progress={weekProgress} total={entries.length} />
-                </div>
-            </div>
+                </EditBar>
+            )}
 
             {mealsLoading || loading ? (
                 <div className="grid place-items-center py-16">
@@ -2817,47 +3007,35 @@ function WeeklyPlanner({
                     description="Add meals to your library, or a tray or side in Meal Prep, then drop them into the week."
                 />
             ) : (
-                <div className="flex flex-col gap-4">
-                    <PlannerTargets
-                        days={days}
-                        today={today}
-                        targets={dayTargets}
-                        planned={plannedByDay}
-                        weekTarget={week.target}
-                        onOpenPhases={onOpenPhases}
-                    />
-                    {/* Mon–Fri on one row, the weekend on its own below it. Both rows use
-                        the same column template so the weekend days keep the weekday width. */}
-                    <div className="flex flex-col gap-4">
-                        {[days.slice(0, 5), days.slice(5)].map((row) => (
-                            <div key={row[0]} className={WEEK_ROW_GRID}>
-                                {row.map((date) => (
-                                    <DayColumn
-                                        key={date}
-                                        date={date}
-                                        isToday={date === today}
-                                        editable={editing}
-                                        goals={dayTargets.get(date)?.goals ?? null}
-                                        dayType={dayTargets.get(date)?.dayType ?? null}
-                                        modifier={dayTargets.get(date)?.modifier ?? 0}
-                                        entries={entries.filter((e) => e.date === date)}
-                                        onAdd={(slot) => setPicker({ date, slot })}
-                                        onRemove={handleRemove}
-                                        onSetStatus={handleSetStatus}
-                                        onSetServings={handleSetServings}
-                                        onSetMode={(slot, mode) => handleSetMode(date, slot, mode)}
-                                        onAddBuffet={(slot) => setBuffet({ mode: 'plan', date, slot })}
-                                        onOpenBuffet={openBuffet}
-                                        onLogBuffet={() => setBuffet({ mode: 'log', date })}
-                                        onLogOffPlan={() => setOffPlan(date)}
-                                        onCopyDay={() => handleCopyDay(date)}
-                                        onClearDay={() => handleClearDay(date)}
-                                        onViewMeal={onViewMeal}
-                                    />
-                                ))}
-                            </div>
-                        ))}
-                    </div>
+                // Phones show the focused day and swipe between them; from md up
+                // every day is on show as a feed.
+                <div {...swipeProps} className="flex flex-col gap-3 md:gap-4">
+                    {days.map((date) => (
+                        <MealDayCard
+                            key={date}
+                            date={date}
+                            className={date === selected ? 'flex' : 'hidden md:flex'}
+                            isToday={date === today}
+                            editable={editing}
+                            goals={dayTargets.get(date)?.goals ?? null}
+                            dayType={dayTargets.get(date)?.dayType ?? null}
+                            modifier={dayTargets.get(date)?.modifier ?? 0}
+                            entries={entries.filter((e) => e.date === date)}
+                            onAdd={(slot) => setPicker({ date, slot })}
+                            onRemove={handleRemove}
+                            onSetStatus={handleSetStatus}
+                            onSetServings={handleSetServings}
+                            onSetMode={(slot, mode) => handleSetMode(date, slot, mode)}
+                            onAddBuffet={(slot) => setBuffet({ mode: 'plan', date, slot })}
+                            onOpenBuffet={openBuffet}
+                            onLogBuffet={() => setBuffet({ mode: 'log', date })}
+                            onLogOffPlan={() => setOffPlan(date)}
+                            onCopyDay={() => handleCopyDay(date)}
+                            onClearDay={() => handleClearDay(date)}
+                            onViewMeal={onViewMeal}
+                        />
+                    ))}
+                    {!editing && <SwipeHint />}
                 </div>
             )}
 
@@ -2982,94 +3160,162 @@ function Pagination({
     )
 }
 
-/** Week-total headline: total kcal + P/C/F, plus the daily average. */
-/**
- * The day's logging state under its calorie bar. Skipped meals are called out
- * separately because they're the reason the day's total dropped — without that
- * line the number looks like a mistake.
- */
-function LogStatus({ progress, total }: { progress: LogProgress; total: number }) {
-    if (total === 0) return null
-
-    const { eaten, skipped, pending } = progress
-    if (eaten === 0 && skipped === 0) {
-        return <p className="text-[10px] text-neutral-300">Nothing logged yet</p>
-    }
-
-    const settled = eaten + skipped
+/** A figure on the planner hero — label, big number, a quiet line under it. */
+function HeroStat({
+    label,
+    value,
+    unit,
+    sub,
+    bar,
+    title,
+}: {
+    label: string
+    value: string
+    unit: string
+    sub: string
+    /** Percent toward a target, when there is one. */
+    bar?: number
+    title?: string
+}) {
     return (
-        <p className="text-[10px] tabular-nums text-neutral-400">
-            <span className={pending === 0 ? 'font-semibold text-emerald-600' : ''}>
-                {settled}/{total} logged
-            </span>
-            {skipped > 0 && ` · ${skipped} skipped`}
-        </p>
+        <div
+            className="min-w-0 rounded-2xl bg-white/10 p-3 ring-1 ring-inset ring-white/10 sm:p-4"
+            title={title}
+        >
+            <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-white/50">
+                {label}
+            </p>
+            <p className="mt-1 truncate text-lg font-bold tabular-nums sm:text-2xl">
+                {value}
+                {unit && (
+                    <span className="ml-1 text-[10px] font-semibold text-white/50 sm:text-xs">
+                        {unit}
+                    </span>
+                )}
+            </p>
+            {bar !== undefined && (
+                <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/15">
+                    <div className="h-full rounded-full bg-white" style={{ width: `${bar}%` }} />
+                </div>
+            )}
+            <p className="mt-1 truncate text-[11px] tabular-nums text-white/60">{sub}</p>
+        </div>
     )
 }
 
+/** The strip's dot for a day's plan against its calorie target. */
+const DAY_TONE_DOT = { on: 'bg-emerald-400', under: 'bg-white/60', over: 'bg-amber-400' } as const
+
+/** A macro bar's fill for how the plan sits against that macro's target. */
+const MACRO_TONE = {
+    on: { bar: 'bg-emerald-500', text: 'text-emerald-600' },
+    under: { bar: 'bg-brand-500', text: 'text-neutral-400' },
+    over: { bar: 'bg-amber-400', text: 'text-amber-600' },
+} as const
+
+/** The day's line of logging state, e.g. "3 of 4 logged · 1 skipped". */
+function logLine(progress: LogProgress, total: number): string {
+    if (total === 0) return 'Nothing planned'
+    const { eaten, skipped, pending } = progress
+    if (eaten === 0 && skipped === 0) return `${total} planned · nothing logged yet`
+    if (pending === 0) return skipped > 0 ? `All logged · ${skipped} skipped` : 'All logged'
+    return `${eaten + skipped} of ${total} logged${skipped > 0 ? ` · ${skipped} skipped` : ''}`
+}
+
 /**
- * The week in one strip: projected (eaten + still planned) against the sum of
- * the days' own targets, what's actually been eaten, and daily averages that
- * name their denominator — consumed intake is averaged only over complete days,
- * so an unlogged or future day never reads as a zero-calorie one.
+ * The day's numbers against its target: calories large, with what the plan
+ * still has room for, then protein, carbs and fat as bars.
  */
-function WeekTotals({ week, progress, total }: { week: WeekSummary; progress: LogProgress; total: number }) {
-    const t = week.target
-    const settled = progress.eaten + progress.skipped
-    const r = (n: number) => fmt(Math.round(n))
+function DayMacros({
+    macros,
+    goals,
+    className = '',
+}: {
+    macros: Macros
+    goals: MacroGoals | null
+    className?: string
+}) {
+    const kcalGoal = goals?.calories || 0
+    const left = kcalGoal ? Math.round(kcalGoal - macros.calories) : null
+    const kcalTone = kcalGoal ? gapTone('calories', macros.calories, kcalGoal) : 'under'
     return (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-neutral-200 bg-white px-4 py-2.5">
-            <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Projected week</p>
-                <p className="text-lg font-bold tabular-nums text-neutral-900">
-                    {r(week.projected.calories)}
-                    <span className="ml-0.5 text-xs font-medium text-neutral-400">
-                        {t ? `/ ${r(t.calories)} kcal` : 'kcal'}
+        <div className={`flex flex-col gap-3 rounded-2xl bg-neutral-50 p-4 ${className}`}>
+            <div className="flex items-end justify-between gap-2">
+                <p className="text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
+                    {fmt(Math.round(macros.calories))}
+                    <span className="ml-1 text-xs font-medium text-neutral-400">
+                        {kcalGoal ? `/ ${fmt(kcalGoal)} kcal` : 'kcal'}
                     </span>
                 </p>
+                {left !== null && (
+                    <p
+                        className={`pb-1 text-xs font-semibold tabular-nums ${MACRO_TONE[kcalTone].text}`}
+                    >
+                        {kcalTone === 'on' ? (
+                            <>
+                                <i
+                                    className="fa-solid fa-check mr-1 text-[10px]"
+                                    aria-hidden="true"
+                                />
+                                On target
+                            </>
+                        ) : left > 0 ? (
+                            `${fmt(left)} left`
+                        ) : (
+                            `${fmt(-left)} over`
+                        )}
+                    </p>
+                )}
             </div>
-            <div className="flex gap-1.5 text-xs tabular-nums text-neutral-500">
-                <MacroPill label="P" value={Math.round(week.projected.protein)} goal={t?.protein || undefined} />
-                <MacroPill label="C" value={Math.round(week.projected.carbs)} goal={t?.carbs || undefined} />
-                <MacroPill label="F" value={Math.round(week.projected.fat)} goal={t?.fat || undefined} />
-            </div>
-            <div className="hidden h-8 w-px bg-neutral-200 sm:block" />
-            {/* What was actually eaten, as distinct from what was planned — the
-                only figure worth judging a week by. */}
-            <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Consumed</p>
-                <p className="text-sm font-semibold tabular-nums text-neutral-700">
-                    {r(week.consumed.calories)} kcal · {r(week.consumed.protein)} g P
-                </p>
-                <p className="text-[11px] tabular-nums text-neutral-400">
-                    {r(week.stillPlanned.calories)} kcal still planned · {settled}/{total} logged
-                </p>
-            </div>
-            <div className="hidden h-8 w-px bg-neutral-200 md:block" />
-            <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Daily average</p>
-                <p className="text-sm font-semibold tabular-nums text-neutral-700">
-                    {week.avgConsumed
-                        ? `${r(week.avgConsumed.calories)} kcal · ${r(week.avgConsumed.protein)} g P eaten`
-                        : 'No complete days yet'}
-                    {t ? <span className="font-medium text-neutral-400"> / {r(t.calories / t.days)} target</span> : null}
-                </p>
-                <p
-                    className="text-[11px] tabular-nums text-neutral-400"
-                    title="A day counts as complete once at least half its calorie target is logged as eaten. Unlogged and future days are left out rather than counted as zero."
-                >
-                    over {week.completeDays} complete day{week.completeDays === 1 ? '' : 's'}
-                    {week.avgProjected
-                        ? ` · projected ${r(week.avgProjected.calories)}/day over ${week.daysWithFood} planned day${week.daysWithFood === 1 ? '' : 's'}`
-                        : ''}
-                </p>
+            {kcalGoal > 0 && (
+                <div className="h-2 overflow-hidden rounded-full bg-neutral-200/70">
+                    <div
+                        className={`h-full rounded-full transition-[width] duration-500 ${MACRO_TONE[kcalTone].bar}`}
+                        style={{ width: `${Math.min(100, (macros.calories / kcalGoal) * 100)}%` }}
+                    />
+                </div>
+            )}
+            <div className="grid grid-cols-3 gap-3">
+                {(
+                    [
+                        ['protein', 'Protein'],
+                        ['carbs', 'Carbs'],
+                        ['fat', 'Fat'],
+                    ] as const
+                ).map(([key, label]) => {
+                    const value = macros[key]
+                    const goal = goals?.[key] || 0
+                    const tone = goal ? gapTone(key, value, goal) : 'under'
+                    return (
+                        <div key={key} className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                {label}
+                            </p>
+                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums text-neutral-900">
+                                {fmt(Math.round(value))}
+                                <span className="text-[11px] font-medium text-neutral-400">
+                                    {goal ? `/${fmt(goal)}g` : 'g'}
+                                </span>
+                            </p>
+                            {goal > 0 && (
+                                <div className="mt-1 h-1 overflow-hidden rounded-full bg-neutral-200/70">
+                                    <div
+                                        className={`h-full rounded-full ${MACRO_TONE[tone].bar}`}
+                                        style={{ width: `${Math.min(100, (value / goal) * 100)}%` }}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
             </div>
         </div>
     )
 }
 
-function DayColumn({
+function MealDayCard({
     date,
+    className = '',
     isToday,
     editable,
     goals,
@@ -3090,6 +3336,7 @@ function DayColumn({
     onViewMeal,
 }: {
     date: string
+    className?: string
     isToday: boolean
     editable: boolean
     /** The day's effective target — the phase's, shifted for how hard it trains. */
@@ -3115,135 +3362,140 @@ function DayColumn({
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
     const macros = sumMacros(entries)
     const progress = logProgress(entries)
+    const empty = entries.length === 0
+    // Viewing shows only the slots with food in them; editing shows all four.
+    const slots = editable
+        ? MEAL_TYPES
+        : MEAL_TYPES.filter((s) => entries.some((e) => e.slot === s))
+
+    const quickLog = !editable && (
+        <div className="flex flex-wrap gap-2">
+            <button
+                type="button"
+                onClick={onLogBuffet}
+                className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-2 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
+            >
+                <i className="fa-solid fa-scale-balanced text-[11px]" aria-hidden="true" />
+                Log a weighed plate
+            </button>
+            <button
+                type="button"
+                onClick={onLogOffPlan}
+                className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-2 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
+            >
+                <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
+                Log off-plan
+            </button>
+        </div>
+    )
 
     return (
-        <Card as="div" flush hover={false} className="flex flex-col gap-3 p-4">
-            <div className="flex items-baseline justify-between gap-2">
-                <div>
+        <DayCardShell id={dayCardId('meal', date)} isToday={isToday} className={className}>
+            <header className="flex items-center gap-3">
+                <DayBadge date={date} isToday={isToday} />
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <h3 className="text-base font-bold tracking-tight text-neutral-900">
+                            {weekday}
+                        </h3>
+                        {isToday && (
+                            <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-coral-600">
+                                Today
+                            </span>
+                        )}
+                        {/* Only shown when cycling actually moved the day's target —
+                            otherwise it is training information in a food planner. */}
+                        {modifier !== 0 && dayType && (
+                            <span
+                                className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600"
+                                title={`${DAY_TYPE_LABELS[dayType]} day: ${modifier > 0 ? '+' : '−'}${Math.abs(modifier)} kcal`}
+                            >
+                                {DAY_TYPE_LABELS[dayType]} {modifier > 0 ? '+' : '−'}
+                                {Math.abs(modifier)}
+                            </span>
+                        )}
+                    </div>
                     <p
-                        className={`text-sm font-bold ${
-                            isToday ? 'text-coral-600' : 'text-neutral-900'
+                        className={`mt-0.5 text-xs tabular-nums ${
+                            !empty && progress.pending === 0
+                                ? 'font-semibold text-emerald-600'
+                                : 'text-neutral-500'
                         }`}
                     >
-                        {weekday}
-                    </p>
-                    <p className="text-xs text-neutral-400">
-                        {day} {MONTHS[month].slice(0, 3)}
+                        {logLine(progress, entries.length)}
                     </p>
                 </div>
-                <div className="flex items-center gap-1">
-                    {/* Only shown when cycling actually moved the day's target —
-                        otherwise it is training information in a food planner. */}
-                    {modifier !== 0 && dayType && (
-                        <span
-                            className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold text-neutral-500"
-                            title={`${DAY_TYPE_LABELS[dayType]} day: ${modifier > 0 ? '+' : '−'}${Math.abs(modifier)} kcal`}
-                        >
-                            {modifier > 0 ? '+' : '−'}
-                            {Math.abs(modifier)}
-                        </span>
-                    )}
-                    {isToday && (
-                        <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-semibold text-coral-600">
-                            Today
-                        </span>
-                    )}
-                    {editable && entries.length > 0 && (
-                        <>
-                            <button
-                                type="button"
-                                aria-label={`Copy ${weekday} to the next day`}
-                                title="Copy to next day"
-                                onClick={onCopyDay}
-                                className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                            >
-                                <i className="fa-solid fa-copy text-[11px]" aria-hidden="true" />
-                            </button>
-                            <button
-                                type="button"
-                                aria-label={`Clear ${weekday}`}
-                                title="Clear day"
-                                onClick={onClearDay}
-                                className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                            >
-                                <i className="fa-solid fa-broom text-[11px]" aria-hidden="true" />
-                            </button>
-                        </>
-                    )}
-                </div>
-            </div>
-
-            <div className="flex flex-col gap-3">
-                {MEAL_TYPES.map((slot) => (
-                    <SlotSection
-                        key={slot}
-                        slot={slot}
-                        editable={editable}
-                        entries={entries.filter((e) => e.slot === slot)}
-                        onAdd={() => onAdd(slot)}
-                        onRemove={onRemove}
-                        onSetStatus={onSetStatus}
-                        onSetServings={onSetServings}
-                        onSetMode={(mode) => onSetMode(slot, mode)}
-                        onAddBuffet={() => onAddBuffet(slot)}
-                        onOpenBuffet={onOpenBuffet}
-                        onViewMeal={onViewMeal}
-                    />
-                ))}
-                {!editable && (
-                    <div className="grid grid-cols-2 gap-1.5">
+                {editable && !empty && (
+                    <div className="flex shrink-0 items-center gap-1">
                         <button
                             type="button"
-                            onClick={onLogBuffet}
-                            className="rounded-lg border border-dashed border-neutral-200 py-1.5 text-center text-[11px] text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-700"
+                            aria-label={`Copy ${weekday} to the next day`}
+                            title="Copy to next day"
+                            onClick={onCopyDay}
+                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
-                            <i className="fa-solid fa-scale-balanced mr-1 text-[10px]" aria-hidden="true" />
-                            Weighed
+                            <i className="fa-solid fa-copy text-[12px]" aria-hidden="true" />
                         </button>
                         <button
                             type="button"
-                            onClick={onLogOffPlan}
-                            className="rounded-lg border border-dashed border-neutral-200 py-1.5 text-center text-[11px] text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-700"
+                            aria-label={`Clear ${weekday}`}
+                            title="Clear day"
+                            onClick={onClearDay}
+                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
                         >
-                            <i className="fa-solid fa-plus mr-1 text-[10px]" aria-hidden="true" />
-                            Off-plan
+                            <i className="fa-solid fa-broom text-[12px]" aria-hidden="true" />
                         </button>
                     </div>
                 )}
-            </div>
+            </header>
 
-            <div className="mt-auto flex flex-col gap-1.5 border-t border-neutral-100 pt-3">
-                <div className="flex items-baseline gap-1">
-                    <span className="text-base font-bold tabular-nums text-neutral-900">
-                        {fmt(macros.calories)}
+            {empty && !editable ? (
+                <div className="flex flex-col items-center gap-3 rounded-2xl bg-neutral-50 px-4 py-8 text-center">
+                    <span className="grid h-12 w-12 place-items-center rounded-full bg-white text-neutral-400 shadow-sm">
+                        <i className="fa-solid fa-bowl-food" aria-hidden="true" />
                     </span>
-                    <span className="text-[10px] text-neutral-400">
-                        {goals?.calories ? `/ ${fmt(goals.calories)} kcal` : 'kcal'}
-                    </span>
+                    <p className="text-sm font-semibold text-neutral-700">No meals planned</p>
+                    {quickLog}
                 </div>
-                {goals?.calories ? <GoalBar value={macros.calories} goal={goals.calories} /> : null}
-                {/* What the plan still has room for — the figure that decides
-                    whether another meal fits, which the totals alone don't say. */}
-                {(goals?.calories || goals?.protein) && (
-                    <p className="text-[10px] tabular-nums text-neutral-400">
-                        {goals.calories ? `${fmt(Math.round(goals.calories - macros.calories))} kcal` : ''}
-                        {goals.calories && goals.protein ? ' · ' : ''}
-                        {goals.protein ? `${fmt(Math.round(goals.protein - macros.protein))} g P` : ''}
-                        {' left'}
-                    </p>
-                )}
-                <LogStatus progress={progress} total={entries.length} />
-                <div className="flex flex-wrap gap-1 text-[11px] tabular-nums text-neutral-500">
-                    <MacroPill label="P" value={macros.protein} goal={goals?.protein} />
-                    <MacroPill label="C" value={macros.carbs} goal={goals?.carbs} />
-                    <MacroPill label="F" value={macros.fat} goal={goals?.fat} />
+            ) : (
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                    <DayMacros
+                        macros={macros}
+                        goals={goals}
+                        className="shrink-0 lg:order-last lg:w-72"
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col gap-4">
+                        <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+                            {slots.map((slot) => (
+                                <MealSlot
+                                    key={slot}
+                                    slot={slot}
+                                    editable={editable}
+                                    entries={entries.filter((e) => e.slot === slot)}
+                                    onAdd={() => onAdd(slot)}
+                                    onRemove={onRemove}
+                                    onSetStatus={onSetStatus}
+                                    onSetServings={onSetServings}
+                                    onSetMode={(mode) => onSetMode(slot, mode)}
+                                    onAddBuffet={() => onAddBuffet(slot)}
+                                    onOpenBuffet={onOpenBuffet}
+                                    onViewMeal={onViewMeal}
+                                />
+                            ))}
+                        </div>
+                        {quickLog}
+                    </div>
                 </div>
-            </div>
-        </Card>
+            )}
+        </DayCardShell>
     )
 }
 
-function SlotSection({
+/**
+ * One meal slot of a day. Viewing, it's a label over its food; editing, it's a
+ * lane with the meal/buffet switch and an add button, shown even when empty.
+ */
+function MealSlot({
     slot,
     editable,
     entries,
@@ -3268,56 +3520,81 @@ function SlotSection({
     onOpenBuffet: (entry: MealPlanEntry) => void
     onViewMeal: (meal: Meal) => void
 }) {
-    // In view mode an empty slot is just noise — collapse it so the plan reads clean.
-    if (!editable && entries.length === 0) return null
-
+    const meta = TYPE_META[slot]
     // Each slot is independently one or the other; a buffet plate in it decides.
     const mode = entries.some((e) => e.buffet) ? 'buffet' : 'individual'
     const add = mode === 'buffet' ? onAddBuffet : onAdd
+    const kcal = sumMacros(entries).calories
 
     return (
-        <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-                    {TYPE_META[slot].label}
+        <div className={`flex flex-col gap-2 ${editable ? 'rounded-2xl bg-neutral-50 p-2.5' : ''}`}>
+            <div className="flex items-center gap-2 pl-1">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} aria-hidden="true" />
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                    {meta.label}
                 </span>
-                {editable && (
-                    <div className="ml-auto flex rounded-full bg-neutral-100 p-0.5" role="group" aria-label={`${TYPE_META[slot].label} mode`}>
-                        {(['individual', 'buffet'] as const).map((m) => (
-                            <button
-                                key={m}
-                                type="button"
-                                aria-pressed={mode === m}
-                                title={m === 'individual' ? 'Individual meals from the library' : 'A plate weighed out of prepared batches'}
-                                onClick={() => (mode === m ? (m === 'buffet' ? onAddBuffet() : onAdd()) : onSetMode(m))}
-                                className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide transition-colors ${
-                                    mode === m ? 'bg-white text-neutral-800 shadow-sm' : 'text-neutral-400 hover:text-neutral-700'
-                                }`}
-                            >
-                                {m === 'individual' ? 'Meal' : 'Buffet'}
-                            </button>
-                        ))}
-                    </div>
+                {!editable && kcal > 0 && (
+                    <span className="ml-auto text-[11px] tabular-nums text-neutral-400">
+                        {fmt(Math.round(kcal))} kcal
+                    </span>
                 )}
                 {editable && (
-                    <button
-                        type="button"
-                        aria-label={`Add ${TYPE_META[slot].label}`}
-                        onClick={add}
-                        className="grid h-6 w-6 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                    >
-                        <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
-                    </button>
+                    <>
+                        <div
+                            className="ml-auto flex rounded-full bg-white p-0.5 ring-1 ring-black/[0.06]"
+                            role="group"
+                            aria-label={`${meta.label} mode`}
+                        >
+                            {(['individual', 'buffet'] as const).map((m) => (
+                                <button
+                                    key={m}
+                                    type="button"
+                                    aria-pressed={mode === m}
+                                    title={
+                                        m === 'individual'
+                                            ? 'Individual meals from the library'
+                                            : 'A plate weighed out of prepared batches'
+                                    }
+                                    onClick={() =>
+                                        mode === m
+                                            ? m === 'buffet'
+                                                ? onAddBuffet()
+                                                : onAdd()
+                                            : onSetMode(m)
+                                    }
+                                    className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
+                                        mode === m
+                                            ? 'bg-neutral-900 text-white'
+                                            : 'text-neutral-400 hover:text-neutral-700'
+                                    }`}
+                                >
+                                    {m === 'individual' ? 'Meal' : 'Buffet'}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            type="button"
+                            aria-label={`Add ${meta.label}`}
+                            onClick={add}
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-neutral-500 shadow-sm ring-1 ring-black/[0.06] transition-colors hover:bg-neutral-900 hover:text-white"
+                        >
+                            <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
+                        </button>
+                    </>
                 )}
             </div>
             {entries.length > 0 ? (
-                <ul className="flex flex-col gap-1">
+                <ul className="flex flex-col gap-2">
                     {entries.map((e) => (
                         <PlannedMealRow
                             key={e._id}
                             entry={e}
                             onView={
-                                e.meal ? () => onViewMeal(e.meal!) : e.buffet ? () => onOpenBuffet(e) : undefined
+                                e.meal
+                                    ? () => onViewMeal(e.meal!)
+                                    : e.buffet
+                                      ? () => onOpenBuffet(e)
+                                      : undefined
                             }
                             onRemove={editable ? () => onRemove(e._id) : undefined}
                             onSetStatus={(status) => onSetStatus(e._id, status)}
@@ -3331,9 +3608,10 @@ function SlotSection({
                 <button
                     type="button"
                     onClick={add}
-                    className="rounded-lg border border-dashed border-neutral-200 py-1.5 text-center text-[11px] text-neutral-300 transition-colors hover:border-neutral-300 hover:text-neutral-500"
+                    className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-neutral-200 py-3 text-xs font-semibold text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-600"
                 >
-                    Add
+                    <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
+                    Add {meta.label.toLowerCase()}
                 </button>
             )}
         </div>
@@ -3341,9 +3619,8 @@ function SlotSection({
 }
 
 /**
- * What clicking the status button does next, and how the current state looks.
- * One control cycles the three states rather than three separate buttons — in a
- * column this narrow there's only room for one target per row.
+ * What tapping the status button does next, and how the current state looks.
+ * One control cycles the three states rather than three separate buttons.
  */
 const STATUS_CYCLE: Record<
     EntryStatus,
@@ -3351,20 +3628,20 @@ const STATUS_CYCLE: Record<
 > = {
     planned: {
         next: 'eaten',
-        icon: 'fa-regular fa-circle',
-        cls: 'text-neutral-300 hover:text-emerald-500',
+        icon: 'fa-solid fa-check',
+        cls: 'bg-white text-transparent ring-2 ring-inset ring-neutral-200 hover:text-emerald-500 hover:ring-emerald-300',
         verb: 'Mark as eaten',
     },
     eaten: {
         next: 'skipped',
-        icon: 'fa-solid fa-circle-check',
-        cls: 'text-emerald-500 hover:text-neutral-400',
+        icon: 'fa-solid fa-check',
+        cls: 'bg-emerald-500 text-white hover:bg-emerald-600',
         verb: 'Mark as skipped',
     },
     skipped: {
         next: 'planned',
-        icon: 'fa-solid fa-circle-minus',
-        cls: 'text-neutral-400 hover:text-neutral-500',
+        icon: 'fa-solid fa-minus',
+        cls: 'bg-neutral-200 text-neutral-500 hover:bg-neutral-300',
         verb: 'Back to planned',
     },
 }
@@ -3392,18 +3669,18 @@ function ServingsStepper({
         onChange(Math.min(MAX_SERVINGS, Math.max(MIN_SERVINGS, next)))
     }
     return (
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="flex shrink-0 items-center rounded-full bg-neutral-100 p-0.5">
             <button
                 type="button"
                 aria-label={`Smaller portion of ${name}`}
                 disabled={servings <= MIN_SERVINGS}
                 onClick={() => step(-SERVING_STEP)}
-                className="grid h-5 w-5 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent"
+                className="grid h-7 w-7 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-white hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent"
             >
-                <i className="fa-solid fa-minus text-[9px]" aria-hidden="true" />
+                <i className="fa-solid fa-minus text-[10px]" aria-hidden="true" />
             </button>
             <span
-                className="min-w-[1.8rem] text-center text-[10px] font-bold tabular-nums text-neutral-500"
+                className="min-w-[2rem] text-center text-[11px] font-bold tabular-nums text-neutral-700"
                 aria-label={`${fmt(servings)} servings`}
             >
                 ×{fmt(servings)}
@@ -3413,9 +3690,9 @@ function ServingsStepper({
                 aria-label={`Bigger portion of ${name}`}
                 disabled={servings >= MAX_SERVINGS}
                 onClick={() => step(SERVING_STEP)}
-                className="grid h-5 w-5 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent"
+                className="grid h-7 w-7 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-white hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent"
             >
-                <i className="fa-solid fa-plus text-[9px]" aria-hidden="true" />
+                <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
             </button>
         </div>
     )
@@ -3436,58 +3713,76 @@ function PlannedMealRow({
 }) {
     const name = entryName(entry)
     const macros = entryMacros(entry)
-    const meta = TYPE_META[entry.slot]
     const cycle = STATUS_CYCLE[entry.status]
     const skipped = entry.status === 'skipped'
+    const eaten = entry.status === 'eaten'
     const servings = entry.servings ?? 1
 
     const details = (
         <>
             <p
-                className={`truncate text-[13px] font-semibold ${meta.name} ${
-                    skipped ? 'line-through opacity-50' : ''
+                className={`truncate text-sm font-semibold ${
+                    skipped
+                        ? 'text-neutral-400 line-through'
+                        : eaten
+                          ? 'text-neutral-500'
+                          : 'text-neutral-900'
                 }`}
             >
                 {entry.buffet && (
-                    <i className="fa-solid fa-scale-balanced mr-1 text-[10px] opacity-60" aria-hidden="true" />
+                    <i
+                        className="fa-solid fa-scale-balanced mr-1.5 text-[11px] text-neutral-400"
+                        aria-hidden="true"
+                    />
                 )}
                 {name}
             </p>
             {entry.buffet && (
-                <p className={`truncate text-[11px] tabular-nums ${meta.sub} ${skipped ? 'opacity-50' : ''}`}>
+                <p
+                    className={`truncate text-[11px] tabular-nums text-neutral-400 ${skipped ? 'opacity-50' : ''}`}
+                >
                     {entry.buffet.components
                         .map((c) => `${fmtGrams(componentGrams(c, entry.status))} ${c.name}`)
                         .join(' · ')}
                 </p>
             )}
-            <p className={`text-[11px] tabular-nums ${meta.sub} ${skipped ? 'opacity-50' : ''}`}>
-                {fmt(Math.round(macros.calories))} kcal · P{fmt(Math.round(macros.protein))} C{fmt(Math.round(macros.carbs))} F
-                {fmt(Math.round(macros.fat))}
-                {entry.buffet && entry.status !== 'eaten' && entry.buffet.components.some((c) => c.estimated) && (
-                    <span className="ml-1 align-middle">
-                        <EstimateBadge title="Includes a recipe not cooked yet, costed at its estimated yield" />
-                    </span>
-                )}
+            <p
+                className={`mt-0.5 truncate text-xs tabular-nums text-neutral-500 ${skipped ? 'opacity-50' : ''}`}
+            >
+                <span className="font-semibold text-neutral-700">
+                    {fmt(Math.round(macros.calories))}
+                </span>{' '}
+                kcal
+                <span className="mx-1 text-neutral-300">·</span>P{fmt(Math.round(macros.protein))} C
+                {fmt(Math.round(macros.carbs))} F{fmt(Math.round(macros.fat))}
+                {entry.buffet &&
+                    entry.status !== 'eaten' &&
+                    entry.buffet.components.some((c) => c.estimated) && (
+                        <span className="ml-1 align-middle">
+                            <EstimateBadge title="Includes a recipe not cooked yet, costed at its estimated yield" />
+                        </span>
+                    )}
                 {!onSetServings && servings !== 1 && (
                     <span className="ml-1 font-semibold">· ×{fmt(servings)}</span>
                 )}
-                {entry.adhoc && <span className="ml-1 font-semibold">· off-plan</span>}
+                {entry.adhoc && (
+                    <span className="ml-1 font-semibold text-coral-600">· off-plan</span>
+                )}
             </p>
         </>
     )
 
     return (
-        <li className={`flex flex-col rounded-xl px-2.5 py-2 transition-colors ${meta.block}`}>
-            <div className="flex items-center gap-1.5">
+        <li className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-2xl bg-white p-2 pr-2.5 ring-1 ring-black/[0.06] transition-shadow hover:shadow-[0_6px_16px_-8px_rgba(0,0,0,0.2)]">
             {onSetStatus && (
                 <button
                     type="button"
                     aria-label={`${cycle.verb}: ${name}`}
                     title={cycle.verb}
                     onClick={() => onSetStatus(cycle.next)}
-                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full transition-colors ${cycle.cls}`}
+                    className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors ${cycle.cls}`}
                 >
-                    <i className={`${cycle.icon} text-sm`} aria-hidden="true" />
+                    <i className={`${cycle.icon} text-xs`} aria-hidden="true" />
                 </button>
             )}
             {onView ? (
@@ -3495,30 +3790,25 @@ function PlannedMealRow({
                     type="button"
                     onClick={onView}
                     aria-label={`View ${name}`}
-                    className="min-w-0 flex-1 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
+                    className="min-w-0 flex-1 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-300"
                 >
                     {details}
                 </button>
             ) : (
                 <div className="min-w-0 flex-1">{details}</div>
             )}
+            {onSetServings && (
+                <ServingsStepper servings={servings} name={name} onChange={onSetServings} />
+            )}
             {onRemove && (
                 <button
                     type="button"
                     aria-label={`Remove ${name}`}
                     onClick={onRemove}
-                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-red-600"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
                 >
-                    <i className="fa-solid fa-xmark text-[11px]" aria-hidden="true" />
+                    <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
                 </button>
-            )}
-            </div>
-            {/* On its own line: the day columns are too narrow to take a third
-                control cluster beside the name without pushing the row wide. */}
-            {onSetServings && (
-                <div className="mt-1 flex justify-end">
-                    <ServingsStepper servings={servings} name={name} onChange={onSetServings} />
-                </div>
             )}
         </li>
     )
@@ -3600,9 +3890,7 @@ function OffPlanModal({
             }
         >
             <div className="flex flex-col gap-4">
-                {date && (
-                    <p className="text-xs text-neutral-400">{shortDayLabel(date)}</p>
-                )}
+                {date && <p className="text-xs text-neutral-400">{shortDayLabel(date)}</p>}
                 <Input
                     label="What was it?"
                     placeholder="e.g. two slices of pizza"
@@ -3806,8 +4094,8 @@ function MealPicker({
                                             {m.name}
                                         </p>
                                         <p className="text-xs tabular-nums text-neutral-400">
-                                            {fmt(m.macros.calories)} kcal · P{fmt(m.macros.protein)} C
-                                            {fmt(m.macros.carbs)} F{fmt(m.macros.fat)}
+                                            {fmt(m.macros.calories)} kcal · P{fmt(m.macros.protein)}{' '}
+                                            C{fmt(m.macros.carbs)} F{fmt(m.macros.fat)}
                                             {(() => {
                                                 const d = proteinDensity(m.macros)
                                                 return d === null
@@ -3817,9 +4105,7 @@ function MealPicker({
                                         </p>
                                         <MealFitLabels macros={m.macros} remaining={remaining} />
                                     </div>
-                                    {slot && m.types.includes(slot) && (
-                                        <TypeChip type={slot} />
-                                    )}
+                                    {slot && m.types.includes(slot) && <TypeChip type={slot} />}
                                     <i
                                         className="fa-solid fa-plus text-xs text-neutral-400"
                                         aria-hidden="true"

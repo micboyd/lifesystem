@@ -1,12 +1,4 @@
-import {
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type DragEvent,
-    type ReactNode,
-    type TouchEvent as ReactTouchEvent,
-} from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
@@ -17,7 +9,6 @@ import Checkbox from './Checkbox'
 import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
 import ConditioningSessionDetail from './ConditioningSessionDetail'
-import DatePicker from './DatePicker'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
@@ -91,6 +82,24 @@ import {
     eventCoversAllDay,
 } from '../lib/calendar'
 import { findOverloads, findFreeSlot, type Overload } from '../lib/overload'
+import {
+    WeekHero,
+    HeroChip,
+    HeroButton,
+    HeroJumpPicker,
+    ProgressRing,
+    DayStrip,
+    DayPill,
+    EditBar,
+    DayBadge,
+    DayCardShell,
+    SwipeHint,
+    dayCardId,
+    isWide,
+    scrollToDay,
+    relativeWeekLabel,
+    useDaySwipe,
+} from './planner/WeekPlannerUI'
 
 // ─── Kind presentation ────────────────────────────────────────────────────────
 
@@ -999,12 +1008,12 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     // also scrolls there.
     function selectDay(date: string) {
         setAnchor(date)
-        if (isWide() && date >= range.start && date <= range.end) scrollToDay(date)
+        if (isWide() && date >= range.start && date <= range.end) scrollToDay('plan', date)
     }
 
     return (
         <div className="flex flex-col gap-4 sm:gap-5">
-            <WeekHero
+            <FitnessWeekHero
                 weekStart={range.start}
                 selected={anchor}
                 today={today}
@@ -1032,7 +1041,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
 
             {editing && (
                 <EditBar
-                    discarding={discarding}
+                    busy={discarding}
                     // Nothing changed means nothing to warn about — just drop
                     // back out of edit mode.
                     onCancel={() => (dirty ? setConfirmDiscard(true) : stopEditing())}
@@ -1838,19 +1847,6 @@ function WeekCopyControls({
 
 // ─── Week hero ────────────────────────────────────────────────────────────────
 
-/** "This week", "Next week", "In 3 weeks", "2 weeks ago" — the week relative to today's. */
-function relativeWeekLabel(weekStart: string, today: string): string {
-    const a = parseDateKey(weekStart)
-    const b = parseDateKey(mondayOf(today))
-    const diff = Math.round(
-        (Date.UTC(a.year, a.month, a.day) - Date.UTC(b.year, b.month, b.day)) / (7 * 86_400_000)
-    )
-    if (diff === 0) return 'This week'
-    if (diff === 1) return 'Next week'
-    if (diff === -1) return 'Last week'
-    return diff > 0 ? `In ${diff} weeks` : `${-diff} weeks ago`
-}
-
 /** The kinds a list of entries holds, in canonical order. */
 function kindsIn(entries: FitnessPlanEntry[]): FitnessPlanKind[] {
     const present = new Set(entries.map((e) => e.kind))
@@ -1862,7 +1858,7 @@ function kindsIn(entries: FitnessPlanEntry[]): FitnessPlanKind[] {
  * made of, and a strip of the seven days. The strip is the day switcher on a
  * phone (one day shows at a time) and a jump-to-day on wider screens.
  */
-function WeekHero({
+function FitnessWeekHero({
     weekStart,
     selected,
     today,
@@ -1908,391 +1904,128 @@ function WeekHero({
     const t = tally(entries)
     const total = entries.length
     const done = entries.filter(isDone).length
-    const isThisWeek = mondayOf(today) === weekStart
     const flag = weekNote ? FLAG_TONE[weekNote.color] : null
+    const countOf: Record<FitnessPlanKind, number> = {
+        workout: t.workouts,
+        conditioning: t.sessions,
+        mobility: t.mobility,
+        recovery: t.recovery,
+    }
 
     return (
-        <section className="relative overflow-hidden rounded-[28px] bg-linear-to-br from-brand-700 via-brand-600 to-brand-500 text-white shadow-[0_18px_40px_-20px_rgba(1,61,90,0.6)]">
-            {/* Soft glows for depth — purely decorative. */}
-            <span
-                aria-hidden="true"
-                className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl"
-            />
-            <span
-                aria-hidden="true"
-                className="pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-coral-500/20 blur-3xl"
-            />
-
-            <div className="relative flex flex-col gap-5 p-5 sm:p-7">
-                {/* Week title + navigation */}
-                <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                            <HeroIconButton
-                                label="Previous week"
-                                icon="fa-solid fa-chevron-left"
-                                onClick={() => onStep(-1)}
-                            />
-                            <HeroIconButton
-                                label="Next week"
-                                icon="fa-solid fa-chevron-right"
-                                onClick={() => onStep(1)}
-                            />
-                            {!isThisWeek && (
-                                <button
-                                    type="button"
-                                    onClick={() => onPick(today)}
-                                    className="ml-1 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/25"
-                                >
-                                    Today
-                                </button>
-                            )}
-                        </div>
-                        <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-                            {relativeWeekLabel(weekStart, today)}
-                        </h2>
-                        <p className="mt-1 text-sm font-medium text-white/60">{rangeLabel}</p>
-                    </div>
-                    <ProgressRing done={ready ? done : 0} total={ready ? total : 0} />
-                </div>
-
-                {/* What the week is made of */}
-                <div className="flex flex-wrap items-center gap-2">
-                    {weekNote && flag ? (
-                        <button
-                            type="button"
-                            onClick={editing ? onEditFlag : undefined}
-                            aria-label={editing ? 'Edit week flag' : undefined}
-                            className={`inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-neutral-900 ${
-                                editing ? 'transition-opacity hover:opacity-90' : 'cursor-default'
-                            }`}
-                        >
-                            <span
-                                className={`h-2 w-2 rounded-full ${flag.dot}`}
-                                aria-hidden="true"
-                            />
-                            {weekNote.label || 'Flagged week'}
-                            {editing && (
-                                <i
-                                    className="fa-solid fa-pen text-[10px] text-neutral-400"
-                                    aria-hidden="true"
-                                />
-                            )}
-                        </button>
-                    ) : (
-                        editing && (
-                            <button
-                                type="button"
-                                onClick={onEditFlag}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-white/30 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/60 hover:text-white"
-                            >
-                                <i className="fa-solid fa-flag text-[10px]" aria-hidden="true" />
-                                Flag week
-                            </button>
-                        )
-                    )}
-                    {ready && total === 0 && (
-                        <span className="text-sm text-white/60">Nothing planned yet</span>
-                    )}
-                    {ready &&
-                        kindsIn(entries).map((k) => {
-                            const count =
-                                k === 'workout'
-                                    ? t.workouts
-                                    : k === 'conditioning'
-                                      ? t.sessions
-                                      : k === 'mobility'
-                                        ? t.mobility
-                                        : t.recovery
-                            return (
-                                <span
-                                    key={k}
-                                    className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-inset ring-white/10"
-                                >
-                                    <span
-                                        className={`h-2 w-2 rounded-full ${KIND_TONE[k].dot}`}
-                                        aria-hidden="true"
-                                    />
-                                    <span className="tabular-nums">{count}</span>
-                                    <span className="font-medium text-white/70">
-                                        {KIND_META[k].label}
-                                    </span>
-                                </span>
-                            )
-                        })}
-                    {ready && t.minutes > 0 && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-inset ring-white/10">
-                            <i
-                                className="fa-regular fa-clock text-[10px] text-white/60"
-                                aria-hidden="true"
-                            />
-                            <span className="tabular-nums">{t.minutes}</span>
-                            <span className="font-medium text-white/70">min cardio</span>
-                        </span>
-                    )}
-                </div>
-
-                {/* The seven days */}
-                <div className="grid grid-cols-7 gap-1 rounded-2xl bg-black/15 p-1 sm:gap-1.5 sm:p-1.5">
-                    {days.map((date) => {
-                        const dayEntries = entries.filter((e) => e.date === date)
-                        return (
-                            <DayPill
-                                key={date}
-                                date={date}
-                                active={date === selected}
-                                isToday={date === today}
-                                kinds={ready ? kindsIn(dayEntries) : []}
-                                allDone={ready && dayEntries.length > 0 && dayEntries.every(isDone)}
-                                alert={ready && alertDates.has(date)}
-                                onClick={() => onSelect(date)}
-                            />
-                        )
-                    })}
-                </div>
-
-                {/* Actions — editing swaps these for the edit bar below the hero. */}
-                {canEdit && !editing && (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={onStartEditing}
-                            disabled={discarding}
-                            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-700 shadow-sm transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
-                        >
-                            <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
-                            Edit plan
-                        </button>
-                        <button
-                            type="button"
-                            onClick={onExport}
-                            className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-inset ring-white/15 transition-colors hover:bg-white/20"
-                        >
-                            <i className="fa-solid fa-file-export text-xs" aria-hidden="true" />
-                            Export
-                        </button>
-                        {/* Any day jumps to the week holding it — months out is one tap away. */}
-                        <DatePicker
-                            value={selected}
-                            displayLabel="Jump to…"
-                            clearable={false}
-                            onChange={(value) => {
-                                if (typeof value === 'string' && value) onPick(value)
-                            }}
-                            className="ml-auto w-[9.5rem] [&>button]:rounded-full [&>button]:border-white/15 [&>button]:bg-white/10 [&>button]:py-2 [&>button]:text-white [&>button:hover]:bg-white/20 [&_i]:text-white/60 [&_span]:text-white"
-                        />
-                    </div>
-                )}
-            </div>
-        </section>
-    )
-}
-
-function HeroIconButton({
-    icon,
-    label,
-    onClick,
-}: {
-    icon: string
-    label: string
-    onClick: () => void
-}) {
-    return (
-        <button
-            type="button"
-            aria-label={label}
-            onClick={onClick}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white active:bg-white/25"
-        >
-            <i className={`${icon} text-xs`} aria-hidden="true" />
-        </button>
-    )
-}
-
-/** A ring filling as the week's planned items get logged. */
-function ProgressRing({ done, total }: { done: number; total: number }) {
-    const r = 30
-    const c = 2 * Math.PI * r
-    const pct = total > 0 ? done / total : 0
-    const complete = total > 0 && done === total
-    return (
-        <div className="relative grid h-20 w-20 shrink-0 place-items-center sm:h-24 sm:w-24">
-            <svg
-                viewBox="0 0 72 72"
-                className="absolute inset-0 h-full w-full -rotate-90"
-                aria-hidden="true"
-            >
-                <circle
-                    cx="36"
-                    cy="36"
-                    r={r}
-                    fill="none"
-                    strokeWidth="6"
-                    className="stroke-white/15"
+        <WeekHero
+            title={relativeWeekLabel(weekStart, mondayOf(today))}
+            subtitle={rangeLabel}
+            isThisWeek={mondayOf(today) === weekStart}
+            onStep={onStep}
+            onToday={() => onPick(today)}
+            ring={
+                <ProgressRing
+                    value={ready ? done : 0}
+                    max={ready ? total : 0}
+                    label="done"
+                    completeLabel="Week complete"
                 />
-                <circle
-                    cx="36"
-                    cy="36"
-                    r={r}
-                    fill="none"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    strokeDasharray={c}
-                    strokeDashoffset={c * (1 - pct)}
-                    className={`transition-[stroke-dashoffset] duration-700 ease-out ${
-                        complete ? 'stroke-emerald-400' : 'stroke-white'
-                    }`}
-                />
-            </svg>
-            <div className="text-center leading-none">
-                {complete ? (
-                    <i
-                        className="fa-solid fa-check text-xl text-emerald-300"
-                        aria-label="Week complete"
-                    />
-                ) : (
-                    <>
-                        <p className="text-lg font-bold tabular-nums sm:text-xl">
-                            {done}
-                            <span className="text-white/50">/{total}</span>
-                        </p>
-                        <p className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-white/50">
-                            done
-                        </p>
-                    </>
-                )}
-            </div>
-        </div>
-    )
-}
-
-/** One day in the hero's week strip. */
-function DayPill({
-    date,
-    active,
-    isToday,
-    kinds,
-    allDone,
-    alert,
-    onClick,
-}: {
-    date: string
-    active: boolean
-    isToday: boolean
-    kinds: FitnessPlanKind[]
-    allDone: boolean
-    alert: boolean
-    onClick: () => void
-}) {
-    const { year, month, day } = parseDateKey(date)
-    const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            aria-label={`${weekday} ${day} ${MONTHS[month]}`}
-            aria-current={active ? 'date' : undefined}
-            className={`relative flex flex-col items-center gap-1 rounded-xl py-2 transition-all sm:py-2.5 ${
-                active
-                    ? 'bg-white text-brand-700 shadow-md'
-                    : 'text-white/80 hover:bg-white/10 hover:text-white'
-            }`}
+            }
         >
-            <span
-                className={`text-[10px] font-semibold uppercase tracking-wider ${
-                    active ? 'text-brand-500' : 'text-white/50'
-                }`}
-            >
-                <span className="sm:hidden">{weekday.slice(0, 1)}</span>
-                <span className="hidden sm:inline">{weekday.slice(0, 3)}</span>
-            </span>
-            <span
-                className={`grid h-7 w-7 place-items-center rounded-full text-sm font-bold tabular-nums sm:h-8 sm:w-8 sm:text-base ${
-                    isToday
-                        ? active
-                            ? 'bg-coral-500 text-white'
-                            : 'bg-coral-500/90 text-white'
-                        : ''
-                }`}
-            >
-                {day}
-            </span>
-            <span className="flex h-1.5 items-center gap-0.5">
-                {kinds.map((k) => (
-                    <span
-                        key={k}
-                        className={`h-1.5 w-1.5 rounded-full ${KIND_TONE[k].dot} ${
-                            active ? '' : 'ring-1 ring-white/20'
+            {/* What the week is made of */}
+            <div className="flex flex-wrap items-center gap-2">
+                {weekNote && flag ? (
+                    <button
+                        type="button"
+                        onClick={editing ? onEditFlag : undefined}
+                        aria-label={editing ? 'Edit week flag' : undefined}
+                        className={`inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-neutral-900 ${
+                            editing ? 'transition-opacity hover:opacity-90' : 'cursor-default'
                         }`}
-                    />
-                ))}
-            </span>
-            {allDone && (
-                <span
-                    className="absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-emerald-500 text-white ring-2 ring-brand-600"
-                    title="All done"
-                >
-                    <i className="fa-solid fa-check text-[8px]" aria-hidden="true" />
-                </span>
-            )}
-            {alert && !allDone && (
-                <span
-                    className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-brand-600"
-                    title="Needs a look"
-                />
-            )}
-        </button>
-    )
-}
-
-/**
- * Pinned under the hero while editing, so "Done" stays in reach however far
- * down the week the edit has scrolled.
- */
-function EditBar({
-    children,
-    onCancel,
-    onDone,
-    discarding,
-}: {
-    children: ReactNode
-    onCancel: () => void
-    onDone: () => void
-    discarding: boolean
-}) {
-    return (
-        <div className="sticky top-16 z-30 flex lg:top-3 flex-wrap items-center gap-2 rounded-2xl bg-white/90 p-2 pl-4 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.25)] ring-1 ring-black/[0.06] backdrop-blur-md">
-            <span className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
-                <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-coral-500 opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-coral-500" />
-                </span>
-                Editing
-            </span>
-            <div className="flex flex-1 flex-wrap items-center justify-end gap-1.5">
-                {children}
-                <Button variant="ghost" size="sm" disabled={discarding} onClick={onCancel}>
-                    {discarding ? 'Undoing…' : 'Cancel'}
-                </Button>
-                <Button
-                    variant="primary"
-                    size="sm"
-                    icon="fa-solid fa-check"
-                    disabled={discarding}
-                    onClick={onDone}
-                >
-                    Done
-                </Button>
+                    >
+                        <span className={`h-2 w-2 rounded-full ${flag.dot}`} aria-hidden="true" />
+                        {weekNote.label || 'Flagged week'}
+                        {editing && (
+                            <i
+                                className="fa-solid fa-pen text-[10px] text-neutral-400"
+                                aria-hidden="true"
+                            />
+                        )}
+                    </button>
+                ) : (
+                    editing && (
+                        <button
+                            type="button"
+                            onClick={onEditFlag}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-white/30 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/60 hover:text-white"
+                        >
+                            <i className="fa-solid fa-flag text-[10px]" aria-hidden="true" />
+                            Flag week
+                        </button>
+                    )
+                )}
+                {ready && total === 0 && (
+                    <span className="text-sm text-white/60">Nothing planned yet</span>
+                )}
+                {ready &&
+                    kindsIn(entries).map((k) => (
+                        <HeroChip key={k}>
+                            <span
+                                className={`h-2 w-2 rounded-full ${KIND_TONE[k].dot}`}
+                                aria-hidden="true"
+                            />
+                            <span className="tabular-nums">{countOf[k]}</span>
+                            <span className="font-medium text-white/70">{KIND_META[k].label}</span>
+                        </HeroChip>
+                    ))}
+                {ready && t.minutes > 0 && (
+                    <HeroChip>
+                        <i
+                            className="fa-regular fa-clock text-[10px] text-white/60"
+                            aria-hidden="true"
+                        />
+                        <span className="tabular-nums">{t.minutes}</span>
+                        <span className="font-medium text-white/70">min cardio</span>
+                    </HeroChip>
+                )}
             </div>
-        </div>
+
+            <DayStrip>
+                {days.map((date) => {
+                    const dayEntries = entries.filter((e) => e.date === date)
+                    return (
+                        <DayPill
+                            key={date}
+                            date={date}
+                            active={date === selected}
+                            isToday={date === today}
+                            dots={ready ? kindsIn(dayEntries).map((k) => KIND_TONE[k].dot) : []}
+                            allDone={ready && dayEntries.length > 0 && dayEntries.every(isDone)}
+                            alert={ready && alertDates.has(date)}
+                            onClick={() => onSelect(date)}
+                        />
+                    )
+                })}
+            </DayStrip>
+
+            {/* Actions — editing swaps these for the edit bar below the hero. */}
+            {canEdit && !editing && (
+                <div className="flex flex-wrap items-center gap-2">
+                    <HeroButton
+                        primary
+                        icon="fa-solid fa-pen"
+                        onClick={onStartEditing}
+                        disabled={discarding}
+                    >
+                        Edit plan
+                    </HeroButton>
+                    <HeroButton icon="fa-solid fa-file-export" onClick={onExport}>
+                        Export
+                    </HeroButton>
+                    <HeroJumpPicker value={selected} onPick={onPick} className="ml-auto" />
+                </div>
+            )}
+        </WeekHero>
     )
 }
 
 // ─── Week view ────────────────────────────────────────────────────────────────
-
-/** Phones show one day at a time; from `md` up the whole week is a feed. */
-const WIDE_QUERY = '(min-width: 768px)'
-const isWide = () => typeof window !== 'undefined' && window.matchMedia(WIDE_QUERY).matches
 
 function WeekView({
     weekStart,
@@ -2351,23 +2084,7 @@ function WeekView({
 
     // Swipe left/right on a phone to move a day — crossing Sunday or Monday
     // carries on into the next or previous week.
-    const touch = useRef<{ x: number; y: number } | null>(null)
-    const swipeProps = {
-        onTouchStart: (e: ReactTouchEvent) => {
-            const p = e.touches[0]
-            touch.current = { x: p.clientX, y: p.clientY }
-        },
-        onTouchEnd: (e: ReactTouchEvent) => {
-            const start = touch.current
-            touch.current = null
-            if (!start || isWide()) return
-            const p = e.changedTouches[0]
-            const dx = p.clientX - start.x
-            const dy = p.clientY - start.y
-            if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return
-            onSelect(addDays(selected, dx < 0 ? 1 : -1))
-        },
-    }
+    const swipeProps = useDaySwipe((dir) => onSelect(addDays(selected, dir)))
 
     // A slot's items (any day) in display (order) sequence.
     const slotItems = (date: string, part: FitnessPlanPart) =>
@@ -2452,24 +2169,9 @@ function WeekView({
                 />
             ))}
             {/* A nudge that the day view swipes — phones only, and only while viewing. */}
-            {!editing && (
-                <p className="text-center text-[11px] text-neutral-400 md:hidden">
-                    <i
-                        className="fa-solid fa-arrows-left-right mr-1.5 text-[10px]"
-                        aria-hidden="true"
-                    />
-                    Swipe to change day
-                </p>
-            )}
+            {!editing && <SwipeHint />}
         </div>
     )
-}
-
-/** Scroll a day card into view — the strip's job on wide screens. */
-function scrollToDay(date: string) {
-    document
-        .getElementById(`plan-day-${date}`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 function IconButton({
@@ -2622,34 +2324,14 @@ function DayCard({
         : FITNESS_PLAN_PARTS.filter((p) => slotItems(p).length > 0)
 
     return (
-        <section
-            id={`plan-day-${date}`}
-            className={`relative scroll-mt-32 flex-col gap-4 overflow-hidden rounded-3xl bg-white p-4 ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 ${
-                isToday ? 'ring-2 ring-coral-200' : ''
-            } ${className}`}
-        >
+        <DayCardShell id={dayCardId('plan', date)} isToday={isToday} className={className}>
             {/* A flagged day wears a coloured strip down its left edge. */}
             {tone && (
                 <span className={`absolute inset-y-0 left-0 w-1 ${tone.bar}`} aria-hidden="true" />
             )}
 
             <header className="flex items-center gap-3">
-                <div
-                    className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl leading-none ${
-                        isToday ? 'bg-coral-500 text-white' : 'bg-neutral-100 text-neutral-900'
-                    }`}
-                >
-                    <div className="text-center">
-                        <p
-                            className={`text-[9px] font-bold uppercase tracking-wider ${
-                                isToday ? 'text-white/80' : 'text-neutral-400'
-                            }`}
-                        >
-                            {weekday.slice(0, 3)}
-                        </p>
-                        <p className="mt-0.5 text-lg font-bold tabular-nums">{day}</p>
-                    </div>
-                </div>
+                <DayBadge date={date} isToday={isToday} />
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <h3 className="text-base font-bold tracking-tight text-neutral-900">
@@ -2796,7 +2478,7 @@ function DayCard({
                     </div>
                 )
             )}
-        </section>
+        </DayCardShell>
     )
 }
 

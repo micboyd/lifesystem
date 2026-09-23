@@ -152,38 +152,34 @@ export default function Fitness() {
                 />
             </Container>
 
-            {tab === 'Planner' ? (
-                <Container fluid className="mt-8">
-                    {/* Keyed so a fresh week request remounts the planner on it. */}
+            <Container className="mt-6">
+                {tab === 'Planner' ? (
+                    // Keyed so a fresh week request remounts the planner on it.
                     <FitnessWeeklyPlanner
                         key={plannerStart ?? 'today'}
                         startOn={plannerStart ?? undefined}
                     />
-                </Container>
-            ) : (
-                <Container className="mt-6">
-                    {tab === 'Plans' ? (
-                        <PlanLibrary
-                            onApplied={(firstDate) => {
-                                setPlannerStart(firstDate)
-                                setTab('Planner')
-                            }}
-                        />
-                    ) : tab === 'Stats' ? (
-                        <FitnessStats />
-                    ) : tab === 'Body' ? (
-                        <BodyMetrics />
-                    ) : tab === 'Strength' ? (
-                        <StrengthLibraries />
-                    ) : tab === 'Conditioning' ? (
-                        <ConditioningSection />
-                    ) : tab === 'Mobility' ? (
-                        <MobilitySection />
-                    ) : (
-                        <RecoverySection />
-                    )}
-                </Container>
-            )}
+                ) : tab === 'Plans' ? (
+                    <PlanLibrary
+                        onApplied={(firstDate) => {
+                            setPlannerStart(firstDate)
+                            setTab('Planner')
+                        }}
+                    />
+                ) : tab === 'Stats' ? (
+                    <FitnessStats />
+                ) : tab === 'Body' ? (
+                    <BodyMetrics />
+                ) : tab === 'Strength' ? (
+                    <StrengthLibraries />
+                ) : tab === 'Conditioning' ? (
+                    <ConditioningSection />
+                ) : tab === 'Mobility' ? (
+                    <MobilitySection />
+                ) : (
+                    <RecoverySection />
+                )}
+            </Container>
 
             <FitnessExportCenter open={exportOpen} onClose={() => setExportOpen(false)} />
         </main>
