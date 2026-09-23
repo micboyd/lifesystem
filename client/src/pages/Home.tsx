@@ -10,6 +10,7 @@ import WeatherWidget from '../components/dashboard/WeatherWidget'
 import TomorrowWidget, { useTomorrowVisible } from '../components/dashboard/TomorrowWidget'
 import NextTimeOffWidget from '../components/dashboard/NextTimeOffWidget'
 import BirthdayWidget from '../components/dashboard/BirthdayWidget'
+import DaysSinceWidget from '../components/dashboard/DaysSinceWidget'
 import HabitsWidget from '../components/dashboard/HabitsWidget'
 import NutritionWidget from '../components/dashboard/NutritionWidget'
 import FitnessWidget from '../components/dashboard/FitnessWidget'
@@ -62,6 +63,7 @@ export default function Home() {
                         <FitnessWidget date={date} cadence="today" />
                         <NutritionWidget date={date} cadence="today" />
                         <BudgetWidget date={date} cadence="today" />
+                        <DaysSinceWidget />
                         <WeatherWidget variant="hourly" />
                     </div>
                 </>
