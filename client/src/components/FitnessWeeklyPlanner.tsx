@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
-import { Card } from './Card'
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type DragEvent,
+    type ReactNode,
+    type TouchEvent as ReactTouchEvent,
+} from 'react'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
@@ -105,31 +112,39 @@ function kindsLabel(kinds: FitnessPlanKind[]): string {
 // emerald for recovery (matching the chips used elsewhere in Fitness).
 const KIND_TONE: Record<
     FitnessPlanKind,
-    { label: string; icon: string; row: string; chip: string }
+    { label: string; icon: string; row: string; chip: string; tile: string; dot: string }
 > = {
     workout: {
         label: 'text-coral-600',
         icon: 'text-coral-500',
         row: 'border-l-2 border-coral-300 bg-coral-50/60',
         chip: 'bg-coral-50 text-coral-700',
+        tile: 'bg-coral-50 text-coral-500',
+        dot: 'bg-coral-500',
     },
     conditioning: {
         label: 'text-sky-600',
         icon: 'text-sky-500',
         row: 'border-l-2 border-sky-300 bg-sky-50/60',
         chip: 'bg-sky-50 text-sky-700',
+        tile: 'bg-sky-50 text-sky-500',
+        dot: 'bg-sky-500',
     },
     mobility: {
         label: 'text-amber-600',
         icon: 'text-amber-500',
         row: 'border-l-2 border-amber-300 bg-amber-50/60',
         chip: 'bg-amber-50 text-amber-700',
+        tile: 'bg-amber-50 text-amber-500',
+        dot: 'bg-amber-500',
     },
     recovery: {
         label: 'text-emerald-600',
         icon: 'text-emerald-500',
         row: 'border-l-2 border-emerald-300 bg-emerald-50/60',
         chip: 'bg-emerald-50 text-emerald-700',
+        tile: 'bg-emerald-50 text-emerald-500',
+        dot: 'bg-emerald-500',
     },
 }
 
@@ -898,8 +913,6 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         ? (notes.find((n) => n.scope === flagTarget.scope && n.date === flagTarget.date) ?? null)
         : null
 
-    const totals = tally(entries)
-
     // Clashes keyed by day: each planned item that overlaps a calendar event in
     // its slot (or any all-day event). Days with no clash are absent from the map.
     // Accepted clashes stay in the map, marked, so they can still be taken back —
@@ -975,49 +988,57 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         return { count, where: formatWeekRange(range.start, range.end), scope: 'week' as const }
     }, [clearTarget, entries, range.start, range.end])
 
+    // Days with a warning still standing, for the hero's week strip.
+    const alertDates = new Set<string>()
+    for (const [date, list] of clashesByDate)
+        if (list.some((c) => !c.acknowledged)) alertDates.add(date)
+    for (const [date, list] of overloadsByDate)
+        if (list.some((o) => !o.acknowledged)) alertDates.add(date)
+
+    // Picking a day focuses it; on wide screens, where every day is on show, it
+    // also scrolls there.
+    function selectDay(date: string) {
+        setAnchor(date)
+        if (isWide() && date >= range.start && date <= range.end) scrollToDay(date)
+    }
+
     return (
-        <div className="flex flex-col gap-6">
-            {/* View switch + navigation + totals */}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex flex-wrap items-center gap-3">
-                    {/* Full-width on phones with a shrinkable label: the arrows,
-                        the 10rem range label and "This week" don't fit side by
-                        side, and the button was breaking mid-word. */}
-                    <div className="flex w-full items-center gap-2 sm:w-auto">
-                        <IconButton
-                            label="Previous week"
-                            icon="fa-solid fa-chevron-left"
-                            onClick={() => step(-1)}
-                        />
-                        {/* The range label doubles as the week picker: picking
-                            any day jumps to the week holding it, so a week months
-                            out is one click away rather than a run of arrows. */}
-                        <DatePicker
-                            value={range.start}
-                            displayLabel={rangeLabel}
-                            clearable={false}
-                            onChange={(value) => {
-                                if (typeof value === 'string' && value) setAnchor(value)
-                            }}
-                            className="min-w-0 flex-1 sm:w-[13.5rem] sm:flex-none"
-                        />
-                        <IconButton
-                            label="Next week"
-                            icon="fa-solid fa-chevron-right"
-                            onClick={() => step(1)}
-                        />
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setAnchor(today)}
-                            className="ml-1 shrink-0 whitespace-nowrap"
-                        >
-                            This week
-                        </Button>
-                    </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    {!libraryEmpty && editing && (
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 sm:gap-5">
+            <WeekHero
+                weekStart={range.start}
+                selected={anchor}
+                today={today}
+                rangeLabel={rangeLabel}
+                entries={entries}
+                ready={!(libLoading || loading)}
+                isDone={isDone}
+                alertDates={alertDates}
+                weekNote={weekNote}
+                editing={editing}
+                canEdit={!libraryEmpty}
+                discarding={discarding}
+                onStep={step}
+                onSelect={selectDay}
+                onPick={setAnchor}
+                onEditFlag={() => setFlagTarget({ scope: 'week', date: range.start })}
+                onStartEditing={() => {
+                    setPicker(null)
+                    baseline.current.clear()
+                    setDirty(false)
+                    setEditing(true)
+                }}
+                onExport={() => setExportOpen(true)}
+            />
+
+            {editing && (
+                <EditBar
+                    discarding={discarding}
+                    // Nothing changed means nothing to warn about — just drop
+                    // back out of edit mode.
+                    onCancel={() => (dirty ? setConfirmDiscard(true) : stopEditing())}
+                    onDone={stopEditing}
+                >
+                    {!libraryEmpty && (
                         <WeekCopyControls
                             weekStart={range.start}
                             weekEnd={range.end}
@@ -1028,7 +1049,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                             onClearClipboard={() => setClipboard(null)}
                         />
                     )}
-                    {editing && entries.length > 0 && (
+                    {entries.length > 0 && (
                         <Button
                             variant="ghost"
                             size="sm"
@@ -1039,52 +1060,8 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                             Clear week
                         </Button>
                     )}
-                    {editing && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            icon="fa-solid fa-rotate-left"
-                            disabled={discarding}
-                            // Nothing changed means nothing to warn about — just
-                            // drop back out of edit mode.
-                            onClick={() => (dirty ? setConfirmDiscard(true) : stopEditing())}
-                        >
-                            {discarding ? 'Undoing…' : 'Cancel'}
-                        </Button>
-                    )}
-                    {!libraryEmpty && !editing && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            icon="fa-solid fa-file-export"
-                            onClick={() => setExportOpen(true)}
-                        >
-                            Export
-                        </Button>
-                    )}
-                    {!libraryEmpty && (
-                        <Button
-                            variant={editing ? 'primary' : 'secondary'}
-                            size="sm"
-                            icon={editing ? 'fa-solid fa-check' : 'fa-solid fa-pen'}
-                            disabled={discarding}
-                            onClick={() => {
-                                if (editing) {
-                                    stopEditing()
-                                    return
-                                }
-                                setPicker(null)
-                                baseline.current.clear()
-                                setDirty(false)
-                                setEditing(true)
-                            }}
-                        >
-                            {editing ? 'Done' : 'Edit plan'}
-                        </Button>
-                    )}
-                    <WeekTotals tally={totals} />
-                </div>
-            </div>
+                </EditBar>
+            )}
 
             {libLoading || loading ? (
                 <div className="grid place-items-center py-16">
@@ -1099,14 +1076,15 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
             ) : (
                 <WeekView
                     weekStart={range.start}
+                    selected={anchor}
                     today={today}
                     editing={editing}
                     entries={entries}
-                    weekNote={weekNote}
                     dayNotes={dayNotes}
                     clashesByDate={clashesByDate}
                     overloadsByDate={overloadsByDate}
                     isDone={isDone}
+                    onSelect={setAnchor}
                     onAdd={(date, part) => setPicker({ date, part })}
                     onOpen={setDetail}
                     onRemove={handleRemove}
@@ -1858,18 +1836,475 @@ function WeekCopyControls({
     )
 }
 
+// ─── Week hero ────────────────────────────────────────────────────────────────
+
+/** "This week", "Next week", "In 3 weeks", "2 weeks ago" — the week relative to today's. */
+function relativeWeekLabel(weekStart: string, today: string): string {
+    const a = parseDateKey(weekStart)
+    const b = parseDateKey(mondayOf(today))
+    const diff = Math.round(
+        (Date.UTC(a.year, a.month, a.day) - Date.UTC(b.year, b.month, b.day)) / (7 * 86_400_000)
+    )
+    if (diff === 0) return 'This week'
+    if (diff === 1) return 'Next week'
+    if (diff === -1) return 'Last week'
+    return diff > 0 ? `In ${diff} weeks` : `${-diff} weeks ago`
+}
+
+/** The kinds a list of entries holds, in canonical order. */
+function kindsIn(entries: FitnessPlanEntry[]): FitnessPlanKind[] {
+    const present = new Set(entries.map((e) => e.kind))
+    return FITNESS_PLAN_KINDS.filter((k) => present.has(k))
+}
+
+/**
+ * The top of the planner: which week it is, how much of it is done, what it's
+ * made of, and a strip of the seven days. The strip is the day switcher on a
+ * phone (one day shows at a time) and a jump-to-day on wider screens.
+ */
+function WeekHero({
+    weekStart,
+    selected,
+    today,
+    rangeLabel,
+    entries,
+    ready,
+    isDone,
+    alertDates,
+    weekNote,
+    editing,
+    canEdit,
+    discarding,
+    onStep,
+    onSelect,
+    onPick,
+    onEditFlag,
+    onStartEditing,
+    onExport,
+}: {
+    weekStart: string
+    /** The focused day (the planner's anchor). */
+    selected: string
+    today: string
+    rangeLabel: string
+    entries: FitnessPlanEntry[]
+    /** False while the week is loading — the numbers would be stale. */
+    ready: boolean
+    isDone: (entry: FitnessPlanEntry) => boolean
+    /** Days with an unaccepted clash or overload warning. */
+    alertDates: Set<string>
+    weekNote: FitnessPlanNote | null
+    editing: boolean
+    canEdit: boolean
+    discarding: boolean
+    onStep: (dir: -1 | 1) => void
+    onSelect: (date: string) => void
+    onPick: (date: string) => void
+    onEditFlag: () => void
+    onStartEditing: () => void
+    onExport: () => void
+}) {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+    const t = tally(entries)
+    const total = entries.length
+    const done = entries.filter(isDone).length
+    const isThisWeek = mondayOf(today) === weekStart
+    const flag = weekNote ? FLAG_TONE[weekNote.color] : null
+
+    return (
+        <section className="relative overflow-hidden rounded-[28px] bg-linear-to-br from-brand-700 via-brand-600 to-brand-500 text-white shadow-[0_18px_40px_-20px_rgba(1,61,90,0.6)]">
+            {/* Soft glows for depth — purely decorative. */}
+            <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl"
+            />
+            <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-coral-500/20 blur-3xl"
+            />
+
+            <div className="relative flex flex-col gap-5 p-5 sm:p-7">
+                {/* Week title + navigation */}
+                <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                            <HeroIconButton
+                                label="Previous week"
+                                icon="fa-solid fa-chevron-left"
+                                onClick={() => onStep(-1)}
+                            />
+                            <HeroIconButton
+                                label="Next week"
+                                icon="fa-solid fa-chevron-right"
+                                onClick={() => onStep(1)}
+                            />
+                            {!isThisWeek && (
+                                <button
+                                    type="button"
+                                    onClick={() => onPick(today)}
+                                    className="ml-1 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/25"
+                                >
+                                    Today
+                                </button>
+                            )}
+                        </div>
+                        <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+                            {relativeWeekLabel(weekStart, today)}
+                        </h2>
+                        <p className="mt-1 text-sm font-medium text-white/60">{rangeLabel}</p>
+                    </div>
+                    <ProgressRing done={ready ? done : 0} total={ready ? total : 0} />
+                </div>
+
+                {/* What the week is made of */}
+                <div className="flex flex-wrap items-center gap-2">
+                    {weekNote && flag ? (
+                        <button
+                            type="button"
+                            onClick={editing ? onEditFlag : undefined}
+                            aria-label={editing ? 'Edit week flag' : undefined}
+                            className={`inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-neutral-900 ${
+                                editing ? 'transition-opacity hover:opacity-90' : 'cursor-default'
+                            }`}
+                        >
+                            <span
+                                className={`h-2 w-2 rounded-full ${flag.dot}`}
+                                aria-hidden="true"
+                            />
+                            {weekNote.label || 'Flagged week'}
+                            {editing && (
+                                <i
+                                    className="fa-solid fa-pen text-[10px] text-neutral-400"
+                                    aria-hidden="true"
+                                />
+                            )}
+                        </button>
+                    ) : (
+                        editing && (
+                            <button
+                                type="button"
+                                onClick={onEditFlag}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-white/30 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/60 hover:text-white"
+                            >
+                                <i className="fa-solid fa-flag text-[10px]" aria-hidden="true" />
+                                Flag week
+                            </button>
+                        )
+                    )}
+                    {ready && total === 0 && (
+                        <span className="text-sm text-white/60">Nothing planned yet</span>
+                    )}
+                    {ready &&
+                        kindsIn(entries).map((k) => {
+                            const count =
+                                k === 'workout'
+                                    ? t.workouts
+                                    : k === 'conditioning'
+                                      ? t.sessions
+                                      : k === 'mobility'
+                                        ? t.mobility
+                                        : t.recovery
+                            return (
+                                <span
+                                    key={k}
+                                    className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-inset ring-white/10"
+                                >
+                                    <span
+                                        className={`h-2 w-2 rounded-full ${KIND_TONE[k].dot}`}
+                                        aria-hidden="true"
+                                    />
+                                    <span className="tabular-nums">{count}</span>
+                                    <span className="font-medium text-white/70">
+                                        {KIND_META[k].label}
+                                    </span>
+                                </span>
+                            )
+                        })}
+                    {ready && t.minutes > 0 && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-inset ring-white/10">
+                            <i
+                                className="fa-regular fa-clock text-[10px] text-white/60"
+                                aria-hidden="true"
+                            />
+                            <span className="tabular-nums">{t.minutes}</span>
+                            <span className="font-medium text-white/70">min cardio</span>
+                        </span>
+                    )}
+                </div>
+
+                {/* The seven days */}
+                <div className="grid grid-cols-7 gap-1 rounded-2xl bg-black/15 p-1 sm:gap-1.5 sm:p-1.5">
+                    {days.map((date) => {
+                        const dayEntries = entries.filter((e) => e.date === date)
+                        return (
+                            <DayPill
+                                key={date}
+                                date={date}
+                                active={date === selected}
+                                isToday={date === today}
+                                kinds={ready ? kindsIn(dayEntries) : []}
+                                allDone={ready && dayEntries.length > 0 && dayEntries.every(isDone)}
+                                alert={ready && alertDates.has(date)}
+                                onClick={() => onSelect(date)}
+                            />
+                        )
+                    })}
+                </div>
+
+                {/* Actions — editing swaps these for the edit bar below the hero. */}
+                {canEdit && !editing && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={onStartEditing}
+                            disabled={discarding}
+                            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-700 shadow-sm transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
+                        >
+                            <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
+                            Edit plan
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onExport}
+                            className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-inset ring-white/15 transition-colors hover:bg-white/20"
+                        >
+                            <i className="fa-solid fa-file-export text-xs" aria-hidden="true" />
+                            Export
+                        </button>
+                        {/* Any day jumps to the week holding it — months out is one tap away. */}
+                        <DatePicker
+                            value={selected}
+                            displayLabel="Jump to…"
+                            clearable={false}
+                            onChange={(value) => {
+                                if (typeof value === 'string' && value) onPick(value)
+                            }}
+                            className="ml-auto w-[9.5rem] [&>button]:rounded-full [&>button]:border-white/15 [&>button]:bg-white/10 [&>button]:py-2 [&>button]:text-white [&>button:hover]:bg-white/20 [&_i]:text-white/60 [&_span]:text-white"
+                        />
+                    </div>
+                )}
+            </div>
+        </section>
+    )
+}
+
+function HeroIconButton({
+    icon,
+    label,
+    onClick,
+}: {
+    icon: string
+    label: string
+    onClick: () => void
+}) {
+    return (
+        <button
+            type="button"
+            aria-label={label}
+            onClick={onClick}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white active:bg-white/25"
+        >
+            <i className={`${icon} text-xs`} aria-hidden="true" />
+        </button>
+    )
+}
+
+/** A ring filling as the week's planned items get logged. */
+function ProgressRing({ done, total }: { done: number; total: number }) {
+    const r = 30
+    const c = 2 * Math.PI * r
+    const pct = total > 0 ? done / total : 0
+    const complete = total > 0 && done === total
+    return (
+        <div className="relative grid h-20 w-20 shrink-0 place-items-center sm:h-24 sm:w-24">
+            <svg
+                viewBox="0 0 72 72"
+                className="absolute inset-0 h-full w-full -rotate-90"
+                aria-hidden="true"
+            >
+                <circle
+                    cx="36"
+                    cy="36"
+                    r={r}
+                    fill="none"
+                    strokeWidth="6"
+                    className="stroke-white/15"
+                />
+                <circle
+                    cx="36"
+                    cy="36"
+                    r={r}
+                    fill="none"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeDasharray={c}
+                    strokeDashoffset={c * (1 - pct)}
+                    className={`transition-[stroke-dashoffset] duration-700 ease-out ${
+                        complete ? 'stroke-emerald-400' : 'stroke-white'
+                    }`}
+                />
+            </svg>
+            <div className="text-center leading-none">
+                {complete ? (
+                    <i
+                        className="fa-solid fa-check text-xl text-emerald-300"
+                        aria-label="Week complete"
+                    />
+                ) : (
+                    <>
+                        <p className="text-lg font-bold tabular-nums sm:text-xl">
+                            {done}
+                            <span className="text-white/50">/{total}</span>
+                        </p>
+                        <p className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-white/50">
+                            done
+                        </p>
+                    </>
+                )}
+            </div>
+        </div>
+    )
+}
+
+/** One day in the hero's week strip. */
+function DayPill({
+    date,
+    active,
+    isToday,
+    kinds,
+    allDone,
+    alert,
+    onClick,
+}: {
+    date: string
+    active: boolean
+    isToday: boolean
+    kinds: FitnessPlanKind[]
+    allDone: boolean
+    alert: boolean
+    onClick: () => void
+}) {
+    const { year, month, day } = parseDateKey(date)
+    const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={`${weekday} ${day} ${MONTHS[month]}`}
+            aria-current={active ? 'date' : undefined}
+            className={`relative flex flex-col items-center gap-1 rounded-xl py-2 transition-all sm:py-2.5 ${
+                active
+                    ? 'bg-white text-brand-700 shadow-md'
+                    : 'text-white/80 hover:bg-white/10 hover:text-white'
+            }`}
+        >
+            <span
+                className={`text-[10px] font-semibold uppercase tracking-wider ${
+                    active ? 'text-brand-500' : 'text-white/50'
+                }`}
+            >
+                <span className="sm:hidden">{weekday.slice(0, 1)}</span>
+                <span className="hidden sm:inline">{weekday.slice(0, 3)}</span>
+            </span>
+            <span
+                className={`grid h-7 w-7 place-items-center rounded-full text-sm font-bold tabular-nums sm:h-8 sm:w-8 sm:text-base ${
+                    isToday
+                        ? active
+                            ? 'bg-coral-500 text-white'
+                            : 'bg-coral-500/90 text-white'
+                        : ''
+                }`}
+            >
+                {day}
+            </span>
+            <span className="flex h-1.5 items-center gap-0.5">
+                {kinds.map((k) => (
+                    <span
+                        key={k}
+                        className={`h-1.5 w-1.5 rounded-full ${KIND_TONE[k].dot} ${
+                            active ? '' : 'ring-1 ring-white/20'
+                        }`}
+                    />
+                ))}
+            </span>
+            {allDone && (
+                <span
+                    className="absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-emerald-500 text-white ring-2 ring-brand-600"
+                    title="All done"
+                >
+                    <i className="fa-solid fa-check text-[8px]" aria-hidden="true" />
+                </span>
+            )}
+            {alert && !allDone && (
+                <span
+                    className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-brand-600"
+                    title="Needs a look"
+                />
+            )}
+        </button>
+    )
+}
+
+/**
+ * Pinned under the hero while editing, so "Done" stays in reach however far
+ * down the week the edit has scrolled.
+ */
+function EditBar({
+    children,
+    onCancel,
+    onDone,
+    discarding,
+}: {
+    children: ReactNode
+    onCancel: () => void
+    onDone: () => void
+    discarding: boolean
+}) {
+    return (
+        <div className="sticky top-16 z-30 flex lg:top-3 flex-wrap items-center gap-2 rounded-2xl bg-white/90 p-2 pl-4 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.25)] ring-1 ring-black/[0.06] backdrop-blur-md">
+            <span className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-coral-500 opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-coral-500" />
+                </span>
+                Editing
+            </span>
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-1.5">
+                {children}
+                <Button variant="ghost" size="sm" disabled={discarding} onClick={onCancel}>
+                    {discarding ? 'Undoing…' : 'Cancel'}
+                </Button>
+                <Button
+                    variant="primary"
+                    size="sm"
+                    icon="fa-solid fa-check"
+                    disabled={discarding}
+                    onClick={onDone}
+                >
+                    Done
+                </Button>
+            </div>
+        </div>
+    )
+}
+
 // ─── Week view ────────────────────────────────────────────────────────────────
+
+/** Phones show one day at a time; from `md` up the whole week is a feed. */
+const WIDE_QUERY = '(min-width: 768px)'
+const isWide = () => typeof window !== 'undefined' && window.matchMedia(WIDE_QUERY).matches
 
 function WeekView({
     weekStart,
+    selected,
     today,
     editing,
     entries,
-    weekNote,
     dayNotes,
     clashesByDate,
     overloadsByDate,
     isDone,
+    onSelect,
     onAdd,
     onOpen,
     onRemove,
@@ -1880,15 +2315,17 @@ function WeekView({
     onShowOverloads,
 }: {
     weekStart: string
+    /** The focused day — the only one shown on a phone. */
+    selected: string
     today: string
     editing: boolean
     entries: FitnessPlanEntry[]
-    weekNote: FitnessPlanNote | null
     dayNotes: Map<string, FitnessPlanNote>
     clashesByDate: Map<string, Clash[]>
     overloadsByDate: Map<string, SlotOverload[]>
     /** Whether a planned item has a matching completion log on its day. */
     isDone: (entry: FitnessPlanEntry) => boolean
+    onSelect: (date: string) => void
     onAdd: (date: string, part: FitnessPlanPart) => void
     onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
@@ -1900,8 +2337,8 @@ function WeekView({
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
-    // Drag-and-drop state, held here so a row can be dragged across day columns —
-    // not just between the slots of its own day. `dragId` is the item in flight;
+    // Drag-and-drop state, held here so a row can be dragged across days — not
+    // just between the slots of its own day. `dragId` is the item in flight;
     // `dropAt` is where it would land: a day + slot, the row to drop before
     // (`refId`, or null to append) and which half of that row the cursor is in.
     const [dragId, setDragId] = useState<string | null>(null)
@@ -1911,6 +2348,26 @@ function WeekView({
         refId: string | null
         after: boolean
     } | null>(null)
+
+    // Swipe left/right on a phone to move a day — crossing Sunday or Monday
+    // carries on into the next or previous week.
+    const touch = useRef<{ x: number; y: number } | null>(null)
+    const swipeProps = {
+        onTouchStart: (e: ReactTouchEvent) => {
+            const p = e.touches[0]
+            touch.current = { x: p.clientX, y: p.clientY }
+        },
+        onTouchEnd: (e: ReactTouchEvent) => {
+            const start = touch.current
+            touch.current = null
+            if (!start || isWide()) return
+            const p = e.changedTouches[0]
+            const dx = p.clientX - start.x
+            const dy = p.clientY - start.y
+            if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return
+            onSelect(addDays(selected, dx < 0 ? 1 : -1))
+        },
+    }
 
     // A slot's items (any day) in display (order) sequence.
     const slotItems = (date: string, part: FitnessPlanPart) =>
@@ -1950,113 +2407,69 @@ function WeekView({
         onReorder(target.date, target.part, ids)
     }
 
-    const renderDay = (date: string) => (
-        <DayColumn
-            key={date}
-            date={date}
-            isToday={date === today}
-            editable={editing}
-            entries={entries.filter((e) => e.date === date)}
-            note={dayNotes.get(date) ?? null}
-            clashCount={(clashesByDate.get(date) ?? []).filter((c) => !c.acknowledged).length}
-            acceptedClashCount={
-                (clashesByDate.get(date) ?? []).filter((c) => c.acknowledged).length
-            }
-            overloadCount={(overloadsByDate.get(date) ?? []).filter((o) => !o.acknowledged).length}
-            acceptedOverloadCount={
-                (overloadsByDate.get(date) ?? []).filter((o) => o.acknowledged).length
-            }
-            isDone={isDone}
-            onAdd={(part) => onAdd(date, part)}
-            onOpen={onOpen}
-            onRemove={onRemove}
-            dragActive={dragId !== null}
-            draggedId={dragId}
-            dropForDay={dropAt && dropAt.date === date ? dropAt : null}
-            onEntryDragStart={setDragId}
-            onEntryDragEnd={resetDrag}
-            onTarget={(part, refId, after) => setDropAt({ date, part, refId, after })}
-            onClearTarget={(part) =>
-                setDropAt((d) => (d && d.date === date && d.part === part ? null : d))
-            }
-            onDropEntry={handleDrop}
-            onEditFlag={() => onEditFlag('day', date)}
-            onClear={() => onClearDay(date)}
-            onShowClashes={() => onShowClashes(date)}
-            onShowOverloads={() => onShowOverloads(date)}
-        />
-    )
-
     return (
-        <div className="flex flex-col gap-4">
-            <WeekFlagBanner
-                weekStart={weekStart}
-                note={weekNote}
-                editable={editing}
-                onEdit={() => onEditFlag('week', weekStart)}
-            />
-            {/* Mon–Fri on one row, the weekend on its own below it. Both rows use
-                the same column template so the weekend days keep the weekday width. */}
-            <div className={WEEK_ROW_GRID}>{days.slice(0, 5).map(renderDay)}</div>
-            <div className={WEEK_ROW_GRID}>{days.slice(5).map(renderDay)}</div>
+        <div {...swipeProps} className="flex flex-col gap-3 md:gap-4">
+            {days.map((date) => (
+                <DayCard
+                    key={date}
+                    date={date}
+                    // Only the focused day on a phone; every day from md up.
+                    className={date === selected ? 'flex' : 'hidden md:flex'}
+                    isToday={date === today}
+                    editable={editing}
+                    entries={entries.filter((e) => e.date === date)}
+                    note={dayNotes.get(date) ?? null}
+                    clashCount={
+                        (clashesByDate.get(date) ?? []).filter((c) => !c.acknowledged).length
+                    }
+                    acceptedClashCount={
+                        (clashesByDate.get(date) ?? []).filter((c) => c.acknowledged).length
+                    }
+                    overloadCount={
+                        (overloadsByDate.get(date) ?? []).filter((o) => !o.acknowledged).length
+                    }
+                    acceptedOverloadCount={
+                        (overloadsByDate.get(date) ?? []).filter((o) => o.acknowledged).length
+                    }
+                    isDone={isDone}
+                    onAdd={(part) => onAdd(date, part)}
+                    onOpen={onOpen}
+                    onRemove={onRemove}
+                    dragActive={dragId !== null}
+                    draggedId={dragId}
+                    dropForDay={dropAt && dropAt.date === date ? dropAt : null}
+                    onEntryDragStart={setDragId}
+                    onEntryDragEnd={resetDrag}
+                    onTarget={(part, refId, after) => setDropAt({ date, part, refId, after })}
+                    onClearTarget={(part) =>
+                        setDropAt((d) => (d && d.date === date && d.part === part ? null : d))
+                    }
+                    onDropEntry={handleDrop}
+                    onEditFlag={() => onEditFlag('day', date)}
+                    onClear={() => onClearDay(date)}
+                    onShowClashes={() => onShowClashes(date)}
+                    onShowOverloads={() => onShowOverloads(date)}
+                />
+            ))}
+            {/* A nudge that the day view swipes — phones only, and only while viewing. */}
+            {!editing && (
+                <p className="text-center text-[11px] text-neutral-400 md:hidden">
+                    <i
+                        className="fa-solid fa-arrows-left-right mr-1.5 text-[10px]"
+                        aria-hidden="true"
+                    />
+                    Swipe to change day
+                </p>
+            )}
         </div>
     )
 }
 
-/** Shared column template for the weekday and weekend rows of the planner grid. */
-const WEEK_ROW_GRID = 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
-
-/**
- * The week's flag + label, shown above the day grid. When a flag is set it reads
- * as a coloured banner; in edit mode it also exposes a button to set or change
- * it. With no flag it only appears in edit mode, as a subtle "Flag week" prompt.
- */
-function WeekFlagBanner({
-    weekStart,
-    note,
-    editable,
-    onEdit,
-}: {
-    weekStart: string
-    note: FitnessPlanNote | null
-    editable: boolean
-    onEdit: () => void
-}) {
-    if (!note && !editable) return null
-
-    if (!note) {
-        return (
-            <button
-                type="button"
-                onClick={onEdit}
-                className="flex items-center gap-2 self-start rounded-full border border-dashed border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-600"
-            >
-                <i className="fa-solid fa-flag text-[11px]" aria-hidden="true" />
-                Flag week
-            </button>
-        )
-    }
-
-    const tone = FLAG_TONE[note.color]
-    return (
-        <div className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 ${tone.banner}`}>
-            <i className="fa-solid fa-flag text-xs" aria-hidden="true" />
-            <span className="text-sm font-semibold">{note.label || 'Flagged week'}</span>
-            <span className="text-xs opacity-70">
-                · {formatWeekRange(weekStart, addDays(weekStart, 6))}
-            </span>
-            {editable && (
-                <button
-                    type="button"
-                    onClick={onEdit}
-                    aria-label="Edit week flag"
-                    className="ml-auto grid h-7 w-7 place-items-center rounded-full opacity-70 transition-colors hover:bg-white/50 hover:opacity-100"
-                >
-                    <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
-                </button>
-            )}
-        </div>
-    )
+/** Scroll a day card into view — the strip's job on wide screens. */
+function scrollToDay(date: string) {
+    document
+        .getElementById(`plan-day-${date}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 function IconButton({
@@ -2083,38 +2496,43 @@ function IconButton({
     )
 }
 
-/** Week-total headline: workouts, sessions and total conditioning minutes. */
-function WeekTotals({ tally }: { tally: WeekTally }) {
+/** A small round warning / status button in a day card's header. */
+function DayAlertButton({
+    tone,
+    icon,
+    label,
+    count,
+    onClick,
+}: {
+    tone: 'amber' | 'violet' | 'quiet'
+    icon: string
+    label: string
+    count?: number
+    onClick: () => void
+}) {
+    const cls =
+        tone === 'amber'
+            ? 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+            : tone === 'violet'
+              ? 'bg-violet-50 text-violet-600 hover:bg-violet-100'
+              : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500'
     return (
-        // Five labelled stats plus dividers come to ~454px, so on a phone this
-        // becomes a swipeable strip rather than pushing the page sideways.
-        <div className="flex items-center gap-3 overflow-x-auto scrollbar-none rounded-2xl border border-neutral-200 bg-white px-4 py-2.5 sm:gap-4">
-            <Stat label="Strength" value={tally.workouts} />
-            <div className="h-8 w-px shrink-0 bg-neutral-200" />
-            <Stat label="Cond." value={tally.sessions} />
-            <div className="h-8 w-px shrink-0 bg-neutral-200" />
-            <Stat label="Mobility" value={tally.mobility} />
-            <div className="h-8 w-px shrink-0 bg-neutral-200" />
-            <Stat label="Recovery" value={tally.recovery} />
-            <div className="h-8 w-px shrink-0 bg-neutral-200" />
-            <Stat label="Cond. min" value={tally.minutes} />
-        </div>
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={label}
+            title={label}
+            className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-semibold transition-colors ${cls}`}
+        >
+            <i className={`${icon} text-[12px]`} aria-hidden="true" />
+            {count !== undefined && count > 1 && <span className="tabular-nums">{count}</span>}
+        </button>
     )
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-    return (
-        <div className="shrink-0">
-            <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                {label}
-            </p>
-            <p className="text-lg font-bold tabular-nums text-neutral-900">{value}</p>
-        </div>
-    )
-}
-
-function DayColumn({
+function DayCard({
     date,
+    className = '',
     isToday,
     editable,
     entries,
@@ -2141,6 +2559,7 @@ function DayColumn({
     onShowOverloads,
 }: {
     date: string
+    className?: string
     isToday: boolean
     editable: boolean
     entries: FitnessPlanEntry[]
@@ -2177,93 +2596,155 @@ function DayColumn({
 }) {
     const { year, month, day } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
-    const t = tally(entries)
-    const total = t.workouts + t.sessions + t.mobility + t.recovery
+    const total = entries.length
+    const doneCount = entries.filter(isDone).length
     const rest = total === 0
     const tone = note ? FLAG_TONE[note.color] : null
+
+    // Minutes across the day: sessions, mobility and recovery carry a duration;
+    // workouts use the same estimate as their detail view.
+    const minutes = entries.reduce((sum, e) => {
+        if (e.kind === 'workout')
+            return sum + (e.workout ? estimateWorkoutMinutes(e.workout.exercises) : 0)
+        if (e.kind === 'conditioning') return sum + (e.session?.duration ?? 0)
+        if (e.kind === 'mobility') return sum + (e.mobility?.duration ?? 0)
+        return sum + (e.recovery?.duration ?? 0)
+    }, 0)
 
     // A slot's items in display (order) sequence.
     const slotItems = (part: FitnessPlanPart) =>
         entries.filter((e) => partOf(e) === part).sort((a, b) => a.order - b.order)
 
+    // Viewing shows only the slots with something in them; editing shows all
+    // three, since each is both an add button and a drop target.
+    const parts = editable
+        ? FITNESS_PLAN_PARTS
+        : FITNESS_PLAN_PARTS.filter((p) => slotItems(p).length > 0)
+
     return (
-        <Card as="div" flush hover={false} className="flex flex-col gap-3 overflow-hidden p-4">
-            {/* A flagged day wears a coloured strip along its top edge. */}
-            {tone && <span className={`-mx-4 -mt-4 h-1 ${tone.bar}`} aria-hidden="true" />}
-            <div className="flex items-baseline justify-between">
-                <div>
-                    <p
-                        className={`text-sm font-bold ${
-                            isToday ? 'text-coral-600' : 'text-neutral-900'
-                        }`}
-                    >
-                        {weekday}
-                    </p>
-                    <p className="text-xs text-neutral-400">
-                        {day} {MONTHS[month].slice(0, 3)}
+        <section
+            id={`plan-day-${date}`}
+            className={`relative scroll-mt-32 flex-col gap-4 overflow-hidden rounded-3xl bg-white p-4 ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 ${
+                isToday ? 'ring-2 ring-coral-200' : ''
+            } ${className}`}
+        >
+            {/* A flagged day wears a coloured strip down its left edge. */}
+            {tone && (
+                <span className={`absolute inset-y-0 left-0 w-1 ${tone.bar}`} aria-hidden="true" />
+            )}
+
+            <header className="flex items-center gap-3">
+                <div
+                    className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl leading-none ${
+                        isToday ? 'bg-coral-500 text-white' : 'bg-neutral-100 text-neutral-900'
+                    }`}
+                >
+                    <div className="text-center">
+                        <p
+                            className={`text-[9px] font-bold uppercase tracking-wider ${
+                                isToday ? 'text-white/80' : 'text-neutral-400'
+                            }`}
+                        >
+                            {weekday.slice(0, 3)}
+                        </p>
+                        <p className="mt-0.5 text-lg font-bold tabular-nums">{day}</p>
+                    </div>
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <h3 className="text-base font-bold tracking-tight text-neutral-900">
+                            {weekday}
+                        </h3>
+                        {isToday && (
+                            <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-coral-600">
+                                Today
+                            </span>
+                        )}
+                        {note && tone ? (
+                            <button
+                                type="button"
+                                onClick={editable ? onEditFlag : undefined}
+                                aria-label={editable ? 'Edit day flag' : undefined}
+                                className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone.chip} ${
+                                    editable
+                                        ? 'transition-opacity hover:opacity-80'
+                                        : 'cursor-default'
+                                }`}
+                            >
+                                <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
+                                <span className="truncate">{note.label || 'Flagged'}</span>
+                            </button>
+                        ) : (
+                            editable && (
+                                <button
+                                    type="button"
+                                    onClick={onEditFlag}
+                                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold text-neutral-300 transition-colors hover:bg-neutral-50 hover:text-neutral-500"
+                                >
+                                    <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
+                                    Flag
+                                </button>
+                            )
+                        )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-neutral-500">
+                        {rest ? (
+                            'Rest day'
+                        ) : (
+                            <>
+                                <span className="tabular-nums">
+                                    {doneCount > 0
+                                        ? `${doneCount} of ${total} done`
+                                        : `${total} planned`}
+                                </span>
+                                {minutes > 0 && (
+                                    <>
+                                        <span className="mx-1.5 text-neutral-300">·</span>
+                                        <span className="tabular-nums">~{minutes} min</span>
+                                    </>
+                                )}
+                            </>
+                        )}
                     </p>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex shrink-0 items-center gap-1">
                     {clashCount > 0 ? (
-                        <button
-                            type="button"
+                        <DayAlertButton
+                            tone="amber"
+                            icon="fa-solid fa-triangle-exclamation"
+                            count={clashCount}
+                            label={`${clashCount} calendar clash${clashCount === 1 ? '' : 'es'} — view`}
                             onClick={onShowClashes}
-                            aria-label={`${clashCount} calendar clash${clashCount === 1 ? '' : 'es'} — view`}
-                            title={`${clashCount} calendar clash${clashCount === 1 ? '' : 'es'}`}
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-amber-500 transition-colors hover:bg-amber-50 hover:text-amber-600"
-                        >
-                            <i
-                                className="fa-solid fa-triangle-exclamation text-[13px]"
-                                aria-hidden="true"
-                            />
-                        </button>
+                        />
                     ) : (
                         // Every clash on this day has been accepted: no warning, but a
                         // quiet mark that keeps the day one press from taking it back.
                         acceptedClashCount > 0 && (
-                            <button
-                                type="button"
+                            <DayAlertButton
+                                tone="quiet"
+                                icon="fa-solid fa-calendar-check"
+                                label={`${acceptedClashCount} accepted calendar clash${acceptedClashCount === 1 ? '' : 'es'} — view`}
                                 onClick={onShowClashes}
-                                aria-label={`${acceptedClashCount} accepted calendar clash${acceptedClashCount === 1 ? '' : 'es'} — view`}
-                                title={`${acceptedClashCount} accepted calendar clash${acceptedClashCount === 1 ? '' : 'es'}`}
-                                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-500"
-                            >
-                                <i className="fa-solid fa-check text-[13px]" aria-hidden="true" />
-                            </button>
+                            />
                         )
                     )}
                     {overloadCount > 0 ? (
-                        <button
-                            type="button"
+                        <DayAlertButton
+                            tone="violet"
+                            icon="fa-solid fa-gauge-high"
+                            count={overloadCount}
+                            label={`${overloadCount} overloaded slot${overloadCount === 1 ? '' : 's'} — view`}
                             onClick={onShowOverloads}
-                            aria-label={`${overloadCount} overloaded slot${overloadCount === 1 ? '' : 's'} — view`}
-                            title={`${overloadCount} overloaded slot${overloadCount === 1 ? '' : 's'}`}
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600"
-                        >
-                            <i className="fa-solid fa-gauge-high text-[13px]" aria-hidden="true" />
-                        </button>
+                        />
                     ) : (
-                        // Every overloaded slot on this day has been accepted: no
-                        // warning, but a quiet mark keeping it one press from coming back.
                         acceptedOverloadCount > 0 && (
-                            <button
-                                type="button"
+                            <DayAlertButton
+                                tone="quiet"
+                                icon="fa-solid fa-gauge-high"
+                                label={`${acceptedOverloadCount} accepted overloaded slot${acceptedOverloadCount === 1 ? '' : 's'} — view`}
                                 onClick={onShowOverloads}
-                                aria-label={`${acceptedOverloadCount} accepted overloaded slot${acceptedOverloadCount === 1 ? '' : 's'} — view`}
-                                title={`${acceptedOverloadCount} accepted overloaded slot${acceptedOverloadCount === 1 ? '' : 's'}`}
-                                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-500"
-                            >
-                                <i
-                                    className="fa-solid fa-gauge-high text-[13px]"
-                                    aria-hidden="true"
-                                />
-                            </button>
+                            />
                         )
-                    )}
-                    {isToday && (
-                        <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-semibold text-coral-600">
-                            Today
-                        </span>
                     )}
                     {editable && total > 0 && (
                         <button
@@ -2271,90 +2752,59 @@ function DayColumn({
                             onClick={onClear}
                             aria-label={`Clear ${weekday}`}
                             title="Clear day"
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
                         >
-                            <i className="fa-solid fa-broom text-[11px]" aria-hidden="true" />
+                            <i className="fa-solid fa-broom text-[12px]" aria-hidden="true" />
                         </button>
                     )}
                 </div>
-            </div>
+            </header>
 
-            {/* The day's flag: a coloured label chip, or a prompt to add one in edit mode. */}
-            {note && tone ? (
-                <button
-                    type="button"
-                    onClick={editable ? onEditFlag : undefined}
-                    aria-label={editable ? 'Edit day flag' : undefined}
-                    className={`flex items-center gap-1.5 self-start rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone.chip} ${
-                        editable ? 'transition-opacity hover:opacity-80' : 'cursor-default'
-                    }`}
-                >
-                    <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
-                    <span className="truncate">{note.label || 'Flagged'}</span>
-                </button>
+            {rest && !editable ? (
+                // Phones get a proper empty state (it's the whole screen there);
+                // the wide feed keeps rest days to their header.
+                <div className="flex flex-col items-center gap-2 rounded-2xl bg-neutral-50 px-4 py-10 text-center md:hidden">
+                    <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-50 text-emerald-500">
+                        <i className="fa-solid fa-mug-hot" aria-hidden="true" />
+                    </span>
+                    <p className="text-sm font-semibold text-neutral-700">Rest &amp; recharge</p>
+                    <p className="text-xs text-neutral-400">Nothing planned for {weekday}.</p>
+                </div>
             ) : (
-                editable && (
-                    <button
-                        type="button"
-                        onClick={onEditFlag}
-                        className="flex items-center gap-1.5 self-start rounded-full px-2 py-0.5 text-[11px] font-semibold text-neutral-300 transition-colors hover:text-neutral-500"
-                    >
-                        <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
-                        Flag day
-                    </button>
+                parts.length > 0 && (
+                    <div className={editable ? 'grid gap-3 md:grid-cols-3' : 'flex flex-col gap-4'}>
+                        {parts.map((part) => (
+                            <SlotSection
+                                key={part}
+                                part={part}
+                                editable={editable}
+                                entries={slotItems(part)}
+                                isDone={isDone}
+                                onAdd={() => onAdd(part)}
+                                onOpen={onOpen}
+                                onRemove={onRemove}
+                                dragActive={dragActive}
+                                draggedId={draggedId}
+                                drop={dropForDay && dropForDay.part === part ? dropForDay : null}
+                                onEntryDragStart={onEntryDragStart}
+                                onEntryDragEnd={onEntryDragEnd}
+                                onTarget={(refId, after) => onTarget(part, refId, after)}
+                                onClearTarget={() => onClearTarget(part)}
+                                onDropEntry={onDropEntry}
+                            />
+                        ))}
+                    </div>
                 )
             )}
-
-            <div className="flex flex-col gap-3">
-                {FITNESS_PLAN_PARTS.map((part) => (
-                    <SlotSection
-                        key={part}
-                        part={part}
-                        editable={editable}
-                        entries={slotItems(part)}
-                        isDone={isDone}
-                        onAdd={() => onAdd(part)}
-                        onOpen={onOpen}
-                        onRemove={onRemove}
-                        dragActive={dragActive}
-                        draggedId={draggedId}
-                        drop={dropForDay && dropForDay.part === part ? dropForDay : null}
-                        onEntryDragStart={onEntryDragStart}
-                        onEntryDragEnd={onEntryDragEnd}
-                        onTarget={(refId, after) => onTarget(part, refId, after)}
-                        onClearTarget={() => onClearTarget(part)}
-                        onDropEntry={onDropEntry}
-                    />
-                ))}
-            </div>
-
-            <div className="mt-auto flex items-center gap-3 border-t border-neutral-100 pt-3 text-[11px] text-neutral-500">
-                {rest ? (
-                    <span className="text-neutral-400">Rest day</span>
-                ) : (
-                    <>
-                        <span className="tabular-nums">
-                            {total} {total === 1 ? 'item' : 'items'}
-                        </span>
-                        {t.minutes > 0 && (
-                            <>
-                                <span className="text-neutral-300">·</span>
-                                <span className="tabular-nums">{t.minutes} min cond.</span>
-                            </>
-                        )}
-                    </>
-                )}
-            </div>
-        </Card>
+        </section>
     )
 }
 
 /**
- * One slot (morning / afternoon / evening) of a day column. Holds a flat list
- * of items of any category, each carrying its own colour. Every slot is always
- * shown, so a day reads the same shape throughout: an empty one says "Nothing
- * this morning" in view mode, and in edit mode offers an add control that opens
- * the picker pre-targeted to this slot.
+ * One slot (morning / afternoon / evening) of a day. Holds a flat list of items
+ * of any category, each carrying its own colour. Viewing, it's a label over a
+ * grid of item cards; editing, it becomes a lane — an add button and a drop
+ * target, shown even when empty.
  */
 function SlotSection({
     part,
@@ -2381,7 +2831,7 @@ function SlotSection({
     onAdd: () => void
     onOpen: (entry: FitnessPlanEntry) => void
     onRemove: (id: string) => void
-    /** True while an item of this day is being dragged, so slots show as drop targets. */
+    /** True while an item is being dragged, so slots show as drop targets. */
     dragActive: boolean
     /** The id of the row in flight, if any — it never acts as its own drop target. */
     draggedId: string | null
@@ -2435,69 +2885,76 @@ function SlotSection({
           }
         : {}
 
+    const label = (
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            <i className={`${meta.icon} text-[10px]`} aria-hidden="true" />
+            {meta.label}
+        </span>
+    )
+
+    const rows = entries.map((e) => (
+        <PlannedRow
+            key={e._id}
+            entry={e}
+            done={isDone(e)}
+            dropId={e._id}
+            onOpen={() => onOpen(e)}
+            onRemove={editable ? () => onRemove(e._id) : undefined}
+            draggable={editable}
+            onDragStart={() => onEntryDragStart(e._id)}
+            onDragEnd={onEntryDragEnd}
+            dropEdge={drop && drop.refId === e._id ? (drop.after ? 'bottom' : 'top') : null}
+        />
+    ))
+
+    if (!editable) {
+        return (
+            <div className="flex flex-col gap-2">
+                {label}
+                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{rows}</ul>
+            </div>
+        )
+    }
+
     return (
         <div
             {...containerDropProps}
-            className={`flex flex-col gap-1.5 rounded-lg transition-colors ${
-                drop ? 'bg-coral-50 ring-1 ring-inset ring-coral-300' : ''
+            className={`flex flex-col gap-2 rounded-2xl p-2.5 transition-colors ${
+                drop ? 'bg-coral-50 ring-2 ring-inset ring-coral-200' : 'bg-neutral-50'
             }`}
         >
-            <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-                    <i className={`${meta.icon} text-[10px] text-neutral-400`} aria-hidden="true" />
-                    {meta.label}
-                </span>
-                {editable && (
-                    <button
-                        type="button"
-                        aria-label={`Add to ${meta.label.toLowerCase()}`}
-                        onClick={onAdd}
-                        className="grid h-6 w-6 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                    >
-                        <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
-                    </button>
-                )}
+            <div className="flex items-center justify-between pl-1">
+                {label}
+                <button
+                    type="button"
+                    aria-label={`Add to ${meta.label.toLowerCase()}`}
+                    onClick={onAdd}
+                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-neutral-500 shadow-sm ring-1 ring-black/[0.06] transition-colors hover:bg-neutral-900 hover:text-white"
+                >
+                    <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
+                </button>
             </div>
             {entries.length > 0 ? (
                 <ul ref={listRef} className="flex flex-col gap-2">
-                    {entries.map((e) => (
-                        <PlannedRow
-                            key={e._id}
-                            entry={e}
-                            done={isDone(e)}
-                            dropId={e._id}
-                            onOpen={() => onOpen(e)}
-                            onRemove={editable ? () => onRemove(e._id) : undefined}
-                            draggable={editable}
-                            onDragStart={() => onEntryDragStart(e._id)}
-                            onDragEnd={onEntryDragEnd}
-                            dropEdge={
-                                drop && drop.refId === e._id
-                                    ? drop.after
-                                        ? 'bottom'
-                                        : 'top'
-                                    : null
-                            }
-                        />
-                    ))}
+                    {rows}
                     {drop && drop.refId === null && <DropLine />}
                 </ul>
-            ) : editable ? (
+            ) : (
                 <button
                     type="button"
                     onClick={onAdd}
-                    className={`rounded-lg border border-dashed py-1.5 text-center text-[11px] transition-colors ${
+                    className={`flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed py-3 text-xs font-semibold transition-colors ${
                         dragActive
-                            ? 'border-coral-300 text-coral-400'
-                            : 'border-neutral-200 text-neutral-300 hover:border-neutral-300 hover:text-neutral-500'
+                            ? 'border-coral-300 text-coral-500'
+                            : 'border-neutral-200 text-neutral-400 hover:border-neutral-300 hover:text-neutral-600'
                     }`}
                 >
-                    {dragActive ? 'Move here' : 'Add'}
+                    <i
+                        className={`fa-solid ${dragActive ? 'fa-arrow-down' : 'fa-plus'} text-[10px]`}
+                        aria-hidden="true"
+                    />
+                    {dragActive ? 'Move here' : `Add to ${meta.label.toLowerCase()}`}
                 </button>
-            ) : (
-                <p className="py-1 text-[11px] italic text-neutral-300">
-                    Nothing this {meta.label.toLowerCase()}
-                </p>
             )}
         </div>
     )
@@ -2505,7 +2962,7 @@ function SlotSection({
 
 /** The coral marker showing where a dragged row will drop within a slot. */
 function DropLine() {
-    return <li aria-hidden="true" className="h-0.5 rounded-full bg-coral-400" />
+    return <li aria-hidden="true" className="h-0.5 rounded-full bg-coral-500" />
 }
 
 /** A small pill naming an item's category, so mixed slots stay legible. */
@@ -2517,6 +2974,23 @@ function KindChip({ kind }: { kind: FitnessPlanKind }) {
             {KIND_META[kind].label}
         </span>
     )
+}
+
+/** The one-line summary under a planned item's name. */
+function plannedMeta(entry: FitnessPlanEntry): string {
+    if (entry.kind === 'workout' && entry.workout) {
+        const n = entry.workout.exercises.length
+        const mins = estimateWorkoutMinutes(entry.workout.exercises)
+        return [`${n} ${n === 1 ? 'exercise' : 'exercises'}`, mins > 0 ? `~${mins} min` : '']
+            .filter(Boolean)
+            .join(' · ')
+    }
+    if (entry.kind === 'conditioning' && entry.session)
+        return `${entry.session.category} · ${entry.session.duration} min`
+    const item = entry.kind === 'mobility' ? entry.mobility : entry.recovery
+    return [KIND_META[entry.kind].label, item && item.duration > 0 ? `${item.duration} min` : '']
+        .filter(Boolean)
+        .join(' · ')
 }
 
 function PlannedRow({
@@ -2535,7 +3009,7 @@ function PlannedRow({
     done?: boolean
     onOpen?: () => void
     onRemove?: () => void
-    /** When true the row can be dragged to another slot of its day (week view). */
+    /** When true the row can be dragged to another slot or day (week view). */
     draggable?: boolean
     onDragStart?: () => void
     onDragEnd?: () => void
@@ -2553,52 +3027,25 @@ function PlannedRow({
     const [dragging, setDragging] = useState(false)
 
     const body = (
-        <>
-            <div className="flex items-center gap-1.5">
-                {done && (
-                    <i
-                        className="fa-solid fa-circle-check shrink-0 text-[12px] text-emerald-500"
-                        aria-label="Done"
-                        title="Completed"
-                    />
-                )}
-                <p className="truncate text-[13px] font-semibold text-neutral-700">{name}</p>
-            </div>
-            {entry.kind === 'workout' && entry.workout ? (
-                <div className="mt-0.5 flex items-center gap-1.5">
-                    <KindChip kind="workout" />
-                    <span className="text-[11px] tabular-nums text-neutral-400">
-                        {entry.workout.exercises.length}{' '}
-                        {entry.workout.exercises.length === 1 ? 'exercise' : 'exercises'}
-                    </span>
-                </div>
-            ) : entry.kind === 'conditioning' && entry.session ? (
-                <div className="mt-0.5 flex items-center gap-1.5">
-                    <CategoryChip category={entry.session.category} />
-                    <span className="text-[11px] tabular-nums text-neutral-400">
-                        {entry.session.duration} min
-                    </span>
-                </div>
-            ) : entry.kind === 'mobility' && entry.mobility ? (
-                <div className="mt-0.5 flex items-center gap-1.5">
-                    <KindChip kind="mobility" />
-                    {entry.mobility.duration > 0 && (
-                        <span className="text-[11px] tabular-nums text-neutral-400">
-                            {entry.mobility.duration} min
-                        </span>
-                    )}
-                </div>
-            ) : entry.recovery ? (
-                <div className="mt-0.5 flex items-center gap-1.5">
-                    <KindChip kind="recovery" />
-                    {entry.recovery.duration > 0 && (
-                        <span className="text-[11px] tabular-nums text-neutral-400">
-                            {entry.recovery.duration} min
-                        </span>
-                    )}
-                </div>
-            ) : null}
-        </>
+        <span className="flex min-w-0 items-center gap-3">
+            <span
+                className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-xl ${tone.tile}`}
+            >
+                <i className={`${KIND_META[entry.kind].icon} text-sm`} aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+                <span
+                    className={`block truncate text-sm font-semibold ${
+                        done ? 'text-neutral-400' : 'text-neutral-900'
+                    }`}
+                >
+                    {name}
+                </span>
+                <span className="mt-0.5 block truncate text-xs tabular-nums text-neutral-500">
+                    {plannedMeta(entry)}
+                </span>
+            </span>
+        </span>
     )
 
     return (
@@ -2624,21 +3071,24 @@ function PlannedRow({
                     : undefined
             }
             data-plan-row={dropId}
-            className={`relative flex items-center gap-1.5 rounded-xl px-2.5 py-2 ${tone.row} ${
-                draggable ? 'cursor-grab active:cursor-grabbing' : ''
-            } ${dragging ? 'opacity-40' : ''}`}
+            className={`group relative flex items-center gap-2 rounded-2xl bg-white p-2 pr-2.5 ring-1 ring-black/[0.06] transition-all ${
+                onOpen ? 'hover:-translate-y-px hover:shadow-[0_6px_16px_-8px_rgba(0,0,0,0.2)]' : ''
+            } ${draggable ? 'md:cursor-grab md:active:cursor-grabbing' : ''} ${
+                dragging ? 'opacity-40' : ''
+            }`}
         >
             {dropEdge && (
                 <span
                     aria-hidden="true"
-                    className={`pointer-events-none absolute inset-x-0 h-0.5 rounded-full bg-coral-400 ${
+                    className={`pointer-events-none absolute inset-x-0 h-0.5 rounded-full bg-coral-500 ${
                         dropEdge === 'top' ? '-top-[5px]' : '-bottom-[5px]'
                     }`}
                 />
             )}
             {draggable && (
+                // Drag-and-drop is a mouse thing — no grip on touch screens.
                 <i
-                    className="fa-solid fa-grip-vertical shrink-0 text-[11px] text-neutral-300"
+                    className="fa-solid fa-grip-vertical hidden shrink-0 pl-1 text-[11px] text-neutral-300 md:inline"
                     aria-hidden="true"
                 />
             )}
@@ -2647,21 +3097,30 @@ function PlannedRow({
                     type="button"
                     onClick={onOpen}
                     aria-label={`View ${name ?? 'item'}`}
-                    className="min-w-0 flex-1 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-400"
+                    className="min-w-0 flex-1 rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-300"
                 >
                     {body}
                 </button>
             ) : (
                 <div className="min-w-0 flex-1">{body}</div>
             )}
+            {done && (
+                <span
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-500 text-white"
+                    aria-label="Done"
+                    title="Completed"
+                >
+                    <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
+                </span>
+            )}
             {onRemove && (
                 <button
                     type="button"
                     aria-label={`Remove ${name ?? 'item'}`}
                     onClick={onRemove}
-                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-200 hover:text-red-600"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
                 >
-                    <i className="fa-solid fa-xmark text-[11px]" aria-hidden="true" />
+                    <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
                 </button>
             )}
         </li>
