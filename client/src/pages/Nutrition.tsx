@@ -54,6 +54,13 @@ import { listPlanEntries as listFitnessEntries } from '../services/fitnessPlan'
 import TodayTab from '../components/nutrition/TodayTab'
 import ProgressTab from '../components/nutrition/ProgressTab'
 import PhasesTab from '../components/nutrition/PhasesTab'
+import MealPrepTab, { useForecast, usePrepWindow } from '../components/nutrition/MealPrepTab'
+import BuffetMealModal, { type BuffetTarget } from '../components/nutrition/mealprep/BuffetMealModal'
+import { useMealPrep } from '../components/nutrition/mealprep/useMealPrep'
+import { EstimateBadge } from '../components/nutrition/mealprep/ui'
+import { componentGrams, grams as fmtGrams } from '../lib/mealPrep'
+import { weekSummary, type WeekSummary } from '../lib/nutritionWeek'
+import type { FoodForecast } from '../lib/mealPrepForecast'
 import { useAuth } from '../context/AuthContext'
 import { MEAL_TYPES } from '../types'
 import type {
@@ -197,13 +204,14 @@ type Drawered =
 
 // Today first: the week is where a plan gets designed, but the day is what you
 // actually come here to settle.
-const TOP_TABS = ['Today', 'Weekly Planner', 'Meals', 'Progress', 'Phases'] as const
+const TOP_TABS = ['Today', 'Weekly Planner', 'Meal Prep', 'Meals', 'Progress', 'Phases'] as const
 type TopTab = (typeof TOP_TABS)[number]
 
 const SUBTITLE: Record<TopTab, string> = {
     Today: 'Calories in against calories out, read through the phase you are in.',
     Meals: 'Your meal library — macros, ingredients and method for every recipe.',
     'Weekly Planner': 'Plan your week — breakfast, lunch, dinner and snacks, with macros tallied.',
+    'Meal Prep': 'Trays and sides cooked in bulk — what’s left, what it’s made of, and when to cook more.',
     Progress: 'Weight, waist, strength and photos — whether the recomp is actually working.',
     Phases: 'Dated cuts, bulks and maintenance stretches — the targets every day is judged against.',
 }
@@ -371,7 +379,7 @@ export default function Nutrition() {
 
             {tab === 'Today' ? (
                 <Container className="mt-2">
-                    <TodayTab settingsGoals={user?.settings?.macroGoals} />
+                    <TodayTab settingsGoals={user?.settings?.macroGoals} onOpenMealPrep={() => setTab('Meal Prep')} />
                 </Container>
             ) : tab === 'Progress' ? (
                 <Container className="mt-2">
@@ -380,6 +388,10 @@ export default function Nutrition() {
             ) : tab === 'Phases' ? (
                 <Container className="mt-2">
                     <PhasesTab openPhaseId={openPhaseId} onOpened={clearOpenPhase} />
+                </Container>
+            ) : tab === 'Meal Prep' ? (
+                <Container className="mt-2">
+                    <MealPrepTab />
                 </Container>
             ) : tab === 'Weekly Planner' ? (
                 <Container fluid className="mt-8">
@@ -1363,6 +1375,11 @@ function logProgress(entries: MealPlanEntry[]): LogProgress {
     return { eaten, skipped, pending: entries.length - eaten - skipped, eatenCalories }
 }
 
+/** A buffet plate that has taken stock — deleting it hands the grams back. */
+function isLoggedBuffet(e: MealPlanEntry): boolean {
+    return !!e.buffet && e.status === 'eaten'
+}
+
 /** The Monday (YYYY-MM-DD) that starts the week containing `date`. */
 function mondayOf(date: string): string {
     const { year, month, day } = parseDateKey(date)
@@ -1469,10 +1486,13 @@ function ShoppingListModal({
     open,
     onClose,
     entries,
+    cooks = [],
 }: {
     open: boolean
     onClose: () => void
     entries: MealPlanEntry[]
+    /** Trays the stock forecast says to cook this week — shopped at their recipe amounts. */
+    cooks?: FoodForecast[]
 }) {
     const items = useMemo(() => buildShoppingList(entries), [entries])
     const [copied, setCopied] = useState(false)
@@ -1482,12 +1502,15 @@ function ShoppingListModal({
     }, [open])
 
     function copy() {
-        const text = items
-            .map((i) => {
+        const text = [
+            ...items.map((i) => {
                 const amt = amountLabel(i)
                 return `- ${amt ? `${amt} ` : ''}${i.name}`
-            })
-            .join('\n')
+            }),
+            ...cooks.flatMap((c) =>
+                (c.recipe?.ingredients ?? []).map((ing) => `- ${fmtQty(ing.quantity)} ${ing.unit} ${ing.name} (${c.name})`)
+            ),
+        ].join('\n')
         navigator.clipboard?.writeText(text).then(() => {
             setCopied(true)
             setTimeout(() => setCopied(false), 1500)
@@ -1500,7 +1523,7 @@ function ShoppingListModal({
             onClose={onClose}
             title="This week's shopping list"
             footer={
-                items.length > 0 && (
+                (items.length > 0 || cooks.length > 0) && (
                     <>
                         <Button variant="ghost" onClick={onClose}>
                             Close
@@ -1515,12 +1538,42 @@ function ShoppingListModal({
                 )
             }
         >
-            {items.length === 0 ? (
+            {items.length === 0 && cooks.length === 0 ? (
                 <p className="py-6 text-center text-sm text-neutral-400">
                     Nothing planned this week yet — add meals to the planner to build a shopping list.
                 </p>
             ) : (
                 <div className="flex flex-col gap-3">
+                    {cooks.length > 0 && (
+                        <section className="flex flex-col gap-1.5">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                Batches to cook
+                            </p>
+                            <p className="text-xs text-neutral-400">
+                                Suggested by your stock forecast, at each recipe’s usual amounts. Pantry stock isn’t
+                                tracked, so check what you already have.
+                            </p>
+                            {cooks.map((c) => (
+                                <div key={c.key} className="rounded-xl border border-neutral-200">
+                                    <p className="border-b border-neutral-100 px-3 py-2 text-sm font-semibold text-neutral-800">
+                                        {c.name}
+                                    </p>
+                                    <ul className="flex flex-col divide-y divide-neutral-100">
+                                        {(c.recipe?.ingredients ?? []).map((ing, i) => (
+                                            <li key={i} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                                                <span className="text-neutral-700">{ing.name}</span>
+                                                <span className="shrink-0 font-medium tabular-nums text-neutral-500">
+                                                    {fmtQty(ing.quantity)} {ing.unit}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </section>
+                    )}
+                    {items.length > 0 && (
+                    <>
                     <p className="text-xs text-neutral-400">
                         Totalled across the week, assuming one serving per planned meal.
                     </p>
@@ -1539,6 +1592,8 @@ function ShoppingListModal({
                             </li>
                         ))}
                     </ul>
+                    </>
+                    )}
                 </div>
             )}
         </Modal>
@@ -2251,6 +2306,13 @@ function WeeklyPlanner({
     const [copiedWeek, setCopiedWeek] = useState<string | null>(null)
     // The planner opens read-only; Edit reveals the add/remove/copy controls.
     const [editing, setEditing] = useState(false)
+    // Buffet plates: the prep library, the history/forecast window around today,
+    // and the plate form when open.
+    const prep = useMealPrep()
+    const prepWindow = usePrepWindow()
+    const forecasts = useForecast(prep, prepWindow.entries, prepWindow.today)
+    const [buffet, setBuffet] = useState<BuffetTarget | null>(null)
+    const hasFood = meals.length > 0 || prep.recipes.length > 0 || prep.batches.length > 0 || prep.foods.length > 0
 
     const weekEnd = addDays(weekStart, 6)
     const today = todayKey()
@@ -2307,14 +2369,27 @@ function WeeklyPlanner({
     }
 
     async function handleRemove(id: string) {
+        const removed = entries.find((e) => e._id === id)
         setEntries((prev) => prev.filter((e) => e._id !== id))
         await deletePlanEntry(id)
+        // A logged plate's grams went back into stock on the server.
+        if (removed && isLoggedBuffet(removed)) {
+            void prep.reload()
+            void prepWindow.reload()
+        }
     }
 
     // Optimistic: marking food eaten should feel instant, and reverting on
     // failure is cheaper than making the tick wait on a round trip.
     async function handleSetStatus(id: string, status: EntryStatus) {
-        const previous = entries.find((e) => e._id === id)?.status
+        const current = entries.find((e) => e._id === id)
+        // A buffet plate is eaten by weighing it: open the plate rather than
+        // flip a status that would skip the grams and the stock.
+        if (current?.buffet && (status === 'eaten' || current.status === 'eaten')) {
+            openBuffet(current)
+            return
+        }
+        const previous = current?.status
         setEntries((prev) => prev.map((e) => (e._id === id ? { ...e, status } : e)))
         try {
             await setEntryStatus(id, status)
@@ -2344,6 +2419,60 @@ function WeeklyPlanner({
                 )
             }
         }
+    }
+
+    /** Open a buffet plate: log it from view mode, edit its plan in edit mode. */
+    function openBuffet(entry: MealPlanEntry) {
+        setBuffet({
+            mode: entry.status === 'eaten' || !editing ? 'log' : 'plan',
+            date: entry.date,
+            slot: entry.slot,
+            entry,
+        })
+    }
+
+    /** A plate was saved: put it in the week, and refresh stock and the forecast. */
+    function handleBuffetSaved(entry: MealPlanEntry) {
+        if (entry.date >= weekStart && entry.date <= weekEnd) {
+            setEntries((prev) =>
+                prev.some((e) => e._id === entry._id)
+                    ? prev.map((e) => (e._id === entry._id ? entry : e))
+                    : [...prev, entry]
+            )
+        }
+        void prepWindow.reload()
+        void prep.reload()
+    }
+
+    /**
+     * Switch a slot between individual meals and a buffet plate. Only planned
+     * food is replaced — anything already logged or skipped stays where it is,
+     * so switching can never quietly delete what you ate or move stock — and
+     * replacing anything asks first, like every other overwrite in the planner.
+     */
+    function handleSetMode(date: string, slot: MealType, mode: 'individual' | 'buffet') {
+        const inSlot = entries.filter((e) => e.date === date && e.slot === slot)
+        const toReplace = inSlot.filter((e) => e.status === 'planned' && (mode === 'buffet' ? !e.buffet : !!e.buffet))
+        const kept = inSlot.filter((e) => e.status !== 'planned' && (mode === 'buffet' ? !e.buffet : !!e.buffet))
+        const open = () =>
+            mode === 'buffet' ? setBuffet({ mode: 'plan', date, slot }) : setPicker({ date, slot })
+        if (toReplace.length === 0) {
+            open()
+            return
+        }
+        const what = mode === 'buffet' ? 'planned meal' : 'planned buffet plate'
+        setConfirm({
+            title: mode === 'buffet' ? 'Switch to a buffet plate?' : 'Switch to individual meals?',
+            message: `Replace ${toReplace.length} ${what}${toReplace.length !== 1 ? 's' : ''} in ${TYPE_META[slot].label.toLowerCase()} on ${shortDayLabel(date)}?${
+                kept.length ? ' Food already logged or skipped stays.' : ''
+            }`,
+            confirmLabel: 'Replace',
+            onConfirm: async () => {
+                await Promise.all(toReplace.map((e) => deletePlanEntry(e._id)))
+                setEntries((prev) => prev.filter((e) => !toReplace.includes(e)))
+                open()
+            },
+        })
     }
 
     async function handleLogOffPlan(
@@ -2429,7 +2558,7 @@ function WeeklyPlanner({
         message: string
         confirmLabel?: string
         danger?: boolean
-        onConfirm: () => void
+        onConfirm: () => void | Promise<void>
     } | null>(null)
 
     // Clear every planned meal from a single day. Optimistic, reverting on failure.
@@ -2439,6 +2568,7 @@ function WeeklyPlanner({
         setEntries((prev) => prev.filter((e) => e.date !== date))
         try {
             await clearPlanRange(date, date)
+            if (removed.some(isLoggedBuffet)) void prep.reload()
         } catch {
             setEntries((prev) => [...prev, ...removed])
         }
@@ -2449,7 +2579,11 @@ function WeeklyPlanner({
         if (count === 0) return
         setConfirm({
             title: 'Clear this day?',
-            message: `Remove ${count} planned meal${count !== 1 ? 's' : ''} from ${shortDayLabel(date)}? This can’t be undone.`,
+            message: `Remove ${count} planned meal${count !== 1 ? 's' : ''} from ${shortDayLabel(date)}?${
+                entries.some((e) => e.date === date && isLoggedBuffet(e))
+                    ? ' Logged buffet portions go back into stock.'
+                    : ''
+            } This can’t be undone.`,
             confirmLabel: 'Clear',
             danger: true,
             onConfirm: () => void clearDay(date),
@@ -2463,6 +2597,7 @@ function WeeklyPlanner({
         setEntries([])
         try {
             await clearPlanRange(weekStart, weekEnd)
+            if (removed.some(isLoggedBuffet)) void prep.reload()
         } catch {
             setEntries(removed)
         }
@@ -2472,7 +2607,9 @@ function WeeklyPlanner({
         if (entries.length === 0) return
         setConfirm({
             title: 'Clear this week?',
-            message: `Remove all ${entries.length} planned meal${entries.length !== 1 ? 's' : ''} from ${formatWeekRange(weekStart, weekEnd)}? This can’t be undone.`,
+            message: `Remove all ${entries.length} planned meal${entries.length !== 1 ? 's' : ''} from ${formatWeekRange(weekStart, weekEnd)}?${
+                entries.some(isLoggedBuffet) ? ' Logged buffet portions go back into stock.' : ''
+            } This can’t be undone.`,
             confirmLabel: 'Clear',
             danger: true,
             onConfirm: () => void clearWeek(),
@@ -2485,6 +2622,8 @@ function WeeklyPlanner({
         // The target may fall in next week; refetch the visible week to sync.
         const rows = await listPlanEntries(weekStart, weekEnd)
         setEntries(rows)
+        void prep.reload()
+        void prepWindow.reload()
     }
 
     function handleCopyDay(date: string) {
@@ -2505,6 +2644,8 @@ function WeeklyPlanner({
         const from = Array.from({ length: 7 }, (_, i) => addDays(source, i))
         const created = await copyPlanEntries(from, days)
         setEntries(created)
+        void prep.reload()
+        void prepWindow.reload()
     }
 
     function handlePasteWeek() {
@@ -2537,26 +2678,18 @@ function WeeklyPlanner({
         }
     }
 
-    const weekMacros = sumMacros(entries)
     const weekProgress = logProgress(entries)
     // The week's target is the sum of its days', not one day times seven: with
     // calorie cycling on, no two days need carry the same number.
-    const weekTargets = useMemo(() => {
-        let calories = 0
-        let protein = 0
-        let carbs = 0
-        let fat = 0
-        let days_ = 0
-        for (const t of dayTargets.values()) {
-            if (!t.goals) continue
-            days_++
-            calories += t.goals.calories ?? 0
-            protein += t.goals.protein ?? 0
-            carbs += t.goals.carbs ?? 0
-            fat += t.goals.fat ?? 0
-        }
-        return days_ > 0 ? { calories, protein, carbs, fat, days: days_ } : null
-    }, [dayTargets])
+    const week = useMemo(
+        () => weekSummary(entries, days, (d) => dayTargets.get(d)?.goals ?? null, today),
+        [entries, days, dayTargets, today]
+    )
+    // Trays to cook before the week in view runs out, for the shopping list.
+    const cooks = useMemo(
+        () => forecasts.filter((f) => f.recipe && f.prepareBy && !f.thawInstead && f.prepareBy <= weekEnd),
+        [forecasts, weekEnd]
+    )
     const weekCopied = copiedWeek === weekStart
 
     return (
@@ -2590,7 +2723,7 @@ function WeeklyPlanner({
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                     <div className="flex flex-wrap items-center gap-2">
-                        {meals.length > 0 && (
+                        {hasFood && (
                             <Button
                                 variant={editing ? 'primary' : 'secondary'}
                                 icon={editing ? 'fa-solid fa-check' : 'fa-solid fa-pen'}
@@ -2655,12 +2788,7 @@ function WeeklyPlanner({
                             Cooking instructions
                         </Button>
                     </div>
-                    <WeekTotals
-                        macros={weekMacros}
-                        targets={weekTargets}
-                        progress={weekProgress}
-                        total={entries.length}
-                    />
+                    <WeekTotals week={week} progress={weekProgress} total={entries.length} />
                 </div>
             </div>
 
@@ -2668,11 +2796,11 @@ function WeeklyPlanner({
                 <div className="grid place-items-center py-16">
                     <Spinner />
                 </div>
-            ) : meals.length === 0 ? (
+            ) : !hasFood && !prep.loading ? (
                 <EmptyState
                     icon="fa-solid fa-bowl-food"
                     title="No meals to plan with"
-                    description="Add meals to your library first, then drop them into the week."
+                    description="Add meals to your library, or a tray or side in Meal Prep, then drop them into the week."
                 />
             ) : (
                 // Mon–Fri on one row, the weekend on its own below it. Both rows use
@@ -2694,6 +2822,10 @@ function WeeklyPlanner({
                                     onRemove={handleRemove}
                                     onSetStatus={handleSetStatus}
                                     onSetServings={handleSetServings}
+                                    onSetMode={(slot, mode) => handleSetMode(date, slot, mode)}
+                                    onAddBuffet={(slot) => setBuffet({ mode: 'plan', date, slot })}
+                                    onOpenBuffet={openBuffet}
+                                    onLogBuffet={() => setBuffet({ mode: 'log', date })}
                                     onLogOffPlan={() => setOffPlan(date)}
                                     onCopyDay={() => handleCopyDay(date)}
                                     onClearDay={() => handleClearDay(date)}
@@ -2733,6 +2865,15 @@ function WeeklyPlanner({
                 open={showList}
                 onClose={() => setShowList(false)}
                 entries={entries}
+                cooks={cooks}
+            />
+
+            <BuffetMealModal
+                target={buffet}
+                onClose={() => setBuffet(null)}
+                onSaved={handleBuffetSaved}
+                prep={prep}
+                history={prepWindow.entries}
             />
 
             <WeekCookingDrawer
@@ -2755,7 +2896,7 @@ function WeeklyPlanner({
                 message={confirm?.message}
                 confirmLabel={confirm?.confirmLabel ?? 'Replace'}
                 danger={confirm?.danger}
-                onConfirm={() => confirm?.onConfirm()}
+                onConfirm={() => void confirm?.onConfirm()}
                 onClose={() => setConfirm(null)}
             />
         </div>
@@ -2842,77 +2983,61 @@ function LogStatus({ progress, total }: { progress: LogProgress; total: number }
     )
 }
 
-/** The week's target: the sum of its days', and how many days supplied one. */
-interface WeekTargets {
-    calories: number
-    protein: number
-    carbs: number
-    fat: number
-    days: number
-}
-
-function WeekTotals({
-    macros,
-    targets,
-    progress,
-    total,
-}: {
-    macros: Macros
-    targets: WeekTargets | null
-    progress: LogProgress
-    total: number
-}) {
-    // Summed across the days rather than one day multiplied out, so a week of
-    // cycled targets totals to what it actually asks for.
-    const weekCals = targets?.calories || undefined
-    const per = (v?: number) => (v && targets ? v : undefined)
+/**
+ * The week in one strip: projected (eaten + still planned) against the sum of
+ * the days' own targets, what's actually been eaten, and daily averages that
+ * name their denominator — consumed intake is averaged only over complete days,
+ * so an unlogged or future day never reads as a zero-calorie one.
+ */
+function WeekTotals({ week, progress, total }: { week: WeekSummary; progress: LogProgress; total: number }) {
+    const t = week.target
     const settled = progress.eaten + progress.skipped
-    const avgTarget = targets && targets.days > 0 ? targets.calories / targets.days : undefined
-    const avgProtein = macros.protein / 7
+    const r = (n: number) => fmt(Math.round(n))
     return (
-        <div className="flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-neutral-200 bg-white px-4 py-2.5">
             <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                    Week total
-                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Projected week</p>
                 <p className="text-lg font-bold tabular-nums text-neutral-900">
-                    {fmt(macros.calories)}
+                    {r(week.projected.calories)}
                     <span className="ml-0.5 text-xs font-medium text-neutral-400">
-                        {weekCals ? `/ ${fmt(weekCals)} kcal` : 'kcal'}
+                        {t ? `/ ${r(t.calories)} kcal` : 'kcal'}
                     </span>
                 </p>
             </div>
-            <div className="h-8 w-px bg-neutral-200" />
             <div className="flex gap-1.5 text-xs tabular-nums text-neutral-500">
-                <MacroPill label="P" value={macros.protein} goal={per(targets?.protein)} />
-                <MacroPill label="C" value={macros.carbs} goal={per(targets?.carbs)} />
-                <MacroPill label="F" value={macros.fat} goal={per(targets?.fat)} />
+                <MacroPill label="P" value={Math.round(week.projected.protein)} goal={t?.protein || undefined} />
+                <MacroPill label="C" value={Math.round(week.projected.carbs)} goal={t?.carbs || undefined} />
+                <MacroPill label="F" value={Math.round(week.projected.fat)} goal={t?.fat || undefined} />
             </div>
             <div className="hidden h-8 w-px bg-neutral-200 sm:block" />
-            <div className="hidden sm:block">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                    Daily avg
-                </p>
+            {/* What was actually eaten, as distinct from what was planned — the
+                only figure worth judging a week by. */}
+            <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Consumed</p>
                 <p className="text-sm font-semibold tabular-nums text-neutral-700">
-                    {fmt(macros.calories / 7)}
-                    {avgTarget ? ` / ${fmt(Math.round(avgTarget))}` : ''} kcal
+                    {r(week.consumed.calories)} kcal · {r(week.consumed.protein)} g P
                 </p>
-                <p className="text-[11px] font-medium tabular-nums text-neutral-400">
-                    {fmt(avgProtein)} g protein / day
+                <p className="text-[11px] tabular-nums text-neutral-400">
+                    {r(week.stillPlanned.calories)} kcal still planned · {settled}/{total} logged
                 </p>
             </div>
             <div className="hidden h-8 w-px bg-neutral-200 md:block" />
-            {/* What was actually eaten, as distinct from what was planned — the
-                only figure worth judging a week by. */}
-            <div className="hidden md:block">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                    Eaten
-                </p>
+            <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Daily average</p>
                 <p className="text-sm font-semibold tabular-nums text-neutral-700">
-                    {fmt(progress.eatenCalories)} kcal
-                    <span className="ml-1 font-medium text-neutral-400">
-                        · {settled}/{total} logged
-                    </span>
+                    {week.avgConsumed
+                        ? `${r(week.avgConsumed.calories)} kcal · ${r(week.avgConsumed.protein)} g P eaten`
+                        : 'No complete days yet'}
+                    {t ? <span className="font-medium text-neutral-400"> / {r(t.calories / t.days)} target</span> : null}
+                </p>
+                <p
+                    className="text-[11px] tabular-nums text-neutral-400"
+                    title="A day counts as complete once at least half its calorie target is logged as eaten. Unlogged and future days are left out rather than counted as zero."
+                >
+                    over {week.completeDays} complete day{week.completeDays === 1 ? '' : 's'}
+                    {week.avgProjected
+                        ? ` · projected ${r(week.avgProjected.calories)}/day over ${week.daysWithFood} planned day${week.daysWithFood === 1 ? '' : 's'}`
+                        : ''}
                 </p>
             </div>
         </div>
@@ -2931,6 +3056,10 @@ function DayColumn({
     onRemove,
     onSetStatus,
     onSetServings,
+    onSetMode,
+    onAddBuffet,
+    onOpenBuffet,
+    onLogBuffet,
     onLogOffPlan,
     onCopyDay,
     onClearDay,
@@ -2949,6 +3078,10 @@ function DayColumn({
     onRemove: (id: string) => void
     onSetStatus: (id: string, status: EntryStatus) => void
     onSetServings: (id: string, servings: number) => void
+    onSetMode: (slot: MealType, mode: 'individual' | 'buffet') => void
+    onAddBuffet: (slot: MealType) => void
+    onOpenBuffet: (entry: MealPlanEntry) => void
+    onLogBuffet: () => void
     onLogOffPlan: () => void
     onCopyDay: () => void
     onClearDay: () => void
@@ -3027,18 +3160,31 @@ function DayColumn({
                         onRemove={onRemove}
                         onSetStatus={onSetStatus}
                         onSetServings={onSetServings}
+                        onSetMode={(mode) => onSetMode(slot, mode)}
+                        onAddBuffet={() => onAddBuffet(slot)}
+                        onOpenBuffet={onOpenBuffet}
                         onViewMeal={onViewMeal}
                     />
                 ))}
                 {!editable && (
-                    <button
-                        type="button"
-                        onClick={onLogOffPlan}
-                        className="rounded-lg border border-dashed border-neutral-200 py-1.5 text-center text-[11px] text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-700"
-                    >
-                        <i className="fa-solid fa-plus mr-1 text-[10px]" aria-hidden="true" />
-                        Off-plan
-                    </button>
+                    <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                            type="button"
+                            onClick={onLogBuffet}
+                            className="rounded-lg border border-dashed border-neutral-200 py-1.5 text-center text-[11px] text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-700"
+                        >
+                            <i className="fa-solid fa-scale-balanced mr-1 text-[10px]" aria-hidden="true" />
+                            Weighed
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onLogOffPlan}
+                            className="rounded-lg border border-dashed border-neutral-200 py-1.5 text-center text-[11px] text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-700"
+                        >
+                            <i className="fa-solid fa-plus mr-1 text-[10px]" aria-hidden="true" />
+                            Off-plan
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -3081,6 +3227,9 @@ function SlotSection({
     onRemove,
     onSetStatus,
     onSetServings,
+    onSetMode,
+    onAddBuffet,
+    onOpenBuffet,
     onViewMeal,
 }: {
     slot: MealType
@@ -3090,22 +3239,47 @@ function SlotSection({
     onRemove: (id: string) => void
     onSetStatus: (id: string, status: EntryStatus) => void
     onSetServings: (id: string, servings: number) => void
+    onSetMode: (mode: 'individual' | 'buffet') => void
+    onAddBuffet: () => void
+    onOpenBuffet: (entry: MealPlanEntry) => void
     onViewMeal: (meal: Meal) => void
 }) {
     // In view mode an empty slot is just noise — collapse it so the plan reads clean.
     if (!editable && entries.length === 0) return null
 
+    // Each slot is independently one or the other; a buffet plate in it decides.
+    const mode = entries.some((e) => e.buffet) ? 'buffet' : 'individual'
+    const add = mode === 'buffet' ? onAddBuffet : onAdd
+
     return (
         <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
                     {TYPE_META[slot].label}
                 </span>
                 {editable && (
+                    <div className="ml-auto flex rounded-full bg-neutral-100 p-0.5" role="group" aria-label={`${TYPE_META[slot].label} mode`}>
+                        {(['individual', 'buffet'] as const).map((m) => (
+                            <button
+                                key={m}
+                                type="button"
+                                aria-pressed={mode === m}
+                                title={m === 'individual' ? 'Individual meals from the library' : 'A plate weighed out of prepared batches'}
+                                onClick={() => (mode === m ? (m === 'buffet' ? onAddBuffet() : onAdd()) : onSetMode(m))}
+                                className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide transition-colors ${
+                                    mode === m ? 'bg-white text-neutral-800 shadow-sm' : 'text-neutral-400 hover:text-neutral-700'
+                                }`}
+                            >
+                                {m === 'individual' ? 'Meal' : 'Buffet'}
+                            </button>
+                        ))}
+                    </div>
+                )}
+                {editable && (
                     <button
                         type="button"
                         aria-label={`Add ${TYPE_META[slot].label}`}
-                        onClick={onAdd}
+                        onClick={add}
                         className="grid h-6 w-6 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                     >
                         <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
@@ -3118,11 +3292,13 @@ function SlotSection({
                         <PlannedMealRow
                             key={e._id}
                             entry={e}
-                            onView={e.meal ? () => onViewMeal(e.meal!) : undefined}
+                            onView={
+                                e.meal ? () => onViewMeal(e.meal!) : e.buffet ? () => onOpenBuffet(e) : undefined
+                            }
                             onRemove={editable ? () => onRemove(e._id) : undefined}
                             onSetStatus={(status) => onSetStatus(e._id, status)}
                             onSetServings={
-                                editable ? (n) => onSetServings(e._id, n) : undefined
+                                editable && !e.buffet ? (n) => onSetServings(e._id, n) : undefined
                             }
                         />
                     ))}
@@ -3130,7 +3306,7 @@ function SlotSection({
             ) : (
                 <button
                     type="button"
-                    onClick={onAdd}
+                    onClick={add}
                     className="rounded-lg border border-dashed border-neutral-200 py-1.5 text-center text-[11px] text-neutral-300 transition-colors hover:border-neutral-300 hover:text-neutral-500"
                 >
                     Add
@@ -3248,11 +3424,26 @@ function PlannedMealRow({
                     skipped ? 'line-through opacity-50' : ''
                 }`}
             >
+                {entry.buffet && (
+                    <i className="fa-solid fa-scale-balanced mr-1 text-[10px] opacity-60" aria-hidden="true" />
+                )}
                 {name}
             </p>
+            {entry.buffet && (
+                <p className={`truncate text-[11px] tabular-nums ${meta.sub} ${skipped ? 'opacity-50' : ''}`}>
+                    {entry.buffet.components
+                        .map((c) => `${fmtGrams(componentGrams(c, entry.status))} ${c.name}`)
+                        .join(' · ')}
+                </p>
+            )}
             <p className={`text-[11px] tabular-nums ${meta.sub} ${skipped ? 'opacity-50' : ''}`}>
-                {fmt(macros.calories)} kcal · P{fmt(macros.protein)} C{fmt(macros.carbs)} F
-                {fmt(macros.fat)}
+                {fmt(Math.round(macros.calories))} kcal · P{fmt(Math.round(macros.protein))} C{fmt(Math.round(macros.carbs))} F
+                {fmt(Math.round(macros.fat))}
+                {entry.buffet && entry.status !== 'eaten' && entry.buffet.components.some((c) => c.estimated) && (
+                    <span className="ml-1 align-middle">
+                        <EstimateBadge title="Includes a recipe not cooked yet, costed at its estimated yield" />
+                    </span>
+                )}
                 {!onSetServings && servings !== 1 && (
                     <span className="ml-1 font-semibold">· ×{fmt(servings)}</span>
                 )}
@@ -3275,7 +3466,7 @@ function PlannedMealRow({
                     <i className={`${cycle.icon} text-sm`} aria-hidden="true" />
                 </button>
             )}
-            {onView && entry.meal ? (
+            {onView ? (
                 <button
                     type="button"
                     onClick={onView}

@@ -24,6 +24,11 @@ export const ZERO_MACROS: Macros = { calories: 0, protein: 0, carbs: 0, fat: 0 }
  * entries written before portions existed, so it falls back to one.
  */
 export function entryMacros(entry: MealPlanEntry): Macros {
+    // A buffet plate's components carry their own snapshot for the grams that
+    // count — eaten once logged, planned before — so the sum is the whole story.
+    if (entry.buffet) {
+        return entry.buffet.components.reduce((acc, c) => addMacros(acc, c.macros), { ...ZERO_MACROS })
+    }
     const base = entry.meal?.macros ?? entry.adhoc?.macros ?? ZERO_MACROS
     const n = entry.servings ?? 1
     if (n === 1) return base
@@ -37,6 +42,9 @@ export function entryMacros(entry: MealPlanEntry): Macros {
 
 /** What to call an entry — the recipe's name, or the off-plan label. */
 export function entryName(entry: MealPlanEntry): string {
+    if (entry.buffet) {
+        return entry.buffet.name || entry.buffet.components.map((c) => c.name).join(' + ') || 'Buffet meal'
+    }
     return entry.meal?.name ?? entry.adhoc?.name ?? 'Unknown'
 }
 

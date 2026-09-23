@@ -48,6 +48,10 @@ import {
     type Maintenance,
     type MaintenanceGap,
 } from '../../lib/energy'
+import { componentGrams, grams as fmtGrams } from '../../lib/mealPrep'
+import { useMealPrep } from './mealprep/useMealPrep'
+import BuffetMealModal, { type BuffetTarget } from './mealprep/BuffetMealModal'
+import { StockNotices, useForecast, usePrepWindow } from './MealPrepTab'
 import { MEAL_TYPES } from '../../types'
 import type {
     DailyEnergy,
@@ -287,16 +291,27 @@ function MealList({
                                         skipped ? 'line-through opacity-50' : ''
                                     }`}
                                 >
+                                    {e.buffet && (
+                                        <i className="fa-solid fa-scale-balanced mr-1.5 text-[10px] text-neutral-400" aria-hidden="true" />
+                                    )}
                                     {entryName(e)}
-                                    {servings !== 1 && (
+                                    {!e.buffet && servings !== 1 && (
                                         <span className="ml-1.5 text-[11px] font-bold text-neutral-400">
                                             ×{fmt(servings)}
                                         </span>
                                     )}
                                 </p>
+                                {e.buffet && (
+                                    <p className="truncate text-[11px] tabular-nums text-neutral-500">
+                                        {e.buffet.components
+                                            .map((c) => `${fmtGrams(componentGrams(c, e.status))} ${c.name}`)
+                                            .join(' · ')}
+                                        {e.status === 'planned' && ' — planned'}
+                                    </p>
+                                )}
                                 <p className="text-[11px] capitalize tabular-nums text-neutral-400">
-                                    {slot} · {kcal(m.calories)} kcal · P{fmt(m.protein)} C
-                                    {fmt(m.carbs)} F{fmt(m.fat)}
+                                    {slot} · {kcal(m.calories)} kcal · P{fmt(Math.round(m.protein))} C
+                                    {fmt(Math.round(m.carbs))} F{fmt(Math.round(m.fat))}
                                 </p>
                             </div>
                         </li>
@@ -309,9 +324,23 @@ function MealList({
 
 // ── The tab ──────────────────────────────────────────────────────────────────
 
-export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals }) {
+export default function TodayTab({
+    settingsGoals,
+    onOpenMealPrep,
+}: {
+    settingsGoals?: MacroGoals
+    /** Jump to the Meal Prep tab — where stock notices lead. */
+    onOpenMealPrep?: () => void
+}) {
     const today = todayKey()
     const windowStart = addDays(today, -ANALYSIS_DAYS)
+
+    // Buffet plates: logging from here needs the prep library, and the stock
+    // notices need the week ahead.
+    const prep = useMealPrep()
+    const prepWindow = usePrepWindow()
+    const forecasts = useForecast(prep, prepWindow.entries, prepWindow.today)
+    const [buffet, setBuffet] = useState<BuffetTarget | null>(null)
 
     const [entries, setEntries] = useState<MealPlanEntry[]>([])
     const [logs, setLogs] = useState<WeightLog[]>([])
@@ -449,7 +478,13 @@ export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals
     }
 
     async function handleSetStatus(id: string, status: EntryStatus) {
-        const previous = entries.find((e) => e._id === id)?.status
+        const current = entries.find((e) => e._id === id)
+        // A buffet plate is logged by its grams, so ticking it opens the plate.
+        if (current?.buffet) {
+            setBuffet({ mode: 'log', date: current.date, slot: current.slot, entry: current })
+            return
+        }
+        const previous = current?.status
         setEntries((prev) => prev.map((e) => (e._id === id ? { ...e, status } : e)))
         try {
             await setEntryStatus(id, status)
@@ -460,6 +495,13 @@ export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals
                 )
             }
         }
+    }
+
+    function handleBuffetSaved(entry: MealPlanEntry) {
+        setEntries((prev) =>
+            prev.some((e) => e._id === entry._id) ? prev.map((e) => (e._id === entry._id ? entry : e)) : [...prev, entry]
+        )
+        void prepWindow.reload()
     }
 
     async function handleSaveBurn(value: number) {
@@ -584,11 +626,44 @@ export default function TodayTab({ settingsGoals }: { settingsGoals?: MacroGoals
 
             {/* Today's food. */}
             <div>
-                <h3 className="mb-2 text-sm font-bold tracking-tight text-neutral-900">
-                    Today&rsquo;s meals
-                </h3>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-bold tracking-tight text-neutral-900">Today&rsquo;s meals</h3>
+                    {(prep.batches.length > 0 || prep.foods.length > 0) && (
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            icon="fa-solid fa-scale-balanced"
+                            onClick={() => setBuffet({ mode: 'log', date: today })}
+                        >
+                            Log a weighed plate
+                        </Button>
+                    )}
+                </div>
                 <MealList entries={todayEntries} onSetStatus={handleSetStatus} />
             </div>
+
+            {/* Prepared food running low — problems only; the detail lives in Meal Prep. */}
+            {forecasts.some((f) => f.severity !== 'ok') && (
+                <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold tracking-tight text-neutral-900">Prepared food</h3>
+                        {onOpenMealPrep && (
+                            <button type="button" onClick={onOpenMealPrep} className="text-[11px] font-semibold text-neutral-600 underline">
+                                Open Meal Prep
+                            </button>
+                        )}
+                    </div>
+                    <StockNotices forecasts={forecasts} limit={3} />
+                </div>
+            )}
+
+            <BuffetMealModal
+                target={buffet}
+                onClose={() => setBuffet(null)}
+                onSaved={handleBuffetSaved}
+                prep={prep}
+                history={prepWindow.entries}
+            />
 
             <NutritionReview
                 open={reviewOpen}

@@ -8,7 +8,7 @@ import { listWeightLogs } from '../../services/weightLogs'
 import { listPlanEntries as listFitnessEntries } from '../../services/fitnessPlan'
 import { addDays, parseDateKey, formatWeekRange, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
 import { MEAL_TYPES } from '../../types'
-import { sumMacros, sumEatenMacros } from '../../lib/nutrition'
+import { entryMacros, entryName, sumMacros, sumEatenMacros } from '../../lib/nutrition'
 import { effectiveTargetsFor } from '../../lib/nutritionTargets'
 import { weightTrend, usableRate } from '../../lib/nutritionTrend'
 import { goalProgress, GOAL_STATUS_LABELS } from '../../lib/nutritionGoal'
@@ -239,11 +239,11 @@ function TodayView({
                                     </p>
                                 )}
                                 <p className="truncate text-sm font-semibold text-neutral-800">
-                                    {entry.meal?.name ?? 'Meal'}
+                                    {entryName(entry)}
                                 </p>
                             </div>
                             <span className="shrink-0 text-sm font-semibold tabular-nums text-neutral-500">
-                                {fmt(entry.meal?.macros.calories ?? 0)}
+                                {fmt(Math.round(entryMacros(entry).calories))}
                                 <span className="ml-0.5 text-[10px] font-normal text-neutral-400">
                                     kcal
                                 </span>

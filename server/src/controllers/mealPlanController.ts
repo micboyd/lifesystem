@@ -1,7 +1,24 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
-import MealPlanEntry, { ENTRY_STATUSES, EntryStatus, IAdhocMeal } from '../models/MealPlanEntry'
+import { ClientSession, FilterQuery, Types } from 'mongoose'
+import MealPlanEntry, {
+    ENTRY_STATUSES,
+    EntryStatus,
+    IAdhocMeal,
+    IMealPlanEntry,
+} from '../models/MealPlanEntry'
 import Meal, { MEAL_TYPES, MealType, IMacros } from '../models/Meal'
+import {
+    HttpError,
+    asPlannedComponents,
+    consumptionsOf,
+    consumptionsOfComponents,
+    inTransaction,
+    isDuplicateKey,
+    moveStock,
+    resolveComponents,
+    sendError,
+} from '../lib/buffetStock'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -73,7 +90,7 @@ export async function listEntries(req: AuthRequest, res: Response) {
         .populate('meal')
 
     // A meal deleted from the library leaves a dangling entry — skip those.
-    res.json({ message: 'OK', data: entries.filter((e) => e.meal || e.adhoc) })
+    res.json({ message: 'OK', data: entries.filter((e) => e.meal || e.adhoc || e.buffet) })
 }
 
 /**
@@ -88,6 +105,15 @@ export async function createEntry(req: AuthRequest, res: Response) {
     const { date, slot, meal: mealId, adhoc: adhocRaw, status, servings } = req.body
     if (!isDate(date) || !isSlot(slot)) {
         res.status(400).json({ message: 'date and slot are required' })
+        return
+    }
+
+    if (req.body.buffet !== undefined) {
+        try {
+            await createBuffetEntry(req, res, date, slot)
+        } catch (err) {
+            sendError(res, err)
+        }
         return
     }
 
@@ -147,6 +173,18 @@ export async function updateEntryStatus(req: AuthRequest, res: Response) {
         return
     }
 
+    // A buffet plate is eaten by logging its grams, which moves stock; a bare
+    // status flip in or out of 'eaten' would skip that, so it goes via /log and
+    // /unlog instead. Planned ↔ skipped moves nothing and stays allowed.
+    const current = await MealPlanEntry.findOne({ _id: req.params.id, user: req.userId })
+    if (current?.buffet && (update.status === 'eaten' || (update.status && current.status === 'eaten'))) {
+        res.status(400).json({
+            message: 'Buffet meals are logged with their weights — open the meal to log or unlog it',
+            code: 'USE_LOG',
+        })
+        return
+    }
+
     const entry = await MealPlanEntry.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },
         { $set: update },
@@ -193,29 +231,46 @@ export async function copyEntries(req: AuthRequest, res: Response) {
         createdAt: 1,
     })
 
-    // Clear the target days, then recreate the source entries on them.
-    const targetDates = [...new Set(to as string[])]
-    await MealPlanEntry.deleteMany({ user: req.userId, date: { $in: targetDates } })
-
     // Copies land as 'planned' regardless of the source's status — repeating last
     // week's plan is an intention for the days ahead, not a claim you ate them.
+    // A buffet plate is copied at the grams actually eaten, as a plan.
     const docs = sources
         .filter((e) => dateMap.get(e.date) !== e.date)
         .map((e) => ({
             user: req.userId,
             date: dateMap.get(e.date),
             slot: e.slot,
-            ...(e.adhoc ? { adhoc: e.adhoc } : { meal: e.meal }),
+            ...(e.buffet
+                ? {
+                      buffet: {
+                          name: e.buffet.name,
+                          components: asPlannedComponents(e.buffet.components).map((c) => ({
+                              ...c,
+                              _id: new Types.ObjectId(),
+                          })),
+                          rev: 0,
+                      },
+                  }
+                : e.adhoc
+                  ? { adhoc: e.adhoc }
+                  : { meal: e.meal }),
             servings: e.servings,
             status: 'planned',
             order: e.order,
         }))
 
-    const created = docs.length ? await MealPlanEntry.insertMany(docs) : []
+    // Clear the target days (restoring any logged buffet stock), then recreate
+    // the source entries on them — one transaction, so a failed paste leaves the
+    // target days as they were.
+    const targetDates = [...new Set(to as string[])]
+    const created = await inTransaction(async (session) => {
+        await deleteRestoringStock(req.userId, { user: req.userId, date: { $in: targetDates } }, session)
+        return docs.length ? await MealPlanEntry.insertMany(docs, { session }) : []
+    })
     await MealPlanEntry.populate(created, { path: 'meal' })
 
     // Drop any entry whose meal has since been deleted, mirroring listEntries.
-    res.status(201).json({ message: 'Copied', data: created.filter((e) => e.meal || e.adhoc) })
+    res.status(201).json({ message: 'Copied', data: created.filter((e) => e.meal || e.adhoc || e.buffet) })
 }
 
 /**
@@ -234,19 +289,258 @@ export async function clearRange(req: AuthRequest, res: Response) {
         return
     }
     // Dates are zero-padded ISO strings, so a lexicographic range is a date range.
-    const { deletedCount } = await MealPlanEntry.deleteMany({
-        user: req.userId,
-        date: { $gte: start, $lte: end },
-    })
-    res.json({ message: 'OK', data: { cleared: deletedCount ?? 0 } })
+    // Logged buffet portions go back into their batches as the meals go.
+    const cleared = await inTransaction((session) =>
+        deleteRestoringStock(req.userId, { user: req.userId, date: { $gte: start, $lte: end } }, session)
+    )
+    res.json({ message: 'OK', data: { cleared } })
 }
 
-/** DELETE /api/meal-plan/:id — remove a planned meal. */
+/**
+ * DELETE /api/meal-plan/:id — remove a planned meal. A logged buffet plate
+ * hands its grams back to the batches it came from, in the same transaction.
+ */
 export async function deleteEntry(req: AuthRequest, res: Response) {
-    const entry = await MealPlanEntry.findOneAndDelete({ _id: req.params.id, user: req.userId })
+    const entry = await inTransaction(async (session) => {
+        const found = await MealPlanEntry.findOne({ _id: req.params.id, user: req.userId }).session(session)
+        if (!found) return null
+        await deleteRestoringStock(req.userId, { _id: found._id, user: req.userId }, session)
+        return found
+    })
     if (!entry) {
         res.status(404).json({ message: 'Entry not found' })
         return
     }
     res.json({ message: 'Deleted', data: entry })
+}
+
+// ── Buffet meals ─────────────────────────────────────────────────────────────
+
+/**
+ * Delete the entries matching `filter`, first returning every logged buffet
+ * plate's grams to its batches. Returns how many were deleted.
+ */
+async function deleteRestoringStock(
+    userId: string | undefined,
+    filter: FilterQuery<IMealPlanEntry>,
+    session: ClientSession
+): Promise<number> {
+    const logged = await MealPlanEntry.find({ ...filter, status: 'eaten', buffet: { $exists: true } }).session(
+        session
+    )
+    for (const e of logged) {
+        await moveStock({
+            userId,
+            entryId: e._id as Types.ObjectId,
+            before: consumptionsOf(e),
+            after: [],
+            occasionAt: e.buffet!.loggedAt?.getTime() ?? e.createdAt.getTime(),
+            date: e.date,
+            session,
+        })
+    }
+    const { deletedCount } = await MealPlanEntry.deleteMany(filter, { session })
+    return deletedCount ?? 0
+}
+
+function parseName(raw: unknown): string | undefined {
+    return typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, 120) : undefined
+}
+
+/**
+ * POST /api/meal-plan with `buffet: { name?, components, status?, clientKey? }`.
+ *
+ * Planned by default — recipe components allowed, nothing deducted. With
+ * `status: 'eaten'` it is a quick log: every component must be a batch or a
+ * food, and stock moves in the same transaction as the insert. `clientKey`
+ * makes that retry-safe: a second request with the same key returns the meal
+ * the first one created.
+ */
+async function createBuffetEntry(req: AuthRequest, res: Response, date: string, slot: MealType) {
+    const body = (req.body.buffet ?? {}) as Record<string, unknown>
+    const eaten = body.status === 'eaten'
+    const clientKey = typeof body.clientKey === 'string' && body.clientKey.length <= 64 ? body.clientKey : undefined
+
+    if (clientKey) {
+        const existing = await MealPlanEntry.findOne({ user: req.userId, clientKey })
+        if (existing) {
+            res.status(200).json({ message: 'Already saved', data: existing })
+            return
+        }
+    }
+
+    try {
+        const entry = await inTransaction(async (session) => {
+            const components = await resolveComponents(body.components, eaten ? 'log' : 'plan', req.userId, session)
+            const last = await MealPlanEntry.findOne({ user: req.userId, date, slot })
+                .sort({ order: -1 })
+                .session(session)
+            const now = new Date()
+            const [doc] = await MealPlanEntry.create(
+                [
+                    {
+                        user: req.userId,
+                        date,
+                        slot,
+                        buffet: {
+                            name: parseName(body.name),
+                            components,
+                            rev: 0,
+                            ...(eaten ? { loggedAt: now } : {}),
+                        },
+                        status: eaten ? 'eaten' : 'planned',
+                        order: last ? last.order + 1 : 0,
+                        ...(clientKey ? { clientKey } : {}),
+                    },
+                ],
+                { session }
+            )
+            if (eaten) {
+                await moveStock({
+                    userId: req.userId,
+                    entryId: doc._id as Types.ObjectId,
+                    before: [],
+                    after: consumptionsOfComponents(components),
+                    occasionAt: now.getTime(),
+                    date,
+                    session,
+                })
+            }
+            return doc
+        })
+        res.status(201).json({ message: 'Created', data: entry })
+    } catch (err) {
+        // Lost a race with an identical retry: hand back the one that won.
+        if (clientKey && isDuplicateKey(err)) {
+            const existing = await MealPlanEntry.findOne({ user: req.userId, clientKey })
+            if (existing) {
+                res.status(200).json({ message: 'Already saved', data: existing })
+                return
+            }
+        }
+        throw err
+    }
+}
+
+/**
+ * Load a buffet entry for a write, refusing if it isn't the revision the client
+ * edited — the guard that makes a double-submitted log a no-op instead of a
+ * second deduction.
+ */
+async function loadForWrite(req: AuthRequest, session: ClientSession) {
+    const entry = await MealPlanEntry.findOne({ _id: req.params.id, user: req.userId }).session(session)
+    if (!entry) throw new HttpError(404, 'Entry not found')
+    if (!entry.buffet) throw new HttpError(400, 'Not a buffet meal')
+    const rev = Number(req.body.rev)
+    if (!Number.isInteger(rev) || rev !== entry.buffet.rev) {
+        throw new HttpError(409, 'This meal changed since you opened it — it has been reloaded', {
+            code: 'STALE',
+            data: entry,
+        })
+    }
+    return entry
+}
+
+/**
+ * PUT /api/meal-plan/:id/buffet — change a plate that hasn't been eaten: its
+ * name, components and planned grams. Moves no stock; a logged plate is edited
+ * through /log so its stock moves with it.
+ */
+export async function updateBuffetPlan(req: AuthRequest, res: Response) {
+    try {
+        const entry = await inTransaction(async (session) => {
+            const e = await loadForWrite(req, session)
+            if (e.status === 'eaten') {
+                throw new HttpError(400, 'This meal is logged — edit its logged weights instead', { code: 'USE_LOG' })
+            }
+            const components = await resolveComponents(req.body.components, 'plan', req.userId, session)
+            e.buffet!.components = components as never
+            e.buffet!.name = parseName(req.body.name)
+            e.buffet!.rev += 1
+            e.markModified('buffet')
+            await e.save({ session })
+            return e
+        })
+        res.json({ message: 'Saved', data: entry })
+    } catch (err) {
+        sendError(res, err)
+    }
+}
+
+/**
+ * POST /api/meal-plan/:id/log — record what was actually eaten.
+ *
+ * Works for a planned plate (first log) and a logged one (an edit). Either way
+ * the stock moves by the difference between what the meal had taken and what
+ * it now takes, per batch — a changed batch is restored and the new one
+ * deducted, in one transaction with the snapshot. Ordered against the time of
+ * the first log, so a stock correction made since is respected.
+ */
+export async function logBuffet(req: AuthRequest, res: Response) {
+    try {
+        const entry = await inTransaction(async (session) => {
+            const e = await loadForWrite(req, session)
+            const components = await resolveComponents(req.body.components, 'log', req.userId, session)
+            const before = consumptionsOf(e)
+            const loggedAt = e.status === 'eaten' && e.buffet!.loggedAt ? e.buffet!.loggedAt : new Date()
+            await moveStock({
+                userId: req.userId,
+                entryId: e._id as Types.ObjectId,
+                before,
+                after: consumptionsOfComponents(components),
+                occasionAt: loggedAt.getTime(),
+                date: e.date,
+                session,
+            })
+            e.buffet!.components = components as never
+            if (req.body.name !== undefined) e.buffet!.name = parseName(req.body.name)
+            e.buffet!.loggedAt = loggedAt
+            e.buffet!.rev += 1
+            e.status = 'eaten'
+            e.markModified('buffet')
+            await e.save({ session })
+            return e
+        })
+        res.json({ message: 'Logged', data: entry })
+    } catch (err) {
+        sendError(res, err)
+    }
+}
+
+/**
+ * POST /api/meal-plan/:id/unlog — take a logged plate back to planned (or
+ * skipped), returning its grams to stock. The eaten weights become the plan.
+ */
+export async function unlogBuffet(req: AuthRequest, res: Response) {
+    const target: EntryStatus = req.body.status === 'skipped' ? 'skipped' : 'planned'
+    try {
+        const entry = await inTransaction(async (session) => {
+            const e = await loadForWrite(req, session)
+            if (e.status !== 'eaten') {
+                e.status = target
+                e.buffet!.rev += 1
+                await e.save({ session })
+                return e
+            }
+            await moveStock({
+                userId: req.userId,
+                entryId: e._id as Types.ObjectId,
+                before: consumptionsOf(e),
+                after: [],
+                occasionAt: e.buffet!.loggedAt?.getTime() ?? e.createdAt.getTime(),
+                date: e.date,
+                session,
+            })
+            e.buffet!.components = asPlannedComponents(e.buffet!.components) as never
+            e.buffet!.loggedAt = undefined
+            e.buffet!.rev += 1
+            e.status = target
+            e.markModified('buffet')
+            await e.save({ session })
+            return e
+        })
+        res.json({ message: 'Saved', data: entry })
+    } catch (err) {
+        sendError(res, err)
+    }
 }

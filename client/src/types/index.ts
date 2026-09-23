@@ -459,9 +459,149 @@ export interface AdhocMeal {
     macros: Macros
 }
 
+// ── Meal prep (buffet) ───────────────────────────────────────────────────────
+
+export type PrepCategory = 'main' | 'side' | 'extra'
+export type IngredientUnit = 'g' | 'kg' | 'ml' | 'l' | 'item'
+
+/** Label figures an ingredient is costed with: per 100 g or per 100 ml. */
+export interface NutritionSource {
+    basis: 'g' | 'ml'
+    per100: Macros
+    /** Grams per millilitre — needed to cross between weight and volume. */
+    density?: number
+    /** Grams per item. */
+    unitGrams?: number
+}
+
+export interface PrepIngredient {
+    name: string
+    /** The saved food it was picked from, if any. */
+    food?: string
+    quantity: number
+    unit: IngredientUnit
+    nutrition: NutritionSource
+}
+
+/** A saved nutrition label: an ingredient, or a packaged side eaten as-is. */
+export interface Food {
+    _id: string
+    name: string
+    brand?: string
+    basis: 'g' | 'ml'
+    per100: Macros
+    density?: number
+    unitGrams?: number
+    archived?: boolean
+}
+
+/** A tray or side in the Tray & Sides library — batch totals, not servings. */
+export interface PrepRecipe {
+    _id: string
+    name: string
+    category: PrepCategory
+    ingredients: PrepIngredient[]
+    instructions?: string
+    prepMinutes?: number
+    lastYieldGrams?: number
+    lastYieldDate?: string
+    estimatedYieldGrams?: number
+    usualPortionGrams?: number
+    lowStock?: { unit: 'portions' | 'grams'; value: number }
+    leadDays?: number
+    favourite: boolean
+    archived: boolean
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
+export type BatchStatus = 'active' | 'finished' | 'discarded'
+export type BatchStorage = 'fridge' | 'freezer'
+
+/** Food actually cooked: a snapshot of what went in, and what's left of it. */
+export interface FoodBatch {
+    _id: string
+    recipe?: string
+    name: string
+    category: PrepCategory
+    label?: string
+    cookedDate: string
+    ingredients: PrepIngredient[]
+    totals: Macros
+    cookedGrams: number
+    per100: Macros
+    remainingGrams: number
+    storage: BatchStorage
+    thawedDate?: string
+    useBy?: string
+    status: BatchStatus
+    reconciledAt?: string
+    weighing?: { grossGrams: number; containerGrams: number; containerName?: string }
+    createdAt: string
+    updatedAt: string
+}
+
+export type StockMovementKind =
+    | 'cook'
+    | 'consume'
+    | 'restore'
+    | 'others'
+    | 'discard'
+    | 'correction'
+    | 'move'
+    | 'finish'
+
+export interface StockMovement {
+    _id: string
+    batch: string
+    kind: StockMovementKind
+    grams: number
+    balanceAfter: number
+    sealed?: boolean
+    entry?: string
+    date: string
+    note?: string
+    createdAt: string
+}
+
+export interface PrepContainer {
+    _id: string
+    name: string
+    grams: number
+}
+
+export type BuffetRole = 'main' | 'side' | 'extra'
+
+/** One weighed item on a buffet plate — see the server model for the rules. */
+export interface BuffetComponent {
+    _id: string
+    role: BuffetRole
+    source: 'batch' | 'recipe' | 'food'
+    recipe?: string
+    batch?: string
+    food?: string
+    name: string
+    per100: Macros
+    /** Density from an estimated or previous yield, not the batch eaten from. */
+    estimated: boolean
+    plannedGrams?: number
+    grams?: number
+    /** Snapshot for the grams that count: eaten once logged, planned before. */
+    macros: Macros
+}
+
+export interface BuffetMeal {
+    name?: string
+    components: BuffetComponent[]
+    rev: number
+    loggedAt?: string
+}
+
 /**
  * A meal placed into one slot of one day in the weekly planner. Exactly one of
- * `meal` (a library recipe) and `adhoc` (off-plan food) is set.
+ * `meal` (a library recipe), `adhoc` (off-plan food) and `buffet` (a plate
+ * weighed out of prepared batches) is set.
  */
 export interface MealPlanEntry {
     _id: string
@@ -473,6 +613,8 @@ export interface MealPlanEntry {
     meal?: Meal
     /** Set instead of `meal` for off-plan food, carrying its own macros. */
     adhoc?: AdhocMeal
+    /** Set instead of `meal` for a buffet plate. */
+    buffet?: BuffetMeal
     /**
      * How many servings are on the plate. Macros are per serving, so this scales
      * them — 2 for a double portion, 0.5 for half.

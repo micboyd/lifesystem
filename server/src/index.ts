@@ -28,6 +28,7 @@ import habitRoutes from './routes/habitRoutes'
 import lifePlanRoutes from './routes/lifePlanRoutes'
 import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
+import mealPrepRoutes from './routes/mealPrepRoutes'
 import mobilityRoutes from './routes/mobilityRoutes'
 import mobilityLogRoutes from './routes/mobilityLogRoutes'
 import monthNoteRoutes from './routes/monthNoteRoutes'
@@ -106,6 +107,7 @@ app.use('/api/weight-logs', weightLogRoutes)
 app.use('/api/daily-energy', dailyEnergyRoutes)
 app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)
+app.use('/api/meal-prep', mealPrepRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)
 app.use('/api/plans', trainingPlanRoutes)
 app.use('/api/recovery', recoveryRoutes)
