@@ -58,6 +58,8 @@ export interface IPrepRecipe extends Document {
     favourite: boolean
     archived: boolean
     order: number
+    /** Stamped on recipes created by a JSON import, so the batch can be undone. */
+    importBatch?: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -109,10 +111,12 @@ const prepRecipeSchema = new Schema<IPrepRecipe>(
         favourite: { type: Boolean, default: false },
         archived: { type: Boolean, default: false },
         order: { type: Number, default: 0 },
+        importBatch: { type: String, default: null },
     },
     { timestamps: true }
 )
 
 prepRecipeSchema.index({ user: 1, archived: 1, order: 1 })
+prepRecipeSchema.index({ user: 1, importBatch: 1 })
 
 export default model<IPrepRecipe>('PrepRecipe', prepRecipeSchema)

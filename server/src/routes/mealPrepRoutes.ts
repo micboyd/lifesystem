@@ -1,6 +1,9 @@
 import { Router } from 'express'
 import {
     listRecipes,
+    importRecipes,
+    lastRecipeImport,
+    undoRecipeImport,
     createRecipe,
     updateRecipe,
     duplicateRecipe,
@@ -25,6 +28,9 @@ router.use(requireAuth)
 
 router.get('/recipes', listRecipes)
 router.post('/recipes', createRecipe)
+router.post('/recipes/import', importRecipes)
+router.get('/recipes/import/last', lastRecipeImport)
+router.delete('/recipes/import/last', undoRecipeImport)
 router.put('/recipes/:id', updateRecipe)
 router.post('/recipes/:id/duplicate', duplicateRecipe)
 router.delete('/recipes/:id', archiveRecipe)

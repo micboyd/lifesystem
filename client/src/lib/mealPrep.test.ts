@@ -88,6 +88,17 @@ describe('batch totals from ingredients', () => {
         expect(per100Grams({ basis: 'ml', per100: M(50), density: 1.04 })!.calories).toBeCloseTo(50 / 1.04, 6)
     })
 
+    it('costs a zero-nutrition line in any unit without needing a density', () => {
+        // Water in ml against the default per-100 g basis: nothing to convert.
+        const { totals, problems } = recipeTotals([
+            line('Basmati, dry', 500, 'g', M(350)),
+            line('Water', 1000, 'ml', M(0)),
+            line('Salt', 1, 'item', M(0)),
+        ])
+        expect(problems).toEqual([])
+        expect(totals.calories).toBe(1750)
+    })
+
     it('converts items through their weight, and reports lines it cannot cost', () => {
         expect(toBasisAmount(3, 'item', { basis: 'g', per100: M(143), unitGrams: 58 })).toEqual({ ok: true, amount: 174 })
         const { totals, problems } = recipeTotals([

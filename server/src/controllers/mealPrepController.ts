@@ -1,10 +1,13 @@
 import { Response } from 'express'
+import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import PrepRecipe, { PREP_CATEGORIES, PrepCategory } from '../models/PrepRecipe'
 import FoodBatch, { STORAGE, Storage } from '../models/FoodBatch'
 import StockMovement from '../models/StockMovement'
 import Food from '../models/Food'
 import PrepContainer from '../models/PrepContainer'
+import { newBatchId } from '../lib/importBatch'
+import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
 import {
     HttpError,
     inTransaction,
@@ -55,8 +58,7 @@ export async function listRecipes(req: AuthRequest, res: Response) {
 }
 
 /** Pull the editable recipe fields out of a body; `partial` leaves absent ones alone. */
-async function recipeFields(req: AuthRequest, partial: boolean) {
-    const b = req.body as Record<string, unknown>
+async function recipeFields(b: Record<string, unknown>, userId: string | undefined, partial: boolean) {
     const set: Record<string, unknown> = {}
     const unset: Record<string, ''> = {}
 
@@ -66,7 +68,7 @@ async function recipeFields(req: AuthRequest, partial: boolean) {
 
     if (PREP_CATEGORIES.includes(b.category as PrepCategory)) set.category = b.category
     if (b.ingredients !== undefined || !partial) {
-        const parsed = await parseIngredients(b.ingredients, req.userId)
+        const parsed = await parseIngredients(b.ingredients, userId)
         if ('error' in parsed) throw new HttpError(400, parsed.error)
         set.ingredients = parsed.ingredients
     }
@@ -98,7 +100,7 @@ async function recipeFields(req: AuthRequest, partial: boolean) {
 /** POST /api/meal-prep/recipes */
 export async function createRecipe(req: AuthRequest, res: Response) {
     try {
-        const { set } = await recipeFields(req, false)
+        const { set } = await recipeFields(req.body, req.userId, false)
         const last = await PrepRecipe.findOne({ user: req.userId }).sort({ order: -1 })
         const recipe = await PrepRecipe.create({ ...set, user: req.userId, order: last ? last.order + 1 : 0 })
         res.status(201).json({ message: 'Created', data: recipe })
@@ -113,7 +115,7 @@ export async function createRecipe(req: AuthRequest, res: Response) {
  */
 export async function updateRecipe(req: AuthRequest, res: Response) {
     try {
-        const { set, unset } = await recipeFields(req, true)
+        const { set, unset } = await recipeFields(req.body, req.userId, true)
         const update: Record<string, unknown> = { $set: set }
         if (Object.keys(unset).length) update.$unset = unset
         const recipe = await PrepRecipe.findOneAndUpdate({ _id: req.params.id, user: req.userId }, update, {
@@ -169,6 +171,179 @@ export async function archiveRecipe(req: AuthRequest, res: Response) {
         return
     }
     res.json({ message: 'Archived', data: recipe })
+}
+
+// ── Recipe import ────────────────────────────────────────────────────────────
+
+/**
+ * An imported ingredient, in the flat shape the template uses, turned into the
+ * form's nested one. Nutrition comes from (in order) a `nutrition` object, flat
+ * `per100`/`basis`/`density`/`unitGrams` fields, or — when `food` names one of
+ * your saved foods — that food's label. A line with none of them costs zero,
+ * which is right for water and wrong for anything else, so it's reported.
+ */
+function importIngredient(
+    raw: unknown,
+    foodsByName: Map<string, { _id: unknown; basis: string; per100: unknown; density?: number; unitGrams?: number }>
+): { line: Record<string, unknown>; unknownFood?: string } {
+    const item = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+    const out: Record<string, unknown> = { name: item.name, quantity: item.quantity, unit: item.unit ?? 'g' }
+    if (item.nutrition && typeof item.nutrition === 'object') {
+        out.nutrition = item.nutrition
+        return { line: out }
+    }
+    const foodName = typeof item.food === 'string' ? item.food.trim() : ''
+    const food = foodName ? foodsByName.get(nameKey(foodName)) : undefined
+    if (item.per100 !== undefined || !food) {
+        out.nutrition = {
+            basis: item.basis,
+            per100: item.per100,
+            density: item.density,
+            unitGrams: item.unitGrams,
+        }
+        return { line: out, unknownFood: foodName && !food ? foodName : undefined }
+    }
+    out.food = String(food._id)
+    out.nutrition = { basis: food.basis, per100: food.per100, density: food.density, unitGrams: food.unitGrams }
+    if (typeof out.name !== 'string' || !(out.name as string).trim()) out.name = foodName
+    return { line: out }
+}
+
+/**
+ * POST /api/meal-prep/recipes/import — add trays and sides from pasted JSON.
+ *
+ * Same contract as the other library importers: a bare array, `{ recipes }` or
+ * `{ items, overwrite }`; validated all-or-nothing with a reason per recipe;
+ * name clashes the user chose to overwrite are updated in place (batches keep
+ * their own snapshots, so nothing already cooked changes); everything else is
+ * appended under one `importBatch` so it can be undone.
+ */
+export async function importRecipes(req: AuthRequest, res: Response) {
+    const body = req.body as unknown
+    const rawList = extractList(body, 'recipes')
+    const overwrite = extractOverwrite(body)
+    if (!rawList) {
+        res.status(400).json({ message: 'Expected a JSON array of recipes, or an object with a "recipes" array.' })
+        return
+    }
+    if (rawList.length === 0) {
+        res.status(400).json({ message: 'No recipes found to import.' })
+        return
+    }
+
+    const foods = await Food.find({ user: req.userId, archived: { $ne: true } })
+    const foodsByName = new Map(foods.map((f) => [nameKey(f.name), f]))
+
+    const errors: string[] = []
+    const normalised: Record<string, unknown>[] = []
+    for (let i = 0; i < rawList.length; i++) {
+        const raw = rawList[i]
+        const label = raw && typeof raw === 'object' && typeof (raw as { name?: unknown }).name === 'string'
+            ? `"${((raw as { name: string }).name).trim()}"`
+            : `Recipe ${i + 1}`
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+            errors.push(`${label}: must be an object`)
+            continue
+        }
+        const item = { ...(raw as Record<string, unknown>) }
+        if (!Array.isArray(item.ingredients) || item.ingredients.length === 0) {
+            errors.push(`${label}: add at least one ingredient`)
+            continue
+        }
+        if (item.category !== undefined && !PREP_CATEGORIES.includes(item.category as PrepCategory)) {
+            errors.push(`${label}: category must be main, side or extra`)
+            continue
+        }
+        const lines = item.ingredients.map((ing) => importIngredient(ing, foodsByName))
+        const unknownFood = lines.find((l) => l.unknownFood)?.unknownFood
+        if (unknownFood) {
+            errors.push(`${label}: no saved food called "${unknownFood}" — add per100 figures or save the food first`)
+            continue
+        }
+        item.ingredients = lines.map((l) => l.line)
+        try {
+            const { set } = await recipeFields(item, req.userId, false)
+            normalised.push(set)
+        } catch (err) {
+            if (err instanceof HttpError) errors.push(`${label}: ${err.message}`)
+            else throw err
+        }
+    }
+    if (errors.length) {
+        res.status(400).json({ message: `Import failed. ${errors.join('; ')}` })
+        return
+    }
+
+    const last = await PrepRecipe.findOne({ user: req.userId }).sort({ order: -1 })
+    let order = last ? last.order + 1 : 0
+    const importBatch = newBatchId()
+    const toInsert: Record<string, unknown>[] = []
+    let updated = 0
+    for (const r of normalised) {
+        const targetId = overwrite.get(nameKey(r.name as string))
+        if (targetId) {
+            const result = await PrepRecipe.updateOne(
+                { _id: targetId, user: req.userId },
+                { $set: { ...r, archived: false } }
+            )
+            if (result.matchedCount) {
+                updated++
+                continue
+            }
+        }
+        toInsert.push({ ...r, user: req.userId, order: order++, importBatch })
+    }
+    const created = await PrepRecipe.insertMany(toInsert)
+    res.status(201).json({
+        message: `Imported ${created.length} recipe(s), updated ${updated}`,
+        data: created,
+        updated,
+    })
+}
+
+/** GET /api/meal-prep/recipes/import/last — the latest import still in the library. */
+export async function lastRecipeImport(req: AuthRequest, res: Response) {
+    const latest = await PrepRecipe.findOne({ user: req.userId, importBatch: { $ne: null }, archived: { $ne: true } })
+        .sort({ importBatch: -1 })
+        .select('importBatch')
+    const batch = latest?.importBatch
+    if (!batch || !Types.ObjectId.isValid(batch)) {
+        res.json({ message: 'OK', data: null })
+        return
+    }
+    const count = await PrepRecipe.countDocuments({ user: req.userId, importBatch: batch, archived: { $ne: true } })
+    res.json({
+        message: 'OK',
+        data: { batch, count, importedAt: new Types.ObjectId(batch).getTimestamp().toISOString() },
+    })
+}
+
+/**
+ * DELETE /api/meal-prep/recipes/import/last — undo the latest import. Recipes
+ * nothing has been cooked from are deleted; any already cooked are archived
+ * instead, because their batches (and the meals eaten from them) point at them.
+ */
+export async function undoRecipeImport(req: AuthRequest, res: Response) {
+    const latest = await PrepRecipe.findOne({ user: req.userId, importBatch: { $ne: null }, archived: { $ne: true } })
+        .sort({ importBatch: -1 })
+        .select('importBatch')
+    const batch = latest?.importBatch
+    if (!batch) {
+        res.status(404).json({ message: 'No import to undo.' })
+        return
+    }
+    const recipes = await PrepRecipe.find({ user: req.userId, importBatch: batch, archived: { $ne: true } }).select('_id')
+    const ids = recipes.map((r) => r._id)
+    const cooked = await FoodBatch.distinct('recipe', { user: req.userId, recipe: { $in: ids } })
+    const cookedIds = new Set(cooked.map(String))
+    const toArchive = ids.filter((id) => cookedIds.has(String(id)))
+    const toDelete = ids.filter((id) => !cookedIds.has(String(id)))
+    if (toArchive.length) await PrepRecipe.updateMany({ _id: { $in: toArchive }, user: req.userId }, { $set: { archived: true } })
+    if (toDelete.length) await PrepRecipe.deleteMany({ _id: { $in: toDelete }, user: req.userId })
+    res.json({
+        message: `Reverted ${ids.length} recipe(s)${toArchive.length ? ` (${toArchive.length} archived — already cooked)` : ''}.`,
+        data: { batch, count: ids.length, importedAt: new Types.ObjectId(batch).getTimestamp().toISOString() },
+    })
 }
 
 // ── Batches ──────────────────────────────────────────────────────────────────

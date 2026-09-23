@@ -153,8 +153,17 @@ export function per100Grams(src: NutritionSource): Macros | null {
 
 // ── Recipes and batches ──────────────────────────────────────────────────────
 
+/**
+ * A line with no nutrition — water, salt — contributes zero whatever its unit,
+ * so it never needs a density or an item weight to be costed.
+ */
+function isZeroNutrition(src: NutritionSource): boolean {
+    return NUTRIENTS.every((k) => !src.per100[k])
+}
+
 /** What one ingredient line contributes, as weighed. */
 export function ingredientMacros(line: IngredientLine): Macros | null {
+    if (isZeroNutrition(line.nutrition) && Number.isFinite(line.quantity) && line.quantity >= 0) return { ...ZERO }
     const c = toBasisAmount(line.quantity, line.unit, line.nutrition)
     if (!c.ok) return null
     return scaleMacros(line.nutrition.per100, c.amount / 100)
@@ -175,6 +184,7 @@ export function recipeTotals(lines: IngredientLine[]): RecipeTotals {
     let totals = { ...ZERO }
     const problems: RecipeTotals['problems'] = []
     lines.forEach((line, index) => {
+        if (isZeroNutrition(line.nutrition) && Number.isFinite(line.quantity) && line.quantity >= 0) return
         const c = toBasisAmount(line.quantity, line.unit, line.nutrition)
         if (!c.ok) {
             problems.push({ index, name: line.name, reason: c.reason })

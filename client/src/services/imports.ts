@@ -1,8 +1,17 @@
 import api from './api'
 import type { ApiResponse } from '../types'
 
-/** The fitness libraries that support append-only JSON import + undo. */
-export type ImportResource = 'conditioning' | 'exercises' | 'workouts' | 'mobility' | 'recovery'
+/**
+ * The libraries that support append-only JSON import + undo. The value is the
+ * API path the `/import/last` endpoints hang off.
+ */
+export type ImportResource =
+    | 'conditioning'
+    | 'exercises'
+    | 'workouts'
+    | 'mobility'
+    | 'recovery'
+    | 'meal-prep/recipes'
 
 /** Chosen name-clash overwrites: `{ "<lowercased name>": "<existing id>" }`. */
 export type OverwriteMap = Record<string, string>

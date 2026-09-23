@@ -7,7 +7,15 @@ import DropdownMenu from '../DropdownMenu'
 import ConfirmModal from '../ConfirmModal'
 import { useToast } from '../../context/ToastContext'
 import { listPlanEntries } from '../../services/mealPlan'
-import { archiveFood, archiveRecipe, deleteContainer, duplicateRecipe, updateRecipe } from '../../services/mealPrep'
+import {
+    archiveFood,
+    archiveRecipe,
+    deleteContainer,
+    duplicateRecipe,
+    importRecipes,
+    updateRecipe,
+} from '../../services/mealPrep'
+import JsonImportPanel from '../JsonImportPanel'
 import { addDays, todayKey } from '../../lib/calendar'
 import { batchDate, grams as fmtGrams, recipeSummary } from '../../lib/mealPrep'
 import { forecastStock, plannedByBatch, HISTORY_DAYS, HORIZON_DAYS, type FoodForecast } from '../../lib/mealPrepForecast'
@@ -29,6 +37,50 @@ import { CategoryChip, EstimateBadge, MacroLine } from './mealprep/ui'
  */
 
 type View = 'Available food' | 'Tray & Sides' | 'Foods'
+
+// ─── Import template ──────────────────────────────────────────────────────────
+
+/**
+ * Two recipes that between them show the usual ways an ingredient is costed:
+ * label figures per 100 g, a per-100 g label used in millilitres (so it needs a
+ * density), a zero-calorie line and dry-weighed rice. Naming a saved food is
+ * described in the notes rather than shown, since it only imports if you have it.
+ */
+const RECIPE_TEMPLATE = JSON.stringify(
+    [
+        {
+            name: 'Fajita chicken tray',
+            category: 'main',
+            ingredients: [
+                { name: 'Chicken breast, raw', quantity: 1000, unit: 'g', per100: { calories: 106, protein: 24, carbs: 0, fat: 1.1 } },
+                { name: 'Mixed peppers', quantity: 400, unit: 'g', per100: { calories: 26, protein: 1, carbs: 4.6, fat: 0.3 } },
+                { name: 'Red onion', quantity: 150, unit: 'g', per100: { calories: 37, protein: 1.2, carbs: 7.9, fat: 0.2 } },
+                { name: 'Olive oil', quantity: 15, unit: 'ml', per100: { calories: 824, protein: 0, carbs: 0, fat: 91.6 }, density: 0.92 },
+                { name: 'Salsa', quantity: 200, unit: 'g', per100: { calories: 34, protein: 1.3, carbs: 6, fat: 0.3 } },
+                { name: 'Grated cheddar', quantity: 100, unit: 'g', per100: { calories: 416, protein: 25, carbs: 0.1, fat: 34.9 } },
+                { name: 'Fajita seasoning', quantity: 30, unit: 'g', per100: { calories: 290, protein: 9, carbs: 50, fat: 5 } },
+            ],
+            instructions: 'Slice everything, toss with oil and seasoning, roast at 200°C for 30–35 minutes. Top with salsa and cheese for the last 5.',
+            prepMinutes: 45,
+            estimatedYieldGrams: 1600,
+            usualPortionGrams: 250,
+            lowStock: { unit: 'portions', value: 2 },
+            leadDays: 1,
+        },
+        {
+            name: 'Basmati rice',
+            category: 'side',
+            ingredients: [
+                { name: 'Basmati rice, dry', quantity: 500, unit: 'g', per100: { calories: 350, protein: 7.5, carbs: 78, fat: 0.5 } },
+                { name: 'Water', quantity: 1000, unit: 'ml' },
+            ],
+            usualPortionGrams: 170,
+        },
+    ],
+    null,
+    2
+)
+
 type CategoryFilter = 'all' | PrepCategory
 
 const SEVERITY_STYLE: Record<FoodForecast['severity'], string> = {
@@ -117,6 +169,7 @@ export default function MealPrepTab() {
     const [buffet, setBuffet] = useState<BuffetTarget | null>(null)
     const [foodForm, setFoodForm] = useState<{ food: Food | null } | null>(null)
     const [confirmArchive, setConfirmArchive] = useState<PrepRecipe | null>(null)
+    const [importing, setImporting] = useState(false)
 
     const recipes = useMemo(
         () => prep.recipes.filter((r) => filter === 'all' || r.category === filter),
@@ -156,9 +209,40 @@ export default function MealPrepTab() {
                     icon: 'fa-solid fa-drumstick-bite',
                     onClick: () => setRecipeForm({ mode: 'create', template: 'chicken' }),
                 },
+                'divider',
+                {
+                    label: 'Import from JSON',
+                    icon: 'fa-solid fa-file-import',
+                    onClick: () => {
+                        setView('Tray & Sides')
+                        setImporting(true)
+                    },
+                },
             ]}
         />
     )
+
+    if (importing) {
+        return (
+            <JsonImportPanel
+                heading="Import trays & sides"
+                description="Copy the template, fill it in with your own recipes, then paste the JSON below to add them all to the Tray & Sides library at once."
+                template={RECIPE_TEMPLATE}
+                itemNoun="recipe"
+                onBack={() => setImporting(false)}
+                doImport={importRecipes}
+                resource="meal-prep/recipes"
+                existingItems={prep.recipes}
+                onLibraryChanged={() => void prep.reload()}
+                onImported={async () => {
+                    await prep.reload()
+                    setImporting(false)
+                    setView('Tray & Sides')
+                }}
+                notes={<RecipeImportNotes />}
+            />
+        )
+    }
 
     return (
         <div className="flex flex-col gap-5">
@@ -618,5 +702,39 @@ function FoodsView({
                 )}
             </section>
         </div>
+    )
+}
+
+/** The field guide shown under the import template. */
+function RecipeImportNotes() {
+    const f = (name: string) => <span className="font-semibold text-neutral-700">{name}</span>
+    return (
+        <>
+            <p>
+                {f('name')} and at least one ingredient are required. {f('category')} is {f('main')}, {f('side')} or{' '}
+                {f('extra')} (default main).
+            </p>
+            <p>
+                Each ingredient needs {f('name')}, {f('quantity')} and {f('unit')} — one of g, kg, ml, l or item. Enter
+                amounts as you weigh them: meat raw, rice and pasta dry.
+            </p>
+            <p>
+                Nutrition is {f('per100')} (calories, protein, carbs, fat) from the label, per 100 g by default. Add{' '}
+                {f('"basis": "ml"')} for a per-100 ml label, {f('density')} (g per ml) to use millilitres with a
+                per-100 g label or vice versa, and {f('unitGrams')} to count items. Instead of {f('per100')}, {f('food')}{' '}
+                can name one of your saved foods to use its label. An ingredient with neither counts as zero — right for
+                water, wrong for anything else.
+            </p>
+            <p>
+                Optional: {f('instructions')}, {f('prepMinutes')}, {f('estimatedYieldGrams')} (a cooked-weight guess for
+                planning until you weigh a batch), {f('usualPortionGrams')}, {f('lowStock')} ({f('unit')}: portions or
+                grams, {f('value')}), {f('leadDays')} and {f('favourite')}.
+            </p>
+            <p>
+                A name that already exists can overwrite the recipe in place — batches already cooked keep their own
+                figures. Undoing an import deletes those recipes, except any you’ve already cooked from, which are
+                archived instead.
+            </p>
+        </>
     )
 }

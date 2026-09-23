@@ -1,4 +1,5 @@
 import api from './api'
+import { importBody, importResult, type ImportResult, type OverwriteMap } from './imports'
 import type {
     ApiResponse,
     BatchStorage,
@@ -44,6 +45,18 @@ export interface RecipeInput {
 export async function listRecipes(): Promise<PrepRecipe[]> {
     const res = await api.get<ApiResponse<PrepRecipe[]>>('/meal-prep/recipes')
     return res.data.data
+}
+
+/**
+ * Bulk-import recipes from parsed JSON (a bare array or `{ recipes: [...] }`).
+ * `overwrite` names the clashes to replace in place.
+ */
+export async function importRecipes(recipes: unknown, overwrite?: OverwriteMap): Promise<ImportResult> {
+    const res = await api.post<ApiResponse<PrepRecipe[]> & { updated?: number }>(
+        '/meal-prep/recipes/import',
+        importBody(recipes, overwrite)
+    )
+    return importResult(res.data.data, res.data)
 }
 
 export async function createRecipe(fields: RecipeInput): Promise<PrepRecipe> {
