@@ -62,7 +62,7 @@ export default function Nutrition() {
                 ) : tab === 'Library' ? (
                     <MealLibrary meals={meals} onChanged={reloadMeals} />
                 ) : tab === 'Stats' ? (
-                    <NutritionStats />
+                    <NutritionStats settingsGoals={user?.settings?.macroGoals} />
                 ) : (
                     <PhasesTab openPhaseId={openPhaseId} onOpened={clearOpenPhase} />
                 )}

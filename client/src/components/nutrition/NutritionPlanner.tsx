@@ -22,9 +22,9 @@ import { addPlanEntry, deletePlanEntry, listPlanEntries, setEntryStatus } from '
 import { listDailyEnergy, saveDailyEnergy, deleteDailyEnergy } from '../../services/dailyEnergy'
 import { listNutritionPhases } from '../../services/nutritionPhases'
 import { addDays, formatWeekRange, getWeekStart, parseDateKey, todayKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
-import { sumEatenMacros, sumPendingMacros, targetsFor } from '../../lib/nutrition'
+import { sumEatenMacros, sumMacros, sumPendingMacros, targetsFor } from '../../lib/nutrition'
 import { MEAL_TYPES } from '../../types'
-import type { DailyEnergy, MacroGoals, Meal, MealPlanEntry, MealType, NutritionPhase } from '../../types'
+import type { DailyEnergy, MacroGoals, Macros, Meal, MealPlanEntry, MealType, NutritionPhase } from '../../types'
 
 /** The Monday of the week holding `date`. */
 export function mondayOf(date: string): string {
@@ -609,10 +609,14 @@ function DayCard({
                 <div className="min-w-0 flex-1">
                     <h3 className="text-base font-bold tracking-tight text-neutral-900">{weekday}</h3>
                     <p className="text-xs tabular-nums text-neutral-500">
-                        {kcal(eaten.calories)} kcal · {fmt(Math.round(eaten.protein))} g protein eaten
+                        {entries.length === 0
+                            ? 'Nothing planned yet'
+                            : `${entries.filter((e) => e.status === 'eaten').length} of ${entries.length} meal${entries.length === 1 ? '' : 's'} eaten`}
                     </p>
                 </div>
             </button>
+
+            {entries.length > 0 && <DayTotals total={sumMacros(entries)} eaten={eaten} />}
 
             {tools && <div className="-mt-1 flex flex-wrap gap-1.5">{tools}</div>}
 
@@ -649,6 +653,36 @@ function DayCard({
                 </div>
             )}
         </DayCardShell>
+    )
+}
+
+/** The day's macros added up: everything on it, with what's been eaten beneath. */
+function DayTotals({ total, eaten }: { total: Macros; eaten: Macros }) {
+    const cells = [
+        { label: 'Calories', total: total.calories, eaten: eaten.calories, unit: '' },
+        { label: 'Protein', total: total.protein, eaten: eaten.protein, unit: ' g' },
+        { label: 'Carbs', total: total.carbs, eaten: eaten.carbs, unit: ' g' },
+        { label: 'Fat', total: total.fat, eaten: eaten.fat, unit: ' g' },
+    ]
+    return (
+        <dl className="grid grid-cols-4 divide-x divide-neutral-200/70 rounded-2xl bg-neutral-50 py-2.5">
+            {cells.map((c) => {
+                const t = Math.round(c.total)
+                const e = Math.round(c.eaten)
+                return (
+                    <div key={c.label} className="min-w-0 px-2 text-center">
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{c.label}</dt>
+                        <dd className="truncate text-sm font-bold tabular-nums text-neutral-900 sm:text-base">
+                            {c.label === 'Calories' ? kcal(t) : fmt(t)}
+                            <span className="text-xs font-semibold text-neutral-400">{c.unit || ' kcal'}</span>
+                        </dd>
+                        <dd className={`truncate text-[11px] tabular-nums ${e >= t && t > 0 ? 'text-emerald-600' : 'text-neutral-500'}`}>
+                            {e >= t && t > 0 ? 'all eaten' : `${c.label === 'Calories' ? kcal(e) : fmt(e)} eaten`}
+                        </dd>
+                    </div>
+                )
+            })}
+        </dl>
     )
 }
 
