@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardAction, CardHeader, CardTitle } from '../Card'
 import Spinner from '../Spinner'
-import { listFoodEntries as listPlanEntries } from '../../services/food'
+import { listPlanEntries } from '../../services/mealPlan'
 import { listNutritionPhases } from '../../services/nutritionPhases'
 import { listWeightLogs } from '../../services/weightLogs'
 import { listPlanEntries as listFitnessEntries } from '../../services/fitnessPlan'
@@ -18,7 +18,7 @@ import type {
     FitnessPlanEntry,
     MacroGoals,
     Macros,
-    FoodEntry,
+    MealPlanEntry,
     MealType,
     NutritionPhase,
     WeightLog,
@@ -190,7 +190,7 @@ function TodayView({
     phaseName,
     status,
 }: {
-    entries: FoodEntry[]
+    entries: MealPlanEntry[]
     goals: MacroGoals | null
     weightKg: number | null
     ratePerWeek: number | null
@@ -258,7 +258,7 @@ function TodayView({
 
 // ── The week ahead ────────────────────────────────────────────────────────────
 
-function WeekView({ weekStart, entries }: { weekStart: string; entries: FoodEntry[] }) {
+function WeekView({ weekStart, entries }: { weekStart: string; entries: MealPlanEntry[] }) {
     const totals = sumMacros(entries)
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
     const perDay = days.map((date) => {
@@ -348,7 +348,7 @@ export default function NutritionWidget({
     const isWeek = cadence === 'week'
     const { user } = useAuth()
     const settingsGoals = user?.settings?.macroGoals
-    const [entries, setEntries] = useState<FoodEntry[]>([])
+    const [entries, setEntries] = useState<MealPlanEntry[]>([])
     const [phases, setPhases] = useState<NutritionPhase[]>([])
     const [logs, setLogs] = useState<WeightLog[]>([])
     const [fitness, setFitness] = useState<FitnessPlanEntry[]>([])

@@ -11,7 +11,6 @@ export type ImportResource =
     | 'workouts'
     | 'mobility'
     | 'recovery'
-    | 'meal-prep/recipes'
 
 /** Chosen name-clash overwrites: `{ "<lowercased name>": "<existing id>" }`. */
 export type OverwriteMap = Record<string, string>

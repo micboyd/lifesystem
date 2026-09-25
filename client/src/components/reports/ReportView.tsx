@@ -527,7 +527,6 @@ function FoodPanel({ report }: { report: DailyReport }) {
                     </div>
                     <p className="text-xs text-neutral-500">
                         {n.mealsEaten} eaten
-                        {n.mealsSkipped > 0 && ` · ${n.mealsSkipped} skipped`}
                         {n.mealsUnmarked > 0 && ` · ${n.mealsUnmarked} not marked`}
                     </p>
                 </>

@@ -105,81 +105,6 @@ export interface WeightLog extends BodyMeasurements {
     updatedAt: string
 }
 
-// ─── Progress tracking ─────────────────────────────────────────────────────────
-
-/** How clothes are sitting compared to last time. */
-export const CLOTHES_FITS = ['tighter', 'same', 'looser'] as const
-export type ClothesFit = (typeof CLOTHES_FITS)[number]
-
-/** The 1–5 ratings a check-in carries. */
-export const RATING_FIELDS = ['hunger', 'energy', 'recovery', 'trainingFeel'] as const
-export type RatingField = (typeof RATING_FIELDS)[number]
-
-export const RATING_LABELS: Record<RatingField, string> = {
-    hunger: 'Hunger',
-    energy: 'Energy',
-    recovery: 'Recovery',
-    trainingFeel: 'Training',
-}
-
-/**
- * A monthly check-in: how the recomp feels, as distinct from what it measures.
- * Context only — none of it is allowed to move a calorie target on its own.
- */
-export interface ProgressCheckIn {
-    _id: string
-    /** "YYYY-MM-DD" — the day the check-in describes. */
-    date: string
-    clothesFit?: ClothesFit
-    /** 1 (ravenous) – 5 (comfortable). */
-    hunger?: number
-    /** 1 (flat) – 5 (excellent). */
-    energy?: number
-    /** 1 (wrecked) – 5 (fully recovered). */
-    recovery?: number
-    /** 1 (going backwards) – 5 (strong). */
-    trainingFeel?: number
-    notes?: string
-    createdAt: string
-    updatedAt: string
-}
-
-export interface ProgressCheckInInput {
-    date: string
-    clothesFit?: ClothesFit
-    hunger?: number
-    energy?: number
-    recovery?: number
-    trainingFeel?: number
-    notes?: string
-}
-
-/** Which angle a progress photo was taken from. */
-export const PHOTO_VIEWS = ['front', 'side', 'back'] as const
-export type PhotoView = (typeof PHOTO_VIEWS)[number]
-
-export const PHOTO_VIEW_LABELS: Record<PhotoView, string> = {
-    front: 'Front',
-    side: 'Side',
-    back: 'Back',
-}
-
-/**
- * A progress photo's metadata. The image itself is fetched separately, through
- * an authenticated route — it is never carried in a listing and never sits at a
- * public URL.
- */
-export interface ProgressPhoto {
-    _id: string
-    /** "YYYY-MM-DD" — the day the photo was taken. */
-    date: string
-    view: PhotoView
-    contentType: string
-    bytes: number
-    createdAt: string
-    updatedAt: string
-}
-
 /**
  * One day's total energy expenditure, entered by hand. Total for the whole day —
  * resting plus movement — not the active-only figure, so the day's balance is
@@ -219,12 +144,6 @@ export interface Course {
 export const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const
 export type MealType = (typeof MEAL_TYPES)[number]
 
-export interface Ingredient {
-    name: string
-    quantity?: string
-    unit?: string
-}
-
 export interface Macros {
     calories: number
     protein: number
@@ -232,32 +151,20 @@ export interface Macros {
     fat: number
 }
 
+/** A meal in the library. */
 export interface Meal {
     _id: string
     name: string
-    /** Which meals of the day this fits; a meal can belong to several. */
+    /** Breakfast / lunch / dinner / snack — a meal can be more than one. */
     types: MealType[]
-    /** Servings the recipe yields. Macros are stated per serving. */
-    servings: number
-    /** Optional label for one serving, e.g. "1 bowl". */
-    servingLabel?: string
-    /** Estimated prep time for a single serving, in minutes. */
-    prepTime?: number
-    /**
-     * Fraction (0–1) of the single-serving prep that is one-time setup and so
-     * doesn't repeat per serving. Unset means "use the global default".
-     */
-    prepOverhead?: number
     macros: Macros
-    ingredients: Ingredient[]
-    /** Ordered method steps. */
-    method: string[]
     notes?: string
-    link?: string
     order: number
     createdAt: string
     updatedAt: string
 }
+
+export type MealInput = Pick<Meal, 'name' | 'types' | 'macros' | 'notes'>
 
 export interface Exercise {
     _id: string
@@ -449,261 +356,26 @@ export interface RecoveryLog {
     updatedAt: string
 }
 
-export const ENTRY_STATUSES = ['planned', 'eaten', 'skipped'] as const
-/** Whether a planned meal was actually eaten. */
+export const ENTRY_STATUSES = ['planned', 'eaten'] as const
+/** Whether a planned meal was eaten. */
 export type EntryStatus = (typeof ENTRY_STATUSES)[number]
 
-/** Food eaten that wasn't in the library — logged with macros, not a recipe. */
-export interface AdhocMeal {
-    name: string
-    macros: Macros
-}
-
-// ── Meal prep (buffet) ───────────────────────────────────────────────────────
-
-export type PrepCategory = 'main' | 'side' | 'extra'
-export type IngredientUnit = 'g' | 'kg' | 'ml' | 'l' | 'item'
-
-/** Label figures an ingredient is costed with: per 100 g or per 100 ml. */
-export interface NutritionSource {
-    basis: 'g' | 'ml'
-    per100: Macros
-    /** Grams per millilitre — needed to cross between weight and volume. */
-    density?: number
-    /** Grams per item. */
-    unitGrams?: number
-}
-
-export interface PrepIngredient {
-    name: string
-    /** The saved food it was picked from, if any. */
-    food?: string
-    quantity: number
-    unit: IngredientUnit
-    nutrition: NutritionSource
-}
-
-/** A saved nutrition label: an ingredient, or a packaged side eaten as-is. */
-export interface Food {
-    _id: string
-    name: string
-    brand?: string
-    basis: 'g' | 'ml'
-    per100: Macros
-    density?: number
-    unitGrams?: number
-    archived?: boolean
-}
-
-/** A tray or side in the Tray & Sides library — batch totals, not servings. */
-export interface PrepRecipe {
-    _id: string
-    name: string
-    category: PrepCategory
-    ingredients: PrepIngredient[]
-    instructions?: string
-    prepMinutes?: number
-    lastYieldGrams?: number
-    lastYieldDate?: string
-    estimatedYieldGrams?: number
-    usualPortionGrams?: number
-    lowStock?: { unit: 'portions' | 'grams'; value: number }
-    leadDays?: number
-    favourite: boolean
-    archived: boolean
-    order: number
-    createdAt: string
-    updatedAt: string
-}
-
-export type BatchStatus = 'active' | 'finished' | 'discarded'
-export type BatchStorage = 'fridge' | 'freezer'
-
-/** Food actually cooked: a snapshot of what went in, and what's left of it. */
-export interface FoodBatch {
-    _id: string
-    recipe?: string
-    name: string
-    category: PrepCategory
-    label?: string
-    cookedDate: string
-    ingredients: PrepIngredient[]
-    totals: Macros
-    cookedGrams: number
-    per100: Macros
-    remainingGrams: number
-    storage: BatchStorage
-    thawedDate?: string
-    useBy?: string
-    status: BatchStatus
-    reconciledAt?: string
-    weighing?: { grossGrams: number; containerGrams: number; containerName?: string }
-    createdAt: string
-    updatedAt: string
-}
-
-export type StockMovementKind =
-    | 'cook'
-    | 'consume'
-    | 'restore'
-    | 'others'
-    | 'discard'
-    | 'correction'
-    | 'move'
-    | 'finish'
-
-export interface StockMovement {
-    _id: string
-    batch: string
-    kind: StockMovementKind
-    grams: number
-    balanceAfter: number
-    sealed?: boolean
-    entry?: string
-    date: string
-    note?: string
-    createdAt: string
-}
-
-export interface PrepContainer {
-    _id: string
-    name: string
-    grams: number
-}
-
-export type BuffetRole = 'main' | 'side' | 'extra'
-
-/** One weighed item on a buffet plate — see the server model for the rules. */
-export interface BuffetComponent {
-    _id: string
-    role: BuffetRole
-    source: 'batch' | 'recipe' | 'food'
-    recipe?: string
-    batch?: string
-    food?: string
-    name: string
-    per100: Macros
-    /** Density from an estimated or previous yield, not the batch eaten from. */
-    estimated: boolean
-    plannedGrams?: number
-    grams?: number
-    /** Snapshot for the grams that count: eaten once logged, planned before. */
-    macros: Macros
-}
-
-export interface BuffetMeal {
-    name?: string
-    components: BuffetComponent[]
-    rev: number
-    loggedAt?: string
-}
-
-// ── Recipes, batches and day lines ─────────────────────────────────────────
-// Shapes mirror server/src/models/{Recipe,Batch,FoodEntry}.ts; the arithmetic
-// on them lives in server/src/lib/recipeMath.ts (re-exported by lib/recipes).
-
-export type RecipeIngredientUnit = 'g' | 'ml' | 'item'
-
-export interface RecipeIngredient {
-    name: string
-    amount?: number
-    unit: RecipeIngredientUnit
-    /** Label macros per 100 g/ml, or per item. */
-    per?: Macros
-    pack?: { size: number; label?: string }
-    drained?: boolean
-}
-
-export type FoodEntryUnit = 'portion' | 'g'
-
-export interface RecipePreset {
-    label: string
-    amount: number
-    unit: FoodEntryUnit
-    hint?: string
-}
-
-export interface Recipe {
-    _id: string
-    name: string
-    types: MealType[]
-    ingredients: RecipeIngredient[]
-    macros?: Macros
-    servings: number
-    cookedGrams?: number
-    estimatedCookedGrams?: number
-    presets: RecipePreset[]
-    method: string[]
-    notes?: string
-    link?: string
-    guideUrl?: string
-    guidePage?: number
-    guideEstimate?: Macros
-    order: number
-    archived: boolean
-    createdAt: string
-    updatedAt: string
-}
-
-export interface Batch {
-    _id: string
-    recipe?: string
-    name: string
-    cookedOn: string
-    ingredients: RecipeIngredient[]
-    macros?: Macros
-    servings: number
-    cookedGrams?: number
-    estimatedCookedGrams?: number
-    notes?: string
-    archived: boolean
-    createdAt: string
-    updatedAt: string
-}
-
-/** One line of a day. `macros` is always the figure it counts for. */
-export interface FoodEntry {
-    _id: string
-    date: string
-    slot: MealType
-    status: EntryStatus
-    batch?: string
-    recipe?: string
-    name: string
-    amount: number
-    unit: FoodEntryUnit
-    macros: Macros
-    /** Grams against an estimated cooked weight. */
-    estimated?: boolean
-    order: number
-    createdAt: string
-    updatedAt: string
-}
-
 /**
- * A meal placed into one slot of one day in the weekly planner. Exactly one of
- * `meal` (a library recipe), `adhoc` (off-plan food) and `buffet` (a plate
- * weighed out of prepared batches) is set.
+ * A meal on a day. It carries a copy of the meal's name and macros, so a past
+ * day never changes when the library does. `extra` is food added with "Log
+ * more" rather than planned.
  */
 export interface MealPlanEntry {
     _id: string
-    /** "YYYY-MM-DD" — the day this sits on. */
+    /** "YYYY-MM-DD". */
     date: string
-    /** Which slot of the day: breakfast / lunch / dinner / snack. */
     slot: MealType
-    /** The planned meal, populated by the server (macros read from here). */
-    meal?: Meal
-    /** Set instead of `meal` for off-plan food, carrying its own macros. */
-    adhoc?: AdhocMeal
-    /** Set instead of `meal` for a buffet plate. */
-    buffet?: BuffetMeal
-    /**
-     * How many servings are on the plate. Macros are per serving, so this scales
-     * them — 2 for a double portion, 0.5 for half.
-     */
-    servings: number
-    /** Whether it was eaten. */
+    /** The library meal's id, if it still exists. */
+    meal?: string
+    name: string
+    macros: Macros
     status: EntryStatus
+    extra: boolean
     order: number
     createdAt: string
     updatedAt: string

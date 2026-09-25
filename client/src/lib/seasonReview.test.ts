@@ -157,7 +157,7 @@ describe('nutrition score', () => {
                 { date: '2026-09-01', status: 'eaten' },
                 { date: '2026-09-01', status: 'eaten' },
                 { date: '2026-09-02', status: 'planned' },
-                { date: '2026-09-02', status: 'skipped' },
+                { date: '2026-09-02', status: 'planned' },
             ],
         })
         expect(row.score).toBe(50)

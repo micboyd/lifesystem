@@ -1,5 +1,4 @@
 import type {
-    FoodEntry,
     Macros,
     MacroGoals,
     MealPlanEntry,
@@ -19,52 +18,19 @@ import type {
 
 export const ZERO_MACROS: Macros = { calories: 0, protein: 0, carbs: 0, fat: 0 }
 
-/**
- * A line of a day. `FoodEntry` is the current shape and carries its own
- * `macros`; `MealPlanEntry` is the old planner's, kept readable until it goes.
- */
-export type DayLine = FoodEntry | MealPlanEntry
-
-const isFoodEntry = (e: DayLine): e is FoodEntry => 'macros' in e
-
-/**
- * The macros an entry contributes: its recipe's per-serving figures (or its own,
- * if off-plan) multiplied by the portion on the plate. `servings` is absent on
- * entries written before portions existed, so it falls back to one.
- */
-export function entryMacros(entry: DayLine): Macros {
-    if (isFoodEntry(entry)) return entry.macros
-    // A buffet plate's components carry their own snapshot for the grams that
-    // count — eaten once logged, planned before — so the sum is the whole story.
-    if (entry.buffet) {
-        return entry.buffet.components.reduce((acc, c) => addMacros(acc, c.macros), { ...ZERO_MACROS })
-    }
-    const base = entry.meal?.macros ?? entry.adhoc?.macros ?? ZERO_MACROS
-    const n = entry.servings ?? 1
-    if (n === 1) return base
-    return {
-        calories: base.calories * n,
-        protein: base.protein * n,
-        carbs: base.carbs * n,
-        fat: base.fat * n,
-    }
+/** The macros an entry counts for — the copy it took when it was added. */
+export function entryMacros(entry: MealPlanEntry): Macros {
+    return entry.macros
 }
 
-/** What to call an entry — the recipe's name, or the off-plan label. */
-export function entryName(entry: DayLine): string {
-    if (isFoodEntry(entry)) return entry.name
-    if (entry.buffet) {
-        return entry.buffet.name || entry.buffet.components.map((c) => c.name).join(' + ') || 'Buffet meal'
-    }
-    return entry.meal?.name ?? entry.adhoc?.name ?? 'Unknown'
+/** What to call an entry. */
+export function entryName(entry: MealPlanEntry): string {
+    return entry.name
 }
 
-/**
- * Whether an entry counts toward a day's total. Skipped food doesn't: the whole
- * point of marking it is to take it back out of the tally.
- */
-export function isCounted(entry: DayLine): boolean {
-    return entry.status !== 'skipped'
+/** Whether an entry counts toward a day's total — everything on the plan does. */
+export function isCounted(entry: MealPlanEntry): boolean {
+    return entry.status === 'eaten' || entry.status === 'planned'
 }
 
 /** Add two macro sets. */
@@ -81,14 +47,14 @@ export function addMacros(a: Macros, b: Macros): Macros {
  * Tally macros across entries, ignoring anything skipped. With everything still
  * 'planned' this is the plan; once the day is marked up it's what was eaten.
  */
-export function sumMacros(entries: DayLine[]): Macros {
+export function sumMacros(entries: MealPlanEntry[]): Macros {
     return entries.filter(isCounted).reduce((acc, e) => addMacros(acc, entryMacros(e)), {
         ...ZERO_MACROS,
     })
 }
 
 /** Tally only what's been marked eaten — the figure that's actually true. */
-export function sumEatenMacros(entries: DayLine[]): Macros {
+export function sumEatenMacros(entries: MealPlanEntry[]): Macros {
     return entries
         .filter((e) => e.status === 'eaten')
         .reduce((acc, e) => addMacros(acc, entryMacros(e)), { ...ZERO_MACROS })
@@ -99,7 +65,7 @@ export function sumEatenMacros(entries: DayLine[]): Macros {
  * it goes as written. Kept apart from the eaten total because at nine in the
  * morning the two say very different things.
  */
-export function sumPendingMacros(entries: DayLine[]): Macros {
+export function sumPendingMacros(entries: MealPlanEntry[]): Macros {
     return entries
         .filter((e) => e.status === 'planned')
         .reduce((acc, e) => addMacros(acc, entryMacros(e)), { ...ZERO_MACROS })
@@ -199,64 +165,4 @@ export function targetsFor(
         // a cut either way, and the mode drives how the numbers are coloured.
         phase,
     }
-}
-
-// ── Choosing a meal ──────────────────────────────────────────────────────────
-
-/**
- * Protein per 100 kcal — the one number that says whether a meal helps a cut.
- *
- * Absolute protein flatters big meals: 40 g in a 900 kcal plate is a worse deal
- * on a deficit than 30 g in 350 kcal, and only the density says so. Null for a
- * meal with no calories to divide by.
- */
-export function proteinDensity(macros: Macros): number | null {
-    if (!macros.calories || macros.calories <= 0) return null
-    return (macros.protein / macros.calories) * 100
-}
-
-/** Above this, a meal is doing real work for a cut's protein floor. */
-export const HIGH_PROTEIN_DENSITY = 10
-
-/** A short, factual label for how a meal sits against what's left of the day. */
-export type MealFitLabel = 'high-protein' | 'fits' | 'large' | 'light'
-
-export const MEAL_FIT_LABELS: Record<MealFitLabel, string> = {
-    'high-protein': 'High protein',
-    fits: 'Fits what’s left',
-    large: 'Large meal',
-    light: 'Light meal',
-}
-
-/**
- * How a meal reads against the calories and protein still unspent today.
- *
- * Deliberately descriptive rather than prescriptive: no meal is recommended or
- * discouraged, and nothing here calls food good or bad. It answers "will this
- * fit" and "is this protein-dense", which are the two things worth knowing at
- * the moment of choosing, and leaves the choice alone.
- *
- * `remaining` may be null — with no target set there is nothing to fit into, and
- * only the density label survives.
- */
-export function mealFit(
-    macros: Macros,
-    remaining: { calories?: number; protein?: number } | null
-): MealFitLabel[] {
-    const labels: MealFitLabel[] = []
-
-    const density = proteinDensity(macros)
-    if (density !== null && density >= HIGH_PROTEIN_DENSITY) labels.push('high-protein')
-
-    const left = remaining?.calories
-    if (left !== undefined && left > 0) {
-        // "Fits" means it lands inside what's left without finishing it off —
-        // a meal that uses the last calorie fits arithmetically and not in practice.
-        if (macros.calories <= left * 0.9) labels.push('fits')
-        else if (macros.calories > left) labels.push('large')
-    }
-
-    if (macros.calories > 0 && macros.calories < 250) labels.push('light')
-
-    return labels
 }

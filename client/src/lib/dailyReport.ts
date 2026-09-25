@@ -1,5 +1,5 @@
 import { addDays } from './calendar'
-import { type DayLine, sumEatenMacros } from './nutrition'
+import { sumEatenMacros } from './nutrition'
 import { effectiveTargetsFor } from './nutritionTargets'
 import type {
     ConditioningLog,
@@ -8,6 +8,7 @@ import type {
     HabitLog,
     MacroGoals,
     Macros,
+    MealPlanEntry,
     MobilityLog,
     NutritionPhase,
     NutritionPhaseKind,
@@ -70,7 +71,7 @@ export interface ReportInputs {
     habits: HabitDef[]
     habitLogs: HabitLog[]
     tasks: Task[]
-    meals: DayLine[]
+    meals: MealPlanEntry[]
     phases: NutritionPhase[]
     settingsGoals?: MacroGoals | null
     fitnessPlan: FitnessPlanEntry[]
@@ -130,7 +131,6 @@ export interface ReportTasks {
 export interface ReportNutrition {
     eaten: Macros
     mealsEaten: number
-    mealsSkipped: number
     /** Planned and never marked either way. */
     mealsUnmarked: number
     goals: MacroGoals | null
@@ -362,7 +362,6 @@ function buildNutrition(date: string, inputs: ReportInputs): ReportNutrition | n
     return {
         eaten: sumEatenMacros(entries),
         mealsEaten: entries.filter((e) => e.status === 'eaten').length,
-        mealsSkipped: entries.filter((e) => e.status === 'skipped').length,
         mealsUnmarked: entries.filter((e) => e.status === 'planned').length,
         goals: targets.goals,
         phaseKind: targets.phase?.kind ?? null,

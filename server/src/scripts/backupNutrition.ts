@@ -29,6 +29,9 @@ const COLLECTIONS = [
     'progresscheckins',
     'progressphotos',
     'weightlogs',
+    'recipes',
+    'batches',
+    'foodentries',
 ]
 
 const backupDir = process.env.BACKUP_DIR ?? path.resolve(process.cwd(), '../backups')

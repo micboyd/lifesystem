@@ -28,17 +28,11 @@ import habitRoutes from './routes/habitRoutes'
 import lifePlanRoutes from './routes/lifePlanRoutes'
 import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
-import mealPrepRoutes from './routes/mealPrepRoutes'
-import recipeRoutes from './routes/recipeRoutes'
-import batchRoutes from './routes/batchRoutes'
-import foodEntryRoutes from './routes/foodEntryRoutes'
 import mobilityRoutes from './routes/mobilityRoutes'
 import mobilityLogRoutes from './routes/mobilityLogRoutes'
 import monthNoteRoutes from './routes/monthNoteRoutes'
 import noteRoutes from './routes/noteRoutes'
 import nutritionPhaseRoutes from './routes/nutritionPhaseRoutes'
-import progressCheckInRoutes from './routes/progressCheckInRoutes'
-import progressPhotoRoutes from './routes/progressPhotoRoutes'
 import personRoutes from './routes/personRoutes'
 import workProjectRoutes from './routes/workProjectRoutes'
 import workTaskRoutes from './routes/workTaskRoutes'
@@ -110,10 +104,6 @@ app.use('/api/weight-logs', weightLogRoutes)
 app.use('/api/daily-energy', dailyEnergyRoutes)
 app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)
-app.use('/api/meal-prep', mealPrepRoutes)
-app.use('/api/recipes', recipeRoutes)
-app.use('/api/batches', batchRoutes)
-app.use('/api/food-entries', foodEntryRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)
 app.use('/api/plans', trainingPlanRoutes)
 app.use('/api/recovery', recoveryRoutes)
@@ -125,8 +115,6 @@ app.use('/api/checklists', checklistRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
 app.use('/api/life-plans', lifePlanRoutes)
 app.use('/api/nutrition-phases', nutritionPhaseRoutes)
-app.use('/api/progress-check-ins', progressCheckInRoutes)
-app.use('/api/progress-photos', progressPhotoRoutes)
 
 // The work workspace namespaces its routes so the two sets of concerns
 // stay legible side by side — /api/work/tasks is never the day planner's.

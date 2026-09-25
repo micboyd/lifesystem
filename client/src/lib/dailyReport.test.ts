@@ -75,9 +75,10 @@ function meal(over: Partial<MealPlanEntry> = {}): MealPlanEntry {
         _id: 'm1',
         date: DAY,
         slot: 'lunch',
-        adhoc: { name: 'Lunch', macros: { calories: 600, protein: 40, carbs: 50, fat: 20 } },
-        servings: 1,
+        name: 'Lunch',
+        macros: { calories: 600, protein: 40, carbs: 50, fat: 20 },
         status: 'eaten',
+        extra: false,
         order: 0,
         ...STAMP,
         ...over,
@@ -269,10 +270,8 @@ describe('food', () => {
                 phases: [phase('cut')],
                 meals: [
                     meal({
-                        adhoc: {
-                            name: 'Big',
-                            macros: { calories: 2500, protein: 100, carbs: 0, fat: 0 },
-                        },
+                        name: 'Big',
+                        macros: { calories: 2500, protein: 100, carbs: 0, fat: 0 },
                     }),
                 ],
             })

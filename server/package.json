@@ -12,7 +12,7 @@
         "fitness:wipe": "tsx src/scripts/wipeFitness.ts",
         "nutrition:seed-recomp": "tsx src/scripts/seedRecompPhase.ts",
         "nutrition:backup": "tsx src/scripts/backupNutrition.ts",
-        "nutrition:migrate": "tsx src/scripts/migrateNutrition.ts",
+        "nutrition:simplify": "tsx src/scripts/simplifyNutrition.ts",
         "build": "tsc",
         "start": "node dist/index.js",
         "lint": "eslint .",

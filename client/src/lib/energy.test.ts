@@ -14,23 +14,19 @@ import { trendSeries } from './weightTrend'
 import type { DailyEnergy, MealPlanEntry, EntryStatus, WeightLog } from '../types'
 
 /** A plan entry carrying only the fields the energy math reads. */
-function entry(
-    date: string,
-    calories: number,
-    status: EntryStatus,
-    servings = 1
-): MealPlanEntry {
+function entry(date: string, calories: number, status: EntryStatus): MealPlanEntry {
     return {
-        _id: `${date}-${calories}-${status}-${servings}`,
+        _id: `${date}-${calories}-${status}`,
         date,
         slot: 'dinner',
-        adhoc: { name: 'x', macros: { calories, protein: 0, carbs: 0, fat: 0 } },
-        servings,
+        name: 'x',
+        macros: { calories, protein: 0, carbs: 0, fat: 0 },
         status,
+        extra: false,
         order: 0,
         createdAt: '',
         updatedAt: '',
-    } as MealPlanEntry
+    }
 }
 
 function log(date: string, weight: number): WeightLog {
@@ -52,14 +48,8 @@ describe('dailyIntake', () => {
         const intake = dailyIntake([
             entry('2026-08-01', 500, 'eaten'),
             entry('2026-08-01', 700, 'planned'),
-            entry('2026-08-01', 300, 'skipped'),
         ])
         expect(intake.get('2026-08-01')).toBe(500)
-    })
-
-    it('scales by the portion on the plate', () => {
-        const intake = dailyIntake([entry('2026-08-01', 500, 'eaten', 2)])
-        expect(intake.get('2026-08-01')).toBe(1000)
     })
 
     it('omits unlogged days rather than recording them as zero', () => {
@@ -147,7 +137,6 @@ describe('dayEnergy', () => {
             [
                 entry('2026-08-01', 600, 'eaten'),
                 entry('2026-08-01', 900, 'planned'),
-                entry('2026-08-01', 400, 'skipped'),
             ],
             null,
             maintenance
