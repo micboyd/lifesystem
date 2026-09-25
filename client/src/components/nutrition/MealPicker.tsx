@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
 import BottomSheet from '../BottomSheet'
 import Button from '../Button'
-import { fmt, kcal } from './format'
+import { kcal } from './format'
+import { CATEGORY, CategoryIcon, MacroBar, MacroLegend } from './mealUi'
 import { MEAL_TYPES, type Meal, type MealType } from '../../types'
 
 export const CATEGORY_LABEL: Record<MealType, string> = {
-    breakfast: 'Breakfast',
-    lunch: 'Lunch',
-    dinner: 'Dinner',
-    snack: 'Snacks',
+    breakfast: CATEGORY.breakfast.label,
+    lunch: CATEGORY.lunch.label,
+    dinner: CATEGORY.dinner.label,
+    snack: CATEGORY.snack.label,
 }
 
 /**
@@ -100,19 +101,28 @@ export default function MealPicker({
                     className="h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm focus:border-neutral-900 focus:outline-none"
                 />
                 <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
-                    {(['all', ...MEAL_TYPES] as const).map((c) => (
-                        <button
-                            key={c}
-                            type="button"
-                            aria-pressed={filter === c}
-                            onClick={() => setFilter(c)}
-                            className={`min-h-[36px] shrink-0 rounded-full px-3.5 text-sm font-semibold transition-colors ${
-                                filter === c ? 'bg-neutral-950 text-white' : 'bg-neutral-100 text-neutral-600'
-                            }`}
-                        >
-                            {c === 'all' ? 'All' : CATEGORY_LABEL[c]}
-                        </button>
-                    ))}
+                    {(['all', ...MEAL_TYPES] as const).map((c) => {
+                        const on = filter === c
+                        const meta = c === 'all' ? null : CATEGORY[c]
+                        return (
+                            <button
+                                key={c}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => setFilter(c)}
+                                className={`inline-flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold transition-colors ${
+                                    on
+                                        ? meta
+                                            ? `${meta.tile} ${meta.text} ring-2 ${meta.ring}`
+                                            : 'bg-neutral-950 text-white'
+                                        : 'bg-neutral-100 text-neutral-600'
+                                }`}
+                            >
+                                {meta && <i className={`${meta.icon} text-xs`} aria-hidden="true" />}
+                                {c === 'all' ? 'All' : meta!.label}
+                            </button>
+                        )
+                    })}
                 </div>
             </div>
 
@@ -128,16 +138,29 @@ export default function MealPicker({
                                 type="button"
                                 onClick={() => void pick(m)}
                                 disabled={busy}
-                                className="flex min-h-[56px] w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left ring-1 ring-black/[0.06] active:bg-neutral-50 disabled:opacity-60"
+                                className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl bg-white px-3 py-3 text-left ring-1 ring-black/[0.06] transition-colors active:bg-neutral-50 disabled:opacity-60"
                             >
-                                <span className="min-w-0 flex-1">
-                                    <span className="block truncate text-[15px] font-semibold text-neutral-900">{m.name}</span>
-                                    <span className="block text-xs tabular-nums text-neutral-500">
-                                        {kcal(m.macros.calories)} kcal · P {fmt(m.macros.protein)} · C {fmt(m.macros.carbs)} · F{' '}
-                                        {fmt(m.macros.fat)}
+                                {m.types[0] ? (
+                                    <CategoryIcon type={m.types[0]} />
+                                ) : (
+                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-sm text-neutral-400" aria-hidden="true">
+                                        <i className="fa-solid fa-utensils" />
                                     </span>
+                                )}
+                                <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                    <span className="flex items-baseline gap-2">
+                                        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-neutral-900">{m.name}</span>
+                                        <span className="shrink-0 text-sm font-bold tabular-nums text-neutral-900">
+                                            {kcal(m.macros.calories)}
+                                            <span className="ml-0.5 text-[10px] font-medium text-neutral-400">kcal</span>
+                                        </span>
+                                    </span>
+                                    <MacroBar macros={m.macros} />
+                                    <MacroLegend macros={m.macros} compact />
                                 </span>
-                                <i className="fa-solid fa-plus text-sm text-neutral-400" aria-hidden="true" />
+                                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs text-neutral-500" aria-hidden="true">
+                                    <i className="fa-solid fa-plus" />
+                                </span>
                             </button>
                         </li>
                     ))}

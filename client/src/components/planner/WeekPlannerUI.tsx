@@ -88,6 +88,43 @@ export function WeekHero({
     children: ReactNode
 }) {
     return (
+        <HeroShell>
+            <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                        <HeroIconButton
+                            label="Previous week"
+                            icon="fa-solid fa-chevron-left"
+                            onClick={() => onStep(-1)}
+                        />
+                        <HeroIconButton
+                            label="Next week"
+                            icon="fa-solid fa-chevron-right"
+                            onClick={() => onStep(1)}
+                        />
+                        {!isThisWeek && (
+                            <button
+                                type="button"
+                                onClick={onToday}
+                                className="ml-1 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/25"
+                            >
+                                Today
+                            </button>
+                        )}
+                    </div>
+                    <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">{title}</h2>
+                    <p className="mt-1 text-sm font-medium text-white/60">{subtitle}</p>
+                </div>
+                {ring}
+            </div>
+            {children}
+        </HeroShell>
+    )
+}
+
+/** The gradient panel behind a hero, for planners that lay out their own top. */
+export function HeroShell({ children }: { children: ReactNode }) {
+    return (
         <section className="relative overflow-hidden rounded-[28px] bg-linear-to-br from-brand-700 via-brand-600 to-brand-500 text-white shadow-[0_18px_40px_-20px_rgba(1,61,90,0.6)]">
             {/* Soft glows for depth — purely decorative. */}
             <span
@@ -98,39 +135,7 @@ export function WeekHero({
                 aria-hidden="true"
                 className="pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-coral-500/20 blur-3xl"
             />
-            <div className="relative flex flex-col gap-5 p-5 sm:p-7">
-                <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                            <HeroIconButton
-                                label="Previous week"
-                                icon="fa-solid fa-chevron-left"
-                                onClick={() => onStep(-1)}
-                            />
-                            <HeroIconButton
-                                label="Next week"
-                                icon="fa-solid fa-chevron-right"
-                                onClick={() => onStep(1)}
-                            />
-                            {!isThisWeek && (
-                                <button
-                                    type="button"
-                                    onClick={onToday}
-                                    className="ml-1 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/25"
-                                >
-                                    Today
-                                </button>
-                            )}
-                        </div>
-                        <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-                            {title}
-                        </h2>
-                        <p className="mt-1 text-sm font-medium text-white/60">{subtitle}</p>
-                    </div>
-                    {ring}
-                </div>
-                {children}
-            </div>
+            <div className="relative flex flex-col gap-5 p-5 sm:p-7">{children}</div>
         </section>
     )
 }
@@ -299,9 +304,13 @@ export function ProgressRing({
 // ─── Day strip ────────────────────────────────────────────────────────────────
 
 /** The seven-day strip's frame. */
-export function DayStrip({ children }: { children: ReactNode }) {
+export function DayStrip({ children, light = false }: { children: ReactNode; light?: boolean }) {
     return (
-        <div className="grid grid-cols-7 gap-1 rounded-2xl bg-black/15 p-1 sm:gap-1.5 sm:p-1.5">
+        <div
+            className={`grid grid-cols-7 gap-1 rounded-2xl p-1 sm:gap-1.5 sm:p-1.5 ${
+                light ? 'bg-neutral-100' : 'bg-black/15'
+            }`}
+        >
             {children}
         </div>
     )
@@ -315,6 +324,7 @@ export function DayPill({
     dots,
     allDone,
     alert = false,
+    light = false,
     onClick,
 }: {
     date: string
@@ -324,6 +334,8 @@ export function DayPill({
     dots: string[]
     allDone: boolean
     alert?: boolean
+    /** For a strip on a white card rather than the hero. */
+    light?: boolean
     onClick: () => void
 }) {
     const { year, month, day } = parseDateKey(date)
@@ -337,12 +349,14 @@ export function DayPill({
             className={`relative flex flex-col items-center gap-1 rounded-xl py-2 transition-all sm:py-2.5 ${
                 active
                     ? 'bg-white text-brand-700 shadow-md'
-                    : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    : light
+                      ? 'text-neutral-700 hover:bg-white/70'
+                      : 'text-white/80 hover:bg-white/10 hover:text-white'
             }`}
         >
             <span
                 className={`text-[10px] font-semibold uppercase tracking-wider ${
-                    active ? 'text-brand-500' : 'text-white/50'
+                    active ? 'text-brand-500' : light ? 'text-neutral-400' : 'text-white/50'
                 }`}
             >
                 <span className="sm:hidden">{weekday.slice(0, 1)}</span>
@@ -359,13 +373,15 @@ export function DayPill({
                 {dots.map((cls, i) => (
                     <span
                         key={i}
-                        className={`h-1.5 w-1.5 rounded-full ${cls} ${active ? '' : 'ring-1 ring-white/20'}`}
+                        className={`h-1.5 w-1.5 rounded-full ${cls} ${active || light ? '' : 'ring-1 ring-white/20'}`}
                     />
                 ))}
             </span>
             {allDone && (
                 <span
-                    className="absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-emerald-500 text-white ring-2 ring-brand-600"
+                    className={`absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-emerald-500 text-white ring-2 ${
+                        light ? 'ring-neutral-100' : 'ring-brand-600'
+                    }`}
                     title="All done"
                 >
                     <i className="fa-solid fa-check text-[8px]" aria-hidden="true" />
