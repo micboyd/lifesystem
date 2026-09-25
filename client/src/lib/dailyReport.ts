@@ -1,5 +1,5 @@
 import { addDays } from './calendar'
-import { sumEatenMacros } from './nutrition'
+import { type DayLine, sumEatenMacros } from './nutrition'
 import { effectiveTargetsFor } from './nutritionTargets'
 import type {
     ConditioningLog,
@@ -8,7 +8,6 @@ import type {
     HabitLog,
     MacroGoals,
     Macros,
-    MealPlanEntry,
     MobilityLog,
     NutritionPhase,
     NutritionPhaseKind,
@@ -71,7 +70,7 @@ export interface ReportInputs {
     habits: HabitDef[]
     habitLogs: HabitLog[]
     tasks: Task[]
-    meals: MealPlanEntry[]
+    meals: DayLine[]
     phases: NutritionPhase[]
     settingsGoals?: MacroGoals | null
     fitnessPlan: FitnessPlanEntry[]

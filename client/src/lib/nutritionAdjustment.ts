@@ -1,4 +1,4 @@
-import { entryMacros, targetsFor } from './nutrition'
+import { type DayLine, entryMacros, targetsFor } from './nutrition'
 import { retargetCalories, proteinFloorOf } from './nutritionTargets'
 import {
     DEFAULT_ADAPTIVE_SETTINGS,
@@ -19,7 +19,7 @@ import {
 } from './energy'
 import { daysBetween, type TrendPoint } from './weightTrend'
 import type { TransformationRead } from './transformation'
-import type { AdaptiveSettings, MacroGoals, MealPlanEntry, NutritionPhase } from '../types'
+import type { AdaptiveSettings, MacroGoals, NutritionPhase } from '../types'
 
 /**
  * Should the calorie target change, and by how much.
@@ -111,7 +111,7 @@ export function adherenceIsUsable(
  * day to the number that was live at the time rather than to today's.
  */
 export function adherence(
-    entries: MealPlanEntry[],
+    entries: DayLine[],
     phases: NutritionPhase[],
     settingsGoals: MacroGoals | null | undefined,
     asOf: string,
@@ -238,7 +238,7 @@ export interface Recommendation {
 
 export interface ReviewInput {
     phase: NutritionPhase | null
-    entries: MealPlanEntry[]
+    entries: DayLine[]
     phases: NutritionPhase[]
     settingsGoals?: MacroGoals | null
     trend: WeightTrend | TrendGap

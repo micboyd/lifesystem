@@ -1,0 +1,2136 @@
+{
+  "recipes": [
+    {
+      "name": "Greek lemon & feta",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 3360,
+      "guidePage": 1,
+      "guideEstimatePerPortion": {
+        "calories": 510,
+        "protein": 77,
+        "carbs": 13,
+        "fat": 16
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Courgettes",
+          "amount": 800,
+          "unit": "g",
+          "per100": {
+            "calories": 18,
+            "protein": 1.8,
+            "carbs": 1.8,
+            "fat": 0.4
+          },
+          "pack": {
+            "size": 200,
+            "label": "courgette"
+          }
+        },
+        {
+          "name": "Red onions",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Cherry tomatoes",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 20,
+            "protein": 0.8,
+            "carbs": 3.1,
+            "fat": 0.3
+          }
+        },
+        {
+          "name": "Lemons (zest and juice)",
+          "amount": 2,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.2,
+            "carbs": 1,
+            "fat": 0.1
+          }
+        },
+        {
+          "name": "Garlic cloves",
+          "amount": 4,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.4,
+            "carbs": 0.8,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Olive oil (2 tbsp)",
+          "amount": 27,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        },
+        {
+          "name": "Dried oregano (4 tsp)",
+          "amount": 4,
+          "unit": "g",
+          "per100": {
+            "calories": 265,
+            "protein": 9,
+            "carbs": 26.5,
+            "fat": 4.3
+          }
+        },
+        {
+          "name": "Feta, crumbled",
+          "amount": 200,
+          "unit": "g",
+          "per100": {
+            "calories": 250,
+            "protein": 15.6,
+            "carbs": 1.5,
+            "fat": 20.2
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix chicken, vegetables and flavour ingredients. Roast for 20 minutes, stir and swap shelves. Add feta and roast for another 10–15 minutes.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: rice, wraps or separately roasted potatoes."
+      ]
+    },
+    {
+      "name": "Fajita salsa & cheddar",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 3710,
+      "guidePage": 2,
+      "guideEstimatePerPortion": {
+        "calories": 555,
+        "protein": 80,
+        "carbs": 22,
+        "fat": 16
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Peppers",
+          "amount": 900,
+          "unit": "g",
+          "per100": {
+            "calories": 26,
+            "protein": 1,
+            "carbs": 5,
+            "fat": 0.3
+          },
+          "pack": {
+            "size": 150,
+            "label": "pepper"
+          }
+        },
+        {
+          "name": "Red onions",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Fajita seasoning (60–80 g, check pack strength)",
+          "amount": 70,
+          "unit": "g",
+          "per100": {
+            "calories": 296,
+            "protein": 8.1,
+            "carbs": 54,
+            "fat": 3.6
+          }
+        },
+        {
+          "name": "Salsa",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 38,
+            "protein": 1.4,
+            "carbs": 6.9,
+            "fat": 0.3
+          }
+        },
+        {
+          "name": "Cheddar, grated",
+          "amount": 200,
+          "unit": "g",
+          "per100": {
+            "calories": 416,
+            "protein": 25.4,
+            "carbs": 0.1,
+            "fat": 34.9
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix chicken, peppers, onions, seasoning and salsa. Roast for 20 minutes, stir and swap shelves. Scatter over cheddar and cook for another 10–15 minutes.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: rice or wraps, with plain yoghurt at the table."
+      ]
+    },
+    {
+      "name": "Harissa & chickpea",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 3710,
+      "guidePage": 3,
+      "guideEstimatePerPortion": {
+        "calories": 500,
+        "protein": 76,
+        "carbs": 25,
+        "fat": 9
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Peppers",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 26,
+            "protein": 1,
+            "carbs": 5,
+            "fat": 0.3
+          },
+          "pack": {
+            "size": 150,
+            "label": "pepper"
+          }
+        },
+        {
+          "name": "Red onions",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Chickpeas, drained and rinsed",
+          "amount": 480,
+          "unit": "g",
+          "per100": {
+            "calories": 115,
+            "protein": 7.2,
+            "carbs": 13.6,
+            "fat": 2.9
+          },
+          "pack": {
+            "size": 240,
+            "label": "tin, drained"
+          },
+          "drained": true
+        },
+        {
+          "name": "Chopped tomatoes",
+          "amount": 800,
+          "unit": "g",
+          "per100": {
+            "calories": 22,
+            "protein": 1.1,
+            "carbs": 3.8,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 400,
+            "label": "tin"
+          }
+        },
+        {
+          "name": "Harissa paste (80–120 g, to taste)",
+          "amount": 100,
+          "unit": "g",
+          "per100": {
+            "calories": 120,
+            "protein": 2.5,
+            "carbs": 9,
+            "fat": 7.5
+          }
+        },
+        {
+          "name": "Ground cumin (4 tsp)",
+          "amount": 8,
+          "unit": "g",
+          "per100": {
+            "calories": 375,
+            "protein": 17.8,
+            "carbs": 33.7,
+            "fat": 22.3
+          }
+        },
+        {
+          "name": "Lemons (juice)",
+          "amount": 2,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.2,
+            "carbs": 1,
+            "fat": 0.1
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix chicken, vegetables, chickpeas, tomatoes, harissa and cumin. Roast for 20 minutes, stir and swap shelves, then cook for another 15–20 minutes. Finish with lemon juice.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: couscous or rice. Start with less harissa if you prefer mild."
+      ]
+    },
+    {
+      "name": "Teriyaki & ginger",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 3150,
+      "guidePage": 4,
+      "guideEstimatePerPortion": {
+        "calories": 465,
+        "protein": 74,
+        "carbs": 27,
+        "fat": 5
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Peppers",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 26,
+            "protein": 1,
+            "carbs": 5,
+            "fat": 0.3
+          },
+          "pack": {
+            "size": 150,
+            "label": "pepper"
+          }
+        },
+        {
+          "name": "Broccoli, small florets",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 34,
+            "protein": 4.4,
+            "carbs": 1.8,
+            "fat": 0.9
+          }
+        },
+        {
+          "name": "Carrots, very thinly sliced",
+          "amount": 400,
+          "unit": "g",
+          "per100": {
+            "calories": 34,
+            "protein": 0.6,
+            "carbs": 7.9,
+            "fat": 0.3
+          }
+        },
+        {
+          "name": "Teriyaki sauce",
+          "amount": 400,
+          "unit": "g",
+          "per100": {
+            "calories": 125,
+            "protein": 2,
+            "carbs": 27,
+            "fat": 0.2
+          }
+        },
+        {
+          "name": "Garlic cloves",
+          "amount": 4,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.4,
+            "carbs": 0.8,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Fresh ginger, finely grated",
+          "amount": 30,
+          "unit": "g",
+          "per100": {
+            "calories": 80,
+            "protein": 1.8,
+            "carbs": 17.8,
+            "fat": 0.8
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix chicken, peppers, carrots, garlic, ginger and half the sauce. Roast for 15 minutes. Stir in broccoli and remaining sauce, swap shelves and roast for another 15–20 minutes. Add a splash of water if the glaze catches.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: basmati rice or separately cooked noodles."
+      ]
+    },
+    {
+      "name": "Tikka yoghurt chicken",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 3150,
+      "guidePage": 5,
+      "guideEstimatePerPortion": {
+        "calories": 460,
+        "protein": 75,
+        "carbs": 16,
+        "fat": 10
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Peppers",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 26,
+            "protein": 1,
+            "carbs": 5,
+            "fat": 0.3
+          },
+          "pack": {
+            "size": 150,
+            "label": "pepper"
+          }
+        },
+        {
+          "name": "Onions",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Cauliflower, small florets",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 34,
+            "protein": 3.6,
+            "carbs": 3,
+            "fat": 0.9
+          }
+        },
+        {
+          "name": "Plain yoghurt",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 56,
+            "protein": 4.8,
+            "carbs": 7.4,
+            "fat": 1
+          }
+        },
+        {
+          "name": "Tikka paste (not simmer sauce)",
+          "amount": 200,
+          "unit": "g",
+          "per100": {
+            "calories": 186,
+            "protein": 3,
+            "carbs": 9,
+            "fat": 13.6
+          }
+        },
+        {
+          "name": "Lemon juice (2 tbsp)",
+          "amount": 30,
+          "unit": "ml",
+          "per100": {
+            "calories": 7,
+            "protein": 0.3,
+            "carbs": 1.6,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix yoghurt, tikka paste and lemon juice, then coat chicken and vegetables. Spread out and roast for 20 minutes. Stir, swap shelves and roast for another 10–15 minutes. The yoghurt may separate slightly as it cooks.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: rice or warm flatbreads."
+      ],
+      "notes": "Uses tikka *paste*, not a simmer sauce — they differ a lot in calories."
+    },
+    {
+      "name": "BBQ chicken & beans",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 3500,
+      "guidePage": 6,
+      "guideEstimatePerPortion": {
+        "calories": 630,
+        "protein": 83,
+        "carbs": 37,
+        "fat": 16
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Peppers",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 26,
+            "protein": 1,
+            "carbs": 5,
+            "fat": 0.3
+          },
+          "pack": {
+            "size": 150,
+            "label": "pepper"
+          }
+        },
+        {
+          "name": "Red onions",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Kidney beans, drained and rinsed",
+          "amount": 480,
+          "unit": "g",
+          "per100": {
+            "calories": 100,
+            "protein": 6.9,
+            "carbs": 14.6,
+            "fat": 0.5
+          },
+          "pack": {
+            "size": 240,
+            "label": "tin, drained"
+          },
+          "drained": true
+        },
+        {
+          "name": "BBQ sauce",
+          "amount": 400,
+          "unit": "g",
+          "per100": {
+            "calories": 150,
+            "protein": 1,
+            "carbs": 33.5,
+            "fat": 0.5
+          }
+        },
+        {
+          "name": "Smoked paprika (4 tsp)",
+          "amount": 9.2,
+          "unit": "g",
+          "per100": {
+            "calories": 282,
+            "protein": 14.1,
+            "carbs": 19.9,
+            "fat": 12.9
+          }
+        },
+        {
+          "name": "Cheddar, grated",
+          "amount": 200,
+          "unit": "g",
+          "per100": {
+            "calories": 416,
+            "protein": 25.4,
+            "carbs": 0.1,
+            "fat": 34.9
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix chicken, vegetables, beans, sauce, paprika and 100 ml water. Roast for 20 minutes, stir and swap shelves. Add cheddar and roast for another 10–15 minutes. Loosen with a little water if needed.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: rice."
+      ]
+    },
+    {
+      "name": "Honey mustard chicken",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 2870,
+      "guidePage": 7,
+      "guideEstimatePerPortion": {
+        "calories": 485,
+        "protein": 73,
+        "carbs": 25,
+        "fat": 10
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Carrots, very thinly sliced",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 34,
+            "protein": 0.6,
+            "carbs": 7.9,
+            "fat": 0.3
+          }
+        },
+        {
+          "name": "Broccoli, small florets",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 34,
+            "protein": 4.4,
+            "carbs": 1.8,
+            "fat": 0.9
+          }
+        },
+        {
+          "name": "Red onions",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Wholegrain mustard",
+          "amount": 80,
+          "unit": "g",
+          "per100": {
+            "calories": 151,
+            "protein": 8,
+            "carbs": 6.6,
+            "fat": 9.5
+          }
+        },
+        {
+          "name": "Honey",
+          "amount": 80,
+          "unit": "g",
+          "per100": {
+            "calories": 288,
+            "protein": 0.4,
+            "carbs": 76.4,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Olive oil (2 tbsp)",
+          "amount": 27,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        },
+        {
+          "name": "Garlic cloves",
+          "amount": 4,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.4,
+            "carbs": 0.8,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Lemon juice (2 tbsp)",
+          "amount": 30,
+          "unit": "ml",
+          "per100": {
+            "calories": 7,
+            "protein": 0.3,
+            "carbs": 1.6,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix the glaze ingredients. Toss chicken, carrots and onion with the glaze and roast for 15 minutes. Stir in broccoli, swap shelves and roast for another 15–20 minutes. Add a splash of water if the honey darkens too quickly.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: rice or mashed potatoes; spoon over the cooking juices."
+      ]
+    },
+    {
+      "name": "Smoky tomato & mozzarella",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 3430,
+      "guidePage": 8,
+      "guideEstimatePerPortion": {
+        "calories": 485,
+        "protein": 78,
+        "carbs": 14,
+        "fat": 12
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Peppers",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 26,
+            "protein": 1,
+            "carbs": 5,
+            "fat": 0.3
+          },
+          "pack": {
+            "size": 150,
+            "label": "pepper"
+          }
+        },
+        {
+          "name": "Onions",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Chopped tomatoes",
+          "amount": 800,
+          "unit": "g",
+          "per100": {
+            "calories": 22,
+            "protein": 1.1,
+            "carbs": 3.8,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 400,
+            "label": "tin"
+          }
+        },
+        {
+          "name": "Tomato purée",
+          "amount": 60,
+          "unit": "g",
+          "per100": {
+            "calories": 76,
+            "protein": 4.5,
+            "carbs": 12.9,
+            "fat": 0.2
+          }
+        },
+        {
+          "name": "Smoked paprika (4 tsp)",
+          "amount": 9.2,
+          "unit": "g",
+          "per100": {
+            "calories": 282,
+            "protein": 14.1,
+            "carbs": 19.9,
+            "fat": 12.9
+          }
+        },
+        {
+          "name": "Dried oregano (2 tsp)",
+          "amount": 2,
+          "unit": "g",
+          "per100": {
+            "calories": 265,
+            "protein": 9,
+            "carbs": 26.5,
+            "fat": 4.3
+          }
+        },
+        {
+          "name": "Garlic cloves",
+          "amount": 4,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.4,
+            "carbs": 0.8,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Mozzarella, drained and torn",
+          "amount": 250,
+          "unit": "g",
+          "per100": {
+            "calories": 257,
+            "protein": 18.6,
+            "carbs": 0,
+            "fat": 20.3
+          },
+          "pack": {
+            "size": 125,
+            "label": "ball, drained"
+          },
+          "drained": true
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix chicken, vegetables, tomatoes, purée, spices and garlic. Roast for 20 minutes. Stir and swap shelves, then add mozzarella. Roast for another 15–20 minutes until the chicken is cooked and the sauce bubbles.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: rice or pasta."
+      ]
+    },
+    {
+      "name": "Peri-peri lemon chicken",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 2730,
+      "guidePage": 9,
+      "guideEstimatePerPortion": {
+        "calories": 445,
+        "protein": 71,
+        "carbs": 16,
+        "fat": 10
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Peppers",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 26,
+            "protein": 1,
+            "carbs": 5,
+            "fat": 0.3
+          },
+          "pack": {
+            "size": 150,
+            "label": "pepper"
+          }
+        },
+        {
+          "name": "Red onions",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Sweetcorn, tinned, drained",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 77,
+            "protein": 2.6,
+            "carbs": 13.7,
+            "fat": 1.4
+          },
+          "drained": true
+        },
+        {
+          "name": "Peri-peri marinade, mild or hot",
+          "amount": 200,
+          "unit": "g",
+          "per100": {
+            "calories": 95,
+            "protein": 0.8,
+            "carbs": 5,
+            "fat": 8
+          }
+        },
+        {
+          "name": "Olive oil (2 tbsp)",
+          "amount": 27,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        },
+        {
+          "name": "Smoked paprika (2 tsp)",
+          "amount": 4.6,
+          "unit": "g",
+          "per100": {
+            "calories": 282,
+            "protein": 14.1,
+            "carbs": 19.9,
+            "fat": 12.9
+          }
+        },
+        {
+          "name": "Lemons (juice)",
+          "amount": 2,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.2,
+            "carbs": 1,
+            "fat": 0.1
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix chicken, vegetables, sweetcorn, marinade, oil and paprika. Roast for 20 minutes, stir and swap shelves, then cook for another 10–15 minutes. Finish with lemon juice.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: rice, wraps or potato wedges. Check marinade strength."
+      ]
+    },
+    {
+      "name": "Shawarma-style chicken",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 2870,
+      "guidePage": 10,
+      "guideEstimatePerPortion": {
+        "calories": 425,
+        "protein": 72,
+        "carbs": 12,
+        "fat": 10
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Peppers",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 26,
+            "protein": 1,
+            "carbs": 5,
+            "fat": 0.3
+          },
+          "pack": {
+            "size": 150,
+            "label": "pepper"
+          }
+        },
+        {
+          "name": "Red onions",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Cauliflower, small florets",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 34,
+            "protein": 3.6,
+            "carbs": 3,
+            "fat": 0.9
+          }
+        },
+        {
+          "name": "Olive oil (2 tbsp)",
+          "amount": 27,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        },
+        {
+          "name": "Lemons (juice)",
+          "amount": 2,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.2,
+            "carbs": 1,
+            "fat": 0.1
+          }
+        },
+        {
+          "name": "Garlic cloves",
+          "amount": 4,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.4,
+            "carbs": 0.8,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Ground cumin (4 tsp)",
+          "amount": 8,
+          "unit": "g",
+          "per100": {
+            "calories": 375,
+            "protein": 17.8,
+            "carbs": 33.7,
+            "fat": 22.3
+          }
+        },
+        {
+          "name": "Smoked paprika (4 tsp)",
+          "amount": 9.2,
+          "unit": "g",
+          "per100": {
+            "calories": 282,
+            "protein": 14.1,
+            "carbs": 19.9,
+            "fat": 12.9
+          }
+        },
+        {
+          "name": "Ground coriander (2 tsp)",
+          "amount": 3.6,
+          "unit": "g",
+          "per100": {
+            "calories": 298,
+            "protein": 12.4,
+            "carbs": 13,
+            "fat": 17.8
+          }
+        },
+        {
+          "name": "Ground cinnamon (1 tsp)",
+          "amount": 2.6,
+          "unit": "g",
+          "per100": {
+            "calories": 247,
+            "protein": 4,
+            "carbs": 27,
+            "fat": 1.2
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix oil, lemon, garlic and spices, then coat chicken and vegetables thoroughly. Roast for 20 minutes, stir and swap shelves, then cook for another 10–15 minutes. Spread well for more roasted edges.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: flatbreads or rice, with yoghurt added to your serving."
+      ]
+    },
+    {
+      "name": "Balsamic tomato & basil",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 2870,
+      "guidePage": 11,
+      "guideEstimatePerPortion": {
+        "calories": 415,
+        "protein": 72,
+        "carbs": 11,
+        "fat": 9
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Cherry tomatoes",
+          "amount": 800,
+          "unit": "g",
+          "per100": {
+            "calories": 20,
+            "protein": 0.8,
+            "carbs": 3.1,
+            "fat": 0.3
+          }
+        },
+        {
+          "name": "Courgettes",
+          "amount": 400,
+          "unit": "g",
+          "per100": {
+            "calories": 18,
+            "protein": 1.8,
+            "carbs": 1.8,
+            "fat": 0.4
+          },
+          "pack": {
+            "size": 200,
+            "label": "courgette"
+          }
+        },
+        {
+          "name": "Red onions",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Balsamic vinegar",
+          "amount": 80,
+          "unit": "ml",
+          "per100": {
+            "calories": 88,
+            "protein": 0.5,
+            "carbs": 17,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Olive oil (2 tbsp)",
+          "amount": 27,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        },
+        {
+          "name": "Garlic cloves",
+          "amount": 4,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.4,
+            "carbs": 0.8,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Dried oregano (2 tsp)",
+          "amount": 2,
+          "unit": "g",
+          "per100": {
+            "calories": 265,
+            "protein": 9,
+            "carbs": 26.5,
+            "fat": 4.3
+          }
+        },
+        {
+          "name": "Fresh basil, torn",
+          "amount": 30,
+          "unit": "g",
+          "per100": {
+            "calories": 23,
+            "protein": 3.2,
+            "carbs": 1.1,
+            "fat": 0.6
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix chicken, vegetables, vinegar, oil, garlic and oregano. Roast for 20 minutes, stir and swap shelves, then cook for another 10–15 minutes. Stir in basil after cooking.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: pasta or crusty bread to soak up the juices."
+      ]
+    },
+    {
+      "name": "Coconut curry chicken",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 3780,
+      "guidePage": 12,
+      "guideEstimatePerPortion": {
+        "calories": 465,
+        "protein": 74,
+        "carbs": 14,
+        "fat": 12
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Peppers",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 26,
+            "protein": 1,
+            "carbs": 5,
+            "fat": 0.3
+          },
+          "pack": {
+            "size": 150,
+            "label": "pepper"
+          }
+        },
+        {
+          "name": "Cauliflower, small florets",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 34,
+            "protein": 3.6,
+            "carbs": 3,
+            "fat": 0.9
+          }
+        },
+        {
+          "name": "Light coconut milk",
+          "amount": 400,
+          "unit": "ml",
+          "per100": {
+            "calories": 70,
+            "protein": 0.6,
+            "carbs": 2,
+            "fat": 6.6
+          },
+          "pack": {
+            "size": 400,
+            "label": "tin"
+          }
+        },
+        {
+          "name": "Chopped tomatoes",
+          "amount": 400,
+          "unit": "g",
+          "per100": {
+            "calories": 22,
+            "protein": 1.1,
+            "carbs": 3.8,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 400,
+            "label": "tin"
+          }
+        },
+        {
+          "name": "Mild curry paste (check jar guidance)",
+          "amount": 150,
+          "unit": "g",
+          "per100": {
+            "calories": 160,
+            "protein": 2,
+            "carbs": 12,
+            "fat": 10.7
+          }
+        },
+        {
+          "name": "Garlic cloves",
+          "amount": 4,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.4,
+            "carbs": 0.8,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Baby spinach",
+          "amount": 200,
+          "unit": "g",
+          "per100": {
+            "calories": 25,
+            "protein": 2.8,
+            "carbs": 1.6,
+            "fat": 0.8
+          }
+        },
+        {
+          "name": "Limes (juice)",
+          "amount": 2,
+          "unit": "item",
+          "perItem": {
+            "calories": 3,
+            "protein": 0.1,
+            "carbs": 0.5,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix chicken, peppers, cauliflower and sauce ingredients in deep-sided trays. Roast for 20 minutes, stir and swap shelves, then roast for another 15–20 minutes. Stir in spinach and cook for 3–5 minutes to wilt. Add lime juice.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: basmati rice. Check curry paste ingredients for nuts."
+      ],
+      "notes": "Curry pastes vary a lot (roughly 150–400 kcal per 100 g) — replace the generic figure with your jar’s label."
+    },
+    {
+      "name": "Cajun chicken & beans",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 3640,
+      "guidePage": 13,
+      "guideEstimatePerPortion": {
+        "calories": 495,
+        "protein": 77,
+        "carbs": 28,
+        "fat": 6
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Peppers",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 26,
+            "protein": 1,
+            "carbs": 5,
+            "fat": 0.3
+          },
+          "pack": {
+            "size": 150,
+            "label": "pepper"
+          }
+        },
+        {
+          "name": "Onions",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Kidney beans, drained and rinsed",
+          "amount": 480,
+          "unit": "g",
+          "per100": {
+            "calories": 100,
+            "protein": 6.9,
+            "carbs": 14.6,
+            "fat": 0.5
+          },
+          "pack": {
+            "size": 240,
+            "label": "tin, drained"
+          },
+          "drained": true
+        },
+        {
+          "name": "Sweetcorn, tinned, drained",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 77,
+            "protein": 2.6,
+            "carbs": 13.7,
+            "fat": 1.4
+          },
+          "drained": true
+        },
+        {
+          "name": "Chopped tomatoes",
+          "amount": 400,
+          "unit": "g",
+          "per100": {
+            "calories": 22,
+            "protein": 1.1,
+            "carbs": 3.8,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 400,
+            "label": "tin"
+          }
+        },
+        {
+          "name": "Tomato purée",
+          "amount": 60,
+          "unit": "g",
+          "per100": {
+            "calories": 76,
+            "protein": 4.5,
+            "carbs": 12.9,
+            "fat": 0.2
+          }
+        },
+        {
+          "name": "Cajun seasoning (adjust to pack guidance)",
+          "amount": 40,
+          "unit": "g",
+          "per100": {
+            "calories": 250,
+            "protein": 11,
+            "carbs": 35,
+            "fat": 6
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix all ingredients with 100 ml water and divide evenly between trays. Roast for 20 minutes, stir thoroughly and swap shelves, then cook for another 15–20 minutes. Add a little water if the sauce gets too thick.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: rice or jacket potatoes. Seasoning blends may already contain salt."
+      ]
+    },
+    {
+      "name": "Garlic mushroom & cream cheese",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 3360,
+      "guidePage": 14,
+      "guideEstimatePerPortion": {
+        "calories": 470,
+        "protein": 77,
+        "carbs": 8,
+        "fat": 14
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Mushrooms, quartered",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 13,
+            "protein": 1.8,
+            "carbs": 0.4,
+            "fat": 0.5
+          }
+        },
+        {
+          "name": "Courgettes",
+          "amount": 400,
+          "unit": "g",
+          "per100": {
+            "calories": 18,
+            "protein": 1.8,
+            "carbs": 1.8,
+            "fat": 0.4
+          },
+          "pack": {
+            "size": 200,
+            "label": "courgette"
+          }
+        },
+        {
+          "name": "Red onions",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Olive oil (2 tbsp)",
+          "amount": 27,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        },
+        {
+          "name": "Garlic cloves",
+          "amount": 6,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.4,
+            "carbs": 0.8,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Dried thyme (2 tsp)",
+          "amount": 2,
+          "unit": "g",
+          "per100": {
+            "calories": 276,
+            "protein": 9.1,
+            "carbs": 26.9,
+            "fat": 7.4
+          }
+        },
+        {
+          "name": "Light cream cheese",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 145,
+            "protein": 7.4,
+            "carbs": 5.1,
+            "fat": 11
+          }
+        },
+        {
+          "name": "Baby spinach",
+          "amount": 200,
+          "unit": "g",
+          "per100": {
+            "calories": 25,
+            "protein": 2.8,
+            "carbs": 1.6,
+            "fat": 0.8
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Coat chicken and vegetables in oil, garlic and thyme. Roast for 20 minutes, stir and swap shelves, then cook for another 10–15 minutes. Loosen cream cheese with 100 ml hot water, stir into trays with spinach and return for 5 minutes until hot throughout.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: pasta or rice. Stir well after reheating to bring the sauce back together."
+      ]
+    },
+    {
+      "name": "Sweet chilli & pineapple",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 2800,
+      "guidePage": 15,
+      "guideEstimatePerPortion": {
+        "calories": 455,
+        "protein": 71,
+        "carbs": 31,
+        "fat": 5
+      },
+      "ingredients": [
+        {
+          "name": "Chicken breast, boneless & skinless, raw",
+          "amount": 2000,
+          "unit": "g",
+          "per100": {
+            "calories": 106,
+            "protein": 24,
+            "carbs": 0,
+            "fat": 1.1
+          }
+        },
+        {
+          "name": "Peppers",
+          "amount": 600,
+          "unit": "g",
+          "per100": {
+            "calories": 26,
+            "protein": 1,
+            "carbs": 5,
+            "fat": 0.3
+          },
+          "pack": {
+            "size": 150,
+            "label": "pepper"
+          }
+        },
+        {
+          "name": "Red onions",
+          "amount": 300,
+          "unit": "g",
+          "per100": {
+            "calories": 36,
+            "protein": 1.2,
+            "carbs": 7.9,
+            "fat": 0.2
+          },
+          "pack": {
+            "size": 150,
+            "label": "onion"
+          }
+        },
+        {
+          "name": "Pineapple chunks, tinned, drained",
+          "amount": 400,
+          "unit": "g",
+          "per100": {
+            "calories": 47,
+            "protein": 0.3,
+            "carbs": 12.2,
+            "fat": 0
+          },
+          "drained": true
+        },
+        {
+          "name": "Sweet chilli sauce",
+          "amount": 200,
+          "unit": "g",
+          "per100": {
+            "calories": 190,
+            "protein": 0.4,
+            "carbs": 46,
+            "fat": 0.3
+          }
+        },
+        {
+          "name": "Reduced-salt soy sauce",
+          "amount": 60,
+          "unit": "ml",
+          "per100": {
+            "calories": 60,
+            "protein": 7,
+            "carbs": 6,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Lime juice (2 tbsp)",
+          "amount": 30,
+          "unit": "ml",
+          "per100": {
+            "calories": 7,
+            "protein": 0.3,
+            "carbs": 1.6,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Garlic cloves",
+          "amount": 4,
+          "unit": "item",
+          "perItem": {
+            "calories": 5,
+            "protein": 0.4,
+            "carbs": 0.8,
+            "fat": 0
+          }
+        },
+        {
+          "name": "Fresh ginger, grated",
+          "amount": 20,
+          "unit": "g",
+          "per100": {
+            "calories": 80,
+            "protein": 1.8,
+            "carbs": 17.8,
+            "fat": 0.8
+          }
+        },
+        {
+          "name": "Oil allowance (spray, whole batch)",
+          "amount": 10,
+          "unit": "g",
+          "per100": {
+            "calories": 899,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 99.9
+          }
+        }
+      ],
+      "method": [
+        "Heat oven to 200°C fan / 220°C conventional. Cut chicken into even 3 cm pieces; prepare vegetables as listed.",
+        "Use half of every ingredient per tray. Keep finishing ingredients aside. Spread shallowly; if crowded, add a tray or cook in batches.",
+        "Mix chicken, vegetables, pineapple and sauce ingredients. Roast for 20 minutes, stir and swap shelves, then cook for another 10–15 minutes. If the sauce starts catching, stir in a small splash of water.",
+        "Check large pieces in both trays: 75°C in the centre for 30 seconds. Times are a guide; cook longer if needed.",
+        "Serve with: rice or separately cooked noodles."
+      ]
+    },
+    {
+      "name": "Basmati rice (by dry weight)",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 1,
+      "cookedGrams": 100,
+      "ingredients": [
+        {
+          "name": "Basmati rice, dry",
+          "amount": 100,
+          "unit": "g",
+          "per100": {
+            "calories": 350,
+            "protein": 8,
+            "carbs": 78,
+            "fat": 0.6
+          }
+        }
+      ],
+      "presets": [
+        {
+          "label": "Small",
+          "amount": 50,
+          "unit": "g",
+          "hint": "50 g dry ≈ 125–150 g cooked"
+        },
+        {
+          "label": "Large",
+          "amount": 100,
+          "unit": "g",
+          "hint": "100 g dry ≈ 250–300 g cooked"
+        }
+      ],
+      "notes": "Log the DRY weight. Nutrition is per dry gram — never log cooked grams against this."
+    },
+    {
+      "name": "Basmati rice (cooked batch)",
+      "types": [
+        "lunch",
+        "dinner"
+      ],
+      "servings": 7,
+      "estimatedCookedGrams": 960,
+      "ingredients": [
+        {
+          "name": "Basmati rice, dry",
+          "amount": 350,
+          "unit": "g",
+          "per100": {
+            "calories": 350,
+            "protein": 8,
+            "carbs": 78,
+            "fat": 0.6
+          }
+        }
+      ],
+      "method": [
+        "Cook separately following the packet; no oil or butter.",
+        "Weigh all the cooked rice (without the container) and enter it on the batch."
+      ],
+      "notes": "Log by cooked grams from the batch — its measured cooked weight turns them into dry-rice nutrition. 350 g dry = 7 small portions; use 700 g for 7 large."
+    }
+  ]
+}

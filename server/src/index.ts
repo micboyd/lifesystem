@@ -29,6 +29,9 @@ import lifePlanRoutes from './routes/lifePlanRoutes'
 import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
 import mealPrepRoutes from './routes/mealPrepRoutes'
+import recipeRoutes from './routes/recipeRoutes'
+import batchRoutes from './routes/batchRoutes'
+import foodEntryRoutes from './routes/foodEntryRoutes'
 import mobilityRoutes from './routes/mobilityRoutes'
 import mobilityLogRoutes from './routes/mobilityLogRoutes'
 import monthNoteRoutes from './routes/monthNoteRoutes'
@@ -108,6 +111,9 @@ app.use('/api/daily-energy', dailyEnergyRoutes)
 app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)
 app.use('/api/meal-prep', mealPrepRoutes)
+app.use('/api/recipes', recipeRoutes)
+app.use('/api/batches', batchRoutes)
+app.use('/api/food-entries', foodEntryRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)
 app.use('/api/plans', trainingPlanRoutes)
 app.use('/api/recovery', recoveryRoutes)
@@ -144,10 +150,17 @@ app.get('/api/health', (_req, res) => {
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     console.error(err)
     if (res.headersSent) return
-    const e = err as { status?: number; statusCode?: number; expose?: boolean; message?: string }
+    const e = err as {
+        status?: number
+        statusCode?: number
+        expose?: boolean
+        message?: string
+        issues?: unknown
+    }
     const status = e?.status ?? e?.statusCode
     if (e?.expose === true && typeof status === 'number' && status >= 400 && status < 500) {
-        res.status(status).json({ message: e.message ?? 'Bad request' })
+        // `issues` carries field-level validation detail (see lib/foodInput).
+        res.status(status).json({ message: e.message ?? 'Bad request', issues: e.issues })
         return
     }
     res.status(500).json({ message: 'Something went wrong' })

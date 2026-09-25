@@ -15,7 +15,7 @@ import {
 import { DEFAULT_CAPACITIES, type Capacities } from '../../lib/lifeLoad'
 import { monthEndDate, monthStartDate } from '../../lib/seasonReview'
 import { listGroups, listRows } from '../../services/finances'
-import { listPlanEntries as listMealEntries } from '../../services/mealPlan'
+import { listFoodEntries as listMealEntries } from '../../services/food'
 import { listPlanEntries as listFitnessEntries } from '../../services/fitnessPlan'
 import { listLogs as listWorkoutLogs } from '../../services/workoutLogs'
 import { listLogs as listConditioningLogs } from '../../services/conditioningLogs'

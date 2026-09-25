@@ -1,4 +1,5 @@
 import type {
+    FoodEntry,
     Macros,
     MacroGoals,
     MealPlanEntry,
@@ -19,11 +20,20 @@ import type {
 export const ZERO_MACROS: Macros = { calories: 0, protein: 0, carbs: 0, fat: 0 }
 
 /**
+ * A line of a day. `FoodEntry` is the current shape and carries its own
+ * `macros`; `MealPlanEntry` is the old planner's, kept readable until it goes.
+ */
+export type DayLine = FoodEntry | MealPlanEntry
+
+const isFoodEntry = (e: DayLine): e is FoodEntry => 'macros' in e
+
+/**
  * The macros an entry contributes: its recipe's per-serving figures (or its own,
  * if off-plan) multiplied by the portion on the plate. `servings` is absent on
  * entries written before portions existed, so it falls back to one.
  */
-export function entryMacros(entry: MealPlanEntry): Macros {
+export function entryMacros(entry: DayLine): Macros {
+    if (isFoodEntry(entry)) return entry.macros
     // A buffet plate's components carry their own snapshot for the grams that
     // count — eaten once logged, planned before — so the sum is the whole story.
     if (entry.buffet) {
@@ -41,7 +51,8 @@ export function entryMacros(entry: MealPlanEntry): Macros {
 }
 
 /** What to call an entry — the recipe's name, or the off-plan label. */
-export function entryName(entry: MealPlanEntry): string {
+export function entryName(entry: DayLine): string {
+    if (isFoodEntry(entry)) return entry.name
     if (entry.buffet) {
         return entry.buffet.name || entry.buffet.components.map((c) => c.name).join(' + ') || 'Buffet meal'
     }
@@ -52,7 +63,7 @@ export function entryName(entry: MealPlanEntry): string {
  * Whether an entry counts toward a day's total. Skipped food doesn't: the whole
  * point of marking it is to take it back out of the tally.
  */
-export function isCounted(entry: MealPlanEntry): boolean {
+export function isCounted(entry: DayLine): boolean {
     return entry.status !== 'skipped'
 }
 
@@ -70,14 +81,14 @@ export function addMacros(a: Macros, b: Macros): Macros {
  * Tally macros across entries, ignoring anything skipped. With everything still
  * 'planned' this is the plan; once the day is marked up it's what was eaten.
  */
-export function sumMacros(entries: MealPlanEntry[]): Macros {
+export function sumMacros(entries: DayLine[]): Macros {
     return entries.filter(isCounted).reduce((acc, e) => addMacros(acc, entryMacros(e)), {
         ...ZERO_MACROS,
     })
 }
 
 /** Tally only what's been marked eaten — the figure that's actually true. */
-export function sumEatenMacros(entries: MealPlanEntry[]): Macros {
+export function sumEatenMacros(entries: DayLine[]): Macros {
     return entries
         .filter((e) => e.status === 'eaten')
         .reduce((acc, e) => addMacros(acc, entryMacros(e)), { ...ZERO_MACROS })
@@ -88,7 +99,7 @@ export function sumEatenMacros(entries: MealPlanEntry[]): Macros {
  * it goes as written. Kept apart from the eaten total because at nine in the
  * morning the two say very different things.
  */
-export function sumPendingMacros(entries: MealPlanEntry[]): Macros {
+export function sumPendingMacros(entries: DayLine[]): Macros {
     return entries
         .filter((e) => e.status === 'planned')
         .reduce((acc, e) => addMacros(acc, entryMacros(e)), { ...ZERO_MACROS })

@@ -1,5 +1,5 @@
-import type { Macros, MacroGoals, MealPlanEntry } from '../types'
-import { addMacros, entryMacros, ZERO_MACROS } from './nutrition'
+import type { Macros, MacroGoals } from '../types'
+import { type DayLine, addMacros, entryMacros, ZERO_MACROS } from './nutrition'
 import { MIN_LOGGED_FRACTION, MIN_LOGGED_KCAL } from './nutritionAdjustment'
 
 /**
@@ -41,7 +41,7 @@ function divide(m: Macros, n: number): Macros {
 }
 
 export function weekSummary(
-    entries: MealPlanEntry[],
+    entries: DayLine[],
     days: string[],
     goalsFor: (date: string) => MacroGoals | null,
     today: string

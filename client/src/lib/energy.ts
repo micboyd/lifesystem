@@ -1,5 +1,5 @@
-import type { DailyEnergy, MealPlanEntry, NutritionPhaseKind } from '../types'
-import { entryMacros } from './nutrition'
+import type { DailyEnergy, NutritionPhaseKind } from '../types'
+import { type DayLine, entryMacros } from './nutrition'
 import { daysBetween, weeklyRate, type TrendPoint } from './weightTrend'
 
 /**
@@ -53,7 +53,7 @@ export type IntakeByDate = Map<string, number>
  * The cost is that forgetting to log looks like not existing, which is the safer
  * of the two failures.
  */
-export function dailyIntake(entries: MealPlanEntry[]): IntakeByDate {
+export function dailyIntake(entries: DayLine[]): IntakeByDate {
     const byDate: IntakeByDate = new Map()
     for (const e of entries) {
         if (e.status !== 'eaten') continue
@@ -158,7 +158,7 @@ export interface DayEnergy {
  * out, and the gap.
  */
 export function dayEnergy(
-    entries: MealPlanEntry[],
+    entries: DayLine[],
     logged: DailyEnergy | null,
     maintenance: Maintenance | MaintenanceGap
 ): DayEnergy {

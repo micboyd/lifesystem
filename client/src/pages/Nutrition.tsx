@@ -226,11 +226,11 @@ type Drawered =
     | null
 
 // Planner first: the week is where meals get designed, so it's the default landing tab.
-const TOP_TABS = ['Planner', 'Today', 'Meal Prep', 'Meals', 'Progress', 'Phases'] as const
+const TOP_TABS = ['Today', 'Planner', 'Meal Prep', 'Meals', 'Progress', 'Phases'] as const
 type TopTab = (typeof TOP_TABS)[number]
 
 const SUBTITLE: Record<TopTab, string> = {
-    Today: 'Calories in against calories out, read through the phase you are in.',
+    Today: 'What you’ve eaten and what’s planned, against your targets.',
     Meals: 'Your meal library — macros, ingredients and method for every recipe.',
     Planner: 'Plan your week — breakfast, lunch, dinner and snacks, with macros tallied.',
     'Meal Prep':
@@ -248,7 +248,7 @@ export default function Nutrition() {
     // tab switch can't reopen the editor.
     const [searchParams, setSearchParams] = useSearchParams()
     const [tab, setTab] = useState<TopTab>(() =>
-        searchParams.get('tab') === 'phases' ? 'Phases' : 'Planner'
+        searchParams.get('tab') === 'phases' ? 'Phases' : 'Today'
     )
     const [openPhaseId, setOpenPhaseId] = useState<string | null>(() => searchParams.get('phase'))
     const clearOpenPhase = useCallback(() => setOpenPhaseId(null), [])
@@ -417,7 +417,6 @@ export default function Nutrition() {
                 <Container className="mt-2">
                     <TodayTab
                         settingsGoals={user?.settings?.macroGoals}
-                        onOpenMealPrep={() => setTab('Meal Prep')}
                         onOpenPhases={() => setTab('Phases')}
                     />
                 </Container>

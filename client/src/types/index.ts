@@ -598,6 +598,88 @@ export interface BuffetMeal {
     loggedAt?: string
 }
 
+// ── Recipes, batches and day lines ─────────────────────────────────────────
+// Shapes mirror server/src/models/{Recipe,Batch,FoodEntry}.ts; the arithmetic
+// on them lives in server/src/lib/recipeMath.ts (re-exported by lib/recipes).
+
+export type RecipeIngredientUnit = 'g' | 'ml' | 'item'
+
+export interface RecipeIngredient {
+    name: string
+    amount?: number
+    unit: RecipeIngredientUnit
+    /** Label macros per 100 g/ml, or per item. */
+    per?: Macros
+    pack?: { size: number; label?: string }
+    drained?: boolean
+}
+
+export type FoodEntryUnit = 'portion' | 'g'
+
+export interface RecipePreset {
+    label: string
+    amount: number
+    unit: FoodEntryUnit
+    hint?: string
+}
+
+export interface Recipe {
+    _id: string
+    name: string
+    types: MealType[]
+    ingredients: RecipeIngredient[]
+    macros?: Macros
+    servings: number
+    cookedGrams?: number
+    estimatedCookedGrams?: number
+    presets: RecipePreset[]
+    method: string[]
+    notes?: string
+    link?: string
+    guideUrl?: string
+    guidePage?: number
+    guideEstimate?: Macros
+    order: number
+    archived: boolean
+    createdAt: string
+    updatedAt: string
+}
+
+export interface Batch {
+    _id: string
+    recipe?: string
+    name: string
+    cookedOn: string
+    ingredients: RecipeIngredient[]
+    macros?: Macros
+    servings: number
+    cookedGrams?: number
+    estimatedCookedGrams?: number
+    notes?: string
+    archived: boolean
+    createdAt: string
+    updatedAt: string
+}
+
+/** One line of a day. `macros` is always the figure it counts for. */
+export interface FoodEntry {
+    _id: string
+    date: string
+    slot: MealType
+    status: EntryStatus
+    batch?: string
+    recipe?: string
+    name: string
+    amount: number
+    unit: FoodEntryUnit
+    macros: Macros
+    /** Grams against an estimated cooked weight. */
+    estimated?: boolean
+    order: number
+    createdAt: string
+    updatedAt: string
+}
+
 /**
  * A meal placed into one slot of one day in the weekly planner. Exactly one of
  * `meal` (a library recipe), `adhoc` (off-plan food) and `buffet` (a plate
