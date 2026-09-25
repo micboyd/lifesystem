@@ -22,6 +22,12 @@ export async function deleteMeal(id: string): Promise<void> {
     await api.delete(`/meals/${id}`)
 }
 
+/** Empties the library. Planned-only copies go too; eaten days keep theirs. */
+export async function deleteAllMeals(): Promise<number> {
+    const res = await api.delete<ApiResponse<{ deleted: number }>>('/meals')
+    return res.data.data.deleted
+}
+
 /** Add meals in bulk from JSON: [{ name, types, macros }]. */
 export async function importMeals(meals: unknown[]): Promise<{ created: number; skipped: number }> {
     const res = await api.post<ApiResponse<{ created: number; skipped: number }>>('/meals/import', meals)

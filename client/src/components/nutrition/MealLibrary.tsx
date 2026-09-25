@@ -9,7 +9,7 @@ import PillToggle from '../PillToggle'
 import { HeroButton } from '../planner/WeekPlannerUI'
 import { CATEGORY, CategoryIcon, MacroBar, MacroLegend, MACRO_DOT, caloriesFromMacros, isHighProtein } from './mealUi'
 import { kcal } from './format'
-import { createMeal, deleteMeal, importMeals, updateMeal } from '../../services/meals'
+import { createMeal, deleteAllMeals, deleteMeal, importMeals, updateMeal } from '../../services/meals'
 import { MEAL_TYPES, type Macros, type Meal, type MealInput, type MealType } from '../../types'
 
 type Filter = MealType | 'all'
@@ -38,6 +38,7 @@ function sortMeals(list: Meal[], sort: Sort): Meal[] {
 export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onChanged: () => Promise<void> }) {
     const [editing, setEditing] = useState<Meal | 'new' | null>(null)
     const [importing, setImporting] = useState(false)
+    const [clearing, setClearing] = useState(false)
     const [search, setSearch] = useState('')
     const [filter, setFilter] = useState<Filter>('all')
     const [sort, setSort] = useState<Sort>('library')
@@ -68,6 +69,11 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
                             </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
+                            {meals.length > 0 && (
+                                <HeroButton icon="fa-solid fa-trash-can" onClick={() => setClearing(true)}>
+                                    Delete all
+                                </HeroButton>
+                            )}
                             <HeroButton icon="fa-solid fa-file-import" onClick={() => setImporting(true)}>
                                 Import
                             </HeroButton>
@@ -170,6 +176,15 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
                 }}
             />
             <ImportModal open={importing} onClose={() => setImporting(false)} onDone={onChanged} />
+            <ConfirmModal
+                open={clearing}
+                title={`Delete all ${meals.length} meals?`}
+                message="This empties your whole library and can't be undone. Meals only planned on days come off too; days you've already eaten them keep them."
+                confirmLabel="Delete everything"
+                danger
+                onConfirm={() => void deleteAllMeals().finally(onChanged)}
+                onClose={() => setClearing(false)}
+            />
         </div>
     )
 }

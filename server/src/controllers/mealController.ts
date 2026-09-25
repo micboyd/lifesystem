@@ -110,3 +110,10 @@ export async function deleteMeal(req: AuthRequest, res: Response) {
     await MealPlanEntry.deleteMany({ user: req.userId, meal: meal._id, status: 'planned' })
     res.json({ message: 'Deleted' })
 }
+
+/** DELETE /api/meals — the whole library. Eaten days keep their copies, as with one meal. */
+export async function deleteAllMeals(req: AuthRequest, res: Response) {
+    const { deletedCount } = await Meal.deleteMany({ user: req.userId })
+    await MealPlanEntry.deleteMany({ user: req.userId, status: 'planned', meal: { $ne: null } })
+    res.json({ message: 'Deleted', data: { deleted: deletedCount } })
+}
