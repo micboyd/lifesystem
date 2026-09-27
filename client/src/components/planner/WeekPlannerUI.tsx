@@ -1,4 +1,4 @@
-import { useRef, type ReactNode, type TouchEvent } from 'react'
+import { useRef, useSyncExternalStore, type ReactNode, type TouchEvent } from 'react'
 import Button from '../Button'
 import DatePicker from '../DatePicker'
 import { parseDateKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
@@ -15,6 +15,22 @@ import { parseDateKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
 /** Phones show one day at a time; from `md` up the whole week is a feed. */
 const WIDE_QUERY = '(min-width: 768px)'
 export const isWide = () => typeof window !== 'undefined' && window.matchMedia(WIDE_QUERY).matches
+
+/** From `lg` up there's room for the whole week side by side. */
+export const LARGE_QUERY = '(min-width: 1024px)'
+
+/** Whether a media query matches, kept live as the window resizes. */
+export function useMediaQuery(query: string): boolean {
+    return useSyncExternalStore(
+        (onChange) => {
+            const mq = window.matchMedia(query)
+            mq.addEventListener('change', onChange)
+            return () => mq.removeEventListener('change', onChange)
+        },
+        () => window.matchMedia(query).matches,
+        () => false
+    )
+}
 
 /** The DOM id a planner gives each day card, so the strip can scroll to it. */
 export const dayCardId = (scope: string, date: string) => `${scope}-day-${date}`
@@ -475,18 +491,23 @@ export function DayBadge({ date, isToday }: { date: string; isToday: boolean }) 
 export function DayCardShell({
     id,
     isToday,
+    compact = false,
     className = '',
     children,
 }: {
     id: string
     isToday: boolean
+    /** Tighter padding for a narrow column in a week board. */
+    compact?: boolean
     className?: string
     children: ReactNode
 }) {
     return (
         <section
             id={id}
-            className={`relative scroll-mt-32 flex-col gap-4 overflow-hidden rounded-3xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 ${
+            className={`relative scroll-mt-32 flex-col overflow-hidden rounded-3xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${
+                compact ? 'gap-3 p-3' : 'gap-4 p-4 sm:p-5'
+            } ${
                 isToday ? 'ring-2 ring-coral-200' : 'ring-1 ring-black/[0.06]'
             } ${className}`}
         >

@@ -18,7 +18,8 @@ import RecoveryLibrary from '../components/RecoveryLibrary'
 import RecoveryRecordsLog from '../components/RecoveryRecordsLog'
 import MobilityLibrary from '../components/MobilityLibrary'
 import MobilityRecordsLog from '../components/MobilityRecordsLog'
-import FitnessWeeklyPlanner from '../components/FitnessWeeklyPlanner'
+import FitnessWeeklyPlanner, { type PlannerLayout } from '../components/FitnessWeeklyPlanner'
+import { LARGE_QUERY, useMediaQuery } from '../components/planner/WeekPlannerUI'
 import PlanLibrary from '../components/PlanLibrary'
 import BodyMetrics from '../components/BodyMetrics'
 import FitnessExportCenter from '../components/FitnessExportCenter'
@@ -99,6 +100,17 @@ const TABS = [
 ] as const
 type Tab = (typeof TABS)[number]
 
+const LAYOUT_KEY = 'fitness.planner.layout'
+
+/** The planner's wide-screen layout, as last chosen — the full-width week by default. */
+function readPlannerLayout(): PlannerLayout {
+    try {
+        return localStorage.getItem(LAYOUT_KEY) === 'days' ? 'days' : 'week'
+    } catch {
+        return 'week'
+    }
+}
+
 const SUBTITLE: Record<Tab, string> = {
     Planner:
         'Plan your training — drop strength, conditioning, mobility and recovery into each day.',
@@ -119,10 +131,23 @@ export default function Fitness() {
     // the plan actually starts rather than on this one. Cleared as soon as the
     // user picks a tab themselves, so the planner goes back to opening on today.
     const [plannerStart, setPlannerStart] = useState<string | null>(null)
+    const [layout, setLayout] = useState<PlannerLayout>(readPlannerLayout)
+    const isLarge = useMediaQuery(LARGE_QUERY)
+    // The week board spans the screen; everything else sits in the usual column.
+    const fluid = tab === 'Planner' && layout === 'week' && isLarge
+
+    function changeLayout(next: PlannerLayout) {
+        setLayout(next)
+        try {
+            localStorage.setItem(LAYOUT_KEY, next)
+        } catch {
+            // Just won't be remembered.
+        }
+    }
 
     return (
         <main className="py-10">
-            <Container>
+            <Container fluid={fluid}>
                 <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">
@@ -152,12 +177,14 @@ export default function Fitness() {
                 />
             </Container>
 
-            <Container className="mt-6">
+            <Container fluid={fluid} className="mt-6">
                 {tab === 'Planner' ? (
                     // Keyed so a fresh week request remounts the planner on it.
                     <FitnessWeeklyPlanner
                         key={plannerStart ?? 'today'}
                         startOn={plannerStart ?? undefined}
+                        layout={layout}
+                        onLayoutChange={changeLayout}
                     />
                 ) : tab === 'Plans' ? (
                     <PlanLibrary

@@ -99,6 +99,8 @@ import {
     scrollToDay,
     relativeWeekLabel,
     useDaySwipe,
+    useMediaQuery,
+    LARGE_QUERY,
 } from './planner/WeekPlannerUI'
 
 // ─── Kind presentation ────────────────────────────────────────────────────────
@@ -520,7 +522,24 @@ function tally(entries: FitnessPlanEntry[]): WeekTally {
 
 // ─── Planner ────────────────────────────────────────────────────────────────────
 
-export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) {
+/**
+ * How the week lays out on a wide screen: `week` is a full-width board with the
+ * seven days side by side; `days` is the feed of day cards, one under another.
+ * Phones always show one day at a time.
+ */
+export type PlannerLayout = 'week' | 'days'
+
+export default function FitnessWeeklyPlanner({
+    startOn,
+    layout = 'week',
+    onLayoutChange,
+}: {
+    startOn?: string
+    layout?: PlannerLayout
+    onLayoutChange?: (layout: PlannerLayout) => void
+}) {
+    const isLarge = useMediaQuery(LARGE_QUERY)
+    const board = isLarge && layout === 'week'
     // The anchor is any day inside the week on show; the week's Monday is derived
     // from it. Planning is week by week — one calendar week at a time. `startOn`
     // opens on a different week — applying a plan whose first session is next
@@ -1037,6 +1056,9 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     setEditing(true)
                 }}
                 onExport={() => setExportOpen(true)}
+                board={board}
+                layout={layout}
+                onLayoutChange={onLayoutChange}
             />
 
             {editing && (
@@ -1084,6 +1106,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 />
             ) : (
                 <WeekView
+                    board={board}
                     weekStart={range.start}
                     selected={anchor}
                     today={today}
@@ -1879,6 +1902,9 @@ function FitnessWeekHero({
     onEditFlag,
     onStartEditing,
     onExport,
+    board,
+    layout,
+    onLayoutChange,
 }: {
     weekStart: string
     /** The focused day (the planner's anchor). */
@@ -1901,9 +1927,16 @@ function FitnessWeekHero({
     onEditFlag: () => void
     onStartEditing: () => void
     onExport: () => void
+    /** The full-width week board is showing — it does the strip's job. */
+    board: boolean
+    layout: PlannerLayout
+    onLayoutChange?: (layout: PlannerLayout) => void
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
     const t = tally(entries)
+    const toggle = onLayoutChange && (
+        <LayoutToggle value={layout} onChange={onLayoutChange} className="hidden lg:inline-flex" />
+    )
     const total = entries.length
     const done = entries.filter(isDone).length
     const flag = weekNote ? FLAG_TONE[weekNote.color] : null
@@ -1988,26 +2021,28 @@ function FitnessWeekHero({
                 )}
             </div>
 
-            <DayStrip>
-                {days.map((date) => {
-                    const dayEntries = entries.filter((e) => e.date === date)
-                    return (
-                        <DayPill
-                            key={date}
-                            date={date}
-                            active={date === selected}
-                            isToday={date === today}
-                            dots={ready ? kindsIn(dayEntries).map((k) => KIND_TONE[k].dot) : []}
-                            allDone={ready && dayEntries.length > 0 && dayEntries.every(isDone)}
-                            alert={ready && alertDates.has(date)}
-                            onClick={() => onSelect(date)}
-                        />
-                    )
-                })}
-            </DayStrip>
+            {!board && (
+                <DayStrip>
+                    {days.map((date) => {
+                        const dayEntries = entries.filter((e) => e.date === date)
+                        return (
+                            <DayPill
+                                key={date}
+                                date={date}
+                                active={date === selected}
+                                isToday={date === today}
+                                dots={ready ? kindsIn(dayEntries).map((k) => KIND_TONE[k].dot) : []}
+                                allDone={ready && dayEntries.length > 0 && dayEntries.every(isDone)}
+                                alert={ready && alertDates.has(date)}
+                                onClick={() => onSelect(date)}
+                            />
+                        )
+                    })}
+                </DayStrip>
+            )}
 
             {/* Actions — editing swaps these for the edit bar below the hero. */}
-            {canEdit && !editing && (
+            {canEdit && !editing ? (
                 <div className="flex flex-wrap items-center gap-2">
                     <HeroButton
                         primary
@@ -2020,16 +2055,65 @@ function FitnessWeekHero({
                     <HeroButton icon="fa-solid fa-file-export" onClick={onExport}>
                         Export
                     </HeroButton>
-                    <HeroJumpPicker value={selected} onPick={onPick} className="ml-auto" />
+                    <div className="ml-auto flex items-center gap-2">
+                        {toggle}
+                        <HeroJumpPicker value={selected} onPick={onPick} />
+                    </div>
                 </div>
+            ) : (
+                toggle && <div className="hidden justify-end lg:flex">{toggle}</div>
             )}
         </WeekHero>
+    )
+}
+
+/** Week board or day feed — a glassy pair of pills on the hero, wide screens only. */
+function LayoutToggle({
+    value,
+    onChange,
+    className = '',
+}: {
+    value: PlannerLayout
+    onChange: (layout: PlannerLayout) => void
+    className?: string
+}) {
+    const options: { value: PlannerLayout; label: string; icon: string }[] = [
+        { value: 'week', label: 'Week', icon: 'fa-solid fa-table-columns' },
+        { value: 'days', label: 'Days', icon: 'fa-solid fa-list' },
+    ]
+    return (
+        <div
+            role="group"
+            aria-label="Layout"
+            className={`items-center gap-0.5 rounded-full bg-white/10 p-0.5 ring-1 ring-inset ring-white/15 ${className}`}
+        >
+            {options.map((o) => {
+                const on = o.value === value
+                return (
+                    <button
+                        key={o.value}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => onChange(o.value)}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            on
+                                ? 'bg-white text-brand-700 shadow-sm'
+                                : 'text-white/70 hover:text-white'
+                        }`}
+                    >
+                        <i className={`${o.icon} text-[10px]`} aria-hidden="true" />
+                        {o.label}
+                    </button>
+                )
+            })}
+        </div>
     )
 }
 
 // ─── Week view ────────────────────────────────────────────────────────────────
 
 function WeekView({
+    board,
     weekStart,
     selected,
     today,
@@ -2049,6 +2133,8 @@ function WeekView({
     onShowClashes,
     onShowOverloads,
 }: {
+    /** Lay the seven days side by side across the screen, rather than stacked. */
+    board: boolean
     weekStart: string
     /** The focused day — the only one shown on a phone. */
     selected: string
@@ -2127,13 +2213,21 @@ function WeekView({
     }
 
     return (
-        <div {...swipeProps} className="flex flex-col gap-3 md:gap-4">
+        <div
+            {...(board ? {} : swipeProps)}
+            className={
+                board
+                    ? 'grid grid-cols-7 items-stretch gap-2 xl:gap-3'
+                    : 'flex flex-col gap-3 md:gap-4'
+            }
+        >
             {days.map((date) => (
                 <DayCard
                     key={date}
                     date={date}
+                    compact={board}
                     // Only the focused day on a phone; every day from md up.
-                    className={date === selected ? 'flex' : 'hidden md:flex'}
+                    className={board || date === selected ? 'flex' : 'hidden md:flex'}
                     isToday={date === today}
                     editable={editing}
                     entries={entries.filter((e) => e.date === date)}
@@ -2171,7 +2265,7 @@ function WeekView({
                 />
             ))}
             {/* A nudge that the day view swipes — phones only, and only while viewing. */}
-            {!editing && <SwipeHint />}
+            {!editing && !board && <SwipeHint />}
         </div>
     )
 }
@@ -2236,6 +2330,7 @@ function DayAlertButton({
 
 function DayCard({
     date,
+    compact = false,
     className = '',
     isToday,
     editable,
@@ -2263,6 +2358,8 @@ function DayCard({
     onShowOverloads,
 }: {
     date: string
+    /** A narrow column in the week board: stacked header, slots one under another. */
+    compact?: boolean
     className?: string
     isToday: boolean
     editable: boolean
@@ -2325,126 +2422,162 @@ function DayCard({
         ? FITNESS_PLAN_PARTS
         : FITNESS_PLAN_PARTS.filter((p) => slotItems(p).length > 0)
 
+    const todayPill = isToday && (
+        <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-coral-600">
+            Today
+        </span>
+    )
+    const flagChip =
+        note && tone ? (
+            <button
+                type="button"
+                onClick={editable ? onEditFlag : undefined}
+                aria-label={editable ? 'Edit day flag' : undefined}
+                className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone.chip} ${
+                    editable ? 'transition-opacity hover:opacity-80' : 'cursor-default'
+                }`}
+            >
+                <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
+                <span className="truncate">{note.label || 'Flagged'}</span>
+            </button>
+        ) : (
+            editable && (
+                <button
+                    type="button"
+                    onClick={onEditFlag}
+                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold text-neutral-300 transition-colors hover:bg-neutral-50 hover:text-neutral-500"
+                >
+                    <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
+                    Flag
+                </button>
+            )
+        )
+    const metaLine = (
+        <p className="mt-0.5 text-xs text-neutral-500">
+            {rest ? (
+                'Rest day'
+            ) : (
+                <>
+                    <span className="tabular-nums">
+                        {doneCount > 0 ? `${doneCount} of ${total} done` : `${total} planned`}
+                    </span>
+                    {minutes > 0 && (
+                        <>
+                            <span className="mx-1.5 text-neutral-300">·</span>
+                            <span className="tabular-nums">~{minutes} min</span>
+                        </>
+                    )}
+                </>
+            )}
+        </p>
+    )
+    const actions = (
+        <div className="flex shrink-0 items-center gap-1">
+            {clashCount > 0 ? (
+                <DayAlertButton
+                    tone="amber"
+                    icon="fa-solid fa-triangle-exclamation"
+                    count={clashCount}
+                    label={`${clashCount} calendar clash${clashCount === 1 ? '' : 'es'} — view`}
+                    onClick={onShowClashes}
+                />
+            ) : (
+                // Every clash on this day has been accepted: no warning, but a
+                // quiet mark that keeps the day one press from taking it back.
+                acceptedClashCount > 0 && (
+                    <DayAlertButton
+                        tone="quiet"
+                        icon="fa-solid fa-calendar-check"
+                        label={`${acceptedClashCount} accepted calendar clash${acceptedClashCount === 1 ? '' : 'es'} — view`}
+                        onClick={onShowClashes}
+                    />
+                )
+            )}
+            {overloadCount > 0 ? (
+                <DayAlertButton
+                    tone="violet"
+                    icon="fa-solid fa-gauge-high"
+                    count={overloadCount}
+                    label={`${overloadCount} overloaded slot${overloadCount === 1 ? '' : 's'} — view`}
+                    onClick={onShowOverloads}
+                />
+            ) : (
+                acceptedOverloadCount > 0 && (
+                    <DayAlertButton
+                        tone="quiet"
+                        icon="fa-solid fa-gauge-high"
+                        label={`${acceptedOverloadCount} accepted overloaded slot${acceptedOverloadCount === 1 ? '' : 's'} — view`}
+                        onClick={onShowOverloads}
+                    />
+                )
+            )}
+            {editable && total > 0 && (
+                <button
+                    type="button"
+                    onClick={onClear}
+                    aria-label={`Clear ${weekday}`}
+                    title="Clear day"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                >
+                    <i className="fa-solid fa-broom text-[12px]" aria-hidden="true" />
+                </button>
+            )}
+        </div>
+    )
+
     return (
-        <DayCardShell id={dayCardId('plan', date)} isToday={isToday} className={className}>
+        <DayCardShell
+            id={dayCardId('plan', date)}
+            isToday={isToday}
+            compact={compact}
+            className={className}
+        >
             {/* A flagged day wears a coloured strip down its left edge. */}
             {tone && (
                 <span className={`absolute inset-y-0 left-0 w-1 ${tone.bar}`} aria-hidden="true" />
             )}
 
-            <header className="flex items-center gap-3">
-                <DayBadge date={date} isToday={isToday} />
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <h3 className="text-base font-bold tracking-tight text-neutral-900">
-                            {weekday}
-                        </h3>
-                        {isToday && (
-                            <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-coral-600">
-                                Today
-                            </span>
-                        )}
-                        {note && tone ? (
-                            <button
-                                type="button"
-                                onClick={editable ? onEditFlag : undefined}
-                                aria-label={editable ? 'Edit day flag' : undefined}
-                                className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone.chip} ${
-                                    editable
-                                        ? 'transition-opacity hover:opacity-80'
-                                        : 'cursor-default'
-                                }`}
-                            >
-                                <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
-                                <span className="truncate">{note.label || 'Flagged'}</span>
-                            </button>
-                        ) : (
-                            editable && (
-                                <button
-                                    type="button"
-                                    onClick={onEditFlag}
-                                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold text-neutral-300 transition-colors hover:bg-neutral-50 hover:text-neutral-500"
-                                >
-                                    <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
-                                    Flag
-                                </button>
-                            )
-                        )}
+            {compact ? (
+                <header className="flex flex-col gap-2">
+                    <div className="flex items-start gap-2">
+                        <DayBadge date={date} isToday={isToday} />
+                        <div className="ml-auto flex flex-wrap justify-end">{actions}</div>
                     </div>
-                    <p className="mt-0.5 text-xs text-neutral-500">
-                        {rest ? (
-                            'Rest day'
-                        ) : (
-                            <>
-                                <span className="tabular-nums">
-                                    {doneCount > 0
-                                        ? `${doneCount} of ${total} done`
-                                        : `${total} planned`}
-                                </span>
-                                {minutes > 0 && (
-                                    <>
-                                        <span className="mx-1.5 text-neutral-300">·</span>
-                                        <span className="tabular-nums">~{minutes} min</span>
-                                    </>
-                                )}
-                            </>
-                        )}
-                    </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                    {clashCount > 0 ? (
-                        <DayAlertButton
-                            tone="amber"
-                            icon="fa-solid fa-triangle-exclamation"
-                            count={clashCount}
-                            label={`${clashCount} calendar clash${clashCount === 1 ? '' : 'es'} — view`}
-                            onClick={onShowClashes}
-                        />
-                    ) : (
-                        // Every clash on this day has been accepted: no warning, but a
-                        // quiet mark that keeps the day one press from taking it back.
-                        acceptedClashCount > 0 && (
-                            <DayAlertButton
-                                tone="quiet"
-                                icon="fa-solid fa-calendar-check"
-                                label={`${acceptedClashCount} accepted calendar clash${acceptedClashCount === 1 ? '' : 'es'} — view`}
-                                onClick={onShowClashes}
-                            />
-                        )
+                    {(todayPill || flagChip) && (
+                        <div className="flex min-w-0 flex-wrap items-center gap-1">
+                            {todayPill}
+                            {flagChip}
+                        </div>
                     )}
-                    {overloadCount > 0 ? (
-                        <DayAlertButton
-                            tone="violet"
-                            icon="fa-solid fa-gauge-high"
-                            count={overloadCount}
-                            label={`${overloadCount} overloaded slot${overloadCount === 1 ? '' : 's'} — view`}
-                            onClick={onShowOverloads}
-                        />
-                    ) : (
-                        acceptedOverloadCount > 0 && (
-                            <DayAlertButton
-                                tone="quiet"
-                                icon="fa-solid fa-gauge-high"
-                                label={`${acceptedOverloadCount} accepted overloaded slot${acceptedOverloadCount === 1 ? '' : 's'} — view`}
-                                onClick={onShowOverloads}
-                            />
-                        )
-                    )}
-                    {editable && total > 0 && (
-                        <button
-                            type="button"
-                            onClick={onClear}
-                            aria-label={`Clear ${weekday}`}
-                            title="Clear day"
-                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                        >
-                            <i className="fa-solid fa-broom text-[12px]" aria-hidden="true" />
-                        </button>
-                    )}
-                </div>
-            </header>
+                    {metaLine}
+                </header>
+            ) : (
+                <header className="flex items-center gap-3">
+                    <DayBadge date={date} isToday={isToday} />
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <h3 className="text-base font-bold tracking-tight text-neutral-900">
+                                {weekday}
+                            </h3>
+                            {todayPill}
+                            {flagChip}
+                        </div>
+                        {metaLine}
+                    </div>
+                    {actions}
+                </header>
+            )}
 
-            {rest && !editable ? (
+            {rest && !editable && compact ? (
+                // A board column still reads as a day off, and fills its height
+                // so the week's columns line up.
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-2xl bg-neutral-50 px-2 py-8 text-center">
+                    <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-50 text-emerald-500">
+                        <i className="fa-solid fa-mug-hot text-sm" aria-hidden="true" />
+                    </span>
+                    <p className="text-xs font-semibold text-neutral-500">Rest</p>
+                </div>
+            ) : rest && !editable ? (
                 // Phones get a proper empty state (it's the whole screen there);
                 // the wide feed keeps rest days to their header.
                 <div className="flex flex-col items-center gap-2 rounded-2xl bg-neutral-50 px-4 py-10 text-center md:hidden">
@@ -2456,10 +2589,19 @@ function DayCard({
                 </div>
             ) : (
                 parts.length > 0 && (
-                    <div className={editable ? 'grid gap-3 lg:grid-cols-3' : 'flex flex-col gap-4'}>
+                    <div
+                        className={
+                            compact
+                                ? 'flex flex-col gap-3'
+                                : editable
+                                  ? 'grid gap-3 lg:grid-cols-3'
+                                  : 'flex flex-col gap-4'
+                        }
+                    >
                         {parts.map((part) => (
                             <SlotSection
                                 key={part}
+                                compact={compact}
                                 part={part}
                                 editable={editable}
                                 entries={slotItems(part)}
@@ -2491,6 +2633,7 @@ function DayCard({
  * target, shown even when empty.
  */
 function SlotSection({
+    compact = false,
     part,
     editable,
     entries,
@@ -2507,6 +2650,8 @@ function SlotSection({
     onClearTarget,
     onDropEntry,
 }: {
+    /** A narrow board column: rows one under another, never side by side. */
+    compact?: boolean
     part: FitnessPlanPart
     editable: boolean
     entries: FitnessPlanEntry[]
@@ -2579,6 +2724,7 @@ function SlotSection({
     const rows = entries.map((e) => (
         <PlannedRow
             key={e._id}
+            compact={compact}
             entry={e}
             done={isDone(e)}
             dropId={e._id}
@@ -2595,7 +2741,15 @@ function SlotSection({
         return (
             <div className="flex flex-col gap-2">
                 {label}
-                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{rows}</ul>
+                <ul
+                    className={
+                        compact
+                            ? 'flex flex-col gap-1.5'
+                            : 'grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4'
+                    }
+                >
+                    {rows}
+                </ul>
             </div>
         )
     }
@@ -2603,7 +2757,7 @@ function SlotSection({
     return (
         <div
             {...containerDropProps}
-            className={`flex flex-col gap-2 rounded-2xl p-2.5 transition-colors ${
+            className={`flex flex-col gap-2 rounded-2xl transition-colors ${compact ? 'p-1.5' : 'p-2.5'} ${
                 drop ? 'bg-coral-50 ring-2 ring-inset ring-coral-200' : 'bg-neutral-50'
             }`}
         >
@@ -2619,7 +2773,7 @@ function SlotSection({
                 </button>
             </div>
             {entries.length > 0 ? (
-                <ul ref={listRef} className="flex flex-col gap-2">
+                <ul ref={listRef} className={`flex flex-col ${compact ? 'gap-1.5' : 'gap-2'}`}>
                     {rows}
                     {drop && drop.refId === null && <DropLine />}
                 </ul>
@@ -2678,6 +2832,7 @@ function plannedMeta(entry: FitnessPlanEntry): string {
 }
 
 function PlannedRow({
+    compact = false,
     entry,
     done = false,
     onOpen,
@@ -2688,6 +2843,8 @@ function PlannedRow({
     dropId,
     dropEdge = null,
 }: {
+    /** Tighter, for a narrow board column: smaller tile, no drag grip. */
+    compact?: boolean
     entry: FitnessPlanEntry
     /** When true the item has a matching completion log — shows a green tick. */
     done?: boolean
@@ -2711,11 +2868,16 @@ function PlannedRow({
     const [dragging, setDragging] = useState(false)
 
     const body = (
-        <span className="flex min-w-0 items-center gap-3">
+        <span className={`flex min-w-0 items-center ${compact ? 'gap-2' : 'gap-3'}`}>
             <span
-                className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-xl ${tone.tile}`}
+                className={`relative grid shrink-0 place-items-center ${
+                    compact ? 'h-8 w-8 rounded-lg' : 'h-10 w-10 rounded-xl'
+                } ${tone.tile}`}
             >
-                <i className={`${KIND_META[entry.kind].icon} text-sm`} aria-hidden="true" />
+                <i
+                    className={`${KIND_META[entry.kind].icon} ${compact ? 'text-xs' : 'text-sm'}`}
+                    aria-hidden="true"
+                />
             </span>
             <span className="min-w-0 flex-1">
                 <span
@@ -2755,7 +2917,9 @@ function PlannedRow({
                     : undefined
             }
             data-plan-row={dropId}
-            className={`group relative flex items-center gap-2 rounded-2xl bg-white p-2 pr-2.5 ring-1 ring-black/[0.06] transition-all ${
+            className={`group relative flex items-center bg-white ring-1 ring-black/[0.06] transition-all ${
+                compact ? 'gap-1 rounded-xl p-1.5' : 'gap-2 rounded-2xl p-2 pr-2.5'
+            } ${
                 onOpen ? 'hover:-translate-y-px hover:shadow-[0_6px_16px_-8px_rgba(0,0,0,0.2)]' : ''
             } ${draggable ? 'md:cursor-grab md:active:cursor-grabbing' : ''} ${
                 dragging ? 'opacity-40' : ''
@@ -2769,7 +2933,7 @@ function PlannedRow({
                     }`}
                 />
             )}
-            {draggable && (
+            {draggable && !compact && (
                 // Drag-and-drop is a mouse thing — no grip on touch screens.
                 <i
                     className="fa-solid fa-grip-vertical hidden shrink-0 pl-1 text-[11px] text-neutral-300 md:inline"
@@ -2790,7 +2954,9 @@ function PlannedRow({
             )}
             {done && (
                 <span
-                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-500 text-white"
+                    className={`grid shrink-0 place-items-center rounded-full bg-emerald-500 text-white ${
+                        compact ? 'h-5 w-5' : 'h-6 w-6'
+                    }`}
                     aria-label="Done"
                     title="Completed"
                 >
@@ -2802,7 +2968,9 @@ function PlannedRow({
                     type="button"
                     aria-label={`Remove ${name ?? 'item'}`}
                     onClick={onRemove}
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                    className={`grid shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500 ${
+                        compact ? 'h-6 w-6' : 'h-8 w-8'
+                    }`}
                 >
                     <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
                 </button>
