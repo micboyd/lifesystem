@@ -113,15 +113,36 @@ export async function movePlanScheduleEntry(
  * `keepCompleted`, entries that have already been done stay on the planner as
  * ordinary entries. Returns how many were removed and how many kept.
  */
+/** Library items a deleted plan took out, by library. */
+export type RemovedLibrary = Record<FitnessPlanKind | 'exercise', number>
+
 export async function deletePlan(
     id: string,
-    opts: { keepCompleted?: boolean } = {}
-): Promise<{ removed: number; kept: number }> {
-    const res = await api.delete<{ removedEntries?: number; keptEntries?: number }>(
-        `/plans/${id}`,
-        { params: opts.keepCompleted ? { keepCompleted: 1 } : undefined }
-    )
-    return { removed: res.data.removedEntries ?? 0, kept: res.data.keptEntries ?? 0 }
+    opts: { keepCompleted?: boolean; removeLibrary?: boolean } = {}
+): Promise<{
+    removed: number
+    kept: number
+    /** Set when `removeLibrary` was asked for. */
+    library?: { removed: RemovedLibrary; kept: number }
+}> {
+    const res = await api.delete<{
+        removedEntries?: number
+        keptEntries?: number
+        removedLibrary?: RemovedLibrary
+        keptLibrary?: number
+    }>(`/plans/${id}`, {
+        params: {
+            ...(opts.keepCompleted ? { keepCompleted: 1 } : {}),
+            ...(opts.removeLibrary ? { removeLibrary: 1 } : {}),
+        },
+    })
+    return {
+        removed: res.data.removedEntries ?? 0,
+        kept: res.data.keptEntries ?? 0,
+        ...(res.data.removedLibrary
+            ? { library: { removed: res.data.removedLibrary, kept: res.data.keptLibrary ?? 0 } }
+            : {}),
+    }
 }
 
 /** How much of a plan to roll out. Omitted fields default to the whole plan. */

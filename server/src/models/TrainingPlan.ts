@@ -107,6 +107,11 @@ export interface ITrainingPlan extends Document {
     readinessRules: string[]
     /** Every library item the plan links to. */
     items: IPlanItem[]
+    /**
+     * Exercises the import created (they aren't plan items — workouts own them),
+     * so deleting the plan can take them out of the library too.
+     */
+    createdExercises?: Types.ObjectId[]
     /** The day-by-day placements, sorted by date then slot. */
     schedule: IPlanScheduleEntry[]
     /** Dated exceptions applied on top of the recurring week. */
@@ -209,6 +214,7 @@ const trainingPlanSchema = new Schema<ITrainingPlan>(
         recoveryUse: { type: Schema.Types.Mixed },
         readinessRules: { type: [String], default: [] },
         items: { type: [planItemSchema], default: [] },
+        createdExercises: { type: [Schema.Types.ObjectId], ref: 'Exercise', default: [] },
         schedule: { type: [scheduleEntrySchema], default: [] },
         overrides: { type: [overrideSchema], default: [] },
         sourceOverrides: { type: [Schema.Types.Mixed], default: undefined },

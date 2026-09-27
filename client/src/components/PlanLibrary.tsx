@@ -18,6 +18,7 @@ import {
     listPlans,
     getPlan,
     deletePlan,
+    type RemovedLibrary,
     applyPlan,
     unapplyPlan,
     exportPlan,
@@ -137,6 +138,9 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
     const [confirming, setConfirming] = useState<TrainingPlan | null>(null)
     // Whether deleting keeps the planner entries that have already been done.
     const [keepCompleted, setKeepCompleted] = useState(true)
+    // Whether deleting also takes out the library items the plan added. Off by
+    // default — deleting a plan has never touched the libraries.
+    const [removeLibrary, setRemoveLibrary] = useState(false)
     // The plan ids the overload drawer is open on — one plan, or every plan.
     // Held as ids rather than plans so the drawer keeps reading the live rows as
     // fixes land. Null keeps it closed.
@@ -191,16 +195,26 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
         toast.show(`Moved “${entry.label}” to the ${to}.`, 'success')
     }
 
-    async function handleDelete(plan: TrainingPlan, keep: boolean) {
+    async function handleDelete(plan: TrainingPlan, keep: boolean, wipe: boolean) {
         setPlans((prev) => prev.filter((p) => p._id !== plan._id))
         if (openId === plan._id) setOpenId(null)
-        const { kept } = await deletePlan(plan._id, { keepCompleted: keep })
-        toast.show(
-            kept
-                ? `Deleted “${plan.name}”. Kept ${kept} completed session${kept === 1 ? '' : 's'} on the planner.`
-                : `Deleted “${plan.name}”.`,
-            'success'
-        )
+        const { kept, library } = await deletePlan(plan._id, {
+            keepCompleted: keep,
+            removeLibrary: wipe,
+        })
+        const parts = [`Deleted “${plan.name}”.`]
+        if (kept) parts.push(`Kept ${plural(kept, 'completed session')} on the planner.`)
+        if (library) {
+            const gone = describeCounts(library.removed)
+            parts.push(
+                gone
+                    ? `Removed ${gone} from your libraries.`
+                    : 'Nothing to remove from your libraries.'
+            )
+            if (library.kept)
+                parts.push(`${plural(library.kept, 'item')} kept — still in use elsewhere.`)
+        }
+        toast.show(parts.join(' '), 'success')
     }
 
     async function handleUnapply(plan: TrainingPlan) {
@@ -336,7 +350,8 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                     <>
                         <p>
                             “{confirming?.name}” and any planner entries it placed will be removed.
-                            The workouts, sessions and routines it added to your libraries are kept.
+                            {!removeLibrary &&
+                                ' The workouts, sessions and routines it added to your libraries are kept.'}
                         </p>
                         {(confirming?.appliedEntries ?? 0) > 0 && (
                             <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-neutral-700">
@@ -355,18 +370,76 @@ export default function PlanLibrary({ onApplied }: { onApplied?: (firstDate: str
                                 </span>
                             </label>
                         )}
+                        {confirming && confirming.items.some((i) => i.created) && (
+                            <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-neutral-700">
+                                <input
+                                    type="checkbox"
+                                    className="mt-0.5"
+                                    checked={removeLibrary}
+                                    onChange={(e) => setRemoveLibrary(e.target.checked)}
+                                />
+                                <span>
+                                    Also delete what it added to your libraries
+                                    <span className="block text-xs text-neutral-500">
+                                        {describeCounts(createdCounts(confirming))}, plus the
+                                        exercises it created. Anything it reused from your library,
+                                        or that another plan uses, stays. Your logs keep their names
+                                        and numbers.
+                                        {keepCompleted &&
+                                            (confirming.appliedEntries ?? 0) > 0 &&
+                                            ' Items behind completed sessions you keep also stay.'}
+                                    </span>
+                                </span>
+                            </label>
+                        )}
                     </>
                 }
-                confirmLabel="Delete plan"
+                confirmLabel={removeLibrary ? 'Delete plan and items' : 'Delete plan'}
                 danger
                 onConfirm={() => {
-                    if (confirming) handleDelete(confirming, keepCompleted)
+                    if (confirming) handleDelete(confirming, keepCompleted, removeLibrary)
                     setConfirming(null)
+                    setRemoveLibrary(false)
                 }}
-                onClose={() => setConfirming(null)}
+                onClose={() => {
+                    setConfirming(null)
+                    setRemoveLibrary(false)
+                }}
             />
         </div>
     )
+}
+
+// ─── Delete: library counts ─────────────────────────────────────────────────────
+
+function plural(n: number, word: string): string {
+    return `${n} ${word}${n === 1 ? '' : 's'}`
+}
+
+/** How many library items of each kind the plan's import created. */
+function createdCounts(plan: TrainingPlan): Partial<RemovedLibrary> {
+    const seen = new Set<string>()
+    const out: Partial<RemovedLibrary> = {}
+    for (const i of plan.items) {
+        if (!i.created || seen.has(i.item)) continue
+        seen.add(i.item)
+        out[i.kind] = (out[i.kind] ?? 0) + 1
+    }
+    return out
+}
+
+/** "4 workouts, 81 conditioning sessions and 12 exercises", or '' for none. */
+function describeCounts(c: Partial<RemovedLibrary>): string {
+    const words: [keyof RemovedLibrary, string][] = [
+        ['workout', 'workout'],
+        ['conditioning', 'conditioning session'],
+        ['mobility', 'mobility routine'],
+        ['recovery', 'recovery routine'],
+        ['exercise', 'exercise'],
+    ]
+    const bits = words.filter(([k]) => (c[k] ?? 0) > 0).map(([k, w]) => plural(c[k]!, w))
+    if (bits.length <= 1) return bits[0] ?? ''
+    return `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}`
 }
 
 // ─── Plan card ──────────────────────────────────────────────────────────────────
@@ -1106,9 +1179,7 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
                     value={from}
                     minDate={plan.planStart}
                     maxDate={plan.planEnd}
-                    onChange={(v) =>
-                        setFrom(typeof v === 'string' && v ? v : plan.planStart)
-                    }
+                    onChange={(v) => setFrom(typeof v === 'string' && v ? v : plan.planStart)}
                 />
             </div>
 
@@ -1419,9 +1490,7 @@ function ApplyPlanForm({
                             value={end}
                             minDate={start || plan.planStart}
                             maxDate={plan.planEnd}
-                            onChange={(v) =>
-                                setEnd(typeof v === 'string' && v ? v : plan.planEnd)
-                            }
+                            onChange={(v) => setEnd(typeof v === 'string' && v ? v : plan.planEnd)}
                         />
                     </div>
                 </div>

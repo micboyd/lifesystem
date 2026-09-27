@@ -569,12 +569,30 @@ export async function importPlan(req: AuthRequest, res: Response) {
     // stamped with it — re-applying then cleanly supersedes them instead of
     // doubling up, which creating a second plan of the same name would do.
     const target = replaceId
-        ? await TrainingPlan.findOne({ _id: replaceId, user: userId }).select('_id order')
+        ? await TrainingPlan.findOne({ _id: replaceId, user: userId }).select(
+              '_id order items createdExercises'
+          )
         : null
     if (replaceId && !target) {
         res.status(404).json({ message: 'The plan you asked to replace no longer exists.' })
         return
     }
+
+    // What this plan put into the libraries. A re-import matches what the first
+    // import created, so carry those forward — otherwise replacing a plan would
+    // forget it made them, and deleting it couldn't take them back out.
+    const madeBefore = new Set(
+        (target?.items ?? []).filter((i) => i.created).map((i) => String(i.item))
+    )
+    for (const i of items) if (madeBefore.has(String(i.item))) i.created = true
+    const createdExercises = [
+        ...new Set([
+            ...(target?.createdExercises ?? []).map(String),
+            ...[...exercises.created]
+                .map((key) => exercises.byKey.get(key)?.id)
+                .filter((id): id is string => !!id),
+        ]),
+    ].map((id) => new Types.ObjectId(id))
     const last = target
         ? null
         : await TrainingPlan.findOne({ user: userId }).sort({ order: -1 }).select('order')
@@ -609,6 +627,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
         recoveryUse: obj(recoveryDoc.weeklyUse) ?? undefined,
         readinessRules: strList(doc.readinessRules),
         items,
+        createdExercises,
         schedule: schedule.sorted(),
         overrides,
         // Kept verbatim so exporting can hand the rows back: `overrides` above is
@@ -779,12 +798,156 @@ async function completedEntryIds(
 }
 
 /**
- * DELETE /api/plans/:id — remove a plan and the planner entries it placed. The
- * library items it created stay; they're shared with the rest of the app.
+ * Take the library items a deleted plan created back out of the libraries.
+ *
+ * Only what the import *created* goes — anything it matched was already yours.
+ * Of those, an item stays when another plan still links to it, or when a
+ * planner entry kept from this plan (a completed session) still points at it.
+ * Planner entries still pointing at a removed item go with it; logs keep their
+ * snapshot of the name and sets and are just unlinked, so history survives.
+ *
+ * Exercises aren't plan items, so the plan records the ones it created; a plan
+ * imported before that was recorded falls back to exercises created in the few
+ * minutes before the plan itself (the import writes them just ahead of it). An
+ * exercise another workout still uses stays either way.
+ */
+async function removePlanLibrary(
+    userId: string,
+    plan: {
+        _id: Types.ObjectId
+        items: IPlanItem[]
+        createdExercises?: Types.ObjectId[]
+        createdAt: Date
+    },
+    keptEntries: Types.ObjectId[]
+): Promise<{ removed: Record<FitnessPlanKind | 'exercise', number>; skipped: number }> {
+    const removed = { workout: 0, conditioning: 0, mobility: 0, recovery: 0, exercise: 0 }
+    const created = plan.items.filter((i) => i.created)
+
+    // Items another plan links to, or that a kept planner entry still uses.
+    const shared = new Set<string>()
+    const others = await TrainingPlan.find({
+        user: userId,
+        _id: { $ne: plan._id },
+        'items.item': { $in: created.map((i) => i.item) },
+    })
+        .select('items.item')
+        .lean()
+    for (const o of others) for (const i of o.items) shared.add(String(i.item))
+    if (keptEntries.length) {
+        const kept = await FitnessPlanEntry.find({ _id: { $in: keptEntries } })
+            .select('workout session mobility recovery')
+            .lean()
+        for (const e of kept)
+            for (const id of [e.workout, e.session, e.mobility, e.recovery])
+                if (id) shared.add(String(id))
+    }
+
+    const byKind: Record<FitnessPlanKind, Types.ObjectId[]> = {
+        workout: [],
+        conditioning: [],
+        mobility: [],
+        recovery: [],
+    }
+    const seen = new Set<string>()
+    let skipped = 0
+    for (const i of created) {
+        const id = String(i.item)
+        if (seen.has(id)) continue
+        seen.add(id)
+        if (shared.has(id)) skipped++
+        else byKind[i.kind].push(i.item)
+    }
+
+    // The exercises the removed workouts use, before those workouts go.
+    const doomedWorkouts = byKind.workout.length
+        ? await Workout.find({ _id: { $in: byKind.workout }, user: userId }).lean()
+        : []
+    const usedByDoomed = new Set(
+        doomedWorkouts.flatMap((w) =>
+            SESSION_PHASES.flatMap((p) => (w[p] ?? []).map((l) => String(l.exercise)))
+        )
+    )
+
+    const models = {
+        workout: Workout,
+        conditioning: ConditioningSession,
+        mobility: Mobility,
+        recovery: Recovery,
+    } as const
+    for (const kind of FITNESS_PLAN_KINDS) {
+        const ids = byKind[kind]
+        if (!ids.length) continue
+        const r = await (models[kind] as Model<unknown>).deleteMany({
+            _id: { $in: ids },
+            user: userId,
+        })
+        removed[kind] = r.deletedCount ?? 0
+        // Planner entries still pointing at it would show as a blank.
+        await FitnessPlanEntry.deleteMany({ user: userId, [REF_FIELD[kind]]: { $in: ids } })
+    }
+    // Unlink logs — they keep the name and sets they snapshotted.
+    if (byKind.workout.length)
+        await WorkoutLog.updateMany(
+            { user: userId, workout: { $in: byKind.workout } },
+            { $set: { workout: null } }
+        )
+    if (byKind.conditioning.length)
+        await ConditioningLog.updateMany(
+            { user: userId, session: { $in: byKind.conditioning } },
+            { $set: { session: null } }
+        )
+    if (byKind.recovery.length)
+        await RecoveryLog.updateMany(
+            { user: userId, recovery: { $in: byKind.recovery } },
+            { $set: { recovery: null } }
+        )
+
+    // Exercises the plan created that nothing left in the library uses.
+    let madeExercises: string[]
+    if (plan.createdExercises?.length) {
+        madeExercises = plan.createdExercises.map(String)
+    } else {
+        const before = new Date(plan.createdAt.getTime() - 5 * 60 * 1000)
+        const recent = await Exercise.find({
+            user: userId,
+            _id: { $in: [...usedByDoomed] },
+            createdAt: { $gte: before, $lte: plan.createdAt },
+        })
+            .select('_id')
+            .lean()
+        madeExercises = recent.map((e) => String(e._id))
+    }
+    if (madeExercises.length) {
+        const stillUsed = await Workout.find({
+            user: userId,
+            $or: SESSION_PHASES.map((p) => ({ [`${p}.exercise`]: { $in: madeExercises } })),
+        }).lean()
+        const inUse = new Set(
+            stillUsed.flatMap((w) =>
+                SESSION_PHASES.flatMap((p) => (w[p] ?? []).map((l) => String(l.exercise)))
+            )
+        )
+        const gone = madeExercises.filter((id) => !inUse.has(id))
+        skipped += madeExercises.length - gone.length
+        if (gone.length) {
+            const r = await Exercise.deleteMany({ user: userId, _id: { $in: gone } })
+            removed.exercise = r.deletedCount ?? 0
+        }
+    }
+
+    return { removed, skipped }
+}
+
+/**
+ * DELETE /api/plans/:id — remove a plan and the planner entries it placed.
  *
  * `?keepCompleted=1` keeps the entries that have already been done, so the
  * planner's history survives the plan. They lose their `plan` stamp and become
  * ordinary hand-placed entries — the plan they pointed at is gone.
+ *
+ * `?removeLibrary=1` also takes out the library items the plan created (see
+ * `removePlanLibrary`). Without it they stay, as they always have.
  */
 export async function deletePlan(req: AuthRequest, res: Response) {
     const plan = await TrainingPlan.findOneAndDelete({ _id: req.params.id, user: req.userId })
@@ -792,7 +955,9 @@ export async function deletePlan(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Plan not found' })
         return
     }
-    const keepCompleted = req.query.keepCompleted === '1' || req.query.keepCompleted === 'true'
+    const flag = (v: unknown) => v === '1' || v === 'true'
+    const keepCompleted = flag(req.query.keepCompleted)
+    const removeLibrary = flag(req.query.removeLibrary)
 
     let kept: Types.ObjectId[] = []
     if (keepCompleted) {
@@ -806,11 +971,15 @@ export async function deletePlan(req: AuthRequest, res: Response) {
 
     // Kept entries no longer carry the plan's stamp, so this leaves them be.
     const { deletedCount } = await FitnessPlanEntry.deleteMany({ user: req.userId, plan: plan._id })
+
+    const library = removeLibrary ? await removePlanLibrary(req.userId!, plan, kept) : null
+
     res.json({
         message: `Deleted “${plan.name}”`,
         data: plan,
         removedEntries: deletedCount ?? 0,
         keptEntries: kept.length,
+        ...(library ? { removedLibrary: library.removed, keptLibrary: library.skipped } : {}),
     })
 }
 
