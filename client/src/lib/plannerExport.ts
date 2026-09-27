@@ -245,6 +245,7 @@ function shapeParts(parts: SessionPart[]) {
 function shapeWorkout(workout: Workout, exercisesById: Map<string, Exercise>) {
     return {
         ...(workout.duration ? { duration: workout.duration } : {}),
+        ...(workout.bring?.length ? { bring: workout.bring } : {}),
         ...nonEmptyPhases(
             mapPhases(workout, (list) =>
                 list.map((x) => ({

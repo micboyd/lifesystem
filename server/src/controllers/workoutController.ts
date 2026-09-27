@@ -7,6 +7,7 @@ import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib
 import { nameKey, extractOverwrite } from '../lib/importReconcile'
 import { missingWindows, readWindow } from '../lib/timeWindow'
 import { readVideoUrl } from '../lib/videoUrl'
+import { readBringList } from '../lib/bringList'
 import { applyExerciseVideos } from '../lib/exerciseVideos'
 import {
     SESSION_PHASES,
@@ -164,6 +165,7 @@ export async function createWorkout(req: AuthRequest, res: Response) {
         description: typeof req.body.description === 'string' ? req.body.description.trim() : '',
         duration: toSets(req.body.duration) ?? 0,
         showInPlanner: req.body.showInPlanner === true,
+        bring: readBringList(req.body ?? {}),
         ...(await toPhasedExercises(req.body, req.userId)),
         order,
     })
@@ -178,6 +180,7 @@ export async function updateWorkout(req: AuthRequest, res: Response) {
     if (typeof b.description === 'string') fields.description = b.description.trim()
     if (b.duration !== undefined) fields.duration = toSets(b.duration) ?? 0
     if (typeof b.showInPlanner === 'boolean') fields.showInPlanner = b.showInPlanner
+    if (b.bring !== undefined) fields.bring = readBringList(b)
     const phases = sentPhases(b, 'exercises')
     if (phases.length) {
         const lines = await toPhasedExercises(b, req.userId)
@@ -218,6 +221,7 @@ interface NormWorkout {
     description: string
     duration: number
     showInPlanner: boolean
+    bring: string[]
     /** Exercise lines per phase in first-seen order, de-duplicated by name within a phase. */
     phases: Phased<NormExercise>
 }
@@ -310,6 +314,7 @@ function normaliseWorkouts(rawList: unknown[]): { items: NormWorkout[]; errors: 
             description: typeof item.description === 'string' ? item.description.trim() : '',
             duration: toSets(item.duration) ?? 0,
             showInPlanner: item.showInPlanner === true,
+            bring: readBringList(item),
             phases,
         })
     })
@@ -584,6 +589,7 @@ export async function importWorkouts(req: AuthRequest, res: Response) {
             description: it.description,
             duration: it.duration,
             showInPlanner: it.showInPlanner,
+            bring: it.bring,
             ...mapPhases(it.phases, resolveLines),
         }
         const targetId = overwrite.get(nameKey(it.name))

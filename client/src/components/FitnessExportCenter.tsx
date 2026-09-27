@@ -53,7 +53,7 @@ const DATASETS: DatasetMeta[] = [
     {
         key: 'workouts',
         label: 'Workouts',
-        hint: 'Strength workouts with their exercises, sets and reps.',
+        hint: 'Strength workouts with their exercises, sets, reps, times and what to bring.',
         icon: 'fa-clipboard-list',
         group: 'Libraries',
     },
@@ -124,6 +124,7 @@ function shapeWorkouts(rows: Workout[], nameById: Map<string, string>) {
         name: w.name,
         description: w.description,
         showInPlanner: w.showInPlanner,
+        ...(w.bring?.length ? { bring: w.bring } : {}),
         ...mapPhases(w, (list) =>
             list.map((x) => ({
                 name: nameById.get(x.exercise) ?? x.exercise,

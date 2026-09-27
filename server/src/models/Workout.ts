@@ -30,6 +30,8 @@ export interface IWorkout extends Document, Phased<IWorkoutExercise> {
     duration: number
     /** Pin this workout to the top of the week planner. */
     showInPlanner: boolean
+    /** Kit to pack from home for it, e.g. "Lifting belt", "Neck harness". */
+    bring: string[]
     /** Priority position in the library (lower = sooner). */
     order: number
     /** Import batch id if this record came from a bulk import (for undo). */
@@ -58,6 +60,7 @@ const workoutSchema = new Schema<IWorkout>(
         description: { type: String, default: '', trim: true },
         duration: { type: Number, default: 0, min: 0 },
         showInPlanner: { type: Boolean, default: false },
+        bring: { type: [String], default: [] },
         warmUp: { type: [workoutExerciseSchema], default: [] },
         main: { type: [workoutExerciseSchema], default: [] },
         coolDown: { type: [workoutExerciseSchema], default: [] },

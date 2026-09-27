@@ -22,6 +22,7 @@ import RecoveryLog from '../models/RecoveryLog'
 import { toSessionParts } from '../lib/sessionParts'
 import { missingWindows, readWindow } from '../lib/timeWindow'
 import { readVideoUrl } from '../lib/videoUrl'
+import { readBringList } from '../lib/bringList'
 import { applyExerciseVideos } from '../lib/exerciseVideos'
 import { SESSION_PHASES, mapPhases, readPhased, toPhase } from '../lib/phases'
 import { buildPlanExport } from '../lib/planExport'
@@ -356,6 +357,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
     const workoutSpecs = toSpecs(strengthWorkouts, (w) => ({
         description: str(w.purpose) ?? '',
         duration: num(w.duration) ?? 0,
+        bring: readBringList(w),
         ...mapPhases(readPhased(w, 'exercises'), workoutLines),
         showInPlanner: false,
     }))

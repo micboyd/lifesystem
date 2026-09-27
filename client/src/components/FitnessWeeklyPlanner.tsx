@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { BringChecklist } from './BringList'
 import PhaseHeading, { phaseSpan } from './PhaseHeading'
 import Spinner from './Spinner'
 import Button from './Button'
@@ -3750,7 +3751,11 @@ function PlannedDetailDrawer({
             >
                 {e &&
                     (e.kind === 'workout' && e.workout ? (
-                        <WorkoutDetail workout={e.workout} exercisesById={exercisesById} />
+                        <WorkoutDetail
+                            workout={e.workout}
+                            exercisesById={exercisesById}
+                            packKey={e._id}
+                        />
                     ) : e.kind === 'conditioning' && e.session ? (
                         <ConditioningSessionDetail
                             session={e.session}
@@ -3812,9 +3817,12 @@ function DetailSection({ label, children }: { label: string; children: ReactNode
 function WorkoutDetail({
     workout,
     exercisesById,
+    packKey,
 }: {
     workout: Workout
     exercisesById: Map<string, Exercise>
+    /** Where this session's packing ticks are kept — the plan entry. */
+    packKey: string
 }) {
     // Pair each workout slot with its resolved library exercise, phase by
     // phase, dropping any that were since deleted from the library.
@@ -3841,6 +3849,8 @@ function WorkoutDetail({
                     {workout.description}
                 </p>
             )}
+
+            <BringChecklist items={workout.bring} packKey={packKey} />
 
             {SESSION_PHASES.map((phase) => {
                 const rows = phases[phase]

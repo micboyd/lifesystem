@@ -28,10 +28,15 @@ const CREATE = '__create__'
  * ignores them, so the template pastes straight back in as it is.
  */
 const WORKOUT_TEMPLATE = `[
+  // Each workout: "name" is required, and every exercise line needs "startMin"
+  // and "endMin". Everything else is optional: "description", "showInPlanner",
+  // "bring" (kit to pack from home) and, on a line, "sets", "reps", "rest",
+  // "notes" and "videoUrl" (a YouTube demo of the exercise).
   {
     "name": "Full Body Blast",                         // required
     "description": "Combines cardio and strength training.",
     "showInPlanner": true,                             // pin to the top of the planner
+    "bring": ["Lifting belt", "Resistance band"],      // optional: kit to pack from home
     // Three phases, in order: warmUp, main, coolDown. Only main counts toward progress.
     // Every line needs "startMin" and "endMin" — its slot in minutes from the start
     // of the session, running in order (each ends at or after the one before).
@@ -337,12 +342,23 @@ export default function WorkoutImportPanel({
                             <p>
                                 <span className="font-semibold text-neutral-700">name</span> is
                                 required.{' '}
-                                <span className="font-semibold text-neutral-700">description</span>{' '}
-                                and{' '}
+                                <span className="font-semibold text-neutral-700">description</span>,{' '}
                                 <span className="font-semibold text-neutral-700">
                                     showInPlanner
                                 </span>{' '}
-                                are optional.
+                                and <span className="font-semibold text-neutral-700">bring</span>{' '}
+                                are optional.{' '}
+                                <span className="font-semibold text-neutral-700">bring</span> is
+                                the kit to pack from home (e.g. a lifting belt, a neck harness) —
+                                a list, or one comma-separated string — shown as a checklist in the
+                                workout overview.
+                            </p>
+                            <p>
+                                A line can carry a{' '}
+                                <span className="font-semibold text-neutral-700">videoUrl</span>{' '}
+                                (or <span className="font-semibold text-neutral-700">youtubeLink</span>
+                                ): a YouTube demo of the exercise, saved on it and played in the app
+                                from a button beside it.
                             </p>
                             <p>
                                 <span className="font-semibold text-neutral-700">warmUp</span>,{' '}

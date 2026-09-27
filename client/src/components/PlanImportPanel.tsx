@@ -51,6 +51,13 @@ const TEMPLATE = `{
   // overview and on its card while you log, and plays the demo in the app.
   // The link is saved on the exercise, so it shows wherever that exercise is used.
   //
+  // ── Worth adding: what to bring ──────────────────────────────────────────
+  // Put "bring" on a strength workout: the kit to pack from home, e.g.
+  // ["Lifting belt", "Neck harness", "Resistance band"]. The workout overview
+  // shows it as a checklist to tick off as it goes in your bag, and it's a
+  // reminder while you log. "whatToBring", "kit" or "homeEquipment" work as the
+  // key too, and one comma-separated string is fine.
+  //
   // Everything else below is optional. Comments like these are fine to leave
   // in — the importer ignores them.
 
@@ -123,6 +130,10 @@ const TEMPLATE = `{
       "slot": "Morning",               // optional; strength defaults to Morning
       "duration": 60,                  // minutes
       "purpose": "Build pressing and pulling strength.",
+      // Optional. Kit to pack from home - shown as a checklist to tick off in the
+      // workout overview before you leave. "whatToBring" or "kit" work too, and
+      // one comma-separated string is fine.
+      "bring": ["Lifting belt", "Resistance band"],
       // Three phases, in order: warmUp, main, coolDown. Only main counts toward progress.
       // Every line needs "startMin" and "endMin": minutes from the start of the
       // session, running in order. "endMin" is when it should be finished — the
@@ -514,6 +525,13 @@ export default function PlanImportPanel({
                         you log. Swap the template&apos;s{' '}
                         <span className="font-semibold text-neutral-700">xxxxxxxxxxx</span>{' '}
                         placeholders for real links, or leave the field out.
+                    </p>
+                    <p>
+                        Add{' '}
+                        <span className="font-semibold text-neutral-700">bring</span> to a
+                        strength workout to list the kit to pack from home — a lifting belt, a
+                        neck harness, a resistance band. It becomes a checklist in the workout
+                        overview to tick off before you leave.
                     </p>
                     <p>
                         <span className="font-semibold text-neutral-700">strengthWorkouts</span>{' '}

@@ -224,6 +224,8 @@ export interface Workout extends Phased<WorkoutExercise> {
     duration: number
     /** Pin this workout to the top of the week planner. */
     showInPlanner: boolean
+    /** Kit to pack from home for it, e.g. "Lifting belt", "Neck harness". */
+    bring?: string[]
     order: number
     createdAt: string
     updatedAt: string

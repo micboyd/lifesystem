@@ -7,6 +7,8 @@ export interface WorkoutInput extends Partial<Phased<WorkoutExercise>> {
     name: string
     description?: string
     showInPlanner?: boolean
+    /** Kit to pack from home for it. */
+    bring?: string[]
 }
 
 /** The server's paginated list envelope: workouts plus page metadata. */

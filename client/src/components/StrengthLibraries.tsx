@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { BringChips, BringInput } from './BringList'
 import PhaseHeading, { phaseSpan } from './PhaseHeading'
 import { Card } from './Card'
 import Spinner from './Spinner'
@@ -1019,6 +1020,8 @@ function WorkoutViewDrawer({
                         </p>
                     )}
 
+                    <BringChips items={w.bring} />
+
                     {SESSION_PHASES.map((phase) => {
                         const rows = phases[phase]
                         // An empty warm-up or cool-down isn't worth a heading;
@@ -1114,6 +1117,7 @@ function WorkoutFormDrawer({
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [showInPlanner, setShowInPlanner] = useState(false)
+    const [bring, setBring] = useState<string[]>([])
     const [selected, setSelected] = useState<Phased<WorkoutExercise>>(emptyPhases)
     const [saving, setSaving] = useState(false)
 
@@ -1121,6 +1125,7 @@ function WorkoutFormDrawer({
         setName(editing?.name ?? '')
         setDescription(editing?.description ?? '')
         setShowInPlanner(editing?.showInPlanner ?? false)
+        setBring(editing?.bring ?? [])
         // Drop any entries that no longer resolve to a library exercise.
         setSelected(
             editing
@@ -1141,6 +1146,7 @@ function WorkoutFormDrawer({
             name: name.trim(),
             description: description.trim(),
             showInPlanner,
+            bring,
             ...selected,
         }
         setSaving(true)
@@ -1185,6 +1191,8 @@ function WorkoutFormDrawer({
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                 />
+
+                <BringInput value={bring} onChange={setBring} />
 
                 {/* Week planner toggle */}
                 <div className="flex items-start justify-between gap-4 rounded-xl border border-neutral-200 p-3">

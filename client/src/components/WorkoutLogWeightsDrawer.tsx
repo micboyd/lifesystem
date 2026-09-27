@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BringChips } from './BringList'
 import PhaseHeading, { phaseSpan } from './PhaseHeading'
 import Drawer from './Drawer'
 import Button from './Button'
@@ -653,6 +654,8 @@ export default function WorkoutLogWeightsDrawer({
             {w && (
                 <div className="flex flex-col gap-5">
                     <PaceBanner slots={slots} completedAt={times} names={drafts.map((d) => d.name)} />
+
+                    <BringChips items={w.bring} />
 
                     {restoredFrom !== null && (
                         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-marigold-200 bg-marigold-50 px-3 py-2 text-xs text-amber-800">

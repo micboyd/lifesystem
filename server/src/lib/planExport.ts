@@ -41,6 +41,7 @@ interface ExerciseLean extends Lean {
 interface WorkoutLean extends Lean, Phased<IWorkoutExercise> {
     description?: string
     duration: number
+    bring?: string[]
 }
 interface SessionLean extends Lean, Phased<ISessionPart> {
     duration: number
@@ -193,6 +194,7 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
             part,
             duration: duration(doc.duration),
             purpose: doc.description,
+            bring: doc.bring?.length ? doc.bring : undefined,
             ...mapPhases(doc, (list) =>
                 list
                     .map((line) => {
