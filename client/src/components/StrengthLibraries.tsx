@@ -37,6 +37,8 @@ import { useToast } from '../context/ToastContext'
 import { todayKey } from '../lib/calendar'
 import { MUSCLE_GROUPS, EQUIPMENT, resolveTags } from '../lib/exerciseSwap'
 import { SlotInputs } from './SessionPace'
+import { VideoButton } from './ExerciseVideo'
+import { parseVideo } from '../lib/video'
 import { hasSlot, slotLabel } from '../lib/sessionPace'
 import { SESSION_PHASES, SESSION_PHASE_LABELS } from '../types'
 import type { Exercise, Phased, SessionPhase, Workout, WorkoutExercise } from '../types'
@@ -56,6 +58,7 @@ const EXERCISE_TEMPLATE = JSON.stringify(
             description: 'Horizontal press for chest, shoulders and triceps.',
             muscleGroup: 'Chest',
             equipment: 'Barbell',
+            videoUrl: 'https://youtu.be/xxxxxxxxxxx',
         },
         {
             name: 'Barbell row',
@@ -193,7 +196,11 @@ function ExerciseLibrary({
                             <span className="font-semibold text-neutral-700">description</span>,{' '}
                             <span className="font-semibold text-neutral-700">muscleGroup</span> and{' '}
                             <span className="font-semibold text-neutral-700">equipment</span> are
-                            optional.
+                            optional, and so is{' '}
+                            <span className="font-semibold text-neutral-700">videoUrl</span> — a
+                            demo video (a YouTube link plays in the app from the exercise&apos;s
+                            card; <span className="font-semibold text-neutral-700">youtubeLink</span>{' '}
+                            works too).
                         </p>
                         <p>
                             The last two are what the swap button matches on when a machine is
@@ -278,9 +285,10 @@ function ExerciseLibrary({
                         {pageItems.map((exercise) => (
                             <Card key={exercise._id} as="div" className="flex flex-col gap-2">
                                 <div className="flex items-start justify-between gap-2">
-                                    <p className="min-w-0 truncate font-semibold text-neutral-900">
+                                    <p className="min-w-0 flex-1 truncate font-semibold text-neutral-900">
                                         {exercise.name}
                                     </p>
+                                    <VideoButton url={exercise.videoUrl} title={exercise.name} />
                                     <DropdownMenu
                                         align="right"
                                         className="-mr-1 -mt-1 shrink-0"
@@ -392,6 +400,7 @@ function ExerciseFormDrawer({
     const [description, setDescription] = useState('')
     const [muscleGroup, setMuscleGroup] = useState('')
     const [equipment, setEquipment] = useState('')
+    const [videoUrl, setVideoUrl] = useState('')
     const [saving, setSaving] = useState(false)
 
     useEffect(() => {
@@ -399,6 +408,7 @@ function ExerciseFormDrawer({
         setDescription(editing?.description ?? '')
         setMuscleGroup(editing?.muscleGroup ?? '')
         setEquipment(editing?.equipment ?? '')
+        setVideoUrl(editing?.videoUrl ?? '')
         setSaving(false)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [view])
@@ -407,7 +417,9 @@ function ExerciseFormDrawer({
     // show the guess rather than leaving the user to wonder whether it matters.
     const guess = resolveTags({ name, description })
 
-    const valid = name.trim() !== '' && description.trim() !== ''
+    const video = parseVideo(videoUrl)
+    const videoBad = videoUrl.trim() !== '' && !video
+    const valid = name.trim() !== '' && description.trim() !== '' && !videoBad
 
     async function submit() {
         if (!view || !valid) return
@@ -416,6 +428,7 @@ function ExerciseFormDrawer({
             description: description.trim(),
             muscleGroup,
             equipment,
+            videoUrl: videoUrl.trim(),
         }
         setSaving(true)
         try {
@@ -487,6 +500,31 @@ function ExerciseFormDrawer({
                                   : 'Swaps prefer a different one'
                         }
                     />
+                </div>
+                <div className="flex items-end gap-2">
+                    <div className="min-w-0 flex-1">
+                        <Input
+                            label="Demo video"
+                            type="url"
+                            inputMode="url"
+                            placeholder="https://youtu.be/…"
+                            value={videoUrl}
+                            onChange={(e) => setVideoUrl(e.target.value)}
+                            error={videoBad ? 'That isn’t a web link.' : undefined}
+                            hint={
+                                video?.kind === 'youtube'
+                                    ? 'Plays in the app from this exercise’s card.'
+                                    : video
+                                      ? 'Not YouTube — opens in a new tab.'
+                                      : 'A YouTube link plays in the app, in the gym.'
+                            }
+                        />
+                    </div>
+                    {video && (
+                        <div className={videoBad ? '' : 'pb-6'}>
+                            <VideoButton url={videoUrl} title={name || 'Exercise'} />
+                        </div>
+                    )}
                 </div>
             </div>
         </Drawer>
@@ -1004,7 +1042,7 @@ function WorkoutViewDrawer({
                                                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
                                                     {i + 1}
                                                 </span>
-                                                <div className="min-w-0 pt-0.5">
+                                                <div className="min-w-0 flex-1 pt-0.5">
                                                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                                                         <p className="font-semibold text-neutral-900">
                                                             {ex.name}
@@ -1036,6 +1074,7 @@ function WorkoutViewDrawer({
                                                         </p>
                                                     )}
                                                 </div>
+                                                <VideoButton url={ex.videoUrl} title={ex.name} />
                                             </li>
                                         ))}
                                     </ol>

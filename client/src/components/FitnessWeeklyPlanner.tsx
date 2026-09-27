@@ -10,6 +10,7 @@ import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
 import ConditioningSessionDetail from './ConditioningSessionDetail'
 import { SaveStatus } from './SessionPace'
+import { VideoButton } from './ExerciseVideo'
 import { useConditioningLog } from './useConditioningLog'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
@@ -3705,7 +3706,7 @@ function WorkoutDetail({
                                         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
                                             {i + 1}
                                         </span>
-                                        <div className="min-w-0 pt-0.5">
+                                        <div className="min-w-0 flex-1 pt-0.5">
                                             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                                                 <p className="font-semibold text-neutral-900">
                                                     {ex.name}
@@ -3727,6 +3728,7 @@ function WorkoutDetail({
                                                 </p>
                                             )}
                                         </div>
+                                        <VideoButton url={ex.videoUrl} title={ex.name} />
                                     </li>
                                 ))}
                             </ol>

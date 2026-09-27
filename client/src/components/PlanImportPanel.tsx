@@ -44,6 +44,13 @@ const TEMPLATE = `{
   // after the one before. A plan missing a time, or with one out of order, is
   // rejected with the item named.
   //
+  // ── Worth adding: exercise demo videos ───────────────────────────────────
+  // Put "videoUrl" (or "youtubeLink") on any strength line — or on the exercise
+  // in "exerciseLibrary" — with a YouTube link: a watch link, youtu.be or a
+  // Short. In the gym a play button sits beside that exercise, in the workout
+  // overview and on its card while you log, and plays the demo in the app.
+  // The link is saved on the exercise, so it shows wherever that exercise is used.
+  //
   // Everything else below is optional. Comments like these are fine to leave
   // in — the importer ignores them.
 
@@ -96,7 +103,16 @@ const TEMPLATE = `{
   // Optional. Movements with a description. Any exercise a workout names that
   // isn't here or already in your library is created with no description.
   "exerciseLibrary": [
-    { "name": "Barbell bench press", "description": "Horizontal press for chest and triceps." }
+    {
+      "name": "Barbell bench press",
+      "description": "Horizontal press for chest and triceps.",
+      // Optional demo video. A YouTube link (watch, youtu.be or Shorts) plays in
+      // the app — a play button beside the exercise in the workout overview and
+      // on its card while you log. "youtubeLink" works as the key too. It fills
+      // in an exercise that has no video yet; tick "Update items that already
+      // exist" to replace one that has.
+      "videoUrl": "https://youtu.be/xxxxxxxxxxx"
+    }
   ],
 
   // Strength workouts. Each repeats every week on its "day".
@@ -111,8 +127,16 @@ const TEMPLATE = `{
       // Every line needs "startMin" and "endMin": minutes from the start of the
       // session, running in order. "endMin" is when it should be finished — the
       // Completed press is timed against it. Minutes can be decimals (1.5 = 1:30).
+      // "videoUrl" (optional): a YouTube demo of the exercise — see the top.
       "warmUp": [
-        { "name": "Band pull-apart", "sets": 2, "reps": "15", "startMin": 0, "endMin": 5 }
+        {
+          "name": "Band pull-apart",
+          "sets": 2,
+          "reps": "15",
+          "startMin": 0,
+          "endMin": 5,
+          "videoUrl": "https://youtu.be/xxxxxxxxxxx"
+        }
       ],
       "main": [
         {
@@ -122,7 +146,8 @@ const TEMPLATE = `{
           "rest": "2-3 min",           // free text
           "notes": "Keep 1-2 reps in reserve.",
           "startMin": 5,
-          "endMin": 20
+          "endMin": 20,
+          "videoUrl": "https://www.youtube.com/watch?v=xxxxxxxxxxx"
         },
         {
           "name": "Barbell row",
@@ -133,11 +158,19 @@ const TEMPLATE = `{
           // the line applies, and added to its notes.
           "phase": "From 2026-10-16 onward",
           "startMin": 20,
-          "endMin": 35
+          "endMin": 35,
+          "youtubeLink": "https://youtube.com/shorts/xxxxxxxxxxx" // "youtubeLink" works too; Shorts play portrait
         }
       ],
       "coolDown": [
-        { "name": "Couch stretch", "sets": 1, "reps": "60s each side", "startMin": 55, "endMin": 60 }
+        {
+          "name": "Couch stretch",
+          "sets": 1,
+          "reps": "60s each side",
+          "startMin": 55,
+          "endMin": 60,
+          "videoUrl": "https://youtu.be/xxxxxxxxxxx"
+        }
       ]
     }
   ],
@@ -471,6 +504,16 @@ export default function PlanImportPanel({
                         press on each item is timed against the gap from the one before, which is
                         how you see whether you&apos;re on time. Every other section is optional,
                         and the template&apos;s comments can be left in.
+                    </p>
+                    <p>
+                        Add a{' '}
+                        <span className="font-semibold text-neutral-700">videoUrl</span> (or{' '}
+                        <span className="font-semibold text-neutral-700">youtubeLink</span>) to
+                        any strength line or exercise to attach a YouTube demo — it plays in the
+                        app from a button beside the exercise, in the workout overview and while
+                        you log. Swap the template&apos;s{' '}
+                        <span className="font-semibold text-neutral-700">xxxxxxxxxxx</span>{' '}
+                        placeholders for real links, or leave the field out.
                     </p>
                     <p>
                         <span className="font-semibold text-neutral-700">strengthWorkouts</span>{' '}

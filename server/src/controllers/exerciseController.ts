@@ -4,6 +4,7 @@ import Exercise from '../models/Exercise'
 import Workout from '../models/Workout'
 import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
 import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
+import { readVideoUrl, toVideoUrl } from '../lib/videoUrl'
 
 /** Trim a request value to a string, or '' when it isn't one. */
 function str(raw: unknown): string {
@@ -38,6 +39,7 @@ export async function createExercise(req: AuthRequest, res: Response) {
         description: typeof req.body.description === 'string' ? req.body.description.trim() : '',
         muscleGroup: str(req.body.muscleGroup),
         equipment: str(req.body.equipment),
+        videoUrl: toVideoUrl(req.body.videoUrl) ?? '',
         order,
     })
     res.status(201).json({ message: 'Created', data: exercise })
@@ -51,6 +53,10 @@ export async function updateExercise(req: AuthRequest, res: Response) {
     if (typeof b.description === 'string') fields.description = b.description.trim()
     if (typeof b.muscleGroup === 'string') fields.muscleGroup = b.muscleGroup.trim()
     if (typeof b.equipment === 'string') fields.equipment = b.equipment.trim()
+    // An empty string clears the link; anything that isn't a web link is ignored.
+    if (typeof b.videoUrl === 'string')
+        fields.videoUrl = b.videoUrl.trim() === '' ? '' : (toVideoUrl(b.videoUrl) ?? undefined)
+    if (fields.videoUrl === undefined) delete fields.videoUrl
     if (typeof b.order === 'number') fields.order = b.order
 
     const exercise = await Exercise.findOneAndUpdate(
@@ -105,6 +111,7 @@ export async function importExercises(req: AuthRequest, res: Response) {
             description: typeof item.description === 'string' ? item.description.trim() : '',
             muscleGroup: str(item.muscleGroup),
             equipment: str(item.equipment),
+            videoUrl: readVideoUrl(item) ?? '',
         }
     })
 

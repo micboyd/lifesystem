@@ -175,6 +175,8 @@ export interface Exercise {
     muscleGroup?: string
     /** Kit the movement needs, e.g. "Machine". Blank when untagged. */
     equipment?: string
+    /** A demo video of the movement (usually YouTube), played from its card. */
+    videoUrl?: string
     order: number
     createdAt: string
     updatedAt: string

@@ -10,6 +10,8 @@ export interface ExerciseInput {
     muscleGroup?: string
     /** Kit the movement needs — swaps prefer a different value. */
     equipment?: string
+    /** A demo video link (YouTube plays in the app). '' clears it. */
+    videoUrl?: string
 }
 
 export async function listExercises(): Promise<Exercise[]> {

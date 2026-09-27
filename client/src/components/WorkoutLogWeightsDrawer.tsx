@@ -4,6 +4,7 @@ import Button from './Button'
 import DatePicker from './DatePicker'
 import Textarea from './Textarea'
 import ExerciseSwapPicker from './ExerciseSwapPicker'
+import { VideoButton } from './ExerciseVideo'
 import { CompleteButton, PaceBanner, SaveStatus, SlotChip, type SaveState } from './SessionPace'
 import { paceOf, type Slot } from '../lib/sessionPace'
 import { SESSION_PHASE_LABELS } from '../types'
@@ -731,6 +732,10 @@ export default function WorkoutLogWeightsDrawer({
                                                 </button>
                                                 <div className="flex shrink-0 items-center gap-1">
                                                     <SlotChip slot={slots[ei] ?? {}} />
+                                                    <VideoButton
+                                                        url={resolved.get(ex.exerciseId)?.videoUrl}
+                                                        title={ex.name}
+                                                    />
                                                     {!folded && (
                                                         <>
                                                             <button

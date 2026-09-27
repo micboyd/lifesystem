@@ -110,7 +110,13 @@ interface Bundle {
 // pasted straight back into the matching importer.
 
 function shapeExercises(rows: Exercise[]) {
-    return rows.map((e) => ({ name: e.name, description: e.description }))
+    return rows.map((e) => ({
+        name: e.name,
+        description: e.description,
+        ...(e.muscleGroup ? { muscleGroup: e.muscleGroup } : {}),
+        ...(e.equipment ? { equipment: e.equipment } : {}),
+        ...(e.videoUrl ? { videoUrl: e.videoUrl } : {}),
+    }))
 }
 
 function shapeWorkouts(rows: Workout[], nameById: Map<string, string>) {

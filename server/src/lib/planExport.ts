@@ -36,6 +36,7 @@ interface Lean {
 }
 interface ExerciseLean extends Lean {
     description?: string
+    videoUrl?: string
 }
 interface WorkoutLean extends Lean, Phased<IWorkoutExercise> {
     description?: string
@@ -213,7 +214,7 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
     })
 
     const exerciseLibrary = exerciseDocs.map((e) =>
-        compact({ name: e.name, description: e.description })
+        compact({ name: e.name, description: e.description, videoUrl: e.videoUrl || undefined })
     )
 
     // ── Conditioning: the dated run plan, then the session library + calendar ───

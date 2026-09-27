@@ -17,6 +17,8 @@ export interface IExercise extends Document {
      * occupied. Inferred from the name when blank.
      */
     equipment?: string
+    /** A demo video of the movement (usually YouTube), shown from its card in the gym. */
+    videoUrl?: string
     /** Priority position in the library (lower = sooner). */
     order: number
     /** Import batch id if this record came from a bulk import (for undo). */
@@ -32,6 +34,7 @@ const exerciseSchema = new Schema<IExercise>(
         description: { type: String, default: '', trim: true },
         muscleGroup: { type: String, default: '', trim: true },
         equipment: { type: String, default: '', trim: true },
+        videoUrl: { type: String, default: '', trim: true },
         order: { type: Number, default: 0 },
         importBatch: { type: String, default: null },
     },

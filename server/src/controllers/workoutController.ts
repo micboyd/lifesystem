@@ -6,6 +6,8 @@ import Exercise from '../models/Exercise'
 import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
 import { nameKey, extractOverwrite } from '../lib/importReconcile'
 import { missingWindows, readWindow } from '../lib/timeWindow'
+import { readVideoUrl } from '../lib/videoUrl'
+import { applyExerciseVideos } from '../lib/exerciseVideos'
 import {
     SESSION_PHASES,
     flattenPhases,
@@ -206,6 +208,8 @@ interface NormExercise {
     notes?: string
     startMin?: number
     endMin?: number
+    /** A demo video for the exercise, attached to it in the library. */
+    videoUrl?: string
 }
 
 /** A workout as accepted by the importer, before exercises are resolved to ids. */
@@ -262,6 +266,7 @@ function toNormLines(list: unknown[]): NormExercise[] {
                 rest: toReps(o.rest),
                 notes: toReps(o.notes),
                 ...readWindow(o),
+                videoUrl: readVideoUrl(o),
             }
         }
         if (!exName) continue
@@ -549,10 +554,21 @@ export async function importWorkouts(req: AuthRequest, res: Response) {
     const importBatch = newBatchId()
     const overwrite = extractOverwrite(req.body)
 
+    // Demo videos on the lines go onto the library exercises they resolved to.
+    await applyExerciseVideos(
+        req.userId!,
+        items.flatMap((it) =>
+            flattenPhases(it.phases).flatMap(({ item }) => {
+                const id = item.videoUrl ? resolved.get(normKey(item.name)) : undefined
+                return id ? [{ id: String(id), url: item.videoUrl! }] : []
+            })
+        )
+    )
+
     /** One phase's exercise lines, resolved to library exercise ids. */
     const resolveLines = (list: NormExercise[]) =>
         list
-            .map(({ name: exName, ...line }) => {
+            .map(({ name: exName, videoUrl: _video, ...line }) => {
                 const id = resolved.get(normKey(exName))
                 return id ? { exercise: id, ...line } : null
             })

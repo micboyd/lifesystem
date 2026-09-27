@@ -21,6 +21,8 @@ import ConditioningLog from '../models/ConditioningLog'
 import RecoveryLog from '../models/RecoveryLog'
 import { toSessionParts } from '../lib/sessionParts'
 import { missingWindows, readWindow } from '../lib/timeWindow'
+import { readVideoUrl } from '../lib/videoUrl'
+import { applyExerciseVideos } from '../lib/exerciseVideos'
 import { SESSION_PHASES, mapPhases, readPhased, toPhase } from '../lib/phases'
 import { buildPlanExport } from '../lib/planExport'
 import {
@@ -292,16 +294,33 @@ export async function importPlan(req: AuthRequest, res: Response) {
     const exerciseSpecs = toSpecs(arr(doc.exerciseLibrary), (e) => ({
         description: str(e.description) ?? '',
     }))
+    // Demo videos, by exercise name: from the exercise library, or straight on a
+    // workout line. The first link seen for a name wins.
+    const videos = new Map<string, string>()
+    const noteVideo = (name: string | undefined, row: Record<string, unknown>) => {
+        const url = readVideoUrl(row)
+        if (name && url && !videos.has(nameKey(name))) videos.set(nameKey(name), url)
+    }
+    for (const e of arr(doc.exerciseLibrary)) noteVideo(str(e.name), e)
     for (const w of strengthWorkouts) {
         const phased = readPhased(w, 'exercises')
         for (const phase of SESSION_PHASES) {
             for (const line of arr(phased[phase])) {
                 const lineName = str(line.name)
                 if (lineName) exerciseSpecs.push({ name: lineName, fields: { description: '' } })
+                noteVideo(lineName, line)
             }
         }
     }
     const exercises = await ensureLibrary(Exercise, userId, exerciseSpecs, ensure)
+    await applyExerciseVideos(
+        userId,
+        [...videos].flatMap(([key, url]) => {
+            const ref = exercises.byKey.get(key)
+            return ref ? [{ id: ref.id, url }] : []
+        }),
+        updateExisting
+    )
 
     // ── Strength workouts ──────────────────────────────────────────────────────
     /** One phase's prescription lines, resolved to library exercise ids. */

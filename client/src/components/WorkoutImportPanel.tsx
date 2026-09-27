@@ -50,7 +50,10 @@ const WORKOUT_TEMPLATE = `[
         "rest": "2-3 min",                             // optional, free text
         "notes": "Keep 1-2 reps in reserve.",          // optional coaching cue
         "startMin": 8,
-        "endMin": 22
+        "endMin": 22,
+        // Optional demo video, saved on the exercise. A YouTube link plays in the
+        // app from the exercise's card. "youtubeLink" works as the key too.
+        "videoUrl": "https://youtu.be/xxxxxxxxxxx"
       },
       { "name": "Barbell row", "sets": 4, "reps": "8-10", "startMin": 22, "endMin": 34 },
       { "name": "Box Squats", "sets": 3, "reps": "10", "startMin": 34, "endMin": 45 }
