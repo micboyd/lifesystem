@@ -1,5 +1,5 @@
 /**
- * The line a rest day shows when the calendar has something on — "You're in
+ * The line a rest day shows when the calendar has something on - "You're in
  * London (day 2 of 4)", "You've got Sam's birthday in the evening". Read from
  * the day's events: the most telling one leads (a trip over a work trip over
  * plans with people over a hobby over anything else, all-day first), and any
@@ -107,12 +107,12 @@ function sentence(event: Event, date: string): string {
         const forWork = event.eventType === 'worktrip' ? ' for work' : ''
         if (!place) {
             const what = inline(event.title)
-            return multi ? `You're away — ${what} (day ${nth} of ${total}).` : `You're away — ${what}.`
+            return multi ? `You're away - ${what} (day ${nth} of ${total}).` : `You're away - ${what}.`
         }
         if (!multi) return `You're in ${place}${forWork} today.`
-        if (nth === 1) return `You're off to ${place}${forWork} — day 1 of ${total}.`
-        if (nth === total) return `Last day in ${place} — travelling home.`
-        return `You're in ${place}${forWork} — day ${nth} of ${total}.`
+        if (nth === 1) return `You're off to ${place}${forWork} - day 1 of ${total}.`
+        if (nth === total) return `Last day in ${place} - travelling home.`
+        return `You're in ${place}${forWork} - day ${nth} of ${total}.`
     }
 
     const what = inline(event.title)
@@ -124,7 +124,7 @@ function sentence(event: Event, date: string): string {
 }
 
 /**
- * The note for a rest day, from the events on it — or null when there are none.
+ * The note for a rest day, from the events on it - or null when there are none.
  * `events` should already be the day's (e.g. the ones in a morning, afternoon
  * or evening slot); the order they come in doesn't matter.
  */

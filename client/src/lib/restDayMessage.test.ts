@@ -46,9 +46,9 @@ describe('restDayNote', () => {
             startDate: '2026-10-04',
             endDate: '2026-10-07',
         })
-        expect(restDayNote([trip], '2026-10-04')?.text).toBe("You're off to London — day 1 of 4.")
-        expect(restDayNote([trip], '2026-10-05')?.text).toBe("You're in London — day 2 of 4.")
-        expect(restDayNote([trip], '2026-10-07')?.text).toBe('Last day in London — travelling home.')
+        expect(restDayNote([trip], '2026-10-04')?.text).toBe("You're off to London - day 1 of 4.")
+        expect(restDayNote([trip], '2026-10-05')?.text).toBe("You're in London - day 2 of 4.")
+        expect(restDayNote([trip], '2026-10-07')?.text).toBe('Last day in London - travelling home.')
         expect(restDayNote([trip], '2026-10-05')?.icon).toContain('plane')
     })
 
@@ -59,7 +59,7 @@ describe('restDayNote', () => {
 
     it('falls back to the title when a trip has no place', () => {
         const trip = ev({ eventType: 'trip', title: 'Stag do', allDay: true })
-        expect(restDayNote([trip], '2026-10-05')?.text).toBe("You're away — Stag do.")
+        expect(restDayNote([trip], '2026-10-05')?.text).toBe("You're away - Stag do.")
     })
 
     it('reads plans naturally, with the part of day or time', () => {
