@@ -1,4 +1,5 @@
 import api from './api'
+import { importBody, importResult, type ImportResult, type OverwriteMap } from './imports'
 import type { ApiResponse, Meal, MealInput } from '../types'
 
 /** The whole library, in order. */
@@ -28,8 +29,11 @@ export async function deleteAllMeals(): Promise<number> {
     return res.data.data.deleted
 }
 
-/** Add meals in bulk from JSON: [{ name, types, macros }]. */
-export async function importMeals(meals: unknown[]): Promise<{ created: number; skipped: number }> {
-    const res = await api.post<ApiResponse<{ created: number; skipped: number }>>('/meals/import', meals)
-    return res.data.data
+/**
+ * Add meals in bulk from JSON: a list of { name, types, macros, notes }.
+ * `overwrite` names the clashes to update in place rather than add again.
+ */
+export async function importMeals(meals: unknown, overwrite?: OverwriteMap): Promise<ImportResult> {
+    const res = await api.post<ApiResponse<Meal[]> & { updated?: number }>('/meals/import', importBody(meals, overwrite))
+    return importResult(res.data.data, res.data)
 }

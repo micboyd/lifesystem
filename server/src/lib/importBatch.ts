@@ -24,7 +24,7 @@ export interface ImportSummary {
 }
 
 /** Describe the user's most recent import batch for a collection, or null. */
-async function summarise<T extends Batchable>(
+export async function summarise<T extends Batchable>(
     model: Model<T>,
     userId?: string
 ): Promise<ImportSummary | null> {

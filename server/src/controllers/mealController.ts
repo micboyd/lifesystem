@@ -3,6 +3,8 @@ import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import Meal, { MEAL_TYPES, MealType, IMacros } from '../models/Meal'
 import MealPlanEntry from '../models/MealPlanEntry'
+import { newBatchId, makeLastImportHandler, summarise } from '../lib/importBatch'
+import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
 
 function toNumber(raw: unknown): number {
     const n = typeof raw === 'number' ? raw : Number(raw)
@@ -77,27 +79,108 @@ export async function updateMeal(req: AuthRequest, res: Response) {
     res.json({ message: 'OK', data: meal })
 }
 
+/** Whether a raw value reads as a number of 0 or more. */
+function isAmount(raw: unknown): boolean {
+    const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN
+    return Number.isFinite(n) && n >= 0
+}
+
 /**
- * POST /api/meals/import — [{ name, types, macros }], or { meals: [...] }.
- * Adds them to the end of the library; entries without a name are skipped.
+ * POST /api/meals/import — a bare array of meals, `{ meals: [...] }`, or what
+ * the import panel sends: `{ items, overwrite }`. All-or-nothing: if any meal
+ * is malformed nothing is imported and every problem is listed. Name clashes
+ * the user chose to overwrite are updated in place (planned copies follow);
+ * the rest are appended to the library as one undoable batch.
  */
 export async function importMeals(req: AuthRequest, res: Response) {
-    const list = Array.isArray(req.body) ? req.body : req.body?.meals
-    if (!Array.isArray(list)) {
-        res.status(400).json({ message: 'Expected a list of meals' })
+    const body = req.body as unknown
+    const list = extractList(body, 'meals')
+    const overwrite = extractOverwrite(body)
+    if (!list) {
+        res.status(400).json({ message: 'Expected a JSON array of meals, or an object with a "meals" array.' })
         return
     }
+    if (list.length === 0) {
+        res.status(400).json({ message: 'No meals found to import.' })
+        return
+    }
+
+    const errors: string[] = []
+    const meals = list.map((raw, i) => {
+        const label = `Meal ${i + 1}`
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+            errors.push(`${label}: must be an object`)
+            return null
+        }
+        const item = raw as Record<string, unknown>
+        const named = typeof item.name === 'string' && item.name.trim() ? `"${item.name.trim()}"` : label
+        if (item.types !== undefined) {
+            const bad = Array.isArray(item.types)
+                ? item.types.filter((t) => !MEAL_TYPES.includes(t as MealType))
+                : [item.types]
+            if (bad.length) errors.push(`${named}: types must be from ${MEAL_TYPES.join(', ')} (got ${bad.map((b) => JSON.stringify(b)).join(', ')})`)
+        }
+        if (item.macros !== undefined) {
+            if (!item.macros || typeof item.macros !== 'object') errors.push(`${named}: macros must be an object`)
+            else
+                for (const k of ['calories', 'protein', 'carbs', 'fat']) {
+                    const v = (item.macros as Record<string, unknown>)[k]
+                    if (v !== undefined && !isAmount(v)) errors.push(`${named}: macros.${k} must be a number of 0 or more`)
+                }
+        }
+        const fields = readMeal(raw)
+        if (typeof fields === 'string') {
+            errors.push(`${label}: "name" is required`)
+            return null
+        }
+        return fields
+    })
+    if (errors.length) {
+        res.status(400).json({ message: `Import failed. ${errors.join('; ')}` })
+        return
+    }
+
     const last = await Meal.findOne({ user: req.userId }).sort({ order: -1 })
     let order = (last?.order ?? -1) + 1
-    const docs = []
-    let skipped = 0
-    for (const raw of list) {
-        const fields = readMeal(raw)
-        if (typeof fields === 'string') skipped++
-        else docs.push({ user: new Types.ObjectId(req.userId), ...fields, order: order++ })
+    const importBatch = newBatchId()
+    const toInsert = []
+    let updated = 0
+    for (const fields of meals) {
+        const targetId = overwrite.get(nameKey(fields!.name))
+        if (targetId) {
+            const meal = await Meal.findOneAndUpdate({ _id: targetId, user: req.userId }, fields!, { new: true })
+            if (meal) {
+                await MealPlanEntry.updateMany(
+                    { user: req.userId, meal: meal._id, status: 'planned' },
+                    { name: meal.name, macros: meal.macros }
+                )
+                updated++
+                continue
+            }
+        }
+        toInsert.push({ user: new Types.ObjectId(req.userId), ...fields!, order: order++, importBatch })
     }
-    const created = await Meal.insertMany(docs)
-    res.status(201).json({ message: 'Imported', data: { created: created.length, skipped } })
+    const created = await Meal.insertMany(toInsert)
+    res.status(201).json({ message: `Imported ${created.length} meal(s), updated ${updated}`, data: created, updated })
+}
+
+/** GET /api/meals/import/last — the most recent import batch, or null. */
+export const lastImport = makeLastImportHandler(Meal)
+
+/**
+ * DELETE /api/meals/import/last — removes the meals the last import added.
+ * Like deleting them one by one: planned copies go, eaten days keep theirs.
+ */
+export async function undoImport(req: AuthRequest, res: Response) {
+    const summary = await summarise(Meal, req.userId)
+    if (!summary) {
+        res.status(404).json({ message: 'No import to undo.' })
+        return
+    }
+    const ids = (await Meal.find({ user: req.userId, importBatch: summary.batch }).select('_id')).map((m) => m._id)
+    await MealPlanEntry.deleteMany({ user: req.userId, meal: { $in: ids }, status: 'planned' })
+    await Meal.deleteMany({ user: req.userId, importBatch: summary.batch })
+    res.json({ message: `Reverted ${summary.count} meal(s).`, data: summary })
 }
 
 /** DELETE /api/meals/:id — past days keep their copy; planned-only days lose it. */

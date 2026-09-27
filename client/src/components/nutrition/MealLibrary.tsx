@@ -3,9 +3,9 @@ import BottomSheet from '../BottomSheet'
 import Button from '../Button'
 import Input from '../Input'
 import Textarea from '../Textarea'
-import Modal from '../Modal'
 import ConfirmModal from '../ConfirmModal'
 import PillToggle from '../PillToggle'
+import JsonImportPanel from '../JsonImportPanel'
 import { HeroButton } from '../planner/WeekPlannerUI'
 import { CATEGORY, CategoryIcon, MacroBar, MacroLegend, MACRO_DOT, caloriesFromMacros, isHighProtein } from './mealUi'
 import { kcal } from './format'
@@ -54,6 +54,27 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
     // one flat grid of what matched.
     const grouped = filter === 'all' && !q
     const flat = filter === 'all' ? matching : matching.filter((m) => m.types.includes(filter))
+
+    if (importing) {
+        return (
+            <JsonImportPanel
+                heading="Import meals"
+                description="Copy the template, fill it in with your meals (or ask an AI to), then paste the JSON below to add them all to your library at once."
+                template={MEAL_TEMPLATE}
+                notes={<ImportNotes />}
+                itemNoun="meal"
+                onBack={() => setImporting(false)}
+                doImport={importMeals}
+                resource="meals"
+                existingItems={meals}
+                onLibraryChanged={() => void onChanged()}
+                onImported={async () => {
+                    await onChanged()
+                    setImporting(false)
+                }}
+            />
+        )
+    }
 
     return (
         <div className="flex flex-col gap-5">
@@ -175,7 +196,6 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
                     await onChanged()
                 }}
             />
-            <ImportModal open={importing} onClose={() => setImporting(false)} onDone={onChanged} />
             <ConfirmModal
                 open={clearing}
                 title={`Delete all ${meals.length} meals?`}
@@ -564,67 +584,52 @@ function MacroInput({
 
 // ── Import ───────────────────────────────────────────────────────────────────
 
-const EXAMPLE = `[
-  { "name": "Scrambled eggs on toast", "types": ["breakfast"],
-    "macros": { "calories": 500, "protein": 32, "carbs": 40, "fat": 22 } }
-]`
+const MEAL_TEMPLATE = JSON.stringify(
+    [
+        {
+            name: 'Greek yoghurt, berries & granola',
+            types: ['breakfast', 'snack'],
+            macros: { calories: 380, protein: 28, carbs: 45, fat: 9 },
+            notes: '250 g 0% yoghurt, 80 g berries, 30 g granola',
+        },
+        {
+            name: 'Chicken, rice & veg',
+            types: ['lunch', 'dinner'],
+            macros: { calories: 610, protein: 52, carbs: 70, fat: 12 },
+        },
+        {
+            name: 'Protein shake',
+            types: ['snack'],
+            macros: { calories: 160, protein: 30, carbs: 5, fat: 2 },
+        },
+    ],
+    null,
+    2
+)
 
-function ImportModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => Promise<void> }) {
-    const [text, setText] = useState('')
-    const [message, setMessage] = useState<{ tone: 'error' | 'info'; text: string } | null>(null)
-    const [busy, setBusy] = useState(false)
-
-    async function run() {
-        let parsed: unknown
-        try {
-            parsed = JSON.parse(text)
-        } catch {
-            return setMessage({ tone: 'error', text: 'That isn’t valid JSON.' })
-        }
-        const list = Array.isArray(parsed) ? parsed : (parsed as { meals?: unknown[] })?.meals
-        if (!Array.isArray(list)) return setMessage({ tone: 'error', text: 'Expected a list of meals.' })
-        setBusy(true)
-        try {
-            const r = await importMeals(list)
-            await onDone()
-            setText('')
-            if (r.skipped) {
-                // Stay open so the count is seen; the imported ones are already in.
-                setMessage({ tone: 'info', text: `Imported ${r.created}; skipped ${r.skipped} without a name.` })
-            } else {
-                setMessage(null)
-                onClose()
-            }
-        } catch {
-            setMessage({ tone: 'error', text: 'Import failed — try again.' })
-        } finally {
-            setBusy(false)
-        }
-    }
-
+function ImportNotes() {
+    const f = (s: string) => <span className="font-semibold text-neutral-700">{s}</span>
     return (
-        <Modal
-            open={open}
-            onClose={onClose}
-            title="Import meals"
-            footer={
-                <>
-                    <Button variant="ghost" onClick={onClose}>
-                        Cancel
-                    </Button>
-                    <Button onClick={run} disabled={busy || !text.trim()}>
-                        Import
-                    </Button>
-                </>
-            }
-        >
-            <div className="flex flex-col gap-3">
-                <p className="text-sm text-neutral-500">
-                    Paste a JSON list. Each meal needs a name; types are breakfast, lunch, dinner or snack.
-                </p>
-                <Textarea rows={10} value={text} placeholder={EXAMPLE} onChange={(e) => setText(e.target.value)} className="font-mono text-xs" />
-                {message && <p className={`text-sm ${message.tone === 'error' ? 'text-red-600' : 'text-neutral-600'}`}>{message.text}</p>}
-            </div>
-        </Modal>
+        <>
+            <p>
+                {f('name')} is required. Everything else is optional.
+            </p>
+            <p>
+                {f('types')} is a list of when you eat it: {MEAL_TYPES.map((t, i) => (
+                    <span key={t}>
+                        {i > 0 && ', '}
+                        <code className="rounded bg-neutral-100 px-1">{t}</code>
+                    </span>
+                ))}
+                . A meal can be more than one. Leave it out and it only turns up under “All” and in search, so it’s worth setting.
+            </p>
+            <p>
+                {f('macros')} are per serving: {f('calories')} (kcal), {f('protein')}, {f('carbs')} and {f('fat')} (grams). Missing ones count as 0.
+            </p>
+            <p>
+                {f('notes')} is free text — portions, where it’s from, how to make it.
+            </p>
+            <p>A meal with the same name as one already in your library lets you choose to update it or keep both.</p>
+        </>
     )
 }

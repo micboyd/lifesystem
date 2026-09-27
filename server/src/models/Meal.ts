@@ -19,6 +19,8 @@ export interface IMeal extends Document {
     macros: IMacros
     notes?: string
     order: number
+    /** Set on meals added by a JSON import, so the last import can be undone. */
+    importBatch?: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -41,10 +43,12 @@ const mealSchema = new Schema<IMeal>(
         macros: { type: macrosSchema, default: () => ({}) },
         notes: { type: String, trim: true },
         order: { type: Number, default: 0 },
+        importBatch: { type: String, default: null },
     },
     { timestamps: true }
 )
 
 mealSchema.index({ user: 1, order: 1 })
+mealSchema.index({ user: 1, importBatch: 1 })
 
 export default model<IMeal>('Meal', mealSchema)
