@@ -254,8 +254,8 @@ export interface WorkoutLogExercise {
     /** The planned slot, snapshotted from the workout (minutes into the session). */
     startMin?: number
     endMin?: number
-    /** When the line was tapped done on the session clock, in minutes. */
-    doneAtMin?: number
+    /** When the line was tapped completed in the gym (ISO). */
+    completedAt?: string
 }
 
 /** A record that a strength workout was completed on a given day. */
@@ -331,13 +331,13 @@ export interface RoundProgress {
 }
 
 /** A record that a conditioning session was completed on a given day. */
-/** One part's planned slot and when it was tapped done, snapshotted at log time. */
+/** One part's planned slot and when it was tapped completed, snapshotted at log time. */
 export interface Checkpoint {
     name: string
     startMin?: number
     endMin?: number
-    /** Minutes on the session clock when it was tapped done; absent if it wasn't. */
-    doneAtMin?: number
+    /** When it was tapped completed (ISO); absent if it wasn't. */
+    completedAt?: string
 }
 
 export interface ConditioningLog {
@@ -355,7 +355,7 @@ export interface ConditioningLog {
     rpe?: number
     /** Completed rounds for each counted part, if any were tracked. */
     rounds?: RoundProgress[]
-    /** Each part's slot against when it was actually done, if the clock was run. */
+    /** Each part's slot against when it was tapped completed. */
     checkpoints?: Checkpoint[]
     notes?: string
     createdAt: string

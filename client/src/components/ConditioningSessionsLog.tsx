@@ -529,7 +529,7 @@ function LogViewDrawer({
                         <ConditioningSessionDetail
                             session={source}
                             counts={counts}
-                            doneAt={checkpointMarks(source, view.checkpoints)}
+                            completedAt={checkpointTimes(source, view.checkpoints)}
                             readOnly
                         />
                     ) : (
@@ -737,11 +737,11 @@ function LogFormDrawer({
 }
 
 /**
- * When each of the session's parts was tapped done, by part index — read from
- * the log's snapshot, keeping only entries whose part still sits at the same
- * place under the same name (the session may have been edited since).
+ * When each of the session's parts was completed (ms), by part index — read
+ * from the log's snapshot, keeping only entries whose part still sits at the
+ * same place under the same name (the session may have been edited since).
  */
-function checkpointMarks(
+function checkpointTimes(
     session: ConditioningSession,
     checkpoints: Checkpoint[] | undefined
 ): Record<number, number> | undefined {
@@ -749,7 +749,7 @@ function checkpointMarks(
     const parts = allInPhases(session)
     const out: Record<number, number> = {}
     checkpoints.forEach((c, i) => {
-        if (c.doneAtMin !== undefined && parts[i]?.name === c.name) out[i] = c.doneAtMin
+        if (c.completedAt && parts[i]?.name === c.name) out[i] = Date.parse(c.completedAt)
     })
     return out
 }

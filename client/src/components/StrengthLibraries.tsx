@@ -36,8 +36,8 @@ import { createLog as createWorkoutLog, type WorkoutLogInput } from '../services
 import { useToast } from '../context/ToastContext'
 import { todayKey } from '../lib/calendar'
 import { MUSCLE_GROUPS, EQUIPMENT, resolveTags } from '../lib/exerciseSwap'
-import { SlotInputs } from './SessionClock'
-import { hasSlot, slotLabel } from '../lib/sessionClock'
+import { SlotInputs } from './SessionPace'
+import { hasSlot, slotLabel } from '../lib/sessionPace'
 import { SESSION_PHASES, SESSION_PHASE_LABELS } from '../types'
 import type { Exercise, Phased, SessionPhase, Workout, WorkoutExercise } from '../types'
 import {

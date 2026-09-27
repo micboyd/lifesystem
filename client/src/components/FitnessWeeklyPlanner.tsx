@@ -9,7 +9,8 @@ import Checkbox from './Checkbox'
 import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
 import ConditioningSessionDetail from './ConditioningSessionDetail'
-import { useSessionClock } from './SessionClock'
+import { SaveStatus } from './SessionPace'
+import { useConditioningLog } from './useConditioningLog'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
@@ -24,7 +25,6 @@ import {
 import WorkoutLogWeightsDrawer from './WorkoutLogWeightsDrawer'
 import PlannerExportDrawer from './PlannerExportDrawer'
 import {
-    createLog as createConditioningLog,
     listLogs as listConditioningLogs,
     deleteLog as deleteConditioningLog,
 } from '../services/conditioningLogs'
@@ -70,8 +70,6 @@ import type {
     FitnessPlanNote,
     FitnessNoteScope,
     FitnessFlagColor,
-    RoundProgress,
-    Checkpoint,
     Event,
 } from '../types'
 import {
@@ -105,8 +103,8 @@ import {
     useMediaQuery,
     LARGE_QUERY,
 } from './planner/WeekPlannerUI'
-import { allInPhases, estimateWorkoutMinutes, mapPhases } from '../lib/phases'
-import { hasSlot, slotLabel } from '../lib/sessionClock'
+import { estimateWorkoutMinutes, mapPhases } from '../lib/phases'
+import { hasSlot, slotLabel } from '../lib/sessionPace'
 
 // ─── Kind presentation ────────────────────────────────────────────────────────
 
@@ -3453,20 +3451,21 @@ function PlannedDetailDrawer({
     // An undo of "Mark as done" awaiting confirmation — it deletes the log.
     const [confirmUndo, setConfirmUndo] = useState(false)
 
-    // Completed-round tallies for a conditioning session, keyed by part index.
-    // Reset whenever a different entry opens; snapshotted into the log on "done".
-    const [counts, setCounts] = useState<Record<number, number>>({})
-    useEffect(() => {
-        if (entry) setCounts({})
-    }, [entry])
-
     const e = view
     const title = e ? (planItemName(e) ?? KIND_META[e.kind].label) : 'Details'
-    // A planned conditioning session runs to its own clock, kept on the device
-    // per plan entry so closing the drawer mid-session doesn't lose it.
-    const clock = useSessionClock(
-        e && e.kind === 'conditioning' && e.session && !done ? `plan:${e._id}` : null
-    )
+    // A planned conditioning session is logged right here in the gym: each part's
+    // Completed press and round count autosaves to its log (the first save
+    // creates it, ticking the session off), with a device copy meanwhile.
+    const isSession = !!e && e.kind === 'conditioning' && !!e.session
+    const logger = useConditioningLog({
+        entryId: isSession ? e!._id : null,
+        session: isSession ? e!.session! : null,
+        date: e?.date ?? '',
+        existingLogId: isSession ? doneLogId : null,
+        onCreated: (logId) => {
+            if (e) onLogged(e, logId)
+        },
+    })
 
     // Any planned item can be logged straight from the planner — "Mark as done"
     // snapshots the library item into a completed record dated to the planned day,
@@ -3490,40 +3489,12 @@ function PlannedDetailDrawer({
                 logId = (await createWorkoutLog({ workout: e.workout._id, date: e.date }))._id
                 toast.show(`Logged “${e.workout.name}”.`, 'success')
             } else if (e.kind === 'conditioning' && e.session) {
-                // Snapshot the tapped-out rounds for each counted part.
-                const rounds: RoundProgress[] = allInPhases(e.session)
-                    .map((part, i) =>
-                        part.rounds
-                            ? { name: part.name, done: counts[i] ?? 0, target: part.rounds }
-                            : null
-                    )
-                    .filter((r): r is RoundProgress => r !== null)
-                // Each part's slot against when it was tapped done, if the
-                // session was run to the clock.
-                const checkpoints: Checkpoint[] | undefined = clock.running
-                    ? allInPhases(e.session).map((part, i) => ({
-                          name: part.name,
-                          ...(part.startMin !== undefined ? { startMin: part.startMin } : {}),
-                          ...(part.endMin !== undefined ? { endMin: part.endMin } : {}),
-                          ...(clock.state.doneAt[i] !== undefined
-                              ? { doneAtMin: clock.state.doneAt[i] }
-                              : {}),
-                      }))
-                    : undefined
-                logId = (
-                    await createConditioningLog({
-                        session: e.session._id,
-                        date: e.date,
-                        // Run to the clock, the session took as long as it ran.
-                        duration: clock.running
-                            ? Math.max(1, Math.round(clock.elapsed))
-                            : e.session.duration,
-                        rounds: rounds.length > 0 ? rounds : undefined,
-                        checkpoints,
-                    })
-                )._id
-                clock.reset()
+                // The same save the autosave does — it creates the log and
+                // ticks the entry off through onCreated.
+                if (!(await logger.saveNow())) throw new Error('save failed')
                 toast.show(`Logged “${e.session.name}”.`, 'success')
+                onClose()
+                return
             } else if (e.kind === 'mobility' && e.mobility) {
                 await onTickMobility(e, true)
                 toast.show(`Ticked off “${e.mobility.name}”.`, 'success')
@@ -3556,6 +3527,7 @@ function PlannedDetailDrawer({
         setLogging(true)
         try {
             await onUnlog(e, doneLogId)
+            if (e.kind === 'conditioning') logger.forget()
             toast.show(`“${planItemName(e) ?? 'Item'}” is no longer marked done.`, 'success')
             onClose()
         } catch {
@@ -3575,9 +3547,14 @@ function PlannedDetailDrawer({
                 badge={e ? shortDayLabel(e.date) : undefined}
                 footer={
                     <>
-                        <Button variant="ghost" className="mr-auto" onClick={onClose}>
-                            Close
-                        </Button>
+                        <div className="mr-auto flex min-w-0 items-center gap-3">
+                            <Button variant="ghost" onClick={onClose}>
+                                Close
+                            </Button>
+                            {isSession && (
+                                <SaveStatus state={logger.saveState} savedAt={logger.savedAt} />
+                            )}
+                        </div>
                         {done && (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700">
                                 <i className="fa-solid fa-circle-check" aria-hidden="true" />
@@ -3612,7 +3589,7 @@ function PlannedDetailDrawer({
                                 icon="fa-solid fa-dumbbell"
                                 onClick={() => e.workout && onLogWeights(e.workout, e.date)}
                             >
-                                Log sets
+                                Log workout
                             </Button>
                         )}
                     </>
@@ -3624,9 +3601,11 @@ function PlannedDetailDrawer({
                     ) : e.kind === 'conditioning' && e.session ? (
                         <ConditioningSessionDetail
                             session={e.session}
-                            counts={counts}
-                            onCount={(i, next) => setCounts((c) => ({ ...c, [i]: next }))}
-                            clock={done ? undefined : clock}
+                            counts={logger.taps.counts}
+                            onCount={logger.count}
+                            completedAt={logger.taps.completedAt}
+                            onComplete={logger.complete}
+                            onUndo={logger.undo}
                         />
                     ) : e.kind === 'mobility' && e.mobility ? (
                         <MobilityDetail mobility={e.mobility} />

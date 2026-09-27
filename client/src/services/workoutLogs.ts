@@ -22,10 +22,10 @@ export interface WorkoutLogInput {
      */
     substitutions?: (string | null)[]
     /**
-     * When each exercise was tapped done on the session clock (minutes), aligned
-     * by index the same way; null for one that wasn't tapped.
+     * When each exercise was tapped completed (ISO), aligned by index the same
+     * way; null for one that wasn't.
      */
-    doneAt?: (number | null)[]
+    completedAt?: (string | null)[]
     /**
      * Exercises to leave out of the record — indices into the same array the
      * fields above are aligned to. A row skipped mid-session (machine taken, ran

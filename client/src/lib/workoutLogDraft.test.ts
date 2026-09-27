@@ -86,6 +86,15 @@ describe('readDraft / writeDraft', () => {
         expect(draft?.exercises[1].removed).toBe(true)
     })
 
+    it('keeps when each exercise was completed', () => {
+        const exercises = rows()
+        exercises[0].completedAt = NOW - 60000
+        save({ exercises })
+        const draft = readDraft('w1', SIG, NOW)
+        expect(draft?.exercises[0].completedAt).toBe(NOW - 60000)
+        expect(draft?.exercises[1].completedAt).toBeUndefined()
+    })
+
     it('remembers the log a saved-mid-session draft belongs to', () => {
         save({ logId: 'log1' })
         expect(readDraft('w1', SIG, NOW)?.logId).toBe('log1')

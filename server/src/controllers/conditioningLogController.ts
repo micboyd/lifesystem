@@ -2,7 +2,7 @@ import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import ConditioningLog from '../models/ConditioningLog'
-import { toMinutes } from '../lib/timeWindow'
+import { toMinutes, toTimestamp } from '../lib/timeWindow'
 import ConditioningSession, {
     CONDITIONING_CATEGORIES,
     ConditioningCategory,
@@ -58,7 +58,7 @@ function toRounds(raw: unknown): { name: string; done: number; target: number }[
 /** Normalise the per-part timing snapshot, dropping unnamed entries. */
 function toCheckpoints(raw: unknown) {
     if (!Array.isArray(raw)) return undefined
-    const out: { name: string; startMin?: number; endMin?: number; doneAtMin?: number }[] = []
+    const out: { name: string; startMin?: number; endMin?: number; completedAt?: Date }[] = []
     for (const item of raw) {
         if (!item || typeof item !== 'object') continue
         const c = item as Record<string, unknown>
@@ -66,12 +66,12 @@ function toCheckpoints(raw: unknown) {
         if (!name) continue
         const startMin = toMinutes(c.startMin)
         const endMin = toMinutes(c.endMin)
-        const doneAtMin = toMinutes(c.doneAtMin)
+        const completedAt = toTimestamp(c.completedAt)
         out.push({
             name,
             ...(startMin !== undefined ? { startMin } : {}),
             ...(endMin !== undefined ? { endMin } : {}),
-            ...(doneAtMin !== undefined ? { doneAtMin } : {}),
+            ...(completedAt ? { completedAt } : {}),
         })
     }
     return out.length > 0 ? out : undefined

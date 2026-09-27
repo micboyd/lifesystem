@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Drawer from './Drawer'
 import Button from './Button'
 import DatePicker from './DatePicker'
 import Textarea from './Textarea'
 import ExerciseSwapPicker from './ExerciseSwapPicker'
-import { SessionClockBar, SlotTap, useSessionClock } from './SessionClock'
-import { currentIndex, type Slot } from '../lib/sessionClock'
+import { CompleteButton, PaceBanner, SaveStatus, SlotChip, type SaveState } from './SessionPace'
+import { paceOf, type Slot } from '../lib/sessionPace'
 import { SESSION_PHASE_LABELS } from '../types'
 import type {
     Exercise,
@@ -44,6 +44,7 @@ function todayISO(): string {
  * - `sets` — weights and reps as typed, so a blank input stays blank.
  * - `removed` — skipped today. The row stays in the array so every index still
  *   lines up with the workout's exercises, and is dropped at save time.
+ * - `completedAt` — when its Completed button was pressed in the gym.
  */
 type ExerciseDraft = DraftExercise
 type SetDraft = ExerciseDraft['sets'][number]
@@ -119,11 +120,32 @@ function toNum(s: string): number | undefined {
     return Number.isFinite(n) && n >= 0 ? n : undefined
 }
 
+
+/** A set as "60×8" / "60 kg" / "8 reps" for a completed card's summary. */
+function setSummary(s: SetDraft): string | null {
+    const w = s.weight.trim()
+    const r = s.reps.trim()
+    if (w && r) return `${w}×${r}`
+    if (w) return `${w} kg`
+    if (r) return `${r} reps`
+    return null
+}
+
+/** How long after the last edit the session saves itself to the log. */
+const AUTOSAVE_MS = 2000
+
 /**
- * A logging drawer that records the actual weight × reps of each set. Seeded from
- * the workout's prescription, so most of the time the user just types a weight per
- * row and hits save. Weights are optional — an empty save still records the
- * workout, matching the quick "Done" button.
+ * Logging a strength workout in the gym. Each exercise is a card: its planned
+ * slot, the weight × reps of each set, and a big Completed button that stamps
+ * the time — a banner on top turns those times into "on time / behind / ahead"
+ * against the plan, and says what's next and when it's due. A completed card
+ * folds down to a one-line summary and the next one scrolls into view.
+ *
+ * Nothing needs saving by hand. Every edit lands on the device at once (a
+ * locked phone or a reload loses nothing), and once there's something worth
+ * recording — an exercise completed, a weight typed — it saves itself to the
+ * log a couple of seconds later: the first save creates the log, every later one
+ * rewrites that same log. Finish saves one last time and closes.
  */
 export default function WorkoutLogWeightsDrawer({
     workout,
@@ -156,44 +178,51 @@ export default function WorkoutLogWeightsDrawer({
     const [date, setDate] = useState(defaultDate ?? todayISO())
     const [notes, setNotes] = useState('')
     const [drafts, setDrafts] = useState<ExerciseDraft[]>([])
-    /** Which button is mid-save, so only that one shows its progress. */
-    const [saving, setSaving] = useState<'save' | 'close' | null>(null)
+    /** Finish is mid-save. */
+    const [finishing, setFinishing] = useState(false)
     /** The log this session has been saved to, once it has been saved at all. */
     const [logId, setLogId] = useState<string | null>(null)
-    /** Edits made since the last save to the server — what a Save would commit. */
+    /** Edits made since the last save to the server. */
     const [unsaved, setUnsaved] = useState(false)
+    /** Where the entries are: saving, saved to the log, or only on this device. */
+    const [saveState, setSaveState] = useState<SaveState>('idle')
+    const [serverSavedAt, setServerSavedAt] = useState<number | null>(null)
     /** Index of the row whose swap picker is open, or null when none is. */
     const [swapping, setSwapping] = useState<number | null>(null)
-    /** When the device-local draft was last written, or null while there isn't one. */
-    const [savedAt, setSavedAt] = useState<number | null>(null)
+    /** Completed cards opened back up to edit their sets. */
+    const [expanded, setExpanded] = useState<Set<number>>(new Set())
     /** Set when this session was picked up from a draft, so the drawer can say so. */
     const [restoredFrom, setRestoredFrom] = useState<number | null>(null)
+    /** Bumped to re-run the autosave when an edit lands mid-save. */
+    const [retick, setRetick] = useState(0)
     /**
      * Whether anything has been typed yet. Opening the drawer and closing it
      * again shouldn't leave a draft behind — only real edits arm the autosave.
      */
     const dirty = useRef(false)
+    /** Counts edits, so a save can tell whether more came in while it ran. */
+    const edits = useRef(0)
+    /** The save in flight, if any — Finish waits for it rather than racing it. */
+    const inflight = useRef<Promise<boolean> | null>(null)
+    const cards = useRef<(HTMLElement | null)[]>([])
 
     const signature = useMemo(() => (view ? signatureOf(view, byId) : ''), [view, byId])
 
     // Each row's planned slot, aligned to the rows the same way the draft is:
-    // the workout's resolved lines, warm-up to cool-down.
-    const slots: Slot[] = useMemo(
-        () =>
-            view
-                ? flattenPhases(view)
-                      .filter(({ item }) => byId.has(item.exercise))
-                      .map(({ item }) => ({ startMin: item.startMin, endMin: item.endMin }))
-                : [],
-        [view, byId]
-    )
-    const clock = useSessionClock(view ? `workout:${view._id}` : null)
-    // Skipped rows aren't being done, so the clock shouldn't wait on them.
-    const liveSlots = useMemo(
-        () => slots.map((s, i) => (drafts[i]?.removed ? {} : s)),
-        [slots, drafts]
-    )
-    const nowIndex = currentIndex(liveSlots, clock.state)
+    // the workout's resolved lines, warm-up to cool-down. Skipped rows aren't
+    // being done, so pacing leaves them out.
+    const slots: Slot[] = useMemo(() => {
+        if (!view) return []
+        return flattenPhases(view)
+            .filter(({ item }) => byId.has(item.exercise))
+            .map(({ item }, i) =>
+                drafts[i]?.removed ? {} : { startMin: item.startMin, endMin: item.endMin }
+            )
+    }, [view, byId, drafts])
+    const times = drafts.map((d) => (d.removed ? null : (d.completedAt ?? null)))
+    const pace = paceOf(slots, times)
+    // The exercise to do next: the first not skipped and not completed.
+    const nextIndex = drafts.findIndex((d) => !d.removed && d.completedAt == null)
 
     useEffect(() => {
         if (!workout) return
@@ -204,55 +233,187 @@ export default function WorkoutLogWeightsDrawer({
         setNotes(draft?.notes ?? '')
         setDrafts(draft?.exercises ?? seeded)
         setSwapping(null)
-        setSaving(null)
+        setExpanded(new Set())
+        setFinishing(false)
         // A restored draft is already on the device — keep saving over it. If it
         // carries a log id, this session is already in the record and every save
         // from here updates it.
         dirty.current = !!draft
-        setSavedAt(draft?.savedAt ?? null)
         setRestoredFrom(draft?.savedAt ?? null)
         setLogId(draft?.logId ?? null)
         setUnsaved(false)
+        setSaveState(draft ? (draft.logId ? 'saved' : 'local') : 'idle')
+        setServerSavedAt(null)
     }, [workout, byId, defaultDate])
 
-    /**
-     * Autosave. Everything typed lands on the device a moment later, so a locked
-     * phone, a reload or a mis-tapped Cancel mid-session costs nothing — reopen
-     * the workout and the sets are still there.
-     */
+    /** Everything on screen as one draft, for the device copy. */
+    const draftOf = useCallback(
+        (id: string | null) => ({
+            signature,
+            date,
+            notes,
+            exercises: drafts,
+            ...(id ? { logId: id } : {}),
+        }),
+        [signature, date, notes, drafts]
+    )
+
+    // The device copy — written a moment after every edit.
     useEffect(() => {
         if (!view || !dirty.current) return
-        const timer = setTimeout(() => {
-            const now = Date.now()
-            writeDraft(
-                view._id,
-                { signature, date, notes, exercises: drafts, ...(logId ? { logId } : {}) },
-                now
-            )
-            setSavedAt(now)
-        }, 400)
+        const timer = setTimeout(() => writeDraft(view._id, draftOf(logId)), 400)
         return () => clearTimeout(timer)
-    }, [view, signature, date, notes, drafts, logId])
+    }, [view, draftOf, logId])
 
     /** Arm the autosave — called by every edit before it changes state. */
     function markDirty() {
         dirty.current = true
+        edits.current++
         setUnsaved(true)
+        setSaveState((s) => (s === 'error' ? s : 'local'))
+    }
+
+    /**
+     * Save the session to the log as it stands. The first save records the log
+     * through `onSubmit`; every later one rewrites that same log, rebuilt from the
+     * workout so a row skipped (or put back) since still lands. Resolves false
+     * when it failed — the device copy still has everything.
+     */
+    const saveToLog = useCallback(async (): Promise<boolean> => {
+        if (!view) return false
+        const edit = edits.current
+        // Align one entry per row, in the order the server snapshots. Skipped
+        // rows keep their slot — the indices all have to agree — and send
+        // nothing; `omitted` is what actually drops them.
+        const loggedSets: LoggedSet[][] = drafts.map((ex) =>
+            ex.removed
+                ? []
+                : ex.sets
+                      .map((s): LoggedSet => {
+                          const weight = toNum(s.weight)
+                          const reps = toNum(s.reps)
+                          return {
+                              ...(weight !== undefined ? { weight } : {}),
+                              ...(reps !== undefined ? { reps } : {}),
+                          }
+                      })
+                      .filter((s) => s.weight !== undefined || s.reps !== undefined)
+        )
+        // The exercise actually performed, or null when the row went as
+        // prescribed. Omitted entirely when nothing was swapped.
+        const substitutions = drafts.map((ex) =>
+            ex.swappedFrom && !ex.removed ? ex.exerciseId : null
+        )
+        const swapped = substitutions.some(Boolean)
+        const omitted = drafts.flatMap((ex, i) => (ex.removed ? [i] : []))
+        const completedAt = drafts.map((ex) =>
+            ex.completedAt != null && !ex.removed ? new Date(ex.completedAt).toISOString() : null
+        )
+
+        const fields: WorkoutLogInput = {
+            workout: view._id,
+            date,
+            // Always a string on the update path, so clearing the notes clears them.
+            notes: notes.trim(),
+            loggedSets,
+            completedAt,
+            ...(swapped ? { substitutions } : {}),
+            ...(omitted.length ? { omitted } : {}),
+        }
+
+        setSaveState('saving')
+        try {
+            let id = logId
+            let written = false
+            if (id) {
+                try {
+                    await updateLog(id, { ...fields, rebuild: true })
+                    written = true
+                } catch (err) {
+                    // The log was deleted while the session was open (unlogged
+                    // from the planner, say) — record it afresh rather than
+                    // stranding everything since.
+                    if (!isMissing(err)) throw err
+                    id = null
+                }
+            }
+            if (!written) {
+                const log = await onSubmit(view, fields)
+                id = log._id
+                setLogId(id)
+                // Keep the device copy pointing at the log, so reopening the
+                // workout carries on writing to it instead of logging twice.
+                writeDraft(view._id, draftOf(id))
+            }
+            setServerSavedAt(Date.now())
+            if (edits.current === edit) {
+                setUnsaved(false)
+                setSaveState('saved')
+            } else {
+                // More came in while this ran — go again.
+                setRetick((n) => n + 1)
+            }
+            return true
+        } catch {
+            setSaveState('error')
+            return false
+        }
+    }, [view, drafts, date, notes, logId, onSubmit, draftOf])
+
+    /** One save at a time: a second waits for the first rather than racing it. */
+    const save = useCallback(async (): Promise<boolean> => {
+        while (inflight.current) await inflight.current
+        const run = saveToLog()
+        inflight.current = run
+        try {
+            return await run
+        } finally {
+            inflight.current = null
+        }
+    }, [saveToLog])
+
+    // Autosave to the log — once there's something worth recording.
+    const worthSaving =
+        !!logId ||
+        drafts.some(
+            (d) => !d.removed && (d.completedAt != null || d.sets.some((s) => s.weight.trim()))
+        )
+    useEffect(() => {
+        if (!view || !unsaved || !worthSaving) return
+        const timer = setTimeout(() => void save(), AUTOSAVE_MS)
+        return () => clearTimeout(timer)
+        // `save` is rebuilt on every edit, which already restarts the timer.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [view, unsaved, worthSaving, drafts, notes, date, retick])
+
+    /** Save one last time and close. */
+    async function finish() {
+        if (!view) return
+        setFinishing(true)
+        const ok = await save()
+        setFinishing(false)
+        if (!ok) {
+            toast.error('Could not save the log. Your entries are still here.')
+            return
+        }
+        // It's history now, so the in-progress copy has done its job.
+        clearDraft(view._id)
+        onClose()
     }
 
     /** Throw the draft away and start the log from the workout as written. */
     function discardDraft() {
         if (!view) return
         clearDraft(view._id)
-        clock.reset()
         setDrafts(seedDrafts(view, byId))
         setDate(defaultDate ?? todayISO())
         setNotes('')
         setSwapping(null)
+        setExpanded(new Set())
         dirty.current = false
-        setSavedAt(null)
         setRestoredFrom(null)
         setUnsaved(false)
+        setSaveState('idle')
     }
 
     /**
@@ -323,6 +484,11 @@ export default function WorkoutLogWeightsDrawer({
         return Math.round(total)
     }, [drafts])
 
+    function patchRow(ei: number, patch: Partial<ExerciseDraft>) {
+        markDirty()
+        setDrafts((prev) => prev.map((ex, i) => (i === ei ? { ...ex, ...patch } : ex)))
+    }
+
     function updateSet(ei: number, si: number, patch: Partial<SetDraft>) {
         markDirty()
         setDrafts((prev) =>
@@ -339,9 +505,13 @@ export default function WorkoutLogWeightsDrawer({
         setDrafts((prev) =>
             prev.map((ex, i) => {
                 if (i !== ei) return ex
-                // A new set copies the last set's reps so the user keeps typing weights.
+                // A new set copies the last set's weight and reps — the next set
+                // is usually the same again.
                 const last = ex.sets[ex.sets.length - 1]
-                return { ...ex, sets: [...ex.sets, { weight: '', reps: last?.reps ?? '' }] }
+                return {
+                    ...ex,
+                    sets: [...ex.sets, { weight: last?.weight ?? '', reps: last?.reps ?? '' }],
+                }
             })
         )
     }
@@ -356,21 +526,55 @@ export default function WorkoutLogWeightsDrawer({
     }
 
     /**
+     * Stamp an exercise completed now, fold its card down and bring the next
+     * one into view — in the gym you're straight on to it.
+     */
+    function complete(ei: number) {
+        patchRow(ei, { completedAt: Date.now() })
+        setExpanded((prev) => {
+            const next = new Set(prev)
+            next.delete(ei)
+            return next
+        })
+        setSwapping(null)
+        const upcoming = drafts.findIndex(
+            (d, i) => i !== ei && !d.removed && d.completedAt == null
+        )
+        if (upcoming !== -1) {
+            setTimeout(
+                () => cards.current[upcoming]?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+                60
+            )
+        }
+    }
+
+    function uncomplete(ei: number) {
+        patchRow(ei, { completedAt: undefined })
+    }
+
+    function toggleExpanded(ei: number) {
+        setExpanded((prev) => {
+            const next = new Set(prev)
+            if (next.has(ei)) next.delete(ei)
+            else next.add(ei)
+            return next
+        })
+    }
+
+    /**
      * Skip an exercise for this session — the machine was taken, the shoulder
      * wasn't having it, you ran out of time. The row stays in the draft (one tap
      * from coming back, and keeping every index aligned with the workout's
      * exercises) and is dropped from the log at save time.
      */
     function removeExercise(ei: number) {
-        markDirty()
         setSwapping(null)
-        setDrafts((prev) => prev.map((ex, i) => (i === ei ? { ...ex, removed: true } : ex)))
+        patchRow(ei, { removed: true })
     }
 
     /** Put a skipped exercise back, with whatever was already typed into it. */
     function restoreExercise(ei: number) {
-        markDirty()
-        setDrafts((prev) => prev.map((ex, i) => (i === ei ? { ...ex, removed: undefined } : ex)))
+        patchRow(ei, { removed: undefined })
     }
 
     /**
@@ -401,137 +605,27 @@ export default function WorkoutLogWeightsDrawer({
     }
 
     function undoSwap(ei: number) {
-        markDirty()
-        setDrafts((prev) =>
-            prev.map((ex, i) => {
-                if (i !== ei || !ex.swappedFrom) return ex
-                return {
-                    ...ex,
-                    exerciseId: ex.swappedFrom.id,
-                    name: ex.swappedFrom.name,
-                    swappedFrom: undefined,
-                }
-            })
-        )
-    }
-
-    /**
-     * Commit the session as it stands. The first save records the log; every save
-     * after it rewrites that same log, so you can save at the squat rack, again
-     * after the accessories, and finally on the way out without ending up with
-     * three records of one session.
-     *
-     * `close` is what separates the two buttons: Save leaves the drawer open and
-     * the draft in place (there's more to log), Save & close finishes the session.
-     */
-    async function save(close: boolean) {
-        if (!view) return
-        // Align one set-list per exercise, in the same order the server snapshots.
-        // Skipped rows keep their slot — the indices below all have to agree —
-        // and send nothing; `omitted` is what actually drops them.
-        const loggedSets: LoggedSet[][] = drafts.map((ex) =>
-            ex.removed
-                ? []
-                : ex.sets
-                      .map((s): LoggedSet => {
-                          const weight = toNum(s.weight)
-                          const reps = toNum(s.reps)
-                          return {
-                              ...(weight !== undefined ? { weight } : {}),
-                              ...(reps !== undefined ? { reps } : {}),
-                          }
-                      })
-                      .filter((s) => s.weight !== undefined || s.reps !== undefined)
-        )
-        // Aligned the same way: the exercise actually performed, or null when the
-        // row went as prescribed. Omitted entirely when nothing was swapped.
-        const substitutions = drafts.map((ex) =>
-            ex.swappedFrom && !ex.removed ? ex.exerciseId : null
-        )
-        const swapped = substitutions.some(Boolean)
-        // The rows to leave out of the record entirely.
-        const omitted = drafts.flatMap((ex, i) => (ex.removed ? [i] : []))
-
-        const fields: WorkoutLogInput = {
-            workout: view._id,
-            date,
-            // Always a string on the update path, so clearing the notes clears them.
-            notes: notes.trim(),
-            loggedSets,
-            ...(swapped ? { substitutions } : {}),
-            ...(omitted.length ? { omitted } : {}),
-            // When each row was tapped done, if the session was run to the clock.
-            ...(clock.running ? { doneAt: clock.marks(drafts.length) } : {}),
-        }
-
-        setSaving(close ? 'close' : 'save')
-        try {
-            let written = false
-            if (logId) {
-                try {
-                    // Rebuild the record from the workout rather than patching the
-                    // stored lines — a row skipped (or put back) since the last
-                    // save has to be able to leave or rejoin the log.
-                    await updateLog(logId, { ...fields, rebuild: true })
-                    written = true
-                    if (!close) toast.show('Progress saved.', 'success')
-                } catch (err) {
-                    // The log was deleted while the session was open (unlogged
-                    // from the planner, say) — record it afresh rather than
-                    // stranding everything typed since.
-                    if (!isMissing(err)) throw err
-                    setLogId(null)
-                }
-            }
-            if (!written) {
-                const log = await onSubmit(view, fields)
-                setLogId(log._id)
-                // Keep the draft pointing at the log, so closing the drawer and
-                // coming back carries on writing to it instead of logging twice.
-                writeDraft(view._id, {
-                    signature,
-                    date,
-                    notes,
-                    exercises: drafts,
-                    logId: log._id,
-                })
-            }
-            setUnsaved(false)
-            if (close) {
-                // It's history now, so the in-progress copy has done its job.
-                clearDraft(view._id)
-                clock.reset()
-                onClose()
-            }
-        } catch {
-            toast.error('Could not save the log. Your entries are still here.')
-        } finally {
-            setSaving(null)
-        }
+        const ex = drafts[ei]
+        if (!ex?.swappedFrom) return
+        patchRow(ei, {
+            exerciseId: ex.swappedFrom.id,
+            name: ex.swappedFrom.name,
+            swappedFrom: undefined,
+        })
     }
 
     const w = view
-
-    /**
-     * Where this session currently stands, in one line under the volume: in the
-     * record, in the record but ahead of it, or only on this device so far.
-     */
-    const status: { icon: string; label: string } | null = logId
-        ? unsaved
-            ? { icon: 'fa-solid fa-pen', label: 'Edited since your last save' }
-            : { icon: 'fa-solid fa-check', label: 'Saved to your workout log' }
-        : savedAt !== null
-          ? { icon: 'fa-solid fa-mobile-screen', label: 'Kept on this device — not logged yet' }
-          : null
+    const inputCls =
+        'h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-base tabular-nums text-neutral-900 outline-none transition-all placeholder:text-neutral-300 focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 sm:text-sm'
 
     return (
         <Drawer
             open={!!workout}
             onClose={onClose}
             size="2xl"
-            title={w ? `Log · ${w.name}` : 'Log workout'}
+            title={w ? w.name : 'Log workout'}
             footer={
-                <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                <div className="flex w-full items-center justify-between gap-3">
                     <div className="flex min-w-0 flex-col gap-0.5">
                         <span className="text-sm text-neutral-500">
                             Volume{' '}
@@ -539,39 +633,26 @@ export default function WorkoutLogWeightsDrawer({
                                 {volume.toLocaleString()} kg
                             </span>
                         </span>
-                        {status && (
-                            <span className="inline-flex items-center gap-1.5 text-[11px] text-neutral-400">
-                                <i className={`${status.icon} text-[9px]`} aria-hidden="true" />
-                                {status.label}
-                            </span>
-                        )}
+                        <SaveStatus
+                            state={saveState}
+                            savedAt={saveState === 'saved' ? serverSavedAt : null}
+                        />
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                         <Button variant="ghost" onClick={onClose}>
                             Close
                         </Button>
-                        <Button
-                            variant="secondary"
-                            icon="fa-solid fa-floppy-disk"
-                            onClick={() => save(false)}
-                            // Nothing to commit once a save has caught up with the form.
-                            disabled={saving !== null || (logId !== null && !unsaved)}
-                        >
-                            {saving === 'save' ? 'Saving…' : 'Save'}
-                        </Button>
-                        <Button
-                            icon="fa-solid fa-check"
-                            onClick={() => save(true)}
-                            disabled={saving !== null}
-                        >
-                            {saving === 'close' ? 'Saving…' : 'Save & close'}
+                        <Button icon="fa-solid fa-flag-checkered" onClick={finish} disabled={finishing}>
+                            {finishing ? 'Saving…' : 'Finish'}
                         </Button>
                     </div>
                 </div>
             }
         >
             {w && (
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-5">
+                    <PaceBanner slots={slots} completedAt={times} names={drafts.map((d) => d.name)} />
+
                     {restoredFrom !== null && (
                         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-marigold-200 bg-marigold-50 px-3 py-2 text-xs text-amber-800">
                             <span className="inline-flex items-center gap-2">
@@ -580,8 +661,8 @@ export default function WorkoutLogWeightsDrawer({
                                     aria-hidden="true"
                                 />
                                 {logId
-                                    ? `Back in this session — saved to your log ${describeAge(restoredFrom)}.`
-                                    : `Picked up where you left off — saved ${describeAge(restoredFrom)}.`}
+                                    ? `Back in this session — last saved ${describeAge(restoredFrom)}.`
+                                    : `Picked up where you left off — ${describeAge(restoredFrom)}.`}
                             </span>
                             {/* Only before the first save: once the session is in
                                 the log, throwing the draft away would strand it. */}
@@ -597,193 +678,207 @@ export default function WorkoutLogWeightsDrawer({
                         </div>
                     )}
 
-                    <SessionClockBar
-                        clock={clock}
-                        slots={liveSlots}
-                        names={drafts.map((d) => d.name)}
-                    />
-
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                            Date
-                        </label>
-                        <DatePicker
-                            value={date}
-                            maxDate={todayISO()}
-                            onChange={(v) => {
-                                markDirty()
-                                setDate(typeof v === 'string' ? v : todayISO())
-                            }}
-                        />
-                    </div>
-
                     {drafts.length === 0 ? (
                         <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
                             This workout has no exercises to record.
                         </p>
                     ) : (
-                        <div className="flex flex-col gap-5">
-                            {drafts.map((ex, ei) =>
-                                ex.removed ? null : (
-                                    <section key={ei} className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-3">
+                            {drafts.map((ex, ei) => {
+                                if (ex.removed) return null
+                                const done = ex.completedAt != null
+                                const folded = done && !expanded.has(ei)
+                                const summary = ex.sets.map(setSummary).filter(Boolean)
+                                return (
+                                    <div key={ei} className="flex flex-col gap-2">
                                         {phased && phaseStarts(ei) && (
-                                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                                 {SESSION_PHASE_LABELS[phaseOf(ex)]}
                                             </p>
                                         )}
-                                        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-                                            <p className="min-w-0 font-semibold text-neutral-900">
-                                                {ex.name}
-                                            </p>
-                                            <div className="flex shrink-0 items-center gap-2">
-                                                {ex.prescription && (
-                                                    <span className="text-xs text-neutral-400">
-                                                        target {ex.prescription}
-                                                    </span>
-                                                )}
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setSwapping(swapping === ei ? null : ei)
-                                                    }
-                                                    aria-expanded={swapping === ei}
-                                                    title="Machine taken? Swap this out"
-                                                    className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
-                                                >
-                                                    <i
-                                                        className="fa-solid fa-right-left text-[10px]"
-                                                        aria-hidden="true"
-                                                    />
-                                                    Swap
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeExercise(ei)}
-                                                    title="Skip this exercise today"
-                                                    aria-label={`Skip ${ex.name}`}
-                                                    className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-coral-600"
-                                                >
-                                                    <i
-                                                        className="fa-solid fa-ban text-[10px]"
-                                                        aria-hidden="true"
-                                                    />
-                                                    Skip
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {slots[ei] && (
-                                            <div className="-mt-0.5 flex justify-end">
-                                                <SlotTap
-                                                    slot={slots[ei]}
-                                                    doneAt={clock.state.doneAt[ei]}
-                                                    current={clock.running && ei === nowIndex}
-                                                    running={clock.running}
-                                                    onToggle={() => {
-                                                        markDirty()
-                                                        clock.toggle(ei)
-                                                    }}
-                                                />
-                                            </div>
-                                        )}
-
-                                        {ex.swappedFrom && (
-                                            <p className="-mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-400">
-                                                <span>
-                                                    Swapped in for{' '}
-                                                    <span className="font-medium text-neutral-500">
-                                                        {ex.swappedFrom.name}
-                                                    </span>
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => undoSwap(ei)}
-                                                    className="font-semibold text-coral-600 transition-colors hover:text-coral-700"
-                                                >
-                                                    Undo
-                                                </button>
-                                            </p>
-                                        )}
-
-                                        {swapping === ei && resolved.get(ex.exerciseId) && (
-                                            <ExerciseSwapPicker
-                                                target={resolved.get(ex.exerciseId)!}
-                                                library={library}
-                                                excludeIds={inSession}
-                                                onPick={(picked) => applySwap(ei, picked)}
-                                                onCreate={handleCreateExercise}
-                                                onCancel={() => setSwapping(null)}
-                                            />
-                                        )}
-
-                                        <div className="grid grid-cols-[1.75rem_1fr_1fr_1.75rem] items-center gap-2 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-                                            <span>Set</span>
-                                            <span>Weight (kg)</span>
-                                            <span>Reps</span>
-                                            <span />
-                                        </div>
-
-                                        {ex.sets.map((s, si) => (
-                                            <div
-                                                key={si}
-                                                className="grid grid-cols-[1.75rem_1fr_1fr_1.75rem] items-center gap-2"
-                                            >
-                                                <span className="grid h-7 w-7 place-items-center rounded-full bg-neutral-100 text-xs font-semibold tabular-nums text-neutral-500">
-                                                    {si + 1}
-                                                </span>
-                                                <input
-                                                    type="number"
-                                                    inputMode="decimal"
-                                                    min={0}
-                                                    step="any"
-                                                    placeholder="—"
-                                                    value={s.weight}
-                                                    onChange={(e) =>
-                                                        updateSet(ei, si, {
-                                                            weight: e.target.value,
-                                                        })
-                                                    }
-                                                    className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm tabular-nums text-neutral-900 outline-none transition-all placeholder:text-neutral-300 focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200"
-                                                />
-                                                <input
-                                                    type="number"
-                                                    inputMode="numeric"
-                                                    min={0}
-                                                    step="1"
-                                                    placeholder="—"
-                                                    value={s.reps}
-                                                    onChange={(e) =>
-                                                        updateSet(ei, si, { reps: e.target.value })
-                                                    }
-                                                    className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm tabular-nums text-neutral-900 outline-none transition-all placeholder:text-neutral-300 focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    aria-label={`Remove set ${si + 1}`}
-                                                    onClick={() => removeSet(ei, si)}
-                                                    disabled={ex.sets.length === 1}
-                                                    className="grid h-7 w-7 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-0"
-                                                >
-                                                    <i className="fa-solid fa-xmark text-xs" />
-                                                </button>
-                                            </div>
-                                        ))}
-
-                                        <button
-                                            type="button"
-                                            onClick={() => addSet(ei)}
-                                            className="mt-0.5 inline-flex items-center gap-1.5 self-start rounded-lg px-1.5 py-1 text-xs font-semibold text-coral-600 transition-colors hover:bg-coral-50"
+                                        <section
+                                            ref={(el) => {
+                                                cards.current[ei] = el
+                                            }}
+                                            className={`flex flex-col gap-3 rounded-2xl border p-3 transition-colors sm:p-4 ${
+                                                done
+                                                    ? 'border-emerald-200 bg-emerald-50/30'
+                                                    : ei === nextIndex
+                                                      ? 'border-coral-200 ring-1 ring-coral-100'
+                                                      : 'border-neutral-200'
+                                            }`}
                                         >
-                                            <i className="fa-solid fa-plus text-[10px]" />
-                                            Add set
-                                        </button>
-                                    </section>
+                                            {/* Header: name, planned slot, target; swap and skip. */}
+                                            <div className="flex items-start justify-between gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => done && toggleExpanded(ei)}
+                                                    className={`min-w-0 text-left ${done ? 'cursor-pointer' : 'cursor-default'}`}
+                                                    aria-expanded={done ? !folded : undefined}
+                                                >
+                                                    <p className="text-base font-semibold text-neutral-900">
+                                                        {ex.name}
+                                                    </p>
+                                                    <p className="mt-0.5 text-xs text-neutral-400">
+                                                        {folded
+                                                            ? summary.length
+                                                                ? summary.join(' · ')
+                                                                : 'No sets recorded'
+                                                            : ex.prescription
+                                                              ? `Target ${ex.prescription}`
+                                                              : 'No target set'}
+                                                    </p>
+                                                </button>
+                                                <div className="flex shrink-0 items-center gap-1">
+                                                    <SlotChip slot={slots[ei] ?? {}} />
+                                                    {!folded && (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setSwapping(
+                                                                        swapping === ei ? null : ei
+                                                                    )
+                                                                }
+                                                                aria-expanded={swapping === ei}
+                                                                aria-label={`Swap ${ex.name}`}
+                                                                title="Machine taken? Swap this out"
+                                                                className="grid h-9 w-9 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
+                                                            >
+                                                                <i
+                                                                    className="fa-solid fa-right-left text-xs"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeExercise(ei)}
+                                                                aria-label={`Skip ${ex.name}`}
+                                                                title="Skip this exercise today"
+                                                                className="grid h-9 w-9 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-coral-600"
+                                                            >
+                                                                <i
+                                                                    className="fa-solid fa-ban text-xs"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {ex.swappedFrom && !folded && (
+                                                <p className="-mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-400">
+                                                    <span>
+                                                        Swapped in for{' '}
+                                                        <span className="font-medium text-neutral-500">
+                                                            {ex.swappedFrom.name}
+                                                        </span>
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => undoSwap(ei)}
+                                                        className="font-semibold text-coral-600 transition-colors hover:text-coral-700"
+                                                    >
+                                                        Undo
+                                                    </button>
+                                                </p>
+                                            )}
+
+                                            {swapping === ei && resolved.get(ex.exerciseId) && (
+                                                <ExerciseSwapPicker
+                                                    target={resolved.get(ex.exerciseId)!}
+                                                    library={library}
+                                                    excludeIds={inSession}
+                                                    onPick={(picked) => applySwap(ei, picked)}
+                                                    onCreate={handleCreateExercise}
+                                                    onCancel={() => setSwapping(null)}
+                                                />
+                                            )}
+
+                                            {!folded && (
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="grid grid-cols-[1.75rem_1fr_1fr_2.25rem] items-center gap-2 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                                                        <span>Set</span>
+                                                        <span>kg</span>
+                                                        <span>Reps</span>
+                                                        <span />
+                                                    </div>
+                                                    {ex.sets.map((s, si) => (
+                                                        <div
+                                                            key={si}
+                                                            className="grid grid-cols-[1.75rem_1fr_1fr_2.25rem] items-center gap-2"
+                                                        >
+                                                            <span className="grid h-7 w-7 place-items-center rounded-full bg-neutral-100 text-xs font-semibold tabular-nums text-neutral-500">
+                                                                {si + 1}
+                                                            </span>
+                                                            <input
+                                                                type="number"
+                                                                inputMode="decimal"
+                                                                min={0}
+                                                                step="any"
+                                                                placeholder="—"
+                                                                aria-label={`Set ${si + 1} weight`}
+                                                                value={s.weight}
+                                                                onChange={(e) =>
+                                                                    updateSet(ei, si, {
+                                                                        weight: e.target.value,
+                                                                    })
+                                                                }
+                                                                className={inputCls}
+                                                            />
+                                                            <input
+                                                                type="number"
+                                                                inputMode="numeric"
+                                                                min={0}
+                                                                step="1"
+                                                                placeholder="—"
+                                                                aria-label={`Set ${si + 1} reps`}
+                                                                value={s.reps}
+                                                                onChange={(e) =>
+                                                                    updateSet(ei, si, {
+                                                                        reps: e.target.value,
+                                                                    })
+                                                                }
+                                                                className={inputCls}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`Remove set ${si + 1}`}
+                                                                onClick={() => removeSet(ei, si)}
+                                                                disabled={ex.sets.length === 1}
+                                                                className="grid h-9 w-9 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-0"
+                                                            >
+                                                                <i className="fa-solid fa-xmark text-xs" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => addSet(ei)}
+                                                        className="inline-flex h-9 items-center gap-1.5 self-start rounded-lg px-2 text-xs font-semibold text-coral-600 transition-colors hover:bg-coral-50"
+                                                    >
+                                                        <i className="fa-solid fa-plus text-[10px]" />
+                                                        Add set
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            <CompleteButton
+                                                completedAt={ex.completedAt}
+                                                delta={pace.delta[ei]}
+                                                isNext={ei === nextIndex}
+                                                onComplete={() => complete(ei)}
+                                                onUndo={() => uncomplete(ei)}
+                                            />
+                                        </section>
+                                    </div>
                                 )
-                            )}
+                            })}
 
                             {skipped.length === drafts.length && (
                                 <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
-                                    Every exercise skipped — saving now records the session with no
+                                    Every exercise skipped — finishing records the session with no
                                     lifts against it.
                                 </p>
                             )}
@@ -804,7 +899,7 @@ export default function WorkoutLogWeightsDrawer({
                                             <button
                                                 type="button"
                                                 onClick={() => restoreExercise(i)}
-                                                className="shrink-0 text-xs font-semibold text-coral-600 transition-colors hover:text-coral-700"
+                                                className="shrink-0 px-1 py-1 text-xs font-semibold text-coral-600 transition-colors hover:text-coral-700"
                                             >
                                                 Put back
                                             </button>
@@ -825,6 +920,20 @@ export default function WorkoutLogWeightsDrawer({
                             setNotes(e.target.value)
                         }}
                     />
+
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Date
+                        </label>
+                        <DatePicker
+                            value={date}
+                            maxDate={todayISO()}
+                            onChange={(v) => {
+                                markDirty()
+                                setDate(typeof v === 'string' ? v : todayISO())
+                            }}
+                        />
+                    </div>
                 </div>
             )}
         </Drawer>

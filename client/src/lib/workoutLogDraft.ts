@@ -30,6 +30,8 @@ export interface DraftExercise {
     sets: DraftSet[]
     /** Skipped in this session — kept in place so indices stay aligned. */
     removed?: boolean
+    /** When its Completed button was pressed (ms since epoch). */
+    completedAt?: number
 }
 
 export interface WorkoutLogDraft {
@@ -87,7 +89,7 @@ function readExercises(raw: unknown): DraftExercise[] | null {
     const rows: DraftExercise[] = []
     for (const e of raw) {
         if (!e || typeof e !== 'object') return null
-        const { exerciseId, name, prescription, swappedFrom, removed, phase } = e as Record<
+        const { exerciseId, name, prescription, swappedFrom, removed, phase, completedAt } = e as Record<
             string,
             unknown
         >
@@ -109,6 +111,9 @@ function readExercises(raw: unknown): DraftExercise[] | null {
                 ? { swappedFrom: { id: origin.id, name: origin.name } }
                 : {}),
             ...(removed === true ? { removed: true } : {}),
+            ...(typeof completedAt === 'number' && Number.isFinite(completedAt)
+                ? { completedAt }
+                : {}),
         })
     }
     return rows

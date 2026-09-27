@@ -5,7 +5,7 @@ import WorkoutLog, { IWorkoutLogExercise, ILoggedSet } from '../models/WorkoutLo
 import Workout from '../models/Workout'
 import Exercise from '../models/Exercise'
 import { flattenPhases, type Phased } from '../lib/phases'
-import { toMinutes } from '../lib/timeWindow'
+import { toTimestamp } from '../lib/timeWindow'
 
 /** Coerce a request value to a non-negative number, or undefined when absent/invalid. */
 function toDuration(raw: unknown): number | undefined {
@@ -56,16 +56,16 @@ function applyLoggedSets(lines: IWorkoutLogExercise[], raw: unknown): IWorkoutLo
 }
 
 /**
- * Overlay when each line was tapped done on the session clock, aligned by index
- * the same way logged sets are: entry i is the minute mark for line i, or null
- * when it wasn't tapped. Not an array (a quick "Done") leaves the lines alone.
+ * Overlay when each line was tapped completed, aligned by index the same way
+ * logged sets are: entry i is the time (ISO or ms) for line i, or null when it
+ * wasn't tapped. Not an array (a quick "Done") leaves the lines alone.
  */
-function applyDoneTimes(lines: IWorkoutLogExercise[], raw: unknown): IWorkoutLogExercise[] {
+function applyCompleted(lines: IWorkoutLogExercise[], raw: unknown): IWorkoutLogExercise[] {
     if (!Array.isArray(raw)) return lines
     return lines.map((line, i) => {
-        const { doneAtMin: _prev, ...rest } = line
-        const at = toMinutes(raw[i])
-        return at !== undefined ? { ...rest, doneAtMin: at } : rest
+        const { completedAt: _prev, ...rest } = line
+        const at = toTimestamp(raw[i])
+        return at ? { ...rest, completedAt: at } : rest
     })
 }
 
@@ -197,7 +197,7 @@ export async function createLog(req: AuthRequest, res: Response) {
         // Snapshot, then overlay swaps and sets by index, then drop the skipped
         // lines — omission comes last so every index above means the same thing.
         exercises: applyOmissions(
-            applyDoneTimes(
+            applyCompleted(
                 applyLoggedSets(
                     await applySubstitutions(
                         await snapshotExercises(src, req.userId),
@@ -206,7 +206,7 @@ export async function createLog(req: AuthRequest, res: Response) {
                     ),
                     b.loggedSets
                 ),
-                b.doneAt
+                b.completedAt
             ),
             b.omitted
         ),
@@ -246,7 +246,7 @@ export async function updateLog(req: AuthRequest, res: Response) {
 
         fields.exercises = src
             ? applyOmissions(
-                  applyDoneTimes(
+                  applyCompleted(
                       applyLoggedSets(
                           await applySubstitutions(
                               await snapshotExercises(src, req.userId),
@@ -255,7 +255,7 @@ export async function updateLog(req: AuthRequest, res: Response) {
                           ),
                           b.loggedSets
                       ),
-                      b.doneAt
+                      b.completedAt
                   ),
                   b.omitted
               )
@@ -271,7 +271,7 @@ export async function updateLog(req: AuthRequest, res: Response) {
                       ...(e.substitutedFor ? { substitutedFor: e.substitutedFor } : {}),
                       ...(e.startMin !== undefined ? { startMin: e.startMin } : {}),
                       ...(e.endMin !== undefined ? { endMin: e.endMin } : {}),
-                      ...(e.doneAtMin !== undefined ? { doneAtMin: e.doneAtMin } : {}),
+                      ...(e.completedAt ? { completedAt: e.completedAt } : {}),
                   })),
                   b.loggedSets
               )

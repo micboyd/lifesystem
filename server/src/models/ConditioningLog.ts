@@ -13,13 +13,13 @@ export interface IRoundProgress {
     target: number
 }
 
-/** One part's planned slot and when it was tapped done, snapshotted at log time. */
+/** One part's planned slot and when it was tapped completed, snapshotted at log time. */
 export interface ICheckpoint {
     name: string
     startMin?: number
     endMin?: number
-    /** Minutes on the session clock when it was tapped done; absent if it wasn't. */
-    doneAtMin?: number
+    /** When it was tapped completed; absent if it wasn't. */
+    completedAt?: Date
 }
 
 export interface IConditioningLog extends Document {
@@ -36,7 +36,7 @@ export interface IConditioningLog extends Document {
     rpe?: number
     /** Completed rounds for each counted part, if any were tracked. */
     rounds?: IRoundProgress[]
-    /** Each part's slot against when it was actually done, if the clock was run. */
+    /** Each part's slot against when it was tapped completed. */
     checkpoints?: ICheckpoint[]
     notes?: string
     createdAt: Date
@@ -57,7 +57,7 @@ const checkpointSchema = new Schema<ICheckpoint>(
         name: { type: String, required: true, trim: true },
         startMin: { type: Number, min: 0 },
         endMin: { type: Number, min: 0 },
-        doneAtMin: { type: Number, min: 0 },
+        completedAt: { type: Date },
     },
     { _id: false }
 )

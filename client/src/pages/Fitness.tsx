@@ -25,7 +25,7 @@ import FitnessExportCenter from '../components/FitnessExportCenter'
 import FitnessStats from '../components/stats/FitnessStats'
 import ConditioningSessionDetail from '../components/ConditioningSessionDetail'
 import JsonImportPanel from '../components/JsonImportPanel'
-import { SlotInputs } from '../components/SessionClock'
+import { SlotInputs } from '../components/SessionPace'
 import {
     listSessions,
     createSession,

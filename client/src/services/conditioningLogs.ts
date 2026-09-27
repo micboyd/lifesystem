@@ -13,7 +13,7 @@ export interface ConditioningLogInput {
     rpe?: number
     /** Completed rounds per counted part, if tracked. */
     rounds?: RoundProgress[]
-    /** Each part's slot and when it was tapped done on the session clock. */
+    /** Each part's slot and when it was tapped completed. */
     checkpoints?: Checkpoint[]
     notes?: string
 }

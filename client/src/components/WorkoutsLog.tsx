@@ -25,7 +25,13 @@ import {
 import type { LoggedSet, Workout, WorkoutLog, WorkoutLogExercise } from '../types'
 import { SESSION_PHASE_LABELS } from '../types'
 import { isMainWork, phaseOf } from '../lib/phases'
-import { clockLabel, slotLabel } from '../lib/sessionClock'
+import { driftLabel, driftTone, paceOf, timeOfDay, type DriftTone } from '../lib/sessionPace'
+
+const DELTA_TONE: Record<DriftTone, string> = {
+    on: 'bg-emerald-50 text-emerald-700',
+    behind: 'bg-amber-50 text-amber-700',
+    ahead: 'bg-sky-50 text-sky-700',
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -303,6 +309,9 @@ function LogRow({
     const volume = hasWeights ? logVolume(log) : 0
     // Notes make a row worth opening too — collapsed they're clamped to two lines.
     const expandable = log.exercises.length > 0 || !!log.notes
+    // When each line was completed in the gym, and how that ran against the plan.
+    const times = log.exercises.map((e) => (e.completedAt ? Date.parse(e.completedAt) : null))
+    const pace = paceOf(log.exercises, times)
     const chips = log.exercises.slice(0, CHIP_LIMIT)
     const hidden = log.exercises.length - chips.length
 
@@ -419,6 +428,17 @@ function LogRow({
 
             {open && expandable && (
                 <div className="border-t border-neutral-100 px-4 py-3">
+                    {pace.drift != null && (
+                        <p className="mb-2 text-xs text-neutral-500">
+                            Pace:{' '}
+                            <span
+                                className={`rounded-full px-2 py-0.5 font-semibold ${DELTA_TONE[driftTone(pace.drift)]}`}
+                            >
+                                {driftLabel(pace.drift)}
+                            </span>{' '}
+                            by the last completed exercise
+                        </p>
+                    )}
                     <ul className="flex flex-col gap-1.5">
                         {log.exercises.map((ex, i) => {
                             const sets = ex.loggedSets ?? []
@@ -435,19 +455,19 @@ function LogRow({
                                             {SESSION_PHASE_LABELS[phaseOf(ex)]}
                                         </span>
                                     )}
-                                    {ex.doneAtMin !== undefined && (
+                                    {times[i] != null && (
                                         <span
-                                            className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
-                                                ex.endMin !== undefined && ex.doneAtMin > ex.endMin
-                                                    ? 'bg-amber-50 text-amber-700'
-                                                    : 'bg-emerald-50 text-emerald-700'
+                                            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+                                                pace.delta[i] == null
+                                                    ? 'bg-emerald-50 text-emerald-700'
+                                                    : DELTA_TONE[driftTone(pace.delta[i]!)]
                                             }`}
-                                            title="When it was tapped done, against the planned slot"
+                                            title="When it was completed, and how it ran against the plan"
                                         >
-                                            done {clockLabel(ex.doneAtMin)}
-                                            {ex.startMin !== undefined &&
-                                                ex.endMin !== undefined &&
-                                                ` · plan ${slotLabel({ startMin: ex.startMin, endMin: ex.endMin })}`}
+                                            <i className="fa-solid fa-check text-[9px]" aria-hidden="true" />
+                                            {timeOfDay(times[i]!)}
+                                            {pace.delta[i] != null &&
+                                                ` · ${driftLabel(pace.delta[i]!).toLowerCase()}`}
                                         </span>
                                     )}
                                     {ex.substitutedFor && (

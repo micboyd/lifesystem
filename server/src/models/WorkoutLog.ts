@@ -24,8 +24,8 @@ export interface IWorkoutLogExercise {
     /** The planned slot, snapshotted from the workout (minutes into the session). */
     startMin?: number
     endMin?: number
-    /** When the line was tapped done on the session clock, in minutes. */
-    doneAtMin?: number
+    /** When the line was tapped completed in the gym. */
+    completedAt?: Date
 }
 
 /**
@@ -67,7 +67,7 @@ const workoutLogExerciseSchema = new Schema<IWorkoutLogExercise>(
         loggedSets: { type: [loggedSetSchema], default: undefined },
         startMin: { type: Number, min: 0 },
         endMin: { type: Number, min: 0 },
-        doneAtMin: { type: Number, min: 0 },
+        completedAt: { type: Date },
     },
     { _id: false }
 )

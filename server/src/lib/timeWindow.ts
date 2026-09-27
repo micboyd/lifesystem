@@ -11,6 +11,16 @@ export interface TimeWindow {
     endMin?: number
 }
 
+/**
+ * When an item was tapped completed: an ISO string or ms timestamp → Date, or
+ * undefined when it isn't a real time.
+ */
+export function toTimestamp(raw: unknown): Date | undefined {
+    if (typeof raw !== 'string' && typeof raw !== 'number') return undefined
+    const d = new Date(raw)
+    return Number.isFinite(d.getTime()) ? d : undefined
+}
+
 /** A minute mark ≥ 0, to the nearest second (so 1.5 = 1:30), else undefined. */
 export function toMinutes(raw: unknown): number | undefined {
     if (raw === undefined || raw === null || raw === '') return undefined
