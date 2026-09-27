@@ -9,7 +9,6 @@ import type {
     MacroGoals,
     Macros,
     MealPlanEntry,
-    MobilityLog,
     NutritionPhase,
     NutritionPhaseKind,
     RecoveryLog,
@@ -66,7 +65,6 @@ export interface ReportInputs {
     spend: SpendSource
     workouts: WorkoutLog[]
     conditioning: ConditioningLog[]
-    mobility: MobilityLog[]
     recovery: RecoveryLog[]
     habits: HabitDef[]
     habitLogs: HabitLog[]
@@ -291,13 +289,17 @@ function buildTraining(date: string, inputs: ReportInputs): ReportTraining {
             minutes: l.duration || null,
             detail: [l.category, l.rpe ? `RPE ${l.rpe}` : null].filter(Boolean).join(' · '),
         })),
-        ...on(inputs.mobility).map((l) => ({
-            id: l._id,
-            kind: 'mobility' as const,
-            name: l.name,
-            minutes: l.duration || null,
-            detail: 'Mobility',
-        })),
+        // Mobility keeps no records — a routine ticked off on the planner is the
+        // record of it.
+        ...on(inputs.fitnessPlan)
+            .filter((e) => e.kind === 'mobility' && e.done && e.mobility)
+            .map((e) => ({
+                id: e._id,
+                kind: 'mobility' as const,
+                name: e.mobility!.name,
+                minutes: e.mobility!.duration || null,
+                detail: 'Mobility',
+            })),
         ...on(inputs.recovery).map((l) => ({
             id: l._id,
             kind: 'recovery' as const,
@@ -311,18 +313,13 @@ function buildTraining(date: string, inputs: ReportInputs): ReportTraining {
     const logged = new Set<string>([
         ...on(inputs.workouts).map((l) => `workout:${l.workout}`),
         ...on(inputs.conditioning).map((l) => `conditioning:${l.session}`),
-        ...on(inputs.mobility).map((l) => `mobility:${l.mobility}`),
         ...on(inputs.recovery).map((l) => `recovery:${l.recovery}`),
     ])
+    // Mobility is supplementary, so skipping it is never a miss.
     const missed = on(inputs.fitnessPlan).flatMap((e) => {
+        if (e.kind === 'mobility') return []
         const item =
-            e.kind === 'workout'
-                ? e.workout
-                : e.kind === 'conditioning'
-                  ? e.session
-                  : e.kind === 'mobility'
-                    ? e.mobility
-                    : e.recovery
+            e.kind === 'workout' ? e.workout : e.kind === 'conditioning' ? e.session : e.recovery
         if (!item || logged.has(`${e.kind}:${item._id}`)) return []
         return [item.name]
     })

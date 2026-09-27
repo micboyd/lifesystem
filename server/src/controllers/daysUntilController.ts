@@ -45,9 +45,11 @@ export async function createDaysUntil(req: AuthRequest, res: Response) {
 
 export async function updateDaysUntil(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
-    if (typeof req.body.label === 'string' && req.body.label.trim()) fields.label = req.body.label.trim()
+    if (typeof req.body.label === 'string' && req.body.label.trim())
+        fields.label = req.body.label.trim()
     if (isValidDate(req.body.targetDate)) fields.targetDate = req.body.targetDate
-    if (typeof req.body.icon === 'string' && req.body.icon.trim()) fields.icon = req.body.icon.trim()
+    if (typeof req.body.icon === 'string' && req.body.icon.trim())
+        fields.icon = req.body.icon.trim()
     if (isValidColor(req.body.color)) fields.color = req.body.color
 
     const item = await DaysUntilItem.findOneAndUpdate(

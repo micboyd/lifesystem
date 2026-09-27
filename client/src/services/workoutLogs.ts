@@ -22,6 +22,11 @@ export interface WorkoutLogInput {
      */
     substitutions?: (string | null)[]
     /**
+     * When each exercise was tapped done on the session clock (minutes), aligned
+     * by index the same way; null for one that wasn't tapped.
+     */
+    doneAt?: (number | null)[]
+    /**
      * Exercises to leave out of the record — indices into the same array the
      * fields above are aligned to. A row skipped mid-session (machine taken, ran
      * out of time) is dropped from the log rather than saved empty.

@@ -93,7 +93,9 @@ export async function updateExclusionBudget(req: AuthRequest, res: Response) {
     if (req.body.dates !== undefined) {
         const dates = parseDates(req.body.dates)
         if (!dates) {
-            res.status(400).json({ message: 'dates must be a non-empty array of YYYY-MM-DD strings' })
+            res.status(400).json({
+                message: 'dates must be a non-empty array of YYYY-MM-DD strings',
+            })
             return
         }
         if (!(await allExcluded(req.userId, dates))) {

@@ -54,9 +54,11 @@ export async function createDaysSince(req: AuthRequest, res: Response) {
 
 export async function updateDaysSince(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
-    if (typeof req.body.label === 'string' && req.body.label.trim()) fields.label = req.body.label.trim()
+    if (typeof req.body.label === 'string' && req.body.label.trim())
+        fields.label = req.body.label.trim()
     if (isValidDate(req.body.startDate)) fields.startDate = req.body.startDate
-    if (typeof req.body.icon === 'string' && req.body.icon.trim()) fields.icon = req.body.icon.trim()
+    if (typeof req.body.icon === 'string' && req.body.icon.trim())
+        fields.icon = req.body.icon.trim()
     if (isValidColor(req.body.color)) fields.color = req.body.color
 
     const item = await DaysSinceItem.findOneAndUpdate(

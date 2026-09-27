@@ -55,12 +55,18 @@ export async function listTimeboxes(req: AuthRequest, res: Response) {
     const toDate = isValidDate(to) ? to : undefined
 
     // Specific-date timeboxes in range
-    const specificQuery: Record<string, unknown> = { user: req.userId, recurrence: { $exists: false } }
+    const specificQuery: Record<string, unknown> = {
+        user: req.userId,
+        recurrence: { $exists: false },
+    }
     if (fromDate && toDate) specificQuery.date = { $gte: fromDate, $lte: toDate }
     const specific = await Timebox.find(specificQuery).sort({ date: 1, startTime: 1 })
 
     // Recurring templates that started on or before `to`
-    const recurringQuery: Record<string, unknown> = { user: req.userId, 'recurrence.freq': { $exists: true } }
+    const recurringQuery: Record<string, unknown> = {
+        user: req.userId,
+        'recurrence.freq': { $exists: true },
+    }
     if (toDate) recurringQuery.date = { $lte: toDate }
     const templates = await Timebox.find(recurringQuery).sort({ startTime: 1 })
 
@@ -119,7 +125,9 @@ function validateBody(body: Record<string, unknown>): string | TimeboxFields {
     const title = typeof body.title === 'string' ? body.title.trim() : ''
     if (!title) return 'title is required'
     const notes =
-        typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim().slice(0, 2000) : undefined
+        typeof body.notes === 'string' && body.notes.trim()
+            ? body.notes.trim().slice(0, 2000)
+            : undefined
     if (!isValidTime(body.startTime) || !isValidTime(body.endTime))
         return 'startTime and endTime must be HH:MM'
     if (body.endTime <= body.startTime) return 'endTime must be after startTime'
@@ -144,7 +152,14 @@ function validateBody(body: Record<string, unknown>): string | TimeboxFields {
         const until = isValidDate(rawUntil) ? rawUntil : undefined
         recurrence = { freq, ...(days ? { days } : {}), ...(until ? { until } : {}) }
     }
-    return { title, notes, category, startTime: body.startTime as string, endTime: body.endTime as string, recurrence }
+    return {
+        title,
+        notes,
+        category,
+        startTime: body.startTime as string,
+        endTime: body.endTime as string,
+        recurrence,
+    }
 }
 
 /** True if another timebox on the same day overlaps [startTime, endTime). */
@@ -202,7 +217,13 @@ export async function updateTimebox(req: AuthRequest, res: Response) {
     }
     if (
         !fields.recurrence &&
-        (await hasOverlap(req.userId, existing.date, fields.startTime, fields.endTime, req.params.id))
+        (await hasOverlap(
+            req.userId,
+            existing.date,
+            fields.startTime,
+            fields.endTime,
+            req.params.id
+        ))
     ) {
         res.status(409).json({ message: 'That time overlaps another block' })
         return

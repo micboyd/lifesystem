@@ -4,7 +4,18 @@ import Button from './Button'
 import DatePicker from './DatePicker'
 import Textarea from './Textarea'
 import ExerciseSwapPicker from './ExerciseSwapPicker'
-import type { Exercise, LoggedSet, Workout, WorkoutExercise, WorkoutLog } from '../types'
+import { SessionClockBar, SlotTap, useSessionClock } from './SessionClock'
+import { currentIndex, type Slot } from '../lib/sessionClock'
+import { SESSION_PHASE_LABELS } from '../types'
+import type {
+    Exercise,
+    LoggedSet,
+    SessionPhase,
+    Workout,
+    WorkoutExercise,
+    WorkoutLog,
+} from '../types'
+import { flattenPhases, phaseOf } from '../lib/phases'
 import { updateLog, type WorkoutLogInput } from '../services/workoutLogs'
 import { createExercise, type ExerciseInput } from '../services/exercises'
 import { useToast } from '../context/ToastContext'
@@ -56,18 +67,20 @@ function formatPrescription(e: WorkoutExercise): string {
     return ''
 }
 
-/** Build the initial drafts for a workout: one row per resolved exercise, seeded
- *  with as many blank sets as the prescription calls for (at least one). */
+/** Build the initial drafts for a workout: one row per resolved exercise —
+ *  warm-up, main, then cool-down, the order the server snapshots the log in —
+ *  seeded with as many blank sets as the prescription calls for (at least one). */
 function seedDrafts(workout: Workout, byId: Map<string, Exercise>): ExerciseDraft[] {
-    return workout.exercises
-        .map((item) => ({ item, ex: byId.get(item.exercise) }))
-        .filter((r): r is { item: WorkoutExercise; ex: Exercise } => !!r.ex)
-        .map(({ item, ex }) => {
+    return flattenPhases(workout)
+        .map(({ phase, item }) => ({ phase, item, ex: byId.get(item.exercise) }))
+        .filter((r): r is { phase: SessionPhase; item: WorkoutExercise; ex: Exercise } => !!r.ex)
+        .map(({ phase, item, ex }) => {
             const count = Math.max(1, item.sets && item.sets > 0 ? item.sets : 1)
             const reps = seedReps(item.reps)
             return {
                 exerciseId: ex._id,
                 name: ex.name,
+                ...(phase !== 'main' ? { phase } : {}),
                 prescription: formatPrescription(item),
                 sets: Array.from({ length: count }, () => ({ weight: '', reps })),
             }
@@ -80,8 +93,13 @@ function seedDrafts(workout: Workout, byId: Map<string, Exercise>): ExerciseDraf
  * against, so editing the workout retires the draft instead of misaligning it.
  */
 function signatureOf(workout: Workout, byId: Map<string, Exercise>): string {
+    // Main lines keep their bare id so the signature reads as it always has.
     return draftSignature(
-        workout.exercises.map((item) => item.exercise).filter((id) => byId.has(id))
+        flattenPhases(workout)
+            .filter(({ item }) => byId.has(item.exercise))
+            .map(({ phase, item }) =>
+                phase === 'main' ? item.exercise : `${phase}:${item.exercise}`
+            )
     )
 }
 
@@ -158,6 +176,25 @@ export default function WorkoutLogWeightsDrawer({
 
     const signature = useMemo(() => (view ? signatureOf(view, byId) : ''), [view, byId])
 
+    // Each row's planned slot, aligned to the rows the same way the draft is:
+    // the workout's resolved lines, warm-up to cool-down.
+    const slots: Slot[] = useMemo(
+        () =>
+            view
+                ? flattenPhases(view)
+                      .filter(({ item }) => byId.has(item.exercise))
+                      .map(({ item }) => ({ startMin: item.startMin, endMin: item.endMin }))
+                : [],
+        [view, byId]
+    )
+    const clock = useSessionClock(view ? `workout:${view._id}` : null)
+    // Skipped rows aren't being done, so the clock shouldn't wait on them.
+    const liveSlots = useMemo(
+        () => slots.map((s, i) => (drafts[i]?.removed ? {} : s)),
+        [slots, drafts]
+    )
+    const nowIndex = currentIndex(liveSlots, clock.state)
+
     useEffect(() => {
         if (!workout) return
         const seeded = seedDrafts(workout, byId)
@@ -207,6 +244,7 @@ export default function WorkoutLogWeightsDrawer({
     function discardDraft() {
         if (!view) return
         clearDraft(view._id)
+        clock.reset()
         setDrafts(seedDrafts(view, byId))
         setDate(defaultDate ?? todayISO())
         setNotes('')
@@ -251,6 +289,18 @@ export default function WorkoutLogWeightsDrawer({
         () => drafts.filter((d) => !d.removed).map((d) => d.exerciseId),
         [drafts]
     )
+
+    // Phase headings only earn their place once a warm-up or cool-down is in play.
+    const phased = drafts.some((d) => phaseOf(d) !== 'main')
+    /** Whether row `i` is the first visible row of its phase. */
+    function phaseStarts(i: number): boolean {
+        const phase = phaseOf(drafts[i])
+        for (let j = i - 1; j >= 0; j--) {
+            if (drafts[j].removed) continue
+            return phaseOf(drafts[j]) !== phase
+        }
+        return true
+    }
 
     /** Rows skipped today, with the index each one sits at. */
     const skipped = useMemo(
@@ -410,6 +460,8 @@ export default function WorkoutLogWeightsDrawer({
             loggedSets,
             ...(swapped ? { substitutions } : {}),
             ...(omitted.length ? { omitted } : {}),
+            // When each row was tapped done, if the session was run to the clock.
+            ...(clock.running ? { doneAt: clock.marks(drafts.length) } : {}),
         }
 
         setSaving(close ? 'close' : 'save')
@@ -448,6 +500,7 @@ export default function WorkoutLogWeightsDrawer({
             if (close) {
                 // It's history now, so the in-progress copy has done its job.
                 clearDraft(view._id)
+                clock.reset()
                 onClose()
             }
         } catch {
@@ -544,6 +597,12 @@ export default function WorkoutLogWeightsDrawer({
                         </div>
                     )}
 
+                    <SessionClockBar
+                        clock={clock}
+                        slots={liveSlots}
+                        names={drafts.map((d) => d.name)}
+                    />
+
                     <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                             Date
@@ -567,6 +626,11 @@ export default function WorkoutLogWeightsDrawer({
                             {drafts.map((ex, ei) =>
                                 ex.removed ? null : (
                                     <section key={ei} className="flex flex-col gap-2">
+                                        {phased && phaseStarts(ei) && (
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                                {SESSION_PHASE_LABELS[phaseOf(ex)]}
+                                            </p>
+                                        )}
                                         <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
                                             <p className="min-w-0 font-semibold text-neutral-900">
                                                 {ex.name}
@@ -607,6 +671,21 @@ export default function WorkoutLogWeightsDrawer({
                                                 </button>
                                             </div>
                                         </div>
+
+                                        {slots[ei] && (
+                                            <div className="-mt-0.5 flex justify-end">
+                                                <SlotTap
+                                                    slot={slots[ei]}
+                                                    doneAt={clock.state.doneAt[ei]}
+                                                    current={clock.running && ei === nowIndex}
+                                                    running={clock.running}
+                                                    onToggle={() => {
+                                                        markDirty()
+                                                        clock.toggle(ei)
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
 
                                         {ex.swappedFrom && (
                                             <p className="-mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-400">

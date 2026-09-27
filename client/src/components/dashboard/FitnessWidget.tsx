@@ -57,8 +57,8 @@ function PlanRow({ entry }: { entry: FitnessPlanEntry }) {
                 <p className="truncate text-sm font-semibold text-neutral-900">{planName(entry)}</p>
                 {entry.kind === 'workout' && entry.workout ? (
                     <p className="text-xs tabular-nums text-neutral-400">
-                        {entry.workout.exercises.length}{' '}
-                        {entry.workout.exercises.length === 1 ? 'exercise' : 'exercises'}
+                        {entry.workout.main.length}{' '}
+                        {entry.workout.main.length === 1 ? 'exercise' : 'exercises'}
                     </p>
                 ) : entry.kind === 'conditioning' && entry.session ? (
                     <div className="mt-0.5 flex items-center gap-1.5">

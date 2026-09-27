@@ -29,7 +29,9 @@ import type {
     ConditioningSession,
     ConditioningCategory,
     RoundProgress,
+    Checkpoint,
 } from '../types'
+import { allInPhases } from '../lib/phases'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -468,7 +470,7 @@ function LogViewDrawer({
     const counts = useMemo(() => {
         const out: Record<number, number> = {}
         if (!source || !view?.rounds) return out
-        source.parts.forEach((part, i) => {
+        allInPhases(source).forEach((part, i) => {
             const hit = view.rounds!.find((r) => r.name === part.name)
             if (hit) out[i] = hit.done
         })
@@ -524,7 +526,12 @@ function LogViewDrawer({
                     </div>
 
                     {source ? (
-                        <ConditioningSessionDetail session={source} counts={counts} readOnly />
+                        <ConditioningSessionDetail
+                            session={source}
+                            counts={counts}
+                            doneAt={checkpointMarks(source, view.checkpoints)}
+                            readOnly
+                        />
                     ) : (
                         <div className="flex flex-col gap-4">
                             <div className="flex flex-wrap items-center gap-3">
@@ -727,4 +734,22 @@ function LogFormDrawer({
             </div>
         </Drawer>
     )
+}
+
+/**
+ * When each of the session's parts was tapped done, by part index — read from
+ * the log's snapshot, keeping only entries whose part still sits at the same
+ * place under the same name (the session may have been edited since).
+ */
+function checkpointMarks(
+    session: ConditioningSession,
+    checkpoints: Checkpoint[] | undefined
+): Record<number, number> | undefined {
+    if (!checkpoints?.length) return undefined
+    const parts = allInPhases(session)
+    const out: Record<number, number> = {}
+    checkpoints.forEach((c, i) => {
+        if (c.doneAtMin !== undefined && parts[i]?.name === c.name) out[i] = c.doneAtMin
+    })
+    return out
 }

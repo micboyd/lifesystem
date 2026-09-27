@@ -1,5 +1,6 @@
 import { daysBetween } from './weightTrend'
 import type { WorkoutLog } from '../types'
+import { isMainWork } from './phases'
 
 /**
  * Is the training holding up while the weight comes off?
@@ -54,7 +55,11 @@ export const KEY_LIFTS = [
     { key: 'squat', label: 'Squat', pattern: /\bsquat\b/i },
     { key: 'bench', label: 'Bench press', pattern: /\bbench\b/i },
     { key: 'deadlift', label: 'Deadlift', pattern: /\b(dead ?lift|trap ?bar)\b/i },
-    { key: 'overhead', label: 'Overhead press', pattern: /\b(overhead|shoulder|military)\s*press\b/i },
+    {
+        key: 'overhead',
+        label: 'Overhead press',
+        pattern: /\b(overhead|shoulder|military)\s*press\b/i,
+    },
     { key: 'row', label: 'Row', pattern: /\brow\b/i },
 ] as const
 
@@ -90,7 +95,8 @@ export function sessionBests(logs: WorkoutLog[]): SessionBest[] {
     const byKey = new Map<string, SessionBest>()
 
     for (const log of logs) {
-        for (const exercise of log.exercises ?? []) {
+        // Warm-up and cool-down lines aren't working sets, so they never count here.
+        for (const exercise of (log.exercises ?? []).filter(isMainWork)) {
             const lift = liftFor(exercise.name)
             if (!lift) continue
 
@@ -199,8 +205,7 @@ export function liftTrend(
         return base
     }
 
-    const mean = (xs: SessionBest[]) =>
-        xs.reduce((sum, b) => sum + b.estimatedMaxKg, 0) / xs.length
+    const mean = (xs: SessionBest[]) => xs.reduce((sum, b) => sum + b.estimatedMaxKg, 0) / xs.length
     const recentKg = mean(recent)
     const previousKg = mean(previous)
     if (previousKg <= 0) return base

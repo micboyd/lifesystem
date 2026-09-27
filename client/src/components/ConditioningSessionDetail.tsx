@@ -1,5 +1,9 @@
 import RoundCounter from './RoundCounter'
+import { SessionClockBar, SlotTap, type SessionClock } from './SessionClock'
+import { currentIndex } from '../lib/sessionClock'
+import { SESSION_PHASES, SESSION_PHASE_LABELS } from '../types'
 import type { ConditioningSession, ConditioningCategory } from '../types'
+import { flattenPhases } from '../lib/phases'
 
 const CATEGORY_META: Record<ConditioningCategory, string> = {
     HIIT: 'bg-rose-50 text-rose-700 ring-rose-600/20',
@@ -20,26 +24,50 @@ function CategoryChip({ category }: { category: ConditioningCategory }) {
 }
 
 /**
- * The read-only body of a conditioning session — category, purpose, ordered
- * parts (each with its tap-to-count rep counter) and how-to-use. Shared by the
+ * The read-only body of a conditioning session — category, purpose, its
+ * warm-up, main session and cool-down parts (each with its tap-to-count rep
+ * counter) and how-to-use. `counts` are keyed by a part's position across all
+ * three phases in order. Shared by the
  * Session Library view drawer, the weekly planner's detail drawer and the
  * Sessions log recap so all three render identically. The parent owns the
  * per-part `counts` so completed reps can be persisted when a planned session is
  * marked done; in `readOnly` mode the counts are a recap and the tap controls go.
+ *
+ * With a `clock`, the session runs to time: each part shows its planned slot and
+ * is tapped done as you finish it. `doneAt` (a recap) shows when each part was.
  */
 export default function ConditioningSessionDetail({
     session,
     counts = {},
     onCount,
     readOnly = false,
+    clock,
+    doneAt,
 }: {
     session: ConditioningSession
     counts?: Record<number, number>
     onCount?: (index: number, next: number) => void
     readOnly?: boolean
+    /** Run the session to the clock — keyed by the same part index as `counts`. */
+    clock?: SessionClock
+    /** Recap: the minute mark each part was tapped done at, by part index. */
+    doneAt?: Record<number, number>
 }) {
+    // Counts are keyed by position across all three phases, warm-up first.
+    const indexed = flattenPhases(session).map((r, index) => ({ ...r, index }))
+    const slots = indexed.map(({ item }) => ({ startMin: item.startMin, endMin: item.endMin }))
+    const live = !!clock && !readOnly
+    const nowIndex = live ? currentIndex(slots, clock.state) : -1
     return (
         <div className="flex flex-col gap-6">
+            {live && (
+                <SessionClockBar
+                    clock={clock}
+                    slots={slots}
+                    names={indexed.map(({ item }) => item.name)}
+                />
+            )}
+
             <div className="flex flex-wrap items-center gap-3">
                 <CategoryChip category={session.category} />
                 <span className="text-sm text-neutral-500">{session.duration} min</span>
@@ -54,42 +82,62 @@ export default function ConditioningSessionDetail({
                 </section>
             )}
 
-            {session.parts.length > 0 && (
-                <section>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                        Session parts
-                    </p>
-                    <ol className="flex flex-col gap-3">
-                        {session.parts.map((part, i) => (
-                            <li key={i} className="flex gap-3 text-sm">
-                                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
-                                    {i + 1}
-                                </span>
-                                <div className="min-w-0 flex-1 pt-0.5">
-                                    <p className="font-semibold text-neutral-900">{part.name}</p>
-                                    {part.detail && (
-                                        <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
-                                            {part.detail}
-                                        </p>
-                                    )}
-                                    {!!part.rounds && (
-                                        <RoundCounter
-                                            target={part.rounds}
-                                            label={part.roundLabel}
-                                            details={part.roundDetails}
-                                            seconds={part.roundSeconds}
-                                            startAtSec={part.startAtSec}
-                                            done={counts[i] ?? 0}
-                                            onChange={(next) => onCount?.(i, next)}
-                                            readOnly={readOnly}
-                                        />
-                                    )}
-                                </div>
-                            </li>
-                        ))}
-                    </ol>
-                </section>
-            )}
+            {SESSION_PHASES.map((phase) => {
+                const rows = indexed.filter((r) => r.phase === phase)
+                if (rows.length === 0) return null
+                return (
+                    <section key={phase}>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            {SESSION_PHASE_LABELS[phase]}
+                        </p>
+                        <ol className="flex flex-col gap-3">
+                            {rows.map(({ item: part, index: i }, n) => (
+                                <li key={i} className="flex gap-3 text-sm">
+                                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
+                                        {n + 1}
+                                    </span>
+                                    <div className="min-w-0 flex-1 pt-0.5">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <p className="font-semibold text-neutral-900">
+                                                {part.name}
+                                            </p>
+                                            <SlotTap
+                                                slot={slots[i]}
+                                                doneAt={live ? clock.state.doneAt[i] : doneAt?.[i]}
+                                                current={live && clock.running && i === nowIndex}
+                                                running={live && clock.running}
+                                                onToggle={() => clock?.toggle(i)}
+                                            />
+                                        </div>
+                                        {part.detail && (
+                                            <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
+                                                {part.detail}
+                                            </p>
+                                        )}
+                                        {!!part.rounds && (
+                                            <RoundCounter
+                                                target={part.rounds}
+                                                label={part.roundLabel}
+                                                details={part.roundDetails}
+                                                seconds={part.roundSeconds}
+                                                startAtSec={
+                                                    part.startAtSec ??
+                                                    (part.startMin !== undefined
+                                                        ? part.startMin * 60
+                                                        : undefined)
+                                                }
+                                                done={counts[i] ?? 0}
+                                                onChange={(next) => onCount?.(i, next)}
+                                                readOnly={readOnly}
+                                            />
+                                        )}
+                                    </div>
+                                </li>
+                            ))}
+                        </ol>
+                    </section>
+                )
+            })}
 
             {session.howToUse && (
                 <section>

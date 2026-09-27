@@ -11,6 +11,8 @@
  * business in the log list, in volume totals or in trends until you save it.
  */
 
+import { SESSION_PHASES, type SessionPhase } from '../types'
+
 /** A set as typed — strings, so a half-entered row survives a reload. */
 export interface DraftSet {
     weight: string
@@ -21,6 +23,8 @@ export interface DraftSet {
 export interface DraftExercise {
     exerciseId: string
     name: string
+    /** The workout phase the row belongs to. Absent means main. */
+    phase?: SessionPhase
     swappedFrom?: { id: string; name: string }
     prescription: string
     sets: DraftSet[]
@@ -83,7 +87,7 @@ function readExercises(raw: unknown): DraftExercise[] | null {
     const rows: DraftExercise[] = []
     for (const e of raw) {
         if (!e || typeof e !== 'object') return null
-        const { exerciseId, name, prescription, swappedFrom, removed } = e as Record<
+        const { exerciseId, name, prescription, swappedFrom, removed, phase } = e as Record<
             string,
             unknown
         >
@@ -98,6 +102,9 @@ function readExercises(raw: unknown): DraftExercise[] | null {
             name,
             prescription: typeof prescription === 'string' ? prescription : '',
             sets,
+            ...(phase !== 'main' && (SESSION_PHASES as readonly unknown[]).includes(phase)
+                ? { phase: phase as SessionPhase }
+                : {}),
             ...(origin && typeof origin.id === 'string' && typeof origin.name === 'string'
                 ? { swappedFrom: { id: origin.id, name: origin.name } }
                 : {}),

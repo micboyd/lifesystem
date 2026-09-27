@@ -1,7 +1,13 @@
 import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
-import Goal, { GOAL_STATUSES, GoalStatus, PROGRESS_MODES, ProgressMode, IGoal } from '../models/Goal'
+import Goal, {
+    GOAL_STATUSES,
+    GoalStatus,
+    PROGRESS_MODES,
+    ProgressMode,
+    IGoal,
+} from '../models/Goal'
 import HabitLog from '../models/HabitLog'
 import { daysBetween } from '../lib/dates'
 
@@ -60,7 +66,10 @@ async function computeDerived(goal: IGoal, userId: string): Promise<DerivedProgr
     const end = goal.targetDate && goal.targetDate >= start ? goal.targetDate : today
     // Inclusive day counts.
     const windowDays = Math.max(1, daysBetween(start, end) + 1)
-    const elapsedDays = Math.max(0, Math.min(daysBetween(start, today), daysBetween(start, end)) + 1)
+    const elapsedDays = Math.max(
+        0,
+        Math.min(daysBetween(start, today), daysBetween(start, end)) + 1
+    )
     const countTo = end < today ? end : today
 
     const logs = await HabitLog.find({
@@ -104,13 +113,20 @@ export async function listGoals(req: AuthRequest, res: Response) {
 
 export async function createGoal(req: AuthRequest, res: Response) {
     const title = typeof req.body.title === 'string' ? req.body.title.trim() : ''
-    if (!title) { res.status(400).json({ message: 'title is required' }); return }
+    if (!title) {
+        res.status(400).json({ message: 'title is required' })
+        return
+    }
     const goal = await Goal.create({
         user: req.userId,
         title,
-        description: typeof req.body.description === 'string' ? req.body.description.trim() : undefined,
+        description:
+            typeof req.body.description === 'string' ? req.body.description.trim() : undefined,
         targetDate: typeof req.body.targetDate === 'string' ? req.body.targetDate : undefined,
-        progress: typeof req.body.progress === 'number' ? Math.min(100, Math.max(0, req.body.progress)) : 0,
+        progress:
+            typeof req.body.progress === 'number'
+                ? Math.min(100, Math.max(0, req.body.progress))
+                : 0,
         status: isStatus(req.body.status) ? req.body.status : 'active',
         progressMode: isMode(req.body.progressMode) ? req.body.progressMode : 'manual',
         linkedHabits: parseHabitIds(req.body.linkedHabits),
@@ -121,15 +137,20 @@ export async function createGoal(req: AuthRequest, res: Response) {
 
 export async function updateGoal(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
-    if (typeof req.body.title === 'string' && req.body.title.trim()) fields.title = req.body.title.trim()
-    if (typeof req.body.description === 'string') fields.description = req.body.description.trim() || undefined
+    if (typeof req.body.title === 'string' && req.body.title.trim())
+        fields.title = req.body.title.trim()
+    if (typeof req.body.description === 'string')
+        fields.description = req.body.description.trim() || undefined
     if (req.body.description === null) fields.description = undefined
-    if (typeof req.body.targetDate === 'string') fields.targetDate = req.body.targetDate || undefined
+    if (typeof req.body.targetDate === 'string')
+        fields.targetDate = req.body.targetDate || undefined
     if (req.body.targetDate === null) fields.targetDate = undefined
-    if (typeof req.body.progress === 'number') fields.progress = Math.min(100, Math.max(0, req.body.progress))
+    if (typeof req.body.progress === 'number')
+        fields.progress = Math.min(100, Math.max(0, req.body.progress))
     if (isStatus(req.body.status)) fields.status = req.body.status
     if (isMode(req.body.progressMode)) fields.progressMode = req.body.progressMode
-    if (Array.isArray(req.body.linkedHabits)) fields.linkedHabits = parseHabitIds(req.body.linkedHabits)
+    if (Array.isArray(req.body.linkedHabits))
+        fields.linkedHabits = parseHabitIds(req.body.linkedHabits)
     if (isDateKey(req.body.startDate)) fields.startDate = req.body.startDate
     if (req.body.startDate === null || req.body.startDate === '') fields.startDate = undefined
 
@@ -138,13 +159,19 @@ export async function updateGoal(req: AuthRequest, res: Response) {
         { $set: fields },
         { new: true }
     )
-    if (!goal) { res.status(404).json({ message: 'Goal not found' }); return }
+    if (!goal) {
+        res.status(404).json({ message: 'Goal not found' })
+        return
+    }
     res.json({ message: 'Saved', data: await serialize(goal, req.userId!) })
 }
 
 export async function deleteGoal(req: AuthRequest, res: Response) {
     const goal = await Goal.findOneAndDelete({ _id: req.params.id, user: req.userId })
-    if (!goal) { res.status(404).json({ message: 'Goal not found' }); return }
+    if (!goal) {
+        res.status(404).json({ message: 'Goal not found' })
+        return
+    }
     res.json({ message: 'Deleted', data: null })
 }
 
@@ -152,9 +179,15 @@ export async function deleteGoal(req: AuthRequest, res: Response) {
 
 export async function addMilestone(req: AuthRequest, res: Response) {
     const title = typeof req.body.title === 'string' ? req.body.title.trim() : ''
-    if (!title) { res.status(400).json({ message: 'title is required' }); return }
+    if (!title) {
+        res.status(400).json({ message: 'title is required' })
+        return
+    }
     const goal = await Goal.findOne({ _id: req.params.id, user: req.userId })
-    if (!goal) { res.status(404).json({ message: 'Goal not found' }); return }
+    if (!goal) {
+        res.status(404).json({ message: 'Goal not found' })
+        return
+    }
     const order = goal.milestones.length
     goal.milestones.push({ title, completed: false, order } as never)
     await goal.save()
@@ -163,14 +196,25 @@ export async function addMilestone(req: AuthRequest, res: Response) {
 
 export async function updateMilestone(req: AuthRequest, res: Response) {
     const goal = await Goal.findOne({ _id: req.params.id, user: req.userId })
-    if (!goal) { res.status(404).json({ message: 'Goal not found' }); return }
+    if (!goal) {
+        res.status(404).json({ message: 'Goal not found' })
+        return
+    }
     const ms = goal.milestones.find((m) => m._id.toString() === req.params.milestoneId)
-    if (!ms) { res.status(404).json({ message: 'Milestone not found' }); return }
-    if (typeof req.body.title === 'string' && req.body.title.trim()) ms.title = req.body.title.trim()
+    if (!ms) {
+        res.status(404).json({ message: 'Milestone not found' })
+        return
+    }
+    if (typeof req.body.title === 'string' && req.body.title.trim())
+        ms.title = req.body.title.trim()
     if (typeof req.body.completed === 'boolean') ms.completed = req.body.completed
     // If all milestones are now complete, snap manual progress to 100.
     // ('auto' goals derive progress from habits, so leave it alone.)
-    if (goal.progressMode === 'manual' && goal.milestones.length > 0 && goal.milestones.every((m) => m.completed)) {
+    if (
+        goal.progressMode === 'manual' &&
+        goal.milestones.length > 0 &&
+        goal.milestones.every((m) => m.completed)
+    ) {
         goal.progress = 100
     }
     await goal.save()
@@ -179,7 +223,10 @@ export async function updateMilestone(req: AuthRequest, res: Response) {
 
 export async function deleteMilestone(req: AuthRequest, res: Response) {
     const goal = await Goal.findOne({ _id: req.params.id, user: req.userId })
-    if (!goal) { res.status(404).json({ message: 'Goal not found' }); return }
+    if (!goal) {
+        res.status(404).json({ message: 'Goal not found' })
+        return
+    }
     goal.milestones = goal.milestones.filter(
         (m) => m._id.toString() !== req.params.milestoneId
     ) as never

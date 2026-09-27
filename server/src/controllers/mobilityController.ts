@@ -11,7 +11,12 @@ export const undoImport = makeUndoImportHandler(Mobility)
 
 /** Coerce a request value to a non-negative number, or a fallback if invalid. */
 function toAmount(raw: unknown, fallback = 0): number {
-    const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN
+    const n =
+        typeof raw === 'number'
+            ? raw
+            : typeof raw === 'string' && raw.trim() !== ''
+              ? Number(raw)
+              : NaN
     return Number.isFinite(n) && n >= 0 ? n : fallback
 }
 
@@ -51,9 +56,13 @@ export async function createMobility(req: AuthRequest, res: Response) {
         user: req.userId,
         name,
         duration: toAmount(req.body.duration),
-        purpose: typeof req.body.purpose === 'string' ? req.body.purpose.trim() || undefined : undefined,
+        purpose:
+            typeof req.body.purpose === 'string' ? req.body.purpose.trim() || undefined : undefined,
         parts: toParts(req.body.parts),
-        howToUse: typeof req.body.howToUse === 'string' ? req.body.howToUse.trim() || undefined : undefined,
+        howToUse:
+            typeof req.body.howToUse === 'string'
+                ? req.body.howToUse.trim() || undefined
+                : undefined,
         order,
     })
     res.status(201).json({ message: 'Created', data: item })
@@ -96,7 +105,8 @@ export async function importMobility(req: AuthRequest, res: Response) {
 
     if (!rawList) {
         res.status(400).json({
-            message: 'Expected a JSON array of mobility routines, or an object with a "mobility" array.',
+            message:
+                'Expected a JSON array of mobility routines, or an object with a "mobility" array.',
         })
         return
     }
@@ -121,9 +131,11 @@ export async function importMobility(req: AuthRequest, res: Response) {
             user: req.userId,
             name,
             duration: toAmount(item.duration),
-            purpose: typeof item.purpose === 'string' ? item.purpose.trim() || undefined : undefined,
+            purpose:
+                typeof item.purpose === 'string' ? item.purpose.trim() || undefined : undefined,
             parts: toParts(item.parts),
-            howToUse: typeof item.howToUse === 'string' ? item.howToUse.trim() || undefined : undefined,
+            howToUse:
+                typeof item.howToUse === 'string' ? item.howToUse.trim() || undefined : undefined,
         }
     })
 

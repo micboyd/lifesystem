@@ -27,7 +27,9 @@ function toTypes(raw: unknown): MealType[] {
 }
 
 /** A meal from a request body, or an error message. */
-function readMeal(body: unknown): { name: string; types: MealType[]; macros: IMacros; notes?: string } | string {
+function readMeal(
+    body: unknown
+): { name: string; types: MealType[]; macros: IMacros; notes?: string } | string {
     const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>
     const name = typeof b.name === 'string' ? b.name.trim() : ''
     if (!name) return 'A meal needs a name'
@@ -67,7 +69,9 @@ export async function updateMeal(req: AuthRequest, res: Response) {
         res.status(400).json({ message: fields })
         return
     }
-    const meal = await Meal.findOneAndUpdate({ _id: req.params.id, user: req.userId }, fields, { new: true })
+    const meal = await Meal.findOneAndUpdate({ _id: req.params.id, user: req.userId }, fields, {
+        new: true,
+    })
     if (!meal) {
         res.status(404).json({ message: 'Meal not found' })
         return
@@ -81,7 +85,12 @@ export async function updateMeal(req: AuthRequest, res: Response) {
 
 /** Whether a raw value reads as a number of 0 or more. */
 function isAmount(raw: unknown): boolean {
-    const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN
+    const n =
+        typeof raw === 'number'
+            ? raw
+            : typeof raw === 'string' && raw.trim() !== ''
+              ? Number(raw)
+              : NaN
     return Number.isFinite(n) && n >= 0
 }
 
@@ -97,7 +106,9 @@ export async function importMeals(req: AuthRequest, res: Response) {
     const list = extractList(body, 'meals')
     const overwrite = extractOverwrite(body)
     if (!list) {
-        res.status(400).json({ message: 'Expected a JSON array of meals, or an object with a "meals" array.' })
+        res.status(400).json({
+            message: 'Expected a JSON array of meals, or an object with a "meals" array.',
+        })
         return
     }
     if (list.length === 0) {
@@ -113,19 +124,25 @@ export async function importMeals(req: AuthRequest, res: Response) {
             return null
         }
         const item = raw as Record<string, unknown>
-        const named = typeof item.name === 'string' && item.name.trim() ? `"${item.name.trim()}"` : label
+        const named =
+            typeof item.name === 'string' && item.name.trim() ? `"${item.name.trim()}"` : label
         if (item.types !== undefined) {
             const bad = Array.isArray(item.types)
                 ? item.types.filter((t) => !MEAL_TYPES.includes(t as MealType))
                 : [item.types]
-            if (bad.length) errors.push(`${named}: types must be from ${MEAL_TYPES.join(', ')} (got ${bad.map((b) => JSON.stringify(b)).join(', ')})`)
+            if (bad.length)
+                errors.push(
+                    `${named}: types must be from ${MEAL_TYPES.join(', ')} (got ${bad.map((b) => JSON.stringify(b)).join(', ')})`
+                )
         }
         if (item.macros !== undefined) {
-            if (!item.macros || typeof item.macros !== 'object') errors.push(`${named}: macros must be an object`)
+            if (!item.macros || typeof item.macros !== 'object')
+                errors.push(`${named}: macros must be an object`)
             else
                 for (const k of ['calories', 'protein', 'carbs', 'fat']) {
                     const v = (item.macros as Record<string, unknown>)[k]
-                    if (v !== undefined && !isAmount(v)) errors.push(`${named}: macros.${k} must be a number of 0 or more`)
+                    if (v !== undefined && !isAmount(v))
+                        errors.push(`${named}: macros.${k} must be a number of 0 or more`)
                 }
         }
         const fields = readMeal(raw)
@@ -148,7 +165,9 @@ export async function importMeals(req: AuthRequest, res: Response) {
     for (const fields of meals) {
         const targetId = overwrite.get(nameKey(fields!.name))
         if (targetId) {
-            const meal = await Meal.findOneAndUpdate({ _id: targetId, user: req.userId }, fields!, { new: true })
+            const meal = await Meal.findOneAndUpdate({ _id: targetId, user: req.userId }, fields!, {
+                new: true,
+            })
             if (meal) {
                 await MealPlanEntry.updateMany(
                     { user: req.userId, meal: meal._id, status: 'planned' },
@@ -158,10 +177,19 @@ export async function importMeals(req: AuthRequest, res: Response) {
                 continue
             }
         }
-        toInsert.push({ user: new Types.ObjectId(req.userId), ...fields!, order: order++, importBatch })
+        toInsert.push({
+            user: new Types.ObjectId(req.userId),
+            ...fields!,
+            order: order++,
+            importBatch,
+        })
     }
     const created = await Meal.insertMany(toInsert)
-    res.status(201).json({ message: `Imported ${created.length} meal(s), updated ${updated}`, data: created, updated })
+    res.status(201).json({
+        message: `Imported ${created.length} meal(s), updated ${updated}`,
+        data: created,
+        updated,
+    })
 }
 
 /** GET /api/meals/import/last — the most recent import batch, or null. */
@@ -177,7 +205,9 @@ export async function undoImport(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'No import to undo.' })
         return
     }
-    const ids = (await Meal.find({ user: req.userId, importBatch: summary.batch }).select('_id')).map((m) => m._id)
+    const ids = (
+        await Meal.find({ user: req.userId, importBatch: summary.batch }).select('_id')
+    ).map((m) => m._id)
     await MealPlanEntry.deleteMany({ user: req.userId, meal: { $in: ids }, status: 'planned' })
     await Meal.deleteMany({ user: req.userId, importBatch: summary.batch })
     res.json({ message: `Reverted ${summary.count} meal(s).`, data: summary })

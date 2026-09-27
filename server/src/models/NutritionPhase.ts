@@ -99,12 +99,7 @@ export interface IPhaseAdjustment {
  * recomposition and a plain cut are both `kind: 'cut'` and want very different
  * things said about a flat scale.
  */
-export const GOAL_MODES = [
-    'weight-loss',
-    'recomposition',
-    'maintenance',
-    'weight-gain',
-] as const
+export const GOAL_MODES = ['weight-loss', 'recomposition', 'maintenance', 'weight-gain'] as const
 export type GoalMode = (typeof GOAL_MODES)[number]
 
 /**

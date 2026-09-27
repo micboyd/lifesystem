@@ -1,6 +1,7 @@
 import { tokenise } from './exerciseSwap'
 import { estimatedMax, MEANINGFUL_CHANGE_PCT, type PerformanceStatus } from './strengthTrend'
 import type { LoggedSet, WorkoutLog } from '../types'
+import { isMainWork } from './phases'
 
 /**
  * Progression for one exercise, read out of the workout logs.
@@ -56,7 +57,8 @@ export function trackedExercises(logs: WorkoutLog[]): TrackedExercise[] {
     const byKey = new Map<string, TrackedExercise & { dates: Set<string> }>()
 
     for (const log of logs) {
-        for (const exercise of log.exercises ?? []) {
+        // Warm-up and cool-down lines aren't working sets, so they never count here.
+        for (const exercise of (log.exercises ?? []).filter(isMainWork)) {
             const working = (exercise.loggedSets ?? []).filter(isWorkingSet)
             if (working.length === 0) continue
 
@@ -94,12 +96,7 @@ export function trackedExercises(logs: WorkoutLog[]): TrackedExercise[] {
 
 /** A set only counts towards progression when both halves of it were recorded. */
 function isWorkingSet(set: LoggedSet): boolean {
-    return (
-        set.weight !== undefined &&
-        set.weight > 0 &&
-        set.reps !== undefined &&
-        set.reps > 0
-    )
+    return set.weight !== undefined && set.weight > 0 && set.reps !== undefined && set.reps > 0
 }
 
 /** One day of one exercise, however many logs and sets that took. */
@@ -130,7 +127,8 @@ export function exerciseHistory(logs: WorkoutLog[], key: string): ExerciseSessio
     const byDate = new Map<string, ExerciseSession>()
 
     for (const log of logs) {
-        for (const exercise of log.exercises ?? []) {
+        // Warm-up and cool-down lines aren't working sets, so they never count here.
+        for (const exercise of (log.exercises ?? []).filter(isMainWork)) {
             if (exerciseKey(exercise.name) !== key) continue
 
             const day: ExerciseSession = byDate.get(log.date) ?? {
@@ -184,27 +182,31 @@ function beatsTopSet(set: LoggedSet, best: LoggedSet): boolean {
 /** What the progression chart is plotting. */
 export type ProgressMetric = 'e1rm' | 'weight' | 'volume'
 
-export const PROGRESS_METRICS: { value: ProgressMetric; label: string; unit: string; hint: string }[] =
-    [
-        {
-            value: 'e1rm',
-            label: 'Est. 1RM',
-            unit: 'kg',
-            hint: 'Weight and reps rolled into one number — the fairest like-for-like across rep ranges.',
-        },
-        {
-            value: 'weight',
-            label: 'Top set',
-            unit: 'kg',
-            hint: 'The heaviest weight you actually put on the bar that day.',
-        },
-        {
-            value: 'volume',
-            label: 'Volume',
-            unit: 'kg',
-            hint: 'Every set added up (weight × reps) — total work done, not peak strength.',
-        },
-    ]
+export const PROGRESS_METRICS: {
+    value: ProgressMetric
+    label: string
+    unit: string
+    hint: string
+}[] = [
+    {
+        value: 'e1rm',
+        label: 'Est. 1RM',
+        unit: 'kg',
+        hint: 'Weight and reps rolled into one number — the fairest like-for-like across rep ranges.',
+    },
+    {
+        value: 'weight',
+        label: 'Top set',
+        unit: 'kg',
+        hint: 'The heaviest weight you actually put on the bar that day.',
+    },
+    {
+        value: 'volume',
+        label: 'Volume',
+        unit: 'kg',
+        hint: 'Every set added up (weight × reps) — total work done, not peak strength.',
+    },
+]
 
 /** One session's value for a metric, or null when the day can't supply it. */
 export function metricValue(session: ExerciseSession, metric: ProgressMetric): number | null {
@@ -220,10 +222,7 @@ export interface MetricPoint {
 }
 
 /** The plottable points of a history for one metric, oldest first. */
-export function metricSeries(
-    sessions: ExerciseSession[],
-    metric: ProgressMetric
-): MetricPoint[] {
+export function metricSeries(sessions: ExerciseSession[], metric: ProgressMetric): MetricPoint[] {
     return sessions
         .map((s) => ({ date: s.date, value: metricValue(s, metric) }))
         .filter((p): p is MetricPoint => p.value !== null)
@@ -330,7 +329,10 @@ export function exerciseRecords(sessions: ExerciseSession[]): ExerciseRecords {
             }
         }
 
-        if (session.volumeKg > 0 && (!records.bestVolume || session.volumeKg > records.bestVolume.volumeKg)) {
+        if (
+            session.volumeKg > 0 &&
+            (!records.bestVolume || session.volumeKg > records.bestVolume.volumeKg)
+        ) {
             records.bestVolume = { date: session.date, volumeKg: session.volumeKg }
         }
     }
@@ -371,12 +373,16 @@ export function personalBests(logs: WorkoutLog[]): PersonalBest[] {
         // otherwise a warm-up ladder posts three "records" in one session.
         const dayBest = new Map<string, { name: string; weightKg: number; reps: number }>()
 
-        for (const exercise of log.exercises ?? []) {
+        // Warm-up and cool-down lines aren't working sets, so they never count here.
+        for (const exercise of (log.exercises ?? []).filter(isMainWork)) {
             const key = exerciseKey(exercise.name)
             for (const set of exercise.loggedSets ?? []) {
                 if (!isWorkingSet(set)) continue
                 const current = dayBest.get(key)
-                if (!current || beatsTopSet(set, { weight: current.weightKg, reps: current.reps })) {
+                if (
+                    !current ||
+                    beatsTopSet(set, { weight: current.weightKg, reps: current.reps })
+                ) {
                     dayBest.set(key, {
                         name: exercise.name,
                         weightKg: set.weight!,

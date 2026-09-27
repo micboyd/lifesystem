@@ -1,14 +1,12 @@
 import api from './api'
-import type { ApiResponse, Workout, WorkoutExercise } from '../types'
+import type { ApiResponse, Phased, Workout, WorkoutExercise } from '../types'
 import { importResult, type OverwriteMap, type ImportResult } from './imports'
 
 /** Fields the create/update endpoints accept. */
-export interface WorkoutInput {
+export interface WorkoutInput extends Partial<Phased<WorkoutExercise>> {
     name: string
     description?: string
     showInPlanner?: boolean
-    /** Ordered exercises drawn from the library, each with optional sets/reps. */
-    exercises?: WorkoutExercise[]
 }
 
 /** The server's paginated list envelope: workouts plus page metadata. */

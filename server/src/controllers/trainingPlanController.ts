@@ -18,9 +18,10 @@ import Mobility from '../models/Mobility'
 import Recovery from '../models/Recovery'
 import WorkoutLog from '../models/WorkoutLog'
 import ConditioningLog from '../models/ConditioningLog'
-import MobilityLog from '../models/MobilityLog'
 import RecoveryLog from '../models/RecoveryLog'
 import { toSessionParts } from '../lib/sessionParts'
+import { missingWindows, readWindow } from '../lib/timeWindow'
+import { SESSION_PHASES, mapPhases, readPhased, toPhase } from '../lib/phases'
 import { buildPlanExport } from '../lib/planExport'
 import {
     ScheduleBuilder,
@@ -271,21 +272,40 @@ export async function importPlan(req: AuthRequest, res: Response) {
     const recoveryDoc = obj(doc.recovery) ?? {}
     const strengthWorkouts = arr(doc.strengthWorkouts)
 
+    // Every strength line and conditioning part has to say when it happens in
+    // the session — they're run to the clock. Checked before anything is written.
+    const untimed = [
+        ...strengthWorkouts.flatMap((w) =>
+            missingWindows(readPhased(w, 'exercises'), `Workout "${str(w.name) ?? '?'}"`)
+        ),
+        ...[
+            ...arr(conditioningDoc.existingRunPlan),
+            ...arr(conditioningDoc.post10KSessionLibrary),
+        ].flatMap((s) => missingWindows(readPhased(s, 'parts'), `Session "${str(s.name) ?? '?'}"`)),
+    ]
+    if (untimed.length) {
+        res.status(400).json({ message: `Import failed. ${untimed.join('; ')}` })
+        return
+    }
+
     // ── Exercises: the named library plus anything a workout references ─────────
     const exerciseSpecs = toSpecs(arr(doc.exerciseLibrary), (e) => ({
         description: str(e.description) ?? '',
     }))
     for (const w of strengthWorkouts) {
-        for (const line of arr(w.exercises)) {
-            const lineName = str(line.name)
-            if (lineName) exerciseSpecs.push({ name: lineName, fields: { description: '' } })
+        const phased = readPhased(w, 'exercises')
+        for (const phase of SESSION_PHASES) {
+            for (const line of arr(phased[phase])) {
+                const lineName = str(line.name)
+                if (lineName) exerciseSpecs.push({ name: lineName, fields: { description: '' } })
+            }
         }
     }
     const exercises = await ensureLibrary(Exercise, userId, exerciseSpecs, ensure)
 
     // ── Strength workouts ──────────────────────────────────────────────────────
-    /** Prescription lines resolved to library exercise ids. */
-    function workoutLines(raw: unknown) {
+    /** One phase's prescription lines, resolved to library exercise ids. */
+    function workoutLines(raw: unknown[]) {
         const out: Record<string, unknown>[] = []
         const used = new Set<string>()
         for (const line of arr(raw)) {
@@ -293,19 +313,22 @@ export async function importPlan(req: AuthRequest, res: Response) {
             if (!lineName) continue
             const key = nameKey(lineName)
             const ref = exercises.byKey.get(key)
-            // The workout model holds one slot per exercise, so a repeat within a
-            // single workout would overwrite itself — keep the first.
+            // A phase holds one slot per exercise, so a repeat within it would
+            // overwrite itself — keep the first.
             if (!ref || used.has(key)) continue
             used.add(key)
-            // `phase` says when in the block the line applies; it reads as a note.
+            // A `phase` that isn't a session phase is a training phase ("From
+            // 2027-02-08 onward") — when in the block the line applies. It reads
+            // as a note.
             const note = str(line.notes)
-            const phase = str(line.phase)
+            const phase = toPhase(line.phase) ? undefined : str(line.phase)
             out.push({
                 exercise: new Types.ObjectId(ref.id),
                 sets: num(line.sets) !== undefined ? Math.round(num(line.sets)!) : undefined,
                 reps: str(line.reps),
                 rest: str(line.rest),
                 notes: note && phase ? `${note} (${phase})` : (note ?? phase),
+                ...readWindow(line),
             })
         }
         return out
@@ -314,7 +337,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
     const workoutSpecs = toSpecs(strengthWorkouts, (w) => ({
         description: str(w.purpose) ?? '',
         duration: num(w.duration) ?? 0,
-        exercises: workoutLines(w.exercises),
+        ...mapPhases(readPhased(w, 'exercises'), workoutLines),
         showInPlanner: false,
     }))
     const workouts = await ensureLibrary(Workout, userId, workoutSpecs, {
@@ -331,7 +354,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
             ? (s.category as ConditioningCategory)
             : CONDITIONING_CATEGORIES[0],
         purpose: str(s.purpose),
-        parts: toSessionParts(s.parts),
+        ...mapPhases(readPhased(s, 'parts'), toSessionParts),
         howToUse: str(s.howToUse),
     })
     const runSpecs = toSpecs(runPlan, sessionFields)
@@ -721,29 +744,37 @@ export async function updatePlan(req: AuthRequest, res: Response) {
 
 /**
  * The ids of the given planner entries that have been done — a log exists for
- * their library item on their day. Matches the planner's own tick, which keys
- * completion by kind + library id + date.
+ * their library item on their day, or, for mobility (which keeps no logs), the
+ * entry itself is ticked. Matches the planner's own tick.
  */
 async function completedEntryIds(
     userId: string,
-    entries: { _id: Types.ObjectId; kind: FitnessPlanKind; date: string; [k: string]: unknown }[]
+    entries: {
+        _id: Types.ObjectId
+        kind: FitnessPlanKind
+        date: string
+        done?: boolean
+        [k: string]: unknown
+    }[]
 ): Promise<Types.ObjectId[]> {
     if (entries.length === 0) return []
     const dates = [...new Set(entries.map((e) => e.date))]
     const byDate = { user: userId, date: { $in: dates } }
-    const [w, c, m, r] = await Promise.all([
+    const [w, c, r] = await Promise.all([
         WorkoutLog.find(byDate).select('workout date').lean(),
         ConditioningLog.find(byDate).select('session date').lean(),
-        MobilityLog.find(byDate).select('mobility date').lean(),
         RecoveryLog.find(byDate).select('recovery date').lean(),
     ])
     const done = new Set<string>()
     for (const l of w) if (l.workout) done.add(`workout:${l.workout}:${l.date}`)
     for (const l of c) if (l.session) done.add(`conditioning:${l.session}:${l.date}`)
-    for (const l of m) if (l.mobility) done.add(`mobility:${l.mobility}:${l.date}`)
     for (const l of r) if (l.recovery) done.add(`recovery:${l.recovery}:${l.date}`)
     return entries
-        .filter((e) => done.has(`${e.kind}:${e[REF_FIELD[e.kind]]}:${e.date}`))
+        .filter((e) =>
+            e.kind === 'mobility'
+                ? e.done === true
+                : done.has(`${e.kind}:${e[REF_FIELD[e.kind]]}:${e.date}`)
+        )
         .map((e) => e._id)
 }
 
@@ -766,7 +797,7 @@ export async function deletePlan(req: AuthRequest, res: Response) {
     let kept: Types.ObjectId[] = []
     if (keepCompleted) {
         const placed = await FitnessPlanEntry.find({ user: req.userId, plan: plan._id })
-            .select('kind date workout session recovery mobility')
+            .select('kind date workout session recovery mobility done')
             .lean()
         kept = await completedEntryIds(req.userId!, placed)
         if (kept.length > 0)

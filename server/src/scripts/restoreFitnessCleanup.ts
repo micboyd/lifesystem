@@ -13,7 +13,6 @@ import FitnessPlanNote from '../models/FitnessPlanNote'
 import TrainingPlan from '../models/TrainingPlan'
 import WorkoutLog from '../models/WorkoutLog'
 import ConditioningLog from '../models/ConditioningLog'
-import MobilityLog from '../models/MobilityLog'
 import RecoveryLog from '../models/RecoveryLog'
 
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
@@ -47,7 +46,6 @@ const LIBRARY_CATEGORIES = [
 const LOG_CATEGORIES = [
     'workoutLogs',
     'conditioningLogs',
-    'mobilityLogs',
     'recoveryLogs',
 ] as const
 /**
@@ -89,7 +87,6 @@ const MODELS: Record<Category, RestorableModel> = {
     recovery: Recovery as unknown as RestorableModel,
     workoutLogs: WorkoutLog as unknown as RestorableModel,
     conditioningLogs: ConditioningLog as unknown as RestorableModel,
-    mobilityLogs: MobilityLog as unknown as RestorableModel,
     recoveryLogs: RecoveryLog as unknown as RestorableModel,
     planEntries: FitnessPlanEntry as unknown as RestorableModel,
     planNotes: FitnessPlanNote as unknown as RestorableModel,
@@ -122,6 +119,10 @@ async function restore() {
     )
     const unknown = requested.filter((c) => !(ALL_CATEGORIES as readonly string[]).includes(c))
     if (unknown.length) console.log(`  ignoring unknown category: ${unknown.join(', ')}`)
+    // Mobility keeps no completion logs any more; older backups still carry them.
+    const mobilityLogs = backup.mobilityLogs
+    if (Array.isArray(mobilityLogs) && mobilityLogs.length)
+        console.log(`  skipping ${mobilityLogs.length} mobility log(s): mobility is no longer logged`)
 
     await connectDB()
     console.log(confirm ? 'MODE: RESTORE (RESTORE_CONFIRM=1)' : 'MODE: DRY RUN')

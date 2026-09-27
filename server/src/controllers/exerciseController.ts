@@ -149,8 +149,14 @@ export async function deleteExercise(req: AuthRequest, res: Response) {
     }
     // Keep workouts consistent — drop the deleted exercise from any that referenced it.
     await Workout.updateMany(
-        { user: req.userId, exercises: exercise._id },
-        { $pull: { exercises: exercise._id } }
+        { user: req.userId },
+        {
+            $pull: {
+                warmUp: { exercise: exercise._id },
+                main: { exercise: exercise._id },
+                coolDown: { exercise: exercise._id },
+            },
+        }
     )
     res.json({ message: 'Deleted', data: exercise })
 }

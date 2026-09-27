@@ -6,6 +6,7 @@ import Checkbox from './Checkbox'
 import { useToast } from '../context/ToastContext'
 import { importPlan, type PlanImportSummary } from '../services/plans'
 import samplePlan from '../data/rugbyPhysiquePlan.json'
+import { parseJsonc } from '../lib/jsonc'
 
 /** Pull a human-readable message out of an unknown thrown error. */
 function errorMessage(err: unknown): string {
@@ -19,150 +20,229 @@ function errorMessage(err: unknown): string {
 }
 
 /**
- * The shape of a plan document, trimmed to one item per section.
+ * The shape of a plan document, one example per section, annotated.
  *
  * It doubles as the format's documentation — a plan is usually written against
- * this rather than exported from an existing one — so the fields that are easy
- * to not know about are the ones worth showing: `slot` on anything that has to
- * land in a particular part of the day, and `rounds` + `roundSeconds` +
- * `startAtSec` on an interval block, which are what put a running clock against
- * each rep instead of a bare tick-box.
+ * this (often by an LLM) rather than exported from an existing one — so every
+ * field the importer reads is here, with a comment saying what it does. It's
+ * written as JSON with comments: the importer strips them, so the template
+ * pastes straight back in as it is.
  */
-const TEMPLATE = JSON.stringify(
+const TEMPLATE = `{
+  // ── The plan ─────────────────────────────────────────────────────────────
+  // Required. Re-importing a plan with the same name offers to replace it.
+  "planName": "Winter Strength Block",
+  // Required. The plan's window, "YYYY-MM-DD". Weekly items repeat inside it.
+  "planStart": "2026-09-01",
+  "planEnd": "2026-12-20",
+  // Optional. Where the plan came from (shown on the plan), and when it was
+  // written (kept with the plan).
+  "source": "Written with my coach, September 2026.",
+  "generatedAt": "2026-08-28",
+
+  // Optional. Shown on the plan; not scheduled. Any shape is kept as written.
+  "goal": {
+    "primaryGoal": "Add strength on the main lifts while holding bodyweight steady.",
+    "checkpoints": [{ "date": "2026-10-15", "target": "Squat back to previous best." }]
+  },
+
+  // Optional. The blocks the plan moves through, shown as a timeline.
+  // Every field but "name" is free text.
+  "trainingPhases": [
     {
-        planName: 'Winter Strength Block',
-        planStart: '2026-09-01',
-        planEnd: '2026-12-20',
-        source: 'Optional note about where this plan came from.',
-        goal: {
-            primaryGoal: 'Add strength on the main lifts while holding bodyweight steady.',
-            checkpoints: [{ date: '2026-10-15', target: 'Squat back to previous best.' }],
+      "name": "Base",
+      "dates": "2026-09-01 to 2026-10-15",
+      "focus": "Rebuild volume tolerance.",
+      "strength": "RPE 7-8.",
+      "conditioning": "Easy aerobic running only.",
+      "recoveryPriority": "Sleep 8 hours on lifting days."
+    }
+  ],
+
+  // ── The week ─────────────────────────────────────────────────────────────
+  // Optional. One row per weekday, repeated every week of the plan.
+  // Cells are prose: any library name found in the text is scheduled, so
+  // "Sauna Recovery optional" places Sauna Recovery, and one cell can name two.
+  "weeklyTemplate": [
+    {
+      "day": "Monday",                 // "Monday", "Mon" or "mon" all work
+      "strength": "Upper A",           // a strength workout by name
+      "conditioning": null,            // shown on the plan only — runs are placed from "conditioning" below
+      "mobility": "Shoulder Mobility", // a mobility routine
+      "recovery": "Post-Training Recovery Routine",
+      "slot": "Morning"                // Morning | Afternoon | Evening, for the whole row
+    }
+  ],
+
+  // ── Strength ─────────────────────────────────────────────────────────────
+  // Optional. Movements with a description. Any exercise a workout names that
+  // isn't here or already in your library is created with no description.
+  "exerciseLibrary": [
+    { "name": "Barbell bench press", "description": "Horizontal press for chest and triceps." }
+  ],
+
+  // Strength workouts. Each repeats every week on its "day".
+  "strengthWorkouts": [
+    {
+      "day": "Monday",
+      "name": "Upper A",
+      "slot": "Morning",               // optional; strength defaults to Morning
+      "duration": 60,                  // minutes
+      "purpose": "Build pressing and pulling strength.",
+      // Three phases, in order: warmUp, main, coolDown. Only main counts toward progress.
+      // Every line needs "startMin" and "endMin" — its slot in minutes from the start
+      // of the session. During the session you tap each one off against it.
+      "warmUp": [
+        { "name": "Band pull-apart", "sets": 2, "reps": "15", "startMin": 0, "endMin": 5 }
+      ],
+      "main": [
+        {
+          "name": "Barbell bench press", // matched to your exercise library by name
+          "sets": 4,
+          "reps": "5-8",               // free text: "8", "8-12", "AMRAP"
+          "rest": "2-3 min",           // free text
+          "notes": "Keep 1-2 reps in reserve.",
+          "startMin": 5,
+          "endMin": 20
         },
-        trainingPhases: [
-            {
-                name: 'Base',
-                dates: '2026-09-01 to 2026-10-15',
-                focus: 'Rebuild volume tolerance.',
-                strength: 'RPE 7-8.',
-            },
+        {
+          "name": "Barbell row",
+          "sets": 4,
+          "reps": "6-8",
+          "rest": "2 min",
+          // A "phase" that isn't warmUp/main/coolDown is read as when in the plan
+          // the line applies, and added to its notes.
+          "phase": "From 2026-10-16 onward",
+          "startMin": 20,
+          "endMin": 35
+        }
+      ],
+      "coolDown": [
+        { "name": "Couch stretch", "sets": 1, "reps": "60s each side", "startMin": 55, "endMin": 60 }
+      ]
+    }
+  ],
+
+  // Optional. Shown on the plan; any shape is kept as written.
+  "strengthProgression": {
+    "effortTarget": "Most working sets at RPE 7-8.",
+    "deloadRule": "Every 6th week, cut sets by half."
+  },
+
+  // ── Conditioning ─────────────────────────────────────────────────────────
+  "conditioning": {
+    // One-off sessions, each on its own date.
+    "existingRunPlan": [
+      {
+        // No "date"? End the name with the day instead ("… - Wed 2 Sep") and the
+        // year is worked out from the plan window.
+        "name": "Intervals - Wed 2 Sep",
+        "date": "2026-09-02",
+        "slot": "Morning",             // optional; conditioning defaults to Afternoon
+        "duration": 33,
+        "category": "Endurance",       // HIIT | Cardio | Endurance | Mobility | Recovery
+        "purpose": "Aerobic base.",
+        "notes": "Easy if the knee is sore.", // shown on that day in the plan's calendar
+        "howToUse": "Leave a non-running day before the next run.",
+        // Same three phases. Every part needs "startMin" and "endMin", as above.
+        "warmUp": [
+          { "name": "Walk", "detail": "3 min at 4.2 km/h, then 4 min at 5.2 km/h.", "startMin": 0, "endMin": 7 }
         ],
-        weeklyTemplate: [
-            {
-                day: 'Monday',
-                strength: 'Upper A',
-                conditioning: null,
-                mobility: 'Shoulder Mobility',
-                recovery: 'Post-Training Recovery Routine',
-                slot: 'Morning',
-            },
+        "main": [
+          {
+            "name": "Run-walk intervals",
+            "detail": "6 x 90s jog at 7.0 km/h, then 2 min walk at 5.0 km/h.",
+            "startMin": 7,
+            "endMin": 28,
+            // Optional: "rounds" turns the part into a tap-to-count block.
+            "rounds": 6,
+            "roundLabel": "jog/walk",    // what one round is called
+            "roundDetails": ["Rep 1", "Rep 2", "Rep 3", "Rep 4", "Rep 5", "Rep 6"], // a line under each rep
+            // Each rep's length in seconds, covering the rep and its recovery —
+            // puts a clock window on every rep.
+            "roundSeconds": [210, 210, 210, 210, 210, 210],
+            // Where rep 1 starts on the session clock. Defaults to startMin.
+            "startAtSec": 420
+          }
         ],
-        exerciseLibrary: [
-            { name: 'Barbell bench press', description: 'Horizontal press for chest and triceps.' },
+        "coolDown": [
+          { "name": "Walk", "detail": "2 min at 5.0 km/h, then 3 min at 4.0 km/h.", "startMin": 28, "endMin": 33 }
+        ]
+      }
+    ],
+
+    // Reusable sessions, placed by "post10KCalendar" below. Same fields as above.
+    "post10KSessionLibrary": [
+      {
+        "name": "Bike Intervals",
+        "duration": 25,
+        "category": "HIIT",
+        "warmUp": [{ "name": "Easy spin", "detail": "5 min", "startMin": 0, "endMin": 5 }],
+        "main": [
+          {
+            "name": "Main set",
+            "detail": "8 x 30s hard, 90s easy",
+            "startMin": 5,
+            "endMin": 21,
+            "rounds": 8,
+            "roundSeconds": [120, 120, 120, 120, 120, 120, 120, 120]
+          }
         ],
-        strengthWorkouts: [
-            {
-                day: 'Monday',
-                name: 'Upper A',
-                duration: 60,
-                purpose: 'Build pressing and pulling strength.',
-                exercises: [
-                    {
-                        name: 'Barbell bench press',
-                        sets: 4,
-                        reps: '5-8',
-                        rest: '2-3 min',
-                        notes: 'Keep 1-2 reps in reserve.',
-                    },
-                ],
-            },
-        ],
-        strengthProgression: {
-            effortTarget: 'Most working sets at RPE 7-8.',
-            deloadRule: 'Every 6th week, cut sets by half.',
-        },
-        conditioning: {
-            existingRunPlan: [
-                {
-                    name: 'Intervals - Wed 2 Sep',
-                    date: '2026-09-02',
-                    duration: 33,
-                    category: 'Endurance',
-                    purpose: 'Aerobic base.',
-                    slot: 'Morning',
-                    parts: [
-                        { name: 'Warm-up', detail: 'Walk 3 min at 4.2 km/h, then 4 min at 5.2 km/h.' },
-                        {
-                            name: 'Main set',
-                            detail: '6 x 90s jog at 7.0 km/h, then 2 min walk at 5.0 km/h.',
-                            rounds: 6,
-                            roundLabel: 'jog/walk',
-                            // One entry per rep, in seconds, covering the rep and
-                            // the recovery that follows it. Turns each rep into a
-                            // clock window instead of a bare tick-box.
-                            roundSeconds: [210, 210, 210, 210, 210, 210],
-                            // Where rep 1 starts on the session clock — here, after
-                            // the 7 min warm-up above.
-                            startAtSec: 420,
-                        },
-                        { name: 'Cool-down', detail: 'Walk 2 min at 5.0 km/h, then 3 min at 4.0 km/h.' },
-                    ],
-                },
-            ],
-            post10KSessionLibrary: [
-                {
-                    name: 'Bike Intervals',
-                    duration: 30,
-                    category: 'HIIT',
-                    parts: [
-                        {
-                            name: 'Main set',
-                            detail: '8 x 30s hard, 90s easy',
-                            rounds: 8,
-                            roundSeconds: [120, 120, 120, 120, 120, 120, 120, 120],
-                            startAtSec: 300,
-                        },
-                    ],
-                },
-            ],
-            post10KCalendar: [
-                { date: '2026-11-07', session: 'Bike Intervals', notes: 'Keep output repeatable.' },
-            ],
-        },
-        mobility: {
-            library: [
-                {
-                    name: 'Shoulder Mobility',
-                    duration: 12,
-                    purpose: 'Open the shoulders before pressing.',
-                    parts: [{ name: 'Wall slides', detail: '2 x 10 reps' }],
-                },
-            ],
-        },
-        recovery: {
-            library: [
-                {
-                    name: 'Post-Training Recovery Routine',
-                    duration: 30,
-                    purpose: 'Start recovery straight after training.',
-                    notes: '10 min easy walking, then food and water.',
-                },
-            ],
-        },
-        scheduleOverrides: [
-            { date: '2026-10-05', strength: 'Upper A', notes: 'Moved off Tuesday this week' },
-            { date: '2026-10-06', strength: null, notes: 'Travelling' },
-            {
-                start: '2026-10-10',
-                end: '2026-10-18',
-                suppressRecurringStrength: true,
-                notes: 'Holiday — no gym',
-            },
-        ],
-        readinessRules: ['Skip the optional conditioning if sleep has been poor for two nights.'],
-    },
-    null,
-    2
-)
+        "coolDown": [{ "name": "Easy spin", "detail": "4 min", "startMin": 21, "endMin": 25 }]
+      }
+    ],
+
+    // Dates for the library sessions above, by session name.
+    "post10KCalendar": [
+      { "date": "2026-11-07", "session": "Bike Intervals", "slot": "Afternoon", "notes": "Keep output repeatable." }
+    ]
+  },
+
+  // ── Mobility and recovery ────────────────────────────────────────────────
+  // Placed by the weeklyTemplate's mobility and recovery cells.
+  "mobility": {
+    "library": [
+      {
+        "name": "Shoulder Mobility",
+        "duration": 12,
+        "purpose": "Open the shoulders before pressing.",
+        "parts": [{ "name": "Wall slides", "detail": "2 x 10 reps" }], // no time slots needed
+        "howToUse": "Before any upper-body session."
+      }
+    ],
+    "weeklyUse": { "summary": "Before every lifting session." } // optional; kept with the plan
+  },
+  "recovery": {
+    "library": [
+      {
+        "name": "Post-Training Recovery Routine",
+        "duration": 30,
+        "purpose": "Start recovery straight after training.",
+        "notes": "10 min easy walking, then food and water."
+      }
+    ],
+    "weeklyUse": { "summary": "After every hard session." } // optional; kept with the plan
+  },
+
+  // ── Exceptions ───────────────────────────────────────────────────────────
+  // Dated changes to the weekly pattern: holidays, matches, injuries, deloads.
+  // Applied in order, so a later one wins.
+  "scheduleOverrides": [
+    // A "date", or a "start"/"end" range, plus optional "notes" saying why.
+    // Naming a category replaces all of it on those days…
+    { "date": "2026-10-05", "strength": "Upper A", "notes": "Moved off Tuesday this week" },
+    // …null empties it, and leaving the key out leaves the day alone.
+    { "date": "2026-10-06", "strength": null, "notes": "Travelling" },
+    // suppressRecurringStrength (or …Conditioning / …Mobility / …Recovery, or
+    // suppressRecurring for all four) drops only the weekly repeats, so dated
+    // runs on those days stay.
+    { "start": "2026-10-10", "end": "2026-10-18", "suppressRecurringStrength": true, "notes": "Holiday — no gym" }
+  ],
+
+  // Optional. Rules of thumb shown on the plan.
+  "readinessRules": ["Skip the optional conditioning if sleep has been poor for two nights."]
+}
+`
 
 interface PlanImportPanelProps {
     /** Return to the plan grid. */
@@ -213,7 +293,7 @@ export default function PlanImportPanel({
         setText(next)
         let name: unknown
         try {
-            name = (JSON.parse(next) as { planName?: unknown }).planName
+            name = (parseJsonc(next) as { planName?: unknown }).planName
         } catch {
             setClash(null)
             return
@@ -232,7 +312,8 @@ export default function PlanImportPanel({
         }
         let parsed: unknown
         try {
-            parsed = JSON.parse(trimmed)
+            // Comments are allowed, so the annotated template imports as it is.
+            parsed = parseJsonc(trimmed)
         } catch {
             setError("That isn't valid JSON. Check for missing commas, quotes or brackets.")
             return

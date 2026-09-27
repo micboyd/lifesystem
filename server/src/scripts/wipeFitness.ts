@@ -14,7 +14,6 @@ import FitnessPlanNote from '../models/FitnessPlanNote'
 import TrainingPlan from '../models/TrainingPlan'
 import WorkoutLog from '../models/WorkoutLog'
 import ConditioningLog from '../models/ConditioningLog'
-import MobilityLog from '../models/MobilityLog'
 import RecoveryLog from '../models/RecoveryLog'
 
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
@@ -30,10 +29,13 @@ dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
  * restoreFitnessCleanup.ts so the whole wipe can be put back.
  *
  * WIPE_EMAIL      whose fitness data to clear (defaults to the seeded user).
+ * WIPE_KEEP_LOGS  set to 1 to keep the completion logs — the history of what
+ *                 was done — and clear only the libraries and the planner.
  * WIPE_BACKUP_DIR where the backup lands (defaults to the server directory).
  */
 const email = process.env.WIPE_EMAIL ?? 'michael_boyd@live.co.uk'
 const confirm = process.env.WIPE_CONFIRM === '1'
+const keepLogs = process.env.WIPE_KEEP_LOGS === '1'
 const backupDir = process.env.WIPE_BACKUP_DIR ?? process.cwd()
 
 /**
@@ -47,7 +49,7 @@ interface WipeableModel {
 }
 
 /** Backup key -> collection. Keys match restoreFitnessCleanup.ts categories. */
-const TARGETS: { key: string; label: string; model: WipeableModel }[] = [
+const ALL_TARGETS: { key: string; label: string; model: WipeableModel }[] = [
     { key: 'exercises', label: 'Exercises', model: Exercise as unknown as WipeableModel },
     { key: 'workouts', label: 'Strength workouts', model: Workout as unknown as WipeableModel },
     {
@@ -78,9 +80,10 @@ const TARGETS: { key: string; label: string; model: WipeableModel }[] = [
         label: 'Conditioning logs',
         model: ConditioningLog as unknown as WipeableModel,
     },
-    { key: 'mobilityLogs', label: 'Mobility logs', model: MobilityLog as unknown as WipeableModel },
     { key: 'recoveryLogs', label: 'Recovery logs', model: RecoveryLog as unknown as WipeableModel },
 ]
+
+const TARGETS = keepLogs ? ALL_TARGETS.filter((t) => !t.key.endsWith('Logs')) : ALL_TARGETS
 
 async function wipe() {
     await connectDB()
@@ -96,7 +99,9 @@ async function wipe() {
 
     console.log(`Clearing the fitness module for ${email}`)
     console.log(confirm ? 'MODE: DELETE (WIPE_CONFIRM=1)' : 'MODE: DRY RUN')
-    console.log('Out of scope: meals, meal plan, nutrition phases, weight logs.\n')
+    console.log(
+        `Out of scope: meals, meal plan, nutrition phases, weight logs${keepLogs ? ', completion logs (WIPE_KEEP_LOGS=1)' : ''}.\n`
+    )
 
     let total = 0
     for (const t of TARGETS) {

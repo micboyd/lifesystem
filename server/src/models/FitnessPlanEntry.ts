@@ -46,6 +46,12 @@ export interface IFitnessPlanEntry extends Document {
      * slot, so a session moved in later brings the warning back with it.
      */
     ignoreOverload: boolean
+    /**
+     * Ticked off — mobility only. Mobility is supplementary, so it keeps no
+     * completion records of its own; the tick lives on the planner entry. Every
+     * other kind is done when a log exists for its item on its day.
+     */
+    done: boolean
     createdAt: Date
     updatedAt: Date
 }
@@ -64,6 +70,7 @@ const fitnessPlanEntrySchema = new Schema<IFitnessPlanEntry>(
         order: { type: Number, default: 0 },
         ignoreClash: { type: Boolean, default: false },
         ignoreOverload: { type: Boolean, default: false },
+        done: { type: Boolean, default: false },
     },
     { timestamps: true }
 )

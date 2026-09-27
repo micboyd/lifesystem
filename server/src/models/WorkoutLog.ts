@@ -1,4 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose'
+import { SESSION_PHASES, type SessionPhase } from '../lib/phases'
 
 /** One performed set inside a logged exercise: weight lifted (kg) and reps done. */
 export interface ILoggedSet {
@@ -9,6 +10,8 @@ export interface ILoggedSet {
 /** A snapshotted exercise line inside a logged workout. */
 export interface IWorkoutLogExercise {
     name: string
+    /** Which phase of the workout the line came from. Absent means main. */
+    phase?: SessionPhase
     /**
      * The exercise originally prescribed, when this line was swapped out mid-session
      * (the machine was taken). Absent when the workout was performed as written.
@@ -18,6 +21,11 @@ export interface IWorkoutLogExercise {
     reps?: string
     /** The sets actually performed, with per-set weight and reps. */
     loggedSets?: ILoggedSet[]
+    /** The planned slot, snapshotted from the workout (minutes into the session). */
+    startMin?: number
+    endMin?: number
+    /** When the line was tapped done on the session clock, in minutes. */
+    doneAtMin?: number
 }
 
 /**
@@ -52,10 +60,14 @@ const loggedSetSchema = new Schema<ILoggedSet>(
 const workoutLogExerciseSchema = new Schema<IWorkoutLogExercise>(
     {
         name: { type: String, required: true, trim: true },
+        phase: { type: String, enum: SESSION_PHASES },
         substitutedFor: { type: String, trim: true },
         sets: { type: Number, min: 0 },
         reps: { type: String, trim: true },
         loggedSets: { type: [loggedSetSchema], default: undefined },
+        startMin: { type: Number, min: 0 },
+        endMin: { type: Number, min: 0 },
+        doneAtMin: { type: Number, min: 0 },
     },
     { _id: false }
 )

@@ -1,14 +1,13 @@
 import api from './api'
-import type { ApiResponse, ConditioningSession } from '../types'
+import type { ApiResponse, ConditioningSession, Phased, SessionPart } from '../types'
 import { importBody, importResult, type OverwriteMap, type ImportResult } from './imports'
 
 /** Fields the create/update endpoints accept. */
-export interface ConditioningInput {
+export interface ConditioningInput extends Partial<Phased<SessionPart>> {
     name: string
     duration?: number
     category?: ConditioningSession['category']
     purpose?: string
-    parts?: ConditioningSession['parts']
     howToUse?: string
 }
 

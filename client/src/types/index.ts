@@ -180,6 +180,22 @@ export interface Exercise {
     updatedAt: string
 }
 
+/**
+ * The three phases every conditioning session and strength workout is built
+ * from, stored as three ordered lists so a session always reads in this order.
+ */
+export const SESSION_PHASES = ['warmUp', 'main', 'coolDown'] as const
+export type SessionPhase = (typeof SESSION_PHASES)[number]
+
+export const SESSION_PHASE_LABELS: Record<SessionPhase, string> = {
+    warmUp: 'Warm-Up',
+    main: 'Main Session',
+    coolDown: 'Cool-Down',
+}
+
+/** One list per phase. */
+export type Phased<T> = Record<SessionPhase, T[]>
+
 /** One exercise slot in a workout: a library exercise id plus its prescribed volume. */
 export interface WorkoutExercise {
     /** Exercise id from the library. */
@@ -192,9 +208,13 @@ export interface WorkoutExercise {
     rest?: string
     /** Coaching cue for this line, e.g. "Keep 1-2 reps in reserve". */
     notes?: string
+    /** Planned slot, in minutes from the start of the session (e.g. 15 → 30). */
+    startMin?: number
+    endMin?: number
 }
 
-export interface Workout {
+/** Exercises sit in three ordered phases: warmUp, main, coolDown. Only main counts toward progress. */
+export interface Workout extends Phased<WorkoutExercise> {
     _id: string
     name: string
     description: string
@@ -202,8 +222,6 @@ export interface Workout {
     duration: number
     /** Pin this workout to the top of the week planner. */
     showInPlanner: boolean
-    /** Ordered exercises drawn from the library, each with optional sets/reps. */
-    exercises: WorkoutExercise[]
     order: number
     createdAt: string
     updatedAt: string
@@ -220,6 +238,8 @@ export interface LoggedSet {
 /** A snapshotted exercise line inside a logged workout. */
 export interface WorkoutLogExercise {
     name: string
+    /** Which phase of the workout the line came from. Absent means main. */
+    phase?: SessionPhase
     /** When this line was swapped mid-session, the exercise originally prescribed. */
     substitutedFor?: string
     /** Prescribed sets count, snapshotted from the library workout. */
@@ -231,6 +251,11 @@ export interface WorkoutLogExercise {
      * the workout was logged as a quick "Done" without recording weights.
      */
     loggedSets?: LoggedSet[]
+    /** The planned slot, snapshotted from the workout (minutes into the session). */
+    startMin?: number
+    endMin?: number
+    /** When the line was tapped done on the session clock, in minutes. */
+    doneAtMin?: number
 }
 
 /** A record that a strength workout was completed on a given day. */
@@ -260,7 +285,7 @@ export const CONDITIONING_CATEGORIES = [
 ] as const
 export type ConditioningCategory = (typeof CONDITIONING_CATEGORIES)[number]
 
-/** One block of a session, e.g. a warm-up, main set or cool-down. */
+/** One step within a session phase, e.g. "Walk 5 min" or "6 x 90s jog". */
 export interface SessionPart {
     name: string
     detail?: string
@@ -274,9 +299,13 @@ export interface SessionPart {
     roundSeconds?: number[]
     /** Optional clock offset (seconds) when the first rep begins, e.g. after a warm-up. */
     startAtSec?: number
+    /** Planned slot, in minutes from the start of the session (e.g. 15 → 30). */
+    startMin?: number
+    endMin?: number
 }
 
-export interface ConditioningSession {
+/** Parts sit in three ordered phases: warmUp, main, coolDown. */
+export interface ConditioningSession extends Phased<SessionPart> {
     _id: string
     name: string
     /** Planned duration in minutes. */
@@ -284,8 +313,6 @@ export interface ConditioningSession {
     category: ConditioningCategory
     /** What the session is for, e.g. "Build aerobic base". */
     purpose?: string
-    /** Ordered parts making up the session. */
-    parts: SessionPart[]
     /** Guidance on how / when to run the session. */
     howToUse?: string
     order: number
@@ -304,6 +331,15 @@ export interface RoundProgress {
 }
 
 /** A record that a conditioning session was completed on a given day. */
+/** One part's planned slot and when it was tapped done, snapshotted at log time. */
+export interface Checkpoint {
+    name: string
+    startMin?: number
+    endMin?: number
+    /** Minutes on the session clock when it was tapped done; absent if it wasn't. */
+    doneAtMin?: number
+}
+
 export interface ConditioningLog {
     _id: string
     /** Library session this came from, if any. Null once that session is deleted. */
@@ -319,22 +355,8 @@ export interface ConditioningLog {
     rpe?: number
     /** Completed rounds for each counted part, if any were tracked. */
     rounds?: RoundProgress[]
-    notes?: string
-    createdAt: string
-    updatedAt: string
-}
-
-/** A record that a mobility routine was completed on a given day. */
-export interface MobilityLog {
-    _id: string
-    /** Library routine this came from, if any. Null once that routine is deleted. */
-    mobility: string | null
-    /** Snapshot of the routine name at log time. */
-    name: string
-    /** YYYY-MM-DD — the day it was completed. */
-    date: string
-    /** Actual minutes spent. */
-    duration: number
+    /** Each part's slot against when it was actually done, if the clock was run. */
+    checkpoints?: Checkpoint[]
     notes?: string
     createdAt: string
     updatedAt: string
@@ -450,6 +472,11 @@ export interface FitnessPlanEntry {
     ignoreClash?: boolean
     /** When true this item's overloaded slot has been accepted, so it stops warning. */
     ignoreOverload?: boolean
+    /**
+     * Ticked off — mobility only. Mobility is supplementary and keeps no records,
+     * so its tick lives on the entry; other kinds are done when a log exists.
+     */
+    done?: boolean
     createdAt: string
     updatedAt: string
 }

@@ -26,6 +26,7 @@ import ConditioningSession from '../models/ConditioningSession'
 import Mobility from '../models/Mobility'
 import Recovery from '../models/Recovery'
 import { DEFAULT_PART, WEEKDAY_NAMES, weekdayOf, weekdaysBetween } from './planSchedule'
+import { flattenPhases, mapPhases, type Phased } from './phases'
 
 // ─── Shapes read back out of the libraries ──────────────────────────────────────
 
@@ -36,16 +37,14 @@ interface Lean {
 interface ExerciseLean extends Lean {
     description?: string
 }
-interface WorkoutLean extends Lean {
+interface WorkoutLean extends Lean, Phased<IWorkoutExercise> {
     description?: string
     duration: number
-    exercises: IWorkoutExercise[]
 }
-interface SessionLean extends Lean {
+interface SessionLean extends Lean, Phased<ISessionPart> {
     duration: number
     category: string
     purpose?: string
-    parts: ISessionPart[]
     howToUse?: string
 }
 interface MobilityLean extends Lean {
@@ -169,7 +168,7 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
 
     // ── Strength workouts, and the exercises they prescribe ────────────────────
     const exerciseDocs = await Exercise.find({
-        _id: { $in: workoutDocs.flatMap((w) => w.exercises.map((e) => e.exercise)) },
+        _id: { $in: workoutDocs.flatMap((w) => flattenPhases(w).map((r) => r.item.exercise)) },
         user,
     }).lean<ExerciseLean[]>()
     const exercises = index(exerciseDocs)
@@ -193,19 +192,23 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
             part,
             duration: duration(doc.duration),
             purpose: doc.description,
-            exercises: doc.exercises
-                .map((line) => {
-                    const exercise = exercises.get(String(line.exercise))
-                    if (!exercise) return null
-                    return compact({
-                        name: exercise.name,
-                        sets: line.sets,
-                        reps: line.reps,
-                        rest: line.rest,
-                        notes: line.notes,
+            ...mapPhases(doc, (list) =>
+                list
+                    .map((line) => {
+                        const exercise = exercises.get(String(line.exercise))
+                        if (!exercise) return null
+                        return compact({
+                            name: exercise.name,
+                            sets: line.sets,
+                            reps: line.reps,
+                            rest: line.rest,
+                            notes: line.notes,
+                            startMin: line.startMin,
+                            endMin: line.endMin,
+                        })
                     })
-                })
-                .filter(Boolean),
+                    .filter(Boolean)
+            ),
         })
     })
 
@@ -220,16 +223,20 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
             duration: duration(doc.duration),
             category: doc.category,
             purpose: doc.purpose,
-            parts: doc.parts.map((p) =>
-                compact({
-                    name: p.name,
-                    detail: p.detail,
-                    rounds: p.rounds,
-                    roundLabel: p.roundLabel,
-                    roundDetails: p.roundDetails,
-                    roundSeconds: p.roundSeconds,
-                    startAtSec: p.startAtSec,
-                })
+            ...mapPhases(doc, (list) =>
+                list.map((p) =>
+                    compact({
+                        name: p.name,
+                        detail: p.detail,
+                        rounds: p.rounds,
+                        roundLabel: p.roundLabel,
+                        roundDetails: p.roundDetails,
+                        roundSeconds: p.roundSeconds,
+                        startAtSec: p.startAtSec,
+                        startMin: p.startMin,
+                        endMin: p.endMin,
+                    })
+                )
             ),
             howToUse: doc.howToUse,
         })

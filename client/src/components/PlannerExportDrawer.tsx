@@ -8,7 +8,6 @@ import { listPlanEntries, listPlanNotes } from '../services/fitnessPlan'
 import { listExercises } from '../services/exercises'
 import { listLogs as listWorkoutLogs } from '../services/workoutLogs'
 import { listLogs as listConditioningLogs } from '../services/conditioningLogs'
-import { listLogs as listMobilityLogs } from '../services/mobilityLogs'
 import { listLogs as listRecoveryLogs } from '../services/recoveryLogs'
 import type { Exercise, FitnessPlanEntry, FitnessPlanNote } from '../types'
 import {
@@ -32,14 +31,7 @@ import {
 
 // ─── Range presets ──────────────────────────────────────────────────────────────
 
-type PresetKey =
-    | 'week'
-    | 'four'
-    | 'twelve'
-    | 'lastFour'
-    | 'lastTwelve'
-    | 'months'
-    | 'custom'
+type PresetKey = 'week' | 'four' | 'twelve' | 'lastFour' | 'lastTwelve' | 'months' | 'custom'
 
 /** `back` counts the weeks backwards from the planner's week instead of forwards. */
 const PRESETS: { key: PresetKey; label: string; weeks?: number; back?: true }[] = [
@@ -173,10 +165,9 @@ export default function PlannerExportDrawer({
             listExercises().catch(() => [] as Exercise[]),
             listWorkoutLogs().catch(() => []),
             listConditioningLogs().catch(() => []),
-            listMobilityLogs().catch(() => []),
             listRecoveryLogs().catch(() => []),
         ])
-            .then(([entries, notes, exercises, wLogs, cLogs, mLogs, rLogs]) => {
+            .then(([entries, notes, exercises, wLogs, cLogs, rLogs]) => {
                 if (!active) return
                 setLoaded({
                     start: range.start,
@@ -188,7 +179,6 @@ export default function PlannerExportDrawer({
                     logs: {
                         workout: wLogs,
                         conditioning: cLogs,
-                        mobility: mLogs,
                         recovery: rLogs,
                     },
                     exercisesById: new Map(exercises.map((e) => [e._id, e])),
@@ -266,8 +256,8 @@ export default function PlannerExportDrawer({
             <div className="flex flex-col gap-5">
                 <p className="text-sm text-neutral-500">
                     The planner exactly as it stands — what sits on each day and slot, with its
-                    flags and what was actually done. This is the state, not a plan: applying a
-                    plan is one of the things that put items here. Ranges run backwards as well as
+                    flags and what was actually done. This is the state, not a plan: applying a plan
+                    is one of the things that put items here. Ranges run backwards as well as
                     forwards, so a past stretch comes out alongside a planned one.
                 </p>
 

@@ -102,8 +102,7 @@ export async function updateReminder(req: AuthRequest, res: Response) {
     const $set: Record<string, unknown> = {}
     const $unset: Record<string, 1> = {}
 
-    if (typeof req.body.text === 'string' && req.body.text.trim())
-        $set.text = req.body.text.trim()
+    if (typeof req.body.text === 'string' && req.body.text.trim()) $set.text = req.body.text.trim()
     if (typeof req.body.order === 'number') $set.order = req.body.order
     if (isValidDate(req.body.date)) $set.date = req.body.date
 

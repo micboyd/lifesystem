@@ -13,6 +13,15 @@ export interface IRoundProgress {
     target: number
 }
 
+/** One part's planned slot and when it was tapped done, snapshotted at log time. */
+export interface ICheckpoint {
+    name: string
+    startMin?: number
+    endMin?: number
+    /** Minutes on the session clock when it was tapped done; absent if it wasn't. */
+    doneAtMin?: number
+}
+
 export interface IConditioningLog extends Document {
     user: Types.ObjectId
     /** Library session this came from, if any. Null once that session is deleted. */
@@ -27,6 +36,8 @@ export interface IConditioningLog extends Document {
     rpe?: number
     /** Completed rounds for each counted part, if any were tracked. */
     rounds?: IRoundProgress[]
+    /** Each part's slot against when it was actually done, if the clock was run. */
+    checkpoints?: ICheckpoint[]
     notes?: string
     createdAt: Date
     updatedAt: Date
@@ -41,6 +52,16 @@ const roundProgressSchema = new Schema<IRoundProgress>(
     { _id: false }
 )
 
+const checkpointSchema = new Schema<ICheckpoint>(
+    {
+        name: { type: String, required: true, trim: true },
+        startMin: { type: Number, min: 0 },
+        endMin: { type: Number, min: 0 },
+        doneAtMin: { type: Number, min: 0 },
+    },
+    { _id: false }
+)
+
 const conditioningLogSchema = new Schema<IConditioningLog>(
     {
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -51,6 +72,7 @@ const conditioningLogSchema = new Schema<IConditioningLog>(
         duration: { type: Number, default: 0, min: 0 },
         rpe: { type: Number, min: 1, max: 10 },
         rounds: { type: [roundProgressSchema], default: undefined },
+        checkpoints: { type: [checkpointSchema], default: undefined },
         notes: { type: String, trim: true },
     },
     { timestamps: true }

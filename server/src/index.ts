@@ -29,7 +29,6 @@ import lifePlanRoutes from './routes/lifePlanRoutes'
 import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
 import mobilityRoutes from './routes/mobilityRoutes'
-import mobilityLogRoutes from './routes/mobilityLogRoutes'
 import monthNoteRoutes from './routes/monthNoteRoutes'
 import noteRoutes from './routes/noteRoutes'
 import nutritionPhaseRoutes from './routes/nutritionPhaseRoutes'
@@ -50,7 +49,6 @@ import weightLogRoutes from './routes/weightLogRoutes'
 import dailyEnergyRoutes from './routes/dailyEnergyRoutes'
 import workoutRoutes from './routes/workoutRoutes'
 import workoutLogRoutes from './routes/workoutLogRoutes'
-import Workout from './models/Workout'
 import FitnessPlanEntry from './models/FitnessPlanEntry'
 import MealPlanEntry from './models/MealPlanEntry'
 
@@ -109,7 +107,6 @@ app.use('/api/plans', trainingPlanRoutes)
 app.use('/api/recovery', recoveryRoutes)
 app.use('/api/recovery-logs', recoveryLogRoutes)
 app.use('/api/mobility', mobilityRoutes)
-app.use('/api/mobility-logs', mobilityLogRoutes)
 app.use('/api/notes', noteRoutes)
 app.use('/api/checklists', checklistRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
@@ -188,32 +185,6 @@ connectDB()
             // Already dropped or never existed.
         }
 
-        // One-time migration: workout exercises moved from a bare array of exercise
-        // ids to `{ exercise, sets?, reps? }` sub-documents. Convert any workout
-        // still holding raw ids so Mongoose can cast it under the new schema.
-        try {
-            const cursor = Workout.collection.find({ 'exercises.0': { $exists: true } })
-            let migrated = 0
-            for await (const doc of cursor) {
-                const ex = doc.exercises as unknown[]
-                const first = ex[0]
-                const alreadyNew =
-                    first && typeof first === 'object' && 'exercise' in (first as object)
-                if (alreadyNew) continue
-                const converted = ex
-                    .filter((id) => id != null)
-                    .map((id) => ({ exercise: id }))
-                await Workout.collection.updateOne(
-                    { _id: doc._id },
-                    { $set: { exercises: converted } }
-                )
-                migrated++
-            }
-            if (migrated > 0) console.log(`Workout: migrated ${migrated} workout(s) to sets/reps shape`)
-        } catch (err) {
-            console.error('Workout exercises migration failed:', err)
-        }
-
         // One-time migration: the planner gained morning/afternoon/evening slots.
         // Plan entries predating that have no `part`; drop them all into the
         // morning slot so they still show up under the new day layout.
@@ -223,7 +194,9 @@ connectDB()
                 { $set: { part: 'morning' } }
             )
             if (modifiedCount > 0)
-                console.log(`FitnessPlanEntry: assigned ${modifiedCount} entr(ies) to the morning slot`)
+                console.log(
+                    `FitnessPlanEntry: assigned ${modifiedCount} entr(ies) to the morning slot`
+                )
         } catch (err) {
             console.error('FitnessPlanEntry part migration failed:', err)
         }

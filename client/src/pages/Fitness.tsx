@@ -17,7 +17,6 @@ import ConditioningSessionsLog from '../components/ConditioningSessionsLog'
 import RecoveryLibrary from '../components/RecoveryLibrary'
 import RecoveryRecordsLog from '../components/RecoveryRecordsLog'
 import MobilityLibrary from '../components/MobilityLibrary'
-import MobilityRecordsLog from '../components/MobilityRecordsLog'
 import FitnessWeeklyPlanner, { type PlannerLayout } from '../components/FitnessWeeklyPlanner'
 import { LARGE_QUERY, useMediaQuery } from '../components/planner/WeekPlannerUI'
 import PlanLibrary from '../components/PlanLibrary'
@@ -26,6 +25,7 @@ import FitnessExportCenter from '../components/FitnessExportCenter'
 import FitnessStats from '../components/stats/FitnessStats'
 import ConditioningSessionDetail from '../components/ConditioningSessionDetail'
 import JsonImportPanel from '../components/JsonImportPanel'
+import { SlotInputs } from '../components/SessionClock'
 import {
     listSessions,
     createSession,
@@ -34,8 +34,15 @@ import {
     importSessions,
     type ConditioningInput,
 } from '../services/conditioning'
-import { CONDITIONING_CATEGORIES } from '../types'
-import type { ConditioningSession, ConditioningCategory, SessionPart } from '../types'
+import { CONDITIONING_CATEGORIES, SESSION_PHASES, SESSION_PHASE_LABELS } from '../types'
+import type {
+    ConditioningSession,
+    ConditioningCategory,
+    Phased,
+    SessionPart,
+    SessionPhase,
+} from '../types'
+import { allInPhases, emptyPhases, mapPhases } from '../lib/phases'
 
 // ─── Import template ──────────────────────────────────────────────────────────
 
@@ -46,13 +53,17 @@ const SESSION_TEMPLATE = JSON.stringify(
             duration: 30,
             category: 'Endurance',
             purpose: 'Rebuild tolerance to running impact through controlled run-walk intervals.',
-            parts: [
+            warmUp: [
                 {
-                    name: 'Warm-up',
+                    name: 'Walk',
                     detail: '0.5% incline. Walk 3 min @ 4.2 km/h, then 4 min @ 5.2 km/h.',
+                    startMin: 0,
+                    endMin: 7,
                 },
+            ],
+            main: [
                 {
-                    name: 'Main set',
+                    name: 'Run-walk intervals',
                     detail: '90 sec jog @ 7.0 km/h, then 2 min walk @ 5.0 km/h. ~1.05 km running.',
                     rounds: 6,
                     roundLabel: 'jog/walk',
@@ -66,8 +77,17 @@ const SESSION_TEMPLATE = JSON.stringify(
                     ],
                     roundSeconds: [210, 210, 210, 210, 210, 210],
                     startAtSec: 420,
+                    startMin: 7,
+                    endMin: 28,
                 },
-                { name: 'Cool-down', detail: 'Walk 2 min @ 5.0 km/h, then 3 min @ 4.0 km/h.' },
+            ],
+            coolDown: [
+                {
+                    name: 'Walk',
+                    detail: 'Walk 2 min @ 5.0 km/h, then 3 min @ 4.0 km/h.',
+                    startMin: 28,
+                    endMin: 33,
+                },
             ],
             howToUse: 'Leave at least one non-running day before the next run.',
         },
@@ -76,11 +96,11 @@ const SESSION_TEMPLATE = JSON.stringify(
             duration: 25,
             category: 'HIIT',
             purpose: 'Improve anaerobic capacity.',
-            parts: [
-                { name: 'Warm-up', detail: '5 min easy spin' },
-                { name: 'Intervals', detail: '8 x 30s hard / 90s easy' },
-                { name: 'Cool-down', detail: '5 min easy spin' },
+            warmUp: [{ name: 'Easy spin', detail: '5 min', startMin: 0, endMin: 5 }],
+            main: [
+                { name: 'Intervals', detail: '8 x 30s hard / 90s easy', startMin: 5, endMin: 21 },
             ],
+            coolDown: [{ name: 'Easy spin', detail: '5 min', startMin: 21, endMin: 25 }],
             plan: [{ date: '2026-08-11', part: 'evening' }, '2026-08-14'],
         },
     ],
@@ -90,11 +110,11 @@ const SESSION_TEMPLATE = JSON.stringify(
 
 const TABS = [
     'Planner',
+    'Strength',
+    'Conditioning',
     'Plans',
     'Stats',
     'Body',
-    'Strength',
-    'Conditioning',
     'Mobility',
     'Recovery',
 ] as const
@@ -133,7 +153,8 @@ export default function Fitness() {
     const [plannerStart, setPlannerStart] = useState<string | null>(null)
     const [layout, setLayout] = useState<PlannerLayout>(readPlannerLayout)
     const isLarge = useMediaQuery(LARGE_QUERY)
-    // The week board spans the screen; everything else sits in the usual column.
+    // The week board spans the screen below the tabs; the header and tabs, and
+    // every other tab, sit in the usual column.
     const fluid = tab === 'Planner' && layout === 'week' && isLarge
 
     function changeLayout(next: PlannerLayout) {
@@ -147,7 +168,7 @@ export default function Fitness() {
 
     return (
         <main className="py-10">
-            <Container fluid={fluid}>
+            <Container>
                 <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">
@@ -202,7 +223,7 @@ export default function Fitness() {
                 ) : tab === 'Conditioning' ? (
                     <ConditioningSection />
                 ) : tab === 'Mobility' ? (
-                    <MobilitySection />
+                    <MobilityLibrary />
                 ) : (
                     <RecoverySection />
                 )}
@@ -215,12 +236,12 @@ export default function Fitness() {
 
 // ─── Conditioning section ───────────────────────────────────────────────────────
 
-const CONDITIONING_SUB_TABS = ['Sessions', 'Session Library'] as const
+const CONDITIONING_SUB_TABS = ['Session Library', 'Sessions'] as const
 type ConditioningSubTab = (typeof CONDITIONING_SUB_TABS)[number]
 
 /** Conditioning splits into logged Sessions and the reusable Session Library. */
 function ConditioningSection() {
-    const [sub, setSub] = useState<ConditioningSubTab>('Sessions')
+    const [sub, setSub] = useState<ConditioningSubTab>('Session Library')
 
     return (
         <div className="flex flex-col gap-6">
@@ -236,34 +257,14 @@ function ConditioningSection() {
     )
 }
 
-// ─── Mobility section ───────────────────────────────────────────────────────────
-
-const RECORDS_SUB_TABS = ['Records', 'Library'] as const
+const RECORDS_SUB_TABS = ['Library', 'Records'] as const
 type RecordsSubTab = (typeof RECORDS_SUB_TABS)[number]
-
-/** Mobility splits into logged Records and the reusable routine Library. */
-function MobilitySection() {
-    const [sub, setSub] = useState<RecordsSubTab>('Records')
-
-    return (
-        <div className="flex flex-col gap-6">
-            <Tabs
-                tabs={[...RECORDS_SUB_TABS]}
-                value={sub}
-                onChange={(t) => setSub(t as RecordsSubTab)}
-                className="self-start"
-            />
-
-            {sub === 'Records' ? <MobilityRecordsLog /> : <MobilityLibrary />}
-        </div>
-    )
-}
 
 // ─── Recovery section ───────────────────────────────────────────────────────────
 
 /** Recovery splits into logged Records and the reusable item Library. */
 function RecoverySection() {
-    const [sub, setSub] = useState<RecordsSubTab>('Records')
+    const [sub, setSub] = useState<RecordsSubTab>('Library')
 
     return (
         <div className="flex flex-col gap-6">
@@ -404,9 +405,24 @@ function ConditioningLibrary() {
                             schedule it on several days. Leave it out to just add to the library.
                         </p>
                         <p>
-                            <span className="font-semibold text-neutral-700">parts</span> each take
-                            a <span className="font-semibold text-neutral-700">name</span> and an
-                            optional <span className="font-semibold text-neutral-700">detail</span>.
+                            Every session has three phases —{' '}
+                            <span className="font-semibold text-neutral-700">warmUp</span>,{' '}
+                            <span className="font-semibold text-neutral-700">main</span> and{' '}
+                            <span className="font-semibold text-neutral-700">coolDown</span> — each
+                            a list of parts. A flat{' '}
+                            <span className="font-semibold text-neutral-700">parts</span> list is
+                            still accepted and goes into main unless a part names its own{' '}
+                            <span className="font-semibold text-neutral-700">phase</span>.
+                        </p>
+                        <p>
+                            Parts each take a{' '}
+                            <span className="font-semibold text-neutral-700">name</span>, an
+                            optional <span className="font-semibold text-neutral-700">detail</span>{' '}
+                            and — required — their slot in the session:{' '}
+                            <span className="font-semibold text-neutral-700">startMin</span> and{' '}
+                            <span className="font-semibold text-neutral-700">endMin</span>, minutes
+                            from the start (e.g. 15 and 30). You tap each part off against it as
+                            you go.
                             Add <span className="font-semibold text-neutral-700">rounds</span> (a
                             number) to a part to get a tap-to-count counter, plus an optional{' '}
                             <span className="font-semibold text-neutral-700">roundLabel</span>,{' '}
@@ -527,6 +543,7 @@ function SessionCard({
     onEdit: () => void
     onDelete: () => void
 }) {
+    const partCount = allInPhases(session).length
     return (
         <Card as="div" className="relative flex flex-col gap-3">
             <button
@@ -541,8 +558,8 @@ function SessionCard({
                     <p className="truncate font-semibold text-neutral-900">{session.name}</p>
                     <p className="mt-0.5 text-xs text-neutral-400">
                         {session.duration} min
-                        {session.parts.length > 0
-                            ? ` · ${session.parts.length} ${session.parts.length === 1 ? 'part' : 'parts'}`
+                        {partCount > 0
+                            ? ` · ${partCount} ${partCount === 1 ? 'part' : 'parts'}`
                             : ''}
                     </p>
                 </div>
@@ -676,7 +693,7 @@ function SessionFormDrawer({
     const [duration, setDuration] = useState('0')
     const [category, setCategory] = useState<ConditioningCategory>('HIIT')
     const [purpose, setPurpose] = useState('')
-    const [parts, setParts] = useState<PartRow[]>([])
+    const [parts, setParts] = useState<Phased<PartRow>>(emptyPhases)
     const [howToUse, setHowToUse] = useState('')
     const [saving, setSaving] = useState(false)
 
@@ -686,7 +703,11 @@ function SessionFormDrawer({
         setDuration(editing?.duration != null ? String(editing.duration) : '0')
         setCategory(editing?.category ?? 'HIIT')
         setPurpose(editing?.purpose ?? '')
-        setParts((editing?.parts ?? []).map((p) => ({ ...p, key: nextKey() })))
+        setParts(
+            editing
+                ? mapPhases(editing, (list) => list.map((p) => ({ ...p, key: nextKey() })))
+                : emptyPhases()
+        )
         setHowToUse(editing?.howToUse ?? '')
         setSaving(false)
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -706,21 +727,27 @@ function SessionFormDrawer({
             duration: num(duration),
             category,
             purpose: purpose.trim() || undefined,
-            parts: parts
-                .map((p) => {
-                    const rounds = p.rounds && p.rounds >= 1 ? Math.floor(p.rounds) : undefined
-                    return {
-                        name: p.name.trim(),
-                        detail: p.detail?.trim() || undefined,
-                        rounds,
-                        roundLabel: rounds ? p.roundLabel?.trim() || undefined : undefined,
-                        // Preserve per-rep info/timing set via import (no form editor for it yet).
-                        roundDetails: rounds && p.roundDetails?.length ? p.roundDetails : undefined,
-                        roundSeconds: rounds && p.roundSeconds?.length ? p.roundSeconds : undefined,
-                        startAtSec: rounds ? p.startAtSec : undefined,
-                    }
-                })
-                .filter((p) => p.name !== ''),
+            ...mapPhases(parts, (list) =>
+                list
+                    .map((p) => {
+                        const rounds = p.rounds && p.rounds >= 1 ? Math.floor(p.rounds) : undefined
+                        return {
+                            name: p.name.trim(),
+                            detail: p.detail?.trim() || undefined,
+                            rounds,
+                            roundLabel: rounds ? p.roundLabel?.trim() || undefined : undefined,
+                            // Preserve per-rep info/timing set via import (no form editor for it yet).
+                            roundDetails:
+                                rounds && p.roundDetails?.length ? p.roundDetails : undefined,
+                            roundSeconds:
+                                rounds && p.roundSeconds?.length ? p.roundSeconds : undefined,
+                            startAtSec: rounds ? p.startAtSec : undefined,
+                            startMin: p.startMin,
+                            endMin: p.endMin,
+                        }
+                    })
+                    .filter((p) => p.name !== '')
+            ),
             howToUse: howToUse.trim() || undefined,
         }
         setSaving(true)
@@ -786,7 +813,14 @@ function SessionFormDrawer({
                     onChange={(e) => setPurpose(e.target.value)}
                 />
 
-                <PartsEditor rows={parts} onChange={setParts} />
+                {SESSION_PHASES.map((phase) => (
+                    <PartsEditor
+                        key={phase}
+                        phase={phase}
+                        rows={parts[phase]}
+                        onChange={(rows) => setParts((prev) => ({ ...prev, [phase]: rows }))}
+                    />
+                ))}
 
                 <Textarea
                     label="How to use"
@@ -802,7 +836,21 @@ function SessionFormDrawer({
 
 // ─── Parts editor ───────────────────────────────────────────────────────────────
 
-function PartsEditor({ rows, onChange }: { rows: PartRow[]; onChange: (rows: PartRow[]) => void }) {
+const EMPTY_PHASE_HINT: Record<SessionPhase, string> = {
+    warmUp: 'No warm-up yet — easy movement to build up to the main session.',
+    main: 'No main session yet — the intervals, run or circuit itself.',
+    coolDown: 'No cool-down yet — easy movement to bring things back down.',
+}
+
+function PartsEditor({
+    phase,
+    rows,
+    onChange,
+}: {
+    phase: SessionPhase
+    rows: PartRow[]
+    onChange: (rows: PartRow[]) => void
+}) {
     function update(key: string, patch: Partial<SessionPart>) {
         onChange(rows.map((r) => (r.key === key ? { ...r, ...patch } : r)))
     }
@@ -810,14 +858,19 @@ function PartsEditor({ rows, onChange }: { rows: PartRow[]; onChange: (rows: Par
         onChange(rows.filter((r) => r.key !== key))
     }
     function add() {
-        onChange([...rows, { key: nextKey(), name: '', detail: '' }])
+        // A new part picks up where the last one's slot ends.
+        const after = rows[rows.length - 1]?.endMin
+        onChange([
+            ...rows,
+            { key: nextKey(), name: '', detail: '', ...(after !== undefined ? { startMin: after } : {}) },
+        ])
     }
 
     return (
         <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                    Session parts
+                    {SESSION_PHASE_LABELS[phase]}
                 </label>
                 <Button variant="ghost" size="sm" icon="fa-solid fa-plus" onClick={add}>
                     Add part
@@ -826,7 +879,7 @@ function PartsEditor({ rows, onChange }: { rows: PartRow[]; onChange: (rows: Par
 
             {rows.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
-                    No parts yet — add a warm-up, main set, cool-down, etc.
+                    {EMPTY_PHASE_HINT[phase]}
                 </p>
             ) : (
                 <div className="flex flex-col gap-2">
@@ -841,7 +894,11 @@ function PartsEditor({ rows, onChange }: { rows: PartRow[]; onChange: (rows: Par
                                 </span>
                                 <input
                                     className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400"
-                                    placeholder="Part name (e.g. Warm-up)"
+                                    placeholder={
+                                        phase === 'main'
+                                            ? 'Part name (e.g. Intervals)'
+                                            : 'Part name (e.g. Easy jog)'
+                                    }
                                     value={r.name}
                                     onChange={(e) => update(r.key, { name: e.target.value })}
                                 />
@@ -861,6 +918,16 @@ function PartsEditor({ rows, onChange }: { rows: PartRow[]; onChange: (rows: Par
                                 value={r.detail ?? ''}
                                 onChange={(e) => update(r.key, { detail: e.target.value })}
                             />
+
+                            <div className="pl-8">
+                                <SlotInputs
+                                    slot={r}
+                                    label={r.name || `part ${i + 1}`}
+                                    onChange={(s) =>
+                                        update(r.key, { startMin: s.startMin, endMin: s.endMin })
+                                    }
+                                />
+                            </div>
 
                             {/* Optional interval counter — leave rounds blank for plain parts. */}
                             <div className="flex flex-wrap items-center gap-2 pl-8 text-xs text-neutral-500">

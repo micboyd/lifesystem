@@ -9,6 +9,7 @@ import Checkbox from './Checkbox'
 import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
 import ConditioningSessionDetail from './ConditioningSessionDetail'
+import { useSessionClock } from './SessionClock'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
 import { listRecovery } from '../services/recovery'
@@ -27,11 +28,6 @@ import {
     listLogs as listConditioningLogs,
     deleteLog as deleteConditioningLog,
 } from '../services/conditioningLogs'
-import {
-    createLog as createMobilityLog,
-    listLogs as listMobilityLogs,
-    deleteLog as deleteMobilityLog,
-} from '../services/mobilityLogs'
 import {
     createLog as createRecoveryLog,
     listLogs as listRecoveryLogs,
@@ -53,7 +49,13 @@ import {
     restorePlanWeek,
     type PlanWeekSnapshot,
 } from '../services/fitnessPlan'
-import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS, FITNESS_FLAG_COLORS } from '../types'
+import {
+    FITNESS_PLAN_KINDS,
+    FITNESS_PLAN_PARTS,
+    FITNESS_FLAG_COLORS,
+    SESSION_PHASES,
+    SESSION_PHASE_LABELS,
+} from '../types'
 import type {
     Workout,
     WorkoutExercise,
@@ -69,6 +71,7 @@ import type {
     FitnessNoteScope,
     FitnessFlagColor,
     RoundProgress,
+    Checkpoint,
     Event,
 } from '../types'
 import {
@@ -102,6 +105,8 @@ import {
     useMediaQuery,
     LARGE_QUERY,
 } from './planner/WeekPlannerUI'
+import { allInPhases, estimateWorkoutMinutes, mapPhases } from '../lib/phases'
+import { hasSlot, slotLabel } from '../lib/sessionClock'
 
 // ─── Kind presentation ────────────────────────────────────────────────────────
 
@@ -288,6 +293,7 @@ function snapshotWeek(
                     order: e.order,
                     ignoreClash: e.ignoreClash === true,
                     ignoreOverload: e.ignoreOverload === true,
+                    ...(e.done ? { done: true } : {}),
                 },
             ]
         }),
@@ -314,21 +320,6 @@ function formatSetsReps(e: { sets?: number; reps?: string }): string {
     if (sets) return `${sets} ${sets === 1 ? 'set' : 'sets'}`
     if (reps) return `${reps} reps`
     return ''
-}
-
-// Rough time estimate for a workout — an 8-min warm-up plus working sets
-// (~2 min each), or ~6 min per exercise where sets aren't set. Mirrors the
-// Strength library's estimate so the same workout reads the same everywhere.
-const WARMUP_MIN = 8
-const PER_EXERCISE_MIN = 6
-const PER_SET_MIN = 2
-function estimateWorkoutMinutes(exercises: WorkoutExercise[]): number {
-    if (exercises.length === 0) return 0
-    const work = exercises.reduce(
-        (sum, e) => sum + (e.sets && e.sets > 0 ? e.sets * PER_SET_MIN : PER_EXERCISE_MIN),
-        0
-    )
-    return WARMUP_MIN + work
 }
 
 const CATEGORY_CHIP: Record<ConditioningCategory, string> = {
@@ -621,14 +612,20 @@ export default function FitnessWeeklyPlanner({
         })
     }
 
+    // Mobility is supplementary and keeps no logs: its tick lives on the entry.
+    async function setMobilityDone(entry: FitnessPlanEntry, done: boolean) {
+        await updatePlanEntry(entry._id, { done })
+        setEntries((prev) => prev.map((e) => (e._id === entry._id ? { ...e, done } : e)))
+    }
+
     // Undo a completion: delete the log behind it, in whichever category's log it
     // was recorded, then untick the row. Marking done can always be redone.
     async function handleUnlog(entry: FitnessPlanEntry, logId: string) {
+        if (entry.kind === 'mobility') return setMobilityDone(entry, false)
         const libId = entryLibId(entry)
         if (!libId) return
         if (entry.kind === 'workout') await deleteWorkoutLog(logId)
         else if (entry.kind === 'conditioning') await deleteConditioningLog(logId)
-        else if (entry.kind === 'mobility') await deleteMobilityLog(logId)
         else await deleteRecoveryLog(logId)
         clearDoneKey(entry.kind, libId, entry.date)
     }
@@ -687,10 +684,9 @@ export default function FitnessWeeklyPlanner({
             listEvents(range.start, range.end).catch(() => [] as Event[]),
             listWorkoutLogs().catch(() => []),
             listConditioningLogs().catch(() => []),
-            listMobilityLogs().catch(() => []),
             listRecoveryLogs().catch(() => []),
         ])
-            .then(([rows, noteRows, eventRows, wLogs, cLogs, mLogs, rLogs]) => {
+            .then(([rows, noteRows, eventRows, wLogs, cLogs, rLogs]) => {
                 if (!active) return
                 setEntries(rows)
                 setNotes(noteRows)
@@ -705,9 +701,6 @@ export default function FitnessWeeklyPlanner({
                 for (const l of cLogs)
                     if (l.session && inRange(l.date))
                         keys.set(doneKey('conditioning', l.session, l.date), l._id)
-                for (const l of mLogs)
-                    if (l.mobility && inRange(l.date))
-                        keys.set(doneKey('mobility', l.mobility, l.date), l._id)
                 for (const l of rLogs)
                     if (l.recovery && inRange(l.date))
                         keys.set(doneKey('recovery', l.recovery, l.date), l._id)
@@ -993,14 +986,18 @@ export default function FitnessWeeklyPlanner({
 
     const rangeLabel = formatWeekRange(range.start, range.end)
 
-    // Whether a planned item has a matching completion log on its day.
+    // Whether a planned item has a matching completion log on its day — or, for
+    // mobility, which keeps no logs, whether the entry itself is ticked.
     const isDone = (entry: FitnessPlanEntry) => {
+        if (entry.kind === 'mobility') return entry.done === true
         const k = entryDoneKey(entry)
         return k ? doneLogs.has(k) : false
     }
 
-    // The id of the log that completed a planned item, when there is one.
+    // The id of the log that completed a planned item, when there is one. A
+    // ticked mobility entry is its own record, so it hands back its own id.
     const doneLogIdOf = (entry: FitnessPlanEntry) => {
+        if (entry.kind === 'mobility') return entry.done ? entry._id : null
         const k = entryDoneKey(entry)
         return (k ? doneLogs.get(k) : undefined) ?? null
     }
@@ -1152,6 +1149,7 @@ export default function FitnessWeeklyPlanner({
                     const id = entryLibId(entry)
                     if (id) markDoneKey(entry.kind, id, entry.date, logId)
                 }}
+                onTickMobility={setMobilityDone}
                 onUnlog={handleUnlog}
                 onLogWeights={(workout, date) => {
                     setDetail(null)
@@ -2405,8 +2403,7 @@ function DayCard({
     // Minutes across the day: sessions, mobility and recovery carry a duration;
     // workouts use the same estimate as their detail view.
     const minutes = entries.reduce((sum, e) => {
-        if (e.kind === 'workout')
-            return sum + (e.workout ? estimateWorkoutMinutes(e.workout.exercises) : 0)
+        if (e.kind === 'workout') return sum + (e.workout ? estimateWorkoutMinutes(e.workout) : 0)
         if (e.kind === 'conditioning') return sum + (e.session?.duration ?? 0)
         if (e.kind === 'mobility') return sum + (e.mobility?.duration ?? 0)
         return sum + (e.recovery?.duration ?? 0)
@@ -2817,8 +2814,8 @@ function KindChip({ kind }: { kind: FitnessPlanKind }) {
 /** The one-line summary under a planned item's name. */
 function plannedMeta(entry: FitnessPlanEntry): string {
     if (entry.kind === 'workout' && entry.workout) {
-        const n = entry.workout.exercises.length
-        const mins = estimateWorkoutMinutes(entry.workout.exercises)
+        const n = entry.workout.main.length
+        const mins = estimateWorkoutMinutes(entry.workout)
         return [`${n} ${n === 1 ? 'exercise' : 'exercises'}`, mins > 0 ? `~${mins} min` : '']
             .filter(Boolean)
             .join(' · ')
@@ -3273,8 +3270,8 @@ function ItemPicker({
                                                         )}
                                                     </div>
                                                     <p className="text-xs tabular-nums text-neutral-400">
-                                                        {w.exercises.length}{' '}
-                                                        {w.exercises.length === 1
+                                                        {w.main.length}{' '}
+                                                        {w.main.length === 1
                                                             ? 'exercise'
                                                             : 'exercises'}
                                                     </p>
@@ -3426,6 +3423,7 @@ function PlannedDetailDrawer({
     onClose,
     onLogged,
     onUnlog,
+    onTickMobility,
     onLogWeights,
 }: {
     entry: FitnessPlanEntry | null
@@ -3439,6 +3437,8 @@ function PlannedDetailDrawer({
     onLogged: (entry: FitnessPlanEntry, logId: string) => void
     /** Delete the completion log behind a ticked item, so it counts as not done. */
     onUnlog: (entry: FitnessPlanEntry, logId: string) => Promise<void>
+    /** Tick a mobility entry off — mobility keeps no logs, so no record is written. */
+    onTickMobility: (entry: FitnessPlanEntry, done: boolean) => Promise<void>
     /** Open the per-set weight logger for a planned workout, dated to its day. */
     onLogWeights: (workout: Workout, date: string) => void
 }) {
@@ -3462,11 +3462,17 @@ function PlannedDetailDrawer({
 
     const e = view
     const title = e ? (planItemName(e) ?? KIND_META[e.kind].label) : 'Details'
+    // A planned conditioning session runs to its own clock, kept on the device
+    // per plan entry so closing the drawer mid-session doesn't lose it.
+    const clock = useSessionClock(
+        e && e.kind === 'conditioning' && e.session && !done ? `plan:${e._id}` : null
+    )
 
     // Any planned item can be logged straight from the planner — "Mark as done"
     // snapshots the library item into a completed record dated to the planned day,
-    // mirroring the Done buttons in each category's log. Already-done items show a
-    // static "Done" chip instead.
+    // mirroring the Done buttons in each category's log. Mobility is the
+    // exception: it keeps no records, so marking it done just ticks the entry.
+    // Already-done items show a static "Done" chip instead.
     const canMarkDone =
         !!e &&
         !done &&
@@ -3485,31 +3491,44 @@ function PlannedDetailDrawer({
                 toast.show(`Logged “${e.workout.name}”.`, 'success')
             } else if (e.kind === 'conditioning' && e.session) {
                 // Snapshot the tapped-out rounds for each counted part.
-                const rounds: RoundProgress[] = e.session.parts
+                const rounds: RoundProgress[] = allInPhases(e.session)
                     .map((part, i) =>
                         part.rounds
                             ? { name: part.name, done: counts[i] ?? 0, target: part.rounds }
                             : null
                     )
                     .filter((r): r is RoundProgress => r !== null)
+                // Each part's slot against when it was tapped done, if the
+                // session was run to the clock.
+                const checkpoints: Checkpoint[] | undefined = clock.running
+                    ? allInPhases(e.session).map((part, i) => ({
+                          name: part.name,
+                          ...(part.startMin !== undefined ? { startMin: part.startMin } : {}),
+                          ...(part.endMin !== undefined ? { endMin: part.endMin } : {}),
+                          ...(clock.state.doneAt[i] !== undefined
+                              ? { doneAtMin: clock.state.doneAt[i] }
+                              : {}),
+                      }))
+                    : undefined
                 logId = (
                     await createConditioningLog({
                         session: e.session._id,
                         date: e.date,
-                        duration: e.session.duration,
+                        // Run to the clock, the session took as long as it ran.
+                        duration: clock.running
+                            ? Math.max(1, Math.round(clock.elapsed))
+                            : e.session.duration,
                         rounds: rounds.length > 0 ? rounds : undefined,
+                        checkpoints,
                     })
                 )._id
+                clock.reset()
                 toast.show(`Logged “${e.session.name}”.`, 'success')
             } else if (e.kind === 'mobility' && e.mobility) {
-                logId = (
-                    await createMobilityLog({
-                        mobility: e.mobility._id,
-                        date: e.date,
-                        duration: e.mobility.duration,
-                    })
-                )._id
-                toast.show(`Logged “${e.mobility.name}”.`, 'success')
+                await onTickMobility(e, true)
+                toast.show(`Ticked off “${e.mobility.name}”.`, 'success')
+                onClose()
+                return
             } else if (e.kind === 'recovery' && e.recovery) {
                 logId = (
                     await createRecoveryLog({
@@ -3569,7 +3588,10 @@ function PlannedDetailDrawer({
                             <Button
                                 variant="ghost"
                                 icon="fa-solid fa-rotate-left"
-                                onClick={() => setConfirmUndo(true)}
+                                // An untick of mobility deletes nothing, so it needs no confirm.
+                                onClick={() =>
+                                    e?.kind === 'mobility' ? undoDone() : setConfirmUndo(true)
+                                }
                                 disabled={logging}
                             >
                                 Mark as not done
@@ -3604,6 +3626,7 @@ function PlannedDetailDrawer({
                             session={e.session}
                             counts={counts}
                             onCount={(i, next) => setCounts((c) => ({ ...c, [i]: next }))}
+                            clock={done ? undefined : clock}
                         />
                     ) : e.kind === 'mobility' && e.mobility ? (
                         <MobilityDetail mobility={e.mobility} />
@@ -3661,12 +3684,15 @@ function WorkoutDetail({
     workout: Workout
     exercisesById: Map<string, Exercise>
 }) {
-    // Pair each workout slot with its resolved library exercise, dropping any
-    // that were since deleted from the library.
-    const rows = workout.exercises
-        .map((item) => ({ item, ex: exercisesById.get(item.exercise) }))
-        .filter((r): r is { item: WorkoutExercise; ex: Exercise } => !!r.ex)
-    const est = estimateWorkoutMinutes(workout.exercises)
+    // Pair each workout slot with its resolved library exercise, phase by
+    // phase, dropping any that were since deleted from the library.
+    const phases = mapPhases(workout, (list) =>
+        list
+            .map((item) => ({ item, ex: exercisesById.get(item.exercise) }))
+            .filter((r): r is { item: WorkoutExercise; ex: Exercise } => !!r.ex)
+    )
+    const rows = phases.main
+    const est = estimateWorkoutMinutes(workout)
 
     return (
         <div className="flex flex-col gap-6">
@@ -3684,38 +3710,51 @@ function WorkoutDetail({
                 </p>
             )}
 
-            <DetailSection label="Exercises">
-                {rows.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
-                        No exercises in this workout yet.
-                    </p>
-                ) : (
-                    <ol className="flex flex-col gap-3">
-                        {rows.map(({ item, ex }, i) => (
-                            <li key={`${ex._id}-${i}`} className="flex gap-3 text-sm">
-                                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
-                                    {i + 1}
-                                </span>
-                                <div className="min-w-0 pt-0.5">
-                                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                        <p className="font-semibold text-neutral-900">{ex.name}</p>
-                                        {formatSetsReps(item) && (
-                                            <span className="text-xs font-medium text-coral-600">
-                                                {formatSetsReps(item)}
-                                            </span>
-                                        )}
-                                    </div>
-                                    {ex.description && (
-                                        <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
-                                            {ex.description}
-                                        </p>
-                                    )}
-                                </div>
-                            </li>
-                        ))}
-                    </ol>
-                )}
-            </DetailSection>
+            {SESSION_PHASES.map((phase) => {
+                const rows = phases[phase]
+                if (rows.length === 0 && phase !== 'main') return null
+                return (
+                    <DetailSection key={phase} label={SESSION_PHASE_LABELS[phase]}>
+                        {rows.length === 0 ? (
+                            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
+                                No main-session exercises in this workout yet.
+                            </p>
+                        ) : (
+                            <ol className="flex flex-col gap-3">
+                                {rows.map(({ item, ex }, i) => (
+                                    <li key={`${ex._id}-${i}`} className="flex gap-3 text-sm">
+                                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
+                                            {i + 1}
+                                        </span>
+                                        <div className="min-w-0 pt-0.5">
+                                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                                <p className="font-semibold text-neutral-900">
+                                                    {ex.name}
+                                                </p>
+                                                {formatSetsReps(item) && (
+                                                    <span className="text-xs font-medium text-coral-600">
+                                                        {formatSetsReps(item)}
+                                                    </span>
+                                                )}
+                                                {hasSlot(item) && (
+                                                    <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-neutral-500">
+                                                        {slotLabel(item)} min
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {ex.description && (
+                                                <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
+                                                    {ex.description}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ol>
+                        )}
+                    </DetailSection>
+                )
+            })}
         </div>
     )
 }

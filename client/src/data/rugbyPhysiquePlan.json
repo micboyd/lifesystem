@@ -255,59 +255,75 @@
             "name": "Upper A - Rugby Size & Strength",
             "duration": 70,
             "purpose": "Build a thick chest, upper back, shoulders and traps while keeping the lower body fresh for Tuesday's heavy leg session.",
-            "exercises": [
+            "main": [
                 {
                     "name": "Medicine ball chest pass",
                     "sets": 3,
                     "reps": "4-5",
                     "rest": "60-90 sec",
                     "notes": "Explosive reps; stop each set before speed drops.",
-                    "phase": "From 2027-02-08 onward"
+                    "phase": "From 2027-02-08 onward",
+                    "startMin": 8,
+                    "endMin": 15
                 },
                 {
                     "name": "Barbell bench press",
                     "sets": 4,
                     "reps": "5-8",
                     "rest": "2-3 min",
-                    "notes": "Keep 1-2 reps in reserve on normal weeks."
+                    "notes": "Keep 1-2 reps in reserve on normal weeks.",
+                    "startMin": 15,
+                    "endMin": 25
                 },
                 {
                     "name": "Barbell row",
                     "sets": 4,
                     "reps": "6-8",
                     "rest": "2 min",
-                    "notes": "Strict torso position; build upper-back thickness."
+                    "notes": "Strict torso position; build upper-back thickness.",
+                    "startMin": 25,
+                    "endMin": 35
                 },
                 {
                     "name": "Incline dumbbell press",
                     "sets": 3,
                     "reps": "8-12",
-                    "rest": "90 sec"
+                    "rest": "90 sec",
+                    "startMin": 35,
+                    "endMin": 43
                 },
                 {
                     "name": "Lat pulldown",
                     "sets": 3,
                     "reps": "8-12",
-                    "rest": "90 sec"
+                    "rest": "90 sec",
+                    "startMin": 43,
+                    "endMin": 50
                 },
                 {
                     "name": "Dumbbell lateral raise",
                     "sets": 3,
                     "reps": "12-20",
-                    "rest": "60 sec"
+                    "rest": "60 sec",
+                    "startMin": 50,
+                    "endMin": 58
                 },
                 {
                     "name": "Dumbbell shrugs",
                     "sets": 3,
                     "reps": "10-15",
                     "rest": "75 sec",
-                    "notes": "Pause for 1 second at the top."
+                    "notes": "Pause for 1 second at the top.",
+                    "startMin": 58,
+                    "endMin": 65
                 },
                 {
                     "name": "Rope triceps pushdown",
                     "sets": 2,
                     "reps": "10-15",
-                    "rest": "60 sec"
+                    "rest": "60 sec",
+                    "startMin": 65,
+                    "endMin": 70
                 }
             ]
         },
@@ -316,44 +332,56 @@
             "name": "Lower A - Heavy Rugby Base",
             "duration": 70,
             "purpose": "Build squat strength, posterior-chain size and single-leg strength without chasing fatigue for its own sake.",
-            "exercises": [
+            "main": [
                 {
                     "name": "Barbell back squat",
                     "sets": 4,
                     "reps": "5-6",
                     "rest": "3 min",
-                    "notes": "Primary strength lift. No grinding reps."
+                    "notes": "Primary strength lift. No grinding reps.",
+                    "startMin": 8,
+                    "endMin": 21
                 },
                 {
                     "name": "Barbell Romanian deadlift",
                     "sets": 3,
                     "reps": "6-8",
-                    "rest": "2-3 min"
+                    "rest": "2-3 min",
+                    "startMin": 21,
+                    "endMin": 31
                 },
                 {
                     "name": "Dumbbell Bulgarian split squat",
                     "sets": 3,
                     "reps": "8-10 each side",
-                    "rest": "90 sec"
+                    "rest": "90 sec",
+                    "startMin": 31,
+                    "endMin": 41
                 },
                 {
                     "name": "Seated or lying leg curl",
                     "sets": 3,
                     "reps": "10-15",
-                    "rest": "75 sec"
+                    "rest": "75 sec",
+                    "startMin": 41,
+                    "endMin": 50
                 },
                 {
                     "name": "Standing dumbbell calf raise",
                     "sets": 3,
                     "reps": "12-20",
-                    "rest": "60 sec"
+                    "rest": "60 sec",
+                    "startMin": 50,
+                    "endMin": 60
                 },
                 {
                     "name": "Cable Pallof press",
                     "sets": 3,
                     "reps": "10-12 each side",
                     "rest": "60 sec",
-                    "notes": "Pause fully extended."
+                    "notes": "Pause fully extended.",
+                    "startMin": 60,
+                    "endMin": 70
                 }
             ]
         },
@@ -362,39 +390,49 @@
             "name": "Lower B - Rugby Strength & Power",
             "duration": 65,
             "purpose": "Build powerful hips, legs, grip and trunk strength while keeping enough in reserve for Friday's run.",
-            "exercises": [
+            "main": [
                 {
                     "name": "Trap bar deadlift",
                     "sets": 4,
                     "reps": "4-5",
                     "rest": "3 min",
-                    "notes": "Fast concentric intent; keep 1-2 reps in reserve."
+                    "notes": "Fast concentric intent; keep 1-2 reps in reserve.",
+                    "startMin": 8,
+                    "endMin": 21
                 },
                 {
                     "name": "Paused barbell back squat",
                     "sets": 3,
                     "reps": "5",
                     "rest": "2-3 min",
-                    "notes": "Use a controlled 1-2 second pause; keep this lighter than Tuesday."
+                    "notes": "Use a controlled 1-2 second pause; keep this lighter than Tuesday.",
+                    "startMin": 21,
+                    "endMin": 31
                 },
                 {
                     "name": "Dumbbell reverse lunge",
                     "sets": 3,
                     "reps": "8 each side",
-                    "rest": "90 sec"
+                    "rest": "90 sec",
+                    "startMin": 31,
+                    "endMin": 42
                 },
                 {
                     "name": "Dumbbell hip thrust",
                     "sets": 3,
                     "reps": "8-12",
-                    "rest": "90 sec"
+                    "rest": "90 sec",
+                    "startMin": 42,
+                    "endMin": 52
                 },
                 {
                     "name": "Farmer's carry",
                     "sets": 4,
                     "reps": "20-30 m",
                     "rest": "60-90 sec",
-                    "notes": "Heavy, tall posture, controlled breathing."
+                    "notes": "Heavy, tall posture, controlled breathing.",
+                    "startMin": 52,
+                    "endMin": 65
                 }
             ]
         },
@@ -403,63 +441,81 @@
             "name": "Upper B - Shoulders, Back & Arms",
             "duration": 70,
             "purpose": "Build the shoulder width, lats, arms and neck/trap look associated with a powerful rugby physique.",
-            "exercises": [
+            "main": [
                 {
                     "name": "Medicine ball rotational throw",
                     "sets": 3,
                     "reps": "4 each side",
                     "rest": "60-90 sec",
                     "notes": "Explosive, crisp reps.",
-                    "phase": "From 2027-02-08 onward"
+                    "phase": "From 2027-02-08 onward",
+                    "startMin": 8,
+                    "endMin": 15
                 },
                 {
                     "name": "Barbell overhead press",
                     "sets": 4,
                     "reps": "6-8",
-                    "rest": "2-3 min"
+                    "rest": "2-3 min",
+                    "startMin": 15,
+                    "endMin": 24
                 },
                 {
                     "name": "Lat pulldown",
                     "sets": 4,
                     "reps": "8-10",
-                    "rest": "90 sec"
+                    "rest": "90 sec",
+                    "startMin": 24,
+                    "endMin": 32
                 },
                 {
                     "name": "Dumbbell bench press",
                     "sets": 3,
                     "reps": "8-12",
-                    "rest": "90 sec"
+                    "rest": "90 sec",
+                    "startMin": 32,
+                    "endMin": 39
                 },
                 {
                     "name": "One-arm dumbbell row",
                     "sets": 3,
                     "reps": "8-12 each side",
-                    "rest": "90 sec"
+                    "rest": "90 sec",
+                    "startMin": 39,
+                    "endMin": 46
                 },
                 {
                     "name": "Cable face pull",
                     "sets": 3,
                     "reps": "12-15",
-                    "rest": "60 sec"
+                    "rest": "60 sec",
+                    "startMin": 46,
+                    "endMin": 52
                 },
                 {
                     "name": "Dumbbell hammer curl",
                     "sets": 3,
                     "reps": "10-12",
-                    "rest": "60 sec"
+                    "rest": "60 sec",
+                    "startMin": 52,
+                    "endMin": 59
                 },
                 {
                     "name": "Dumbbell overhead triceps extension",
                     "sets": 3,
                     "reps": "10-12",
-                    "rest": "60 sec"
+                    "rest": "60 sec",
+                    "startMin": 59,
+                    "endMin": 66
                 },
                 {
                     "name": "4-way neck isometric",
                     "sets": 2,
                     "reps": "20-30 sec each direction",
                     "rest": "45 sec",
-                    "notes": "Use light manual/band resistance. No neck bridging."
+                    "notes": "Use light manual/band resistance. No neck bridging.",
+                    "startMin": 66,
+                    "endMin": 70
                 }
             ]
         }
@@ -507,22 +563,39 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
-                    },
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h.",
+                        "startMin": 0,
+                        "endMin": 7
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "6 x 2 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.40 km.",
                         "rounds": 6,
                         "roundLabel": "jog/walk",
-                        "roundSeconds": [240, 240, 240, 240, 240, 240],
-                        "startAtSec": 420
-                    },
+                        "roundSeconds": [
+                            240,
+                            240,
+                            240,
+                            240,
+                            240,
+                            240
+                        ],
+                        "startAtSec": 420,
+                        "startMin": 7,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "Complete as session 1 of Treadmill Week 2. Leave at least one non-running day before the next run. Progress only if the knee is settled during the run and the following morning."
@@ -532,22 +605,39 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
-                    },
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h.",
+                        "startMin": 0,
+                        "endMin": 7
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "6 x 2 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.40 km.",
                         "rounds": 6,
                         "roundLabel": "jog/walk",
-                        "roundSeconds": [240, 240, 240, 240, 240, 240],
-                        "startAtSec": 420
-                    },
+                        "roundSeconds": [
+                            240,
+                            240,
+                            240,
+                            240,
+                            240,
+                            240
+                        ],
+                        "startAtSec": 420,
+                        "startMin": 7,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "Complete as session 2 of Treadmill Week 2. Leave at least one non-running day before the next run. Progress only if the knee is settled during the run and the following morning."
@@ -557,22 +647,39 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
-                    },
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h.",
+                        "startMin": 0,
+                        "endMin": 7
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "6 x 2 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 1.40 km.",
                         "rounds": 6,
                         "roundLabel": "jog/walk",
-                        "roundSeconds": [240, 240, 240, 240, 240, 240],
-                        "startAtSec": 420
-                    },
+                        "roundSeconds": [
+                            240,
+                            240,
+                            240,
+                            240,
+                            240,
+                            240
+                        ],
+                        "startAtSec": 420,
+                        "startMin": 7,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "Complete as the final session of Treadmill Week 2. Move to Week 3 only if the knee remains settled during the run and the following morning."
@@ -582,22 +689,38 @@
                 "duration": 37,
                 "category": "Endurance",
                 "purpose": "Increase the length of each running interval while keeping running speed unchanged.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
-                    },
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h.",
+                        "startMin": 0,
+                        "endMin": 7
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.75 km.",
                         "rounds": 5,
                         "roundLabel": "jog/walk",
-                        "roundSeconds": [300, 300, 300, 300, 300],
-                        "startAtSec": 420
-                    },
+                        "roundSeconds": [
+                            300,
+                            300,
+                            300,
+                            300,
+                            300
+                        ],
+                        "startAtSec": 420,
+                        "startMin": 7,
+                        "endMin": 32
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h.",
+                        "startMin": 32,
+                        "endMin": 37
                     }
                 ],
                 "howToUse": "Keep the running deliberately easy. Leave at least one non-running day before the next run. Repeat the previous week instead if knee symptoms increase."
@@ -607,22 +730,38 @@
                 "duration": 37,
                 "category": "Endurance",
                 "purpose": "Increase the length of each running interval while keeping running speed unchanged.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
-                    },
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h.",
+                        "startMin": 0,
+                        "endMin": 7
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.75 km.",
                         "rounds": 5,
                         "roundLabel": "jog/walk",
-                        "roundSeconds": [300, 300, 300, 300, 300],
-                        "startAtSec": 420
-                    },
+                        "roundSeconds": [
+                            300,
+                            300,
+                            300,
+                            300,
+                            300
+                        ],
+                        "startAtSec": 420,
+                        "startMin": 7,
+                        "endMin": 32
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h.",
+                        "startMin": 32,
+                        "endMin": 37
                     }
                 ],
                 "howToUse": "Keep the running deliberately easy. Leave at least one non-running day before the next run. The session should feel controlled rather than like hard cardio."
@@ -632,22 +771,38 @@
                 "duration": 37,
                 "category": "Endurance",
                 "purpose": "Increase the length of each running interval while keeping running speed unchanged.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
-                    },
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h.",
+                        "startMin": 0,
+                        "endMin": 7
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "5 x 3 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.75 km.",
                         "rounds": 5,
                         "roundLabel": "jog/walk",
-                        "roundSeconds": [300, 300, 300, 300, 300],
-                        "startAtSec": 420
-                    },
+                        "roundSeconds": [
+                            300,
+                            300,
+                            300,
+                            300,
+                            300
+                        ],
+                        "startAtSec": 420,
+                        "startMin": 7,
+                        "endMin": 32
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h.",
+                        "startMin": 32,
+                        "endMin": 37
                     }
                 ],
                 "howToUse": "Complete as the final session of Treadmill Week 3. Only progress if there is no meaningful increase in knee pain, swelling or next-morning stiffness."
@@ -657,22 +812,37 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Build slightly longer continuous running periods without making a large jump in total impact before the cruise.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
-                    },
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h.",
+                        "startMin": 0,
+                        "endMin": 7
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "4 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.87 km.",
                         "rounds": 4,
                         "roundLabel": "jog/walk",
-                        "roundSeconds": [360, 360, 360, 360],
-                        "startAtSec": 420
-                    },
+                        "roundSeconds": [
+                            360,
+                            360,
+                            360,
+                            360
+                        ],
+                        "startAtSec": 420,
+                        "startMin": 7,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "Do not increase the treadmill speed. Longer running intervals are the progression this week."
@@ -682,22 +852,37 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Complete the final treadmill running session before the cruise without adding unnecessary fatigue.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
-                    },
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h.",
+                        "startMin": 0,
+                        "endMin": 7
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "4 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and walk at 5.0 km/h. Approximate running distance: 1.87 km.",
                         "rounds": 4,
                         "roundLabel": "jog/walk",
-                        "roundSeconds": [360, 360, 360, 360],
-                        "startAtSec": 420
-                    },
+                        "roundSeconds": [
+                            360,
+                            360,
+                            360,
+                            360
+                        ],
+                        "startAtSec": 420,
+                        "startMin": 7,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "This is the final run before the cruise. Do not make up another run during the cruise. Walking and normal holiday activity are enough."
@@ -707,22 +892,38 @@
                 "duration": 42,
                 "category": "HIIT",
                 "purpose": "Rebuild tolerance to running impact through controlled treadmill run-walk intervals without increasing speed.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h."
-                    },
+                        "detail": "Set the treadmill to a 0.5% incline. Walk for 3 min at 4.2 km/h, then 4 min at 5.2 km/h.",
+                        "startMin": 0,
+                        "endMin": 7
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "5 x 4 min jog followed by 2 min walk. Jog at 7.0 km/h and complete each recovery walk at 5.0 km/h. Approximate running distance: 2.33 km.",
                         "rounds": 5,
                         "roundLabel": "jog/walk",
-                        "roundSeconds": [360, 360, 360, 360, 360],
-                        "startAtSec": 420
-                    },
+                        "roundSeconds": [
+                            360,
+                            360,
+                            360,
+                            360,
+                            360
+                        ],
+                        "startAtSec": 420,
+                        "startMin": 7,
+                        "endMin": 37
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h."
+                        "detail": "Walk for 2 min at 5.0 km/h, then 3 min at 4.0 km/h.",
+                        "startMin": 37,
+                        "endMin": 42
                     }
                 ],
                 "howToUse": "Complete as the third Treadmill Week 4 session only if embarkation-day travel allows. Skip it if travel makes it awkward and do not make it up. Leave at least one non-running day after the previous run."
@@ -732,20 +933,30 @@
                 "duration": 40,
                 "category": "HIIT",
                 "purpose": "Maintain running progress and bridge the transition from treadmill running to normal ground running.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 0.5 km, walk 0.25 km, repeat for 4 rounds, then finish with a 0.5 km run. Count laps using the ship's track sign rather than GPS. Use a treadmill if the deck is wet, crowded, or very windy. Target running pace: 7:45 min/km. Target walking pace: 10:30 min/km. Total running distance: 2.5 km.",
                         "rounds": 4,
-                        "roundLabel": "run/walk"
-                    },
+                        "roundLabel": "run/walk",
+                        "startMin": 10,
+                        "endMin": 35
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 35,
+                        "endMin": 40
                     }
                 ],
                 "howToUse": "Complete as cruise-maintenance session 1. Keep the effort relaxed and leave recovery time before the next run."
@@ -755,20 +966,30 @@
                 "duration": 40,
                 "category": "HIIT",
                 "purpose": "Maintain running progress and bridge the transition from treadmill running to normal ground running.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 0.5 km, walk 0.25 km, repeat for 4 rounds, then finish with a 0.5 km run. Count laps using the ship's track sign rather than GPS. Use a treadmill if the deck is wet, crowded, or very windy. Target running pace: 7:45 min/km. Target walking pace: 10:30 min/km. Total running distance: 2.5 km.",
                         "rounds": 4,
-                        "roundLabel": "run/walk"
-                    },
+                        "roundLabel": "run/walk",
+                        "startMin": 10,
+                        "endMin": 35
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 35,
+                        "endMin": 40
                     }
                 ],
                 "howToUse": "Complete as cruise-maintenance session 2. Keep the effort relaxed and leave recovery time before the next run."
@@ -778,20 +999,30 @@
                 "duration": 37,
                 "category": "Endurance",
                 "purpose": "Reintroduce outdoor running cautiously after the cruise and allow the legs and knee to adapt to a less predictable surface.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 0.4 km, walk 0.2 km, repeat for 4 rounds, then finish with a 0.4 km run. Total running distance: 2.0 km. Keep the running around 8:15-8:45 min/km or slower if needed to remain conversational.",
                         "rounds": 4,
-                        "roundLabel": "run/walk"
-                    },
+                        "roundLabel": "run/walk",
+                        "startMin": 10,
+                        "endMin": 32
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 32,
+                        "endMin": 37
                     }
                 ],
                 "howToUse": "Choose a flat and predictable route. Ignore speed if necessary. This session is primarily a test of how the knee tolerates outdoor impact."
@@ -801,20 +1032,30 @@
                 "duration": 37,
                 "category": "Endurance",
                 "purpose": "Repeat the first outdoor exposure before increasing continuous running distance.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 0.4 km, walk 0.2 km, repeat for 4 rounds, then finish with a 0.4 km run. Total running distance: 2.0 km. Keep the running around 8:15-8:45 min/km or slower if needed to remain conversational.",
                         "rounds": 4,
-                        "roundLabel": "run/walk"
-                    },
+                        "roundLabel": "run/walk",
+                        "startMin": 10,
+                        "endMin": 32
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 32,
+                        "endMin": 37
                     }
                 ],
                 "howToUse": "Only move forward if both outdoor sessions produce no meaningful increase in knee pain, swelling or next-morning stiffness."
@@ -824,20 +1065,30 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Increase the length of individual outdoor running efforts while keeping total running volume controlled.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 0.5 km, walk 0.2 km, repeat for 3 rounds, then finish with a 0.5 km run. Total running distance: 2.0 km. Target an easy conversational pace of roughly 8:15-8:45 min/km.",
                         "rounds": 3,
-                        "roundLabel": "run/walk"
-                    },
+                        "roundLabel": "run/walk",
+                        "startMin": 10,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "Stay relaxed and leave at least one non-running day before the next session."
@@ -847,20 +1098,30 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Increase the length of individual outdoor running efforts while keeping total running volume controlled.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 0.5 km, walk 0.2 km, repeat for 3 rounds, then finish with a 0.5 km run. Total running distance: 2.0 km. Target an easy conversational pace of roughly 8:15-8:45 min/km.",
                         "rounds": 3,
-                        "roundLabel": "run/walk"
-                    },
+                        "roundLabel": "run/walk",
+                        "startMin": 10,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "Stay relaxed and leave at least one non-running day before the next session."
@@ -870,20 +1131,30 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Consolidate the first full week of outdoor running.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 0.5 km, walk 0.2 km, repeat for 3 rounds, then finish with a 0.5 km run. Total running distance: 2.0 km. Target an easy conversational pace of roughly 8:15-8:45 min/km.",
                         "rounds": 3,
-                        "roundLabel": "run/walk"
-                    },
+                        "roundLabel": "run/walk",
+                        "startMin": 10,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "Progress only if the knee has handled the entire week comfortably."
@@ -893,20 +1164,30 @@
                 "duration": 35,
                 "category": "Endurance",
                 "purpose": "Increase running distance gradually while maintaining regular walking breaks.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 0.75 km, walk 0.25 km, repeat for 2 rounds, then finish with a 0.75 km run. Total running distance: 2.25 km. Keep the running conversational.",
                         "rounds": 2,
-                        "roundLabel": "run/walk"
-                    },
+                        "roundLabel": "run/walk",
+                        "startMin": 10,
+                        "endMin": 30
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 30,
+                        "endMin": 35
                     }
                 ],
                 "howToUse": "Run around 8:15-8:45 min/km if comfortable, but effort matters more than pace."
@@ -916,20 +1197,30 @@
                 "duration": 35,
                 "category": "Endurance",
                 "purpose": "Increase running distance gradually while maintaining regular walking breaks.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 0.75 km, walk 0.25 km, repeat for 2 rounds, then finish with a 0.75 km run. Total running distance: 2.25 km. Keep the running conversational.",
                         "rounds": 2,
-                        "roundLabel": "run/walk"
-                    },
+                        "roundLabel": "run/walk",
+                        "startMin": 10,
+                        "endMin": 30
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 30,
+                        "endMin": 35
                     }
                 ],
                 "howToUse": "Do not turn the final running section into a fast finish. Keep all running equally easy."
@@ -939,20 +1230,30 @@
                 "duration": 35,
                 "category": "Endurance",
                 "purpose": "Consolidate the increased outdoor running distance before extending individual running intervals again.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 0.75 km, walk 0.25 km, repeat for 2 rounds, then finish with a 0.75 km run. Total running distance: 2.25 km.",
                         "rounds": 2,
-                        "roundLabel": "run/walk"
-                    },
+                        "roundLabel": "run/walk",
+                        "startMin": 10,
+                        "endMin": 30
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 30,
+                        "endMin": 35
                     }
                 ],
                 "howToUse": "Only progress when the knee is settled both immediately after running and the following morning."
@@ -962,18 +1263,28 @@
                 "duration": 37,
                 "category": "Endurance",
                 "purpose": "Build towards kilometre-long continuous running efforts.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 1.0 km, walk 0.25 km, run 1.0 km, walk 0.25 km, then finish with a 0.5 km run. Total running distance: 2.5 km."
-                    },
+                        "detail": "Run 1.0 km, walk 0.25 km, run 1.0 km, walk 0.25 km, then finish with a 0.5 km run. Total running distance: 2.5 km.",
+                        "startMin": 10,
+                        "endMin": 32
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 32,
+                        "endMin": 37
                     }
                 ],
                 "howToUse": "Keep every running section at an easy conversational effort. Do not chase a kilometre split."
@@ -983,18 +1294,28 @@
                 "duration": 37,
                 "category": "Endurance",
                 "purpose": "Build towards kilometre-long continuous running efforts.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 1.0 km, walk 0.25 km, run 1.0 km, walk 0.25 km, then finish with a 0.5 km run. Total running distance: 2.5 km."
-                    },
+                        "detail": "Run 1.0 km, walk 0.25 km, run 1.0 km, walk 0.25 km, then finish with a 0.5 km run. Total running distance: 2.5 km.",
+                        "startMin": 10,
+                        "endMin": 32
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 32,
+                        "endMin": 37
                     }
                 ],
                 "howToUse": "Keep every running section at an easy conversational effort."
@@ -1004,18 +1325,28 @@
                 "duration": 37,
                 "category": "Endurance",
                 "purpose": "Consolidate kilometre-long running intervals before reducing the number of walking breaks.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 1.0 km, walk 0.25 km, run 1.0 km, walk 0.25 km, then finish with a 0.5 km run. Total running distance: 2.5 km."
-                    },
+                        "detail": "Run 1.0 km, walk 0.25 km, run 1.0 km, walk 0.25 km, then finish with a 0.5 km run. Total running distance: 2.5 km.",
+                        "startMin": 10,
+                        "endMin": 32
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 32,
+                        "endMin": 37
                     }
                 ],
                 "howToUse": "Finish feeling as though you could have done more."
@@ -1025,18 +1356,28 @@
                 "duration": 35,
                 "category": "Endurance",
                 "purpose": "Reduce walking breaks and prepare for continuous running.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 1.25 km, walk 0.25 km, then run 1.25 km. Total running distance: 2.5 km."
-                    },
+                        "detail": "Run 1.25 km, walk 0.25 km, then run 1.25 km. Total running distance: 2.5 km.",
+                        "startMin": 10,
+                        "endMin": 30
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 30,
+                        "endMin": 35
                     }
                 ],
                 "howToUse": "Run easily enough that the second 1.25 km section feels controlled."
@@ -1046,18 +1387,28 @@
                 "duration": 35,
                 "category": "Endurance",
                 "purpose": "Reduce walking breaks and prepare for continuous running.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 1.25 km, walk 0.25 km, then run 1.25 km. Total running distance: 2.5 km."
-                    },
+                        "detail": "Run 1.25 km, walk 0.25 km, then run 1.25 km. Total running distance: 2.5 km.",
+                        "startMin": 10,
+                        "endMin": 30
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 30,
+                        "endMin": 35
                     }
                 ],
                 "howToUse": "Maintain a conversational effort and resist the temptation to increase pace."
@@ -1067,18 +1418,28 @@
                 "duration": 35,
                 "category": "Endurance",
                 "purpose": "Complete the final run-walk week before continuous running.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 1.25 km, walk 0.25 km, then run 1.25 km. Total running distance: 2.5 km."
-                    },
+                        "detail": "Run 1.25 km, walk 0.25 km, then run 1.25 km. Total running distance: 2.5 km.",
+                        "startMin": 10,
+                        "endMin": 30
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 30,
+                        "endMin": 35
                     }
                 ],
                 "howToUse": "Move to continuous running next week only if this distance now feels comfortable and repeatable."
@@ -1088,18 +1449,28 @@
                 "duration": 32,
                 "category": "Endurance",
                 "purpose": "Complete the first continuous outdoor running distance at an easy effort.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 2.5 km continuously at an easy conversational effort. Aim roughly for 8:15-8:45 min/km, but slow down whenever required."
-                    },
+                        "detail": "Run 2.5 km continuously at an easy conversational effort. Aim roughly for 8:15-8:45 min/km, but slow down whenever required.",
+                        "startMin": 10,
+                        "endMin": 27
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 27,
+                        "endMin": 32
                     }
                 ],
                 "howToUse": "The achievement is running continuously, not the pace."
@@ -1109,18 +1480,28 @@
                 "duration": 32,
                 "category": "Endurance",
                 "purpose": "Consolidate continuous easy running.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 2.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 2.5 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 27
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 27,
+                        "endMin": 32
                     }
                 ],
                 "howToUse": "Keep the session controlled from the first few hundred metres."
@@ -1130,18 +1511,28 @@
                 "duration": 32,
                 "category": "Endurance",
                 "purpose": "Consolidate continuous easy running before increasing distance.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 2.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 2.5 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 27
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 27,
+                        "endMin": 32
                     }
                 ],
                 "howToUse": "Do not increase both pace and distance. Distance increases next week while pace stays easy."
@@ -1151,18 +1542,28 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Increase continuous running endurance without adding speed.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 3.0 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 3.0 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "Keep the running relaxed. Slow down if necessary to complete the distance comfortably."
@@ -1172,18 +1573,28 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Consolidate 3 km continuous running.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 3.0 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 3.0 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "Aim to finish feeling capable of another 5-10 minutes of easy running."
@@ -1193,18 +1604,28 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Consolidate 3 km continuous running before increasing distance again.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 3.0 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 3.0 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "Only progress if the knee remains settled throughout the week."
@@ -1214,18 +1635,28 @@
                 "duration": 41,
                 "category": "Endurance",
                 "purpose": "Continue building continuous running distance at a controlled pace.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 3.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 3.5 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 36
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 36,
+                        "endMin": 41
                     }
                 ],
                 "howToUse": "Keep pace easy and consistent. Distance is the only progression."
@@ -1235,18 +1666,28 @@
                 "duration": 41,
                 "category": "Endurance",
                 "purpose": "Consolidate 3.5 km continuous running.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 3.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 3.5 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 36
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 36,
+                        "endMin": 41
                     }
                 ],
                 "howToUse": "Run by effort rather than chasing your watch."
@@ -1256,18 +1697,28 @@
                 "duration": 41,
                 "category": "Endurance",
                 "purpose": "Complete the 3.5 km week comfortably before progressing.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 3.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 3.5 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 36
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 36,
+                        "endMin": 41
                     }
                 ],
                 "howToUse": "Progress only if there is no accumulating knee soreness or swelling."
@@ -1277,18 +1728,28 @@
                 "duration": 45,
                 "category": "Endurance",
                 "purpose": "Build continuous running endurance towards the first 5K.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 4.0 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 4.0 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 40
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 40,
+                        "endMin": 45
                     }
                 ],
                 "howToUse": "Do not increase speed simply because 4 km is starting to feel achievable."
@@ -1298,18 +1759,28 @@
                 "duration": 45,
                 "category": "Endurance",
                 "purpose": "Consolidate 4 km continuous running.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 4.0 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 4.0 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 40
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 40,
+                        "endMin": 45
                     }
                 ],
                 "howToUse": "Keep the effort comfortable and repeatable."
@@ -1319,18 +1790,28 @@
                 "duration": 45,
                 "category": "Endurance",
                 "purpose": "Complete a full week at 4 km before attempting longer distances.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 4.0 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 4.0 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 40
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 40,
+                        "endMin": 45
                     }
                 ],
                 "howToUse": "Finish comfortably rather than testing how fast you can run 4 km."
@@ -1340,18 +1821,28 @@
                 "duration": 49,
                 "category": "Endurance",
                 "purpose": "Complete the final distance progression before the first 5K.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 4.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 4.5 km continuously at an easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 44
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 44,
+                        "endMin": 49
                     }
                 ],
                 "howToUse": "Treat this as an easy endurance run, not a 4.5 km time trial."
@@ -1361,18 +1852,28 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Reduce running volume before the first continuous 5K while maintaining rhythm.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 3.0 km continuously at a very easy conversational effort."
-                    },
+                        "detail": "Run 3.0 km continuously at a very easy conversational effort.",
+                        "startMin": 10,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "This is deliberately shorter. Do not run hard. Finish fresh and leave Thursday as a non-running day."
@@ -1382,18 +1883,28 @@
                 "duration": 53,
                 "category": "Endurance",
                 "purpose": "Complete the first continuous 5K comfortably and without treating it as a race.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk 0.5 km at a brisk, comfortable pace."
-                    },
+                        "detail": "Walk 0.5 km at a brisk, comfortable pace.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 5.0 km continuously at an easy conversational effort. Start conservatively. A pace around 8:15-8:45 min/km is completely acceptable, and slower is fine."
-                    },
+                        "detail": "Run 5.0 km continuously at an easy conversational effort. Start conservatively. A pace around 8:15-8:45 min/km is completely acceptable, and slower is fine.",
+                        "startMin": 10,
+                        "endMin": 48
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk 0.5 km at an easy pace."
+                        "detail": "Walk 0.5 km at an easy pace.",
+                        "startMin": 48,
+                        "endMin": 53
                     }
                 ],
                 "howToUse": "The goal is simply to complete 5 km continuously with the knee feeling good. Do not race it. If the knee has reacted during the preceding week, postpone the 5K and repeat the previous successful week instead."
@@ -1403,18 +1914,28 @@
                 "duration": 42,
                 "category": "Endurance",
                 "purpose": "Recover from the first 5K while beginning the transition from rehabilitation running to normal aerobic training.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min, then complete a few ankle rolls, leg swings and easy marching drills."
-                    },
+                        "detail": "Walk briskly for 5 min, then complete a few ankle rolls, leg swings and easy marching drills.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 4.0 km continuously at an easy conversational effort. Aim roughly for 8:00-8:40 min/km, but do not force the pace."
-                    },
+                        "detail": "Run 4.0 km continuously at an easy conversational effort. Aim roughly for 8:00-8:40 min/km, but do not force the pace.",
+                        "startMin": 5,
+                        "endMin": 37
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 37,
+                        "endMin": 42
                     }
                 ],
                 "howToUse": "This should feel easier than the previous 5K. Keep the effort around RPE 3-4/10 and finish feeling capable of running farther."
@@ -1424,22 +1945,38 @@
                 "duration": 40,
                 "category": "HIIT",
                 "purpose": "Introduce controlled faster running without the intensity of a true hard interval session.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk for 3 min, then jog easily for 7 min."
-                    },
+                        "detail": "Walk for 3 min, then jog easily for 7 min.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "5 x 90 sec at a controlled faster pace of roughly 7:40-8:00 min/km. Recover with 2 min very easy jogging or walking after each effort.",
                         "rounds": 5,
                         "roundLabel": "faster/easy",
-                        "roundSeconds": [210, 210, 210, 210, 210],
-                        "startAtSec": 600
-                    },
+                        "roundSeconds": [
+                            210,
+                            210,
+                            210,
+                            210,
+                            210
+                        ],
+                        "startAtSec": 600,
+                        "startMin": 10,
+                        "endMin": 28
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Jog very easily for 5 min, then walk for 3 min."
+                        "detail": "Jog very easily for 5 min, then walk for 3 min.",
+                        "startMin": 28,
+                        "endMin": 40
                     }
                 ],
                 "howToUse": "The faster portions should feel smooth rather than hard. Aim for RPE 5-6/10 and never sprint."
@@ -1449,18 +1986,28 @@
                 "duration": 52,
                 "category": "Endurance",
                 "purpose": "Begin extending running endurance beyond the previous 5K maximum.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 5.5 km continuously at an easy conversational effort. Aim roughly for 8:05-8:40 min/km."
-                    },
+                        "detail": "Run 5.5 km continuously at an easy conversational effort. Aim roughly for 8:05-8:40 min/km.",
+                        "startMin": 5,
+                        "endMin": 47
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 47,
+                        "endMin": 52
                     }
                 ],
                 "howToUse": "Treat the extra 0.5 km as the progression. Do not also try to make this faster than your normal easy pace."
@@ -1470,18 +2017,28 @@
                 "duration": 45,
                 "category": "Endurance",
                 "purpose": "Build repeatable aerobic running volume without creating excessive fatigue.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 4.5 km continuously at an easy conversational effort. Aim roughly for 8:00-8:35 min/km."
-                    },
+                        "detail": "Run 4.5 km continuously at an easy conversational effort. Aim roughly for 8:00-8:35 min/km.",
+                        "startMin": 5,
+                        "endMin": 40
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 40,
+                        "endMin": 45
                     }
                 ],
                 "howToUse": "Keep this deliberately easy so you are fresh enough for Wednesday's faster work."
@@ -1491,22 +2048,39 @@
                 "duration": 44,
                 "category": "HIIT",
                 "purpose": "Develop running speed and aerobic power through short controlled repetitions.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk for 3 min, jog easily for 7 min, then complete 2 x 20 sec relaxed faster strides."
-                    },
+                        "detail": "Walk for 3 min, jog easily for 7 min, then complete 2 x 20 sec relaxed faster strides.",
+                        "startMin": 0,
+                        "endMin": 11
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "6 x 2 min at roughly 7:30-7:50 min/km. Recover with 2 min easy jogging or walking after each repetition.",
                         "rounds": 6,
                         "roundLabel": "rep",
-                        "roundSeconds": [240, 240, 240, 240, 240, 240],
-                        "startAtSec": 640
-                    },
+                        "roundSeconds": [
+                            240,
+                            240,
+                            240,
+                            240,
+                            240,
+                            240
+                        ],
+                        "startAtSec": 640,
+                        "startMin": 11,
+                        "endMin": 35
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Jog easily for 5 min, then walk for 3 min."
+                        "detail": "Jog easily for 5 min, then walk for 3 min.",
+                        "startMin": 35,
+                        "endMin": 44
                     }
                 ],
                 "howToUse": "Aim for RPE 6/10. You should finish the final repetition feeling that you could complete one more."
@@ -1516,18 +2090,28 @@
                 "duration": 56,
                 "category": "Endurance",
                 "purpose": "Continue gradually extending continuous running endurance.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 6.0 km continuously at an easy conversational effort. Aim roughly for 8:05-8:40 min/km."
-                    },
+                        "detail": "Run 6.0 km continuously at an easy conversational effort. Aim roughly for 8:05-8:40 min/km.",
+                        "startMin": 5,
+                        "endMin": 51
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 51,
+                        "endMin": 56
                     }
                 ],
                 "howToUse": "Keep the first kilometre particularly easy. The goal is comfortable distance, not pace."
@@ -1537,18 +2121,28 @@
                 "duration": 49,
                 "category": "Endurance",
                 "purpose": "Develop aerobic fitness while increasing normal weekly running volume.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 5.0 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 5.0 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 44
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 44,
+                        "endMin": 49
                     }
                 ],
                 "howToUse": "A 5K is now a normal easy training run rather than a goal effort."
@@ -1558,22 +2152,36 @@
                 "duration": 47,
                 "category": "Cardio",
                 "purpose": "Introduce sustained moderately hard running and improve the pace that can be maintained aerobically.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk for 3 min followed by 8 min of easy jogging."
-                    },
+                        "detail": "Walk for 3 min followed by 8 min of easy jogging.",
+                        "startMin": 0,
+                        "endMin": 11
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "3 x 5 min at controlled tempo effort, approximately 7:30-7:50 min/km. Take 3 min easy jogging between repetitions.",
                         "rounds": 3,
                         "roundLabel": "tempo",
-                        "roundSeconds": [480, 480, 480],
-                        "startAtSec": 660
-                    },
+                        "roundSeconds": [
+                            480,
+                            480,
+                            480
+                        ],
+                        "startAtSec": 660,
+                        "startMin": 11,
+                        "endMin": 35
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Jog easily for 6 min, then walk for 3 min."
+                        "detail": "Jog easily for 6 min, then walk for 3 min.",
+                        "startMin": 35,
+                        "endMin": 47
                     }
                 ],
                 "howToUse": "Tempo should feel like RPE 6-7/10: working, but controlled and nowhere near an all-out effort."
@@ -1583,18 +2191,28 @@
                 "duration": 60,
                 "category": "Endurance",
                 "purpose": "Build endurance beyond 6 km while maintaining an easy aerobic effort.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 6.5 km continuously at an easy conversational pace."
-                    },
+                        "detail": "Run 6.5 km continuously at an easy conversational pace.",
+                        "startMin": 5,
+                        "endMin": 55
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 55,
+                        "endMin": 60
                     }
                 ],
                 "howToUse": "Do not speed up at the end. Keep the entire run comfortably aerobic."
@@ -1604,18 +2222,28 @@
                 "duration": 42,
                 "category": "Endurance",
                 "purpose": "Reduce running load temporarily to consolidate the previous three weeks of training.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 4.0 km continuously at a relaxed conversational effort."
-                    },
+                        "detail": "Run 4.0 km continuously at a relaxed conversational effort.",
+                        "startMin": 5,
+                        "endMin": 37
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 37,
+                        "endMin": 42
                     }
                 ],
                 "howToUse": "This is a deliberate easier week. Do not add additional distance because you feel good."
@@ -1625,22 +2253,39 @@
                 "duration": 38,
                 "category": "HIIT",
                 "purpose": "Develop leg turnover through short faster efforts while keeping overall training load low.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk for 3 min and jog easily for 8 min."
-                    },
+                        "detail": "Walk for 3 min and jog easily for 8 min.",
+                        "startMin": 0,
+                        "endMin": 11
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "6 x 1 min at approximately 7:15-7:35 min/km with 2 min easy jogging between repetitions.",
                         "rounds": 6,
                         "roundLabel": "fast/easy",
-                        "roundSeconds": [180, 180, 180, 180, 180, 180],
-                        "startAtSec": 660
-                    },
+                        "roundSeconds": [
+                            180,
+                            180,
+                            180,
+                            180,
+                            180,
+                            180
+                        ],
+                        "startAtSec": 660,
+                        "startMin": 11,
+                        "endMin": 29
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Jog easily for 5 min, then walk for 3 min."
+                        "detail": "Jog easily for 5 min, then walk for 3 min.",
+                        "startMin": 29,
+                        "endMin": 38
                     }
                 ],
                 "howToUse": "Run quickly but smoothly. This is not sprinting and should never feel uncontrolled."
@@ -1650,18 +2295,28 @@
                 "duration": 52,
                 "category": "Endurance",
                 "purpose": "Complete a reduced-distance long run before the next training build.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 5.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 5.5 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 47
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 47,
+                        "endMin": 52
                     }
                 ],
                 "howToUse": "This completes the deload week. Finish feeling fresh."
@@ -1671,18 +2326,28 @@
                 "duration": 49,
                 "category": "Endurance",
                 "purpose": "Return to normal aerobic running volume following the lighter week.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 5.0 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 5.0 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 44
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 44,
+                        "endMin": 49
                     }
                 ],
                 "howToUse": "Keep the pace relaxed. Faster running belongs in Wednesday's session."
@@ -1692,22 +2357,37 @@
                 "duration": 52,
                 "category": "Cardio",
                 "purpose": "Increase the amount of sustained faster running that can be completed comfortably.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk for 3 min followed by 8 min easy jogging."
-                    },
+                        "detail": "Walk for 3 min followed by 8 min easy jogging.",
+                        "startMin": 0,
+                        "endMin": 11
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "4 x 5 min at approximately 7:25-7:45 min/km with 2 min 30 sec easy jogging between repetitions.",
                         "rounds": 4,
                         "roundLabel": "tempo",
-                        "roundSeconds": [450, 450, 450, 450],
-                        "startAtSec": 660
-                    },
+                        "roundSeconds": [
+                            450,
+                            450,
+                            450,
+                            450
+                        ],
+                        "startAtSec": 660,
+                        "startMin": 11,
+                        "endMin": 41
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Jog easily for 6 min, then walk for 3 min."
+                        "detail": "Jog easily for 6 min, then walk for 3 min.",
+                        "startMin": 41,
+                        "endMin": 52
                     }
                 ],
                 "howToUse": "Keep all four repetitions similar. If the first is dramatically faster than the fourth, you started too quickly."
@@ -1717,18 +2397,28 @@
                 "duration": 64,
                 "category": "Endurance",
                 "purpose": "Extend continuous endurance to 7 km.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 7.0 km continuously at a conversational effort. Aim roughly for 8:00-8:35 min/km."
-                    },
+                        "detail": "Run 7.0 km continuously at a conversational effort. Aim roughly for 8:00-8:35 min/km.",
+                        "startMin": 5,
+                        "endMin": 59
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 59,
+                        "endMin": 64
                     }
                 ],
                 "howToUse": "Keep enough in reserve that the final kilometre feels no harder than the middle of the run."
@@ -1738,18 +2428,28 @@
                 "duration": 46,
                 "category": "Endurance",
                 "purpose": "Maintain aerobic fitness through the holiday period without increasing training stress.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 4.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 4.5 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 41
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 41,
+                        "endMin": 46
                     }
                 ],
                 "howToUse": "Keep this simple and comfortable."
@@ -1759,18 +2459,28 @@
                 "duration": 48,
                 "category": "Cardio",
                 "purpose": "Learn to hold a moderately quicker pace continuously rather than relying only on intervals.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Run approximately 1.5 km very easily after a short walking warm-up."
-                    },
+                        "detail": "Run approximately 1.5 km very easily after a short walking warm-up.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run continuously for 20 min at a steady effort of roughly 7:40-8:00 min/km."
-                    },
+                        "detail": "Run continuously for 20 min at a steady effort of roughly 7:40-8:00 min/km.",
+                        "startMin": 10,
+                        "endMin": 43
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Run approximately 1.0 km easily, then walk for 5 min."
+                        "detail": "Run approximately 1.0 km easily, then walk for 5 min.",
+                        "startMin": 43,
+                        "endMin": 48
                     }
                 ],
                 "howToUse": "This should feel stronger than easy running but clearly easier than a race effort."
@@ -1780,18 +2490,28 @@
                 "duration": 60,
                 "category": "Endurance",
                 "purpose": "Maintain long-run endurance without increasing distance during the holiday week.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 6.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 6.5 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 55
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 55,
+                        "endMin": 60
                     }
                 ],
                 "howToUse": "Move this to Thu 24 Dec or Sat 26 Dec if Christmas Day does not suit. Do not attempt to make up missed running."
@@ -1801,18 +2521,28 @@
                 "duration": 49,
                 "category": "Endurance",
                 "purpose": "Return to normal training volume while maintaining good recovery.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 5.0 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 5.0 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 44
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 44,
+                        "endMin": 49
                     }
                 ],
                 "howToUse": "The easy run should remain genuinely easy even as fitness improves."
@@ -1822,22 +2552,38 @@
                 "duration": 49,
                 "category": "HIIT",
                 "purpose": "Improve the ability to sustain faster running by accumulating controlled threshold work.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk for 3 min followed by 10 min easy jogging."
-                    },
+                        "detail": "Walk for 3 min followed by 10 min easy jogging.",
+                        "startMin": 0,
+                        "endMin": 13
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "5 x 3 min at approximately 7:15-7:35 min/km with 2 min easy jogging between repetitions.",
                         "rounds": 5,
                         "roundLabel": "threshold",
-                        "roundSeconds": [300, 300, 300, 300, 300],
-                        "startAtSec": 780
-                    },
+                        "roundSeconds": [
+                            300,
+                            300,
+                            300,
+                            300,
+                            300
+                        ],
+                        "startAtSec": 780,
+                        "startMin": 13,
+                        "endMin": 38
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Jog easily for 7 min, then walk for 3 min."
+                        "detail": "Jog easily for 7 min, then walk for 3 min.",
+                        "startMin": 38,
+                        "endMin": 49
                     }
                 ],
                 "howToUse": "Aim around RPE 7/10. The repetitions should be hard enough to require concentration but not feel like maximum efforts."
@@ -1847,18 +2593,28 @@
                 "duration": 68,
                 "category": "Endurance",
                 "purpose": "Increase endurance towards 8 km while keeping the run comfortably aerobic.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 7.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 7.5 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 63
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 63,
+                        "endMin": 68
                     }
                 ],
                 "howToUse": "Move this by a day if New Year's Day does not suit. Do not combine it with Wednesday's faster session."
@@ -1868,18 +2624,28 @@
                 "duration": 46,
                 "category": "Endurance",
                 "purpose": "Reduce training volume to consolidate the previous three-week build.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 4.5 km continuously at a relaxed conversational effort."
-                    },
+                        "detail": "Run 4.5 km continuously at a relaxed conversational effort.",
+                        "startMin": 5,
+                        "endMin": 41
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 41,
+                        "endMin": 46
                     }
                 ],
                 "howToUse": "Treat this as recovery training rather than an opportunity to run faster."
@@ -1889,22 +2655,41 @@
                 "duration": 42,
                 "category": "HIIT",
                 "purpose": "Improve speed and running economy through short relaxed bursts of quicker running.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk for 3 min followed by 10 min easy jogging."
-                    },
+                        "detail": "Walk for 3 min followed by 10 min easy jogging.",
+                        "startMin": 0,
+                        "endMin": 13
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "8 x 1 min at approximately 7:05-7:25 min/km with 90 sec very easy jogging between repetitions.",
                         "rounds": 8,
                         "roundLabel": "fast/easy",
-                        "roundSeconds": [150, 150, 150, 150, 150, 150, 150, 150],
-                        "startAtSec": 780
-                    },
+                        "roundSeconds": [
+                            150,
+                            150,
+                            150,
+                            150,
+                            150,
+                            150,
+                            150,
+                            150
+                        ],
+                        "startAtSec": 780,
+                        "startMin": 13,
+                        "endMin": 33
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Jog easily for 6 min, then walk for 3 min."
+                        "detail": "Jog easily for 6 min, then walk for 3 min.",
+                        "startMin": 33,
+                        "endMin": 42
                     }
                 ],
                 "howToUse": "Stay relaxed through the shoulders and avoid turning the one-minute efforts into sprints."
@@ -1914,18 +2699,28 @@
                 "duration": 60,
                 "category": "Endurance",
                 "purpose": "Complete a shorter long run during the deload week.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 6.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 6.5 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 55
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 55,
+                        "endMin": 60
                     }
                 ],
                 "howToUse": "Finish the week feeling fresher than you started it."
@@ -1935,18 +2730,28 @@
                 "duration": 53,
                 "category": "Endurance",
                 "purpose": "Increase normal aerobic running volume as fitness improves.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 5.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 5.5 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 48
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 48,
+                        "endMin": 53
                     }
                 ],
                 "howToUse": "Allow the pace to improve naturally but keep the effort around RPE 3-4/10."
@@ -1956,22 +2761,36 @@
                 "duration": 58,
                 "category": "Cardio",
                 "purpose": "Build sustained speed and improve the pace that can be held for longer distances.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk for 3 min followed by 10 min easy jogging."
-                    },
+                        "detail": "Walk for 3 min followed by 10 min easy jogging.",
+                        "startMin": 0,
+                        "endMin": 13
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "3 x 8 min at approximately 7:20-7:40 min/km with 3 min easy jogging between repetitions.",
                         "rounds": 3,
                         "roundLabel": "tempo",
-                        "roundSeconds": [660, 660, 660],
-                        "startAtSec": 780
-                    },
+                        "roundSeconds": [
+                            660,
+                            660,
+                            660
+                        ],
+                        "startAtSec": 780,
+                        "startMin": 13,
+                        "endMin": 46
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Jog easily for 7 min, then walk for 3 min."
+                        "detail": "Jog easily for 7 min, then walk for 3 min.",
+                        "startMin": 46,
+                        "endMin": 58
                     }
                 ],
                 "howToUse": "Aim for a pace you could theoretically maintain for considerably longer than eight minutes."
@@ -1981,18 +2800,28 @@
                 "duration": 72,
                 "category": "Endurance",
                 "purpose": "Reach 8 km continuous running while maintaining an easy aerobic effort.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 8.0 km continuously at an easy conversational effort. Approximately 7:55-8:30 min/km is a reasonable guide if comfortable."
-                    },
+                        "detail": "Run 8.0 km continuously at an easy conversational effort. Approximately 7:55-8:30 min/km is a reasonable guide if comfortable.",
+                        "startMin": 5,
+                        "endMin": 67
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 67,
+                        "endMin": 72
                     }
                 ],
                 "howToUse": "Fuel and hydrate normally beforehand. The distance, not speed, is the progression."
@@ -2002,18 +2831,28 @@
                 "duration": 53,
                 "category": "Endurance",
                 "purpose": "Maintain aerobic volume while recovering from the longer run.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 5.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 5.5 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 48
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 48,
+                        "endMin": 53
                     }
                 ],
                 "howToUse": "Keep this relaxed even if your normal pace is beginning to become noticeably faster."
@@ -2023,22 +2862,39 @@
                 "duration": 56,
                 "category": "HIIT",
                 "purpose": "Develop faster sustained running and improve cardiovascular capacity.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk for 3 min followed by 10 min easy jogging and 2 x 20 sec relaxed strides."
-                    },
+                        "detail": "Walk for 3 min followed by 10 min easy jogging and 2 x 20 sec relaxed strides.",
+                        "startMin": 0,
+                        "endMin": 14
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "6 x 3 min at approximately 7:10-7:30 min/km with 2 min easy jogging between repetitions.",
                         "rounds": 6,
                         "roundLabel": "threshold",
-                        "roundSeconds": [300, 300, 300, 300, 300, 300],
-                        "startAtSec": 820
-                    },
+                        "roundSeconds": [
+                            300,
+                            300,
+                            300,
+                            300,
+                            300,
+                            300
+                        ],
+                        "startAtSec": 820,
+                        "startMin": 14,
+                        "endMin": 44
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Jog easily for 7 min, then walk for 3 min."
+                        "detail": "Jog easily for 7 min, then walk for 3 min.",
+                        "startMin": 44,
+                        "endMin": 56
                     }
                 ],
                 "howToUse": "The goal is six consistent repetitions. Do not chase the fastest possible split."
@@ -2048,18 +2904,28 @@
                 "duration": 76,
                 "category": "Endurance",
                 "purpose": "Extend continuous endurance beyond 8 km.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 8.5 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 8.5 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 71
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 71,
+                        "endMin": 76
                     }
                 ],
                 "howToUse": "Do not add a fast finish. Keep the whole session aerobic."
@@ -2069,20 +2935,30 @@
                 "duration": 57,
                 "category": "Endurance",
                 "purpose": "Build aerobic volume while adding small amounts of relaxed speed and improving running economy.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 6.0 km easily. During the final 2 km, include 4 x 20 sec relaxed strides with at least 90 sec of easy running between each.",
                         "rounds": 4,
-                        "roundLabel": "stride"
-                    },
+                        "roundLabel": "stride",
+                        "startMin": 5,
+                        "endMin": 52
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 52,
+                        "endMin": 57
                     }
                 ],
                 "howToUse": "Strides should feel quick, light and smooth rather than exhausting."
@@ -2092,18 +2968,28 @@
                 "duration": 52,
                 "category": "Cardio",
                 "purpose": "Develop the ability to hold a meaningfully faster pace continuously.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Run 1.5-2.0 km very easily after a short walking warm-up."
-                    },
+                        "detail": "Run 1.5-2.0 km very easily after a short walking warm-up.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run continuously for 20 min at approximately 7:20-7:40 min/km or RPE 6-7/10."
-                    },
+                        "detail": "Run continuously for 20 min at approximately 7:20-7:40 min/km or RPE 6-7/10.",
+                        "startMin": 10,
+                        "endMin": 47
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Jog easily until approximately 6 km total running distance, then walk for 5 min."
+                        "detail": "Jog easily until approximately 6 km total running distance, then walk for 5 min.",
+                        "startMin": 47,
+                        "endMin": 52
                     }
                 ],
                 "howToUse": "This should be your strongest sustained training run so far, but you should never be hanging on desperately at the end."
@@ -2113,18 +2999,28 @@
                 "duration": 80,
                 "category": "Endurance",
                 "purpose": "Complete the final major endurance progression before attempting 10 km.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 9.0 km continuously at an easy conversational effort."
-                    },
+                        "detail": "Run 9.0 km continuously at an easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 75
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 75,
+                        "endMin": 80
                     }
                 ],
                 "howToUse": "Keep the pace comfortable. If 9 km feels manageable rather than heroic, the training is doing exactly what it should."
@@ -2134,18 +3030,28 @@
                 "duration": 42,
                 "category": "Endurance",
                 "purpose": "Reduce fatigue while maintaining normal running rhythm before the first 10K.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 4.0 km continuously at a very easy conversational effort."
-                    },
+                        "detail": "Run 4.0 km continuously at a very easy conversational effort.",
+                        "startMin": 5,
+                        "endMin": 37
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 37,
+                        "endMin": 42
                     }
                 ],
                 "howToUse": "Deliberately hold back. This week is about arriving fresh for Friday."
@@ -2155,20 +3061,30 @@
                 "duration": 36,
                 "category": "Endurance",
                 "purpose": "Keep the legs moving while adding a small amount of faster running before the 10K.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5 min."
-                    },
+                        "detail": "Walk briskly for 5 min.",
+                        "startMin": 0,
+                        "endMin": 5
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "Run 3.0 km easily. During the second half complete 4 x 30 sec relaxed faster strides with 90 sec easy running between each.",
                         "rounds": 4,
-                        "roundLabel": "stride"
-                    },
+                        "roundLabel": "stride",
+                        "startMin": 5,
+                        "endMin": 31
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for 5 min."
+                        "detail": "Walk easily for 5 min.",
+                        "startMin": 31,
+                        "endMin": 36
                     }
                 ],
                 "howToUse": "Do not turn this into a workout. The strides should make the legs feel better rather than tired."
@@ -2178,18 +3094,28 @@
                 "duration": 90,
                 "category": "Endurance",
                 "purpose": "Complete the first continuous 10 km and establish a new endurance baseline for future performance training.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "Walk briskly for 5-8 min, then complete a few leg swings and ankle mobility drills."
-                    },
+                        "detail": "Walk briskly for 5-8 min, then complete a few leg swings and ankle mobility drills.",
+                        "startMin": 0,
+                        "endMin": 8
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 10.0 km continuously. Start conservatively at roughly 8:00-8:30 min/km or whatever pace feels genuinely easy. If you still feel strong after 8 km, allow the final 2 km to become gradually quicker."
-                    },
+                        "detail": "Run 10.0 km continuously. Start conservatively at roughly 8:00-8:30 min/km or whatever pace feels genuinely easy. If you still feel strong after 8 km, allow the final 2 km to become gradually quicker.",
+                        "startMin": 8,
+                        "endMin": 80
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "Walk easily for at least 5-10 min."
+                        "detail": "Walk easily for at least 5-10 min.",
+                        "startMin": 80,
+                        "endMin": 90
                     }
                 ],
                 "howToUse": "This is not a 10K race. The goal is to finish continuously and under control. If your knee has become sore, swollen or increasingly stiff during the preceding weeks, postpone the attempt and repeat the most recent successful week."
@@ -2201,18 +3127,28 @@
                 "duration": 45,
                 "category": "Endurance",
                 "purpose": "Maintain the aerobic base built by the 10K plan while leaving enough recovery for strength and rugby conditioning.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "8-10 min brisk walk and easy jog plus Pre-Run Dynamic Mobility."
-                    },
+                        "detail": "8-10 min brisk walk and easy jog plus Pre-Run Dynamic Mobility.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
-                        "detail": "Run 4-6 km at an easy conversational effort. Every second week, finish with 4-6 x 15 sec relaxed strides at about 80-85% speed with a full walk-back recovery."
-                    },
+                        "detail": "Run 4-6 km at an easy conversational effort. Every second week, finish with 4-6 x 15 sec relaxed strides at about 80-85% speed with a full walk-back recovery.",
+                        "startMin": 10,
+                        "endMin": 40
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "5 min easy walk."
+                        "detail": "5 min easy walk.",
+                        "startMin": 40,
+                        "endMin": 45
                     }
                 ],
                 "howToUse": "Keep this genuinely aerobic. It should not compete with Thursday lower-body training."
@@ -2222,22 +3158,41 @@
                 "duration": 30,
                 "category": "HIIT",
                 "purpose": "Introduce repeated hard efforts with minimal running impact after the 10K base is complete.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "8 min easy assault bike or spin bike, gradually building cadence."
-                    },
+                        "detail": "8 min easy assault bike or spin bike, gradually building cadence.",
+                        "startMin": 0,
+                        "endMin": 8
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "8 x 30 sec hard at RPE 8-9 followed by 90 sec very easy. Keep output repeatable rather than sprinting the first rep all-out.",
                         "rounds": 8,
                         "roundLabel": "hard/easy",
-                        "roundSeconds": [120, 120, 120, 120, 120, 120, 120, 120],
-                        "startAtSec": 480
-                    },
+                        "roundSeconds": [
+                            120,
+                            120,
+                            120,
+                            120,
+                            120,
+                            120,
+                            120,
+                            120
+                        ],
+                        "startAtSec": 480,
+                        "startMin": 8,
+                        "endMin": 24
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "5 min very easy spin."
+                        "detail": "5 min very easy spin.",
+                        "startMin": 24,
+                        "endMin": 30
                     }
                 ],
                 "howToUse": "Use through February. Stop the set if power falls sharply or form deteriorates."
@@ -2247,26 +3202,38 @@
                 "duration": 35,
                 "category": "HIIT",
                 "purpose": "Build leg drive and repeated-effort capacity with rugby-relevant resistance.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "8 min easy bike plus dynamic lower-body mobility."
-                    },
+                        "detail": "8 min easy bike plus dynamic lower-body mobility.",
+                        "startMin": 0,
+                        "endMin": 8
+                    }
+                ],
+                "main": [
                     {
                         "name": "Sled block",
                         "detail": "6 x 15-20 m heavy sled push. Walk back and rest until breathing is controlled.",
                         "rounds": 6,
-                        "roundLabel": "push"
+                        "roundLabel": "push",
+                        "startMin": 8,
+                        "endMin": 19
                     },
                     {
                         "name": "Bike block",
                         "detail": "6 x 20 sec hard assault-bike effort followed by 70 sec easy.",
                         "rounds": 6,
-                        "roundLabel": "hard/easy"
-                    },
+                        "roundLabel": "hard/easy",
+                        "startMin": 19,
+                        "endMin": 30
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "5 min easy walk or bike."
+                        "detail": "5 min easy walk or bike.",
+                        "startMin": 30,
+                        "endMin": 35
                     }
                 ],
                 "howToUse": "Use through March. The sled should be heavy enough to require force but not so heavy that posture collapses."
@@ -2276,20 +3243,30 @@
                 "duration": 35,
                 "category": "Cardio",
                 "purpose": "Reintroduce faster running in controlled straight-line efforts without jumping immediately to maximal sprinting or sharp cutting.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "10 min easy jog, dynamic mobility and 3 gradual 40-60 m build-ups."
-                    },
+                        "detail": "10 min easy jog, dynamic mobility and 3 gradual 40-60 m build-ups.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "2 sets of 6 x 20 sec at about 75-80% running speed, followed by 40 sec walk. Rest 3 min between sets.",
                         "rounds": 12,
-                        "roundLabel": "tempo rep"
-                    },
+                        "roundLabel": "tempo rep",
+                        "startMin": 10,
+                        "endMin": 25
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "5-10 min easy walk."
+                        "detail": "5-10 min easy walk.",
+                        "startMin": 25,
+                        "endMin": 35
                     }
                 ],
                 "howToUse": "Use through April only if the knee remains settled during running and the following morning. Otherwise use Low Impact Repeat Efforts."
@@ -2299,24 +3276,36 @@
                 "duration": 40,
                 "category": "HIIT",
                 "purpose": "Prepare for the repeated high-output work-rest pattern of rugby while keeping efforts controlled rather than maximal.",
-                "parts": [
+                "warmUp": [
                     {
                         "name": "Warm-up",
-                        "detail": "10 min easy jog plus dynamic mobility and gradual accelerations."
-                    },
+                        "detail": "10 min easy jog plus dynamic mobility and gradual accelerations.",
+                        "startMin": 0,
+                        "endMin": 10
+                    }
+                ],
+                "main": [
                     {
                         "name": "Main set",
                         "detail": "3 sets of 5 x 20 sec hard at about 80-85% speed followed by 40 sec walk/jog. Rest 3 min between sets.",
                         "rounds": 15,
-                        "roundLabel": "work rep"
+                        "roundLabel": "work rep",
+                        "startMin": 10,
+                        "endMin": 21
                     },
                     {
                         "name": "Optional progression",
-                        "detail": "Only if fully comfortable with straight-line work: make 2-3 reps per set gentle 10-20 m shuttle patterns rather than all reps. Avoid maximal cutting."
-                    },
+                        "detail": "Only if fully comfortable with straight-line work: make 2-3 reps per set gentle 10-20 m shuttle patterns rather than all reps. Avoid maximal cutting.",
+                        "startMin": 21,
+                        "endMin": 32
+                    }
+                ],
+                "coolDown": [
                     {
                         "name": "Cool-down",
-                        "detail": "8 min easy walk."
+                        "detail": "8 min easy walk.",
+                        "startMin": 32,
+                        "endMin": 40
                     }
                 ],
                 "howToUse": "Use through May. Quality is more important than exhaustion."

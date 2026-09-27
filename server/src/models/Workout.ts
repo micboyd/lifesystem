@@ -1,4 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose'
+import type { Phased } from '../lib/phases'
 
 /** One exercise slot in a workout: a library exercise plus its prescribed volume. */
 export interface IWorkoutExercise {
@@ -11,9 +12,17 @@ export interface IWorkoutExercise {
     rest?: string
     /** Coaching cue for this line, e.g. "Keep 1-2 reps in reserve". */
     notes?: string
+    /** Planned slot, in minutes from the start of the session (e.g. 15 → 30). */
+    startMin?: number
+    endMin?: number
 }
 
-export interface IWorkout extends Document {
+/**
+ * A workout's library exercises (each with optional sets/reps) sit in three
+ * ordered phases — warmUp, main, coolDown (Phased). Only main work counts toward
+ * strength progress.
+ */
+export interface IWorkout extends Document, Phased<IWorkoutExercise> {
     user: Types.ObjectId
     name: string
     description: string
@@ -21,8 +30,6 @@ export interface IWorkout extends Document {
     duration: number
     /** Pin this workout to the top of the week planner. */
     showInPlanner: boolean
-    /** Ordered exercises drawn from the library, each with optional sets/reps. */
-    exercises: IWorkoutExercise[]
     /** Priority position in the library (lower = sooner). */
     order: number
     /** Import batch id if this record came from a bulk import (for undo). */
@@ -38,6 +45,8 @@ const workoutExerciseSchema = new Schema<IWorkoutExercise>(
         reps: { type: String, trim: true },
         rest: { type: String, trim: true },
         notes: { type: String, trim: true },
+        startMin: { type: Number, min: 0 },
+        endMin: { type: Number, min: 0 },
     },
     { _id: false }
 )
@@ -49,7 +58,9 @@ const workoutSchema = new Schema<IWorkout>(
         description: { type: String, default: '', trim: true },
         duration: { type: Number, default: 0, min: 0 },
         showInPlanner: { type: Boolean, default: false },
-        exercises: { type: [workoutExerciseSchema], default: [] },
+        warmUp: { type: [workoutExerciseSchema], default: [] },
+        main: { type: [workoutExerciseSchema], default: [] },
+        coolDown: { type: [workoutExerciseSchema], default: [] },
         order: { type: Number, default: 0 },
         importBatch: { type: String, default: null },
     },

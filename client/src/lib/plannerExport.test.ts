@@ -21,7 +21,7 @@ import type {
     FitnessPlanKind,
     FitnessPlanNote,
     FitnessPlanPart,
-    MobilityLog,
+    Mobility,
     Recovery,
     RecoveryLog,
     Workout,
@@ -38,7 +38,9 @@ function workout(over: Partial<Workout> = {}): Workout {
         description: '',
         duration: 45,
         showInPlanner: true,
-        exercises: [{ exercise: 'e1', sets: 3, reps: '8-12' }],
+        warmUp: [{ exercise: 'e2', sets: 2, reps: '10' }],
+        main: [{ exercise: 'e1', sets: 3, reps: '8-12' }],
+        coolDown: [],
         order: 0,
         ...STAMP,
         ...over,
@@ -51,7 +53,9 @@ function session(over: Partial<ConditioningSession> = {}): ConditioningSession {
         name: 'Bike Intervals',
         duration: 25,
         category: 'HIIT',
-        parts: [{ name: 'Main set', detail: '8 x 30s', rounds: 8, roundLabel: 'interval' }],
+        warmUp: [{ name: 'Easy spin', detail: '5 min' }],
+        main: [{ name: 'Main set', detail: '8 x 30s', rounds: 8, roundLabel: 'interval' }],
+        coolDown: [],
         order: 0,
         ...STAMP,
         ...over,
@@ -107,17 +111,6 @@ function conditioningLog(over: Partial<ConditioningLog> & { date: string }): Con
         name: 'Bike Intervals',
         category: 'HIIT',
         duration: 25,
-        ...STAMP,
-        ...over,
-    }
-}
-
-function mobilityLog(over: Partial<MobilityLog> & { date: string }): MobilityLog {
-    return {
-        _id: `ml-${over.date}`,
-        mobility: 'm1',
-        name: 'Hips',
-        duration: 10,
         ...STAMP,
         ...over,
     }
@@ -382,6 +375,28 @@ describe('buildPlannerExport — completion', () => {
         expect(rows.map((r) => r.done)).toEqual([true, false])
     })
 
+    it('marks mobility done from its own tick — mobility keeps no logs', () => {
+        const hips: Mobility = {
+            _id: 'm1',
+            name: 'Hips',
+            duration: 10,
+            parts: [],
+            order: 0,
+            ...STAMP,
+        }
+        const payload = buildPlannerExport(
+            input({
+                entries: [
+                    entry({ date: '2026-08-19', kind: 'mobility', mobility: hips, done: true }),
+                    entry({ date: '2026-08-20', kind: 'mobility', mobility: hips }),
+                ],
+            }),
+            NOW
+        )
+        const rows = payload.weeks[0].days.flatMap((d) => d.morning ?? [])
+        expect(rows.map((r) => r.done)).toEqual([true, false])
+    })
+
     it('omits done entirely when completion is off', () => {
         const payload = buildPlannerExport(
             input({
@@ -396,12 +411,16 @@ describe('buildPlannerExport — completion', () => {
 })
 
 describe('buildPlannerExport — details', () => {
-    it('expands a workout with its exercise names', () => {
+    it('expands a workout into its phases with exercise names, leaving out empty ones', () => {
         const payload = buildPlannerExport(
             input({
                 options: options({ details: true }),
                 exercisesById: new Map([
                     ['e1', { _id: 'e1', name: 'Back Squat', description: '', order: 0, ...STAMP }],
+                    [
+                        'e2',
+                        { _id: 'e2', name: 'Goblet Squat', description: '', order: 1, ...STAMP },
+                    ],
                 ]),
                 entries: [entry({ date: '2026-08-19', kind: 'workout', workout: workout() })],
             }),
@@ -410,7 +429,8 @@ describe('buildPlannerExport — details', () => {
 
         expect(payload.weeks[0].days[0].morning?.[0].details).toEqual({
             duration: 45,
-            exercises: [{ name: 'Back Squat', sets: 3, reps: '8-12' }],
+            warmUp: [{ name: 'Goblet Squat', sets: 2, reps: '10' }],
+            main: [{ name: 'Back Squat', sets: 3, reps: '8-12' }],
         })
     })
 
@@ -423,12 +443,12 @@ describe('buildPlannerExport — details', () => {
             NOW
         )
         const details = payload.weeks[0].days[0].morning?.[0].details as {
-            exercises: { name: string }[]
+            main: { name: string }[]
         }
-        expect(details.exercises[0].name).toBe('e1')
+        expect(details.main[0].name).toBe('e1')
     })
 
-    it('expands a conditioning session with its parts', () => {
+    it('expands a conditioning session into its phases', () => {
         const payload = buildPlannerExport(
             input({
                 options: options({ details: true }),
@@ -440,7 +460,8 @@ describe('buildPlannerExport — details', () => {
         expect(payload.weeks[0].days[0].morning?.[0].details).toEqual({
             duration: 25,
             category: 'HIIT',
-            parts: [{ name: 'Main set', detail: '8 x 30s', rounds: 8, roundLabel: 'interval' }],
+            warmUp: [{ name: 'Easy spin', detail: '5 min' }],
+            main: [{ name: 'Main set', detail: '8 x 30s', rounds: 8, roundLabel: 'interval' }],
         })
     })
 
@@ -496,7 +517,6 @@ describe('buildPlannerExport — completed sessions', () => {
                 logs: logs({
                     workout: [workoutLog({ date: '2026-08-19', durationMin: 52 })],
                     conditioning: [conditioningLog({ date: '2026-08-19', rpe: 8 })],
-                    mobility: [mobilityLog({ date: '2026-08-21' })],
                     recovery: [recoveryLog({ date: '2026-08-21' })],
                 }),
             }),
@@ -512,7 +532,7 @@ describe('buildPlannerExport — completed sessions', () => {
         expect(days[0].completed?.[0].durationMin).toBe(52)
         expect(days[0].completed?.[1].rpe).toBe(8)
         expect(days[0].completed?.[1].category).toBe('HIIT')
-        expect(days[1].completed?.map((c) => c.kind)).toEqual(['recovery', 'mobility'])
+        expect(days[1].completed?.map((c) => c.kind)).toEqual(['recovery'])
     })
 
     it('keeps a day nothing was planned on but something was done on', () => {

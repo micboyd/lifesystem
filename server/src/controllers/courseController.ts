@@ -4,7 +4,12 @@ import Course from '../models/Course'
 
 /** Coerce a request value to a non-negative number, or undefined if invalid. */
 function toHours(raw: unknown): number | undefined {
-    const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN
+    const n =
+        typeof raw === 'number'
+            ? raw
+            : typeof raw === 'string' && raw.trim() !== ''
+              ? Number(raw)
+              : NaN
     return Number.isFinite(n) && n >= 0 ? n : undefined
 }
 
@@ -27,7 +32,8 @@ export async function createCourse(req: AuthRequest, res: Response) {
         return
     }
     const completedHours = toHours(req.body.completedHours) ?? 0
-    const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() || undefined : undefined
+    const notes =
+        typeof req.body.notes === 'string' ? req.body.notes.trim() || undefined : undefined
     const link = typeof req.body.link === 'string' ? req.body.link.trim() || undefined : undefined
     const targetDate =
         typeof req.body.targetDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.body.targetDate)
@@ -58,9 +64,11 @@ export async function createCourse(req: AuthRequest, res: Response) {
 /** PUT /api/courses/:id — update fields and/or reorder. */
 export async function updateCourse(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
-    if (typeof req.body.name === 'string' && req.body.name.trim()) fields.name = req.body.name.trim()
+    if (typeof req.body.name === 'string' && req.body.name.trim())
+        fields.name = req.body.name.trim()
     if (req.body.kind === 'course' || req.body.kind === 'block') fields.kind = req.body.kind
-    if (typeof req.body.category === 'string') fields.category = req.body.category.trim() || undefined
+    if (typeof req.body.category === 'string')
+        fields.category = req.body.category.trim() || undefined
     const requiredHours = toHours(req.body.requiredHours)
     if (requiredHours !== undefined) fields.requiredHours = requiredHours
     const completedHours = toHours(req.body.completedHours)

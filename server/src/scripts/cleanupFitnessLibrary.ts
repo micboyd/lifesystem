@@ -5,6 +5,7 @@ import mongoose, { Types } from 'mongoose'
 import { connectDB } from '../config/db'
 import User from '../models/User'
 import Exercise from '../models/Exercise'
+import { SESSION_PHASES, flattenPhases, mapPhases, type Phased } from '../lib/phases'
 import Workout, { IWorkoutExercise } from '../models/Workout'
 import ConditioningSession from '../models/ConditioningSession'
 import Mobility from '../models/Mobility'
@@ -13,7 +14,6 @@ import FitnessPlanEntry from '../models/FitnessPlanEntry'
 import TrainingPlan from '../models/TrainingPlan'
 import WorkoutLog from '../models/WorkoutLog'
 import ConditioningLog from '../models/ConditioningLog'
-import MobilityLog from '../models/MobilityLog'
 import RecoveryLog from '../models/RecoveryLog'
 import {
     EXERCISES_REMOVE_ALL,
@@ -92,9 +92,12 @@ async function pickDuplicates(
 ): Promise<{ remove: Doc[]; keep: Doc[]; missing: string[] }> {
     const { docs, missing } = await matchByName(Exercise as unknown as LibraryModel, userId, names)
     const refCounts = new Map<string, number>()
-    const workouts = await Workout.find({ user: userId }, { exercises: 1 }).lean()
+    const workouts = await Workout.find(
+        { user: userId },
+        { warmUp: 1, main: 1, coolDown: 1 }
+    ).lean()
     for (const w of workouts) {
-        for (const line of w.exercises ?? []) {
+        for (const { item: line } of flattenPhases(w)) {
             const id = String(line.exercise)
             refCounts.set(id, (refCounts.get(id) ?? 0) + 1)
         }
@@ -149,16 +152,12 @@ function buildRepointMap(
 
 function report(label: string, result: { docs: Doc[]; missing: string[] }) {
     const names = new Set(result.docs.map((d) => d.name))
-    console.log(
-        `\n${label}: ${result.docs.length} record(s) matched across ${names.size} name(s).`
-    )
+    console.log(`\n${label}: ${result.docs.length} record(s) matched across ${names.size} name(s).`)
     if (result.missing.length) {
         console.log(`  ${result.missing.length} listed name(s) NOT found in the library:`)
         for (const n of result.missing) console.log(`    - ${n}`)
     }
-    const dupes = [...names].filter(
-        (n) => result.docs.filter((d) => d.name === n).length > 1
-    )
+    const dupes = [...names].filter((n) => result.docs.filter((d) => d.name === n).length > 1)
     if (dupes.length) {
         console.log(`  ${dupes.length} name(s) matched more than one record:`)
         for (const n of dupes) {
@@ -181,7 +180,11 @@ async function cleanup() {
     console.log(confirm ? 'MODE: DELETE (CLEANUP_CONFIRM=1)' : 'MODE: DRY RUN')
 
     // --- Match everything up front, before touching anything. ---
-    const exercisesAll = await matchByName(Exercise as unknown as LibraryModel, userId, EXERCISES_REMOVE_ALL)
+    const exercisesAll = await matchByName(
+        Exercise as unknown as LibraryModel,
+        userId,
+        EXERCISES_REMOVE_ALL
+    )
     const exercisesDupe = await pickDuplicates(userId, EXERCISES_KEEP_ONE)
     const workouts = await matchByName(Workout as unknown as LibraryModel, userId, WORKOUTS_REMOVE)
     const conditioning = await matchByName(
@@ -223,19 +226,17 @@ async function cleanup() {
 
     const exerciseIds = [...exercisesAll.docs, ...exercisesDupe.remove].map((d) => d._id)
     const workoutIds = workouts.docs.map((d) => d._id)
-    const sessionIds = [
-        ...conditioning.docs,
-        ...mobilityInCond.docs,
-        ...recoveryInCond.docs,
-    ].map((d) => d._id)
+    const sessionIds = [...conditioning.docs, ...mobilityInCond.docs, ...recoveryInCond.docs].map(
+        (d) => d._id
+    )
     const mobilityIds = mobility.docs.map((d) => d._id)
     const recoveryIds = recovery.docs.map((d) => d._id)
 
     // --- Re-point kept workouts off the exercises we're about to delete. ---
     const survivorsByName = new Map(
-        (
-            await Exercise.find({ user: userId, _id: { $nin: exerciseIds } }, { name: 1 }).lean()
-        ).map((e) => [e.name, e._id as Types.ObjectId])
+        (await Exercise.find({ user: userId, _id: { $nin: exerciseIds } }, { name: 1 }).lean()).map(
+            (e) => [e.name, e._id as Types.ObjectId]
+        )
     )
     const removedNameById = new Map(
         [...exercisesAll.docs, ...exercisesDupe.remove].map((d) => [String(d._id), d.name])
@@ -248,17 +249,20 @@ async function cleanup() {
     )
 
     const survivingWorkouts = await Workout.find(
-        { user: userId, _id: { $nin: workoutIds }, 'exercises.exercise': { $in: exerciseIds } },
-        { name: 1, exercises: 1 }
+        {
+            user: userId,
+            _id: { $nin: workoutIds },
+            $or: SESSION_PHASES.map((p) => ({ [`${p}.exercise`]: { $in: exerciseIds } })),
+        },
+        { name: 1, warmUp: 1, main: 1, coolDown: 1 }
     ).lean()
-    console.log(
-        `\nKept workouts referencing a removed exercise: ${survivingWorkouts.length}`
-    )
-    const rewrites: { id: Types.ObjectId; exercises: IWorkoutExercise[] }[] = []
+    console.log(`\nKept workouts referencing a removed exercise: ${survivingWorkouts.length}`)
+    const rewrites: { id: Types.ObjectId; phases: Phased<IWorkoutExercise> }[] = []
     let repointed = 0
     let stillDangling = 0
     for (const w of survivingWorkouts) {
-        const lines = (w.exercises ?? []).map((l) => ({ ...l }))
+        const phases = mapPhases(w, (list) => list.map((l) => ({ ...l })))
+        const lines = flattenPhases(phases).map((r) => r.item)
         const changes: string[] = []
         for (const line of lines) {
             const fromName = removedNameById.get(String(line.exercise))
@@ -278,12 +282,13 @@ async function cleanup() {
             }
         }
         console.log(`  "${w.name}": ${changes.join(', ')}`)
-        rewrites.push({ id: w._id as Types.ObjectId, exercises: lines })
+        rewrites.push({ id: w._id as Types.ObjectId, phases })
 
         // A re-point can land on an exercise the workout already lists. Both
         // lines are kept (they may prescribe different set schemes) but say so.
         const counts = new Map<string, number>()
-        for (const l of lines) counts.set(String(l.exercise), (counts.get(String(l.exercise)) ?? 0) + 1)
+        for (const l of lines)
+            counts.set(String(l.exercise), (counts.get(String(l.exercise)) ?? 0) + 1)
         for (const [id, n] of counts) {
             if (n > 1) {
                 const name =
@@ -310,24 +315,27 @@ async function cleanup() {
         user: userId,
         session: { $in: sessionIds },
     })
-    const mLogs = await MobilityLog.countDocuments({
-        user: userId,
-        mobility: { $in: mobilityIds },
-    })
     const rLogs = await RecoveryLog.countDocuments({
         user: userId,
         recovery: { $in: recoveryIds },
     })
     const allIds = [...workoutIds, ...sessionIds, ...mobilityIds, ...recoveryIds]
     const plans = await TrainingPlan.find(
-        { user: userId, $or: [{ 'items.item': { $in: allIds } }, { 'schedule.item': { $in: allIds } }] },
+        {
+            user: userId,
+            $or: [{ 'items.item': { $in: allIds } }, { 'schedule.item': { $in: allIds } }],
+        },
         { name: 1 }
     ).lean()
 
     console.log('\nReferences to the records being removed:')
     console.log(`  Planner entries: ${planEntries}`)
-    console.log(`  Completed logs:  workout ${wLogs}, conditioning ${cLogs}, mobility ${mLogs}, recovery ${rLogs}`)
-    console.log(`  Training plans:  ${plans.length}${plans.length ? ' — ' + plans.map((p) => p.name).join(', ') : ''}`)
+    console.log(
+        `  Completed logs:  workout ${wLogs}, conditioning ${cLogs}, recovery ${rLogs}`
+    )
+    console.log(
+        `  Training plans:  ${plans.length}${plans.length ? ' — ' + plans.map((p) => p.name).join(', ') : ''}`
+    )
     console.log(
         pruneOrphans
             ? '  Planner entries and logs above WILL be deleted (CLEANUP_PRUNE_ORPHANS=1).'
@@ -375,10 +383,6 @@ async function cleanup() {
             user: userId,
             session: { $in: sessionIds },
         }).lean(),
-        mobilityLogs: await MobilityLog.find({
-            user: userId,
-            mobility: { $in: mobilityIds },
-        }).lean(),
         recoveryLogs: await RecoveryLog.find({
             user: userId,
             recovery: { $in: recoveryIds },
@@ -401,7 +405,7 @@ async function cleanup() {
     if (rewrites.length) {
         await Workout.bulkWrite(
             rewrites.map((r) => ({
-                updateOne: { filter: { _id: r.id }, update: { $set: { exercises: r.exercises } } },
+                updateOne: { filter: { _id: r.id }, update: { $set: r.phases } },
             }))
         )
         console.log(`Re-pointed exercise lines in ${rewrites.length} workout(s).`)
@@ -432,9 +436,6 @@ async function cleanup() {
                 .deletedCount,
             conditioning: (
                 await ConditioningLog.deleteMany({ user: userId, session: { $in: sessionIds } })
-            ).deletedCount,
-            mobility: (
-                await MobilityLog.deleteMany({ user: userId, mobility: { $in: mobilityIds } })
             ).deletedCount,
             recovery: (
                 await RecoveryLog.deleteMany({ user: userId, recovery: { $in: recoveryIds } })

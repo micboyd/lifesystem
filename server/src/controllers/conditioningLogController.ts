@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import ConditioningLog from '../models/ConditioningLog'
+import { toMinutes } from '../lib/timeWindow'
 import ConditioningSession, {
     CONDITIONING_CATEGORIES,
     ConditioningCategory,
@@ -9,7 +10,12 @@ import ConditioningSession, {
 
 /** Coerce a request value to a non-negative number, or a fallback if invalid. */
 function toAmount(raw: unknown, fallback = 0): number {
-    const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN
+    const n =
+        typeof raw === 'number'
+            ? raw
+            : typeof raw === 'string' && raw.trim() !== ''
+              ? Number(raw)
+              : NaN
     return Number.isFinite(n) && n >= 0 ? n : fallback
 }
 
@@ -45,6 +51,28 @@ function toRounds(raw: unknown): { name: string; done: number; target: number }[
         if (!name || target < 1) continue
         const done = Math.min(target, Math.max(0, Math.floor(toAmount(r.done, 0))))
         out.push({ name, done, target })
+    }
+    return out.length > 0 ? out : undefined
+}
+
+/** Normalise the per-part timing snapshot, dropping unnamed entries. */
+function toCheckpoints(raw: unknown) {
+    if (!Array.isArray(raw)) return undefined
+    const out: { name: string; startMin?: number; endMin?: number; doneAtMin?: number }[] = []
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue
+        const c = item as Record<string, unknown>
+        const name = typeof c.name === 'string' ? c.name.trim() : ''
+        if (!name) continue
+        const startMin = toMinutes(c.startMin)
+        const endMin = toMinutes(c.endMin)
+        const doneAtMin = toMinutes(c.doneAtMin)
+        out.push({
+            name,
+            ...(startMin !== undefined ? { startMin } : {}),
+            ...(endMin !== undefined ? { endMin } : {}),
+            ...(doneAtMin !== undefined ? { doneAtMin } : {}),
+        })
     }
     return out.length > 0 ? out : undefined
 }
@@ -93,6 +121,7 @@ export async function createLog(req: AuthRequest, res: Response) {
         duration: toAmount(b.duration),
         rpe: toRpe(b.rpe),
         rounds: toRounds(b.rounds),
+        checkpoints: toCheckpoints(b.checkpoints),
         notes: typeof b.notes === 'string' ? b.notes.trim() || undefined : undefined,
     })
     res.status(201).json({ message: 'Created', data: log })
@@ -108,6 +137,7 @@ export async function updateLog(req: AuthRequest, res: Response) {
     if (b.duration !== undefined) fields.duration = toAmount(b.duration)
     if (b.rpe !== undefined) fields.rpe = toRpe(b.rpe)
     if (b.rounds !== undefined) fields.rounds = toRounds(b.rounds)
+    if (b.checkpoints !== undefined) fields.checkpoints = toCheckpoints(b.checkpoints)
     if (typeof b.notes === 'string') fields.notes = b.notes.trim() || undefined
 
     const log = await ConditioningLog.findOneAndUpdate(

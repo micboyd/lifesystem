@@ -214,7 +214,10 @@ export async function deleteBudgetSpend(req: AuthRequest, res: Response) {
                 note: spend.note,
             })
         } catch (err) {
-            console.error('deleteBudgetSpend: tombstone write failed after a successful delete', err)
+            console.error(
+                'deleteBudgetSpend: tombstone write failed after a successful delete',
+                err
+            )
         }
     }
     res.json({ message: 'Deleted', data: null })

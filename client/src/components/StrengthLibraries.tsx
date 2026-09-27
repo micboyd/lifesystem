@@ -36,7 +36,16 @@ import { createLog as createWorkoutLog, type WorkoutLogInput } from '../services
 import { useToast } from '../context/ToastContext'
 import { todayKey } from '../lib/calendar'
 import { MUSCLE_GROUPS, EQUIPMENT, resolveTags } from '../lib/exerciseSwap'
-import type { Exercise, Workout, WorkoutExercise } from '../types'
+import { SlotInputs } from './SessionClock'
+import { hasSlot, slotLabel } from '../lib/sessionClock'
+import { SESSION_PHASES, SESSION_PHASE_LABELS } from '../types'
+import type { Exercise, Phased, SessionPhase, Workout, WorkoutExercise } from '../types'
+import {
+    WORKOUT_ESTIMATE_HINT,
+    emptyPhases,
+    estimateWorkoutMinutes,
+    mapPhases,
+} from '../lib/phases'
 
 // ─── Import templates ─────────────────────────────────────────────────────────
 
@@ -69,7 +78,7 @@ const EQUIPMENT_OPTIONS = [
     ...EQUIPMENT.map((e) => ({ label: e, value: e })),
 ]
 
-const SUB_TABS = ['Workouts', 'Exercises', 'Workouts Library'] as const
+const SUB_TABS = ['Workouts Library', 'Exercises', 'Workouts'] as const
 type SubTab = (typeof SUB_TABS)[number]
 
 const PAGE_SIZE = 9
@@ -81,7 +90,7 @@ const PAGE_SIZE = 9
  * second round-trip; workouts are fetched a page at a time by the grid itself.
  */
 export default function StrengthLibraries() {
-    const [sub, setSub] = useState<SubTab>('Workouts')
+    const [sub, setSub] = useState<SubTab>('Workouts Library')
     const [loading, setLoading] = useState(true)
     const [exercises, setExercises] = useState<Exercise[]>([])
 
@@ -125,10 +134,7 @@ export default function StrengthLibraries() {
 
 // ─── Exercise library ───────────────────────────────────────────────────────────
 
-type ExerciseDrawered =
-    | { mode: 'create' }
-    | { mode: 'edit'; exercise: Exercise }
-    | null
+type ExerciseDrawered = { mode: 'create' } | { mode: 'edit'; exercise: Exercise } | null
 
 function ExerciseLibrary({
     exercises,
@@ -150,8 +156,7 @@ function ExerciseLibrary({
         if (!q) return exercises
         return exercises.filter(
             (e) =>
-                e.name.toLowerCase().includes(q) ||
-                (e.description ?? '').toLowerCase().includes(q)
+                e.name.toLowerCase().includes(q) || (e.description ?? '').toLowerCase().includes(q)
         )
     }, [exercises, search])
 
@@ -183,7 +188,8 @@ function ExerciseLibrary({
                 notes={
                     <>
                         <p>
-                            <span className="font-semibold text-neutral-700">name</span> is required.{' '}
+                            <span className="font-semibold text-neutral-700">name</span> is
+                            required.{' '}
                             <span className="font-semibold text-neutral-700">description</span>,{' '}
                             <span className="font-semibold text-neutral-700">muscleGroup</span> and{' '}
                             <span className="font-semibold text-neutral-700">equipment</span> are
@@ -192,8 +198,7 @@ function ExerciseLibrary({
                         <p>
                             The last two are what the swap button matches on when a machine is
                             taken. Leave them out and they&apos;re read from the name instead —
-                            tagging
-                            them just makes the suggestions surer.
+                            tagging them just makes the suggestions surer.
                         </p>
                     </>
                 }
@@ -253,7 +258,10 @@ function ExerciseLibrary({
                     title="No exercises yet"
                     description="Build a library of movements you can drop into workouts."
                     action={
-                        <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
+                        <Button
+                            icon="fa-solid fa-plus"
+                            onClick={() => setDrawer({ mode: 'create' })}
+                        >
                             New exercise
                         </Button>
                     }
@@ -265,54 +273,57 @@ function ExerciseLibrary({
                     description={`No exercises match “${search.trim()}”.`}
                 />
             ) : (
-              <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {pageItems.map((exercise) => (
-                        <Card key={exercise._id} as="div" className="flex flex-col gap-2">
-                            <div className="flex items-start justify-between gap-2">
-                                <p className="min-w-0 truncate font-semibold text-neutral-900">
-                                    {exercise.name}
-                                </p>
-                                <DropdownMenu
-                                    align="right"
-                                    className="-mr-1 -mt-1 shrink-0"
-                                    trigger={
-                                        <span
-                                            aria-label="Exercise actions"
-                                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                                        >
-                                            <LineIcon name="more" className="h-4 w-4" />
-                                        </span>
-                                    }
-                                    items={[
-                                        {
-                                            label: 'Edit',
-                                            icon: 'fa-solid fa-pen',
-                                            onClick: () => setDrawer({ mode: 'edit', exercise }),
-                                        },
-                                        {
-                                            label: 'Delete',
-                                            icon: 'fa-solid fa-trash-can',
-                                            danger: true,
-                                            onClick: () => handleDelete(exercise._id),
-                                        },
-                                    ]}
-                                />
-                            </div>
-                            {exercise.description && (
-                                <p className="text-sm text-neutral-500">{exercise.description}</p>
-                            )}
-                            <ExerciseTagChips exercise={exercise} />
-                        </Card>
-                    ))}
-                </div>
-                <Pagination
-                    page={page}
-                    pageCount={pageCount}
-                    onChange={setPage}
-                    className="mt-6 justify-center"
-                />
-              </>
+                <>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {pageItems.map((exercise) => (
+                            <Card key={exercise._id} as="div" className="flex flex-col gap-2">
+                                <div className="flex items-start justify-between gap-2">
+                                    <p className="min-w-0 truncate font-semibold text-neutral-900">
+                                        {exercise.name}
+                                    </p>
+                                    <DropdownMenu
+                                        align="right"
+                                        className="-mr-1 -mt-1 shrink-0"
+                                        trigger={
+                                            <span
+                                                aria-label="Exercise actions"
+                                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                            >
+                                                <LineIcon name="more" className="h-4 w-4" />
+                                            </span>
+                                        }
+                                        items={[
+                                            {
+                                                label: 'Edit',
+                                                icon: 'fa-solid fa-pen',
+                                                onClick: () =>
+                                                    setDrawer({ mode: 'edit', exercise }),
+                                            },
+                                            {
+                                                label: 'Delete',
+                                                icon: 'fa-solid fa-trash-can',
+                                                danger: true,
+                                                onClick: () => handleDelete(exercise._id),
+                                            },
+                                        ]}
+                                    />
+                                </div>
+                                {exercise.description && (
+                                    <p className="text-sm text-neutral-500">
+                                        {exercise.description}
+                                    </p>
+                                )}
+                                <ExerciseTagChips exercise={exercise} />
+                            </Card>
+                        ))}
+                    </div>
+                    <Pagination
+                        page={page}
+                        pageCount={pageCount}
+                        onChange={setPage}
+                        className="mt-6 justify-center"
+                    />
+                </>
             )}
 
             <ExerciseFormDrawer
@@ -492,31 +503,13 @@ type WorkoutDrawered =
     | null
 
 /**
- * Rough completion estimate for a strength workout: a fixed warm-up plus a block
- * per exercise. When sets are prescribed we count ~2 min per working set (work +
- * rest); otherwise we fall back to a flat per-exercise block. Deliberately
- * transparent so the number reads as the ballpark it is.
- */
-const WARMUP_MIN = 8
-const PER_EXERCISE_MIN = 6
-const PER_SET_MIN = 2
-function estimateWorkoutMinutes(exercises: WorkoutExercise[]): number {
-    if (exercises.length === 0) return 0
-    const work = exercises.reduce(
-        (sum, e) => sum + (e.sets && e.sets > 0 ? e.sets * PER_SET_MIN : PER_EXERCISE_MIN),
-        0
-    )
-    return WARMUP_MIN + work
-}
-
-/**
  * The minutes to show for a workout: its stated duration when one was given (an
  * imported plan usually says), otherwise the estimate above. `estimated` drives
  * whether the label is hedged with a "~".
  */
 function workoutMinutes(workout: Workout): { minutes: number; estimated: boolean } {
     if (workout.duration > 0) return { minutes: workout.duration, estimated: false }
-    return { minutes: estimateWorkoutMinutes(workout.exercises), estimated: true }
+    return { minutes: estimateWorkoutMinutes(workout), estimated: true }
 }
 
 /** Compact "3 × 8-12" / "3 sets" / "8-12 reps" label, or '' when neither is set. */
@@ -704,7 +697,10 @@ function WorkoutLibrary({
                     title="No workouts yet"
                     description="Combine exercises from your library into a repeatable workout."
                     action={
-                        <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
+                        <Button
+                            icon="fa-solid fa-plus"
+                            onClick={() => setDrawer({ mode: 'create' })}
+                        >
                             New workout
                         </Button>
                     }
@@ -716,101 +712,108 @@ function WorkoutLibrary({
                     description={`No workouts match “${debouncedSearch}”.`}
                 />
             ) : (
-              <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {lib.workouts.map((workout) => (
-                        <Card key={workout._id} as="div" className="relative flex flex-col gap-3">
-                            {/* Stretched overlay: clicking the card opens the workout.
+                <>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {lib.workouts.map((workout) => (
+                            <Card
+                                key={workout._id}
+                                as="div"
+                                className="relative flex flex-col gap-3"
+                            >
+                                {/* Stretched overlay: clicking the card opens the workout.
                                 Interactive children (the actions menu) sit above it. */}
-                            <button
-                                type="button"
-                                aria-label={`View ${workout.name}`}
-                                onClick={() => setDrawer({ mode: 'view', workout })}
-                                className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
-                            />
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <p className="min-w-0 truncate font-semibold text-neutral-900">
-                                            {workout.name}
+                                <button
+                                    type="button"
+                                    aria-label={`View ${workout.name}`}
+                                    onClick={() => setDrawer({ mode: 'view', workout })}
+                                    className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
+                                />
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className="min-w-0 truncate font-semibold text-neutral-900">
+                                                {workout.name}
+                                            </p>
+                                            {workout.showInPlanner && (
+                                                <i
+                                                    className="fa-solid fa-thumbtack shrink-0 text-xs text-coral-500"
+                                                    aria-hidden="true"
+                                                    title="Pinned to week planner"
+                                                />
+                                            )}
+                                        </div>
+                                        <p className="mt-0.5 text-xs text-neutral-400">
+                                            {workout.main.length}{' '}
+                                            {workout.main.length === 1 ? 'exercise' : 'exercises'}
+                                            {workout.warmUp.length > 0 && ' + warm-up'}
+                                            {workout.main.length > 0 &&
+                                                ` · ${workoutMinutes(workout).estimated ? '~' : ''}${workoutMinutes(workout).minutes} min`}
                                         </p>
-                                        {workout.showInPlanner && (
-                                            <i
-                                                className="fa-solid fa-thumbtack shrink-0 text-xs text-coral-500"
-                                                aria-hidden="true"
-                                                title="Pinned to week planner"
-                                            />
+                                    </div>
+                                    <DropdownMenu
+                                        align="right"
+                                        className="relative z-20 -mr-1 -mt-1 shrink-0"
+                                        trigger={
+                                            <span
+                                                aria-label="Workout actions"
+                                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                            >
+                                                <LineIcon name="more" className="h-4 w-4" />
+                                            </span>
+                                        }
+                                        items={[
+                                            {
+                                                label: 'Edit',
+                                                icon: 'fa-solid fa-pen',
+                                                onClick: () => setDrawer({ mode: 'edit', workout }),
+                                            },
+                                            {
+                                                label: 'Delete',
+                                                icon: 'fa-solid fa-trash-can',
+                                                danger: true,
+                                                onClick: () => handleDelete(workout._id),
+                                            },
+                                        ]}
+                                    />
+                                </div>
+
+                                {workout.description && (
+                                    <p className="text-sm text-neutral-500">
+                                        {workout.description}
+                                    </p>
+                                )}
+
+                                {workout.main.length > 0 && (
+                                    <div className="mt-auto flex flex-wrap gap-1.5 border-t border-neutral-100 pt-3">
+                                        {workout.main.slice(0, 4).map((item, i) => {
+                                            const ex = byId.get(item.exercise)
+                                            if (!ex) return null
+                                            return (
+                                                <span
+                                                    key={`${item.exercise}-${i}`}
+                                                    className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600"
+                                                >
+                                                    {ex.name}
+                                                </span>
+                                            )
+                                        })}
+                                        {workout.main.length > 4 && (
+                                            <span className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-500">
+                                                +{workout.main.length - 4}
+                                            </span>
                                         )}
                                     </div>
-                                    <p className="mt-0.5 text-xs text-neutral-400">
-                                        {workout.exercises.length}{' '}
-                                        {workout.exercises.length === 1 ? 'exercise' : 'exercises'}
-                                        {workout.exercises.length > 0 &&
-                                            ` · ${workoutMinutes(workout).estimated ? '~' : ''}${workoutMinutes(workout).minutes} min`}
-                                    </p>
-                                </div>
-                                <DropdownMenu
-                                    align="right"
-                                    className="relative z-20 -mr-1 -mt-1 shrink-0"
-                                    trigger={
-                                        <span
-                                            aria-label="Workout actions"
-                                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                                        >
-                                            <LineIcon name="more" className="h-4 w-4" />
-                                        </span>
-                                    }
-                                    items={[
-                                        {
-                                            label: 'Edit',
-                                            icon: 'fa-solid fa-pen',
-                                            onClick: () => setDrawer({ mode: 'edit', workout }),
-                                        },
-                                        {
-                                            label: 'Delete',
-                                            icon: 'fa-solid fa-trash-can',
-                                            danger: true,
-                                            onClick: () => handleDelete(workout._id),
-                                        },
-                                    ]}
-                                />
-                            </div>
-
-                            {workout.description && (
-                                <p className="text-sm text-neutral-500">{workout.description}</p>
-                            )}
-
-                            {workout.exercises.length > 0 && (
-                                <div className="mt-auto flex flex-wrap gap-1.5 border-t border-neutral-100 pt-3">
-                                    {workout.exercises.slice(0, 4).map((item, i) => {
-                                        const ex = byId.get(item.exercise)
-                                        if (!ex) return null
-                                        return (
-                                            <span
-                                                key={`${item.exercise}-${i}`}
-                                                className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600"
-                                            >
-                                                {ex.name}
-                                            </span>
-                                        )
-                                    })}
-                                    {workout.exercises.length > 4 && (
-                                        <span className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-500">
-                                            +{workout.exercises.length - 4}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-                        </Card>
-                    ))}
-                </div>
-                <Pagination
-                    page={page}
-                    pageCount={lib.pages}
-                    onChange={setPage}
-                    className="mt-6 justify-center"
-                />
-              </>
+                                )}
+                            </Card>
+                        ))}
+                    </div>
+                    <Pagination
+                        page={page}
+                        pageCount={lib.pages}
+                        onChange={setPage}
+                        className="mt-6 justify-center"
+                    />
+                </>
             )}
 
             <WorkoutViewDrawer
@@ -874,13 +877,16 @@ function WorkoutViewDrawer({
     }, [workout])
 
     const w = view
-    // Pair each workout slot with its resolved library exercise, in order,
-    // dropping any that were since deleted.
-    const rows = w
-        ? w.exercises
-              .map((item) => ({ item, ex: byId.get(item.exercise) }))
-              .filter((r): r is { item: WorkoutExercise; ex: Exercise } => !!r.ex)
-        : []
+    // Pair each workout slot with its resolved library exercise, phase by
+    // phase and in order, dropping any that were since deleted.
+    const phases = w
+        ? mapPhases(w, (list) =>
+              list
+                  .map((item) => ({ item, ex: byId.get(item.exercise) }))
+                  .filter((r): r is { item: WorkoutExercise; ex: Exercise } => !!r.ex)
+          )
+        : emptyPhases<{ item: WorkoutExercise; ex: Exercise }>()
+    const rows = phases.main
     const time = w ? workoutMinutes(w) : null
 
     async function markDone() {
@@ -911,7 +917,11 @@ function WorkoutViewDrawer({
                         >
                             Delete
                         </Button>
-                        <Button variant="secondary" icon="fa-solid fa-pen" onClick={() => onEdit(w)}>
+                        <Button
+                            variant="secondary"
+                            icon="fa-solid fa-pen"
+                            onClick={() => onEdit(w)}
+                        >
                             Edit
                         </Button>
                         <Button
@@ -933,19 +943,25 @@ function WorkoutViewDrawer({
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
-                            <i className="fa-solid fa-dumbbell text-neutral-400" aria-hidden="true" />
+                            <i
+                                className="fa-solid fa-dumbbell text-neutral-400"
+                                aria-hidden="true"
+                            />
                             {rows.length} {rows.length === 1 ? 'exercise' : 'exercises'}
                         </span>
                         {time && rows.length > 0 && (
                             <span
                                 title={
                                     time.estimated
-                                        ? "Rough estimate: an 8-minute warm-up plus working sets (~2 min each), or ~6 min per exercise where sets aren't set."
+                                        ? WORKOUT_ESTIMATE_HINT
                                         : 'The duration set on this workout.'
                                 }
                                 className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600"
                             >
-                                <i className="fa-regular fa-clock text-neutral-400" aria-hidden="true" />
+                                <i
+                                    className="fa-regular fa-clock text-neutral-400"
+                                    aria-hidden="true"
+                                />
                                 {time.estimated ? '~' : ''}
                                 {time.minutes} min
                             </span>
@@ -959,56 +975,74 @@ function WorkoutViewDrawer({
                     </div>
 
                     {w.description && (
-                        <p className="whitespace-pre-wrap text-sm text-neutral-600">{w.description}</p>
+                        <p className="whitespace-pre-wrap text-sm text-neutral-600">
+                            {w.description}
+                        </p>
                     )}
 
-                    <section>
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                            Exercises
-                        </p>
-                        {rows.length === 0 ? (
-                            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
-                                No exercises in this workout yet.
-                            </p>
-                        ) : (
-                            <ol className="flex flex-col gap-3">
-                                {rows.map(({ item, ex }, i) => (
-                                    <li key={`${ex._id}-${i}`} className="flex gap-3 text-sm">
-                                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
-                                            {i + 1}
-                                        </span>
-                                        <div className="min-w-0 pt-0.5">
-                                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                                <p className="font-semibold text-neutral-900">
-                                                    {ex.name}
-                                                </p>
-                                                {formatSetsReps(item) && (
-                                                    <span className="text-xs font-medium text-coral-600">
-                                                        {formatSetsReps(item)}
-                                                    </span>
-                                                )}
-                                                {item.rest && (
-                                                    <span className="text-xs text-neutral-400">
-                                                        rest {item.rest}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {item.notes && (
-                                                <p className="mt-0.5 text-xs italic text-neutral-500">
-                                                    {item.notes}
-                                                </p>
-                                            )}
-                                            {ex.description && (
-                                                <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
-                                                    {ex.description}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </li>
-                                ))}
-                            </ol>
-                        )}
-                    </section>
+                    {SESSION_PHASES.map((phase) => {
+                        const rows = phases[phase]
+                        // An empty warm-up or cool-down isn't worth a heading;
+                        // an empty main session is, so the gap is obvious.
+                        if (rows.length === 0 && phase !== 'main') return null
+                        return (
+                            <section key={phase}>
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    {SESSION_PHASE_LABELS[phase]}
+                                </p>
+                                {rows.length === 0 ? (
+                                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
+                                        No main-session exercises in this workout yet.
+                                    </p>
+                                ) : (
+                                    <ol className="flex flex-col gap-3">
+                                        {rows.map(({ item, ex }, i) => (
+                                            <li
+                                                key={`${ex._id}-${i}`}
+                                                className="flex gap-3 text-sm"
+                                            >
+                                                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
+                                                    {i + 1}
+                                                </span>
+                                                <div className="min-w-0 pt-0.5">
+                                                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                                        <p className="font-semibold text-neutral-900">
+                                                            {ex.name}
+                                                        </p>
+                                                        {formatSetsReps(item) && (
+                                                            <span className="text-xs font-medium text-coral-600">
+                                                                {formatSetsReps(item)}
+                                                            </span>
+                                                        )}
+                                                        {item.rest && (
+                                                            <span className="text-xs text-neutral-400">
+                                                                rest {item.rest}
+                                                            </span>
+                                                        )}
+                                                        {hasSlot(item) && (
+                                                            <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-neutral-500">
+                                                                {slotLabel(item)} min
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {item.notes && (
+                                                        <p className="mt-0.5 text-xs italic text-neutral-500">
+                                                            {item.notes}
+                                                        </p>
+                                                    )}
+                                                    {ex.description && (
+                                                        <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
+                                                            {ex.description}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                )}
+                            </section>
+                        )
+                    })}
                 </div>
             )}
         </Drawer>
@@ -1038,7 +1072,7 @@ function WorkoutFormDrawer({
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [showInPlanner, setShowInPlanner] = useState(false)
-    const [selected, setSelected] = useState<WorkoutExercise[]>([])
+    const [selected, setSelected] = useState<Phased<WorkoutExercise>>(emptyPhases)
     const [saving, setSaving] = useState(false)
 
     useEffect(() => {
@@ -1047,7 +1081,11 @@ function WorkoutFormDrawer({
         setShowInPlanner(editing?.showInPlanner ?? false)
         // Drop any entries that no longer resolve to a library exercise.
         setSelected(
-            (editing?.exercises ?? []).filter((e) => exercises.some((x) => x._id === e.exercise))
+            editing
+                ? mapPhases(editing, (list) =>
+                      list.filter((e) => exercises.some((x) => x._id === e.exercise))
+                  )
+                : emptyPhases()
         )
         setSaving(false)
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1061,7 +1099,7 @@ function WorkoutFormDrawer({
             name: name.trim(),
             description: description.trim(),
             showInPlanner,
-            exercises: selected,
+            ...selected,
         }
         setSaving(true)
         try {
@@ -1109,7 +1147,9 @@ function WorkoutFormDrawer({
                 {/* Week planner toggle */}
                 <div className="flex items-start justify-between gap-4 rounded-xl border border-neutral-200 p-3">
                     <div className="min-w-0">
-                        <p className="text-sm font-semibold text-neutral-900">Show in Week Planner</p>
+                        <p className="text-sm font-semibold text-neutral-900">
+                            Show in Week Planner
+                        </p>
                         <p className="mt-0.5 text-xs text-neutral-400">
                             Pin this workout to the top of the planner
                         </p>
@@ -1117,8 +1157,16 @@ function WorkoutFormDrawer({
                     <Switch checked={showInPlanner} onChange={setShowInPlanner} />
                 </div>
 
-                {/* Exercise picker */}
-                <ExercisePicker exercises={exercises} selected={selected} onChange={setSelected} />
+                {/* One exercise picker per phase. */}
+                {SESSION_PHASES.map((phase) => (
+                    <ExercisePicker
+                        key={phase}
+                        phase={phase}
+                        exercises={exercises}
+                        selected={selected[phase]}
+                        onChange={(rows) => setSelected((prev) => ({ ...prev, [phase]: rows }))}
+                    />
+                ))}
             </div>
         </Drawer>
     )
@@ -1126,16 +1174,24 @@ function WorkoutFormDrawer({
 
 // ─── Exercise picker ────────────────────────────────────────────────────────────
 
+/**
+ * Picks one phase's exercises. The main session's search list is always open;
+ * the warm-up's and cool-down's open on demand, so the drawer isn't three long
+ * lists stacked up.
+ */
 function ExercisePicker({
+    phase,
     exercises,
     selected,
     onChange,
 }: {
+    phase: SessionPhase
     exercises: Exercise[]
     selected: WorkoutExercise[]
     onChange: (rows: WorkoutExercise[]) => void
 }) {
     const [query, setQuery] = useState('')
+    const [browsing, setBrowsing] = useState(phase === 'main')
 
     const byId = useMemo(() => {
         const m = new Map<string, Exercise>()
@@ -1153,7 +1209,11 @@ function ExercisePicker({
 
     function toggle(id: string) {
         if (selectedIds.has(id)) onChange(selected.filter((s) => s.exercise !== id))
-        else onChange([...selected, { exercise: id }])
+        else {
+            // A new line picks up where the last one's slot ends.
+            const after = selected[selected.length - 1]?.endMin
+            onChange([...selected, { exercise: id, ...(after !== undefined ? { startMin: after } : {}) }])
+        }
     }
     function update(id: string, patch: Partial<WorkoutExercise>) {
         onChange(selected.map((s) => (s.exercise === id ? { ...s, ...patch } : s)))
@@ -1171,13 +1231,25 @@ function ExercisePicker({
         <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                    Exercises
+                    {SESSION_PHASE_LABELS[phase]}
                 </label>
-                {selected.length > 0 && (
-                    <span className="text-xs font-medium text-neutral-500">
-                        {selected.length} added
-                    </span>
-                )}
+                <div className="flex items-center gap-2">
+                    {selected.length > 0 && (
+                        <span className="text-xs font-medium text-neutral-500">
+                            {selected.length} added
+                        </span>
+                    )}
+                    {phase !== 'main' && exercises.length > 0 && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={browsing ? 'fa-solid fa-chevron-up' : 'fa-solid fa-plus'}
+                            onClick={() => setBrowsing((b) => !b)}
+                        >
+                            {browsing ? 'Done' : 'Add exercise'}
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Chosen exercises, in order, with per-exercise sets & reps. */}
@@ -1189,14 +1261,21 @@ function ExercisePicker({
                         return (
                             <li
                                 key={row.exercise}
-                                className="flex items-center gap-2 rounded-xl border border-neutral-200 p-2.5"
+                                className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 p-2.5"
                             >
                                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
                                     {i + 1}
                                 </span>
-                                <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800">
+                                <span className="min-w-0 flex-1 basis-40 truncate text-sm font-medium text-neutral-800">
                                     {ex.name}
                                 </span>
+                                <SlotInputs
+                                    slot={row}
+                                    label={ex.name}
+                                    onChange={(s) =>
+                                        update(row.exercise, { startMin: s.startMin, endMin: s.endMin })
+                                    }
+                                />
                                 <input
                                     type="number"
                                     min={0}
@@ -1232,9 +1311,19 @@ function ExercisePicker({
             )}
 
             {exercises.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
-                    No exercises yet — add some in the Exercises library first.
-                </p>
+                phase === 'main' && (
+                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
+                        No exercises yet — add some in the Exercises library first.
+                    </p>
+                )
+            ) : !browsing ? (
+                selected.length === 0 && (
+                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-3 text-center text-xs text-neutral-400">
+                        {phase === 'warmUp'
+                            ? 'No warm-up — the time estimate assumes 8 minutes.'
+                            : 'No cool-down.'}
+                    </p>
+                )
             ) : (
                 <div className="rounded-xl border border-neutral-200">
                     <div className="border-b border-neutral-100 p-2">
@@ -1268,11 +1357,16 @@ function ExercisePicker({
                                                         : 'border-neutral-300 text-transparent',
                                                 ].join(' ')}
                                             >
-                                                <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
+                                                <i
+                                                    className="fa-solid fa-check text-[10px]"
+                                                    aria-hidden="true"
+                                                />
                                             </span>
                                             <span
                                                 className={
-                                                    isOn ? 'font-medium text-neutral-900' : 'text-neutral-600'
+                                                    isOn
+                                                        ? 'font-medium text-neutral-900'
+                                                        : 'text-neutral-600'
                                                 }
                                             >
                                                 {ex.name}

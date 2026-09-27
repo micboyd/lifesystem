@@ -1,6 +1,7 @@
 import User from '../models/User'
 import ConditioningSession from '../models/ConditioningSession'
 import { connectDB } from '../config/db'
+import { flattenPhases, type Phased } from '../lib/phases'
 import dotenv from 'dotenv'
 import mongoose from 'mongoose'
 import path from 'path'
@@ -22,9 +23,11 @@ const email = process.env.DEDUPE_EMAIL ?? 'michael_boyd@live.co.uk'
 const allUsers = process.env.DEDUPE_ALL_USERS === '1'
 const confirm = process.env.DEDUPE_CONFIRM === '1'
 
-// A session "has rep steps" if any of its parts has a rounds count.
-function hasRepSteps(session: { parts: { rounds?: number }[] }): boolean {
-    return session.parts.some((p) => typeof p.rounds === 'number' && p.rounds > 0)
+// A session "has rep steps" if any part in any phase has a rounds count.
+function hasRepSteps(session: Phased<{ rounds?: number }>): boolean {
+    return flattenPhases(session).some(
+        ({ item: p }) => typeof p.rounds === 'number' && p.rounds > 0
+    )
 }
 
 async function dedupeConditioningReps() {
@@ -64,9 +67,7 @@ async function dedupeConditioningReps() {
             const isDuplicateName = (nameCounts.get(s.name) ?? 0) > 1
             if (isDuplicateName && hasRepSteps(s)) {
                 toDelete.push(s._id)
-                console.log(
-                    `  ${confirm ? 'DELETE' : 'WOULD DELETE'}: "${s.name}" (${s._id})`
-                )
+                console.log(`  ${confirm ? 'DELETE' : 'WOULD DELETE'}: "${s.name}" (${s._id})`)
             }
         }
     }

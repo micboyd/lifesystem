@@ -4,6 +4,8 @@ import { AuthRequest } from '../middleware/auth'
 import WorkoutLog, { IWorkoutLogExercise, ILoggedSet } from '../models/WorkoutLog'
 import Workout from '../models/Workout'
 import Exercise from '../models/Exercise'
+import { flattenPhases, type Phased } from '../lib/phases'
+import { toMinutes } from '../lib/timeWindow'
 
 /** Coerce a request value to a non-negative number, or undefined when absent/invalid. */
 function toDuration(raw: unknown): number | undefined {
@@ -50,6 +52,20 @@ function applyLoggedSets(lines: IWorkoutLogExercise[], raw: unknown): IWorkoutLo
         const { loggedSets: _prev, ...rest } = line
         const sets = perExercise[i]
         return sets ? { ...rest, loggedSets: sets } : rest
+    })
+}
+
+/**
+ * Overlay when each line was tapped done on the session clock, aligned by index
+ * the same way logged sets are: entry i is the minute mark for line i, or null
+ * when it wasn't tapped. Not an array (a quick "Done") leaves the lines alone.
+ */
+function applyDoneTimes(lines: IWorkoutLogExercise[], raw: unknown): IWorkoutLogExercise[] {
+    if (!Array.isArray(raw)) return lines
+    return lines.map((line, i) => {
+        const { doneAtMin: _prev, ...rest } = line
+        const at = toMinutes(raw[i])
+        return at !== undefined ? { ...rest, doneAtMin: at } : rest
     })
 }
 
@@ -106,26 +122,38 @@ function isValidDate(raw: unknown): raw is string {
 }
 
 /**
- * Snapshot a library workout's exercises into log lines: resolve each exercise id
- * to its current library name, keeping the prescribed sets/reps and order, and
- * drop any exercise that no longer resolves.
+ * Snapshot a library workout's exercises into log lines: warm-up, then main,
+ * then cool-down — the same order the client indexes its sets, swaps and skips
+ * by. Each exercise id resolves to its current library name, keeping the
+ * prescribed sets/reps and the phase; any that no longer resolves is dropped.
  */
 async function snapshotExercises(
-    workout: { exercises: { exercise: Types.ObjectId; sets?: number; reps?: string }[] },
+    workout: Phased<{
+        exercise: Types.ObjectId
+        sets?: number
+        reps?: string
+        startMin?: number
+        endMin?: number
+    }>,
     userId: unknown
 ): Promise<IWorkoutLogExercise[]> {
-    const ids = workout.exercises.map((e) => e.exercise)
-    if (ids.length === 0) return []
+    const rows = flattenPhases(workout)
+    if (rows.length === 0) return []
+    const ids = rows.map((r) => r.item.exercise)
     const found = await Exercise.find({ _id: { $in: ids }, user: userId }).select('_id name')
     const nameById = new Map(found.map((e) => [String(e._id), e.name]))
     const lines: IWorkoutLogExercise[] = []
-    for (const e of workout.exercises) {
+    for (const { phase, item: e } of rows) {
         const name = nameById.get(String(e.exercise))
         if (!name) continue
         lines.push({
             name,
+            ...(phase !== 'main' ? { phase } : {}),
             ...(e.sets !== undefined ? { sets: e.sets } : {}),
             ...(e.reps !== undefined ? { reps: e.reps } : {}),
+            ...(e.startMin !== undefined && e.endMin !== undefined
+                ? { startMin: e.startMin, endMin: e.endMin }
+                : {}),
         })
     }
     return lines
@@ -169,13 +197,16 @@ export async function createLog(req: AuthRequest, res: Response) {
         // Snapshot, then overlay swaps and sets by index, then drop the skipped
         // lines — omission comes last so every index above means the same thing.
         exercises: applyOmissions(
-            applyLoggedSets(
-                await applySubstitutions(
-                    await snapshotExercises(src, req.userId),
-                    b.substitutions,
-                    req.userId
+            applyDoneTimes(
+                applyLoggedSets(
+                    await applySubstitutions(
+                        await snapshotExercises(src, req.userId),
+                        b.substitutions,
+                        req.userId
+                    ),
+                    b.loggedSets
                 ),
-                b.loggedSets
+                b.doneAt
             ),
             b.omitted
         ),
@@ -215,13 +246,16 @@ export async function updateLog(req: AuthRequest, res: Response) {
 
         fields.exercises = src
             ? applyOmissions(
-                  applyLoggedSets(
-                      await applySubstitutions(
-                          await snapshotExercises(src, req.userId),
-                          b.substitutions,
-                          req.userId
+                  applyDoneTimes(
+                      applyLoggedSets(
+                          await applySubstitutions(
+                              await snapshotExercises(src, req.userId),
+                              b.substitutions,
+                              req.userId
+                          ),
+                          b.loggedSets
                       ),
-                      b.loggedSets
+                      b.doneAt
                   ),
                   b.omitted
               )
@@ -231,9 +265,13 @@ export async function updateLog(req: AuthRequest, res: Response) {
               applyLoggedSets(
                   existing.exercises.map((e) => ({
                       name: e.name,
+                      ...(e.phase ? { phase: e.phase } : {}),
                       sets: e.sets,
                       reps: e.reps,
                       ...(e.substitutedFor ? { substitutedFor: e.substitutedFor } : {}),
+                      ...(e.startMin !== undefined ? { startMin: e.startMin } : {}),
+                      ...(e.endMin !== undefined ? { endMin: e.endMin } : {}),
+                      ...(e.doneAtMin !== undefined ? { doneAtMin: e.doneAtMin } : {}),
                   })),
                   b.loggedSets
               )

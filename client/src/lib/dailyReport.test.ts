@@ -23,7 +23,6 @@ function inputs(over: Partial<ReportInputs> = {}): ReportInputs {
         spend: { status: 'ok', items: [], from: '2026-09-16' },
         workouts: [],
         conditioning: [],
-        mobility: [],
         recovery: [],
         habits: [],
         habitLogs: [],
@@ -228,6 +227,36 @@ describe('training', () => {
             })
         )
         expect(r.training.missed).toEqual(['Pull'])
+    })
+
+    it('counts ticked mobility as done and never lists mobility as missed', () => {
+        const mobility = (id: string, name: string, done: boolean) =>
+            ({
+                _id: `p-${id}`,
+                date: DAY,
+                part: 'evening',
+                kind: 'mobility',
+                workout: null,
+                session: null,
+                recovery: null,
+                mobility: { _id: id, name, duration: 12 },
+                plan: null,
+                order: 0,
+                done,
+                ...STAMP,
+            }) as unknown as FitnessPlanEntry
+        const r = buildDailyReport(
+            DAY,
+            inputs({
+                fitnessPlan: [
+                    mobility('m1', 'Hip flow', true),
+                    mobility('m2', 'Wall slides', false),
+                ],
+            })
+        )
+        expect(r.training.sessions.map((x) => x.name)).toEqual(['Hip flow'])
+        expect(r.training.minutes).toBe(12)
+        expect(r.training.missed).toEqual([])
     })
 })
 

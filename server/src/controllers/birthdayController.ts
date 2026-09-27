@@ -27,7 +27,8 @@ export async function createBirthday(req: AuthRequest, res: Response) {
 
 export async function updateBirthday(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
-    if (typeof req.body.name === 'string' && req.body.name.trim()) fields.name = req.body.name.trim()
+    if (typeof req.body.name === 'string' && req.body.name.trim())
+        fields.name = req.body.name.trim()
     if (isValidDate(req.body.date)) fields.date = req.body.date
 
     const birthday = await Birthday.findOneAndUpdate(

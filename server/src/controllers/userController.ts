@@ -110,7 +110,10 @@ export async function updateSettings(req: AuthRequest, res: Response) {
     const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
     if (req.body.financeStartDate === null || req.body.financeStartDate === '') {
         unset['settings.financeStartDate'] = 1
-    } else if (typeof req.body.financeStartDate === 'string' && DATE_PATTERN.test(req.body.financeStartDate)) {
+    } else if (
+        typeof req.body.financeStartDate === 'string' &&
+        DATE_PATTERN.test(req.body.financeStartDate)
+    ) {
         set['settings.financeStartDate'] = req.body.financeStartDate
     }
 
@@ -163,9 +166,17 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         unset['settings.bodyGoals'] = 1
     } else if (body && typeof body === 'object') {
         const cleaned: Record<string, number> = {}
-        if (typeof body.targetWeight === 'number' && Number.isFinite(body.targetWeight) && body.targetWeight > 0)
+        if (
+            typeof body.targetWeight === 'number' &&
+            Number.isFinite(body.targetWeight) &&
+            body.targetWeight > 0
+        )
             cleaned.targetWeight = body.targetWeight
-        if (typeof body.weeklyRate === 'number' && Number.isFinite(body.weeklyRate) && body.weeklyRate !== 0)
+        if (
+            typeof body.weeklyRate === 'number' &&
+            Number.isFinite(body.weeklyRate) &&
+            body.weeklyRate !== 0
+        )
             cleaned.weeklyRate = body.weeklyRate
         if (
             typeof body.targetBodyFat === 'number' &&

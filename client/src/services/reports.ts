@@ -4,7 +4,6 @@ import { buildDailyReport, type DailyReport, type SpendSource } from '../lib/dai
 import { listStarlingSpend } from './finances'
 import { listLogs as listWorkoutLogs } from './workoutLogs'
 import { listLogs as listConditioningLogs } from './conditioningLogs'
-import { listLogs as listMobilityLogs } from './mobilityLogs'
 import { listLogs as listRecoveryLogs } from './recoveryLogs'
 import { listHabits, listLogs as listHabitLogs } from './habits'
 import { listTasks } from './tasks'
@@ -49,7 +48,6 @@ export async function loadReports(
         spend,
         workouts,
         conditioning,
-        mobility,
         recovery,
         habits,
         habitLogs,
@@ -62,7 +60,6 @@ export async function loadReports(
         loadSpend(from, to),
         listWorkoutLogs(),
         listConditioningLogs(),
-        listMobilityLogs(),
         listRecoveryLogs(),
         listHabits(),
         listHabitLogs(from, to),
@@ -77,7 +74,6 @@ export async function loadReports(
         spend,
         workouts,
         conditioning,
-        mobility,
         recovery,
         habits,
         habitLogs,

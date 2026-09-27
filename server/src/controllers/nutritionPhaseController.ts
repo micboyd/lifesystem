@@ -185,13 +185,28 @@ function readBody(body: unknown):
           notes: string | undefined
       } {
     if (!isObjectBody(body)) return { error: 'a JSON object body is required' }
-    const { name, startDate, endDate, kind, targets, weeklyRate, goal, goalMode, adaptive, macroPolicy, strategy, notes } =
-        body
+    const {
+        name,
+        startDate,
+        endDate,
+        kind,
+        targets,
+        weeklyRate,
+        goal,
+        goalMode,
+        adaptive,
+        macroPolicy,
+        strategy,
+        notes,
+    } = body
     if (typeof name !== 'string' || !name.trim()) return { error: 'name is required' }
     if (!isValidDate(startDate) || !isValidDate(endDate))
         return { error: 'startDate and endDate must be YYYY-MM-DD' }
     if (startDate > endDate) return { error: 'startDate cannot be after endDate' }
-    if (kind !== undefined && !(NUTRITION_PHASE_KINDS as readonly string[]).includes(kind as string))
+    if (
+        kind !== undefined &&
+        !(NUTRITION_PHASE_KINDS as readonly string[]).includes(kind as string)
+    )
         return { error: `kind must be one of: ${NUTRITION_PHASE_KINDS.join(', ')}` }
     if (
         weeklyRate !== undefined &&
@@ -430,7 +445,10 @@ export async function addNutritionPhaseAdjustment(req: AuthRequest, res: Respons
         res.status(400).json({ message: 'targets.calories is required' })
         return
     }
-    if (source !== undefined && !(ADJUSTMENT_SOURCES as readonly string[]).includes(source as string)) {
+    if (
+        source !== undefined &&
+        !(ADJUSTMENT_SOURCES as readonly string[]).includes(source as string)
+    ) {
         res.status(400).json({ message: `source must be one of: ${ADJUSTMENT_SOURCES.join(', ')}` })
         return
     }
@@ -445,7 +463,8 @@ export async function addNutritionPhaseAdjustment(req: AuthRequest, res: Respons
         effectiveFrom,
         targets: next,
         previous: baselineOn(phase, effectiveFrom),
-        reason: typeof reason === 'string' && reason.trim() ? reason.trim().slice(0, 400) : undefined,
+        reason:
+            typeof reason === 'string' && reason.trim() ? reason.trim().slice(0, 400) : undefined,
         source: (source as AdjustmentSource) ?? 'adaptive',
         createdAt: new Date(),
     })

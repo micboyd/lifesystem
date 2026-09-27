@@ -12,6 +12,7 @@ import { listLogs as listWorkoutLogs } from '../services/workoutLogs'
 import { listLogs as listConditioningLogs } from '../services/conditioningLogs'
 import type {
     Exercise,
+    SessionPart,
     Workout,
     ConditioningSession,
     Mobility,
@@ -19,6 +20,7 @@ import type {
     WorkoutLog,
     ConditioningLog,
 } from '../types'
+import { mapPhases } from '../lib/phases'
 
 // ─── Datasets ───────────────────────────────────────────────────────────────────
 
@@ -116,20 +118,35 @@ function shapeWorkouts(rows: Workout[], nameById: Map<string, string>) {
         name: w.name,
         description: w.description,
         showInPlanner: w.showInPlanner,
-        exercises: w.exercises.map((x) => ({
-            name: nameById.get(x.exercise) ?? x.exercise,
-            ...(x.sets != null ? { sets: x.sets } : {}),
-            ...(x.reps ? { reps: x.reps } : {}),
-        })),
+        ...mapPhases(w, (list) =>
+            list.map((x) => ({
+                name: nameById.get(x.exercise) ?? x.exercise,
+                ...(x.sets != null ? { sets: x.sets } : {}),
+                ...(x.reps ? { reps: x.reps } : {}),
+                ...(x.rest ? { rest: x.rest } : {}),
+                ...(x.notes ? { notes: x.notes } : {}),
+                // The importer requires each line's slot.
+                ...(x.startMin != null && x.endMin != null
+                    ? { startMin: x.startMin, endMin: x.endMin }
+                    : {}),
+            }))
+        ),
     }))
 }
 
-function shapeParts(parts: ConditioningSession['parts']) {
+function shapeParts(parts: SessionPart[]) {
     return parts.map((p) => ({
         name: p.name,
         ...(p.detail ? { detail: p.detail } : {}),
         ...(p.rounds ? { rounds: p.rounds } : {}),
         ...(p.rounds && p.roundLabel ? { roundLabel: p.roundLabel } : {}),
+        ...(p.rounds && p.roundDetails?.length ? { roundDetails: p.roundDetails } : {}),
+        ...(p.rounds && p.roundSeconds?.length ? { roundSeconds: p.roundSeconds } : {}),
+        ...(p.rounds && p.startAtSec != null ? { startAtSec: p.startAtSec } : {}),
+        // The conditioning importer requires each part's slot.
+        ...(p.startMin != null && p.endMin != null
+            ? { startMin: p.startMin, endMin: p.endMin }
+            : {}),
     }))
 }
 
@@ -139,7 +156,7 @@ function shapeConditioning(rows: ConditioningSession[]) {
         duration: s.duration,
         category: s.category,
         ...(s.purpose ? { purpose: s.purpose } : {}),
-        parts: shapeParts(s.parts),
+        ...mapPhases(s, shapeParts),
         ...(s.howToUse ? { howToUse: s.howToUse } : {}),
     }))
 }

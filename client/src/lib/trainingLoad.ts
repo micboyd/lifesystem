@@ -2,6 +2,7 @@ import { weekStartMonday } from './logFilters'
 import { daysBetween } from './weightTrend'
 import type { PerformanceStatus } from './strengthTrend'
 import type { ConditioningCategory, ConditioningLog, LoggedSet, WorkoutLog } from '../types'
+import { isMainWork } from './phases'
 
 /**
  * How much training is actually happening, and where it lands.
@@ -27,7 +28,8 @@ export function setVolume(set: LoggedSet): number {
 /** Total kilograms moved in one logged session. */
 export function logVolume(log: WorkoutLog): number {
     let total = 0
-    for (const exercise of log.exercises ?? []) {
+    // Warm-up and cool-down lines aren't working sets, so they never count here.
+    for (const exercise of (log.exercises ?? []).filter(isMainWork)) {
         for (const set of exercise.loggedSets ?? []) total += setVolume(set)
     }
     return total
@@ -36,7 +38,8 @@ export function logVolume(log: WorkoutLog): number {
 /** Sets in one logged session that carried both a weight and reps. */
 export function logWorkingSets(log: WorkoutLog): number {
     let count = 0
-    for (const exercise of log.exercises ?? []) {
+    // Warm-up and cool-down lines aren't working sets, so they never count here.
+    for (const exercise of (log.exercises ?? []).filter(isMainWork)) {
         for (const set of exercise.loggedSets ?? []) {
             if (setVolume(set) > 0) count += 1
         }
@@ -205,7 +208,8 @@ export function muscleBalance(
     for (const log of logs) {
         if (since && log.date < since) continue
 
-        for (const exercise of log.exercises ?? []) {
+        // Warm-up and cool-down lines aren't working sets, so they never count here.
+        for (const exercise of (log.exercises ?? []).filter(isMainWork)) {
             const group = groupOf(exercise.name) || UNTAGGED_GROUP
             const entry: GroupLoad & { dates: Set<string> } = byGroup.get(group) ?? {
                 group,
@@ -251,9 +255,7 @@ export function conditioningSummary(
     since?: string,
     until?: string
 ): ConditioningSummary {
-    const inRange = logs.filter(
-        (l) => (!since || l.date >= since) && (!until || l.date <= until)
-    )
+    const inRange = logs.filter((l) => (!since || l.date >= since) && (!until || l.date <= until))
 
     const byCategory = new Map<ConditioningCategory, { sessions: number; minutes: number }>()
     let minutes = 0
@@ -326,8 +328,7 @@ export function holdingUp(
     if (strength === 'insufficient-data') {
         return {
             headline: 'Not enough sessions to read',
-            detail:
-                'The lifts need a couple of sessions in each of two six-week windows before a trend means anything. Keep logging weights and this fills itself in.',
+            detail: 'The lifts need a couple of sessions in each of two six-week windows before a trend means anything. Keep logging weights and this fills itself in.',
             tone: 'neutral',
         }
     }
@@ -335,8 +336,7 @@ export function holdingUp(
     if (direction === 'unknown') {
         return {
             headline: `Strength ${strength}`,
-            detail:
-                'No weight trend to read it against — log a few weigh-ins on the Body tab and the two can be compared.',
+            detail: 'No weight trend to read it against — log a few weigh-ins on the Body tab and the two can be compared.',
             tone: strength === 'declining' ? 'bad' : strength === 'improving' ? 'good' : 'neutral',
         }
     }
@@ -345,16 +345,14 @@ export function holdingUp(
         if (direction === 'down') {
             return {
                 headline: 'Losing weight, gaining strength',
-                detail:
-                    'The best outcome available: what is leaving is very unlikely to be muscle. Nothing here argues for changing anything.',
+                detail: 'The best outcome available: what is leaving is very unlikely to be muscle. Nothing here argues for changing anything.',
                 tone: 'good',
             }
         }
         if (direction === 'flat') {
             return {
                 headline: 'Recomposition',
-                detail:
-                    'The scale is still and the lifts are rising — the one pattern that looks exactly like a stall and is the opposite of one.',
+                detail: 'The scale is still and the lifts are rising — the one pattern that looks exactly like a stall and is the opposite of one.',
                 tone: 'good',
             }
         }
@@ -369,23 +367,20 @@ export function holdingUp(
         if (direction === 'down') {
             return {
                 headline: 'Strength held through the loss',
-                detail:
-                    'Holding a lift while the weight comes off is the good outcome, not the boring one — it is the evidence the deficit is the right size.',
+                detail: 'Holding a lift while the weight comes off is the good outcome, not the boring one — it is the evidence the deficit is the right size.',
                 tone: 'good',
             }
         }
         if (direction === 'flat') {
             return {
                 headline: 'Holding on both',
-                detail:
-                    'Weight and strength both steady. Fine as maintenance; if this was meant to be a training block, the volume is the place to look.',
+                detail: 'Weight and strength both steady. Fine as maintenance; if this was meant to be a training block, the volume is the place to look.',
                 tone: 'neutral',
             }
         }
         return {
             headline: 'Weight up, strength flat',
-            detail:
-                'The gain has not bought anything yet. Worth a few more weeks before reading much into it — strength lags a surplus.',
+            detail: 'The gain has not bought anything yet. Worth a few more weeks before reading much into it — strength lags a surplus.',
             tone: 'warn',
         }
     }
@@ -393,23 +388,20 @@ export function holdingUp(
     if (direction === 'down') {
         return {
             headline: 'Strength falling as the weight comes off',
-            detail:
-                'The early sign of a deficit that has gone too steep. Protein, sleep and keeping the heavy sets heavy are the usual fixes before cutting further.',
+            detail: 'The early sign of a deficit that has gone too steep. Protein, sleep and keeping the heavy sets heavy are the usual fixes before cutting further.',
             tone: 'bad',
         }
     }
     if (direction === 'flat') {
         return {
             headline: 'Strength falling on a steady weight',
-            detail:
-                'Not a food problem, on this evidence. Sessions logged, sleep and recovery are the places to look.',
+            detail: 'Not a food problem, on this evidence. Sessions logged, sleep and recovery are the places to look.',
             tone: 'bad',
         }
     }
     return {
         headline: 'Weight up, strength down',
-        detail:
-            'Gaining without the lifts following is the one combination worth acting on quickly — check session count and how hard the top sets actually are.',
+        detail: 'Gaining without the lifts following is the one combination worth acting on quickly — check session count and how hard the top sets actually are.',
         tone: 'bad',
     }
 }

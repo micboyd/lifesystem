@@ -1,0 +1,170 @@
+{
+  "takenAt": "2026-09-27T11:54:43.950Z",
+  "mobilityLogs": [
+    {
+      "_id": "6a8711608c5c7116e92846ba",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-07-27",
+      "duration": 8,
+      "createdAt": "2026-08-20T14:38:24.469Z",
+      "updatedAt": "2026-08-20T14:38:24.469Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a8711698c5c7116e92846c3",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-07-29",
+      "duration": 8,
+      "createdAt": "2026-08-20T14:38:33.219Z",
+      "updatedAt": "2026-08-20T14:38:33.219Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a87116d8c5c7116e92846c6",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-07-31",
+      "duration": 8,
+      "createdAt": "2026-08-20T14:38:37.052Z",
+      "updatedAt": "2026-08-20T14:38:37.052Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a8711908c5c7116e92846d6",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-03",
+      "duration": 8,
+      "createdAt": "2026-08-20T14:39:12.101Z",
+      "updatedAt": "2026-08-20T14:39:12.101Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a8711978c5c7116e92846dc",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-05",
+      "duration": 8,
+      "createdAt": "2026-08-20T14:39:19.785Z",
+      "updatedAt": "2026-08-20T14:39:19.785Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a8711998c5c7116e92846df",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-07",
+      "duration": 8,
+      "createdAt": "2026-08-20T14:39:21.417Z",
+      "updatedAt": "2026-08-20T14:39:21.417Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a8711a68c5c7116e92846f2",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-10",
+      "duration": 8,
+      "createdAt": "2026-08-20T14:39:34.536Z",
+      "updatedAt": "2026-08-20T14:39:34.536Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a8711a78c5c7116e92846f5",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-12",
+      "duration": 8,
+      "createdAt": "2026-08-20T14:39:35.814Z",
+      "updatedAt": "2026-08-20T14:39:35.814Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a8711a98c5c7116e92846f8",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-14",
+      "duration": 8,
+      "createdAt": "2026-08-20T14:39:37.214Z",
+      "updatedAt": "2026-08-20T14:39:37.214Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a8711c88c5c7116e928470e",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-17",
+      "duration": 8,
+      "createdAt": "2026-08-20T14:40:08.743Z",
+      "updatedAt": "2026-08-20T14:40:08.743Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a8711ca8c5c7116e9284711",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-19",
+      "duration": 8,
+      "createdAt": "2026-08-20T14:40:10.393Z",
+      "updatedAt": "2026-08-20T14:40:10.393Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a886d0a58ec6e06a7c90dc3",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-21",
+      "duration": 8,
+      "createdAt": "2026-08-21T15:21:46.414Z",
+      "updatedAt": "2026-08-21T15:21:46.414Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a8c800497471c6cfec58608",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-24",
+      "duration": 8,
+      "createdAt": "2026-08-24T17:31:48.751Z",
+      "updatedAt": "2026-08-24T17:31:48.751Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a8e96b3d0fdf97b5fdc38f2",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-26",
+      "duration": 8,
+      "createdAt": "2026-08-26T07:33:07.402Z",
+      "updatedAt": "2026-08-26T07:33:07.402Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a957c4dc749b682f0681182",
+      "user": "6a21752b799de48151c0e715",
+      "mobility": "6a8711118c5c7116e9284617",
+      "name": "Pre-Run Dynamic Mobility",
+      "date": "2026-08-31",
+      "duration": 8,
+      "createdAt": "2026-08-31T13:06:21.873Z",
+      "updatedAt": "2026-08-31T13:06:21.873Z",
+      "__v": 0
+    }
+  ]
+}

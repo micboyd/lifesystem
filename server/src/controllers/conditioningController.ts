@@ -9,6 +9,13 @@ import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib
 import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
 import { parsePlacements, placeOnPlan, PlanEntrySpec } from '../lib/planPlacement'
 import { toSessionParts } from '../lib/sessionParts'
+import { mapPhases, readPhased, sentPhases } from '../lib/phases'
+import { missingWindows } from '../lib/timeWindow'
+
+/** The warm-up, main and cool-down parts of a request body or imported item. */
+function toPhasedParts(doc: Record<string, unknown>) {
+    return mapPhases(readPhased(doc, 'parts'), toSessionParts)
+}
 
 /** GET /api/conditioning/import/last — summarise the most recent import batch. */
 export const lastImport = makeLastImportHandler(ConditioningSession)
@@ -17,7 +24,12 @@ export const undoImport = makeUndoImportHandler(ConditioningSession)
 
 /** Coerce a request value to a non-negative number, or a fallback if invalid. */
 function toAmount(raw: unknown, fallback = 0): number {
-    const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN
+    const n =
+        typeof raw === 'number'
+            ? raw
+            : typeof raw === 'string' && raw.trim() !== ''
+              ? Number(raw)
+              : NaN
     return Number.isFinite(n) && n >= 0 ? n : fallback
 }
 
@@ -30,7 +42,10 @@ function toCategory(raw: unknown): ConditioningCategory {
 
 /** GET /api/conditioning — list the user's sessions in library order. */
 export async function listSessions(req: AuthRequest, res: Response) {
-    const sessions = await ConditioningSession.find({ user: req.userId }).sort({ order: 1, createdAt: 1 })
+    const sessions = await ConditioningSession.find({ user: req.userId }).sort({
+        order: 1,
+        createdAt: 1,
+    })
     res.json({ message: 'OK', data: sessions })
 }
 
@@ -50,9 +65,13 @@ export async function createSession(req: AuthRequest, res: Response) {
         name,
         duration: toAmount(req.body.duration),
         category: toCategory(req.body.category),
-        purpose: typeof req.body.purpose === 'string' ? req.body.purpose.trim() || undefined : undefined,
-        parts: toSessionParts(req.body.parts),
-        howToUse: typeof req.body.howToUse === 'string' ? req.body.howToUse.trim() || undefined : undefined,
+        purpose:
+            typeof req.body.purpose === 'string' ? req.body.purpose.trim() || undefined : undefined,
+        ...toPhasedParts(req.body),
+        howToUse:
+            typeof req.body.howToUse === 'string'
+                ? req.body.howToUse.trim() || undefined
+                : undefined,
         order,
     })
     res.status(201).json({ message: 'Created', data: session })
@@ -66,7 +85,11 @@ export async function updateSession(req: AuthRequest, res: Response) {
     if (b.duration !== undefined) fields.duration = toAmount(b.duration)
     if (b.category !== undefined) fields.category = toCategory(b.category)
     if (typeof b.purpose === 'string') fields.purpose = b.purpose.trim() || undefined
-    if (Array.isArray(b.parts)) fields.parts = toSessionParts(b.parts)
+    const phases = sentPhases(b, 'parts')
+    if (phases.length) {
+        const parts = toPhasedParts(b)
+        for (const p of phases) fields[p] = parts[p]
+    }
     if (typeof b.howToUse === 'string') fields.howToUse = b.howToUse.trim() || undefined
     if (typeof b.order === 'number') fields.order = b.order
 
@@ -120,15 +143,23 @@ export async function importSessions(req: AuthRequest, res: Response) {
             errors.push(`Session ${i + 1}: "name" is required`)
             return null
         }
+        // Every part has to say when it happens — the session runs to the clock.
+        const untimed = missingWindows(readPhased(item, 'parts'), `Session "${name}"`)
+        if (untimed.length) {
+            errors.push(...untimed)
+            return null
+        }
         placements[i] = parsePlacements(item.plan, `Session ${i + 1}`, errors)
         return {
             user: req.userId,
             name,
             duration: toAmount(item.duration),
             category: toCategory(item.category),
-            purpose: typeof item.purpose === 'string' ? item.purpose.trim() || undefined : undefined,
-            parts: toSessionParts(item.parts),
-            howToUse: typeof item.howToUse === 'string' ? item.howToUse.trim() || undefined : undefined,
+            purpose:
+                typeof item.purpose === 'string' ? item.purpose.trim() || undefined : undefined,
+            ...toPhasedParts(item),
+            howToUse:
+                typeof item.howToUse === 'string' ? item.howToUse.trim() || undefined : undefined,
         }
     })
 
@@ -188,7 +219,10 @@ export async function importSessions(req: AuthRequest, res: Response) {
 
 /** DELETE /api/conditioning/:id — remove a session. */
 export async function deleteSession(req: AuthRequest, res: Response) {
-    const session = await ConditioningSession.findOneAndDelete({ _id: req.params.id, user: req.userId })
+    const session = await ConditioningSession.findOneAndDelete({
+        _id: req.params.id,
+        user: req.userId,
+    })
     if (!session) {
         res.status(404).json({ message: 'Session not found' })
         return

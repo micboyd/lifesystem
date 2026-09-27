@@ -54,8 +54,15 @@ export async function createGroup(req: AuthRequest, res: Response) {
 
     // Savings groups get exactly one auto-created row
     if (type === 'savings') {
-        const recurringAmount = typeof req.body.recurringAmount === 'number' ? req.body.recurringAmount : undefined
-        await FinanceRow.create({ user: req.userId, group: group._id, name: 'Savings', order: 0, ...(recurringAmount !== undefined && { recurringAmount }) })
+        const recurringAmount =
+            typeof req.body.recurringAmount === 'number' ? req.body.recurringAmount : undefined
+        await FinanceRow.create({
+            user: req.userId,
+            group: group._id,
+            name: 'Savings',
+            order: 0,
+            ...(recurringAmount !== undefined && { recurringAmount }),
+        })
     }
 
     res.status(201).json({ message: 'Created', data: group })
@@ -199,7 +206,11 @@ export async function updateRow(req: AuthRequest, res: Response) {
     // Scoped amount edits. 'onward' preserves what past months showed by
     // recording the superseded amount as a pastAmounts boundary; 'all' rewrites
     // history so every month uses the new value.
-    if ('recurringAmount' in fields && req.body.amountScope === 'onward' && isValidMonth(req.body.month)) {
+    if (
+        'recurringAmount' in fields &&
+        req.body.amountScope === 'onward' &&
+        isValidMonth(req.body.month)
+    ) {
         const existing = await FinanceRow.findOne({ _id: req.params.id, user: req.userId })
         if (!existing) {
             res.status(404).json({ message: 'Row not found' })
@@ -220,7 +231,8 @@ export async function updateRow(req: AuthRequest, res: Response) {
 
     if (typeof req.body.recurring === 'boolean') fields.recurring = req.body.recurring
     if (typeof req.body.budgeted === 'boolean') fields.budgeted = req.body.budgeted
-    if (req.body.budgetType === 'daily' || req.body.budgetType === 'weekly') fields.budgetType = req.body.budgetType
+    if (req.body.budgetType === 'daily' || req.body.budgetType === 'weekly')
+        fields.budgetType = req.body.budgetType
     if (req.body.budgetType === null) fields.budgetType = null
     if (typeof req.body.pot === 'string' || req.body.pot === null) fields.pot = req.body.pot ?? null
     if (typeof req.body.starlingCategoryUid === 'string' || req.body.starlingCategoryUid === null)
@@ -348,31 +360,49 @@ export async function listPots(req: AuthRequest, res: Response) {
 /** POST /api/finances/pots — create a pot within a group. */
 export async function createPot(req: AuthRequest, res: Response) {
     const name = typeof req.body.name === 'string' ? req.body.name.trim() : ''
-    if (!name) { res.status(400).json({ message: 'name is required' }); return }
+    if (!name) {
+        res.status(400).json({ message: 'name is required' })
+        return
+    }
     const group = typeof req.body.group === 'string' ? req.body.group : ''
-    if (!group) { res.status(400).json({ message: 'group is required' }); return }
+    if (!group) {
+        res.status(400).json({ message: 'group is required' })
+        return
+    }
     const last = await FinancePot.findOne({ user: req.userId, group }).sort({ order: -1 })
-    const pot = await FinancePot.create({ user: req.userId, group, name, order: last ? last.order + 1 : 0 })
+    const pot = await FinancePot.create({
+        user: req.userId,
+        group,
+        name,
+        order: last ? last.order + 1 : 0,
+    })
     res.status(201).json({ message: 'Created', data: pot })
 }
 
 /** PUT /api/finances/pots/:id — rename a pot. */
 export async function updatePot(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
-    if (typeof req.body.name === 'string' && req.body.name.trim()) fields.name = req.body.name.trim()
+    if (typeof req.body.name === 'string' && req.body.name.trim())
+        fields.name = req.body.name.trim()
     const pot = await FinancePot.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },
         { $set: fields },
         { new: true }
     )
-    if (!pot) { res.status(404).json({ message: 'Pot not found' }); return }
+    if (!pot) {
+        res.status(404).json({ message: 'Pot not found' })
+        return
+    }
     res.json({ message: 'Saved', data: pot })
 }
 
 /** DELETE /api/finances/pots/:id — delete a pot and unassign its rows. */
 export async function deletePot(req: AuthRequest, res: Response) {
     const pot = await FinancePot.findOneAndDelete({ _id: req.params.id, user: req.userId })
-    if (!pot) { res.status(404).json({ message: 'Pot not found' }); return }
+    if (!pot) {
+        res.status(404).json({ message: 'Pot not found' })
+        return
+    }
     await FinanceRow.updateMany({ user: req.userId, pot: pot._id }, { $set: { pot: null } })
     res.json({ message: 'Deleted', data: pot })
 }

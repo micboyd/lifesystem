@@ -136,15 +136,19 @@ export async function createProject(req: AuthRequest, res: Response) {
         stateUpdatedAt: state ? new Date() : null,
         status: status(req.body.status) ?? 'active',
         color: color(req.body.color) ?? 'slate',
-        dueDate: typeof req.body.dueDate === 'string' && DATE_PATTERN.test(req.body.dueDate)
-            ? req.body.dueDate
-            : undefined,
+        dueDate:
+            typeof req.body.dueDate === 'string' && DATE_PATTERN.test(req.body.dueDate)
+                ? req.body.dueDate
+                : undefined,
         // New projects sort to the top — you just created it, it's what's on
         // your mind.
         order: first ? first.order - 1 : 0,
     })
 
-    res.status(201).json({ message: 'Created', data: { ...project.toObject(), stats: EMPTY_STATS } })
+    res.status(201).json({
+        message: 'Created',
+        data: { ...project.toObject(), stats: EMPTY_STATS },
+    })
 }
 
 /** PUT /api/work/projects/:id */

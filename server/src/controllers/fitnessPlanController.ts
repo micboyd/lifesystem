@@ -132,7 +132,9 @@ export async function createEntry(req: AuthRequest, res: Response) {
         }
     }
 
-    const last = await FitnessPlanEntry.findOne({ user: req.userId, date, part }).sort({ order: -1 })
+    const last = await FitnessPlanEntry.findOne({ user: req.userId, date, part }).sort({
+        order: -1,
+    })
     const order = last ? last.order + 1 : 0
 
     const entry = await FitnessPlanEntry.create({
@@ -157,16 +159,22 @@ export async function createEntry(req: AuthRequest, res: Response) {
  * PATCH /api/fitness-plan/:id — move an entry to a different slot of its day,
  * and/or accept a warning raised against it. A move appends the entry to the end
  * of the target slot; `ignoreClash` silences the calendar-clash warning for this
- * entry, `ignoreOverload` the doubled-up-slot one.
- * Body: { part?, ignoreClash?, ignoreOverload? } — at least one, any on its own.
+ * entry, `ignoreOverload` the doubled-up-slot one. `done` ticks a mobility
+ * entry off — mobility keeps no logs, so its tick lives here.
+ * Body: { part?, ignoreClash?, ignoreOverload?, done? } — at least one, any on its own.
  */
 export async function updateEntry(req: AuthRequest, res: Response) {
-    const { part, ignoreClash, ignoreOverload } = req.body
+    const { part, ignoreClash, ignoreOverload, done } = req.body
     const moving = part !== undefined
     const overriding = ignoreClash !== undefined
     const overloading = ignoreOverload !== undefined
-    if (!moving && !overriding && !overloading) {
-        res.status(400).json({ message: 'part, ignoreClash or ignoreOverload is required' })
+    const ticking = done !== undefined
+    if (!moving && !overriding && !overloading && !ticking) {
+        res.status(400).json({ message: 'part, ignoreClash, ignoreOverload or done is required' })
+        return
+    }
+    if (ticking && typeof done !== 'boolean') {
+        res.status(400).json({ message: 'done must be true or false' })
         return
     }
     if (moving && !isPart(part)) {
@@ -199,6 +207,14 @@ export async function updateEntry(req: AuthRequest, res: Response) {
     }
     if (overriding) entry.ignoreClash = ignoreClash
     if (overloading) entry.ignoreOverload = ignoreOverload
+    if (ticking) {
+        // Every other kind is done when its log exists; only mobility ticks here.
+        if (entry.kind !== 'mobility') {
+            res.status(400).json({ message: 'Only mobility entries are ticked directly' })
+            return
+        }
+        entry.done = done
+    }
 
     if (entry.isModified()) await entry.save()
 
@@ -376,6 +392,8 @@ interface RestoredEntry {
     ignoreClash: boolean
     /** Whether its overloaded slot had been accepted. */
     ignoreOverload: boolean
+    /** Whether it had been ticked off (mobility only). */
+    done: boolean
 }
 
 /**
@@ -416,6 +434,7 @@ export async function restoreWeek(req: AuthRequest, res: Response) {
             order: typeof r.order === 'number' ? r.order : i,
             ignoreClash: r.ignoreClash === true,
             ignoreOverload: r.ignoreOverload === true,
+            done: r.kind === 'mobility' && r.done === true,
         })
     })
 
@@ -456,6 +475,7 @@ export async function restoreWeek(req: AuthRequest, res: Response) {
             order: e.order,
             ignoreClash: e.ignoreClash,
             ignoreOverload: e.ignoreOverload,
+            done: e.done,
         }))
 
     const noteDocs = rows(req.body.notes)

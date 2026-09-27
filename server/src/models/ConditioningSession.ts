@@ -1,4 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose'
+import type { Phased } from '../lib/phases'
 
 export const CONDITIONING_CATEGORIES = [
     'HIIT',
@@ -9,7 +10,7 @@ export const CONDITIONING_CATEGORIES = [
 ] as const
 export type ConditioningCategory = (typeof CONDITIONING_CATEGORIES)[number]
 
-/** One block of a session, e.g. a warm-up, main set or cool-down. */
+/** One step within a phase, e.g. "Walk 5 min" or "6 x 90s jog". */
 export interface ISessionPart {
     name: string
     detail?: string
@@ -23,9 +24,13 @@ export interface ISessionPart {
     roundSeconds?: number[]
     /** Optional clock offset (seconds) when the first rep begins, e.g. after a warm-up. */
     startAtSec?: number
+    /** Planned slot, in minutes from the start of the session (e.g. 15 → 30). */
+    startMin?: number
+    endMin?: number
 }
 
-export interface IConditioningSession extends Document {
+/** A session's parts sit in three ordered phases: warmUp, main, coolDown (Phased). */
+export interface IConditioningSession extends Document, Phased<ISessionPart> {
     user: Types.ObjectId
     name: string
     /** Planned duration in minutes. */
@@ -33,8 +38,6 @@ export interface IConditioningSession extends Document {
     category: ConditioningCategory
     /** What the session is for, e.g. "Build aerobic base". */
     purpose?: string
-    /** Ordered parts making up the session. */
-    parts: ISessionPart[]
     /** Guidance on how / when to run the session. */
     howToUse?: string
     /** Priority position in the library (lower = sooner). */
@@ -54,6 +57,8 @@ const partSchema = new Schema<ISessionPart>(
         roundDetails: { type: [String], default: undefined },
         roundSeconds: { type: [Number], default: undefined },
         startAtSec: { type: Number, min: 0 },
+        startMin: { type: Number, min: 0 },
+        endMin: { type: Number, min: 0 },
     },
     { _id: false }
 )
@@ -65,7 +70,9 @@ const conditioningSessionSchema = new Schema<IConditioningSession>(
         duration: { type: Number, default: 0, min: 0 },
         category: { type: String, enum: CONDITIONING_CATEGORIES, default: 'HIIT' },
         purpose: { type: String, trim: true },
-        parts: { type: [partSchema], default: [] },
+        warmUp: { type: [partSchema], default: [] },
+        main: { type: [partSchema], default: [] },
+        coolDown: { type: [partSchema], default: [] },
         howToUse: { type: String, trim: true },
         order: { type: Number, default: 0 },
         importBatch: { type: String, default: null },

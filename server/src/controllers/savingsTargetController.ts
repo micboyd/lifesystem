@@ -21,14 +21,19 @@ export async function listSavingsTargets(req: AuthRequest, res: Response) {
 
 export async function createSavingsTarget(req: AuthRequest, res: Response) {
     const name = typeof req.body.name === 'string' ? req.body.name.trim() : ''
-    if (!name) { res.status(400).json({ message: 'name is required' }); return }
+    if (!name) {
+        res.status(400).json({ message: 'name is required' })
+        return
+    }
 
     const targetAmount = num(req.body.targetAmount)
     const startMonth = month(req.body.startMonth)
     const targetMonth = month(req.body.targetMonth)
     const savedMonth = month(req.body.savedMonth)
     if (targetAmount === undefined || !startMonth || !targetMonth || !savedMonth) {
-        res.status(400).json({ message: 'targetAmount, startMonth, targetMonth and savedMonth are required' })
+        res.status(400).json({
+            message: 'targetAmount, startMonth, targetMonth and savedMonth are required',
+        })
         return
     }
 
@@ -80,12 +85,18 @@ export async function updateSavingsTarget(req: AuthRequest, res: Response) {
         },
         { new: true }
     )
-    if (!target) { res.status(404).json({ message: 'Savings target not found' }); return }
+    if (!target) {
+        res.status(404).json({ message: 'Savings target not found' })
+        return
+    }
     res.json({ message: 'Saved', data: target })
 }
 
 export async function deleteSavingsTarget(req: AuthRequest, res: Response) {
     const target = await SavingsTarget.findOneAndDelete({ _id: req.params.id, user: req.userId })
-    if (!target) { res.status(404).json({ message: 'Savings target not found' }); return }
+    if (!target) {
+        res.status(404).json({ message: 'Savings target not found' })
+        return
+    }
     res.json({ message: 'Deleted', data: null })
 }

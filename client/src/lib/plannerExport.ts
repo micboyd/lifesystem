@@ -23,7 +23,6 @@ import type {
     FitnessPlanKind,
     FitnessPlanNote,
     FitnessPlanPart,
-    MobilityLog,
     RecoveryLog,
     SessionPart,
     Workout,
@@ -31,6 +30,7 @@ import type {
 } from '../types'
 import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS } from '../types'
 import { addDays, formatWeekRange, WEEKDAYS_LONG, parseDateKey } from './calendar'
+import { mapPhases, nonEmptyPhases } from './phases'
 
 // ─── Options ────────────────────────────────────────────────────────────────────
 
@@ -76,18 +76,19 @@ export interface PlannerExportInput {
     options: PlannerExportOptions
 }
 
-/** The logs, as the four categories keep them. */
+/**
+ * The logs, as the three logged categories keep them. Mobility is supplementary
+ * and keeps no logs — a mobility entry is done when it's ticked on the planner.
+ */
 export interface PlannerExportLogs {
     workout: WorkoutLog[]
     conditioning: ConditioningLog[]
-    mobility: MobilityLog[]
     recovery: RecoveryLog[]
 }
 
 export const NO_LOGS: PlannerExportLogs = {
     workout: [],
     conditioning: [],
-    mobility: [],
     recovery: [],
 }
 
@@ -234,6 +235,9 @@ function shapeParts(parts: SessionPart[]) {
         ...(p.detail ? { detail: p.detail } : {}),
         ...(p.rounds ? { rounds: p.rounds } : {}),
         ...(p.rounds && p.roundLabel ? { roundLabel: p.roundLabel } : {}),
+        ...(p.startMin != null && p.endMin != null
+            ? { startMin: p.startMin, endMin: p.endMin }
+            : {}),
     }))
 }
 
@@ -241,13 +245,20 @@ function shapeParts(parts: SessionPart[]) {
 function shapeWorkout(workout: Workout, exercisesById: Map<string, Exercise>) {
     return {
         ...(workout.duration ? { duration: workout.duration } : {}),
-        exercises: workout.exercises.map((x) => ({
-            name: exercisesById.get(x.exercise)?.name ?? x.exercise,
-            ...(x.sets != null ? { sets: x.sets } : {}),
-            ...(x.reps ? { reps: x.reps } : {}),
-            ...(x.rest ? { rest: x.rest } : {}),
-            ...(x.notes ? { notes: x.notes } : {}),
-        })),
+        ...nonEmptyPhases(
+            mapPhases(workout, (list) =>
+                list.map((x) => ({
+                    name: exercisesById.get(x.exercise)?.name ?? x.exercise,
+                    ...(x.sets != null ? { sets: x.sets } : {}),
+                    ...(x.reps ? { reps: x.reps } : {}),
+                    ...(x.rest ? { rest: x.rest } : {}),
+                    ...(x.notes ? { notes: x.notes } : {}),
+                    ...(x.startMin != null && x.endMin != null
+                        ? { startMin: x.startMin, endMin: x.endMin }
+                        : {}),
+                }))
+            )
+        ),
     }
 }
 
@@ -265,7 +276,7 @@ function entryDetails(
             duration: s.duration,
             category: s.category,
             ...(s.purpose ? { purpose: s.purpose } : {}),
-            parts: shapeParts(s.parts),
+            ...nonEmptyPhases(mapPhases(s, shapeParts)),
         }
     }
     if (entry.kind === 'mobility' && entry.mobility) {
@@ -308,7 +319,12 @@ function shapeEntry(
         plan: entry.plan,
         ...(entry.ignoreClash === true ? { ignoreClash: true as const } : {}),
         ...(input.options.completion
-            ? { done: doneKeys.has(logKey(entry.kind, item, entry.date)) }
+            ? {
+                  done:
+                      entry.kind === 'mobility'
+                          ? entry.done === true
+                          : doneKeys.has(logKey(entry.kind, item, entry.date)),
+              }
             : {}),
         ...(details ? { details } : {}),
     }
@@ -319,6 +335,7 @@ function shapeWorkoutLog(log: WorkoutLog) {
     return {
         exercises: log.exercises.map((x) => ({
             name: x.name,
+            ...(x.phase && x.phase !== 'main' ? { phase: x.phase } : {}),
             ...(x.substitutedFor ? { substitutedFor: x.substitutedFor } : {}),
             ...(x.sets != null ? { sets: x.sets } : {}),
             ...(x.reps ? { reps: x.reps } : {}),
@@ -335,7 +352,7 @@ function shapeWorkoutLog(log: WorkoutLog) {
 }
 
 /**
- * Every log in the range, flattened to one shape across the four categories and
+ * Every log in the range, flattened to one shape across the logged categories and
  * bucketed by the day it was logged against. `plannedKeys` says which of them
  * the plan had asked for — the rest were done off-plan.
  */
@@ -382,16 +399,6 @@ function logsByDate(
             ...(includeDetails && l.rounds?.length ? { details: { rounds: l.rounds } } : {}),
         })
 
-    for (const l of logs.mobility)
-        add(l.date, {
-            kind: 'mobility',
-            name: l.name,
-            item: l.mobility,
-            planned: wasPlanned('mobility', l.mobility, l.date),
-            ...(l.duration != null ? { durationMin: l.duration } : {}),
-            ...(l.notes ? { notes: l.notes } : {}),
-        })
-
     for (const l of logs.recovery)
         add(l.date, {
             kind: 'recovery',
@@ -419,7 +426,6 @@ function completionKeys(logs: PlannerExportLogs): Set<string> {
     for (const l of logs.workout) if (l.workout) keys.add(logKey('workout', l.workout, l.date))
     for (const l of logs.conditioning)
         if (l.session) keys.add(logKey('conditioning', l.session, l.date))
-    for (const l of logs.mobility) if (l.mobility) keys.add(logKey('mobility', l.mobility, l.date))
     for (const l of logs.recovery) if (l.recovery) keys.add(logKey('recovery', l.recovery, l.date))
     return keys
 }
@@ -558,9 +564,7 @@ export function countEntries(payload: PlannerExportPayload): number {
 
 /** How many completed sessions a payload carries, logs included or not. */
 export function countCompleted(payload: PlannerExportPayload): number {
-    return payload.completed
-        ? Object.values(payload.completed).reduce((sum, n) => sum + n, 0)
-        : 0
+    return payload.completed ? Object.values(payload.completed).reduce((sum, n) => sum + n, 0) : 0
 }
 
 /** The filename for a payload: one week is named by its Monday, a span by both ends. */

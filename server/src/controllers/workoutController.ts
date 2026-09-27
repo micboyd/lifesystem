@@ -5,6 +5,16 @@ import Workout, { IWorkoutExercise } from '../models/Workout'
 import Exercise from '../models/Exercise'
 import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
 import { nameKey, extractOverwrite } from '../lib/importReconcile'
+import { missingWindows, readWindow } from '../lib/timeWindow'
+import {
+    SESSION_PHASES,
+    flattenPhases,
+    mapPhases,
+    mapPhasesAsync,
+    readPhased,
+    sentPhases,
+    type Phased,
+} from '../lib/phases'
 
 /** GET /api/workouts/import/last — summarise the most recent import batch. */
 export const lastImport = makeLastImportHandler(Workout)
@@ -32,7 +42,7 @@ function toReps(raw: unknown): string | undefined {
  * actually belong to the user. Each entry may be a bare exercise id (string) or
  * an object `{ exercise, sets?, reps?, rest?, notes? }`. Unknown or malformed ids
  * are dropped so a workout never references an exercise the user can't see;
- * submitted order is preserved and an exercise appears at most once.
+ * submitted order is preserved and an exercise appears at most once per phase.
  */
 async function toWorkoutExercises(raw: unknown, userId: unknown): Promise<IWorkoutExercise[]> {
     if (!Array.isArray(raw)) return []
@@ -46,7 +56,13 @@ async function toWorkoutExercises(raw: unknown, userId: unknown): Promise<IWorko
         } else if (item && typeof item === 'object') {
             const o = item as Record<string, unknown>
             if (typeof o.exercise === 'string') id = o.exercise
-            line = { sets: toSets(o.sets), reps: toReps(o.reps), rest: toReps(o.rest), notes: toReps(o.notes) }
+            line = {
+                sets: toSets(o.sets),
+                reps: toReps(o.reps),
+                rest: toReps(o.rest),
+                notes: toReps(o.notes),
+                ...readWindow(o),
+            }
         }
         if (!id || !Types.ObjectId.isValid(id) || seen.has(id)) continue
         seen.add(id)
@@ -55,13 +71,21 @@ async function toWorkoutExercises(raw: unknown, userId: unknown): Promise<IWorko
     if (entries.length === 0) return []
 
     // Keep only ids the user owns, preserving the submitted order.
-    const owned = await Exercise.find({ _id: { $in: entries.map((e) => e.id) }, user: userId }).select(
-        '_id'
-    )
+    const owned = await Exercise.find({
+        _id: { $in: entries.map((e) => e.id) },
+        user: userId,
+    }).select('_id')
     const ownedSet = new Set(owned.map((e) => String(e._id)))
     return entries
         .filter((e) => ownedSet.has(e.id))
         .map((e) => ({ exercise: new Types.ObjectId(e.id), ...e.line }))
+}
+
+/** The warm-up, main and cool-down exercise lines of a request body. */
+function toPhasedExercises(body: Record<string, unknown>, userId: unknown) {
+    return mapPhasesAsync(readPhased(body ?? {}, 'exercises'), (list) =>
+        toWorkoutExercises(list, userId)
+    )
 }
 
 /** Workouts returned per page by the paginated list endpoint. */
@@ -94,7 +118,11 @@ export async function listWorkouts(req: AuthRequest, res: Response) {
         query.$or = [
             { name: rx },
             { description: rx },
-            ...(matched.length ? [{ 'exercises.exercise': { $in: matched.map((e) => e._id) } }] : []),
+            ...(matched.length
+                ? SESSION_PHASES.map((p) => ({
+                      [`${p}.exercise`]: { $in: matched.map((e) => e._id) },
+                  }))
+                : []),
         ]
     }
 
@@ -134,7 +162,7 @@ export async function createWorkout(req: AuthRequest, res: Response) {
         description: typeof req.body.description === 'string' ? req.body.description.trim() : '',
         duration: toSets(req.body.duration) ?? 0,
         showInPlanner: req.body.showInPlanner === true,
-        exercises: await toWorkoutExercises(req.body.exercises, req.userId),
+        ...(await toPhasedExercises(req.body, req.userId)),
         order,
     })
     res.status(201).json({ message: 'Created', data: workout })
@@ -148,7 +176,11 @@ export async function updateWorkout(req: AuthRequest, res: Response) {
     if (typeof b.description === 'string') fields.description = b.description.trim()
     if (b.duration !== undefined) fields.duration = toSets(b.duration) ?? 0
     if (typeof b.showInPlanner === 'boolean') fields.showInPlanner = b.showInPlanner
-    if (Array.isArray(b.exercises)) fields.exercises = await toWorkoutExercises(b.exercises, req.userId)
+    const phases = sentPhases(b, 'exercises')
+    if (phases.length) {
+        const lines = await toPhasedExercises(b, req.userId)
+        for (const p of phases) fields[p] = lines[p]
+    }
     if (typeof b.order === 'number') fields.order = b.order
 
     const workout = await Workout.findOneAndUpdate(
@@ -172,6 +204,8 @@ interface NormExercise {
     reps?: string
     rest?: string
     notes?: string
+    startMin?: number
+    endMin?: number
 }
 
 /** A workout as accepted by the importer, before exercises are resolved to ids. */
@@ -180,8 +214,8 @@ interface NormWorkout {
     description: string
     duration: number
     showInPlanner: boolean
-    /** Exercise lines in first-seen order, de-duplicated by name within the workout. */
-    exerciseItems: NormExercise[]
+    /** Exercise lines per phase in first-seen order, de-duplicated by name within a phase. */
+    phases: Phased<NormExercise>
 }
 
 /**
@@ -196,10 +230,47 @@ function normKey(s: string): string {
 /** Pull the workout array out of either a bare array or a `{ workouts: [...] }` object. */
 function toWorkoutList(body: unknown): unknown[] | null {
     if (Array.isArray(body)) return body
-    if (body && typeof body === 'object' && Array.isArray((body as Record<string, unknown>).workouts)) {
+    if (
+        body &&
+        typeof body === 'object' &&
+        Array.isArray((body as Record<string, unknown>).workouts)
+    ) {
         return (body as Record<string, unknown>).workouts as unknown[]
     }
     return null
+}
+
+/**
+ * One phase's exercise lines, de-duplicated by name and keeping the first-seen
+ * casing and its sets/reps. Each entry may be a bare name string or an object
+ * `{ name, sets?, reps?, rest?, notes? }`.
+ */
+function toNormLines(list: unknown[]): NormExercise[] {
+    const out: NormExercise[] = []
+    const seen = new Set<string>()
+    for (const ex of list) {
+        let exName = ''
+        let line: Omit<NormExercise, 'name'> = {}
+        if (typeof ex === 'string') {
+            exName = ex.trim()
+        } else if (ex && typeof ex === 'object') {
+            const o = ex as Record<string, unknown>
+            if (typeof o.name === 'string') exName = o.name.trim()
+            line = {
+                sets: toSets(o.sets),
+                reps: toReps(o.reps),
+                rest: toReps(o.rest),
+                notes: toReps(o.notes),
+                ...readWindow(o),
+            }
+        }
+        if (!exName) continue
+        const key = normKey(exName)
+        if (seen.has(key)) continue
+        seen.add(key)
+        out.push({ name: exName, ...line })
+    }
+    return out
 }
 
 /**
@@ -221,40 +292,20 @@ function normaliseWorkouts(rawList: unknown[]): { items: NormWorkout[]; errors: 
             errors.push(`Workout ${i + 1}: "name" is required`)
             return
         }
-        // De-duplicate exercise lines within a workout by name, keeping the
-        // first-seen casing and its sets/reps. Each entry may be a bare name
-        // string or an object `{ name, sets?, reps? }`.
-        const exerciseItems: NormExercise[] = []
-        const seen = new Set<string>()
-        if (Array.isArray(item.exercises)) {
-            for (const ex of item.exercises) {
-                let exName = ''
-                let line: Omit<NormExercise, 'name'> = {}
-                if (typeof ex === 'string') {
-                    exName = ex.trim()
-                } else if (ex && typeof ex === 'object') {
-                    const o = ex as Record<string, unknown>
-                    if (typeof o.name === 'string') exName = o.name.trim()
-                    line = {
-                        sets: toSets(o.sets),
-                        reps: toReps(o.reps),
-                        rest: toReps(o.rest),
-                        notes: toReps(o.notes),
-                    }
-                }
-                if (!exName) continue
-                const key = normKey(exName)
-                if (seen.has(key)) continue
-                seen.add(key)
-                exerciseItems.push({ name: exName, ...line })
-            }
+        const raw = readPhased(item, 'exercises')
+        // Every line has to say when it happens — the session runs to the clock.
+        const untimed = missingWindows(raw, `Workout "${name}"`)
+        if (untimed.length) {
+            errors.push(...untimed)
+            return
         }
+        const phases = mapPhases(raw, toNormLines)
         items.push({
             name,
             description: typeof item.description === 'string' ? item.description.trim() : '',
             duration: toSets(item.duration) ?? 0,
             showInPlanner: item.showInPlanner === true,
-            exerciseItems,
+            phases,
         })
     })
 
@@ -265,7 +316,7 @@ function normaliseWorkouts(rawList: unknown[]): { items: NormWorkout[]; errors: 
 function distinctExerciseNames(items: NormWorkout[]): { key: string; name: string }[] {
     const seen = new Map<string, string>() // key → first-seen display name
     for (const it of items) {
-        for (const ex of it.exerciseItems) {
+        for (const { item: ex } of flattenPhases(it.phases)) {
             const key = normKey(ex.name)
             if (!seen.has(key)) seen.set(key, ex.name.trim())
         }
@@ -311,7 +362,11 @@ function suggestExercises(key: string, existing: ExRef[]): { id: string; name: s
         const dist = levenshtein(key, e.key)
         const threshold = Math.max(2, Math.floor(Math.max(key.length, e.key.length) * 0.34))
         if (contains) {
-            scored.push({ id: e.id, name: e.name, score: -1000 + Math.abs(e.key.length - key.length) })
+            scored.push({
+                id: e.id,
+                name: e.name,
+                score: -1000 + Math.abs(e.key.length - key.length),
+            })
         } else if (dist <= threshold) {
             scored.push({ id: e.id, name: e.name, score: dist })
         }
@@ -360,7 +415,12 @@ export async function previewImportWorkouts(req: AuthRequest, res: Response) {
     const exercises = distinctExerciseNames(items).map(({ key, name }) => {
         const match = byKey.get(key)
         if (match) {
-            return { key, name, status: 'matched' as const, match: { id: match.id, name: match.name } }
+            return {
+                key,
+                name,
+                status: 'matched' as const,
+                match: { id: match.id, name: match.name },
+            }
         }
         const suggestions = suggestExercises(key, existing)
         return {
@@ -374,7 +434,10 @@ export async function previewImportWorkouts(req: AuthRequest, res: Response) {
     res.json({
         message: 'OK',
         data: {
-            workouts: items.map((it) => ({ name: it.name, exerciseCount: it.exerciseItems.length })),
+            workouts: items.map((it) => ({
+                name: it.name,
+                exerciseCount: flattenPhases(it.phases).length,
+            })),
             exercises,
             // The full library so the client can offer "link to any exercise" dropdowns.
             existing: existing.map(({ id, name }) => ({ id, name })),
@@ -407,7 +470,9 @@ function readLinks(body: unknown): Map<string, string> {
  *
  * Accepts either a bare array of workout objects or an object with a `workouts`
  * array (and, in the object form, an optional `links` map). Each workout's
- * `exercises` is a list of exercise *names*, resolved to library exercises in
+ * `warmUp`, `main` and `coolDown` are lists of exercise *names* (a flat
+ * `exercises` list is still read, each line going to the phase its `phase`
+ * names, else main), resolved to library exercises in
  * this order: an explicit user link (from `links`) wins; otherwise an exact
  * name match; otherwise the exercise is created. Validation is all-or-nothing.
  */
@@ -435,7 +500,9 @@ export async function importWorkouts(req: AuthRequest, res: Response) {
     let ownedLinks = new Map<string, string>()
     if (links.size > 0) {
         const linkedIds = [...new Set(links.values())]
-        const owned = await Exercise.find({ _id: { $in: linkedIds }, user: req.userId }).select('_id')
+        const owned = await Exercise.find({ _id: { $in: linkedIds }, user: req.userId }).select(
+            '_id'
+        )
         const ownedSet = new Set(owned.map((e) => String(e._id)))
         ownedLinks = new Map([...links].filter(([, id]) => ownedSet.has(id)))
     }
@@ -482,9 +549,9 @@ export async function importWorkouts(req: AuthRequest, res: Response) {
     const importBatch = newBatchId()
     const overwrite = extractOverwrite(req.body)
 
-    /** The exercise lines for one workout, resolved to library exercise ids. */
-    const lines = (it: (typeof items)[number]) =>
-        it.exerciseItems
+    /** One phase's exercise lines, resolved to library exercise ids. */
+    const resolveLines = (list: NormExercise[]) =>
+        list
             .map(({ name: exName, ...line }) => {
                 const id = resolved.get(normKey(exName))
                 return id ? { exercise: id, ...line } : null
@@ -501,11 +568,14 @@ export async function importWorkouts(req: AuthRequest, res: Response) {
             description: it.description,
             duration: it.duration,
             showInPlanner: it.showInPlanner,
-            exercises: lines(it),
+            ...mapPhases(it.phases, resolveLines),
         }
         const targetId = overwrite.get(nameKey(it.name))
         if (targetId) {
-            const r = await Workout.updateOne({ _id: targetId, user: req.userId }, { $set: content })
+            const r = await Workout.updateOne(
+                { _id: targetId, user: req.userId },
+                { $set: content }
+            )
             if (r.matchedCount) {
                 updated++
                 continue

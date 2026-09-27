@@ -15,8 +15,17 @@ import LogFilterBar, { useLogFilters } from './LogFilterBar'
 import { todayKey } from '../lib/calendar'
 import { formatLogDate, weekStartMonday } from '../lib/logFilters'
 import { listWorkouts } from '../services/workouts'
-import { listLogs, createLog, updateLog, deleteLog, type WorkoutLogInput } from '../services/workoutLogs'
+import {
+    listLogs,
+    createLog,
+    updateLog,
+    deleteLog,
+    type WorkoutLogInput,
+} from '../services/workoutLogs'
 import type { LoggedSet, Workout, WorkoutLog, WorkoutLogExercise } from '../types'
+import { SESSION_PHASE_LABELS } from '../types'
+import { isMainWork, phaseOf } from '../lib/phases'
+import { clockLabel, slotLabel } from '../lib/sessionClock'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -61,10 +70,10 @@ function topSet(e: WorkoutLogExercise): LoggedSet | undefined {
     return best
 }
 
-/** Total training volume (Σ weight × reps) recorded across a log, in kg. */
+/** Total training volume (Σ weight × reps) of a log's main work, in kg. */
 function logVolume(log: WorkoutLog): number {
     let total = 0
-    for (const e of log.exercises) {
+    for (const e of log.exercises.filter(isMainWork)) {
         for (const s of e.loggedSets ?? []) {
             if (s.weight != null && s.reps != null) total += s.weight * s.reps
         }
@@ -74,10 +83,7 @@ function logVolume(log: WorkoutLog): number {
 
 // ─── Workouts log ─────────────────────────────────────────────────────────────────
 
-type Drawered =
-    | { mode: 'create' }
-    | { mode: 'edit'; log: WorkoutLog }
-    | null
+type Drawered = { mode: 'create' } | { mode: 'edit'; log: WorkoutLog } | null
 
 /**
  * The Workouts view is a log of completed strength workouts. Each entry is
@@ -197,7 +203,10 @@ export default function WorkoutsLog() {
                     title="No workouts logged yet"
                     description="Completed a session? Record it — or press Done on a workout — to build your training history."
                     action={
-                        <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
+                        <Button
+                            icon="fa-solid fa-plus"
+                            onClick={() => setDrawer({ mode: 'create' })}
+                        >
                             Log workout
                         </Button>
                     }
@@ -398,7 +407,12 @@ function LogRow({
                     }
                     items={[
                         { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onEdit },
-                        { label: 'Delete', icon: 'fa-solid fa-trash-can', danger: true, onClick: onDelete },
+                        {
+                            label: 'Delete',
+                            icon: 'fa-solid fa-trash-can',
+                            danger: true,
+                            onClick: onDelete,
+                        },
                     ]}
                 />
             </div>
@@ -409,10 +423,33 @@ function LogRow({
                         {log.exercises.map((ex, i) => {
                             const sets = ex.loggedSets ?? []
                             return (
-                                <li key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                <li
+                                    key={i}
+                                    className="flex flex-wrap items-baseline gap-x-2 gap-y-1"
+                                >
                                     <span className="text-sm font-medium text-neutral-800">
                                         {ex.name}
                                     </span>
+                                    {!isMainWork(ex) && (
+                                        <span className="inline-flex items-center rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                                            {SESSION_PHASE_LABELS[phaseOf(ex)]}
+                                        </span>
+                                    )}
+                                    {ex.doneAtMin !== undefined && (
+                                        <span
+                                            className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+                                                ex.endMin !== undefined && ex.doneAtMin > ex.endMin
+                                                    ? 'bg-amber-50 text-amber-700'
+                                                    : 'bg-emerald-50 text-emerald-700'
+                                            }`}
+                                            title="When it was tapped done, against the planned slot"
+                                        >
+                                            done {clockLabel(ex.doneAtMin)}
+                                            {ex.startMin !== undefined &&
+                                                ex.endMin !== undefined &&
+                                                ` · plan ${slotLabel({ startMin: ex.startMin, endMin: ex.endMin })}`}
+                                        </span>
+                                    )}
                                     {ex.substitutedFor && (
                                         <span
                                             className="text-[11px] text-neutral-400"

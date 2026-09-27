@@ -1,7 +1,12 @@
 import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
-import LifePlan, { LIFE_PILLARS, type ILifePlan, type ISeason, type LifePillar } from '../models/LifePlan'
+import LifePlan, {
+    LIFE_PILLARS,
+    type ILifePlan,
+    type ISeason,
+    type LifePillar,
+} from '../models/LifePlan'
 import { MONTH_PATTERN } from '../models/MonthNote'
 import { CALENDAR_COLORS, type CalendarColor } from '../models/Calendar'
 
@@ -46,14 +51,17 @@ function readIds(v: unknown): Types.ObjectId[] {
 
 function readPillars(v: unknown): LifePillar[] | undefined {
     if (!Array.isArray(v)) return undefined
-    const out = v.filter((p): p is LifePillar =>
-        typeof p === 'string' && (LIFE_PILLARS as readonly string[]).includes(p)
+    const out = v.filter(
+        (p): p is LifePillar =>
+            typeof p === 'string' && (LIFE_PILLARS as readonly string[]).includes(p)
     )
     return out.length > 0 ? [...new Set(out)] : undefined
 }
 
 /** Validate a plan create/update body, or return the error message. */
-function readPlanBody(body: unknown):
+function readPlanBody(
+    body: unknown
+):
     | { error: string }
     | { name: string; start: string; end: string; vision?: string; pillars: LifePillar[] } {
     if (!isObjectBody(body)) return { error: 'a JSON object body is required' }
@@ -74,7 +82,10 @@ function readPlanBody(body: unknown):
 }
 
 /** The shape a season body is normalised to before being written. */
-type SeasonFields = Pick<ISeason, 'name' | 'startMonth' | 'endMonth' | 'color' | 'intent' | 'links'> & {
+type SeasonFields = Pick<
+    ISeason,
+    'name' | 'startMonth' | 'endMonth' | 'color' | 'intent' | 'links'
+> & {
     focus?: string
 }
 
@@ -99,9 +110,7 @@ function readSeasonBody(
 
     const clash = plan.seasons.find(
         (s) =>
-            String(s._id) !== ignoreSeasonId &&
-            s.startMonth <= endMonth &&
-            s.endMonth >= startMonth
+            String(s._id) !== ignoreSeasonId && s.startMonth <= endMonth && s.endMonth >= startMonth
     )
     if (clash) return { error: `overlaps the "${clash.name}" season` }
 
@@ -112,7 +121,9 @@ function readSeasonBody(
                       !!i &&
                       typeof i === 'object' &&
                       typeof (i as { pillar?: unknown }).pillar === 'string' &&
-                      (LIFE_PILLARS as readonly string[]).includes((i as { pillar: string }).pillar) &&
+                      (LIFE_PILLARS as readonly string[]).includes(
+                          (i as { pillar: string }).pillar
+                      ) &&
                       typeof (i as { text?: unknown }).text === 'string' &&
                       !!(i as { text: string }).text.trim()
               )

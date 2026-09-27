@@ -28,16 +28,35 @@ const WORKOUT_TEMPLATE = JSON.stringify(
             name: 'Full Body Blast',
             description: 'Combines cardio and strength training.',
             showInPlanner: true,
-            exercises: [
-                { name: 'Barbell bench press', sets: 4, reps: '6-8' },
-                { name: 'Barbell row', sets: 4, reps: '8-10' },
-                { name: 'Box Squats', sets: 3, reps: '10' },
+            // startMin / endMin: each line's slot, in minutes from the start of
+            // the session. Required — you tap each line off against it.
+            warmUp: [
+                { name: 'Band pull-apart', sets: 2, reps: '15', startMin: 0, endMin: 4 },
+                { name: 'Goblet squat', sets: 2, reps: '10', startMin: 4, endMin: 8 },
+            ],
+            main: [
+                { name: 'Barbell bench press', sets: 4, reps: '6-8', startMin: 8, endMin: 22 },
+                { name: 'Barbell row', sets: 4, reps: '8-10', startMin: 22, endMin: 34 },
+                { name: 'Box Squats', sets: 3, reps: '10', startMin: 34, endMin: 45 },
+            ],
+            coolDown: [
+                {
+                    name: 'Couch stretch',
+                    sets: 1,
+                    reps: '60s each side',
+                    startMin: 45,
+                    endMin: 50,
+                },
             ],
         },
         {
             name: 'Upper Push',
             description: 'Chest, shoulders and triceps focus.',
-            exercises: ['Incline dumbbell press', 'Seated overhead press', 'Dips (weighted if able)'],
+            main: [
+                { name: 'Incline dumbbell press', startMin: 0, endMin: 15 },
+                { name: 'Seated overhead press', startMin: 15, endMin: 30 },
+                { name: 'Dips (weighted if able)', startMin: 30, endMin: 40 },
+            ],
         },
     ],
     null,
@@ -62,8 +81,10 @@ function workoutConflicts(
 ): NameConflict[] {
     const list = Array.isArray(parsed)
         ? parsed
-        : parsed && typeof parsed === 'object' && Array.isArray((parsed as { workouts?: unknown }).workouts)
-          ? ((parsed as { workouts: unknown[] }).workouts)
+        : parsed &&
+            typeof parsed === 'object' &&
+            Array.isArray((parsed as { workouts?: unknown }).workouts)
+          ? (parsed as { workouts: unknown[] }).workouts
           : []
     const byKey = new Map(existing.map((e) => [conflictKey(e.name), e._id]))
     const out: NameConflict[] = []
@@ -175,7 +196,10 @@ export default function WorkoutImportPanel({
             // Default each name: keep an exact match, otherwise create a new exercise.
             setChoices(
                 Object.fromEntries(
-                    plan.exercises.map((ex) => [ex.key, ex.status === 'matched' ? ex.match!.id : CREATE])
+                    plan.exercises.map((ex) => [
+                        ex.key,
+                        ex.status === 'matched' ? ex.match!.id : CREATE,
+                    ])
                 )
             )
             // Detect workout-name clashes; default each to overwrite-in-place.
@@ -243,7 +267,9 @@ export default function WorkoutImportPanel({
                     <i className="fa-solid fa-arrow-left text-xs" aria-hidden="true" />
                     {preview ? 'Back to paste' : 'Back to library'}
                 </button>
-                <h2 className="text-xl font-bold tracking-tight text-neutral-950">Import workouts</h2>
+                <h2 className="text-xl font-bold tracking-tight text-neutral-950">
+                    Import workouts
+                </h2>
                 <p className="mt-1 text-sm text-neutral-500">
                     {preview
                         ? 'Review how each exercise links to your library, then import. Names that already exist are matched so you never create duplicates.'
@@ -307,21 +333,35 @@ export default function WorkoutImportPanel({
                         </pre>
                         <div className="mt-4 flex flex-col gap-1.5 text-xs text-neutral-500">
                             <p>
-                                <span className="font-semibold text-neutral-700">name</span> is required.{' '}
-                                <span className="font-semibold text-neutral-700">description</span> and{' '}
-                                <span className="font-semibold text-neutral-700">showInPlanner</span> are
-                                optional.
+                                <span className="font-semibold text-neutral-700">name</span> is
+                                required.{' '}
+                                <span className="font-semibold text-neutral-700">description</span>{' '}
+                                and{' '}
+                                <span className="font-semibold text-neutral-700">
+                                    showInPlanner
+                                </span>{' '}
+                                are optional.
                             </p>
                             <p>
-                                <span className="font-semibold text-neutral-700">exercises</span> is a list
-                                of exercise names, or{' '}
+                                <span className="font-semibold text-neutral-700">warmUp</span>,{' '}
+                                <span className="font-semibold text-neutral-700">main</span> and{' '}
+                                <span className="font-semibold text-neutral-700">coolDown</span> are
+                                each a list of{' '}
                                 <span className="font-semibold text-neutral-700">
-                                    {'{ name, sets, reps }'}
+                                    {'{ name, startMin, endMin, sets, reps }'}
                                 </span>{' '}
-                                objects to prescribe volume (
-                                <span className="font-semibold text-neutral-700">reps</span> is free-form,
-                                e.g. &quot;8-12&quot;). On the next step you&apos;ll confirm how each name
-                                links to your library — matched to an existing exercise, or created fresh.
+                                objects. <span className="font-semibold text-neutral-700">startMin</span>{' '}
+                                and <span className="font-semibold text-neutral-700">endMin</span>{' '}
+                                are required — the line&apos;s slot in minutes from the start of the
+                                session (e.g. 15 and 30), which you tap it off against as you go.
+                                Sets and reps prescribe volume (
+                                <span className="font-semibold text-neutral-700">reps</span> is
+                                free-form, e.g. &quot;8-12&quot;). Only main-session sets count
+                                toward progress. A flat{' '}
+                                <span className="font-semibold text-neutral-700">exercises</span>{' '}
+                                list still works and goes into main. On the next step you&apos;ll
+                                confirm how each name links to your library — matched to an existing
+                                exercise, or created fresh.
                             </p>
                         </div>
                     </Card>

@@ -24,13 +24,19 @@ function serializeNote(note: INote, includeBody = false) {
 // ── Categories ──────────────────────────────────────────────────────────────
 
 export async function listCategories(req: AuthRequest, res: Response) {
-    const categories = await NoteCategory.find({ user: req.userId }).sort({ order: 1, createdAt: 1 })
+    const categories = await NoteCategory.find({ user: req.userId }).sort({
+        order: 1,
+        createdAt: 1,
+    })
     res.json({ message: 'OK', data: categories })
 }
 
 export async function createCategory(req: AuthRequest, res: Response) {
     const name = typeof req.body.name === 'string' ? req.body.name.trim() : ''
-    if (!name) { res.status(400).json({ message: 'name is required' }); return }
+    if (!name) {
+        res.status(400).json({ message: 'name is required' })
+        return
+    }
     const order = await NoteCategory.countDocuments({ user: req.userId })
     const category = await NoteCategory.create({
         user: req.userId,
@@ -43,7 +49,8 @@ export async function createCategory(req: AuthRequest, res: Response) {
 
 export async function updateCategory(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
-    if (typeof req.body.name === 'string' && req.body.name.trim()) fields.name = req.body.name.trim()
+    if (typeof req.body.name === 'string' && req.body.name.trim())
+        fields.name = req.body.name.trim()
     if (isColor(req.body.color)) fields.color = req.body.color
     if (typeof req.body.order === 'number') fields.order = req.body.order
 
@@ -52,13 +59,19 @@ export async function updateCategory(req: AuthRequest, res: Response) {
         { $set: fields },
         { new: true }
     )
-    if (!category) { res.status(404).json({ message: 'Category not found' }); return }
+    if (!category) {
+        res.status(404).json({ message: 'Category not found' })
+        return
+    }
     res.json({ message: 'Saved', data: category })
 }
 
 export async function deleteCategory(req: AuthRequest, res: Response) {
     const category = await NoteCategory.findOneAndDelete({ _id: req.params.id, user: req.userId })
-    if (!category) { res.status(404).json({ message: 'Category not found' }); return }
+    if (!category) {
+        res.status(404).json({ message: 'Category not found' })
+        return
+    }
     // Notes in this category become uncategorised rather than being deleted with it.
     await Note.updateMany(
         { user: req.userId, category: category._id },
@@ -88,7 +101,10 @@ async function resolveCategory(userId: unknown, value: unknown): Promise<string 
 
 export async function createNote(req: AuthRequest, res: Response) {
     const title = typeof req.body.title === 'string' ? req.body.title.trim() : ''
-    if (!title) { res.status(400).json({ message: 'title is required' }); return }
+    if (!title) {
+        res.status(400).json({ message: 'title is required' })
+        return
+    }
     const note = await Note.create({
         user: req.userId,
         title,
@@ -100,14 +116,19 @@ export async function createNote(req: AuthRequest, res: Response) {
 
 export async function updateNote(req: AuthRequest, res: Response) {
     const existing = await Note.findOne({ _id: req.params.id, user: req.userId })
-    if (!existing) { res.status(404).json({ message: 'Note not found' }); return }
+    if (!existing) {
+        res.status(404).json({ message: 'Note not found' })
+        return
+    }
     // A locked note can only be edited by someone who proves its password.
     if (existing.locked && !(await verifyNotePassword(existing, req.body.password))) {
-        res.status(403).json({ message: 'Incorrect password' }); return
+        res.status(403).json({ message: 'Incorrect password' })
+        return
     }
 
     const fields: Record<string, unknown> = {}
-    if (typeof req.body.title === 'string' && req.body.title.trim()) fields.title = req.body.title.trim()
+    if (typeof req.body.title === 'string' && req.body.title.trim())
+        fields.title = req.body.title.trim()
     if (typeof req.body.body === 'string') fields.body = req.body.body
     // category: null or '' clears it; a valid owned id sets it; anything else is ignored.
     if (req.body.category === null || req.body.category === '') {
@@ -121,16 +142,23 @@ export async function updateNote(req: AuthRequest, res: Response) {
         { $set: fields },
         { new: true }
     )
-    if (!note) { res.status(404).json({ message: 'Note not found' }); return }
+    if (!note) {
+        res.status(404).json({ message: 'Note not found' })
+        return
+    }
     // The caller who edited a locked note already holds its body, so echo it back.
     res.json({ message: 'Saved', data: serializeNote(note, true) })
 }
 
 export async function deleteNote(req: AuthRequest, res: Response) {
     const note = await Note.findOne({ _id: req.params.id, user: req.userId })
-    if (!note) { res.status(404).json({ message: 'Note not found' }); return }
+    if (!note) {
+        res.status(404).json({ message: 'Note not found' })
+        return
+    }
     if (note.locked && !(await verifyNotePassword(note, req.body.password))) {
-        res.status(403).json({ message: 'Incorrect password' }); return
+        res.status(403).json({ message: 'Incorrect password' })
+        return
     }
     await note.deleteOne()
     res.json({ message: 'Deleted', data: null })
@@ -148,11 +176,18 @@ async function verifyNotePassword(note: INote, candidate: unknown): Promise<bool
 export async function lockNote(req: AuthRequest, res: Response) {
     const password = typeof req.body.password === 'string' ? req.body.password : ''
     if (password.length < 4) {
-        res.status(400).json({ message: 'Password must be at least 4 characters' }); return
+        res.status(400).json({ message: 'Password must be at least 4 characters' })
+        return
     }
     const note = await Note.findOne({ _id: req.params.id, user: req.userId })
-    if (!note) { res.status(404).json({ message: 'Note not found' }); return }
-    if (note.locked) { res.status(409).json({ message: 'Note is already locked' }); return }
+    if (!note) {
+        res.status(404).json({ message: 'Note not found' })
+        return
+    }
+    if (note.locked) {
+        res.status(409).json({ message: 'Note is already locked' })
+        return
+    }
 
     note.passwordHash = await bcrypt.hash(password, 10)
     note.locked = true
@@ -163,10 +198,17 @@ export async function lockNote(req: AuthRequest, res: Response) {
 /** Verify the password and return the full note without changing its lock state. */
 export async function revealNote(req: AuthRequest, res: Response) {
     const note = await Note.findOne({ _id: req.params.id, user: req.userId })
-    if (!note) { res.status(404).json({ message: 'Note not found' }); return }
-    if (!note.locked) { res.json({ message: 'OK', data: serializeNote(note, true) }); return }
+    if (!note) {
+        res.status(404).json({ message: 'Note not found' })
+        return
+    }
+    if (!note.locked) {
+        res.json({ message: 'OK', data: serializeNote(note, true) })
+        return
+    }
     if (!(await verifyNotePassword(note, req.body.password))) {
-        res.status(403).json({ message: 'Incorrect password' }); return
+        res.status(403).json({ message: 'Incorrect password' })
+        return
     }
     res.json({ message: 'OK', data: serializeNote(note, true) })
 }
@@ -174,9 +216,13 @@ export async function revealNote(req: AuthRequest, res: Response) {
 /** Verify the password, then permanently remove the note's protection. */
 export async function unlockNote(req: AuthRequest, res: Response) {
     const note = await Note.findOne({ _id: req.params.id, user: req.userId })
-    if (!note) { res.status(404).json({ message: 'Note not found' }); return }
+    if (!note) {
+        res.status(404).json({ message: 'Note not found' })
+        return
+    }
     if (note.locked && !(await verifyNotePassword(note, req.body.password))) {
-        res.status(403).json({ message: 'Incorrect password' }); return
+        res.status(403).json({ message: 'Incorrect password' })
+        return
     }
     note.locked = false
     note.passwordHash = null
@@ -186,13 +232,18 @@ export async function unlockNote(req: AuthRequest, res: Response) {
 
 /** Recovery path: confirm the account login password to clear a forgotten lock. */
 export async function resetNoteLock(req: AuthRequest, res: Response) {
-    const accountPassword = typeof req.body.accountPassword === 'string' ? req.body.accountPassword : ''
+    const accountPassword =
+        typeof req.body.accountPassword === 'string' ? req.body.accountPassword : ''
     const user = await User.findById(req.userId)
     if (!user || !(await bcrypt.compare(accountPassword, user.password))) {
-        res.status(403).json({ message: 'Incorrect account password' }); return
+        res.status(403).json({ message: 'Incorrect account password' })
+        return
     }
     const note = await Note.findOne({ _id: req.params.id, user: req.userId })
-    if (!note) { res.status(404).json({ message: 'Note not found' }); return }
+    if (!note) {
+        res.status(404).json({ message: 'Note not found' })
+        return
+    }
     note.locked = false
     note.passwordHash = null
     await note.save()

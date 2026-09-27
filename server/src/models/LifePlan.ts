@@ -88,12 +88,18 @@ const intentSchema = new Schema<ISeasonIntent>(
 
 const linksSchema = new Schema<ISeasonLinks>(
     {
-        trainingPlans: { type: [{ type: Schema.Types.ObjectId, ref: 'TrainingPlan' }], default: [] },
+        trainingPlans: {
+            type: [{ type: Schema.Types.ObjectId, ref: 'TrainingPlan' }],
+            default: [],
+        },
         nutritionPhases: {
             type: [{ type: Schema.Types.ObjectId, ref: 'NutritionPhase' }],
             default: [],
         },
-        savingsTargets: { type: [{ type: Schema.Types.ObjectId, ref: 'SavingsTarget' }], default: [] },
+        savingsTargets: {
+            type: [{ type: Schema.Types.ObjectId, ref: 'SavingsTarget' }],
+            default: [],
+        },
         goals: { type: [{ type: Schema.Types.ObjectId, ref: 'Goal' }], default: [] },
         courses: { type: [{ type: Schema.Types.ObjectId, ref: 'Course' }], default: [] },
         monthNotes: { type: [{ type: Schema.Types.ObjectId, ref: 'MonthNote' }], default: [] },

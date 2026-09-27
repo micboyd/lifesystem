@@ -11,7 +11,12 @@ export const undoImport = makeUndoImportHandler(Recovery)
 
 /** Coerce a request value to a non-negative number, or a fallback if invalid. */
 function toAmount(raw: unknown, fallback = 0): number {
-    const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN
+    const n =
+        typeof raw === 'number'
+            ? raw
+            : typeof raw === 'string' && raw.trim() !== ''
+              ? Number(raw)
+              : NaN
     return Number.isFinite(n) && n >= 0 ? n : fallback
 }
 
@@ -36,7 +41,8 @@ export async function createRecovery(req: AuthRequest, res: Response) {
         user: req.userId,
         name,
         duration: toAmount(req.body.duration),
-        purpose: typeof req.body.purpose === 'string' ? req.body.purpose.trim() || undefined : undefined,
+        purpose:
+            typeof req.body.purpose === 'string' ? req.body.purpose.trim() || undefined : undefined,
         notes: typeof req.body.notes === 'string' ? req.body.notes.trim() || undefined : undefined,
         order,
     })
@@ -57,7 +63,8 @@ export async function importRecovery(req: AuthRequest, res: Response) {
 
     if (!rawList) {
         res.status(400).json({
-            message: 'Expected a JSON array of recovery items, or an object with a "recovery" array.',
+            message:
+                'Expected a JSON array of recovery items, or an object with a "recovery" array.',
         })
         return
     }
@@ -82,7 +89,8 @@ export async function importRecovery(req: AuthRequest, res: Response) {
             user: req.userId,
             name,
             duration: toAmount(item.duration),
-            purpose: typeof item.purpose === 'string' ? item.purpose.trim() || undefined : undefined,
+            purpose:
+                typeof item.purpose === 'string' ? item.purpose.trim() || undefined : undefined,
             notes: typeof item.notes === 'string' ? item.notes.trim() || undefined : undefined,
         }
     })
