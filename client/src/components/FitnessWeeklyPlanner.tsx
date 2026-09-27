@@ -5,6 +5,7 @@ import Input from './Input'
 import Pagination from './Pagination'
 import EmptyState from './EmptyState'
 import Drawer from './Drawer'
+import BottomSheet from './BottomSheet'
 import Checkbox from './Checkbox'
 import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
@@ -591,6 +592,8 @@ export default function FitnessWeeklyPlanner({
     >(null)
     // The day whose calendar clashes are open in the clash modal, if any.
     const [clashDate, setClashDate] = useState<string | null>(null)
+    // A day whose calendar events are open in the sheet.
+    const [eventsDate, setEventsDate] = useState<string | null>(null)
     // The day whose overloaded slots are open in the overload modal, if any.
     const [overloadDate, setOverloadDate] = useState<string | null>(null)
 
@@ -937,6 +940,20 @@ export default function FitnessWeeklyPlanner({
     // its slot (or any all-day event). Days with no clash are absent from the map.
     // Accepted clashes stay in the map, marked, so they can still be taken back —
     // it's the day's badge that stops sounding the alarm for them, not this.
+    // What's on the calendar each day, in the morning, afternoon or evening — an
+    // all-day event covers all three; "Other" events (no slot) are left out.
+    const calendarByDate = useMemo(() => {
+        const m = new Map<string, Event[]>()
+        for (let i = 0; i < 7; i++) {
+            const date = addDays(range.start, i)
+            const on = events.filter((e) =>
+                FITNESS_PLAN_PARTS.some((part) => eventCoversSlot(e, date, part))
+            )
+            if (on.length) m.set(date, on)
+        }
+        return m
+    }, [events, range.start])
+
     const clashesByDate = useMemo(() => {
         const m = new Map<string, Clash[]>()
         for (const entry of entries) {
@@ -1121,6 +1138,8 @@ export default function FitnessWeeklyPlanner({
                     onClearDay={(date) => setClearTarget({ type: 'day', date })}
                     onShowClashes={setClashDate}
                     onShowOverloads={setOverloadDate}
+                    calendarByDate={calendarByDate}
+                    onShowEvents={setEventsDate}
                 />
             )}
 
@@ -1218,6 +1237,12 @@ export default function FitnessWeeklyPlanner({
                 onClose={() => setConfirmDiscard(false)}
             />
 
+            <DayEventsSheet
+                date={eventsDate}
+                events={eventsDate ? (calendarByDate.get(eventsDate) ?? []) : []}
+                onClose={() => setEventsDate(null)}
+            />
+
             <ClashModal
                 date={clashDate}
                 clashes={clashDate ? (clashesByDate.get(clashDate) ?? []) : []}
@@ -1259,6 +1284,62 @@ export default function FitnessWeeklyPlanner({
  * clash is real but fine, and the warning goes quiet for that item until it's
  * taken back — which the accepted list below keeps within reach.
  */
+/**
+ * What's on the calendar on one day, in its morning, afternoon or evening —
+ * opened from the calendar icon on a day card. A sheet from the bottom, so
+ * it's a thumb's reach on a phone.
+ */
+function DayEventsSheet({
+    date,
+    events,
+    onClose,
+}: {
+    date: string | null
+    events: Event[]
+    onClose: () => void
+}) {
+    // Keep the last day while the sheet animates closed.
+    const [shown, setShown] = useState<{ date: string; events: Event[] } | null>(null)
+    useEffect(() => {
+        if (date) setShown({ date, events })
+    }, [date, events])
+
+    return (
+        <BottomSheet
+            open={!!date}
+            onClose={onClose}
+            title={shown ? `On the calendar · ${shortDayLabel(shown.date)}` : 'On the calendar'}
+        >
+            {shown && (
+                <ul className="flex flex-col gap-2 pb-2">
+                    {shown.events.map((event) => (
+                        <li
+                            key={event._id}
+                            className="flex items-start gap-3 rounded-2xl border border-neutral-200 px-3 py-3"
+                        >
+                            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sky-50 text-sky-600">
+                                <i className="fa-regular fa-calendar text-xs" aria-hidden="true" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-neutral-900">{event.title}</p>
+                                <p className="mt-0.5 text-xs text-neutral-500">
+                                    {eventWhenLabel(event, shown.date)}
+                                    {event.location && ` · ${event.location}`}
+                                </p>
+                                {event.notes && (
+                                    <p className="mt-1 whitespace-pre-wrap text-xs text-neutral-500">
+                                        {event.notes}
+                                    </p>
+                                )}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </BottomSheet>
+    )
+}
+
 function ClashModal({
     date,
     clashes,
@@ -2129,6 +2210,8 @@ function WeekView({
     onClearDay,
     onShowClashes,
     onShowOverloads,
+    calendarByDate,
+    onShowEvents,
 }: {
     /** Lay the seven days side by side across the screen, rather than stacked. */
     board: boolean
@@ -2152,6 +2235,9 @@ function WeekView({
     onClearDay: (date: string) => void
     onShowClashes: (date: string) => void
     onShowOverloads: (date: string) => void
+    /** Each day's calendar events in a morning, afternoon or evening slot. */
+    calendarByDate: Map<string, Event[]>
+    onShowEvents: (date: string) => void
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
@@ -2259,6 +2345,8 @@ function WeekView({
                     onClear={() => onClearDay(date)}
                     onShowClashes={() => onShowClashes(date)}
                     onShowOverloads={() => onShowOverloads(date)}
+                    calendarCount={calendarByDate.get(date)?.length ?? 0}
+                    onShowEvents={() => onShowEvents(date)}
                 />
             ))}
             {/* A nudge that the day view swipes — phones only, and only while viewing. */}
@@ -2299,7 +2387,7 @@ function DayAlertButton({
     count,
     onClick,
 }: {
-    tone: 'amber' | 'violet' | 'quiet'
+    tone: 'amber' | 'violet' | 'sky' | 'quiet'
     icon: string
     label: string
     count?: number
@@ -2310,7 +2398,9 @@ function DayAlertButton({
             ? 'bg-amber-50 text-amber-600 hover:bg-amber-100'
             : tone === 'violet'
               ? 'bg-violet-50 text-violet-600 hover:bg-violet-100'
-              : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500'
+              : tone === 'sky'
+                ? 'bg-sky-50 text-sky-600 hover:bg-sky-100'
+                : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500'
     return (
         <button
             type="button"
@@ -2353,6 +2443,8 @@ function DayCard({
     onClear,
     onShowClashes,
     onShowOverloads,
+    calendarCount,
+    onShowEvents,
 }: {
     date: string
     /** A narrow column in the week board: stacked header, slots one under another. */
@@ -2391,6 +2483,9 @@ function DayCard({
     onClear: () => void
     onShowClashes: () => void
     onShowOverloads: () => void
+    /** How many calendar events fall in this day's morning, afternoon or evening. */
+    calendarCount: number
+    onShowEvents: () => void
 }) {
     const { year, month, day } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
@@ -2469,6 +2564,17 @@ function DayCard({
     )
     const actions = (
         <div className="flex shrink-0 items-center gap-1">
+            {/* Something on the calendar in one of the day's slots — a heads-up
+                whether or not it clashes with anything planned. */}
+            {calendarCount > 0 && (
+                <DayAlertButton
+                    tone="sky"
+                    icon="fa-regular fa-calendar"
+                    count={calendarCount}
+                    label={`${calendarCount} calendar event${calendarCount === 1 ? '' : 's'} on ${weekday} — view`}
+                    onClick={onShowEvents}
+                />
+            )}
             {clashCount > 0 ? (
                 <DayAlertButton
                     tone="amber"
