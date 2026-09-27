@@ -59,6 +59,7 @@ import WeekView from '../components/calendar/WeekView'
 import CalendarFilterBar from '../components/calendar/CalendarFilterBar'
 import HiddenCalendarDots from '../components/calendar/HiddenCalendarDots'
 import Drawer from '../components/Drawer'
+import CalendarExportDrawer from '../components/calendar/CalendarExportDrawer'
 import DayStatusSection from '../components/calendar/DayStatusSection'
 import BirthdaysDaySection from '../components/calendar/BirthdaysDaySection'
 import DayMarkers from '../components/calendar/DayMarkers'
@@ -146,6 +147,7 @@ export default function Calendar() {
     const [copiedEvent, setCopiedEvent] = useState<Event | null>(null)
     // Month flag being edited. `note: null` with a month set means "create one
     // starting here"; the whole thing null means the editor is closed.
+    const [exportOpen, setExportOpen] = useState(false)
     const [noteEdit, setNoteEdit] = useState<{ note: MonthNote | null; month: string } | null>(null)
 
     // ── Totals cell selection + in-app copy buffer ──
@@ -667,6 +669,15 @@ export default function Calendar() {
 
                     <div className="flex flex-wrap items-center gap-3">
                         <CalendarFilterBar onChanged={reload} />
+                        <button
+                            type="button"
+                            onClick={() => setExportOpen(true)}
+                            aria-label="Export calendar"
+                            title="Export calendar as JSON"
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                        >
+                            <i className="fa-solid fa-file-export text-sm" aria-hidden="true" />
+                        </button>
                         <Tabs
                             tabs={VIEWS}
                             value={view}
@@ -870,6 +881,8 @@ export default function Calendar() {
                     onConfirm={(scope) => commitSave(editScopeInput, scope)}
                 />
             )}
+
+            <CalendarExportDrawer open={exportOpen} onClose={() => setExportOpen(false)} />
 
             {/* Leave / holiday editor — opened from the Year-view Leave row. */}
             <Drawer
