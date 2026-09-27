@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { parseJsonc } from '../lib/jsonc'
 import { Card } from './Card'
 import Button from './Button'
 import Alert from './Alert'
@@ -162,7 +163,7 @@ export default function JsonImportPanel({
         }
         let parsed: unknown
         try {
-            parsed = JSON.parse(trimmed)
+            parsed = parseJsonc(trimmed)
         } catch {
             setResult({
                 variant: 'danger',

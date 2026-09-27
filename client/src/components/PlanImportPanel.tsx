@@ -29,6 +29,24 @@ function errorMessage(err: unknown): string {
  * pastes straight back in as it is.
  */
 const TEMPLATE = `{
+  // ── What every plan needs ────────────────────────────────────────────────
+  // 1. "planName", "planStart" and "planEnd".
+  // 2. On every strength exercise line and every conditioning part: "startMin"
+  //    and "endMin" — its slot in minutes from the start of the session
+  //    (squats 15 → 30). Mobility parts don't need them.
+  //
+  // How the times are used: in the gym each item has a Completed button that
+  // records the time you press it. Each press is compared with the previous
+  // one against the planned gap between the two items' "endMin"s, so you see
+  // "on time", "4 min behind" or "3 min ahead", and when the next item is due.
+  // So "endMin" is when the item should be finished, and the slots must run in
+  // session order — warm-up, then main, then cool-down, each item ending at or
+  // after the one before. A plan missing a time, or with one out of order, is
+  // rejected with the item named.
+  //
+  // Everything else below is optional. Comments like these are fine to leave
+  // in — the importer ignores them.
+
   // ── The plan ─────────────────────────────────────────────────────────────
   // Required. Re-importing a plan with the same name offers to replace it.
   "planName": "Winter Strength Block",
@@ -90,8 +108,9 @@ const TEMPLATE = `{
       "duration": 60,                  // minutes
       "purpose": "Build pressing and pulling strength.",
       // Three phases, in order: warmUp, main, coolDown. Only main counts toward progress.
-      // Every line needs "startMin" and "endMin" — its slot in minutes from the start
-      // of the session. During the session you tap each one off against it.
+      // Every line needs "startMin" and "endMin": minutes from the start of the
+      // session, running in order. "endMin" is when it should be finished — the
+      // Completed press is timed against it. Minutes can be decimals (1.5 = 1:30).
       "warmUp": [
         { "name": "Band pull-apart", "sets": 2, "reps": "15", "startMin": 0, "endMin": 5 }
       ],
@@ -144,7 +163,7 @@ const TEMPLATE = `{
         "purpose": "Aerobic base.",
         "notes": "Easy if the knee is sore.", // shown on that day in the plan's calendar
         "howToUse": "Leave a non-running day before the next run.",
-        // Same three phases. Every part needs "startMin" and "endMin", as above.
+        // Same three phases. Every part needs "startMin" and "endMin", in order, as above.
         "warmUp": [
           { "name": "Walk", "detail": "3 min at 4.2 km/h, then 4 min at 5.2 km/h.", "startMin": 0, "endMin": 7 }
         ],
@@ -154,14 +173,15 @@ const TEMPLATE = `{
             "detail": "6 x 90s jog at 7.0 km/h, then 2 min walk at 5.0 km/h.",
             "startMin": 7,
             "endMin": 28,
-            // Optional: "rounds" turns the part into a tap-to-count block.
+            // Optional: "rounds" adds a counter you tap once per round, inside the part.
+            // The part still has one Completed button for the whole block.
             "rounds": 6,
             "roundLabel": "jog/walk",    // what one round is called
             "roundDetails": ["Rep 1", "Rep 2", "Rep 3", "Rep 4", "Rep 5", "Rep 6"], // a line under each rep
             // Each rep's length in seconds, covering the rep and its recovery —
-            // puts a clock window on every rep.
+            // shows each rep's window in session minutes (7:00–10:30, …).
             "roundSeconds": [210, 210, 210, 210, 210, 210],
-            // Where rep 1 starts on the session clock. Defaults to startMin.
+            // Seconds into the session when rep 1 starts. Defaults to startMin.
             "startAtSec": 420
           }
         ],
@@ -443,7 +463,14 @@ export default function PlanImportPanel({
                         <span className="font-semibold text-neutral-700">planName</span>,{' '}
                         <span className="font-semibold text-neutral-700">planStart</span> and{' '}
                         <span className="font-semibold text-neutral-700">planEnd</span> are
-                        required. Every other section is optional.
+                        required, and so are{' '}
+                        <span className="font-semibold text-neutral-700">startMin</span> and{' '}
+                        <span className="font-semibold text-neutral-700">endMin</span> on every
+                        strength line and conditioning part — the minutes into the session each
+                        item should start and finish, in session order. In the gym your Completed
+                        press on each item is timed against the gap from the one before, which is
+                        how you see whether you&apos;re on time. Every other section is optional,
+                        and the template&apos;s comments can be left in.
                     </p>
                     <p>
                         <span className="font-semibold text-neutral-700">strengthWorkouts</span>{' '}

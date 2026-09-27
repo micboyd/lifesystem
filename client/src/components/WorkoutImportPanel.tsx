@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { parseJsonc } from '../lib/jsonc'
 import { Card } from './Card'
 import Button from './Button'
 import Alert from './Alert'
@@ -22,46 +23,44 @@ import {
 /** Sentinel choice meaning "create a brand-new exercise for this name". */
 const CREATE = '__create__'
 
-const WORKOUT_TEMPLATE = JSON.stringify(
-    [
-        {
-            name: 'Full Body Blast',
-            description: 'Combines cardio and strength training.',
-            showInPlanner: true,
-            // startMin / endMin: each line's slot, in minutes from the start of
-            // the session. Required — you tap each line off against it.
-            warmUp: [
-                { name: 'Band pull-apart', sets: 2, reps: '15', startMin: 0, endMin: 4 },
-                { name: 'Goblet squat', sets: 2, reps: '10', startMin: 4, endMin: 8 },
-            ],
-            main: [
-                { name: 'Barbell bench press', sets: 4, reps: '6-8', startMin: 8, endMin: 22 },
-                { name: 'Barbell row', sets: 4, reps: '8-10', startMin: 22, endMin: 34 },
-                { name: 'Box Squats', sets: 3, reps: '10', startMin: 34, endMin: 45 },
-            ],
-            coolDown: [
-                {
-                    name: 'Couch stretch',
-                    sets: 1,
-                    reps: '60s each side',
-                    startMin: 45,
-                    endMin: 50,
-                },
-            ],
-        },
-        {
-            name: 'Upper Push',
-            description: 'Chest, shoulders and triceps focus.',
-            main: [
-                { name: 'Incline dumbbell press', startMin: 0, endMin: 15 },
-                { name: 'Seated overhead press', startMin: 15, endMin: 30 },
-                { name: 'Dips (weighted if able)', startMin: 30, endMin: 40 },
-            ],
-        },
+/**
+ * The workout import format, annotated. JSON with comments — the importer
+ * ignores them, so the template pastes straight back in as it is.
+ */
+const WORKOUT_TEMPLATE = `[
+  {
+    "name": "Full Body Blast",                         // required
+    "description": "Combines cardio and strength training.",
+    "showInPlanner": true,                             // pin to the top of the planner
+    // Three phases, in order: warmUp, main, coolDown. Only main counts toward progress.
+    // Every line needs "startMin" and "endMin" — its slot in minutes from the start
+    // of the session, running in order (each ends at or after the one before).
+    // In the gym, your Completed press on each line is timed against the gap
+    // from the line before, so you see if you're on time. "endMin" is when it
+    // should be finished. Decimals are fine (1.5 = 1:30).
+    "warmUp": [
+      { "name": "Band pull-apart", "sets": 2, "reps": "15", "startMin": 0, "endMin": 4 },
+      { "name": "Goblet squat", "sets": 2, "reps": "10", "startMin": 4, "endMin": 8 }
     ],
-    null,
-    2
-)
+    "main": [
+      {
+        "name": "Barbell bench press",                 // matched to your exercise library by name
+        "sets": 4,
+        "reps": "6-8",                                 // free text: "8", "8-12", "AMRAP"
+        "rest": "2-3 min",                             // optional, free text
+        "notes": "Keep 1-2 reps in reserve.",          // optional coaching cue
+        "startMin": 8,
+        "endMin": 22
+      },
+      { "name": "Barbell row", "sets": 4, "reps": "8-10", "startMin": 22, "endMin": 34 },
+      { "name": "Box Squats", "sets": 3, "reps": "10", "startMin": 34, "endMin": 45 }
+    ],
+    "coolDown": [
+      { "name": "Couch stretch", "sets": 1, "reps": "60s each side", "startMin": 45, "endMin": 50 }
+    ]
+  }
+]
+`
 
 /** Pull a human-readable message out of an unknown thrown error. */
 function errorMessage(err: unknown): string {
@@ -179,7 +178,7 @@ export default function WorkoutImportPanel({
         }
         let json: unknown
         try {
-            json = JSON.parse(trimmed)
+            json = parseJsonc(trimmed)
         } catch {
             setResult({
                 variant: 'danger',
@@ -353,7 +352,9 @@ export default function WorkoutImportPanel({
                                 objects. <span className="font-semibold text-neutral-700">startMin</span>{' '}
                                 and <span className="font-semibold text-neutral-700">endMin</span>{' '}
                                 are required — the line&apos;s slot in minutes from the start of the
-                                session (e.g. 15 and 30), which you tap it off against as you go.
+                                session (e.g. 15 and 30), running in order. Your Completed press on
+                                each line in the gym is timed against it, so you can see if
+                                you&apos;re on time.
                                 Sets and reps prescribe volume (
                                 <span className="font-semibold text-neutral-700">reps</span> is
                                 free-form, e.g. &quot;8-12&quot;). Only main-session sets count

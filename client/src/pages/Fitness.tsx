@@ -46,67 +46,61 @@ import { allInPhases, emptyPhases, mapPhases } from '../lib/phases'
 
 // ─── Import template ──────────────────────────────────────────────────────────
 
-const SESSION_TEMPLATE = JSON.stringify(
-    [
-        {
-            name: 'Treadmill Run-Walk Intervals',
-            duration: 30,
-            category: 'Endurance',
-            purpose: 'Rebuild tolerance to running impact through controlled run-walk intervals.',
-            warmUp: [
-                {
-                    name: 'Walk',
-                    detail: '0.5% incline. Walk 3 min @ 4.2 km/h, then 4 min @ 5.2 km/h.',
-                    startMin: 0,
-                    endMin: 7,
-                },
-            ],
-            main: [
-                {
-                    name: 'Run-walk intervals',
-                    detail: '90 sec jog @ 7.0 km/h, then 2 min walk @ 5.0 km/h. ~1.05 km running.',
-                    rounds: 6,
-                    roundLabel: 'jog/walk',
-                    roundDetails: [
-                        '90 sec jog · 2 min walk',
-                        '90 sec jog · 2 min walk',
-                        '90 sec jog · 2 min walk',
-                        '90 sec jog · 2 min walk',
-                        '90 sec jog · 2 min walk',
-                        '90 sec jog · 2 min walk',
-                    ],
-                    roundSeconds: [210, 210, 210, 210, 210, 210],
-                    startAtSec: 420,
-                    startMin: 7,
-                    endMin: 28,
-                },
-            ],
-            coolDown: [
-                {
-                    name: 'Walk',
-                    detail: 'Walk 2 min @ 5.0 km/h, then 3 min @ 4.0 km/h.',
-                    startMin: 28,
-                    endMin: 33,
-                },
-            ],
-            howToUse: 'Leave at least one non-running day before the next run.',
-        },
-        {
-            name: 'HIIT Bike Intervals',
-            duration: 25,
-            category: 'HIIT',
-            purpose: 'Improve anaerobic capacity.',
-            warmUp: [{ name: 'Easy spin', detail: '5 min', startMin: 0, endMin: 5 }],
-            main: [
-                { name: 'Intervals', detail: '8 x 30s hard / 90s easy', startMin: 5, endMin: 21 },
-            ],
-            coolDown: [{ name: 'Easy spin', detail: '5 min', startMin: 21, endMin: 25 }],
-            plan: [{ date: '2026-08-11', part: 'evening' }, '2026-08-14'],
-        },
+/**
+ * The conditioning import format, annotated. JSON with comments — the importer
+ * ignores them, so the template pastes straight back in as it is.
+ */
+const SESSION_TEMPLATE = `[
+  {
+    "name": "Treadmill Run-Walk Intervals",   // required
+    "duration": 33,                            // minutes
+    "category": "Endurance",                   // HIIT | Cardio | Endurance | Mobility | Recovery
+    "purpose": "Rebuild tolerance to running impact through controlled run-walk intervals.",
+    // Three phases, in order: warmUp, main, coolDown.
+    // Every part needs "startMin" and "endMin" — its slot in minutes from the start
+    // of the session, running in order (each ends at or after the one before).
+    // In the gym, your Completed press on each part is timed against the gap
+    // from the part before, so you see if you're on time. "endMin" is when it
+    // should be finished. Decimals are fine (1.5 = 1:30).
+    "warmUp": [
+      {
+        "name": "Walk",
+        "detail": "0.5% incline. Walk 3 min @ 4.2 km/h, then 4 min @ 5.2 km/h.",
+        "startMin": 0,
+        "endMin": 7
+      }
     ],
-    null,
-    2
-)
+    "main": [
+      {
+        "name": "Run-walk intervals",
+        "detail": "90 sec jog @ 7.0 km/h, then 2 min walk @ 5.0 km/h.",
+        "startMin": 7,
+        "endMin": 28,
+        // Optional: "rounds" adds a counter you tap once per round, inside the part.
+        // The part still has one Completed button for the whole block.
+        "rounds": 6,
+        "roundLabel": "jog/walk",               // what one round is called
+        "roundDetails": ["90s jog · 2min walk", "90s jog · 2min walk", "90s jog · 2min walk",
+                         "90s jog · 2min walk", "90s jog · 2min walk", "90s jog · 2min walk"],
+        // Each rep's length in seconds (rep + recovery) — shows each rep's window.
+        "roundSeconds": [210, 210, 210, 210, 210, 210],
+        "startAtSec": 420                       // seconds in when rep 1 starts; defaults to startMin
+      }
+    ],
+    "coolDown": [
+      {
+        "name": "Walk",
+        "detail": "Walk 2 min @ 5.0 km/h, then 3 min @ 4.0 km/h.",
+        "startMin": 28,
+        "endMin": 33
+      }
+    ],
+    "howToUse": "Leave at least one non-running day before the next run.",
+    // Optional: put it straight on the planner — a date, or a date and slot.
+    "plan": [{ "date": "2026-08-11", "part": "evening" }, "2026-08-14"]
+  }
+]
+`
 
 const TABS = [
     'Planner',
@@ -421,8 +415,9 @@ function ConditioningLibrary() {
                             and — required — their slot in the session:{' '}
                             <span className="font-semibold text-neutral-700">startMin</span> and{' '}
                             <span className="font-semibold text-neutral-700">endMin</span>, minutes
-                            from the start (e.g. 15 and 30). You tap each part off against it as
-                            you go.
+                            from the start (e.g. 15 and 30), running in order. Your Completed
+                            press on each part is timed against it, so you can see if you&apos;re
+                            on time.
                             Add <span className="font-semibold text-neutral-700">rounds</span> (a
                             number) to a part to get a tap-to-count counter, plus an optional{' '}
                             <span className="font-semibold text-neutral-700">roundLabel</span>,{' '}
@@ -431,7 +426,7 @@ function ConditioningLibrary() {
                             <span className="font-semibold text-neutral-700">roundSeconds</span>{' '}
                             (each rep's length in seconds) with{' '}
                             <span className="font-semibold text-neutral-700">startAtSec</span>{' '}
-                            (clock offset, e.g. warm-up length) to show a time window on each rep.
+                            (seconds into the session when rep 1 starts; defaults to the part’s startMin) to show a time window on each rep.
                         </p>
                     </>
                 }

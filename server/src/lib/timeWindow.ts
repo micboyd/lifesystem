@@ -41,22 +41,34 @@ export function readWindow(o: Record<string, unknown>): TimeWindow {
 }
 
 /**
- * Imports must time every item. Returns one error per item in `raw` (the
- * phased, pre-normalisation lists) without a valid `startMin`/`endMin`.
+ * Imports must time every item, in order. Returns one error per item in `raw`
+ * (the phased, pre-normalisation lists) without a valid `startMin`/`endMin`,
+ * and one per item that ends before the item ahead of it — pace is judged from
+ * the gap between one item's end and the next, so the slots have to run in
+ * session order (warm-up, main, cool-down).
  */
 export function missingWindows(raw: Phased<unknown>, label: string): string[] {
     const errors: string[] = []
+    let prev: { name: string; endMin: number } | null = null
     for (const { item } of flattenPhases(raw)) {
         // A bare name ("Barbell row") can't carry a slot, so it counts as untimed.
         const o = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
         const name =
             typeof item === 'string' ? item.trim() : typeof o.name === 'string' ? o.name.trim() : ''
         if (!name) continue // unnamed lines are dropped anyway
-        if (readWindow(o).startMin === undefined) {
+        const w = readWindow(o)
+        if (w.startMin === undefined || w.endMin === undefined) {
             errors.push(
                 `${label}: "${name}" needs "startMin" and "endMin" (minutes into the session, end after start)`
             )
+            continue
         }
+        if (prev && w.endMin < prev.endMin) {
+            errors.push(
+                `${label}: "${name}" ends at ${w.endMin} min, before "${prev.name}" ahead of it (${prev.endMin} min) — slots must run in session order`
+            )
+        }
+        prev = { name, endMin: w.endMin }
     }
     return errors
 }
