@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import PhaseHeading, { phaseSpan } from './PhaseHeading'
 import Drawer from './Drawer'
 import Button from './Button'
 import DatePicker from './DatePicker'
@@ -7,7 +8,6 @@ import ExerciseSwapPicker from './ExerciseSwapPicker'
 import { VideoButton } from './ExerciseVideo'
 import { CompleteButton, PaceBanner, SaveStatus, SlotChip, type SaveState } from './SessionPace'
 import { paceOf, type Slot } from '../lib/sessionPace'
-import { SESSION_PHASE_LABELS } from '../types'
 import type {
     Exercise,
     LoggedSet,
@@ -693,9 +693,17 @@ export default function WorkoutLogWeightsDrawer({
                                 return (
                                     <div key={ei} className="flex flex-col gap-2">
                                         {phased && phaseStarts(ei) && (
-                                            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                                {SESSION_PHASE_LABELS[phaseOf(ex)]}
-                                            </p>
+                                            <PhaseHeading
+                                                phase={phaseOf(ex)}
+                                                meta={phaseSpan(
+                                                    slots.filter(
+                                                        (_, i) =>
+                                                            !drafts[i]?.removed &&
+                                                            phaseOf(drafts[i]) === phaseOf(ex)
+                                                    )
+                                                )}
+                                                className={ei === 0 ? '' : 'mt-4'}
+                                            />
                                         )}
                                         <section
                                             ref={(el) => {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import PhaseHeading, { phaseSpan } from './PhaseHeading'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
@@ -56,7 +57,6 @@ import {
     FITNESS_PLAN_PARTS,
     FITNESS_FLAG_COLORS,
     SESSION_PHASES,
-    SESSION_PHASE_LABELS,
 } from '../types'
 import type {
     Workout,
@@ -107,6 +107,7 @@ import {
 } from './planner/WeekPlannerUI'
 import { estimateWorkoutMinutes, mapPhases } from '../lib/phases'
 import { hasSlot, slotLabel } from '../lib/sessionPace'
+import { restDayNote } from '../lib/restDayMessage'
 
 // ─── Kind presentation ────────────────────────────────────────────────────────
 
@@ -2345,7 +2346,7 @@ function WeekView({
                     onClear={() => onClearDay(date)}
                     onShowClashes={() => onShowClashes(date)}
                     onShowOverloads={() => onShowOverloads(date)}
-                    calendarCount={calendarByDate.get(date)?.length ?? 0}
+                    calendarEvents={calendarByDate.get(date) ?? []}
                     onShowEvents={() => onShowEvents(date)}
                 />
             ))}
@@ -2443,7 +2444,7 @@ function DayCard({
     onClear,
     onShowClashes,
     onShowOverloads,
-    calendarCount,
+    calendarEvents,
     onShowEvents,
 }: {
     date: string
@@ -2483,8 +2484,8 @@ function DayCard({
     onClear: () => void
     onShowClashes: () => void
     onShowOverloads: () => void
-    /** How many calendar events fall in this day's morning, afternoon or evening. */
-    calendarCount: number
+    /** The calendar events in this day's morning, afternoon or evening. */
+    calendarEvents: Event[]
     onShowEvents: () => void
 }) {
     const { year, month, day } = parseDateKey(date)
@@ -2492,6 +2493,9 @@ function DayCard({
     const total = entries.length
     const doneCount = entries.filter(isDone).length
     const rest = total === 0
+    const calendarCount = calendarEvents.length
+    // On a rest day, what the calendar says you're doing instead.
+    const restNote = rest ? restDayNote(calendarEvents, date) : null
     const tone = note ? FLAG_TONE[note.color] : null
 
     // Minutes across the day: sessions, mobility and recovery carry a duration;
@@ -2546,7 +2550,16 @@ function DayCard({
     const metaLine = (
         <p className="mt-0.5 text-xs text-neutral-500">
             {rest ? (
-                'Rest day'
+                <>
+                    Rest day
+                    {/* The wide feed has no rest-day body, so the note rides here. */}
+                    {restNote && !compact && (
+                        <span className="hidden md:inline">
+                            <span className="mx-1.5 text-neutral-300">·</span>
+                            <span className="text-sky-700">{restNote.text}</span>
+                        </span>
+                    )}
+                </>
             ) : (
                 <>
                     <span className="tabular-nums">
@@ -2674,20 +2687,53 @@ function DayCard({
                 // A board column still reads as a day off, and fills its height
                 // so the week's columns line up.
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-2xl bg-neutral-50 px-2 py-8 text-center">
-                    <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-50 text-emerald-500">
-                        <i className="fa-solid fa-mug-hot text-sm" aria-hidden="true" />
+                    <span
+                        className={`grid h-9 w-9 place-items-center rounded-full ${
+                            restNote ? 'bg-sky-50 text-sky-600' : 'bg-emerald-50 text-emerald-500'
+                        }`}
+                    >
+                        <i
+                            className={`${restNote?.icon ?? 'fa-solid fa-mug-hot'} text-sm`}
+                            aria-hidden="true"
+                        />
                     </span>
                     <p className="text-xs font-semibold text-neutral-500">Rest</p>
+                    {restNote && (
+                        <button
+                            type="button"
+                            onClick={onShowEvents}
+                            className="text-[11px] leading-snug text-sky-700 hover:underline"
+                        >
+                            {restNote.text}
+                        </button>
+                    )}
                 </div>
             ) : rest && !editable ? (
                 // Phones get a proper empty state (it's the whole screen there);
                 // the wide feed keeps rest days to their header.
                 <div className="flex flex-col items-center gap-2 rounded-2xl bg-neutral-50 px-4 py-10 text-center md:hidden">
-                    <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-50 text-emerald-500">
-                        <i className="fa-solid fa-mug-hot" aria-hidden="true" />
+                    <span
+                        className={`grid h-12 w-12 place-items-center rounded-full ${
+                            restNote ? 'bg-sky-50 text-sky-600' : 'bg-emerald-50 text-emerald-500'
+                        }`}
+                    >
+                        <i className={restNote?.icon ?? 'fa-solid fa-mug-hot'} aria-hidden="true" />
                     </span>
                     <p className="text-sm font-semibold text-neutral-700">Rest &amp; recharge</p>
-                    <p className="text-xs text-neutral-400">Nothing planned for {weekday}.</p>
+                    {restNote ? (
+                        <>
+                            <p className="max-w-xs text-sm text-sky-800">{restNote.text}</p>
+                            <button
+                                type="button"
+                                onClick={onShowEvents}
+                                className="mt-1 text-xs font-semibold text-sky-700 hover:underline"
+                            >
+                                See the calendar
+                            </button>
+                        </>
+                    ) : (
+                        <p className="text-xs text-neutral-400">Nothing planned for {weekday}.</p>
+                    )}
                 </div>
             ) : (
                 parts.length > 0 && (
@@ -3800,7 +3846,12 @@ function WorkoutDetail({
                 const rows = phases[phase]
                 if (rows.length === 0 && phase !== 'main') return null
                 return (
-                    <DetailSection key={phase} label={SESSION_PHASE_LABELS[phase]}>
+                    <section key={phase}>
+                        <PhaseHeading
+                            phase={phase}
+                            meta={phaseSpan(rows.map(({ item }) => item))}
+                            className="mb-3"
+                        />
                         {rows.length === 0 ? (
                             <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
                                 No main-session exercises in this workout yet.
@@ -3839,7 +3890,7 @@ function WorkoutDetail({
                                 ))}
                             </ol>
                         )}
-                    </DetailSection>
+                    </section>
                 )
             })}
         </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PhaseChip } from './PhaseHeading'
 import { Card } from './Card'
 import Spinner from './Spinner'
 import Button from './Button'
@@ -23,7 +24,6 @@ import {
     type WorkoutLogInput,
 } from '../services/workoutLogs'
 import type { LoggedSet, Workout, WorkoutLog, WorkoutLogExercise } from '../types'
-import { SESSION_PHASE_LABELS } from '../types'
 import { isMainWork, phaseOf } from '../lib/phases'
 import { driftLabel, driftTone, paceOf, timeOfDay, type DriftTone } from '../lib/sessionPace'
 
@@ -451,9 +451,7 @@ function LogRow({
                                         {ex.name}
                                     </span>
                                     {!isMainWork(ex) && (
-                                        <span className="inline-flex items-center rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-                                            {SESSION_PHASE_LABELS[phaseOf(ex)]}
-                                        </span>
+                                        <PhaseChip phase={phaseOf(ex)} />
                                     )}
                                     {times[i] != null && (
                                         <span

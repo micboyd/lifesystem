@@ -1,6 +1,7 @@
 import RoundCounter from './RoundCounter'
+import PhaseHeading, { phaseSpan } from './PhaseHeading'
 import { CompleteButton, PaceBanner, SlotChip } from './SessionPace'
-import { SESSION_PHASES, SESSION_PHASE_LABELS } from '../types'
+import { SESSION_PHASES } from '../types'
 import type { ConditioningSession, ConditioningCategory } from '../types'
 import { flattenPhases } from '../lib/phases'
 import { paceOf } from '../lib/sessionPace'
@@ -90,9 +91,11 @@ export default function ConditioningSessionDetail({
                 if (rows.length === 0) return null
                 return (
                     <section key={phase}>
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                            {SESSION_PHASE_LABELS[phase]}
-                        </p>
+                        <PhaseHeading
+                            phase={phase}
+                            meta={phaseSpan(rows.map(({ item }) => item))}
+                            className="mb-3"
+                        />
                         <ol className="flex flex-col gap-3">
                             {rows.map(({ item: part, index: i }, n) => (
                                 <li

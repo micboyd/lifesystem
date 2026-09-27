@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import PhaseHeading, { phaseSpan } from '../components/PhaseHeading'
 import Container from '../components/Container'
 import { Card } from '../components/Card'
 import Spinner from '../components/Spinner'
@@ -34,7 +35,7 @@ import {
     importSessions,
     type ConditioningInput,
 } from '../services/conditioning'
-import { CONDITIONING_CATEGORIES, SESSION_PHASES, SESSION_PHASE_LABELS } from '../types'
+import { CONDITIONING_CATEGORIES, SESSION_PHASES } from '../types'
 import type {
     ConditioningSession,
     ConditioningCategory,
@@ -863,14 +864,15 @@ function PartsEditor({
 
     return (
         <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                    {SESSION_PHASE_LABELS[phase]}
-                </label>
-                <Button variant="ghost" size="sm" icon="fa-solid fa-plus" onClick={add}>
-                    Add part
-                </Button>
-            </div>
+            <PhaseHeading
+                phase={phase}
+                meta={phaseSpan(rows)}
+                right={
+                    <Button variant="ghost" size="sm" icon="fa-solid fa-plus" onClick={add}>
+                        Add part
+                    </Button>
+                }
+            />
 
             {rows.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">

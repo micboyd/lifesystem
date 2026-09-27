@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import PhaseHeading, { phaseSpan } from './PhaseHeading'
 import { Card } from './Card'
 import Spinner from './Spinner'
 import Button from './Button'
@@ -40,7 +41,7 @@ import { SlotInputs } from './SessionPace'
 import { VideoButton } from './ExerciseVideo'
 import { parseVideo } from '../lib/video'
 import { hasSlot, slotLabel } from '../lib/sessionPace'
-import { SESSION_PHASES, SESSION_PHASE_LABELS } from '../types'
+import { SESSION_PHASES } from '../types'
 import type { Exercise, Phased, SessionPhase, Workout, WorkoutExercise } from '../types'
 import {
     WORKOUT_ESTIMATE_HINT,
@@ -1025,9 +1026,11 @@ function WorkoutViewDrawer({
                         if (rows.length === 0 && phase !== 'main') return null
                         return (
                             <section key={phase}>
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                                    {SESSION_PHASE_LABELS[phase]}
-                                </p>
+                                <PhaseHeading
+                                    phase={phase}
+                                    meta={phaseSpan(rows.map(({ item }) => item))}
+                                    className="mb-3"
+                                />
                                 {rows.length === 0 ? (
                                     <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
                                         No main-session exercises in this workout yet.
@@ -1268,28 +1271,29 @@ function ExercisePicker({
 
     return (
         <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                    {SESSION_PHASE_LABELS[phase]}
-                </label>
-                <div className="flex items-center gap-2">
-                    {selected.length > 0 && (
-                        <span className="text-xs font-medium text-neutral-500">
-                            {selected.length} added
-                        </span>
-                    )}
-                    {phase !== 'main' && exercises.length > 0 && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={browsing ? 'fa-solid fa-chevron-up' : 'fa-solid fa-plus'}
-                            onClick={() => setBrowsing((b) => !b)}
-                        >
-                            {browsing ? 'Done' : 'Add exercise'}
-                        </Button>
-                    )}
-                </div>
-            </div>
+            <PhaseHeading
+                phase={phase}
+                meta={phaseSpan(selected)}
+                right={
+                    <div className="flex items-center gap-2">
+                        {selected.length > 0 && (
+                            <span className="text-xs font-medium text-neutral-500">
+                                {selected.length} added
+                            </span>
+                        )}
+                        {phase !== 'main' && exercises.length > 0 && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                icon={browsing ? 'fa-solid fa-chevron-up' : 'fa-solid fa-plus'}
+                                onClick={() => setBrowsing((b) => !b)}
+                            >
+                                {browsing ? 'Done' : 'Add exercise'}
+                            </Button>
+                        )}
+                    </div>
+                }
+            />
 
             {/* Chosen exercises, in order, with per-exercise sets & reps. */}
             {selected.length > 0 && (
