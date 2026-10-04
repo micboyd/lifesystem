@@ -1,0 +1,1412 @@
+{
+  "email": "michael_boyd@live.co.uk",
+  "takenAt": "2026-10-04T14:12:04.397Z",
+  "conditioning": [
+    {
+      "_id": "6ac2597f8aaa86f661b25ec1",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Run-Walk 1 - Mon 12 Oct",
+      "duration": 34,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Run-walk intervals",
+          "detail": "8 x 1 min run at 7.0 km/h, then 2 min walk at 5.5 km/h. 1% incline throughout.",
+          "rounds": 8,
+          "roundLabel": "run/walk",
+          "roundDetails": [
+            "1 min run at 7.0 km/h + 2 min walk",
+            "1 min run at 7.0 km/h + 2 min walk",
+            "1 min run at 7.0 km/h + 2 min walk",
+            "1 min run at 7.0 km/h + 2 min walk",
+            "1 min run at 7.0 km/h + 2 min walk",
+            "1 min run at 7.0 km/h + 2 min walk",
+            "1 min run at 7.0 km/h + 2 min walk",
+            "1 min run at 7.0 km/h + 2 min walk"
+          ],
+          "roundSeconds": [
+            180,
+            180,
+            180,
+            180,
+            180,
+            180,
+            180,
+            180
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 29
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 29,
+          "endMin": 34
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 0,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ec2",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Run-Walk 2 - Wed 14 Oct",
+      "duration": 34,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Run-walk intervals",
+          "detail": "8 x 1.5 min run at 7.0 km/h, then 1.5 min walk at 5.5 km/h. 1% incline throughout.",
+          "rounds": 8,
+          "roundLabel": "run/walk",
+          "roundDetails": [
+            "1.5 min run at 7.0 km/h + 1.5 min walk",
+            "1.5 min run at 7.0 km/h + 1.5 min walk",
+            "1.5 min run at 7.0 km/h + 1.5 min walk",
+            "1.5 min run at 7.0 km/h + 1.5 min walk",
+            "1.5 min run at 7.0 km/h + 1.5 min walk",
+            "1.5 min run at 7.0 km/h + 1.5 min walk",
+            "1.5 min run at 7.0 km/h + 1.5 min walk",
+            "1.5 min run at 7.0 km/h + 1.5 min walk"
+          ],
+          "roundSeconds": [
+            180,
+            180,
+            180,
+            180,
+            180,
+            180,
+            180,
+            180
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 29
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5.0 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 29,
+          "endMin": 34
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 1,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ec3",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Run-Walk 3 - Mon 19 Oct",
+      "duration": 38,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Run-walk intervals",
+          "detail": "8 x 2 min run at 7.0 km/h, then 1.5 min walk at 5.5 km/h. 1% incline throughout.",
+          "rounds": 8,
+          "roundLabel": "run/walk",
+          "roundDetails": [
+            "2 min run at 7.0 km/h + 1.5 min walk",
+            "2 min run at 7.0 km/h + 1.5 min walk",
+            "2 min run at 7.0 km/h + 1.5 min walk",
+            "2 min run at 7.0 km/h + 1.5 min walk",
+            "2 min run at 7.0 km/h + 1.5 min walk",
+            "2 min run at 7.0 km/h + 1.5 min walk",
+            "2 min run at 7.0 km/h + 1.5 min walk",
+            "2 min run at 7.0 km/h + 1.5 min walk"
+          ],
+          "roundSeconds": [
+            210,
+            210,
+            210,
+            210,
+            210,
+            210,
+            210,
+            210
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 33
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5.0 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 33,
+          "endMin": 38
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 2,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ec4",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Run-Walk 4 - Wed 21 Oct",
+      "duration": 37,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Run-walk intervals",
+          "detail": "6 x 3 min run at 7.0 km/h, then 1.5 min walk at 5.5 km/h. 1% incline throughout.",
+          "rounds": 6,
+          "roundLabel": "run/walk",
+          "roundDetails": [
+            "3 min run at 7.0 km/h + 1.5 min walk",
+            "3 min run at 7.0 km/h + 1.5 min walk",
+            "3 min run at 7.0 km/h + 1.5 min walk",
+            "3 min run at 7.0 km/h + 1.5 min walk",
+            "3 min run at 7.0 km/h + 1.5 min walk",
+            "3 min run at 7.0 km/h + 1.5 min walk"
+          ],
+          "roundSeconds": [
+            270,
+            270,
+            270,
+            270,
+            270,
+            270
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 32
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5.0 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 32,
+          "endMin": 37
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 3,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ec5",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Run-Walk 5 - Mon 26 Oct",
+      "duration": 43,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Run-walk intervals",
+          "detail": "6 x 4 min run at 7.2 km/h, then 1.5 min walk at 5.5 km/h. 1% incline throughout.",
+          "rounds": 6,
+          "roundLabel": "run/walk",
+          "roundDetails": [
+            "4 min run at 7.2 km/h + 1.5 min walk",
+            "4 min run at 7.2 km/h + 1.5 min walk",
+            "4 min run at 7.2 km/h + 1.5 min walk",
+            "4 min run at 7.2 km/h + 1.5 min walk",
+            "4 min run at 7.2 km/h + 1.5 min walk",
+            "4 min run at 7.2 km/h + 1.5 min walk"
+          ],
+          "roundSeconds": [
+            330,
+            330,
+            330,
+            330,
+            330,
+            330
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 38
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5.0 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 38,
+          "endMin": 43
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 4,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ec6",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Run-Walk 6 - Wed 28 Oct",
+      "duration": 42,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Run-walk intervals",
+          "detail": "5 x 5 min run at 7.2 km/h, then 1.5 min walk at 5.5 km/h. 1% incline throughout.",
+          "rounds": 5,
+          "roundLabel": "run/walk",
+          "roundDetails": [
+            "5 min run at 7.2 km/h + 1.5 min walk",
+            "5 min run at 7.2 km/h + 1.5 min walk",
+            "5 min run at 7.2 km/h + 1.5 min walk",
+            "5 min run at 7.2 km/h + 1.5 min walk",
+            "5 min run at 7.2 km/h + 1.5 min walk"
+          ],
+          "roundSeconds": [
+            390,
+            390,
+            390,
+            390,
+            390
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 37.5
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5.0 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 37.5,
+          "endMin": 42.5
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 5,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ec7",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Run-Walk 7 - Mon 2 Nov",
+      "duration": 44,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Run-walk intervals",
+          "detail": "4 x 7 min run at 7.5 km/h, then 1.5 min walk at 5.5 km/h. 1% incline throughout.",
+          "rounds": 4,
+          "roundLabel": "run/walk",
+          "roundDetails": [
+            "7 min run at 7.5 km/h + 1.5 min walk",
+            "7 min run at 7.5 km/h + 1.5 min walk",
+            "7 min run at 7.5 km/h + 1.5 min walk",
+            "7 min run at 7.5 km/h + 1.5 min walk"
+          ],
+          "roundSeconds": [
+            510,
+            510,
+            510,
+            510
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 39
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5.0 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 39,
+          "endMin": 44
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 6,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ec8",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Run-Walk 8 - Wed 4 Nov",
+      "duration": 44,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Run-walk intervals",
+          "detail": "3 x 10 min run at 7.5 km/h, then 1.5 min walk at 5.5 km/h. 1% incline throughout.",
+          "rounds": 3,
+          "roundLabel": "run/walk",
+          "roundDetails": [
+            "10 min run at 7.5 km/h + 1.5 min walk",
+            "10 min run at 7.5 km/h + 1.5 min walk",
+            "10 min run at 7.5 km/h + 1.5 min walk"
+          ],
+          "roundSeconds": [
+            690,
+            690,
+            690
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 39.5
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5.0 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 39.5,
+          "endMin": 44.5
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 7,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ec9",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Run-Walk 9 - Mon 9 Nov",
+      "duration": 44,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Run-walk intervals",
+          "detail": "2 x 15 min run at 7.8 km/h, then 2 min walk at 5.5 km/h. 1% incline throughout.",
+          "rounds": 2,
+          "roundLabel": "run/walk",
+          "roundDetails": [
+            "15 min run at 7.8 km/h + 2 min walk",
+            "15 min run at 7.8 km/h + 2 min walk"
+          ],
+          "roundSeconds": [
+            1020,
+            1020
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 39
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 39,
+          "endMin": 44
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 8,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25eca",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Continuous 1 - Wed 11 Nov",
+      "duration": 30,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Continuous run",
+          "detail": "20 min continuous at 8.0 km/h, 1% incline. Tap each 5 min block.",
+          "rounds": 4,
+          "roundLabel": "5 min block",
+          "roundDetails": [
+            "5 min at 8.0 km/h",
+            "5 min at 8.0 km/h",
+            "5 min at 8.0 km/h",
+            "5 min at 8.0 km/h"
+          ],
+          "roundSeconds": [
+            300,
+            300,
+            300,
+            300
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 25
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 25,
+          "endMin": 30
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 9,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ecb",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Continuous 2 - Mon 16 Nov",
+      "duration": 35,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Continuous run",
+          "detail": "25 min continuous at 8.5 km/h, 1% incline. Tap each 5 min block.",
+          "rounds": 5,
+          "roundLabel": "5 min block",
+          "roundDetails": [
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h"
+          ],
+          "roundSeconds": [
+            300,
+            300,
+            300,
+            300,
+            300
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 30
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 30,
+          "endMin": 35
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 10,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ecc",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Pace 1 - Wed 18 Nov",
+      "duration": 42,
+      "category": "HIIT",
+      "purpose": "Get used to 30:00 5K pace (10.0 km/h) in short blocks.",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Goal-pace intervals",
+          "detail": "8 x 2 min at 10.0 km/h (5K goal pace), then 2 min easy at 6.0 km/h. 1% incline.",
+          "rounds": 8,
+          "roundLabel": "rep",
+          "roundDetails": [
+            "2 min at 10.0 km/h + 2 min easy",
+            "2 min at 10.0 km/h + 2 min easy",
+            "2 min at 10.0 km/h + 2 min easy",
+            "2 min at 10.0 km/h + 2 min easy",
+            "2 min at 10.0 km/h + 2 min easy",
+            "2 min at 10.0 km/h + 2 min easy",
+            "2 min at 10.0 km/h + 2 min easy",
+            "2 min at 10.0 km/h + 2 min easy"
+          ],
+          "roundSeconds": [
+            240,
+            240,
+            240,
+            240,
+            240,
+            240,
+            240,
+            240
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 37
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 37,
+          "endMin": 42
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 11,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ecd",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Continuous 3 - Mon 23 Nov",
+      "duration": 40,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Continuous run",
+          "detail": "30 min continuous at 8.5 km/h, 1% incline. Tap each 5 min block.",
+          "rounds": 6,
+          "roundLabel": "5 min block",
+          "roundDetails": [
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h"
+          ],
+          "roundSeconds": [
+            300,
+            300,
+            300,
+            300,
+            300,
+            300
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 35
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 35,
+          "endMin": 40
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 12,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ece",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Pace 2 - Wed 25 Nov",
+      "duration": 42,
+      "category": "HIIT",
+      "purpose": "Hold goal pace for 1 km at a time.",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Goal-pace intervals",
+          "detail": "4 x 1 km (6 min) at 10.0 km/h, then 2 min walk at 5.5 km/h. 1% incline.",
+          "rounds": 4,
+          "roundLabel": "km",
+          "roundDetails": [
+            "1 km at 10.0 km/h + 2 min walk",
+            "1 km at 10.0 km/h + 2 min walk",
+            "1 km at 10.0 km/h + 2 min walk",
+            "1 km at 10.0 km/h + 2 min walk"
+          ],
+          "roundSeconds": [
+            480,
+            480,
+            480,
+            480
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 37
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 37,
+          "endMin": 42
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 13,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ecf",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Easy - Mon 30 Nov",
+      "duration": 30,
+      "category": "Endurance",
+      "purpose": "Build running tolerance and pace towards a continuous 30:00 5K (10.0 km/h).",
+      "warmUp": [
+        {
+          "name": "Walk",
+          "detail": "Treadmill at 1% incline. 3 min at 5.0 km/h, then 2 min at 6.0 km/h.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Continuous run",
+          "detail": "20 min continuous at 8.5 km/h, 1% incline. Tap each 5 min block.",
+          "rounds": 4,
+          "roundLabel": "5 min block",
+          "roundDetails": [
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h",
+            "5 min at 8.5 km/h"
+          ],
+          "roundSeconds": [
+            300,
+            300,
+            300,
+            300
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 25
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 25,
+          "endMin": 30
+        }
+      ],
+      "howToUse": "Every run rep should feel controlled - able to speak in short sentences. If a rep can't be finished, walk it out and repeat this session next time instead of progressing.",
+      "order": 14,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ed0",
+      "user": "6a21752b799de48151c0e715",
+      "name": "5K Test - Wed 2 Dec",
+      "duration": 43,
+      "category": "Endurance",
+      "purpose": "Run 5K continuously in 30:00 or faster.",
+      "warmUp": [
+        {
+          "name": "Walk then jog",
+          "detail": "5 min walk at 5.0-6.0 km/h, then 3 min jog at 8.0 km/h.",
+          "startMin": 0,
+          "endMin": 8
+        }
+      ],
+      "main": [
+        {
+          "name": "5K time trial",
+          "detail": "5 km continuous at 10.0 km/h, 1% incline. Tap each km.",
+          "rounds": 5,
+          "roundLabel": "km",
+          "roundDetails": [
+            "Km 1 - 6:00 at 10.0 km/h",
+            "Km 2 - 6:00 at 10.0 km/h",
+            "Km 3 - 6:00 at 10.0 km/h",
+            "Km 4 - 6:00 at 10.0 km/h",
+            "Km 5 - 6:00 at 10.0 km/h"
+          ],
+          "roundSeconds": [
+            360,
+            360,
+            360,
+            360,
+            360
+          ],
+          "startAtSec": 480,
+          "startMin": 8,
+          "endMin": 38
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5 min easy walk at 5.0 km/h, dropping to 4.0 km/h for the last 2 min.",
+          "startMin": 38,
+          "endMin": 43
+        }
+      ],
+      "howToUse": "Hold 10.0 km/h. If it feels comfortable at 4 km, push to 10.5 km/h for the last 1 km. If you have to back off, drop to 9.5 km/h rather than walking.",
+      "order": 15,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ed1",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Intervals",
+      "duration": 35,
+      "category": "HIIT",
+      "purpose": "Keep building aerobic power once the 5K is done, so repeated sprints recover faster.",
+      "warmUp": [
+        {
+          "name": "Walk then jog",
+          "detail": "5 min walk at 5.0-6.0 km/h. 1% incline.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Intervals",
+          "detail": "5 x 3 min at 10.5 km/h, 1% incline, then 2 min easy at 6.5 km/h.",
+          "rounds": 5,
+          "roundLabel": "interval",
+          "roundDetails": [
+            "3 min at 10.5 km/h + 2 min easy",
+            "3 min at 10.5 km/h + 2 min easy",
+            "3 min at 10.5 km/h + 2 min easy",
+            "3 min at 10.5 km/h + 2 min easy",
+            "3 min at 10.5 km/h + 2 min easy"
+          ],
+          "roundSeconds": [
+            300,
+            300,
+            300,
+            300,
+            300
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 30
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5 min easy walk at 5.0 km/h.",
+          "startMin": 30,
+          "endMin": 35
+        }
+      ],
+      "howToUse": "Hard but repeatable. When all 5 reps feel controlled, add 0.3 km/h next week.",
+      "order": 16,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ed2",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Field Session 1 - Intro",
+      "duration": 42,
+      "category": "HIIT",
+      "purpose": "Re-learn sprinting and changing pace without big fatigue.",
+      "warmUp": [
+        {
+          "name": "Field warm-up",
+          "detail": "5 min brisk walk into easy jog, 4 min dynamic mobility (leg swings, lunges, hip openers), 3 min of 3 x 30 m build-ups.",
+          "startMin": 0,
+          "endMin": 12
+        }
+      ],
+      "main": [
+        {
+          "name": "Accelerations",
+          "detail": "6 x 10 m at 80% effort from a standing start. Walk back - 60 sec per rep.",
+          "rounds": 6,
+          "roundLabel": "rep",
+          "roundSeconds": [
+            60,
+            60,
+            60,
+            60,
+            60,
+            60
+          ],
+          "startAtSec": 720,
+          "startMin": 12,
+          "endMin": 18
+        },
+        {
+          "name": "Strides",
+          "detail": "6 x 50 m at 60% effort, walk back - 80 sec per rep.",
+          "rounds": 6,
+          "roundLabel": "rep",
+          "roundSeconds": [
+            80,
+            80,
+            80,
+            80,
+            80,
+            80
+          ],
+          "startAtSec": 1080,
+          "startMin": 18,
+          "endMin": 26
+        },
+        {
+          "name": "Repeated sprints",
+          "detail": "2 sets of 5 x 20 m at 80%, one every 30 sec (2:30), then 2:30 walking rest.",
+          "rounds": 2,
+          "roundLabel": "set",
+          "roundDetails": [
+            "5 x 20 m every 30 sec + 2:30 rest",
+            "5 x 20 m every 30 sec + 2:30 rest"
+          ],
+          "roundSeconds": [
+            300,
+            300
+          ],
+          "startAtSec": 1560,
+          "startMin": 26,
+          "endMin": 36
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk and stretch",
+          "detail": "Easy walk, then light stretching. Warm layers back on straight away.",
+          "startMin": 36,
+          "endMin": 42
+        }
+      ],
+      "howToUse": "Daylight only. Moulded studs or trainers on frost. If the pitch is frozen, skip the sprints. Stop any rep if a hamstring or calf tightens.",
+      "order": 17,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ed3",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Field Session 2 - Build",
+      "duration": 55,
+      "category": "HIIT",
+      "purpose": "Faster accelerations, longer strides and more repeated-sprint volume.",
+      "warmUp": [
+        {
+          "name": "Field warm-up",
+          "detail": "5 min brisk walk into easy jog, 4 min dynamic mobility (leg swings, lunges, hip openers), 3 min of 3 x 30 m build-ups.",
+          "startMin": 0,
+          "endMin": 12
+        }
+      ],
+      "main": [
+        {
+          "name": "Accelerations",
+          "detail": "6 x 20 m at 90% effort from a 3-point stance. Walk back - 80 sec per rep.",
+          "rounds": 6,
+          "roundLabel": "rep",
+          "roundSeconds": [
+            80,
+            80,
+            80,
+            80,
+            80,
+            80
+          ],
+          "startAtSec": 720,
+          "startMin": 12,
+          "endMin": 20
+        },
+        {
+          "name": "Strides",
+          "detail": "8 x 75 m at 70% effort, walk back - 90 sec per rep.",
+          "rounds": 8,
+          "roundLabel": "rep",
+          "roundSeconds": [
+            90,
+            90,
+            90,
+            90,
+            90,
+            90,
+            90,
+            90
+          ],
+          "startAtSec": 1200,
+          "startMin": 20,
+          "endMin": 32
+        },
+        {
+          "name": "Repeated sprints",
+          "detail": "3 sets of 6 x 20 m at 90%, one every 30 sec (3 min), then 3 min walking rest.",
+          "rounds": 3,
+          "roundLabel": "set",
+          "roundDetails": [
+            "6 x 20 m every 30 sec + 3 min rest",
+            "6 x 20 m every 30 sec + 3 min rest",
+            "6 x 20 m every 30 sec + 3 min rest"
+          ],
+          "roundSeconds": [
+            360,
+            360,
+            360
+          ],
+          "startAtSec": 1920,
+          "startMin": 32,
+          "endMin": 50
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk and stretch",
+          "detail": "Easy walk, then light stretching. Warm layers back on straight away.",
+          "startMin": 50,
+          "endMin": 55
+        }
+      ],
+      "howToUse": "Daylight only. Moulded studs or trainers on frost. If the pitch is frozen, skip the sprints. Stop any rep if a hamstring or calf tightens.",
+      "order": 18,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ed4",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Field Session 3 - Bronco",
+      "duration": 53,
+      "category": "HIIT",
+      "purpose": "Rugby fitness: full-speed accelerations, the Bronco and 30 m repeated sprints.",
+      "warmUp": [
+        {
+          "name": "Field warm-up",
+          "detail": "5 min brisk walk into easy jog, 4 min dynamic mobility (leg swings, lunges, hip openers), 3 min of 3 x 30 m build-ups.",
+          "startMin": 0,
+          "endMin": 12
+        }
+      ],
+      "main": [
+        {
+          "name": "Accelerations",
+          "detail": "6 x 20 m at maximum intent from a 3-point stance. Walk back - 80 sec per rep.",
+          "rounds": 6,
+          "roundLabel": "rep",
+          "roundSeconds": [
+            80,
+            80,
+            80,
+            80,
+            80,
+            80
+          ],
+          "startAtSec": 720,
+          "startMin": 12,
+          "endMin": 20
+        },
+        {
+          "name": "Bronco",
+          "detail": "Continuous: 5 sets of 20 m, 40 m and 60 m out-and-back shuttles (1200 m). Stop the clock at the end, then rest for the rest of the block.",
+          "rounds": 5,
+          "roundLabel": "set",
+          "roundDetails": [
+            "20 m, 40 m, 60 m out and back",
+            "20 m, 40 m, 60 m out and back",
+            "20 m, 40 m, 60 m out and back",
+            "20 m, 40 m, 60 m out and back",
+            "20 m, 40 m, 60 m out and back"
+          ],
+          "startAtSec": 1200,
+          "startMin": 20,
+          "endMin": 30
+        },
+        {
+          "name": "Repeated sprints",
+          "detail": "3 sets of 6 x 30 m, one every 30 sec (3 min), then 3 min walking rest.",
+          "rounds": 3,
+          "roundLabel": "set",
+          "roundDetails": [
+            "6 x 30 m every 30 sec + 3 min rest",
+            "6 x 30 m every 30 sec + 3 min rest",
+            "6 x 30 m every 30 sec + 3 min rest"
+          ],
+          "roundSeconds": [
+            360,
+            360,
+            360
+          ],
+          "startAtSec": 1800,
+          "startMin": 30,
+          "endMin": 48
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk and stretch",
+          "detail": "Easy walk, then light stretching. Warm layers back on straight away.",
+          "startMin": 48,
+          "endMin": 53
+        }
+      ],
+      "howToUse": "Daylight only. Moulded studs or trainers on frost. If the pitch is frozen, skip the sprints. Stop any rep if a hamstring or calf tightens.",
+      "order": 19,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ed5",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Field Session - Bronco Test",
+      "duration": 37,
+      "category": "HIIT",
+      "purpose": "Record a Bronco time to measure progress against.",
+      "warmUp": [
+        {
+          "name": "Field warm-up",
+          "detail": "5 min brisk walk into easy jog, 4 min dynamic mobility (leg swings, lunges, hip openers), 3 min of 3 x 30 m build-ups.",
+          "startMin": 0,
+          "endMin": 12
+        }
+      ],
+      "main": [
+        {
+          "name": "Accelerations",
+          "detail": "4 x 20 m at 80% effort. Walk back - 75 sec per rep.",
+          "rounds": 4,
+          "roundLabel": "rep",
+          "roundSeconds": [
+            75,
+            75,
+            75,
+            75
+          ],
+          "startAtSec": 720,
+          "startMin": 12,
+          "endMin": 17
+        },
+        {
+          "name": "Bronco",
+          "detail": "Continuous: 5 sets of 20 m, 40 m and 60 m out-and-back shuttles (1200 m). Steady, even pace - don't sprint the first set. Record your time.",
+          "rounds": 5,
+          "roundLabel": "set",
+          "roundDetails": [
+            "20 m, 40 m, 60 m out and back",
+            "20 m, 40 m, 60 m out and back",
+            "20 m, 40 m, 60 m out and back",
+            "20 m, 40 m, 60 m out and back",
+            "20 m, 40 m, 60 m out and back"
+          ],
+          "startAtSec": 1020,
+          "startMin": 17,
+          "endMin": 27
+        },
+        {
+          "name": "Strides",
+          "detail": "4 x 50 m at 60% effort, walk back - 80 sec per rep.",
+          "rounds": 4,
+          "roundLabel": "rep",
+          "roundSeconds": [
+            75,
+            75,
+            75,
+            75
+          ],
+          "startAtSec": 1620,
+          "startMin": 27,
+          "endMin": 32
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk and stretch",
+          "detail": "Easy walk, then light stretching. Warm layers back on straight away.",
+          "startMin": 32,
+          "endMin": 37
+        }
+      ],
+      "howToUse": "Daylight only. Moulded studs or trainers on frost. If the pitch is frozen, skip the sprints. Stop any rep if a hamstring or calf tightens.",
+      "order": 20,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ed6",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Treadmill Intervals 2",
+      "duration": 40,
+      "category": "HIIT",
+      "purpose": "Progress aerobic power into January.",
+      "warmUp": [
+        {
+          "name": "Walk then jog",
+          "detail": "5 min walk at 5.0-6.0 km/h. 1% incline.",
+          "startMin": 0,
+          "endMin": 5
+        }
+      ],
+      "main": [
+        {
+          "name": "Intervals",
+          "detail": "6 x 3 min at 10.8 km/h, 1% incline, then 2 min easy at 6.5 km/h.",
+          "rounds": 6,
+          "roundLabel": "interval",
+          "roundDetails": [
+            "3 min at 10.8 km/h + 2 min easy",
+            "3 min at 10.8 km/h + 2 min easy",
+            "3 min at 10.8 km/h + 2 min easy",
+            "3 min at 10.8 km/h + 2 min easy",
+            "3 min at 10.8 km/h + 2 min easy",
+            "3 min at 10.8 km/h + 2 min easy"
+          ],
+          "roundSeconds": [
+            300,
+            300,
+            300,
+            300,
+            300,
+            300
+          ],
+          "startAtSec": 300,
+          "startMin": 5,
+          "endMin": 35
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "5 min easy walk at 5.0 km/h.",
+          "startMin": 35,
+          "endMin": 40
+        }
+      ],
+      "howToUse": "Hard but repeatable. When all 6 reps feel controlled, add 0.3 km/h next week.",
+      "order": 21,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    },
+    {
+      "_id": "6ac2597f8aaa86f661b25ed7",
+      "user": "6a21752b799de48151c0e715",
+      "name": "Field Midweek - Get-Ups and Sprints",
+      "duration": 35,
+      "category": "HIIT",
+      "purpose": "Lunchtime rugby conditioning: getting off the floor fast and repeating sprints. Fits a 45 minute lunch with time to change.",
+      "warmUp": [
+        {
+          "name": "Field warm-up",
+          "detail": "3 min easy jog, 3 min dynamic mobility, 2 min of 2 x 30 m build-ups.",
+          "startMin": 0,
+          "endMin": 8
+        }
+      ],
+      "main": [
+        {
+          "name": "Get-up sprints",
+          "detail": "6 x lie prone, get up and sprint 10 m. Walk back - 60 sec per rep.",
+          "rounds": 6,
+          "roundLabel": "rep",
+          "roundSeconds": [
+            60,
+            60,
+            60,
+            60,
+            60,
+            60
+          ],
+          "startAtSec": 480,
+          "startMin": 8,
+          "endMin": 14
+        },
+        {
+          "name": "Repeated sprints",
+          "detail": "3 sets of 6 x 20 m, one every 30 sec (3 min), then 3 min walking rest.",
+          "rounds": 3,
+          "roundLabel": "set",
+          "roundDetails": [
+            "6 x 20 m every 30 sec + 3 min rest",
+            "6 x 20 m every 30 sec + 3 min rest",
+            "6 x 20 m every 30 sec + 3 min rest"
+          ],
+          "roundSeconds": [
+            360,
+            360,
+            360
+          ],
+          "startAtSec": 840,
+          "startMin": 14,
+          "endMin": 32
+        }
+      ],
+      "coolDown": [
+        {
+          "name": "Walk",
+          "detail": "Easy walk back to change.",
+          "startMin": 32,
+          "endMin": 35
+        }
+      ],
+      "howToUse": "Daylight only. Moulded studs or trainers on frost. If the pitch is frozen, skip the sprints. Stop any rep if a hamstring or calf tightens.",
+      "order": 22,
+      "importBatch": null,
+      "__v": 0,
+      "createdAt": "2026-10-04T13:49:51.902Z",
+      "updatedAt": "2026-10-04T13:49:51.902Z"
+    }
+  ],
+  "planEntries": [],
+  "unlinkedLogs": []
+}

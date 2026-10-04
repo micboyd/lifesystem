@@ -2512,11 +2512,9 @@ function DayCard({
     const slotItems = (part: FitnessPlanPart) =>
         entries.filter((e) => partOf(e) === part).sort((a, b) => a.order - b.order)
 
-    // Viewing shows only the slots with something in them; editing shows all
-    // three, since each is both an add button and a drop target.
-    const parts = editable
-        ? FITNESS_PLAN_PARTS
-        : FITNESS_PLAN_PARTS.filter((p) => slotItems(p).length > 0)
+    // Every slot always shows: editing, each is an add button and a drop target;
+    // viewing, an empty one just reads "Empty" so the day's shape stays clear.
+    const parts = FITNESS_PLAN_PARTS
 
     const todayPill = isToday && (
         <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-coral-600">
@@ -2899,6 +2897,11 @@ function SlotSection({
                 >
                     {rows}
                 </ul>
+                {entries.length === 0 && (
+                    <p className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-400">
+                        Empty
+                    </p>
+                )}
             </div>
         )
     }
