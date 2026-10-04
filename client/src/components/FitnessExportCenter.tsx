@@ -165,6 +165,7 @@ function shapeConditioning(rows: ConditioningSession[]) {
         ...(s.purpose ? { purpose: s.purpose } : {}),
         ...mapPhases(s, shapeParts),
         ...(s.howToUse ? { howToUse: s.howToUse } : {}),
+        ...(s.helpers?.length ? { helpers: s.helpers } : {}),
     }))
 }
 

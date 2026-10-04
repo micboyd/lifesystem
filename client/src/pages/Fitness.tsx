@@ -97,6 +97,7 @@ const SESSION_TEMPLATE = `[
       }
     ],
     "howToUse": "Leave at least one non-running day before the next run.",
+    "helpers": ["Cones at 0, 5 and 10 m"],
     // Optional: put it straight on the planner — a date, or a date and slot.
     "plan": [{ "date": "2026-08-11", "part": "evening" }, "2026-08-14"]
   }
@@ -691,6 +692,7 @@ function SessionFormDrawer({
     const [purpose, setPurpose] = useState('')
     const [parts, setParts] = useState<Phased<PartRow>>(emptyPhases)
     const [howToUse, setHowToUse] = useState('')
+    const [helpers, setHelpers] = useState('')
     const [saving, setSaving] = useState(false)
 
     // Reset all fields whenever the drawer opens for a different session.
@@ -705,6 +707,7 @@ function SessionFormDrawer({
                 : emptyPhases()
         )
         setHowToUse(editing?.howToUse ?? '')
+        setHelpers((editing?.helpers ?? []).join('\n'))
         setSaving(false)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [view])
@@ -745,6 +748,10 @@ function SessionFormDrawer({
                     .filter((p) => p.name !== '')
             ),
             howToUse: howToUse.trim() || undefined,
+            helpers: helpers
+                .split('\n')
+                .map((l) => l.trim())
+                .filter(Boolean),
         }
         setSaving(true)
         try {
@@ -817,6 +824,14 @@ function SessionFormDrawer({
                         onChange={(rows) => setParts((prev) => ({ ...prev, [phase]: rows }))}
                     />
                 ))}
+
+                <Textarea
+                    label="Helpers"
+                    rows={3}
+                    placeholder={'Setup to lay out first, one per line, e.g.\nCones at 0, 5 and 10 m (5 m apart)\nStart line + turn line'}
+                    value={helpers}
+                    onChange={(e) => setHelpers(e.target.value)}
+                />
 
                 <Textarea
                     label="How to use"

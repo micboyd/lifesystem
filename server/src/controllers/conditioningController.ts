@@ -11,6 +11,7 @@ import { parsePlacements, placeOnPlan, PlanEntrySpec } from '../lib/planPlacemen
 import { toSessionParts } from '../lib/sessionParts'
 import { mapPhases, readPhased, sentPhases } from '../lib/phases'
 import { missingWindows } from '../lib/timeWindow'
+import { readHelpers } from '../lib/helpers'
 
 /** The warm-up, main and cool-down parts of a request body or imported item. */
 function toPhasedParts(doc: Record<string, unknown>) {
@@ -72,6 +73,7 @@ export async function createSession(req: AuthRequest, res: Response) {
             typeof req.body.howToUse === 'string'
                 ? req.body.howToUse.trim() || undefined
                 : undefined,
+        helpers: readHelpers(req.body ?? {}),
         order,
     })
     res.status(201).json({ message: 'Created', data: session })
@@ -91,6 +93,7 @@ export async function updateSession(req: AuthRequest, res: Response) {
         for (const p of phases) fields[p] = parts[p]
     }
     if (typeof b.howToUse === 'string') fields.howToUse = b.howToUse.trim() || undefined
+    if (b.helpers !== undefined) fields.helpers = readHelpers(b)
     if (typeof b.order === 'number') fields.order = b.order
 
     const session = await ConditioningSession.findOneAndUpdate(
@@ -160,6 +163,7 @@ export async function importSessions(req: AuthRequest, res: Response) {
             ...toPhasedParts(item),
             howToUse:
                 typeof item.howToUse === 'string' ? item.howToUse.trim() || undefined : undefined,
+            helpers: readHelpers(item),
         }
     })
 

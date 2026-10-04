@@ -9,6 +9,7 @@ export interface ConditioningInput extends Partial<Phased<SessionPart>> {
     category?: ConditioningSession['category']
     purpose?: string
     howToUse?: string
+    helpers?: string[]
 }
 
 export async function listSessions(): Promise<ConditioningSession[]> {

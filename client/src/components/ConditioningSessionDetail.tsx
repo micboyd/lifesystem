@@ -86,6 +86,23 @@ export default function ConditioningSessionDetail({
                 </section>
             )}
 
+            {!!session.helpers?.length && (
+                <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3">
+                    <p className="mb-2 inline-flex items-center gap-2 text-sm font-bold text-neutral-900">
+                        <i className="fa-solid fa-flag text-amber-600" aria-hidden="true" />
+                        Helpers
+                    </p>
+                    <ul className="flex flex-col gap-1.5 text-sm text-neutral-700">
+                        {session.helpers.map((h, i) => (
+                            <li key={i} className="flex gap-2">
+                                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-amber-500" />
+                                <span>{h}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
+
             {SESSION_PHASES.map((phase) => {
                 const rows = indexed.filter((r) => r.phase === phase)
                 if (rows.length === 0) return null

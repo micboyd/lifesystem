@@ -278,6 +278,7 @@ function entryDetails(
             category: s.category,
             ...(s.purpose ? { purpose: s.purpose } : {}),
             ...nonEmptyPhases(mapPhases(s, shapeParts)),
+            ...(s.helpers?.length ? { helpers: s.helpers } : {}),
         }
     }
     if (entry.kind === 'mobility' && entry.mobility) {

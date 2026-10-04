@@ -23,6 +23,7 @@ import { toSessionParts } from '../lib/sessionParts'
 import { missingWindows, readWindow } from '../lib/timeWindow'
 import { readVideoUrl } from '../lib/videoUrl'
 import { readBringList } from '../lib/bringList'
+import { readHelpers } from '../lib/helpers'
 import { applyExerciseVideos } from '../lib/exerciseVideos'
 import { SESSION_PHASES, mapPhases, readPhased, toPhase } from '../lib/phases'
 import { buildPlanExport } from '../lib/planExport'
@@ -377,6 +378,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
         purpose: str(s.purpose),
         ...mapPhases(readPhased(s, 'parts'), toSessionParts),
         howToUse: str(s.howToUse),
+        helpers: readHelpers(s),
     })
     const runSpecs = toSpecs(runPlan, sessionFields)
     const postSpecs = toSpecs(postLibrary, sessionFields)

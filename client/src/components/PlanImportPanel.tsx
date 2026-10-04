@@ -207,6 +207,7 @@ const TEMPLATE = `{
         "purpose": "Aerobic base.",
         "notes": "Easy if the knee is sore.", // shown on that day in the plan's calendar
         "howToUse": "Leave a non-running day before the next run.",
+        "helpers": ["Cones at 0, 5 and 10 m"], // optional: setup to lay out first, one line each
         // Same three phases. Every part needs "startMin" and "endMin", in order, as above.
         "warmUp": [
           { "name": "Walk", "detail": "3 min at 4.2 km/h, then 4 min at 5.2 km/h.", "startMin": 0, "endMin": 7 }

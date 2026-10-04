@@ -48,6 +48,7 @@ interface SessionLean extends Lean, Phased<ISessionPart> {
     category: string
     purpose?: string
     howToUse?: string
+    helpers?: string[]
 }
 interface MobilityLean extends Lean {
     duration: number
@@ -242,6 +243,7 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
                 )
             ),
             howToUse: doc.howToUse,
+            helpers: doc.helpers?.length ? doc.helpers : undefined,
         })
 
     // Each run is a one-off written for a specific day, so its date rides on the

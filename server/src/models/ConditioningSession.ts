@@ -40,6 +40,8 @@ export interface IConditioningSession extends Document, Phased<ISessionPart> {
     purpose?: string
     /** Guidance on how / when to run the session. */
     howToUse?: string
+    /** Setup to lay out before starting, one line each — e.g. where the cones go. */
+    helpers: string[]
     /** Priority position in the library (lower = sooner). */
     order: number
     /** Import batch id if this record came from a bulk import (for undo). */
@@ -74,6 +76,7 @@ const conditioningSessionSchema = new Schema<IConditioningSession>(
         main: { type: [partSchema], default: [] },
         coolDown: { type: [partSchema], default: [] },
         howToUse: { type: String, trim: true },
+        helpers: { type: [String], default: [] },
         order: { type: Number, default: 0 },
         importBatch: { type: String, default: null },
     },

@@ -319,6 +319,8 @@ export interface ConditioningSession extends Phased<SessionPart> {
     purpose?: string
     /** Guidance on how / when to run the session. */
     howToUse?: string
+    /** Setup to lay out before starting, one line each — e.g. where the cones go. */
+    helpers?: string[]
     order: number
     createdAt: string
     updatedAt: string
