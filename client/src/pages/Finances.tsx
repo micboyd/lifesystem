@@ -40,6 +40,7 @@ import { useAuth } from '../context/AuthContext'
 import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
 import AmountScopeDialog from '../components/finance/AmountScopeDialog'
 import Tabs from '../components/Tabs'
+import DatePicker, { type DateRange, type DatePickerValue } from '../components/DatePicker'
 import type { FinanceGroup, FinancePot, FinanceRow, FinanceEntry, SavingsTarget } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -549,6 +550,7 @@ export default function Finances() {
     const [newGroupName, setNewGroupName] = useState('')
     const [newGroupType, setNewGroupType] = useState<'income' | 'expense' | 'savings'>('expense')
     const [newGroupScope, setNewGroupScope] = useState<AddScope>('all')
+    const [newGroupRange, setNewGroupRange] = useState<DateRange | null>(null)
     const [newGroupMonthly, setNewGroupMonthly] = useState('')
     const [savingGroup, setSavingGroup] = useState(false)
 
@@ -699,8 +701,15 @@ export default function Finances() {
             const extra = newGroupType === 'savings' && !Number.isNaN(monthly) && monthly > 0
                 ? { recurringAmount: monthly }
                 : undefined
-            const g = await createGroup(newGroupName.trim(), newGroupType, newGroupScope, month, extra)
+            const range = newGroupRange ?? { start: month, end: month }
+            const g =
+                newGroupScope === 'range'
+                    ? await createGroup(newGroupName.trim(), newGroupType, 'range', range.start, extra, range.end)
+                    : await createGroup(newGroupName.trim(), newGroupType, newGroupScope, month, extra)
             setGroups((prev) => [...prev, g])
+            if (newGroupScope === 'range' && (month < range.start || month > range.end)) {
+                toast.show(`Added for ${formatMonth(range.start)} to ${formatMonth(range.end)}.`, 'success')
+            }
             // Savings groups auto-create a row on the server — re-fetch so it appears
             if (g.type === 'savings') {
                 const updatedRows = await listRows()
@@ -708,6 +717,7 @@ export default function Finances() {
             }
             setNewGroupName('')
             setNewGroupScope('all')
+            setNewGroupRange(null)
             setNewGroupMonthly('')
             setAddingGroup(false)
         } catch {
@@ -1168,10 +1178,34 @@ export default function Finances() {
 
                         {/* Month scope */}
                         <Tabs
-                            tabs={[`All months (from ${formatMonth(month)})`, `Just ${formatMonth(month)}`]}
-                            value={newGroupScope === 'all' ? `All months (from ${formatMonth(month)})` : `Just ${formatMonth(month)}`}
-                            onChange={(label) => setNewGroupScope(label.startsWith('All') ? 'all' : 'month')}
+                            className="self-start"
+                            tabs={[`All months (from ${formatMonth(month)})`, `Just ${formatMonth(month)}`, 'Month range']}
+                            value={
+                                newGroupScope === 'all'
+                                    ? `All months (from ${formatMonth(month)})`
+                                    : newGroupScope === 'month'
+                                      ? `Just ${formatMonth(month)}`
+                                      : 'Month range'
+                            }
+                            onChange={(label) =>
+                                setNewGroupScope(label.startsWith('All') ? 'all' : label.startsWith('Just') ? 'month' : 'range')
+                            }
                         />
+                        {newGroupScope === 'range' && (
+                            <DatePicker
+                                mode="range"
+                                precision="month"
+                                clearable={false}
+                                value={newGroupRange ?? { start: month, end: month }}
+                                onChange={(v: DatePickerValue) => {
+                                    if (v && typeof v === 'object' && 'start' in v) {
+                                        // Mid-selection the end comes back empty; treat it
+                                        // as a single month until the second click lands.
+                                        setNewGroupRange({ start: v.start, end: v.end || v.start })
+                                    }
+                                }}
+                            />
+                        )}
 
                         <div className="flex gap-2">
                             <Button
@@ -1186,6 +1220,7 @@ export default function Finances() {
                                     setAddingGroup(false)
                                     setNewGroupName('')
                                     setNewGroupScope('all')
+                                    setNewGroupRange(null)
                                     setNewGroupMonthly('')
                                 }}
                             >

@@ -23,7 +23,7 @@ import {
     deleteDaysUntil,
 } from '../services/daysUntil'
 import { listEvents } from '../services/events'
-import { todayKey, addDays } from '../lib/calendar'
+import { todayKey, addDays, addMonths } from '../lib/calendar'
 import { daysUntil, formatTargetDate } from '../lib/daysUntil'
 
 /** How far ahead the calendar picker looks for something to count down to. */
@@ -48,6 +48,25 @@ const ICON_CHOICES = [
     'fa-solid fa-bullseye',
 ]
 
+type OffsetUnit = 'days' | 'weeks' | 'months' | 'years'
+
+const OFFSET_UNITS: OffsetUnit[] = ['days', 'weeks', 'months', 'years']
+
+const OFFSET_PRESETS: { label: string; amount: number; unit: OffsetUnit }[] = [
+    { label: '1 week', amount: 1, unit: 'weeks' },
+    { label: '1 month', amount: 1, unit: 'months' },
+    { label: '3 months', amount: 3, unit: 'months' },
+    { label: '6 months', amount: 6, unit: 'months' },
+    { label: '1 year', amount: 1, unit: 'years' },
+]
+
+/** The date `amount` `unit`s after `from` ("YYYY-MM-DD"). */
+function dateFromOffset(from: string, amount: number, unit: OffsetUnit): string {
+    if (unit === 'days') return addDays(from, amount)
+    if (unit === 'weeks') return addDays(from, amount * 7)
+    return addMonths(from, unit === 'years' ? amount * 12 : amount)
+}
+
 interface EditorState {
     id: string | null
     label: string
@@ -68,6 +87,8 @@ export default function DaysUntil() {
     const [editor, setEditor] = useState<EditorState | null>(null)
     const [pickingEvent, setPickingEvent] = useState(false)
     const [saving, setSaving] = useState(false)
+    const [offsetAmount, setOffsetAmount] = useState('')
+    const [offsetUnit, setOffsetUnit] = useState<OffsetUnit>('months')
     const [error, setError] = useState<string | null>(null)
     const [deleteTarget, setDeleteTarget] = useState<DaysUntilItem | null>(null)
     const [deleting, setDeleting] = useState(false)
@@ -437,6 +458,67 @@ export default function DaysUntil() {
 
                         <div className="flex flex-col gap-2">
                             <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                From today
+                            </span>
+                            <div className="flex flex-wrap gap-2">
+                                {OFFSET_PRESETS.map((p) => (
+                                    <button
+                                        key={p.label}
+                                        type="button"
+                                        onClick={() => {
+                                            setOffsetAmount(String(p.amount))
+                                            setOffsetUnit(p.unit)
+                                            setEditor((s) =>
+                                                s ? { ...s, targetDate: dateFromOffset(today, p.amount, p.unit) } : s
+                                            )
+                                        }}
+                                        className="rounded-full border border-neutral-200 px-3 py-1 text-sm text-neutral-700 hover:bg-neutral-100"
+                                    >
+                                        {p.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min={1}
+                                    inputMode="numeric"
+                                    placeholder="e.g. 10"
+                                    value={offsetAmount}
+                                    onChange={(e) => {
+                                        const v = e.target.value
+                                        setOffsetAmount(v)
+                                        const n = Math.floor(Number(v))
+                                        if (n > 0)
+                                            setEditor((s) =>
+                                                s ? { ...s, targetDate: dateFromOffset(today, n, offsetUnit) } : s
+                                            )
+                                    }}
+                                    className="w-24 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                                />
+                                <select
+                                    value={offsetUnit}
+                                    onChange={(e) => {
+                                        const u = e.target.value as OffsetUnit
+                                        setOffsetUnit(u)
+                                        const n = Math.floor(Number(offsetAmount))
+                                        if (n > 0)
+                                            setEditor((s) => (s ? { ...s, targetDate: dateFromOffset(today, n, u) } : s))
+                                    }}
+                                    className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                                >
+                                    {OFFSET_UNITS.map((u) => (
+                                        <option key={u} value={u}>
+                                            {u}
+                                        </option>
+                                    ))}
+                                </select>
+                                <span className="text-sm text-neutral-500">from today</span>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                                 Counting down to
                             </span>
                             <DatePicker
@@ -447,6 +529,15 @@ export default function DaysUntil() {
                                     )
                                 }
                             />
+                            <p className="text-sm text-neutral-600">
+                                {formatTargetDate(editor.targetDate)} ·{' '}
+                                {(() => {
+                                    const d = daysUntil(editor.targetDate, today)
+                                    if (d === 0) return 'today'
+                                    if (d < 0) return `${-d} day${d === -1 ? '' : 's'} ago`
+                                    return `${d} day${d === 1 ? '' : 's'} away`
+                                })()}
+                            </p>
                         </div>
                     </form>
                 )}

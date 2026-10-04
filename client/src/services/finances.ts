@@ -17,8 +17,11 @@ import type {
 } from '../types'
 import type { AmountScope, DeleteMode } from '../lib/finance'
 
-/** Add-scope for new groups/rows: visible from this month on, or this month only. */
-export type AddScope = 'all' | 'month'
+/**
+ * Add-scope for new groups/rows: visible from this month on, this month only,
+ * or a fixed inclusive month range.
+ */
+export type AddScope = 'all' | 'month' | 'range'
 
 // ── Groups ────────────────────────────────────────────────────────────────────
 
@@ -32,10 +35,13 @@ export async function createGroup(
     type: 'income' | 'expense' | 'savings',
     scope: AddScope = 'all',
     month?: string,
-    extra?: { recurringAmount?: number }
+    extra?: { recurringAmount?: number },
+    endMonth?: string
 ): Promise<FinanceGroup> {
-    // "all" = from the viewed month onward; "month" = that single month only.
-    const lifecycle = month ? { startMonth: month, endMonth: scope === 'month' ? month : null } : {}
+    // "all" = from `month` onward; "month" = that single month only;
+    // "range" = `month` through `endMonth`, both inclusive.
+    const end = scope === 'month' ? month : scope === 'range' ? (endMonth ?? month) : null
+    const lifecycle = month ? { startMonth: month, endMonth: end } : {}
     const res = await api.post<ApiResponse<FinanceGroup>>('/finances/groups', {
         name,
         type,

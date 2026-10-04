@@ -84,9 +84,10 @@ async function request<T>(path: string): Promise<T> {
         })
         if (!res.ok) {
             const body = await res.text().catch(() => '')
+            const rejected = res.status === 401 || res.status === 403
             throw new StarlingError(
-                `Starling API ${res.status} on ${path}${body ? `: ${body.slice(0, 200)}` : ''}`,
-                res.status === 401 || res.status === 403 ? 502 : 502
+                `${rejected ? 'Starling rejected the access token (expired, revoked or missing scopes) - ' : ''}Starling API ${res.status} on ${path}${body ? `: ${body.slice(0, 200)}` : ''}`,
+                502
             )
         }
         return (await res.json()) as T

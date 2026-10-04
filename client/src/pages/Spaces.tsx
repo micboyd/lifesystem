@@ -42,7 +42,7 @@ export default function Spaces() {
     const [loading, setLoading] = useState(true)
     const [spaces, setSpaces] = useState<StarlingSpace[]>([])
     const [configured, setConfigured] = useState(true)
-    const [error, setError] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         let active = true
@@ -51,14 +51,14 @@ export default function Spaces() {
                 if (!active) return
                 setSpaces(s)
                 setConfigured(true)
-                setError(false)
+                setError(null)
             })
             .catch((err) => {
                 if (!active) return
                 if (err?.response?.status === 501) {
                     setConfigured(false)
                 } else {
-                    setError(true)
+                    setError(err?.response?.data?.message ?? 'Check the access token is still valid, then reload this page.')
                 }
             })
             .finally(() => active && setLoading(false))
@@ -90,7 +90,7 @@ export default function Spaces() {
             <EmptyState
                 icon="fa-solid fa-triangle-exclamation"
                 title="Couldn't reach Starling"
-                description="Check the access token is still valid, then reload this page."
+                description={error}
             />
         )
     }
