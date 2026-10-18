@@ -5,6 +5,7 @@ import { Card } from '../components/Card'
 import Input from '../components/Input'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
+import Drawer from '../components/Drawer'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import DatePicker, { type DatePickerValue } from '../components/DatePicker'
@@ -189,12 +190,12 @@ export default function DaysUntil() {
             <header className="mb-8 flex flex-wrap items-center gap-3">
                 <Link
                     to="/profile"
-                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
+                    className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-arrow-left text-sm" aria-hidden="true" />
                 </Link>
                 <div className="flex-1">
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Days Until</h1>
+                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Days Until</h1>
                     <p className="mt-1 text-sm text-neutral-500">
                         Count down to a trip, deadline or milestone — add it yourself or pull the date
                         straight from your calendar.
@@ -232,10 +233,6 @@ export default function DaysUntil() {
                         const passed = days < 0
                         return (
                             <Card key={item._id} className="relative overflow-hidden">
-                                <div
-                                    className={`pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br ${c.glow} to-transparent opacity-70`}
-                                    aria-hidden="true"
-                                />
                                 <div className="relative">
                                     <div className="flex items-start gap-3">
                                         <span
@@ -247,7 +244,7 @@ export default function DaysUntil() {
                                             <p className="truncate font-bold tracking-tight text-neutral-900">
                                                 {item.label}
                                             </p>
-                                            <p className="text-xs text-neutral-400">
+                                            <p className="text-xs text-neutral-500">
                                                 {formatTargetDate(item.targetDate)}
                                             </p>
                                         </div>
@@ -257,7 +254,7 @@ export default function DaysUntil() {
                                                 <button
                                                     type="button"
                                                     aria-label="Options"
-                                                    className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                                    className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                                 >
                                                     <i className="fa-solid fa-ellipsis" aria-hidden="true" />
                                                 </button>
@@ -289,7 +286,7 @@ export default function DaysUntil() {
                                                 <span className="text-3xl font-extrabold tracking-tight text-neutral-300">
                                                     {-days}
                                                 </span>
-                                                <span className="text-sm font-semibold text-neutral-400">
+                                                <span className="text-sm font-semibold text-neutral-500">
                                                     {-days === 1 ? 'day ago' : 'days ago'}
                                                 </span>
                                             </>
@@ -298,7 +295,7 @@ export default function DaysUntil() {
                                                 <span className={`text-5xl font-extrabold tracking-tight ${c.accent}`}>
                                                     {days}
                                                 </span>
-                                                <span className="text-sm font-semibold text-neutral-400">
+                                                <span className="text-sm font-semibold text-neutral-500">
                                                     {days === 1 ? 'day' : 'days'} to go
                                                 </span>
                                             </>
@@ -311,7 +308,7 @@ export default function DaysUntil() {
                 </div>
             )}
 
-            <Modal
+            <Drawer size="lg"
                 open={editor !== null}
                 onClose={() => setEditor(null)}
                 title={pickingEvent ? 'Pick from your calendar' : editor?.id ? 'Edit countdown' : 'New countdown'}
@@ -343,7 +340,7 @@ export default function DaysUntil() {
                                 <Spinner />
                             </div>
                         ) : matchingEvents.length === 0 ? (
-                            <p className="px-1 py-6 text-center text-sm text-neutral-400">
+                            <p className="px-1 py-6 text-center text-sm text-neutral-500">
                                 {eventQuery.trim()
                                     ? `Nothing upcoming matches “${eventQuery.trim()}”.`
                                     : 'Nothing on your calendar in the next year yet.'}
@@ -357,10 +354,10 @@ export default function DaysUntil() {
                                             onClick={() => pickEvent(event)}
                                             className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/50"
                                         >
-                                            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-900">
+                                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900">
                                                 {event.title}
                                             </span>
-                                            <span className="shrink-0 text-xs text-neutral-400">
+                                            <span className="shrink-0 text-[11px] text-neutral-500">
                                                 {formatTargetDate(event.startDate)}
                                             </span>
                                         </button>
@@ -377,7 +374,7 @@ export default function DaysUntil() {
                 {editor && !pickingEvent && (
                     <form onSubmit={handleSave} className="flex flex-col gap-5">
                         {error && (
-                            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
+                            <p className="rounded-2xl bg-danger-bg px-4 py-3.5 text-[13px] text-red-700">{error}</p>
                         )}
 
                         {!editor.id && (
@@ -390,14 +387,14 @@ export default function DaysUntil() {
                                     <i className="fa-solid fa-calendar-days" aria-hidden="true" />
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                    <span className="block text-sm font-semibold text-neutral-900">
+                                    <span className="block text-sm font-medium text-neutral-900">
                                         Pick from your calendar
                                     </span>
-                                    <span className="block text-xs text-neutral-400">
+                                    <span className="block text-[11px] text-neutral-500">
                                         Fills in the name and date from an existing event
                                     </span>
                                 </span>
-                                <i className="fa-solid fa-chevron-right text-xs text-neutral-300" aria-hidden="true" />
+                                <i className="fa-solid fa-chevron-right text-[11px] text-neutral-300" aria-hidden="true" />
                             </button>
                         )}
 
@@ -410,7 +407,7 @@ export default function DaysUntil() {
                         />
 
                         <div className="flex flex-col gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Icon
                             </span>
                             <div className="flex flex-wrap gap-2">
@@ -433,7 +430,7 @@ export default function DaysUntil() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Colour
                             </span>
                             <div className="flex flex-wrap gap-2.5">
@@ -457,7 +454,7 @@ export default function DaysUntil() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 From today
                             </span>
                             <div className="flex flex-wrap gap-2">
@@ -494,7 +491,7 @@ export default function DaysUntil() {
                                                 s ? { ...s, targetDate: dateFromOffset(today, n, offsetUnit) } : s
                                             )
                                     }}
-                                    className="w-24 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                                    className="w-24 rounded-[10px] border border-neutral-200 hover:border-neutral-300 px-3 h-10 text-sm focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 outline-none focus-visible:outline-none"
                                 />
                                 <select
                                     value={offsetUnit}
@@ -518,7 +515,7 @@ export default function DaysUntil() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Counting down to
                             </span>
                             <DatePicker
@@ -541,7 +538,7 @@ export default function DaysUntil() {
                         </div>
                     </form>
                 )}
-            </Modal>
+            </Drawer>
 
             <Modal
                 open={deleteTarget !== null}

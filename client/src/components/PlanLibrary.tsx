@@ -6,7 +6,6 @@ import DatePicker from './DatePicker'
 import EmptyState from './EmptyState'
 import DropdownMenu from './DropdownMenu'
 import Drawer from './Drawer'
-import Modal from './Modal'
 import ConfirmModal from './ConfirmModal'
 import Tabs from './Tabs'
 import Alert from './Alert'
@@ -479,7 +478,7 @@ function PlanCard({
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                     <p className="truncate font-semibold text-neutral-900">{plan.name}</p>
-                    <p className="mt-0.5 text-xs text-neutral-400">
+                    <p className="mt-0.5 text-xs text-neutral-500">
                         {formatWeekRange(plan.planStart, plan.planEnd)}
                         {plan.phases.length > 0 && ` · ${plan.phases.length} phases`}
                     </p>
@@ -490,7 +489,7 @@ function PlanCard({
                     trigger={
                         <span
                             aria-label="Plan actions"
-                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                            className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                         >
                             <LineIcon name="more" className="h-4 w-4" />
                         </span>
@@ -540,7 +539,7 @@ function PlanCard({
                         {plan.appliedEntries} on the planner
                     </span>
                 ) : (
-                    <span className="text-xs text-neutral-400">Not applied yet</span>
+                    <span className="text-xs text-neutral-500">Not applied yet</span>
                 )}
                 <div className="flex items-center gap-2">
                     {overloadCount > 0 && (
@@ -640,7 +639,7 @@ function OverloadDrawer({
                                     <p className="text-sm font-semibold text-neutral-900">
                                         {plan.name}
                                     </p>
-                                    <p className="text-xs text-neutral-400">
+                                    <p className="text-xs text-neutral-500">
                                         {overloadsByPlan.get(plan._id)?.length} slot
                                         {overloadsByPlan.get(plan._id)?.length === 1 ? '' : 's'}
                                     </p>
@@ -699,9 +698,9 @@ function OverloadRow({
                 <span className="text-sm font-semibold text-neutral-800">
                     {formatDateLong(overload.date)}
                 </span>
-                <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-violet-500">
+                <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-violet-500">
                     <i
-                        className={`${PART_META[overload.part].icon} text-[10px]`}
+                        className={`${PART_META[overload.part].icon} text-[11px]`}
                         aria-hidden="true"
                     />
                     {PART_META[overload.part].label}
@@ -714,7 +713,7 @@ function OverloadRow({
                     return (
                         <div key={`${entry.item}-${i}`} className="flex items-center gap-2 text-sm">
                             <i
-                                className={`${KIND_META[entry.kind].icon} shrink-0 text-xs text-neutral-400`}
+                                className={`${KIND_META[entry.kind].icon} shrink-0 text-xs text-neutral-500`}
                                 aria-hidden="true"
                             />
                             <span className="min-w-0 flex-1 truncate font-semibold text-neutral-800">
@@ -738,7 +737,7 @@ function OverloadRow({
                                     Move to {PART_META[target].label}
                                 </button>
                             ) : (
-                                <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-neutral-400">
+                                <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-neutral-500">
                                     <i className="fa-solid fa-ban text-[11px]" aria-hidden="true" />
                                     No free slot
                                 </span>
@@ -836,11 +835,11 @@ function PlanDetail({ plan }: { plan: TrainingPlan }) {
         <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
-                    <i className="fa-regular fa-calendar text-neutral-400" aria-hidden="true" />
+                    <i className="fa-regular fa-calendar text-neutral-500" aria-hidden="true" />
                     {formatWeekRange(plan.planStart, plan.planEnd)}
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
-                    <i className="fa-solid fa-list-check text-neutral-400" aria-hidden="true" />
+                    <i className="fa-solid fa-list-check text-neutral-500" aria-hidden="true" />
                     {plan.schedule?.length ?? 0} scheduled sessions
                 </span>
                 {plan.appliedEntries > 0 && (
@@ -884,7 +883,7 @@ function PlanDetail({ plan }: { plan: TrainingPlan }) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
     return (
         <section>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 {title}
             </p>
             {children}
@@ -897,7 +896,7 @@ function ProseList({ rows }: { rows: { label: string; value: string }[] }) {
         <dl className="flex flex-col gap-2.5">
             {rows.map((r) => (
                 <div key={r.label}>
-                    <dt className="text-xs font-semibold text-neutral-500">{r.label}</dt>
+                    <dt className="text-[11px] font-medium text-neutral-500">{r.label}</dt>
                     <dd className="text-sm text-neutral-700">{r.value}</dd>
                 </div>
             ))}
@@ -942,7 +941,7 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
                     <ol className="flex flex-col gap-2">
                         {checkpoints.map((c, i) => (
                             <li key={i} className="flex gap-3 text-sm">
-                                <span className="w-28 shrink-0 font-semibold text-neutral-500">
+                                <span className="w-28 shrink-0 font-medium text-neutral-500">
                                     {c.date ? formatDateShort(c.date) : ''}
                                 </span>
                                 <span className="text-neutral-700">
@@ -962,7 +961,7 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
                                 <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                                     <p className="font-semibold text-neutral-900">{p.name}</p>
                                     {p.dates && (
-                                        <p className="text-xs text-neutral-400">
+                                        <p className="text-xs text-neutral-500">
                                             {readableDates(p.dates)}
                                         </p>
                                     )}
@@ -1027,7 +1026,7 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
                                 <span className="min-w-0 text-neutral-700">
                                     {readableDates(o.summary)}
                                     {o.notes && (
-                                        <span className="text-neutral-400">
+                                        <span className="text-neutral-500">
                                             {' '}
                                             — {readableDates(o.notes)}
                                         </span>
@@ -1055,7 +1054,7 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
 function WeekTab({ plan }: { plan: TrainingPlan }) {
     if (plan.weeklyTemplate.length === 0) {
         return (
-            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-6 text-center text-xs text-neutral-400">
+            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-6 text-center text-xs text-neutral-500">
                 This plan has no week-at-a-glance table.
             </p>
         )
@@ -1071,13 +1070,13 @@ function WeekTab({ plan }: { plan: TrainingPlan }) {
         <div className="flex flex-col gap-3">
             {plan.weeklyTemplate.map((row) => (
                 <div key={row.day} className="rounded-xl border border-neutral-200 p-3">
-                    <p className="font-semibold text-neutral-900">{row.day}</p>
+                    <p className="font-medium text-neutral-900">{row.day}</p>
                     <dl className="mt-1.5 flex flex-col gap-1 text-sm">
                         {columns.map(({ key, label }) => {
                             const value = row[key]
                             return value ? (
                                 <div key={key} className="flex gap-2">
-                                    <dt className="w-28 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    <dt className="w-28 shrink-0 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         {label}
                                     </dt>
                                     <dd className="min-w-0 text-neutral-700">
@@ -1108,7 +1107,7 @@ function SessionsTab({ plan }: { plan: TrainingPlan }) {
 
     if (groups.length === 0) {
         return (
-            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-6 text-center text-xs text-neutral-400">
+            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-6 text-center text-xs text-neutral-500">
                 This plan links no library items.
             </p>
         )
@@ -1132,7 +1131,7 @@ function SessionsTab({ plan }: { plan: TrainingPlan }) {
                                         Added
                                     </span>
                                 ) : (
-                                    <span className="shrink-0 text-[11px] font-medium text-neutral-400">
+                                    <span className="shrink-0 text-[11px] font-medium text-neutral-500">
                                         Existing
                                     </span>
                                 )}
@@ -1172,7 +1171,7 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
     return (
         <div className="flex flex-col gap-3">
             <div className="flex w-52 flex-col gap-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                <label className="text-[13px] font-medium text-neutral-700">
                     Show from
                 </label>
                 <DatePicker
@@ -1184,18 +1183,18 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
             </div>
 
             {days.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-6 text-center text-xs text-neutral-400">
+                <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-6 text-center text-[11px] text-neutral-500">
                     Nothing scheduled from this date onwards.
                 </p>
             ) : (
                 days.map(([date, entries]) => (
                     <div key={date} className="rounded-xl border border-neutral-200 p-3">
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 {formatDateShort(date)}
                             </p>
                             {overrideOn(date) && (
-                                <span className="text-[11px] font-semibold text-amber-700">
+                                <span className="text-[11px] font-medium text-amber-700">
                                     Exception ·{' '}
                                     {readableDates(
                                         overrideOn(date)!.notes ?? overrideOn(date)!.summary
@@ -1207,13 +1206,13 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
                             {entries.map((e, i) => (
                                 <li key={i} className="flex items-baseline gap-2 text-sm">
                                     <i
-                                        className={`${KIND_META[e.kind].icon} w-4 shrink-0 text-xs text-neutral-400`}
+                                        className={`${KIND_META[e.kind].icon} w-4 shrink-0 text-xs text-neutral-500`}
                                         aria-hidden="true"
                                     />
                                     <span className="min-w-0 text-neutral-700">
                                         {readableDates(e.label)}
                                     </span>
-                                    <span className="ml-auto shrink-0 text-[11px] capitalize text-neutral-400">
+                                    <span className="ml-auto shrink-0 text-[11px] capitalize text-neutral-500">
                                         {e.part}
                                     </span>
                                 </li>
@@ -1226,7 +1225,7 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
                                         entries.map((e) => e.notes).filter((n): n is string => !!n)
                                     ),
                                 ].map((note) => (
-                                    <li key={note} className="text-[11px] text-neutral-400">
+                                    <li key={note} className="text-[11px] text-neutral-500">
                                         {readableDates(note)}
                                     </li>
                                 ))}
@@ -1308,10 +1307,10 @@ function ExportPlanBody({ plan, onClose }: { plan: TrainingPlan; onClose: () => 
     }
 
     return (
-        <Modal
+        <Drawer size="xl"
             open
             onClose={onClose}
-            size="lg"
+           
             title="Export plan"
             footer={
                 <>
@@ -1358,13 +1357,13 @@ function ExportPlanBody({ plan, onClose }: { plan: TrainingPlan; onClose: () => 
                     </div>
                 ) : (
                     json !== null && (
-                        <pre className="max-h-[45vh] overflow-auto rounded-xl bg-neutral-900 p-4 text-xs leading-relaxed text-neutral-100">
+                        <pre className="max-h-[45vh] overflow-auto rounded-xl bg-neutral-900 p-4 text-[11px] leading-relaxed text-neutral-100">
                             <code>{json}</code>
                         </pre>
                     )
                 )}
             </div>
-        </Modal>
+        </Drawer>
     )
 }
 
@@ -1446,7 +1445,7 @@ function ApplyPlanForm({
     }
 
     return (
-        <Modal
+        <Drawer size="lg"
             open
             onClose={onClose}
             title="Apply to planner"
@@ -1470,7 +1469,7 @@ function ApplyPlanForm({
 
                 <div className="flex gap-3">
                     <div className="flex flex-1 flex-col gap-1.5">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <label className="text-[13px] font-medium text-neutral-700">
                             From
                         </label>
                         <DatePicker
@@ -1483,7 +1482,7 @@ function ApplyPlanForm({
                         />
                     </div>
                     <div className="flex flex-1 flex-col gap-1.5">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <label className="text-[13px] font-medium text-neutral-700">
                             To
                         </label>
                         <DatePicker
@@ -1496,7 +1495,7 @@ function ApplyPlanForm({
                 </div>
 
                 <div className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         What to place
                     </p>
                     <div className="grid grid-cols-2 gap-2">
@@ -1513,10 +1512,10 @@ function ApplyPlanForm({
 
                 <div className="flex items-start justify-between gap-4 rounded-xl border border-neutral-200 p-3">
                     <div className="min-w-0">
-                        <p className="text-sm font-semibold text-neutral-900">
+                        <p className="text-sm font-medium text-neutral-900">
                             Clear the dates first
                         </p>
-                        <p className="mt-0.5 text-xs text-neutral-400">
+                        <p className="mt-0.5 text-[11px] text-neutral-500">
                             Also removes sessions you placed by hand in this window.
                         </p>
                     </div>
@@ -1531,6 +1530,6 @@ function ApplyPlanForm({
                     </Alert>
                 )}
             </div>
-        </Modal>
+        </Drawer>
     )
 }

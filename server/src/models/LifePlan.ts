@@ -7,7 +7,7 @@ import { MONTH_PATTERN } from './MonthNote'
  * abstract life areas — each pillar is a lane on the timeline that reads from
  * something already recorded elsewhere.
  */
-export const LIFE_PILLARS = ['training', 'nutrition', 'money', 'study', 'life'] as const
+export const LIFE_PILLARS = ['training', 'nutrition', 'money', 'life'] as const
 export type LifePillar = (typeof LIFE_PILLARS)[number]
 
 /** What a season is trying to do in one pillar, in the user's own words. */
@@ -27,7 +27,6 @@ export interface ISeasonLinks {
     nutritionPhases: Types.ObjectId[]
     savingsTargets: Types.ObjectId[]
     goals: Types.ObjectId[]
-    courses: Types.ObjectId[]
     monthNotes: Types.ObjectId[]
 }
 
@@ -101,7 +100,6 @@ const linksSchema = new Schema<ISeasonLinks>(
             default: [],
         },
         goals: { type: [{ type: Schema.Types.ObjectId, ref: 'Goal' }], default: [] },
-        courses: { type: [{ type: Schema.Types.ObjectId, ref: 'Course' }], default: [] },
         monthNotes: { type: [{ type: Schema.Types.ObjectId, ref: 'MonthNote' }], default: [] },
     },
     { _id: false }

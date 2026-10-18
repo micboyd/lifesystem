@@ -48,7 +48,7 @@ export default function MetricChart({
 }) {
     if (points.length < 2) {
         return (
-            <p className="py-8 text-center text-sm text-neutral-400">
+            <p className="py-8 text-center text-sm text-neutral-500">
                 {points.length === 0
                     ? 'No readings yet.'
                     : 'One more reading and the line appears.'}
@@ -99,7 +99,7 @@ export default function MetricChart({
                                 x={CHART_W - PAD_X}
                                 y={y(target) - 5}
                                 textAnchor="end"
-                                className="fill-emerald-600 text-[10px] font-semibold"
+                                className="fill-emerald-600 text-[11px] font-semibold"
                             >
                                 {targetLabel}
                             </text>
@@ -127,7 +127,7 @@ export default function MetricChart({
                     strokeLinecap="round"
                 />
             </svg>
-            <div className="flex justify-between px-1 text-[11px] tabular-nums text-neutral-400">
+            <div className="flex justify-between px-1 text-[11px] tabular-nums text-neutral-500">
                 <span>
                     {format(points[0].value)} {unit}
                 </span>

@@ -63,7 +63,7 @@ export default function MonthView({
                 {WEEKDAY_HEADERS.map((d) => (
                     <div
                         key={d}
-                        className="py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-neutral-400"
+                        className="py-2.5 text-center text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600"
                     >
                         {d}
                     </div>
@@ -186,7 +186,7 @@ export default function MonthView({
                                     )
                                 })}
                                 {overflow > 0 && (
-                                    <span className="px-1.5 text-[11px] font-semibold text-neutral-400">
+                                    <span className="px-1.5 text-[11px] font-semibold text-neutral-500">
                                         +{overflow} more
                                     </span>
                                 )}

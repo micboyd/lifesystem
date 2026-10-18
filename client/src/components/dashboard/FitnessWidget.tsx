@@ -1,35 +1,58 @@
 import { useEffect, useState } from 'react'
-import { Card, CardAction, CardHeader, CardTitle } from '../Card'
-import Spinner from '../Spinner'
+import { Link } from 'react-router-dom'
+import DashSection, { SectionLoading } from './DashSection'
 import { listPlanEntries } from '../../services/fitnessPlan'
-import { addDays, parseDateKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
 import type { FitnessPlanEntry, FitnessPlanKind, ConditioningCategory } from '../../types'
 
 // ── Presentation ────────────────────────────────────────────────────────────────
 
-const KIND_META: Record<FitnessPlanKind, { noun: string; icon: string }> = {
-    workout: { noun: 'workout', icon: 'fa-solid fa-dumbbell' },
-    conditioning: { noun: 'session', icon: 'fa-solid fa-heart-pulse' },
-    mobility: { noun: 'routine', icon: 'fa-solid fa-person-walking' },
-    recovery: { noun: 'item', icon: 'fa-solid fa-spa' },
+const KIND_META: Record<FitnessPlanKind, { icon: string }> = {
+    workout: { icon: 'fa-solid fa-dumbbell' },
+    conditioning: { icon: 'fa-solid fa-heart-pulse' },
+    mobility: { icon: 'fa-solid fa-person-walking' },
+    recovery: { icon: 'fa-solid fa-spa' },
 }
 
-const CATEGORY_CHIP: Record<ConditioningCategory, string> = {
-    HIIT: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-    Cardio: 'bg-sky-50 text-sky-700 ring-sky-600/20',
-    Endurance: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
-    Mobility: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-    Recovery: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+/** The icon colour each kind takes on the ink panel. Full class strings so Tailwind keeps them. */
+const TONES = {
+    coral: 'text-coral-300',
+    rose: 'text-rose-300',
+    sky: 'text-sky-300',
+    indigo: 'text-indigo-300',
+    amber: 'text-amber-300',
+    emerald: 'text-emerald-300',
 }
 
-function CategoryChip({ category }: { category: ConditioningCategory }) {
-    return (
-        <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${CATEGORY_CHIP[category]}`}
-        >
-            {category}
-        </span>
-    )
+type Tone = (typeof TONES)[keyof typeof TONES]
+
+const CATEGORY_TONE: Record<ConditioningCategory, Tone> = {
+    HIIT: TONES.rose,
+    Cardio: TONES.sky,
+    Endurance: TONES.indigo,
+    Mobility: TONES.amber,
+    Recovery: TONES.emerald,
+}
+
+/** Strength reads coral; conditioning takes its category's colour. */
+function toneFor(entry: FitnessPlanEntry): Tone {
+    if (entry.kind === 'workout') return TONES.coral
+    if (entry.kind === 'conditioning') return entry.session ? CATEGORY_TONE[entry.session.category] : TONES.rose
+    if (entry.kind === 'mobility') return TONES.amber
+    return TONES.emerald
+}
+
+/** "HIIT · 25 min", "6 exercises" — the one line of detail under the name. */
+function detailFor(entry: FitnessPlanEntry): string | null {
+    const mins = (n: number | undefined) => (n && n > 0 ? `${n} min` : null)
+    const join = (...parts: (string | null)[]) => parts.filter(Boolean).join(' · ') || null
+    if (entry.kind === 'workout' && entry.workout) {
+        const n = entry.workout.main.length
+        return `Strength · ${n} ${n === 1 ? 'exercise' : 'exercises'}`
+    }
+    if (entry.kind === 'conditioning' && entry.session) return join(entry.session.category, mins(entry.session.duration))
+    if (entry.kind === 'mobility' && entry.mobility) return join('Mobility', mins(entry.mobility.duration))
+    if (entry.recovery) return join('Recovery', mins(entry.recovery.duration))
+    return null
 }
 
 /** Name + a one-line detail for a single planned item. */
@@ -45,51 +68,19 @@ function planName(entry: FitnessPlanEntry): string {
     return name ?? 'Untitled'
 }
 
-/** One planned workout or conditioning session, as a row. */
+/** One planned item on the ink panel. */
 function PlanRow({ entry }: { entry: FitnessPlanEntry }) {
-    const meta = KIND_META[entry.kind]
+    const detail = detailFor(entry)
     return (
-        <li className="flex items-center gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-sm text-neutral-500">
-                <i className={meta.icon} aria-hidden="true" />
+        <li className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
+            <span
+                className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/[0.08] text-base ${toneFor(entry)}`}
+            >
+                <i className={KIND_META[entry.kind].icon} aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-neutral-900">{planName(entry)}</p>
-                {entry.kind === 'workout' && entry.workout ? (
-                    <p className="text-xs tabular-nums text-neutral-400">
-                        {entry.workout.main.length}{' '}
-                        {entry.workout.main.length === 1 ? 'exercise' : 'exercises'}
-                    </p>
-                ) : entry.kind === 'conditioning' && entry.session ? (
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                        <CategoryChip category={entry.session.category} />
-                        <span className="text-xs tabular-nums text-neutral-400">
-                            {entry.session.duration} min
-                        </span>
-                    </div>
-                ) : entry.kind === 'mobility' && entry.mobility ? (
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20">
-                            Mobility
-                        </span>
-                        {entry.mobility.duration > 0 && (
-                            <span className="text-xs tabular-nums text-neutral-400">
-                                {entry.mobility.duration} min
-                            </span>
-                        )}
-                    </div>
-                ) : entry.recovery ? (
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-                            Recovery
-                        </span>
-                        {entry.recovery.duration > 0 && (
-                            <span className="text-xs tabular-nums text-neutral-400">
-                                {entry.recovery.duration} min
-                            </span>
-                        )}
-                    </div>
-                ) : null}
+                <p className="truncate text-lg font-semibold tracking-[-0.015em] text-white">{planName(entry)}</p>
+                {detail && <p className="mt-0.5 truncate text-sm text-brand-100">{detail}</p>}
             </div>
         </li>
     )
@@ -99,136 +90,67 @@ function PlanRow({ entry }: { entry: FitnessPlanEntry }) {
 
 function TodayFitness({ date }: { date: string }) {
     const [entries, setEntries] = useState<FitnessPlanEntry[]>([])
-    const [loading, setLoading] = useState(true)
+    // Derived loading — avoids a synchronous setState inside the fetch effect.
+    const [loadedDate, setLoadedDate] = useState<string | null>(null)
+    const loading = loadedDate !== date
 
     useEffect(() => {
         let active = true
-        setLoading(true)
         listPlanEntries(date, date)
             .then((rows) => active && setEntries(rows))
-            .finally(() => active && setLoading(false))
+            .catch(() => active && setEntries([]))
+            .finally(() => active && setLoadedDate(date))
         return () => {
             active = false
         }
     }, [date])
 
-    return (
-        <Card>
-            <CardHeader className="flex items-center justify-between gap-4">
-                <CardTitle>Today&apos;s training</CardTitle>
-                <CardAction to="/fitness">Planner</CardAction>
-            </CardHeader>
+    const count = entries.length
 
+    return (
+        <DashSection
+            title="Training"
+            icon="fa-solid fa-dumbbell"
+            tone="coral"
+            meta={loading ? undefined : count === 0 ? 'Rest day' : `${count} ${count === 1 ? 'session' : 'sessions'} today`}
+            to="/fitness"
+            action="Planner"
+        >
             {loading ? (
-                <div className="grid place-items-center py-8">
-                    <Spinner />
-                </div>
-            ) : entries.length === 0 ? (
-                <div className="flex items-center gap-3 py-2">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-sm text-emerald-600">
+                <SectionLoading rows={2} />
+            ) : count === 0 ? (
+                <div className="flex items-center gap-4 border-y border-neutral-200 py-5">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-success-bg text-base text-success">
                         <i className="fa-solid fa-mug-hot" aria-hidden="true" />
                     </span>
                     <div>
-                        <p className="text-sm font-semibold text-neutral-900">Rest day</p>
-                        <p className="text-xs text-neutral-400">Nothing scheduled — recover well.</p>
+                        <p className="text-base font-medium text-neutral-900">Nothing scheduled</p>
+                        <p className="mt-0.5 text-sm text-neutral-500">Recover well.</p>
                     </div>
                 </div>
             ) : (
-                <ul className="flex flex-col gap-3">
-                    {entries.map((e) => (
-                        <PlanRow key={e._id} entry={e} />
-                    ))}
-                </ul>
-            )}
-        </Card>
-    )
-}
-
-// ── Week ahead ────────────────────────────────────────────────────────────────
-
-/** Number of days after today the "week ahead" looks forward. */
-const AHEAD_DAYS = 7
-
-/** "Tomorrow", or "Tue 5 Aug" for days further out. */
-function dayLabel(date: string, from: string): string {
-    if (date === addDays(from, 1)) return 'Tomorrow'
-    const { year, month, day } = parseDateKey(date)
-    const wd = WEEKDAYS_LONG[new Date(year, month, day).getDay()].slice(0, 3)
-    return `${wd} ${day} ${MONTHS[month].slice(0, 3)}`
-}
-
-function WeekAheadFitness({ date }: { date: string }) {
-    const [entries, setEntries] = useState<FitnessPlanEntry[]>([])
-    const [loading, setLoading] = useState(true)
-
-    const start = addDays(date, 1)
-    const end = addDays(date, AHEAD_DAYS)
-
-    useEffect(() => {
-        let active = true
-        setLoading(true)
-        listPlanEntries(start, end)
-            .then((rows) => active && setEntries(rows))
-            .finally(() => active && setLoading(false))
-        return () => {
-            active = false
-        }
-    }, [start, end])
-
-    // Group by day, in date order, skipping empty days.
-    const days = Array.from({ length: AHEAD_DAYS }, (_, i) => addDays(start, i))
-        .map((d) => ({ date: d, items: entries.filter((e) => e.date === d) }))
-        .filter((g) => g.items.length > 0)
-
-    return (
-        <Card>
-            <CardHeader className="flex items-center justify-between gap-4">
-                <CardTitle>Training week</CardTitle>
-                <CardAction to="/fitness">Planner</CardAction>
-            </CardHeader>
-
-            {loading ? (
-                <div className="grid place-items-center py-8">
-                    <Spinner />
-                </div>
-            ) : days.length === 0 ? (
-                <div className="flex items-center gap-3 py-2">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-sm text-emerald-600">
-                        <i className="fa-solid fa-mug-hot" aria-hidden="true" />
-                    </span>
-                    <div>
-                        <p className="text-sm font-semibold text-neutral-900">No training scheduled</p>
-                        <p className="text-xs text-neutral-400">The week ahead is clear.</p>
-                    </div>
-                </div>
-            ) : (
-                <div className="flex flex-col gap-4">
-                    {days.map((g) => (
-                        <div key={g.date} className="flex flex-col gap-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-                                {dayLabel(g.date, date)}
-                            </p>
-                            <ul className="flex flex-col gap-3">
-                                {g.items.map((e) => (
-                                    <PlanRow key={e._id} entry={e} />
-                                ))}
-                            </ul>
-                        </div>
-                    ))}
+                // The one coloured surface on the page: what training today looks like.
+                <div className="rounded-3xl bg-brand-700 p-6 sm:p-8">
+                    <ul className="divide-y divide-white/10">
+                        {entries.map((e) => (
+                            <PlanRow key={e._id} entry={e} />
+                        ))}
+                    </ul>
+                    <Link
+                        to="/fitness"
+                        className="mt-6 flex h-11 items-center justify-center gap-2 rounded-xl bg-white text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50"
+                    >
+                        Open today&apos;s plan
+                        <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
+                    </Link>
                 </div>
             )}
-        </Card>
+        </DashSection>
     )
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────────
 
-export default function FitnessWidget({
-    date,
-    cadence,
-}: {
-    date: string
-    cadence: 'today' | 'week'
-}) {
-    return cadence === 'today' ? <TodayFitness date={date} /> : <WeekAheadFitness date={date} />
+export default function FitnessWidget({ date }: { date: string }) {
+    return <TodayFitness date={date} />
 }

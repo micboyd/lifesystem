@@ -40,7 +40,7 @@ export function VideoSheet({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="h-11 rounded-xl bg-neutral-900 px-5 text-sm font-semibold text-white hover:bg-neutral-800"
+                        className="h-11 rounded-xl bg-neutral-900 px-5 text-sm font-medium text-neutral-50 transition-colors hover:bg-neutral-800"
                     >
                         Back to workout
                     </button>
@@ -78,7 +78,7 @@ export function VideoButton({ url, title }: { url?: string; title: string }) {
     if (!video) return null
 
     const cls =
-        'inline-grid h-9 w-9 shrink-0 place-items-center rounded-full bg-red-50 text-red-600 transition-colors hover:bg-red-100 active:bg-red-200'
+        'inline-grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-red-50 text-red-600 transition-colors hover:bg-red-100 active:bg-red-200'
     const icon = <i className="fa-solid fa-play text-xs" aria-hidden="true" />
 
     if (video.kind === 'link') {

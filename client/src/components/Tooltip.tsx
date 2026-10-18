@@ -36,7 +36,7 @@ export default function Tooltip({
             {show && (
                 <span
                     role="tooltip"
-                    className={`pointer-events-none absolute z-50 whitespace-nowrap rounded-lg bg-neutral-950 px-2.5 py-1.5 text-xs font-medium text-white shadow-md ${placementClasses[placement]} ${className}`}
+                    className={`pointer-events-none absolute z-50 whitespace-nowrap rounded-lg bg-neutral-900 px-2.5 py-1.5 text-xs font-medium text-neutral-50 shadow-md ${placementClasses[placement]} ${className}`}
                 >
                     {content}
                 </span>

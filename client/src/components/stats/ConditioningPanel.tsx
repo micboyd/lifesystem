@@ -60,7 +60,7 @@ export default function ConditioningPanel({
             <Card hover={false} className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <h3 className="text-sm font-bold text-neutral-900">{read.headline}</h3>
-                    <p className="text-xs text-neutral-400">{rangeLabel}</p>
+                    <p className="text-xs text-neutral-500">{rangeLabel}</p>
                 </div>
                 <p className="max-w-2xl text-sm text-neutral-500">{read.detail}</p>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -88,7 +88,7 @@ export default function ConditioningPanel({
                         tone={read.tone}
                     />
                 </div>
-                <p className="text-[11px] text-neutral-400">
+                <p className="text-[11px] text-neutral-500">
                     The fuller read — waist, intake and intended rate together — lives on Nutrition
                     → Progress.
                 </p>
@@ -145,7 +145,7 @@ export default function ConditioningPanel({
                             </p>
                         </div>
                         {summary.byCategory.length === 0 ? (
-                            <p className="text-sm text-neutral-400">
+                            <p className="text-sm text-neutral-500">
                                 No conditioning logged in this range.
                             </p>
                         ) : (

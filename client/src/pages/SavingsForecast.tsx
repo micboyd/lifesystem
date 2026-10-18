@@ -157,12 +157,12 @@ function MonthDrawer({
                         <p className="text-xl font-bold tracking-tight text-neutral-900">
                             Year {yearRow.year}
                         </p>
-                        <p className="mt-0.5 text-sm text-neutral-400">Month by month breakdown</p>
+                        <p className="mt-0.5 text-sm text-neutral-500">Month by month breakdown</p>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="grid h-9 w-9 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                        className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                     >
                         <i className="fa-solid fa-xmark" aria-hidden="true" />
                     </button>
@@ -171,7 +171,7 @@ function MonthDrawer({
                 <div className="flex-1 overflow-y-auto overflow-x-auto">
                     <table className="w-full min-w-[26rem]">
                         <thead className="sticky top-0 bg-white">
-                            <tr className="border-b border-neutral-100 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                            <tr className="border-b border-neutral-100 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 <th className="py-4 pl-4 pr-4 text-left sm:pl-8">Month</th>
                                 <th className="px-4 py-4 text-right">Contributions</th>
                                 <th className="px-4 py-4 text-right">Interest</th>
@@ -202,15 +202,15 @@ function MonthDrawer({
                 <div className="border-t border-neutral-100 px-4 py-5 sm:px-8 sm:py-6">
                     <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Contributions</p>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Contributions</p>
                             <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">£{fmt(yearRow.contributions, 0)}</p>
                         </div>
                         <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Interest</p>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Interest</p>
                             <p className="mt-1 text-base font-bold tabular-nums text-emerald-600">+£{fmt(yearRow.interestEarned, 0)}</p>
                         </div>
                         <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">End balance</p>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">End balance</p>
                             <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">£{fmt(yearRow.endBalance, 0)}</p>
                         </div>
                     </div>
@@ -239,11 +239,11 @@ function SettingField({ label, value, prefix, suffix, onChange, onCommit }: Sett
     }
     return (
         <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+            <label className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 {label}
             </label>
             <div className="flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 transition-all focus-within:border-neutral-950 focus-within:ring-4 focus-within:ring-neutral-950/5">
-                {prefix && <span className="text-sm font-semibold text-neutral-400">{prefix}</span>}
+                {prefix && <span className="text-sm font-semibold text-neutral-500">{prefix}</span>}
                 <input
                     ref={inputRef}
                     type="number"
@@ -257,7 +257,7 @@ function SettingField({ label, value, prefix, suffix, onChange, onCommit }: Sett
                     }}
                     className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-neutral-900 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
-                {suffix && <span className="text-sm font-semibold text-neutral-400">{suffix}</span>}
+                {suffix && <span className="text-sm font-semibold text-neutral-500">{suffix}</span>}
             </div>
         </div>
     )
@@ -275,8 +275,8 @@ function MilestoneCard({
     label?: string
 }) {
     return (
-        <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white transition-transform duration-200 hover:-translate-y-0.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+        <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white transition-transform duration-200">
+            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 {label ?? `Year ${year}`}
             </p>
             <p className="text-2xl font-bold tabular-nums tracking-tight">{fmtCompact(balance)}</p>
@@ -329,36 +329,36 @@ function GroupSettingsCard({ group, monthlyContribution, activeDescription, onUp
     }
 
     return (
-        <div className="rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6 transition-colors duration-200 hover:border-neutral-300">
+        <div className="rounded-3xl ring-1 ring-neutral-900/[0.06] bg-white p-4 sm:p-6 transition-colors duration-200 hover:border-neutral-300">
             <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                    <p className="text-lg font-bold tracking-tight text-neutral-900">{group.name}</p>
-                    <p className="mt-0.5 text-sm tabular-nums text-neutral-400">£{fmt(monthlyContribution)} / month</p>
+                    <p className="text-lg font-medium tracking-tight text-neutral-900">{group.name}</p>
+                    <p className="mt-0.5 text-sm tabular-nums text-neutral-500">£{fmt(monthlyContribution)} / month</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">
+                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-blue-700">
                         savings
                     </span>
                     <button
                         type="button"
                         onClick={() => setConfirming(true)}
-                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
+                        className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
                     >
-                        <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                        <i className="fa-solid fa-trash-can text-[11px]" aria-hidden="true" />
                     </button>
                 </div>
             </div>
 
             {confirming ? (
                 <div className="rounded-2xl bg-red-50 p-4">
-                    <p className="text-sm font-semibold text-red-700">Delete {group.name}?</p>
-                    <p className="mt-1 text-xs text-red-500">{monthSummary} This cannot be undone.</p>
+                    <p className="text-sm font-medium text-red-700">Delete {group.name}?</p>
+                    <p className="mt-1 text-[11px] text-red-500">{monthSummary} This cannot be undone.</p>
                     <div className="mt-3 flex gap-2">
                         <button
                             type="button"
                             onClick={handleConfirmDelete}
                             disabled={deleting}
-                            className="rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                            className="inline-flex items-center justify-center rounded-[10px] bg-red-600 px-4 h-8 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
                         >
                             {deleting ? 'Deleting…' : 'Yes, delete'}
                         </button>
@@ -429,7 +429,7 @@ function MonthField({
 }) {
     return (
         <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            <label className="text-[13px] font-medium text-neutral-700">
                 {label}
             </label>
             <DatePicker
@@ -511,10 +511,10 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
 
     return (
         <section>
-            <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+            <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 Savings to date
             </h2>
-            <div className="rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6">
+            <div className="rounded-3xl ring-1 ring-neutral-900/[0.06] bg-white p-4 sm:p-6">
                 <div className="flex flex-wrap items-end gap-3">
                     <MonthField
                         label="From"
@@ -523,14 +523,14 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
                         onChange={setFromDate}
                     />
                     <MonthField label="To" value={toDate} minDate={fromDate} onChange={setToDate} />
-                    <p className="ml-auto max-w-xs text-xs text-neutral-400">
+                    <p className="ml-auto max-w-xs text-xs text-neutral-500">
                         Total you planned to put away, based on the monthly savings amounts on your
                         finance sheet.
                     </p>
                 </div>
 
                 {invalid ? (
-                    <p className="mt-5 text-sm text-neutral-400">
+                    <p className="mt-5 text-sm text-neutral-500">
                         The “From” month must be on or before the “To” month.
                     </p>
                 ) : loading ? (
@@ -540,7 +540,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
                 ) : (
                     <div className="mt-5 flex flex-col gap-4">
                         <div className="rounded-2xl bg-neutral-950 px-5 py-5 text-white">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 You should have saved
                             </p>
                             <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
@@ -572,7 +572,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
 
                         {perMonth.length > 1 && (
                             <div>
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     Monthly breakdown
                                 </p>
                                 <div className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200 overflow-hidden">
@@ -584,7 +584,7 @@ function LiveSavingsSection({ groups, rows }: { groups: FinanceGroup[]; rows: Fi
                                             <span className="text-sm text-neutral-600">
                                                 {new Date(month + '-02').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                                             </span>
-                                            <span className={`text-sm font-semibold tabular-nums ${total === 0 ? 'text-neutral-400' : 'text-neutral-900'}`}>
+                                            <span className={`text-sm font-semibold tabular-nums ${total === 0 ? 'text-neutral-500' : 'text-neutral-900'}`}>
                                                 £{fmt(total)}
                                             </span>
                                         </div>
@@ -781,7 +781,7 @@ function PlanHeadline({ target }: { target: SavingsTarget }) {
 
     return (
         <div className="mt-4 rounded-2xl bg-neutral-50 px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 {label}
             </p>
             <p
@@ -796,7 +796,7 @@ function PlanHeadline({ target }: { target: SavingsTarget }) {
                 ) : (
                     <>
                         £{fmt(target.requiredMonthly)}
-                        <span className="ml-1 text-sm font-semibold text-neutral-400">/ mo</span>
+                        <span className="ml-1 text-sm font-semibold text-neutral-500">/ mo</span>
                     </>
                 )}
             </p>
@@ -835,7 +835,7 @@ function PlanComposition({ target }: { target: SavingsTarget }) {
             <dl className="mt-2.5 grid grid-cols-3 gap-2">
                 {parts.map((p) => (
                     <div key={p.label} className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-[11px] text-neutral-400">
+                        <dt className="flex items-center gap-1.5 text-[11px] text-neutral-500">
                             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${p.color}`} />
                             <span className="truncate">{p.label}</span>
                         </dt>
@@ -1013,14 +1013,14 @@ function SavedTargetCard({
             <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                     <i
-                        className={`fa-solid ${isContribution ? 'fa-arrow-trend-up' : 'fa-bullseye'} text-[10px]`}
+                        className={`fa-solid ${isContribution ? 'fa-arrow-trend-up' : 'fa-bullseye'} text-[11px]`}
                         aria-hidden="true"
                     />
                     {isContribution ? 'Fixed monthly' : 'Target'}
                 </span>
                 {target.priority && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-                        <i className="fa-solid fa-flag text-[10px]" aria-hidden="true" />
+                        <i className="fa-solid fa-flag text-[11px]" aria-hidden="true" />
                         Priority
                     </span>
                 )}
@@ -1045,7 +1045,7 @@ function SavedTargetCard({
                         type="button"
                         title="Delete plan"
                         onClick={() => setConfirming(true)}
-                        className="grid h-8 w-8 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
+                        className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-400"
                     >
                         <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
                     </button>
@@ -1077,7 +1077,7 @@ function SavedTargetCard({
                                 setEditing(false)
                             }
                         }}
-                        className="w-full rounded-lg border border-neutral-200 px-2 py-1 text-lg font-bold tracking-tight text-neutral-900 outline-none focus:border-neutral-950"
+                        className="w-full rounded-[10px] border border-neutral-200 hover:border-neutral-300 px-2 h-10 text-lg font-bold tracking-tight text-neutral-900 outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                     />
                 ) : (
                     <button
@@ -1093,7 +1093,7 @@ function SavedTargetCard({
                             {target.name}
                         </span>
                         <i
-                            className="fa-solid fa-pen ml-2 align-middle text-[10px] text-neutral-300 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                            className="fa-solid fa-pen ml-2 align-middle text-[11px] text-neutral-300 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                             aria-hidden="true"
                         />
                     </button>
@@ -1108,7 +1108,7 @@ function SavedTargetCard({
                             type="button"
                             onClick={handleDelete}
                             disabled={busy}
-                            className="rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                            className="inline-flex items-center justify-center rounded-[10px] bg-red-600 px-4 h-8 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
                         >
                             {busy ? 'Deleting…' : 'Yes, delete'}
                         </button>
@@ -1139,7 +1139,7 @@ function SavedTargetCard({
                                 }}
                                 rows={3}
                                 placeholder="Notes…"
-                                className="w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-xs text-neutral-700 outline-none transition-all placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
+                                className="w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-xs text-neutral-700 outline-none transition-all placeholder:text-neutral-500 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
                             />
                         ) : target.notes ? (
                             <button
@@ -1356,10 +1356,10 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
         <section className="mt-8">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                    <h2 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Long-term outlook
                     </h2>
-                    <p className="mt-0.5 text-xs text-neutral-400">
+                    <p className="mt-0.5 text-xs text-neutral-500">
                         {plans.length} {plans.length === 1 ? 'plan' : 'plans'} combined — overlapping
                         plans stack, sequential ones hand over.
                     </p>
@@ -1387,7 +1387,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
             {/* Headline stats */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
                 <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Saving this month
                     </p>
                     <p className="text-2xl font-bold tabular-nums tracking-tight">
@@ -1396,7 +1396,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                     <p className="text-xs text-neutral-500">across selected plans</p>
                 </div>
                 <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Peak monthly
                     </p>
                     <p className="text-2xl font-bold tabular-nums tracking-tight">
@@ -1407,7 +1407,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                     </p>
                 </div>
                 <div className="flex flex-col gap-1.5 rounded-3xl bg-neutral-950 px-5 py-5 text-white">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Contributed over {horizon} {horizon === 1 ? 'yr' : 'yrs'}
                     </p>
                     <p className="text-2xl font-bold tabular-nums tracking-tight">
@@ -1420,7 +1420,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
             </div>
 
             {/* Timeline */}
-            <div className="mt-4 rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6">
+            <div className="mt-4 rounded-3xl ring-1 ring-neutral-900/[0.06] bg-white p-4 sm:p-6">
                 <div className="flex flex-col gap-3">
                     {bars.map(({ plan, start, end, visible, endedBeforeNow, runsBeyondHorizon }) => {
                         const color = colorFor.get(plan._id) ?? PLAN_BAR_COLORS[0]
@@ -1454,12 +1454,12 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                             {plan.name}
                                         </span>
                                     </div>
-                                    <p className="ml-[18px] text-[11px] text-neutral-400 tabular-nums">
+                                    <p className="ml-[18px] text-[11px] text-neutral-500 tabular-nums">
                                         {plan.onTrack || plan.requiredMonthly <= 0
                                             ? 'nothing to save monthly'
                                             : `save £${fmt(plan.requiredMonthly, 0)} / month`}
                                     </p>
-                                    <p className="ml-[18px] text-[11px] text-neutral-400 tabular-nums">
+                                    <p className="ml-[18px] text-[11px] text-neutral-500 tabular-nums">
                                         {durationMonths} {mo(durationMonths)} start to finish
                                     </p>
                                 </div>
@@ -1483,7 +1483,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                             title={`${monthLabelShort(plan.startMonth)} – ${monthLabelShort(plan.targetMonth)} · ${durationMonths} ${mo(durationMonths)} · £${fmt(plan.requiredMonthly)} / month${runsBeyondHorizon ? ' · continues past this horizon' : ''}`}
                                         >
                                             {barLabel && (
-                                                <span className="truncate px-2 text-[10px] font-bold tabular-nums text-white">
+                                                <span className="truncate px-2 text-[11px] font-bold tabular-nums text-white">
                                                     {barLabel}
                                                 </span>
                                             )}
@@ -1495,7 +1495,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                             )}
                                         </div>
                                     ) : (
-                                        <span className="absolute inset-0 grid place-items-center text-[11px] text-neutral-400">
+                                        <span className="absolute inset-0 grid place-items-center text-[11px] text-neutral-500">
                                             {endedBeforeNow
                                                 ? `finished ${monthLabelShort(plan.targetMonth)}`
                                                 : `starts ${monthLabelShort(plan.startMonth)} — beyond this horizon`}
@@ -1506,7 +1506,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                     <p className="text-xs font-bold tabular-nums text-neutral-900">
                                         £{fmt(plan.targetAmount, 0)}
                                     </p>
-                                    <p className="text-[10px] text-neutral-400">
+                                    <p className="text-[11px] text-neutral-500">
                                         in this pot
                                     </p>
                                 </div>
@@ -1519,7 +1519,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                             {Array.from({ length: horizon }, (_, i) => (
                                 <div
                                     key={i}
-                                    className="flex-1 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400"
+                                    className="flex-1 text-center text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600"
                                 >
                                     {horizon > 5 ? `Yr ${i + 1}` : `Year ${i + 1}`}
                                 </div>
@@ -1531,8 +1531,8 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
             </div>
 
             {/* Milestones — how much you'll have, by when */}
-            <div className="mt-4 rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6">
-                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            <div className="mt-4 rounded-3xl ring-1 ring-neutral-900/[0.06] bg-white p-4 sm:p-6">
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     How much, by when
                 </p>
                 <ol className="mt-5">
@@ -1544,7 +1544,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                         <span className="relative mt-1 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-neutral-950 bg-white" />
                         <div className="min-w-0">
                             <p className="text-sm font-bold text-neutral-900">Today</p>
-                            <p className="mt-0.5 text-xs text-neutral-400 tabular-nums">
+                            <p className="mt-0.5 text-xs text-neutral-500 tabular-nums">
                                 {currentMonthly > 0
                                     ? `putting away £${fmt(currentMonthly, 0)} a month across ${plans.length} ${plans.length === 1 ? 'plan' : 'plans'}`
                                     : 'nothing to put away this month'}
@@ -1580,7 +1580,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-bold text-neutral-900">
                                             {monthLabelLong(ev.month)}
-                                            <span className="ml-2 text-xs font-semibold text-neutral-400">
+                                            <span className="ml-2 text-xs font-semibold text-neutral-500">
                                                 {when}
                                             </span>
                                         </p>
@@ -1591,7 +1591,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                             </span>{' '}
                                             — £{fmt(ev.plan.requiredMonthly, 0)}/month
                                         </p>
-                                        <p className="mt-0.5 text-xs text-neutral-400 tabular-nums">
+                                        <p className="mt-0.5 text-xs text-neutral-500 tabular-nums">
                                             monthly saving becomes £{fmt(ev.monthlyAfter, 0)}
                                         </p>
                                     </div>
@@ -1619,7 +1619,7 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                         <p className="text-sm font-bold text-neutral-900">
                                             {monthLabelLong(ev.month)}
                                             <span
-                                                className={`ml-2 text-xs font-semibold ${reached ? 'text-emerald-600' : 'text-neutral-400'}`}
+                                                className={`ml-2 text-xs font-semibold ${reached ? 'text-emerald-600' : 'text-neutral-500'}`}
                                             >
                                                 {when}
                                             </span>
@@ -1630,20 +1630,20 @@ function LongTermOutlook({ plans }: { plans: SavingsTarget[] }) {
                                             </span>{' '}
                                             done
                                         </p>
-                                        <p className="mt-0.5 text-xs text-neutral-400 tabular-nums">
+                                        <p className="mt-0.5 text-xs text-neutral-500 tabular-nums">
                                             £{fmt(ev.contributedByThen, 0)} put in across all plans
                                             by then
                                             {monthlyChange && <> · {monthlyChange}</>}
                                         </p>
                                     </div>
                                     <div className="shrink-0 text-right">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                             This pot
                                         </p>
                                         <p className="text-lg font-bold tabular-nums tracking-tight text-neutral-900">
                                             £{fmt(ev.plan.targetAmount, 0)}
                                         </p>
-                                        <p className="text-[11px] text-neutral-400">
+                                        <p className="text-[11px] text-neutral-500">
                                             ready to spend
                                         </p>
                                     </div>
@@ -1826,7 +1826,7 @@ function TargetPlannerSection({
     return (
         <section>
             <div className="mb-8">
-                <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     Saved plans
                 </h2>
                 {snapshotsLoading ? (
@@ -1834,7 +1834,7 @@ function TargetPlannerSection({
                         <Spinner />
                     </div>
                 ) : snapshots.length === 0 ? (
-                    <p className="text-sm text-neutral-400">
+                    <p className="text-sm text-neutral-500">
                         No saved plans yet — create one below and hit “Save plan” to keep a
                         snapshot of it.
                     </p>
@@ -1871,17 +1871,17 @@ function TargetPlannerSection({
                 {selectedPlans.length > 0 && <LongTermOutlook plans={selectedPlans} />}
             </div>
 
-            <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+            <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 Create a savings plan
             </h2>
-            <div className="rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6">
+            <div className="rounded-3xl ring-1 ring-neutral-900/[0.06] bg-white p-4 sm:p-6">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                     <Tabs
                         tabs={['Reach a target', 'Save a set amount']}
                         value={mode === 'target' ? 'Reach a target' : 'Save a set amount'}
                         onChange={(t) => setMode(t === 'Reach a target' ? 'target' : 'contribution')}
                     />
-                    <p className="max-w-xs text-xs text-neutral-400">
+                    <p className="max-w-xs text-xs text-neutral-500">
                         {mode === 'target'
                             ? 'Work out the monthly amount needed to hit a target.'
                             : 'Fix a monthly amount and see how much you end up with.'}
@@ -1932,7 +1932,7 @@ function TargetPlannerSection({
                         minDate={startDate}
                         onChange={setTargetDate}
                     />
-                    <p className="self-end pb-1 text-xs text-neutral-400">
+                    <p className="self-end pb-1 text-xs text-neutral-500">
                         Balance and rate are pre-filled from your savings accounts — adjust them
                         freely; nothing here changes your sheet.
                     </p>
@@ -1940,11 +1940,11 @@ function TargetPlannerSection({
 
                 <div className="mt-6">
                     {activeError ? (
-                        <p className="text-sm text-neutral-400">{activeError}</p>
+                        <p className="text-sm text-neutral-500">{activeError}</p>
                     ) : mode === 'contribution' ? (
                         <div className="flex flex-col gap-4">
                             <div className="rounded-2xl bg-neutral-950 px-5 py-5 text-white">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     You'll have saved
                                 </p>
                                 <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
@@ -1961,7 +1961,7 @@ function TargetPlannerSection({
 
                             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                                 <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         Total contributions
                                     </p>
                                     <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
@@ -1969,7 +1969,7 @@ function TargetPlannerSection({
                                     </p>
                                 </div>
                                 <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         Interest earned
                                     </p>
                                     <p className="mt-1 text-base font-bold tabular-nums text-emerald-600">
@@ -1977,7 +1977,7 @@ function TargetPlannerSection({
                                     </p>
                                 </div>
                                 <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         Balance if you save nothing
                                     </p>
                                     <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
@@ -1988,7 +1988,7 @@ function TargetPlannerSection({
                         </div>
                     ) : plan.onTrack ? (
                         <div className="rounded-2xl bg-emerald-600 px-5 py-5 text-white">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-200">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-emerald-200">
                                 Already on track
                             </p>
                             <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
@@ -2003,7 +2003,7 @@ function TargetPlannerSection({
                     ) : (
                         <div className="flex flex-col gap-4">
                             <div className="rounded-2xl bg-neutral-950 px-5 py-5 text-white">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     You need to save
                                 </p>
                                 <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
@@ -2020,7 +2020,7 @@ function TargetPlannerSection({
 
                             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                                 <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         Total contributions
                                     </p>
                                     <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
@@ -2028,7 +2028,7 @@ function TargetPlannerSection({
                                     </p>
                                 </div>
                                 <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         Interest earned
                                     </p>
                                     <p className="mt-1 text-base font-bold tabular-nums text-emerald-600">
@@ -2036,7 +2036,7 @@ function TargetPlannerSection({
                                     </p>
                                 </div>
                                 <div className="rounded-2xl bg-neutral-50 px-4 py-3.5">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         Balance if you save nothing
                                     </p>
                                     <p className="mt-1 text-base font-bold tabular-nums text-neutral-900">
@@ -2057,13 +2057,13 @@ function TargetPlannerSection({
                                         if (e.key === 'Enter' && !saving) handleSave()
                                     }}
                                     placeholder="Name this plan (e.g. House deposit)"
-                                    className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm font-semibold text-neutral-900 outline-none transition-all placeholder:font-normal placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
+                                    className="min-w-0 flex-1 rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white px-3 h-10.5 text-sm font-semibold text-neutral-900 outline-none transition-all placeholder:font-normal placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus:ring-4 focus:ring-neutral-950/5 focus-visible:outline-none"
                                 />
                                 <button
                                     type="button"
                                     onClick={handleSave}
                                     disabled={saving}
-                                    className="rounded-full bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-50"
+                                    className="inline-flex items-center justify-center rounded-xl bg-neutral-900 px-5 h-10 text-sm font-medium text-white transition-all duration-150 hover:bg-neutral-800 disabled:opacity-50"
                                 >
                                     {saving ? 'Saving…' : 'Save plan'}
                                 </button>
@@ -2073,7 +2073,7 @@ function TargetPlannerSection({
                                 onChange={(e) => setSnapshotNotes(e.target.value)}
                                 rows={2}
                                 placeholder="Notes (optional) — why this target, what it's for…"
-                                className="w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-700 outline-none transition-all placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
+                                className="w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-700 outline-none transition-all placeholder:text-neutral-500 focus:border-neutral-950 focus:ring-4 focus:ring-neutral-950/5"
                             />
                         </div>
                     )}
@@ -2256,7 +2256,7 @@ export default function SavingsForecast() {
     return (
         <div className="max-w-4xl">
             <header className="mb-8">
-                <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">
+                <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
                     Savings Forecast
                 </h1>
                 <p className="mt-1 text-sm text-neutral-500">
@@ -2297,11 +2297,11 @@ export default function SavingsForecast() {
                             <section>
                                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                                     <div>
-                                        <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                                        <h2 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                             Projected balance
                                         </h2>
                                         {blendedRate > 0 && (
-                                            <p className="mt-0.5 text-xs text-neutral-400">
+                                            <p className="mt-0.5 text-xs text-neutral-500">
                                                 at {fmt(blendedRate, 2)}% blended annual rate
                                             </p>
                                         )}
@@ -2341,9 +2341,9 @@ export default function SavingsForecast() {
                             </section>
 
                             {/* Summary stats */}
-                            <section className="grid grid-cols-2 gap-4 rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6 sm:grid-cols-3">
+                            <section className="grid grid-cols-2 gap-4 rounded-3xl ring-1 ring-neutral-900/[0.06] bg-white p-4 sm:p-6 sm:grid-cols-3">
                                 <div>
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         Starting balance
                                     </p>
                                     <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-neutral-900">
@@ -2351,7 +2351,7 @@ export default function SavingsForecast() {
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         Total contributions
                                     </p>
                                     <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-neutral-900">
@@ -2359,7 +2359,7 @@ export default function SavingsForecast() {
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         Interest earned
                                     </p>
                                     <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-emerald-600">
@@ -2374,7 +2374,7 @@ export default function SavingsForecast() {
 
                             {/* Per-group balance & rate inputs */}
                             <section>
-                                <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                                <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     Accounts &amp; assumptions
                                 </h2>
                                 <div className="grid gap-4 sm:grid-cols-2">
@@ -2393,11 +2393,11 @@ export default function SavingsForecast() {
 
                             {/* Year-by-year table */}
                             <section>
-                                <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                                <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     Year by year
                                 </h2>
                                 {hasScheduleGaps && (
-                                    <p className="mb-3 flex items-center gap-2 text-xs text-neutral-400">
+                                    <p className="mb-3 flex items-center gap-2 text-xs text-neutral-500">
                                         <i className="fa-solid fa-circle-info" aria-hidden="true" />
                                         Months you've skipped or where a savings stream hasn't
                                         started (or has ended) contribute nothing — yearly
@@ -2405,10 +2405,10 @@ export default function SavingsForecast() {
                                         monthly amount.
                                     </p>
                                 )}
-                                <div className="overflow-x-auto overflow-hidden rounded-3xl border border-neutral-200 bg-white">
+                                <div className="overflow-x-auto overflow-hidden rounded-3xl ring-1 ring-neutral-900/[0.06] bg-white">
                                     <table className="w-full min-w-[380px]">
                                         <thead>
-                                            <tr className="border-b border-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                            <tr className="border-b border-neutral-100 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                                 <th className="py-3 pl-5 pr-3 text-left">Year</th>
                                                 <th className="py-3 px-3 text-right">
                                                     Contributions
@@ -2438,7 +2438,7 @@ export default function SavingsForecast() {
                                                                 Year {row.year}
                                                             </span>
                                                             {isMilestone && (
-                                                                <span className="ml-2 rounded-full bg-neutral-200 px-1.5 py-0.5 text-[10px] font-bold text-neutral-600">
+                                                                <span className="ml-2 rounded-full bg-neutral-200 px-1.5 py-0.5 text-[11px] font-bold text-neutral-600">
                                                                     milestone
                                                                 </span>
                                                             )}
@@ -2446,7 +2446,7 @@ export default function SavingsForecast() {
                                                         <td className="py-3 px-3 text-right text-sm text-neutral-600">
                                                             £{fmt(row.contributions, 0)}
                                                         </td>
-                                                        <td className={`py-3 px-3 text-right text-sm ${row.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-400'}`}>
+                                                        <td className={`py-3 px-3 text-right text-sm ${row.interestEarned > 0 ? 'text-emerald-600' : 'text-neutral-500'}`}>
                                                             {row.interestEarned > 0 ? '+' : ''}£{fmt(row.interestEarned, 0)}
                                                         </td>
                                                         <td className="py-3 pl-3 pr-5 text-right text-sm font-bold text-neutral-900">

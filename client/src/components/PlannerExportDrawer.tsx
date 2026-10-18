@@ -262,7 +262,7 @@ export default function PlannerExportDrawer({
                 </p>
 
                 <section className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Range
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -271,7 +271,7 @@ export default function PlannerExportDrawer({
                                 key={p.key}
                                 type="button"
                                 onClick={() => setPreset(p.key)}
-                                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                                     preset === p.key
                                         ? 'bg-neutral-900 text-white'
                                         : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -325,7 +325,7 @@ export default function PlannerExportDrawer({
                 </section>
 
                 <section className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Include
                     </p>
                     {TOGGLES.map((t) => (
@@ -341,10 +341,10 @@ export default function PlannerExportDrawer({
                                 <Checkbox checked={options[t.key]} onChange={() => toggle(t.key)} />
                             </span>
                             <span className="min-w-0 flex-1">
-                                <span className="block font-semibold text-neutral-900">
+                                <span className="block font-medium text-neutral-900">
                                     {t.label}
                                 </span>
-                                <span className="mt-0.5 block text-xs text-neutral-500">
+                                <span className="mt-0.5 block text-[11px] text-neutral-500">
                                     {t.hint}
                                 </span>
                             </span>
@@ -367,10 +367,10 @@ export default function PlannerExportDrawer({
                 {payload && !loading && (
                     <section className="flex flex-col gap-2">
                         <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Preview
                             </p>
-                            <p className="text-xs text-neutral-500">
+                            <p className="text-[11px] text-neutral-500">
                                 {total} planned
                                 {options.logs ? ` · ${completed} completed` : ''} · {weekCount} week
                                 {weekCount === 1 ? '' : 's'}

@@ -25,7 +25,6 @@ const LINK_LABELS: Record<keyof SeasonLinks, string> = {
     trainingPlans: 'training plan',
     nutritionPhases: 'nutrition phase',
     savingsTargets: 'savings target',
-    courses: 'course',
     monthNotes: 'month flag',
     goals: 'goal',
 }
@@ -92,7 +91,7 @@ function SeasonShape({ season, loads }: { season: Season; loads: MonthLoad[] }) 
                             title={`${RESERVE_LABELS[reserve]} at its heaviest month of the season`}
                         >
                             <i
-                                className={`fa-solid ${RESERVE_ICONS[reserve]} w-3.5 text-center text-[10px] text-neutral-300`}
+                                className={`fa-solid ${RESERVE_ICONS[reserve]} w-3.5 text-center text-[11px] text-neutral-300`}
                                 aria-hidden="true"
                             />
                             {RESERVE_LABELS[reserve]}
@@ -104,7 +103,7 @@ function SeasonShape({ season, loads }: { season: Season; loads: MonthLoad[] }) 
                                           ? 'text-coral-600'
                                           : peak >= LEVEL_THRESHOLDS.busy
                                             ? 'text-amber-700'
-                                            : 'text-neutral-400'
+                                            : 'text-neutral-500'
                                 }
                             >
                                 {peak === null ? '—' : `${Math.round(peak * 100)}%`}
@@ -187,21 +186,21 @@ export default function SeasonsTab({
                                                 className={`h-2.5 w-2.5 shrink-0 rounded-full ${colors.dot}`}
                                                 aria-hidden="true"
                                             />
-                                            <h3 className="truncate text-base font-bold text-neutral-950">
+                                            <h3 className="truncate text-base font-medium text-neutral-950">
                                                 {season.name}
                                             </h3>
                                             {isNow && (
-                                                <span className="rounded-full bg-coral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-coral-700">
+                                                <span className="rounded-full bg-coral-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-coral-700">
                                                     Month {monthIndex} of {monthCount}
                                                 </span>
                                             )}
                                             {season.review && (
-                                                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                                                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                                     Reviewed
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="mt-1 text-xs font-semibold text-neutral-400">
+                                        <p className="mt-1 text-[11px] font-medium text-neutral-500">
                                             {formatMonthRange(season.startMonth, season.endMonth)}
                                         </p>
                                         {season.focus && (
@@ -213,17 +212,17 @@ export default function SeasonsTab({
                                             type="button"
                                             onClick={() => onEdit(season)}
                                             aria-label={`Edit ${season.name}`}
-                                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                                            className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                                         >
-                                            <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
+                                            <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => onDelete(season)}
                                             aria-label={`Delete ${season.name}`}
-                                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                            className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-600"
                                         >
-                                            <i className="fa-solid fa-trash text-xs" aria-hidden="true" />
+                                            <i className="fa-solid fa-trash text-[11px]" aria-hidden="true" />
                                         </button>
                                     </div>
                                 </div>
@@ -240,7 +239,7 @@ export default function SeasonsTab({
                                                     title={LIFE_PILLAR_LABELS[intent.pillar]}
                                                 />
                                                 <p className="min-w-0 text-sm text-neutral-700">
-                                                    <span className="font-semibold text-neutral-500">
+                                                    <span className="font-medium text-neutral-500">
                                                         {LIFE_PILLAR_LABELS[intent.pillar]}
                                                     </span>{' '}
                                                     — {intent.text}
@@ -251,7 +250,7 @@ export default function SeasonsTab({
                                 )}
 
                                 {links.length > 0 && (
-                                    <p className="mt-3 text-xs text-neutral-400">{links.join(' · ')}</p>
+                                    <p className="mt-3 text-xs text-neutral-500">{links.join(' · ')}</p>
                                 )}
                             </div>
                         )
@@ -261,7 +260,7 @@ export default function SeasonsTab({
 
             {gaps.length > 0 && plan.seasons.length > 0 && (
                 <div className="rounded-2xl border border-dashed border-neutral-200 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Unclaimed months
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">

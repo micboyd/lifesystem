@@ -6,6 +6,7 @@ import Input from '../components/Input'
 import Textarea from '../components/Textarea'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
+import Drawer from '../components/Drawer'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import DatePicker, { type DatePickerValue } from '../components/DatePicker'
@@ -206,12 +207,12 @@ export default function DaysSince() {
             <header className="mb-8 flex flex-wrap items-center gap-3">
                 <Link
                     to="/profile"
-                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
+                    className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-arrow-left text-sm" aria-hidden="true" />
                 </Link>
                 <div className="flex-1">
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Days Since</h1>
+                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Days Since</h1>
                     <p className="mt-1 text-sm text-neutral-500">
                         Count the days since you started something good — or stopped something bad.
                     </p>
@@ -253,10 +254,6 @@ export default function DaysSince() {
                         const todayCheckIn = itemCheckIns.find((c2) => c2.date === today)
                         return (
                             <Card key={item._id} className="relative overflow-hidden">
-                                <div
-                                    className={`pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br ${c.glow} to-transparent opacity-70`}
-                                    aria-hidden="true"
-                                />
                                 <div className="relative">
                                     <div className="flex items-start gap-3">
                                         <span
@@ -268,7 +265,7 @@ export default function DaysSince() {
                                             <p className="truncate font-bold tracking-tight text-neutral-900">
                                                 {item.label}
                                             </p>
-                                            <p className="text-xs text-neutral-400">
+                                            <p className="text-xs text-neutral-500">
                                                 since {formatStartDate(item.startDate)}
                                             </p>
                                         </div>
@@ -278,7 +275,7 @@ export default function DaysSince() {
                                                 <button
                                                     type="button"
                                                     aria-label="Options"
-                                                    className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                                    className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                                 >
                                                     <i className="fa-solid fa-ellipsis" aria-hidden="true" />
                                                 </button>
@@ -309,7 +306,7 @@ export default function DaysSince() {
                                         <span className={`text-5xl font-extrabold tracking-tight ${c.accent}`}>
                                             {days}
                                         </span>
-                                        <span className="text-sm font-semibold text-neutral-400">
+                                        <span className="text-sm font-semibold text-neutral-500">
                                             {days === 1 ? 'day' : 'days'}
                                         </span>
                                         {celebrating && (
@@ -321,7 +318,7 @@ export default function DaysSince() {
                                     </div>
 
                                     {item.history.length > 0 && (
-                                        <p className="mt-1 text-xs text-neutral-400">
+                                        <p className="mt-1 text-xs text-neutral-500">
                                             Best: {best} {best === 1 ? 'day' : 'days'}
                                             {' · '}
                                             <button
@@ -342,7 +339,7 @@ export default function DaysSince() {
                                                 style={{ width: `${Math.max(progress * 100, 3)}%` }}
                                             />
                                         </div>
-                                        <p className="mt-2 text-xs text-neutral-400">
+                                        <p className="mt-2 text-xs text-neutral-500">
                                             {next - days} {next - days === 1 ? 'day' : 'days'} to{' '}
                                             {milestoneLabel(next)}
                                         </p>
@@ -350,7 +347,7 @@ export default function DaysSince() {
 
                                     <div className="mt-5 border-t border-neutral-100 pt-4">
                                         <div className="flex items-center justify-between gap-2">
-                                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                                 How tough was today?
                                             </span>
                                             <Rating
@@ -367,7 +364,7 @@ export default function DaysSince() {
                                                 onBlur={(e) =>
                                                     handleCheckIn(item, todayCheckIn.intensity, e.target.value)
                                                 }
-                                                className="mt-2 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs text-neutral-700 outline-none focus:border-neutral-400"
+                                                className="mt-2 w-full rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-3 h-10.5 text-xs text-neutral-700 outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                                             />
                                         )}
                                         <div className="mt-3 flex gap-1">
@@ -396,7 +393,7 @@ export default function DaysSince() {
                 </div>
             )}
 
-            <Modal
+            <Drawer size="lg"
                 open={editor !== null}
                 onClose={() => setEditor(null)}
                 title={editor?.id ? 'Edit counter' : 'New counter'}
@@ -414,7 +411,7 @@ export default function DaysSince() {
                 {editor && (
                     <form onSubmit={handleSave} className="flex flex-col gap-5">
                         {error && (
-                            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
+                            <p className="rounded-2xl bg-danger-bg px-4 py-3.5 text-[13px] text-red-700">{error}</p>
                         )}
 
                         <Input
@@ -426,7 +423,7 @@ export default function DaysSince() {
                         />
 
                         <div className="flex flex-col gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Icon
                             </span>
                             <div className="flex flex-wrap gap-2">
@@ -449,7 +446,7 @@ export default function DaysSince() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Colour
                             </span>
                             <div className="flex flex-wrap gap-2.5">
@@ -473,7 +470,7 @@ export default function DaysSince() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Counting since
                             </span>
                             <DatePicker
@@ -488,7 +485,7 @@ export default function DaysSince() {
                         </div>
                     </form>
                 )}
-            </Modal>
+            </Drawer>
 
             <Modal
                 open={resetTarget !== null}
@@ -525,7 +522,7 @@ export default function DaysSince() {
                 )}
             </Modal>
 
-            <Modal
+            <Drawer size="lg"
                 open={historyTarget !== null}
                 onClose={() => setHistoryTarget(null)}
                 title={historyTarget ? `${historyTarget.label} — history` : undefined}
@@ -541,7 +538,7 @@ export default function DaysSince() {
                                     <span className="text-sm font-bold text-neutral-900">
                                         {attempt.days} {attempt.days === 1 ? 'day' : 'days'}
                                     </span>
-                                    <span className="text-xs text-neutral-400">
+                                    <span className="text-xs text-neutral-500">
                                         {formatStartDate(attempt.startDate)} – {formatStartDate(attempt.endDate)}
                                     </span>
                                 </div>
@@ -552,7 +549,7 @@ export default function DaysSince() {
                         ))}
                     </ul>
                 )}
-            </Modal>
+            </Drawer>
         </Container>
     )
 }

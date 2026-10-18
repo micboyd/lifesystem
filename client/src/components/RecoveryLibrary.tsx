@@ -243,7 +243,7 @@ function RecoveryCard({
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                     <p className="truncate font-semibold text-neutral-900">{item.name}</p>
-                    <p className="mt-0.5 text-xs text-neutral-400">{item.duration} min</p>
+                    <p className="mt-0.5 text-xs text-neutral-500">{item.duration} min</p>
                 </div>
                 <DropdownMenu
                     align="right"
@@ -251,7 +251,7 @@ function RecoveryCard({
                     trigger={
                         <span
                             aria-label="Recovery actions"
-                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                            className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                         >
                             <LineIcon name="more" className="h-4 w-4" />
                         </span>
@@ -317,7 +317,7 @@ function RecoveryViewDrawer({
             {r && (
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-wrap items-center gap-3">
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
                             Recovery
                         </span>
                         <span className="text-sm text-neutral-500">{r.duration} min</span>
@@ -325,7 +325,7 @@ function RecoveryViewDrawer({
 
                     {r.purpose && (
                         <section>
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Purpose
                             </p>
                             <p className="whitespace-pre-wrap text-sm text-neutral-600">{r.purpose}</p>
@@ -334,7 +334,7 @@ function RecoveryViewDrawer({
 
                     {r.notes && (
                         <section>
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Notes
                             </p>
                             <p className="whitespace-pre-wrap text-sm text-neutral-600">{r.notes}</p>

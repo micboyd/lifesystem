@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardTitle } from '../Card'
+import DashSection from './DashSection'
 import { useAuth } from '../../context/AuthContext'
 import { useCalendars } from '../../context/CalendarsContext'
 import { useDataVersion } from '../../context/DataSyncContext'
@@ -199,31 +199,17 @@ function TomorrowBrief({
     const prep = prepChecklist(day, firstTimed, { maxGust, minVis, dayStartMin })
 
     return (
-        <Card>
-            <CardHeader className="flex items-center justify-between gap-4">
-                <CardTitle>
-                    <span className="flex items-center gap-2">
-                        <i
-                            className={`text-sm text-indigo-400 ${isPreDawn ? 'fa-solid fa-sun' : 'fa-solid fa-moon'}`}
-                            aria-hidden="true"
-                        />
-                        {isPreDawn ? 'Day Ahead' : 'Time to sleep'}
-                    </span>
-                </CardTitle>
-                <Link
-                    to={`/day/${date}`}
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-400 transition-colors hover:text-neutral-900"
-                >
-                    Open day
-                    <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
-                </Link>
-            </CardHeader>
-
-            <p className="-mt-1 mb-4 text-sm text-neutral-500">{formatDateLong(date)}</p>
-
+        <DashSection
+            title={isPreDawn ? 'Day ahead' : 'Time to sleep'}
+            icon={isPreDawn ? 'fa-solid fa-sun' : 'fa-solid fa-moon'}
+            tone="violet"
+            meta={formatDateLong(date)}
+            to={`/day/${date}`}
+            action="Open day"
+        >
             {/* Warnings lead — they change what "prepared" means. */}
             {warnings.length > 0 && (
-                <div className="mb-4 flex flex-col gap-1.5">
+                <div className="mb-6 flex flex-col gap-2">
                     {warnings.map((w) => (
                         <div
                             key={w.id}
@@ -242,7 +228,7 @@ function TomorrowBrief({
                 </div>
             )}
 
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-8 sm:grid-cols-2">
                 {/* Weather + clothing */}
                 <div className="flex flex-col gap-3">
                     {day && info ? (
@@ -260,7 +246,7 @@ function TomorrowBrief({
                                             {info.label}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-neutral-400">
+                                    <p className="text-xs text-neutral-500">
                                         Low {day.tempMin}&deg;
                                         {day.precipitationProbability > 0 && (
                                             <> · {day.precipitationProbability}% rain</>
@@ -273,7 +259,7 @@ function TomorrowBrief({
                             {insight && (
                                 <p className="rounded-xl bg-neutral-50 px-3 py-2.5 text-xs text-neutral-600">
                                     <i
-                                        className="fa-solid fa-lightbulb mr-1.5 text-neutral-400"
+                                        className="fa-solid fa-lightbulb mr-1.5 text-neutral-500"
                                         aria-hidden="true"
                                     />
                                     {insight}
@@ -283,7 +269,7 @@ function TomorrowBrief({
                             {/* What to wear leads the prep — it's the thing you
                                 sort out the night before. */}
                             <div className="rounded-xl bg-neutral-50 px-3 py-3">
-                                <p className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                <p className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     <i className="fa-solid fa-shirt" aria-hidden="true" />
                                     What to wear
                                 </p>
@@ -296,7 +282,7 @@ function TomorrowBrief({
                                 what to put on. Only shown when something applies. */}
                             {prep.length > 0 && (
                                 <div className="rounded-xl border border-neutral-100 px-3 py-3">
-                                    <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                    <p className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         <i className="fa-solid fa-list-check" aria-hidden="true" />
                                         Tonight
                                     </p>
@@ -376,7 +362,7 @@ function TomorrowBrief({
 
                         </>
                     ) : (
-                        <p className="text-sm text-neutral-400">
+                        <p className="text-sm text-neutral-500">
                             No forecast for tomorrow yet.{' '}
                             <Link
                                 to="/weather"
@@ -403,7 +389,7 @@ function TomorrowBrief({
                     )}
 
                     {firstTimed && (
-                        <p className="mb-1 text-xs font-semibold text-neutral-400">
+                        <p className="mb-1 text-xs font-semibold text-neutral-500">
                             First thing: {firstTimed.title} at {firstTimed.time}
                         </p>
                     )}
@@ -440,14 +426,14 @@ function TomorrowBrief({
                                     className={`${period.icon} w-4 shrink-0 text-center text-sm opacity-60 ${colors.text}`}
                                     aria-hidden="true"
                                 />
-                                <span className={`mr-2 w-16 shrink-0 text-xs font-semibold uppercase tracking-wide opacity-70 ${colors.text}`}>
+                                <span className={`mr-2 w-16 shrink-0 text-[11px] font-medium uppercase tracking-[0.06em] opacity-70 ${colors.text}`}>
                                     {period.label}
                                 </span>
-                                <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${colors.text}`}>
+                                <span className={`min-w-0 flex-1 truncate text-sm font-medium ${colors.text}`}>
                                     {event!.title}
                                 </span>
                                 {event!.time && (
-                                    <span className={`shrink-0 text-xs tabular-nums opacity-70 ${colors.text}`}>
+                                    <span className={`shrink-0 text-[11px] tabular-nums opacity-70 ${colors.text}`}>
                                         {event!.time}
                                     </span>
                                 )}
@@ -483,11 +469,11 @@ function TomorrowBrief({
                     )}
 
                     {nothingOn && (
-                        <p className="text-sm text-neutral-400">Nothing scheduled — a clear day ahead.</p>
+                        <p className="text-sm text-neutral-500">Nothing scheduled — a clear day ahead.</p>
                     )}
                 </div>
             </div>
-        </Card>
+        </DashSection>
     )
 }
 

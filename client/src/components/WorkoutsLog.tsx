@@ -243,7 +243,7 @@ export default function WorkoutsLog() {
                             <div className="flex flex-col gap-6">
                                 {controls.grouped.map(([date, dayLogs]) => (
                                     <section key={date} className="flex flex-col gap-2">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                             {formatLogDate(date, todayISO())}
                                         </p>
                                         <div className="flex flex-col gap-2">
@@ -330,13 +330,13 @@ function LogRow({
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                             <p className="font-semibold text-neutral-900">{log.name}</p>
-                            <span className="text-xs text-neutral-400">
+                            <span className="text-xs text-neutral-500">
                                 <i className="fa-solid fa-dumbbell mr-1" aria-hidden="true" />
                                 {log.exercises.length}{' '}
                                 {log.exercises.length === 1 ? 'exercise' : 'exercises'}
                             </span>
                             {volume > 0 && (
-                                <span className="text-xs text-neutral-400">
+                                <span className="text-xs text-neutral-500">
                                     <i
                                         className="fa-solid fa-weight-hanging mr-1"
                                         aria-hidden="true"
@@ -345,7 +345,7 @@ function LogRow({
                                 </span>
                             )}
                             {log.durationMin != null && log.durationMin > 0 && (
-                                <span className="text-xs text-neutral-400">
+                                <span className="text-xs text-neutral-500">
                                     <i className="fa-regular fa-clock mr-1" aria-hidden="true" />
                                     {log.durationMin} min
                                 </span>
@@ -378,7 +378,7 @@ function LogRow({
                                     )
                                 })}
                                 {hidden > 0 && (
-                                    <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium text-neutral-400">
+                                    <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium text-neutral-500">
                                         +{hidden} more
                                     </span>
                                 )}
@@ -409,7 +409,7 @@ function LogRow({
                     trigger={
                         <span
                             aria-label="Log actions"
-                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                            className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                         >
                             <LineIcon name="more" className="h-4 w-4" />
                         </span>
@@ -470,7 +470,7 @@ function LogRow({
                                     )}
                                     {ex.substitutedFor && (
                                         <span
-                                            className="text-[11px] text-neutral-400"
+                                            className="text-[11px] text-neutral-500"
                                             title={`Swapped in for ${ex.substitutedFor}`}
                                         >
                                             for {ex.substitutedFor}
@@ -489,7 +489,7 @@ function LogRow({
                                             ) : null
                                         })
                                     ) : (
-                                        <span className="text-[11px] text-neutral-400">
+                                        <span className="text-[11px] text-neutral-500">
                                             {formatSetsReps(ex) || 'no sets recorded'}
                                         </span>
                                     )}
@@ -616,7 +616,7 @@ function LogFormDrawer({
                 )}
 
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <label className="text-[13px] font-medium text-neutral-700">
                         Date *
                     </label>
                     <DatePicker

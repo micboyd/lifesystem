@@ -1,91 +1,68 @@
 import { useState } from 'react'
 import Container from '../components/Container'
-import Tabs from '../components/Tabs'
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
-import TodayWidget from '../components/dashboard/TodayWidget'
-import TasksWidget from '../components/dashboard/TasksWidget'
-import BudgetWidget from '../components/dashboard/BudgetWidget'
-import WeatherWidget from '../components/dashboard/WeatherWidget'
+import AtAGlance from '../components/dashboard/AtAGlance'
+import TodayWidget, { useDayEvents } from '../components/dashboard/TodayWidget'
 import TomorrowWidget, { useTomorrowVisible } from '../components/dashboard/TomorrowWidget'
-import NextTimeOffWidget from '../components/dashboard/NextTimeOffWidget'
-import BirthdayWidget from '../components/dashboard/BirthdayWidget'
-import DaysSinceWidget from '../components/dashboard/DaysSinceWidget'
-import DaysUntilWidget from '../components/dashboard/DaysUntilWidget'
 import HabitsWidget from '../components/dashboard/HabitsWidget'
-import NutritionWidget from '../components/dashboard/NutritionWidget'
 import FitnessWidget from '../components/dashboard/FitnessWidget'
-import TodaysReportBanner from '../components/dashboard/TodaysReportBanner'
+import NutritionWidget, { useNutritionToday } from '../components/dashboard/NutritionWidget'
+import WeatherWidget from '../components/dashboard/WeatherWidget'
+import CountdownsWidget from '../components/dashboard/CountdownsWidget'
+import { useBudgetToday } from '../components/dashboard/useBudgetToday'
 import { todayKey } from '../lib/calendar'
 
-const TABS = ['Today', 'Week ahead'] as const
-type Tab = (typeof TABS)[number]
-
+/**
+ * The day on one open page. A large greeting, then four figures on a hairline
+ * band, then what to act on (left) and what to glance at (right) as boxless
+ * sections with room around them. On a phone the columns stack in that order.
+ */
 export default function Home() {
     const [date, setDate] = useState(todayKey())
-    const [tab, setTab] = useState<Tab>('Today')
     const { show: showTomorrow } = useTomorrowVisible(date)
+    const nutrition = useNutritionToday(date)
+    const budget = useBudgetToday(date)
+    const day = useDayEvents(date)
 
     return (
-        <Container as="main" className="py-8 sm:py-10">
-            {/* Greeting + date nav */}
-            <div className="flex flex-wrap items-end justify-between gap-4">
+        <Container as="main" className="pb-20 pt-8 sm:pt-14">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <DashboardHeader />
                 <DashboardDateNav date={date} onChange={setDate} />
             </div>
 
-            <Tabs
-                tabs={[...TABS]}
-                value={tab}
-                onChange={(t) => setTab(t as Tab)}
-                className="mt-6"
-            />
+            <div className="mt-10 sm:mt-12">
+                <AtAGlance
+                    date={date}
+                    nutrition={nutrition}
+                    budget={budget}
+                    events={day.events}
+                    eventsLoading={day.loading}
+                />
+            </div>
 
-            {tab === 'Today' ? (
-                <>
-                    {/* From 9pm until noon the next day: the day read back. */}
-                    <div className="mt-6 empty:hidden">
-                        <TodaysReportBanner />
-                    </div>
-
-                    {/* Today's schedule — the core of the day. */}
-                    <section className="mt-6">
-                        <TodayWidget date={date} />
-                    </section>
-
-                    {/* In the evening, the tomorrow-prep brief spans full width directly
-                        under the day's schedule — it's the natural next thing to act on. */}
-                    {showTomorrow && (
-                        <div className="mt-6">
-                            <TomorrowWidget date={date} />
-                        </div>
-                    )}
-
-                    {/* A few essentials. A masonry-style flow packs the tiles to balance
-                        the column heights, so short and tall cards fill in around each
-                        other rather than leaving one column stranded with a gap. */}
-                    <div className="mt-6 gap-6 [column-fill:_balance] lg:columns-2 [&>*]:mb-6 [&>*]:break-inside-avoid">
-                        <TasksWidget date={date} />
-                        <HabitsWidget date={date} />
-                        <FitnessWidget date={date} cadence="today" />
-                        <NutritionWidget date={date} cadence="today" />
-                        <BudgetWidget date={date} cadence="today" />
-                        <DaysSinceWidget />
-                        <DaysUntilWidget />
-                        <WeatherWidget variant="hourly" />
-                    </div>
-                </>
-            ) : (
-                /* The week ahead — a glance at what's coming, not what you act on now. */
-                <div className="mt-6 gap-6 [column-fill:_balance] lg:columns-2 [&>*]:mb-6 [&>*]:break-inside-avoid">
-                    <BudgetWidget date={date} cadence="week" />
-                    <FitnessWidget date={date} cadence="week" />
-                    <NutritionWidget date={date} cadence="week" />
-                    <WeatherWidget variant="daily" />
-                    <NextTimeOffWidget date={date} />
-                    <BirthdayWidget date={date} />
+            <div className="mt-12 grid gap-x-16 gap-y-14 sm:mt-16 lg:grid-cols-12">
+                {/* Act on */}
+                <div className="flex min-w-0 flex-col gap-14 lg:col-span-7">
+                    {/* Evenings only: tonight's prep for tomorrow comes first. */}
+                    {showTomorrow && <TomorrowWidget date={date} />}
+                    <FitnessWidget date={date} />
+                    <TodayWidget date={date} events={day.events} loading={day.loading} />
+                    <HabitsWidget date={date} />
                 </div>
-            )}
+
+                {/* Glance at */}
+                <div className="flex min-w-0 flex-col gap-12 lg:col-span-5 lg:border-l lg:border-neutral-200 lg:pl-12">
+                    <NutritionWidget data={nutrition} />
+                    <div className="border-t border-neutral-200 pt-12">
+                        <WeatherWidget />
+                    </div>
+                    <div className="border-t border-neutral-200 pt-12">
+                        <CountdownsWidget />
+                    </div>
+                </div>
+            </div>
         </Container>
     )
 }

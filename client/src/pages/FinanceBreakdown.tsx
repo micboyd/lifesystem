@@ -83,7 +83,7 @@ function SubItemRow({ item, onSave, onDelete, onTogglePaid }: SubItemRowProps) {
                     }}
                 />
                 <div className="flex items-center rounded-xl border border-neutral-200 bg-white px-3 py-1.5 focus-within:border-neutral-950 w-32">
-                    <span className="text-sm text-neutral-400">£</span>
+                    <span className="text-sm text-neutral-500">£</span>
                     <input
                         type="number"
                         step="0.01"
@@ -125,14 +125,14 @@ function SubItemRow({ item, onSave, onDelete, onTogglePaid }: SubItemRowProps) {
             >
                 {item.paid && <i className="fa-solid fa-check text-[9px]" aria-hidden="true" />}
             </button>
-            <span className={`flex-1 text-sm font-semibold transition-colors ${item.paid ? 'text-neutral-400 line-through decoration-neutral-300' : 'text-neutral-800'}`}>
+            <span className={`flex-1 text-sm font-semibold transition-colors ${item.paid ? 'text-neutral-500 line-through decoration-neutral-300' : 'text-neutral-800'}`}>
                 {item.name}
             </span>
-            <span className={`tabular-nums text-sm ${item.paid ? 'text-neutral-400' : 'text-neutral-700'}`}>
+            <span className={`tabular-nums text-sm ${item.paid ? 'text-neutral-500' : 'text-neutral-700'}`}>
                 £{fmt(item.amount)}
             </span>
             {item.paid && (
-                <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
+                <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-600">
                     Paid
                 </span>
             )}
@@ -140,14 +140,14 @@ function SubItemRow({ item, onSave, onDelete, onTogglePaid }: SubItemRowProps) {
                 <button
                     type="button"
                     onClick={() => setEditing(true)}
-                    className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                    className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                 >
                     <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
                 </button>
                 <button
                     type="button"
                     onClick={() => onDelete(item._id)}
-                    className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                    className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-500"
                 >
                     <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
                 </button>
@@ -193,7 +193,7 @@ function AddItemForm({ onSave, onCancel }: AddItemFormProps) {
                 }}
             />
             <div className="flex items-center rounded-xl border border-neutral-200 bg-white px-3 py-1.5 focus-within:border-neutral-950 w-36">
-                <span className="text-sm text-neutral-400">£</span>
+                <span className="text-sm text-neutral-500">£</span>
                 <input
                     type="number"
                     step="0.01"
@@ -355,19 +355,19 @@ export default function FinanceBreakdown() {
                     <Spinner />
                 </div>
             ) : !row || !group ? (
-                <p className="text-sm text-neutral-400">Row not found.</p>
+                <p className="text-sm text-neutral-500">Row not found.</p>
             ) : (
                 <>
                     {/* Header */}
                     <header className="mb-8">
                         <div className="flex items-center gap-2 mb-1">
                             <span
-                                className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeCls}`}
+                                className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] ${badgeCls}`}
                             >
                                 {group.name}
                             </span>
                         </div>
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">
+                        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
                             {row.name}
                         </h1>
                         <p className="mt-1 text-sm text-neutral-500">
@@ -381,20 +381,20 @@ export default function FinanceBreakdown() {
                             <button
                                 type="button"
                                 onClick={() => setMonth((m) => addMonths(m, -1))}
-                                className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                                className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                             >
                                 <i
                                     className="fa-solid fa-chevron-left text-sm"
                                     aria-hidden="true"
                                 />
                             </button>
-                            <span className="min-w-[160px] text-center text-base font-semibold text-neutral-900">
+                            <span className="min-w-[160px] text-center text-base font-medium text-neutral-900">
                                 {formatMonth(month)}
                             </span>
                             <button
                                 type="button"
                                 onClick={() => setMonth((m) => addMonths(m, 1))}
-                                className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                                className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                             >
                                 <i
                                     className="fa-solid fa-chevron-right text-sm"
@@ -405,7 +405,7 @@ export default function FinanceBreakdown() {
                                 <button
                                     type="button"
                                     onClick={() => setMonth(currentMonth())}
-                                    className="ml-1 rounded-full px-3 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100"
+                                    className="ml-1 rounded-full px-3 py-1 text-[11px] font-medium text-neutral-500 transition-colors hover:bg-neutral-100"
                                 >
                                     This month
                                 </button>
@@ -414,8 +414,8 @@ export default function FinanceBreakdown() {
                     )}
 
                     {/* Total card */}
-                    <div className="mb-6 rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                    <div className="mb-6 rounded-3xl ring-1 ring-neutral-900/[0.06] bg-white p-4 sm:p-6">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             {isRecurring
                                 ? `Total for ${formatMonth(month)}`
                                 : `Total — ${row.name}`}
@@ -426,7 +426,7 @@ export default function FinanceBreakdown() {
                             £{fmt(totalAmount)}
                         </p>
                         {recurringAmountForMonth(row, month) !== undefined && entry?.amount === undefined && (
-                            <p className="mt-1 text-xs text-neutral-400">
+                            <p className="mt-1 text-xs text-neutral-500">
                                 Recurring amount — no override set for this month
                             </p>
                         )}
@@ -439,7 +439,7 @@ export default function FinanceBreakdown() {
                                         £{fmt(breakdownTotal)} accounted for
                                     </span>
                                     <span
-                                        className={`font-semibold ${remaining < 0 ? 'text-red-500' : remaining === 0 ? 'text-emerald-600' : 'text-neutral-400'}`}
+                                        className={`font-semibold ${remaining < 0 ? 'text-red-500' : remaining === 0 ? 'text-emerald-600' : 'text-neutral-500'}`}
                                     >
                                         {remaining < 0
                                             ? `£${fmt(Math.abs(remaining))} over`
@@ -474,7 +474,7 @@ export default function FinanceBreakdown() {
                                         style={{ width: `${paidPct}%` }}
                                     />
                                 </div>
-                                <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-neutral-400">
+                                <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-neutral-500">
                                     <span>£{fmt(paidTotal)} paid</span>
                                     <span>£{fmt(breakdownTotal)} total</span>
                                 </div>
@@ -484,7 +484,7 @@ export default function FinanceBreakdown() {
 
                     {/* Sub-items */}
                     <div className="mb-4 flex items-center justify-between">
-                        <h2 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                        <h2 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Breakdown{' '}
                             {items.length > 0 &&
                                 `· ${items.length} item${items.length !== 1 ? 's' : ''}`}
@@ -518,7 +518,7 @@ export default function FinanceBreakdown() {
 
                         {items.length === 0 && !adding && (
                             <li className="rounded-2xl border border-dashed border-neutral-200 p-8 text-center">
-                                <p className="text-sm text-neutral-400">
+                                <p className="text-sm text-neutral-500">
                                     No breakdown items yet. Add one to start itemising this row.
                                 </p>
                             </li>

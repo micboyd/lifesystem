@@ -32,7 +32,7 @@ export default function Breadcrumbs({
                                         className={
                                             isLast
                                                 ? 'font-semibold text-neutral-900'
-                                                : 'font-medium text-neutral-400'
+                                                : 'font-medium text-neutral-500'
                                         }
                                     >
                                         {item.label}
@@ -40,7 +40,7 @@ export default function Breadcrumbs({
                                 ) : (
                                     <Link
                                         to={item.href}
-                                        className="font-medium text-neutral-400 transition-colors duration-150 hover:text-neutral-900"
+                                        className="font-medium text-neutral-500 transition-colors duration-150 hover:text-neutral-900"
                                     >
                                         {item.label}
                                     </Link>
@@ -48,7 +48,7 @@ export default function Breadcrumbs({
                             </li>
                             {!isLast && (
                                 <li aria-hidden="true" className="text-neutral-300">
-                                    <i className={`${separator} text-[10px]`} />
+                                    <i className={`${separator} text-[11px]`} />
                                 </li>
                             )}
                         </Fragment>

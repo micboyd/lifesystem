@@ -93,7 +93,7 @@ export default function Profile() {
         <Container as="main" className="py-10">
             <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Profile</h1>
+                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Profile</h1>
                     <p className="mt-1 text-sm text-neutral-500">Manage your account details</p>
                 </div>
                 <Button
@@ -216,7 +216,7 @@ export default function Profile() {
                                     <p className="text-sm font-semibold text-neutral-700">
                                         Hide money
                                     </p>
-                                    <p className="mt-0.5 text-xs text-neutral-400">
+                                    <p className="mt-0.5 text-xs text-neutral-500">
                                         Mask every money value across the app. Remembered on this
                                         device.
                                     </p>
@@ -241,7 +241,7 @@ export default function Profile() {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-semibold text-neutral-900">Birthdays</p>
-                                    <p className="text-xs text-neutral-400">
+                                    <p className="text-xs text-neutral-500">
                                         Add people's birthdays to appear on your calendar
                                     </p>
                                 </div>
@@ -257,7 +257,7 @@ export default function Profile() {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-semibold text-neutral-900">Days Since</p>
-                                    <p className="text-xs text-neutral-400">
+                                    <p className="text-xs text-neutral-500">
                                         Count the days since a milestone, habit or fresh start
                                     </p>
                                 </div>
@@ -273,7 +273,7 @@ export default function Profile() {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-semibold text-neutral-900">Days Until</p>
-                                    <p className="text-xs text-neutral-400">
+                                    <p className="text-xs text-neutral-500">
                                         Count down to a trip, deadline or milestone
                                     </p>
                                 </div>

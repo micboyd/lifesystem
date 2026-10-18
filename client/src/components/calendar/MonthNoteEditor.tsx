@@ -3,7 +3,7 @@ import { formatMonthRange } from '../../lib/calendar'
 import { CALENDAR_COLORS, CALENDAR_COLOR_CLASSES } from '../../types'
 import type { CalendarColor, MonthNote } from '../../types'
 import { createMonthNote, updateMonthNote, deleteMonthNote } from '../../services/monthNotes'
-import Modal from '../Modal'
+import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
 import Textarea from '../Textarea'
@@ -93,7 +93,7 @@ export default function MonthNoteEditor({ open, note, defaultMonth, onClose, onS
         /^\d{4}-\d{2}$/.test(startMonth) && /^\d{4}-\d{2}$/.test(endMonth) && startMonth <= endMonth
 
     return (
-        <Modal
+        <Drawer size="md"
             open={open}
             onClose={onClose}
             title={note ? 'Edit month flag' : 'Flag months'}
@@ -105,7 +105,7 @@ export default function MonthNoteEditor({ open, note, defaultMonth, onClose, onS
                                 type="button"
                                 disabled={saving}
                                 onClick={remove}
-                                className="mr-auto rounded-full px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
+                                className="inline-flex items-center justify-center mr-auto rounded-[10px] px-3 h-8 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
                             >
                                 Really delete?
                             </button>
@@ -114,15 +114,15 @@ export default function MonthNoteEditor({ open, note, defaultMonth, onClose, onS
                                 type="button"
                                 disabled={saving}
                                 onClick={() => setConfirmingDelete(true)}
-                                className="mr-auto rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                className="mr-auto rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-600"
                             >
                                 Delete
                             </button>
                         ))}
-                    <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>
+                    <Button variant="ghost" onClick={onClose} disabled={saving}>
                         Cancel
                     </Button>
-                    <Button size="sm" onClick={save} disabled={saving}>
+                    <Button onClick={save} disabled={saving}>
                         {saving ? 'Saving…' : 'Save'}
                     </Button>
                 </>
@@ -138,7 +138,7 @@ export default function MonthNoteEditor({ open, note, defaultMonth, onClose, onS
                 />
 
                 <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Months
                     </span>
                     <DatePicker
@@ -162,7 +162,7 @@ export default function MonthNoteEditor({ open, note, defaultMonth, onClose, onS
                 </div>
 
                 <div className="flex flex-col gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Colour
                     </span>
                     <div className="flex flex-wrap gap-1.5">
@@ -193,6 +193,6 @@ export default function MonthNoteEditor({ open, note, defaultMonth, onClose, onS
 
                 {error && <p className="text-xs text-red-500">{error}</p>}
             </div>
-        </Modal>
+        </Drawer>
     )
 }

@@ -10,13 +10,11 @@ import { connectDB } from './config/db'
 import cors from 'cors'
 import birthdayRoutes from './routes/birthdayRoutes'
 import calendarRoutes from './routes/calendarRoutes'
-import checklistRoutes from './routes/checklistRoutes'
 import conditioningRoutes from './routes/conditioningRoutes'
 import conditioningLogRoutes from './routes/conditioningLogRoutes'
 import daysSinceRoutes from './routes/daysSinceRoutes'
 import daysUntilRoutes from './routes/daysUntilRoutes'
 import goalRoutes from './routes/goalRoutes'
-import courseRoutes from './routes/courseRoutes'
 import dayStatusRoutes from './routes/dayStatusRoutes'
 import dotenv from 'dotenv'
 import eventRoutes from './routes/eventRoutes'
@@ -32,9 +30,6 @@ import mobilityRoutes from './routes/mobilityRoutes'
 import monthNoteRoutes from './routes/monthNoteRoutes'
 import noteRoutes from './routes/noteRoutes'
 import nutritionPhaseRoutes from './routes/nutritionPhaseRoutes'
-import personRoutes from './routes/personRoutes'
-import workProjectRoutes from './routes/workProjectRoutes'
-import workTaskRoutes from './routes/workTaskRoutes'
 import path from 'path'
 import recoveryRoutes from './routes/recoveryRoutes'
 import recoveryLogRoutes from './routes/recoveryLogRoutes'
@@ -87,7 +82,6 @@ app.use('/api/reminders', reminderRoutes)
 app.use('/api/tasks', taskRoutes)
 app.use('/api/timeboxes', timeboxRoutes)
 app.use('/api/totals', totalsRoutes)
-app.use('/api/courses', courseRoutes)
 app.use('/api/finances', financeRoutes)
 app.use('/api/birthdays', birthdayRoutes)
 app.use('/api/days-since', daysSinceRoutes)
@@ -108,16 +102,9 @@ app.use('/api/recovery', recoveryRoutes)
 app.use('/api/recovery-logs', recoveryLogRoutes)
 app.use('/api/mobility', mobilityRoutes)
 app.use('/api/notes', noteRoutes)
-app.use('/api/checklists', checklistRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
 app.use('/api/life-plans', lifePlanRoutes)
 app.use('/api/nutrition-phases', nutritionPhaseRoutes)
-
-// The work workspace namespaces its routes so the two sets of concerns
-// stay legible side by side — /api/work/tasks is never the day planner's.
-app.use('/api/work/people', personRoutes)
-app.use('/api/work/projects', workProjectRoutes)
-app.use('/api/work/tasks', workTaskRoutes)
 
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })

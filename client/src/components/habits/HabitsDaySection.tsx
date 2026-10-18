@@ -109,7 +109,7 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
             {/* Progress header */}
             {total > 0 && (
                 <div className="mb-1 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-neutral-400">
+                    <span className="text-xs font-semibold text-neutral-500">
                         {done}/{total} completed
                     </span>
                     <div className="h-1.5 w-32 overflow-hidden rounded-full bg-neutral-100">
@@ -161,14 +161,14 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                                     className={[
                                         'truncate text-sm font-semibold',
                                         completed
-                                            ? 'text-neutral-400 line-through'
+                                            ? 'text-neutral-500 line-through'
                                             : 'text-neutral-800',
                                     ].join(' ')}
                                 >
                                     {habit.name}
                                 </p>
                                 {habit.description && !compact && (
-                                    <p className="truncate text-xs text-neutral-400">
+                                    <p className="truncate text-xs text-neutral-500">
                                         {habit.description}
                                     </p>
                                 )}
@@ -206,7 +206,7 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                                 type="button"
                                 onClick={handleAdd}
                                 disabled={saving || !newName.trim()}
-                                className="rounded-full bg-neutral-950 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
+                                className="inline-flex items-center justify-center rounded-[10px] bg-neutral-900 px-4 h-8 text-xs font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
                             >
                                 {saving ? 'Adding…' : 'Add'}
                             </button>
@@ -227,9 +227,9 @@ export default function HabitsDaySection({ date, compact = false }: Props) {
                     <button
                         type="button"
                         onClick={() => setAdding(true)}
-                        className="mt-1 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                        className="mt-1 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                     >
-                        <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
+                        <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
                         Add habit
                     </button>
                 ))}

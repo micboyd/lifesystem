@@ -39,12 +39,12 @@ export default function Slider({
             {(label || showValue) && (
                 <div className="flex items-center justify-between">
                     {label && (
-                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <span className="text-[13px] font-medium text-neutral-700">
                             {label}
                         </span>
                     )}
                     {showValue && (
-                        <span className="text-xs font-semibold tabular-nums text-neutral-500">
+                        <span className="text-[13px] tabular-nums text-neutral-600">
                             {current}
                         </span>
                     )}

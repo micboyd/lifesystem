@@ -39,12 +39,12 @@ export default function DaysSinceWidget() {
                     to="/days-since"
                     className="flex items-center gap-4 rounded-xl border border-dashed border-neutral-200 px-4 py-5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
                 >
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-neutral-100 text-lg text-neutral-400">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-neutral-100 text-lg text-neutral-500">
                         <i className="fa-solid fa-hourglass-half" aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-neutral-900">Start a counter</p>
-                        <p className="text-xs text-neutral-400">
+                        <p className="text-xs text-neutral-500">
                             Track the days since a milestone, habit or fresh start
                         </p>
                     </div>
@@ -73,7 +73,7 @@ export default function DaysSinceWidget() {
                                         </p>
                                     ) : (
                                         item.history.length > 0 && (
-                                            <p className="text-xs text-neutral-400">Best: {best} days</p>
+                                            <p className="text-xs text-neutral-500">Best: {best} days</p>
                                         )
                                     )}
                                 </div>
@@ -81,7 +81,7 @@ export default function DaysSinceWidget() {
                                     <span className={`text-xl font-extrabold tracking-tight ${c.accent}`}>
                                         {days}
                                     </span>
-                                    <span className="ml-1 text-xs font-semibold text-neutral-400">
+                                    <span className="ml-1 text-xs font-semibold text-neutral-500">
                                         {days === 1 ? 'day' : 'days'}
                                     </span>
                                 </div>

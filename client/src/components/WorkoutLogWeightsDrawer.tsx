@@ -618,7 +618,7 @@ export default function WorkoutLogWeightsDrawer({
 
     const w = view
     const inputCls =
-        'h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-base tabular-nums text-neutral-900 outline-none transition-all placeholder:text-neutral-300 focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 sm:text-sm'
+        'h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-base tabular-nums text-neutral-900 outline-none focus-visible:outline-none transition-[border-color,box-shadow] placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100'
 
     return (
         <Drawer
@@ -683,7 +683,7 @@ export default function WorkoutLogWeightsDrawer({
                     )}
 
                     {drafts.length === 0 ? (
-                        <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
+                        <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500">
                             This workout has no exercises to record.
                         </p>
                     ) : (
@@ -731,7 +731,7 @@ export default function WorkoutLogWeightsDrawer({
                                                     <p className="text-base font-semibold text-neutral-900">
                                                         {ex.name}
                                                     </p>
-                                                    <p className="mt-0.5 text-xs text-neutral-400">
+                                                    <p className="mt-0.5 text-xs text-neutral-500">
                                                         {folded
                                                             ? summary.length
                                                                 ? summary.join(' · ')
@@ -759,7 +759,7 @@ export default function WorkoutLogWeightsDrawer({
                                                                 aria-expanded={swapping === ei}
                                                                 aria-label={`Swap ${ex.name}`}
                                                                 title="Machine taken? Swap this out"
-                                                                className="grid h-9 w-9 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
+                                                                className="grid h-9 w-9 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
                                                             >
                                                                 <i
                                                                     className="fa-solid fa-right-left text-xs"
@@ -771,10 +771,10 @@ export default function WorkoutLogWeightsDrawer({
                                                                 onClick={() => removeExercise(ei)}
                                                                 aria-label={`Skip ${ex.name}`}
                                                                 title="Skip this exercise today"
-                                                                className="grid h-9 w-9 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-coral-600"
+                                                                className="grid h-9 w-9 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-coral-600"
                                                             >
                                                                 <i
-                                                                    className="fa-solid fa-ban text-xs"
+                                                                    className="fa-solid fa-ban text-[11px]"
                                                                     aria-hidden="true"
                                                                 />
                                                             </button>
@@ -784,7 +784,7 @@ export default function WorkoutLogWeightsDrawer({
                                             </div>
 
                                             {ex.swappedFrom && !folded && (
-                                                <p className="-mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-400">
+                                                <p className="-mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-500">
                                                     <span>
                                                         Swapped in for{' '}
                                                         <span className="font-medium text-neutral-500">
@@ -794,7 +794,7 @@ export default function WorkoutLogWeightsDrawer({
                                                     <button
                                                         type="button"
                                                         onClick={() => undoSwap(ei)}
-                                                        className="font-semibold text-coral-600 transition-colors hover:text-coral-700"
+                                                        className="font-medium text-coral-600 transition-colors hover:text-coral-700"
                                                     >
                                                         Undo
                                                     </button>
@@ -814,7 +814,7 @@ export default function WorkoutLogWeightsDrawer({
 
                                             {!folded && (
                                                 <div className="flex flex-col gap-2">
-                                                    <div className="grid grid-cols-[1.75rem_1fr_1fr_2.25rem] items-center gap-2 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                                                    <div className="grid grid-cols-[1.75rem_1fr_1fr_2.25rem] items-center gap-2 px-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                                         <span>Set</span>
                                                         <span>kg</span>
                                                         <span>Reps</span>
@@ -825,7 +825,7 @@ export default function WorkoutLogWeightsDrawer({
                                                             key={si}
                                                             className="grid grid-cols-[1.75rem_1fr_1fr_2.25rem] items-center gap-2"
                                                         >
-                                                            <span className="grid h-7 w-7 place-items-center rounded-full bg-neutral-100 text-xs font-semibold tabular-nums text-neutral-500">
+                                                            <span className="grid h-7 w-7 place-items-center rounded-full bg-neutral-100 text-[11px] font-medium tabular-nums text-neutral-500">
                                                                 {si + 1}
                                                             </span>
                                                             <input
@@ -863,7 +863,7 @@ export default function WorkoutLogWeightsDrawer({
                                                                 aria-label={`Remove set ${si + 1}`}
                                                                 onClick={() => removeSet(ei, si)}
                                                                 disabled={ex.sets.length === 1}
-                                                                className="grid h-9 w-9 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-0"
+                                                                className="grid h-9 w-9 place-items-center rounded-xl text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-0"
                                                             >
                                                                 <i className="fa-solid fa-xmark text-xs" />
                                                             </button>
@@ -874,7 +874,7 @@ export default function WorkoutLogWeightsDrawer({
                                                         onClick={() => addSet(ei)}
                                                         className="inline-flex h-9 items-center gap-1.5 self-start rounded-lg px-2 text-xs font-semibold text-coral-600 transition-colors hover:bg-coral-50"
                                                     >
-                                                        <i className="fa-solid fa-plus text-[10px]" />
+                                                        <i className="fa-solid fa-plus text-[11px]" />
                                                         Add set
                                                     </button>
                                                 </div>
@@ -893,7 +893,7 @@ export default function WorkoutLogWeightsDrawer({
                             })}
 
                             {skipped.length === drafts.length && (
-                                <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
+                                <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500">
                                     Every exercise skipped — finishing records the session with no
                                     lifts against it.
                                 </p>
@@ -901,7 +901,7 @@ export default function WorkoutLogWeightsDrawer({
 
                             {skipped.length > 0 && (
                                 <div className="flex flex-col gap-2 rounded-xl bg-neutral-50 px-3 py-3">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         Skipped today · left out of the log
                                     </p>
                                     {skipped.map(({ ex, i }) => (
@@ -938,7 +938,7 @@ export default function WorkoutLogWeightsDrawer({
                     />
 
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <label className="text-[13px] font-medium text-neutral-700">
                             Date
                         </label>
                         <DatePicker

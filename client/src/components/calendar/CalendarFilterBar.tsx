@@ -92,7 +92,7 @@ export default function CalendarFilterBar({ onChanged }: { onChanged: () => void
                     <i className="fa-solid fa-filter text-xs" aria-hidden="true" />
                     Filters
                     {activeFilters > 0 && (
-                        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-white/20 px-1 text-[10px] font-bold">
+                        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-white/20 px-1 text-[11px] font-bold">
                             {activeFilters}
                         </span>
                     )}
@@ -165,7 +165,7 @@ export default function CalendarFilterBar({ onChanged }: { onChanged: () => void
                                 }}
                                 className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                             >
-                                <i className="fa-solid fa-sliders text-[10px]" aria-hidden="true" />
+                                <i className="fa-solid fa-sliders text-[11px]" aria-hidden="true" />
                                 Manage calendars
                             </button>
                         </div>
@@ -190,7 +190,7 @@ export default function CalendarFilterBar({ onChanged }: { onChanged: () => void
 
 function SectionLabel({ children }: { children: string }) {
     return (
-        <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+        <p className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
             {children}
         </p>
     )
@@ -218,7 +218,7 @@ function FilterRow({
             onClick={onToggle}
             className={[
                 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors duration-100 hover:bg-neutral-100',
-                checked ? 'text-neutral-700' : 'text-neutral-400',
+                checked ? 'text-neutral-700' : 'text-neutral-500',
             ].join(' ')}
         >
             <span
@@ -229,10 +229,10 @@ function FilterRow({
             />
             <span className="min-w-0 flex-1 truncate">{label}</span>
             {icon && (
-                <i className={`${icon} shrink-0 text-[10px] text-neutral-300`} aria-hidden="true" />
+                <i className={`${icon} shrink-0 text-[11px] text-neutral-300`} aria-hidden="true" />
             )}
             <i
-                className={`fa-solid fa-check shrink-0 text-[10px] ${checked ? 'text-neutral-900' : 'invisible'}`}
+                className={`fa-solid fa-check shrink-0 text-[11px] ${checked ? 'text-neutral-900' : 'invisible'}`}
                 aria-hidden="true"
             />
         </button>
@@ -305,7 +305,7 @@ function ManagePanel({
                 </Button>
             </div>
 
-            <p className="text-xs leading-relaxed text-neutral-400">
+            <p className="text-xs leading-relaxed text-neutral-500">
                 Deleting a calendar moves its events onto your default calendar — nothing is lost.
             </p>
         </div>
@@ -345,7 +345,7 @@ function CalendarRow({
                     className="min-w-0 flex-1 rounded-lg border border-transparent px-2 py-1 text-sm font-semibold text-neutral-900 outline-none hover:border-neutral-200 focus:border-neutral-400"
                 />
                 {calendar.isDefault ? (
-                    <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                    <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Default
                     </span>
                 ) : (
@@ -354,7 +354,7 @@ function CalendarRow({
                         disabled={busy}
                         onClick={onDelete}
                         aria-label={`Delete ${calendar.name}`}
-                        className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                        className="grid h-7 w-7 shrink-0 place-items-center rounded-[10px] text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
                     >
                         <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
                     </button>

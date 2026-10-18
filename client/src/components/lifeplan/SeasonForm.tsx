@@ -12,7 +12,6 @@ import {
     LIFE_PILLAR_ICONS,
     LIFE_PILLAR_LABELS,
     type CalendarColor,
-    type Course,
     type Goal,
     type LifePillar,
     type LifePlan,
@@ -49,7 +48,6 @@ export interface SeasonFormRecords {
     trainingPlans: TrainingPlan[]
     nutritionPhases: NutritionPhase[]
     savingsTargets: SavingsTarget[]
-    courses: Course[]
     monthNotes: MonthNote[]
     goals: Goal[]
 }
@@ -158,16 +156,6 @@ export default function SeasonForm({
             })),
         },
         {
-            key: 'courses',
-            label: 'Study',
-            pillar: 'study',
-            options: records.courses.map((c) => ({
-                id: c._id,
-                label: c.name,
-                hint: c.targetDate ? `due ${c.targetDate}` : 'no deadline',
-            })),
-        },
-        {
             key: 'monthNotes',
             label: 'Month flags',
             pillar: 'life',
@@ -270,7 +258,7 @@ export default function SeasonForm({
                 />
 
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Colour
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -296,7 +284,7 @@ export default function SeasonForm({
                 {/* Intent: one line per pillar the plan tracks. This is the part of a
                     season nothing else in the app records. */}
                 <div className="space-y-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Intent
                     </p>
                     {plan.pillars.map((pillar) => (
@@ -311,7 +299,7 @@ export default function SeasonForm({
                                     setIntentText((t) => ({ ...t, [pillar]: e.target.value }))
                                 }
                                 placeholder={LIFE_PILLAR_LABELS[pillar]}
-                                className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm transition-colors placeholder:text-neutral-300 focus:border-neutral-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                                className="w-full rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white px-3 h-10 text-sm transition-colors placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus:bg-white outline-none focus:ring-2 focus:ring-neutral-200 focus-visible:outline-none"
                             />
                         </div>
                     ))}
@@ -320,10 +308,10 @@ export default function SeasonForm({
                 {/* Links: what this season pulls in from the rest of the app. */}
                 <div className="space-y-4">
                     <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             What&apos;s in it
                         </p>
-                        <p className="mt-1 text-xs text-neutral-400">
+                        <p className="mt-1 text-xs text-neutral-500">
                             These stay owned by their own modules — linking them only tells the
                             season they belong to it.
                         </p>
@@ -341,7 +329,7 @@ export default function SeasonForm({
                                                 label={option.label}
                                             />
                                             {option.hint && (
-                                                <span className="text-[11px] text-neutral-400">
+                                                <span className="text-[11px] text-neutral-500">
                                                     {option.hint}
                                                 </span>
                                             )}

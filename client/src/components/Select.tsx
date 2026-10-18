@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { FIELD_ERROR_TEXT, FIELD_HINT, FIELD_LABEL } from './fieldStyles'
 
 export interface SelectOption {
     label: string
@@ -61,19 +62,19 @@ export default function Select({
     }
 
     const triggerClasses = [
-        'flex w-full items-center gap-3 rounded-xl border bg-white py-2.5 pl-4 pr-3 text-sm outline-none transition-all duration-150',
+        'flex h-11 w-full items-center gap-3 rounded-xl border bg-white pl-3.5 pr-3 text-[15px] outline-none focus-visible:outline-none transition-[border-color,box-shadow] duration-150',
         open
-            ? 'border-neutral-400 ring-2 ring-neutral-200'
+            ? 'border-neutral-900 ring-4 ring-neutral-100'
             : error
-              ? 'border-red-400'
-              : 'border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50',
+              ? 'border-red-600'
+              : 'border-neutral-200 hover:border-neutral-300 focus-visible:border-neutral-900 focus-visible:ring-4 focus-visible:ring-neutral-100',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
     ].join(' ')
 
     return (
         <div className={`flex flex-col gap-1.5 ${className}`}>
             {label && (
-                <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                <label className={FIELD_LABEL}>
                     {label}
                 </label>
             )}
@@ -86,23 +87,23 @@ export default function Select({
                 >
                     {icon && (
                         <i
-                            className={`${icon} shrink-0 text-sm text-neutral-400`}
+                            className={`${icon} shrink-0 text-sm text-neutral-500`}
                             aria-hidden="true"
                         />
                     )}
                     <span
-                        className={`flex-1 text-left ${selectedOption ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-400'}`}
+                        className={`flex-1 text-left ${selectedOption ? 'text-neutral-900' : 'text-neutral-500'}`}
                     >
                         {selectedOption ? selectedOption.label : placeholder}
                     </span>
                     <i
-                        className={`fa-solid fa-chevron-down shrink-0 text-[10px] text-neutral-300 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                        className={`fa-solid fa-chevron-down shrink-0 text-[11px] text-neutral-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
                         aria-hidden="true"
                     />
                 </button>
 
                 {open && (
-                    <div className="absolute left-0 top-full z-50 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-neutral-100 bg-white p-1.5 shadow-lg">
+                    <div className="absolute left-0 top-full z-50 mt-2 max-h-60 w-full overflow-y-auto rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-neutral-900/[0.06]">
                         {options.map((option) => {
                             const isSelected = option.value === current
                             return (
@@ -112,10 +113,10 @@ export default function Select({
                                     disabled={option.disabled}
                                     onClick={() => choose(option)}
                                     className={[
-                                        'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-40',
+                                        'flex min-h-10 w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-left text-sm transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-40',
                                         isSelected
-                                            ? 'bg-neutral-950 font-semibold text-white'
-                                            : 'font-medium text-neutral-700 hover:bg-neutral-100',
+                                            ? 'bg-neutral-100 font-medium text-neutral-900'
+                                            : 'text-neutral-700 hover:bg-neutral-50',
                                     ].join(' ')}
                                 >
                                     {option.label}
@@ -131,8 +132,13 @@ export default function Select({
                     </div>
                 )}
             </div>
-            {hint && !error && <p className="text-xs text-neutral-500">{hint}</p>}
-            {error && <p className="text-xs text-red-500">{error}</p>}
+            {hint && !error && <p className={FIELD_HINT}>{hint}</p>}
+            {error && (
+                <p className={FIELD_ERROR_TEXT}>
+                    <i className="fa-solid fa-circle-exclamation" aria-hidden="true" />
+                    {error}
+                </p>
+            )}
         </div>
     )
 }

@@ -58,7 +58,7 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
             style={{ left: pos.left, top: pos.top }}
             onMouseDown={(e) => e.stopPropagation()}
             onContextMenu={(e) => e.preventDefault()}
-            className="fixed z-[100] min-w-44 rounded-xl border border-neutral-100 bg-white p-1.5 shadow-lg"
+            className="fixed z-[100] min-w-44 rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-neutral-900/[0.06]"
         >
             {items.map((item) => (
                 <button
@@ -70,7 +70,7 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
                         onClose()
                     }}
                     className={[
-                        'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors duration-100',
+                        'flex min-h-10 w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-sm transition-colors duration-100',
                         item.danger
                             ? 'text-red-600 hover:bg-red-50'
                             : 'text-neutral-700 hover:bg-neutral-100',
@@ -78,7 +78,7 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
                 >
                     {item.icon && (
                         <i
-                            className={`${item.icon} w-4 text-center text-xs ${item.danger ? 'text-red-500' : 'text-neutral-400'}`}
+                            className={`${item.icon} w-4 text-center text-xs ${item.danger ? 'text-red-500' : 'text-neutral-500'}`}
                             aria-hidden="true"
                         />
                     )}

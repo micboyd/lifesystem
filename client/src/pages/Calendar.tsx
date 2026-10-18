@@ -633,7 +633,7 @@ export default function Calendar() {
                             type="button"
                             onClick={() => setFocusDate((d) => navigate(view, d, -1))}
                             aria-label="Previous"
-                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
                         </button>
@@ -644,7 +644,7 @@ export default function Calendar() {
                             type="button"
                             onClick={() => setFocusDate((d) => navigate(view, d, 1))}
                             aria-label="Next"
-                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
                         </button>
@@ -674,7 +674,7 @@ export default function Calendar() {
                             onClick={() => setExportOpen(true)}
                             aria-label="Export calendar"
                             title="Export calendar as JSON"
-                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             <i className="fa-solid fa-file-export text-sm" aria-hidden="true" />
                         </button>
@@ -1088,7 +1088,7 @@ function MonthBlock({
         <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3">
                 <h2 className="text-base font-bold tracking-tight text-neutral-950">
-                    {MONTHS[month]} <span className="font-semibold text-neutral-400">{year}</span>
+                    {MONTHS[month]} <span className="font-semibold text-neutral-500">{year}</span>
                 </h2>
                 <MonthFlags
                     month={monthKey(year, month)}
@@ -1103,7 +1103,7 @@ function MonthBlock({
                 >
                     <thead>
                         <tr className="border-b border-neutral-200">
-                            <th className="sticky left-0 z-10 w-28 bg-neutral-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <th className="sticky left-0 z-10 w-28 bg-neutral-50 px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Period
                             </th>
                             {dayNums.map((day) => {
@@ -1138,10 +1138,10 @@ function MonthBlock({
                                                 </span>
                                                 <span
                                                     className={[
-                                                        'mt-0.5 text-[10px] leading-none',
+                                                        'mt-0.5 text-[11px] leading-none',
                                                         todayCol
                                                             ? 'text-white/70'
-                                                            : 'text-neutral-400',
+                                                            : 'text-neutral-500',
                                                     ].join(' ')}
                                                 >
                                                     {WEEKDAYS[weekday]}
@@ -1163,7 +1163,7 @@ function MonthBlock({
                                 )
                             })}
                             {totalsOn && (
-                                <th className="w-16 bg-neutral-50 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                <th className="w-16 bg-neutral-50 px-2 py-2 text-center text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     Total
                                 </th>
                             )}
@@ -1176,9 +1176,9 @@ function MonthBlock({
                                     scope="row"
                                     className="sticky left-0 z-10 bg-neutral-50 px-3 py-2 text-left align-middle"
                                 >
-                                    <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
+                                    <span className="flex items-center gap-2 text-sm font-medium text-neutral-700">
                                         <i
-                                            className={`${period.icon} w-4 text-center text-neutral-400`}
+                                            className={`${period.icon} w-4 text-center text-neutral-500`}
                                             aria-hidden="true"
                                         />
                                         {period.label}
@@ -1236,7 +1236,7 @@ function MonthBlock({
                                 >
                                     <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
                                         <i
-                                            className="fa-solid fa-ellipsis w-4 text-center text-neutral-400"
+                                            className="fa-solid fa-ellipsis w-4 text-center text-neutral-500"
                                             aria-hidden="true"
                                         />
                                         Other
@@ -1293,7 +1293,7 @@ function MonthBlock({
                                 >
                                     <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
                                         <i
-                                            className="fa-solid fa-umbrella-beach w-4 text-center text-neutral-400"
+                                            className="fa-solid fa-umbrella-beach w-4 text-center text-neutral-500"
                                             aria-hidden="true"
                                         />
                                         Leave
@@ -1338,7 +1338,7 @@ function MonthBlock({
                                                     onClick={() => onLeaveClick(key)}
                                                     className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100"
                                                 >
-                                                    <i className="fa-solid fa-plus text-[10px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100" />
+                                                    <i className="fa-solid fa-plus text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100" />
                                                 </button>
                                             )}
                                         </td>
@@ -1496,7 +1496,7 @@ function TotalRowCells({
                                 setEditing(false)
                             }
                         }}
-                        className="w-full rounded-md border border-neutral-200 px-2 py-1 text-sm outline-none focus:border-neutral-400"
+                        className="w-full rounded-[10px] border border-neutral-200 hover:border-neutral-300 px-2 h-10 text-sm outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                     />
                 ) : (
                     <div className="group flex items-center gap-1.5">
@@ -1514,7 +1514,7 @@ function TotalRowCells({
                                 onChangeGranularity(row._id, weekly ? 'daily' : 'weekly')
                             }
                             title={weekly ? 'Switch to daily' : 'Switch to weekly'}
-                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold opacity-100 transition-all sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600"
+                            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold opacity-100 transition-all sm:opacity-0 sm:group-hover:opacity-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-600"
                         >
                             {weekly ? 'W' : 'D'}
                         </button>
@@ -1659,7 +1659,7 @@ function TotalCell({
                     setEditing(false)
                 }
             }}
-            className="h-9 w-full rounded-md border border-neutral-400 bg-white px-1 text-center text-xs tabular-nums text-neutral-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="h-9 w-full rounded-[10px] border border-neutral-400 bg-white px-1 text-center text-xs tabular-nums text-neutral-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
         />
     )
 }
@@ -1686,13 +1686,13 @@ function AddTotalRow({
                     if (e.key === 'Enter') submit()
                 }}
                 placeholder="Add a log row…"
-                className="w-56 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400"
+                className="w-56 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-500"
             />
             {name.trim() && (
                 <button
                     type="button"
                     onClick={submit}
-                    className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-neutral-800"
+                    className="inline-flex items-center justify-center rounded-[10px] bg-neutral-900 px-3 h-8 text-xs font-medium text-white transition-colors hover:bg-neutral-800"
                 >
                     Add
                 </button>

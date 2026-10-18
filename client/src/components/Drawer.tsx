@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useOverlayBehavior } from './useOverlay'
+import { OverlayBackdrop, OverlayBody, OverlayFooter, OverlayHeader } from './overlayParts'
 
 type DrawerSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 
@@ -42,61 +43,29 @@ export default function Drawer({
     useOverlayBehavior(open, onClose)
 
     // Kept mounted so the slide transition plays on both open and close.
-    const hiddenTransform = side === 'right' ? 'translate-x-full' : '-translate-x-full'
+
+    // Phones: a full-screen sheet. From sm up: a panel floating 8px off the
+    // edge with the same 20px rounding as a modal.
+    const hiddenTransform = side === 'right' ? 'translate-x-[calc(100%+1rem)]' : '-translate-x-[calc(100%+1rem)]'
 
     return createPortal(
         <div className={`fixed inset-0 z-50 ${open ? '' : 'pointer-events-none'}`}>
-            {/* Backdrop */}
-            <div
-                onClick={onClose}
-                aria-hidden="true"
-                className={`absolute inset-0 bg-neutral-900/60 transition-opacity duration-300 ${
-                    open ? 'opacity-100' : 'opacity-0'
-                }`}
-            />
-
-            {/* Panel */}
+            <OverlayBackdrop open={open} onClose={onClose} duration="duration-300" />
             <div
                 role="dialog"
                 aria-modal="true"
+                aria-hidden={!open}
                 className={[
-                    'absolute inset-y-0 flex w-full flex-col bg-white transition-transform duration-300 ease-out',
-                    side === 'right' ? 'right-0' : 'left-0',
+                    'absolute inset-y-0 flex w-full flex-col overflow-hidden bg-white shadow-xl transition-transform duration-300 ease-out sm:inset-y-2 sm:rounded-[20px] sm:ring-1 sm:ring-neutral-900/[0.06]',
+                    side === 'right' ? 'right-0 sm:right-2' : 'left-0 sm:left-2',
                     sizeClasses[size],
                     open ? 'translate-x-0' : hiddenTransform,
                     className,
                 ].join(' ')}
             >
-                <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-5 py-4">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <h2 className="text-base font-bold tracking-tight text-neutral-900 truncate">
-                            {title}
-                        </h2>
-                        {badge && (
-                            <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-500">
-                                {badge}
-                            </span>
-                        )}
-                    </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Close"
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-700"
-                    >
-                        <i className="fa-solid fa-xmark" aria-hidden="true" />
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-5 py-4 text-sm leading-relaxed text-neutral-600">
-                    {children}
-                </div>
-
-                {footer && (
-                    <div className="flex flex-wrap items-center justify-end gap-3 border-t border-neutral-100 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                        {footer}
-                    </div>
-                )}
+                <OverlayHeader title={title} badge={badge} onClose={onClose} />
+                <OverlayBody>{children}</OverlayBody>
+                {footer && <OverlayFooter>{footer}</OverlayFooter>}
             </div>
         </div>,
         document.body

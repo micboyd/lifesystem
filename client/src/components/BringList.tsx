@@ -75,13 +75,13 @@ export function BringChecklist({ items, packKey }: { items?: string[]; packKey: 
             <div className="mb-2 flex items-center justify-between gap-2 px-1">
                 <p className="inline-flex items-center gap-2 text-sm font-bold text-neutral-900">
                     <i
-                        className={`fa-solid fa-bag-shopping ${all ? 'text-emerald-600' : 'text-neutral-400'}`}
+                        className={`fa-solid fa-bag-shopping ${all ? 'text-emerald-600' : 'text-neutral-500'}`}
                         aria-hidden="true"
                     />
                     What to bring
                 </p>
                 <span
-                    className={`text-xs font-semibold tabular-nums ${all ? 'text-emerald-700' : 'text-neutral-400'}`}
+                    className={`text-xs font-semibold tabular-nums ${all ? 'text-emerald-700' : 'text-neutral-500'}`}
                 >
                     {all ? 'All packed' : `${done}/${items.length} packed`}
                 </span>
@@ -108,7 +108,7 @@ export function BringChecklist({ items, packKey }: { items?: string[]; packKey: 
                                 </span>
                                 <span
                                     className={
-                                        on ? 'text-neutral-400 line-through' : 'text-neutral-800'
+                                        on ? 'text-neutral-500 line-through' : 'text-neutral-800'
                                     }
                                 >
                                     {item}
@@ -174,7 +174,7 @@ export function BringInput({
         <div className="flex flex-col gap-2 rounded-xl border border-neutral-200 p-3">
             <div>
                 <p className="text-sm font-semibold text-neutral-900">What to bring</p>
-                <p className="mt-0.5 text-xs text-neutral-400">
+                <p className="mt-0.5 text-xs text-neutral-500">
                     Kit to pack from home. Tick it off before you leave.
                 </p>
             </div>
@@ -193,7 +193,7 @@ export function BringInput({
                                 onClick={() => onChange(value.filter((v) => v !== item))}
                                 className="grid h-6 w-6 place-items-center rounded-full text-neutral-300 hover:bg-white/10 hover:text-white"
                             >
-                                <i className="fa-solid fa-xmark text-[10px]" aria-hidden="true" />
+                                <i className="fa-solid fa-xmark text-[11px]" aria-hidden="true" />
                             </button>
                         </span>
                     ))}
@@ -216,7 +216,7 @@ export function BringInput({
                     }}
                     placeholder="e.g. Lifting belt"
                     aria-label="Add something to bring"
-                    className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-base outline-none placeholder:text-neutral-400 focus:border-neutral-400 sm:text-sm"
+                    className="min-w-0 flex-1 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-3 h-10 text-base outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 sm:text-sm focus-visible:outline-none"
                 />
                 <button
                     type="button"

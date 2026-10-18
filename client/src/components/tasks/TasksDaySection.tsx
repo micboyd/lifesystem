@@ -124,7 +124,7 @@ export default function TasksDaySection({ date }: Props) {
             {/* Progress */}
             {total > 0 && (
                 <div className="mb-1 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-neutral-400">
+                    <span className="text-xs font-semibold text-neutral-500">
                         {done}/{total} done
                         {totalMin > 0 && (
                             <span className="font-medium text-neutral-300">
@@ -171,7 +171,7 @@ export default function TasksDaySection({ date }: Props) {
                     <span
                         className={[
                             'flex-1 truncate text-sm font-medium',
-                            task.completed ? 'text-neutral-400 line-through' : 'text-neutral-800',
+                            task.completed ? 'text-neutral-500 line-through' : 'text-neutral-800',
                         ].join(' ')}
                     >
                         {task.title}
@@ -236,14 +236,14 @@ export default function TasksDaySection({ date }: Props) {
                         if (e.key === 'Enter') handleAdd()
                     }}
                     placeholder="Add a task…"
-                    className="flex-1 bg-transparent text-sm text-neutral-900 placeholder:text-neutral-400 outline-none"
+                    className="flex-1 bg-transparent text-sm text-neutral-900 placeholder:text-neutral-500 outline-none"
                 />
                 {newTitle.trim() && (
                     <button
                         type="button"
                         onClick={handleAdd}
                         disabled={adding}
-                        className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
+                        className="inline-flex items-center justify-center rounded-[10px] bg-neutral-900 px-3 h-8 text-xs font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
                     >
                         Add
                     </button>

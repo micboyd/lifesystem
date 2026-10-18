@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
     DEFAULT_CAPACITIES,
-    WORK_FOCUS_CAP,
     computeMonthLoads,
     noveltyFactor,
     findPressurePoints,
@@ -13,7 +12,6 @@ import {
     type Reserve,
 } from './lifeLoad'
 import type {
-    Course,
     Goal,
     LifePlan,
     MonthNote,
@@ -23,7 +21,6 @@ import type {
     PlanWeekDay,
     SavingsTarget,
     TrainingPlan,
-    WorkProject,
 } from '../types'
 
 /** A one-year plan, the window every case below is scored over. */
@@ -33,7 +30,7 @@ function plan(start = '2026-01', end = '2026-12'): LifePlan {
         name: '2026',
         start,
         end,
-        pillars: ['training', 'nutrition', 'money', 'study', 'life'],
+        pillars: ['training', 'nutrition', 'money', 'life'],
         seasons: [],
         order: 0,
         createdAt: '',
@@ -158,20 +155,6 @@ function savings(
     }
 }
 
-function course(targetDate: string, name = 'Exam', required = 40, completed = 10): Course {
-    return {
-        _id: `c-${name}`,
-        name,
-        kind: 'course',
-        requiredHours: required,
-        completedHours: completed,
-        order: 0,
-        targetDate,
-        createdAt: '',
-        updatedAt: '',
-    }
-}
-
 function flag(startMonth: string, endMonth: string, label = 'Portugal'): MonthNote {
     return {
         _id: `mn-${label}`,
@@ -196,23 +179,6 @@ function goal(targetDate: string, title = 'Sub-45 10K', status: Goal['status'] =
         linkedHabits: [],
         createdAt: '',
         updatedAt: '',
-    }
-}
-
-function project(
-    name: string,
-    extra: Partial<WorkProject> = {}
-): WorkProject {
-    return {
-        _id: `wp-${name}`,
-        name,
-        status: 'active',
-        color: 'blue',
-        order: 0,
-        stats: { open: 0, done: 0, waiting: 0, overdue: 0, nextDue: null },
-        createdAt: '2026-01-05T09:00:00.000Z',
-        updatedAt: '2026-01-05T09:00:00.000Z',
-        ...extra,
     }
 }
 
@@ -491,24 +457,6 @@ describe('time', () => {
         expect(demandFor('2026-06', 'time', input)).toBe(4.5)
     })
 
-    it("raises a course's implied study rate as its deadline closes", () => {
-        const input = { courses: [course('2026-03-31')] }
-        const jan = demandFor('2026-01', 'time', input)
-        const mar = demandFor('2026-03', 'time', input)
-        expect(jan).toBeCloseTo(2.26, 1)
-        expect(mar).toBeCloseTo(6.77, 1)
-        expect(mar).toBeGreaterThan(jan)
-    })
-
-    it('drops a course once its deadline has passed', () => {
-        const input = { courses: [course('2026-03-31')] }
-        expect(loadFor('2026-04', input).contributors).toEqual([])
-    })
-
-    it('ignores a course with no deadline — it has no span to be live over', () => {
-        const undated: Course = { ...course('2026-09-18'), targetDate: undefined }
-        expect(loadFor('2026-09', { courses: [undated] }).contributors).toEqual([])
-    })
 })
 
 describe('focus', () => {
@@ -528,11 +476,10 @@ describe('focus', () => {
         const load = loadFor('2026-09', {
             nutritionPhases: [phase('2026-09-01', '2026-09-30', 'cut')],
             trainingPlans: [trainingPlan('2026-09-01', '2026-09-30')],
-            courses: [course('2026-09-30')],
             monthNotes: [flag('2026-09', '2026-09')],
-            goals: [goal('2026-09-30')],
+            goals: [goal('2026-09-30'), goal('2026-09-15', 'Race')],
         })
-        // cut 1 + new routine 1 + course 1 + flag 0.5 + deadline 1
+        // cut 1 + new routine 1 + flag 0.5 + two deadlines 2
         expect(load.reserves.focus.demand).toBe(4.5)
         expect(load.reserves.focus.level).toBe('overloaded')
     })
@@ -593,39 +540,6 @@ describe('focus settles as things become habit', () => {
         expect(load.reserves.focus.demand).toBe(1)
         expect(load.reserves.focus.contributions).toHaveLength(1)
         expect(load.contributors[1].focusNote).toBe('training is one routine — charged to Lifting')
-    })
-})
-
-describe('work projects', () => {
-    it('charges half a change per live project', () => {
-        const input = { workProjects: [project('Launch'), project('Migration')] }
-        expect(demandFor('2026-03', 'focus', input)).toBe(1)
-    })
-
-    it('caps work however many projects are live', () => {
-        const input = { workProjects: ['A', 'B', 'C', 'D', 'E'].map((n) => project(n)) }
-        expect(demandFor('2026-03', 'focus', input)).toBe(WORK_FOCUS_CAP)
-        expect(loadFor('2026-03', input).contributors[0].focusNote).toContain('one of 5')
-    })
-
-    it('counts a project only while it runs', () => {
-        const input = {
-            workProjects: [
-                project('Paused', { status: 'paused' }),
-                project('Shipped', { status: 'done', updatedAt: '2026-04-20T00:00:00.000Z' }),
-                project('Dated', { dueDate: '2026-06-30' }),
-                project('Later', { createdAt: '2026-09-01T00:00:00.000Z' }),
-            ],
-        }
-        expect(demandFor('2026-04', 'focus', input)).toBe(1)
-        expect(demandFor('2026-06', 'focus', input)).toBe(0.5)
-        expect(demandFor('2026-08', 'focus', input)).toBe(0)
-        expect(demandFor('2026-09', 'focus', input)).toBe(0.5)
-    })
-
-    it('marks an open-ended project as assumed', () => {
-        const load = loadFor('2026-03', { workProjects: [project('Ongoing')] })
-        expect(load.contributors[0].basis).toBe('assumed')
     })
 })
 
@@ -742,8 +656,8 @@ describe('findPressurePoints', () => {
         const loads = computeMonthLoads({
             plan: plan('2026-09', '2026-11'),
             trainingPlans: [trainingPlan('2026-09-01', '2026-11-30', '10K build')],
-            // 200 hours of revision to find before December.
-            courses: [course('2026-11-30', 'Finals', 200, 0)],
+            savingsTargets: [savings('2026-09', '2026-11', 'Car', 900)],
+            freeCash: { '2026-09': 700, '2026-10': 700, '2026-11': 700 },
         })
         expect(findPressurePoints(loads).map((l) => l.month)).toEqual([
             '2026-09',
@@ -771,10 +685,12 @@ describe('overloadedReserves', () => {
         const load = loadFor('2026-09', {
             trainingPlans: [trainingPlan('2026-09-01', '2026-09-30', '10K build')],
             nutritionPhases: [phase('2026-09-01', '2026-09-30', 'cut')],
-            courses: [course('2026-09-30', 'Exam', 80, 0)],
             monthNotes: [flag('2026-09', '2026-09')],
+            goals: [goal('2026-09-30'), goal('2026-09-15', 'Race')],
+            savingsTargets: [savings('2026-09', '2026-09', 'Car', 900)],
+            freeCash: { '2026-09': 700 },
         })
-        expect(overloadedReserves(load).map((r) => r.reserve)).toEqual(['time', 'focus'])
+        expect(overloadedReserves(load).map((r) => r.reserve)).toEqual(['focus', 'money'])
     })
 })
 

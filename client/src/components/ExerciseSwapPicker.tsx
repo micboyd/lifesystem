@@ -17,7 +17,7 @@ const SUGGESTION_LIMIT = 6
 /** A small tag chip — muscle group or equipment. */
 function Chip({ children }: { children: ReactNode }) {
     return (
-        <span className="inline-flex items-center rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+        <span className="inline-flex items-center rounded-md bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
             {children}
         </span>
     )
@@ -44,7 +44,7 @@ function Option({
                 {option.muscleGroup && <Chip>{option.muscleGroup}</Chip>}
                 {option.equipment && <Chip>{option.equipment}</Chip>}
             </span>
-            <span className="text-[11px] text-neutral-400">{option.reason}</span>
+            <span className="text-[11px] text-neutral-500">{option.reason}</span>
         </button>
     )
 }
@@ -69,7 +69,7 @@ function TagPills({
 }) {
     return (
         <div className="flex flex-col gap-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 {label}
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -93,7 +93,7 @@ function TagPills({
                     )
                 })}
             </div>
-            {hint && <p className="text-[11px] text-neutral-400">{hint}</p>}
+            {hint && <p className="text-[11px] text-neutral-500">{hint}</p>}
         </div>
     )
 }
@@ -246,13 +246,13 @@ export default function ExerciseSwapPicker({
     return (
         <div className="flex flex-col gap-2.5 rounded-xl border border-neutral-200 bg-neutral-50/70 p-3">
             <div className="flex items-center justify-between gap-2">
-                <p className="flex min-w-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                <p className="flex min-w-0 items-center gap-1 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     {mode === 'create' && (
                         <button
                             type="button"
                             onClick={closeCreate}
                             aria-label="Back to suggestions"
-                            className="-my-1 -ml-1.5 grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+                            className="-my-1 -ml-1.5 grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
                         >
                             <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
                         </button>
@@ -265,7 +265,7 @@ export default function ExerciseSwapPicker({
                     type="button"
                     onClick={onCancel}
                     aria-label="Cancel swap"
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
                 >
                     <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
                 </button>
@@ -288,7 +288,7 @@ export default function ExerciseSwapPicker({
                     />
 
                     {shown.length === 0 ? (
-                        <p className="px-1 text-xs text-neutral-400">
+                        <p className="px-1 text-xs text-neutral-500">
                             {searching
                                 ? `Nothing in your library matches “${query.trim()}”.`
                                 : onCreate
@@ -372,7 +372,7 @@ export default function ExerciseSwapPicker({
 
                     {error && <p className="px-1 text-[11px] text-red-500">{error}</p>}
 
-                    <p className="px-1 text-[11px] text-neutral-400">
+                    <p className="px-1 text-[11px] text-neutral-500">
                         Saved to your exercise library and swapped into this session.
                     </p>
 

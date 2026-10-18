@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import Modal from './Modal'
+import Drawer from './Drawer'
 import Button from './Button'
 import Input from './Input'
 import Select from './Select'
@@ -134,9 +134,9 @@ export default function QuickLog() {
                 className="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 rounded-full bg-neutral-950 py-2.5 pl-4 pr-3 text-white shadow-lg shadow-neutral-950/20 transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97]"
                 title="Log a spend"
             >
-                <i className="fa-solid fa-wallet text-xs text-neutral-400" aria-hidden="true" />
+                <i className="fa-solid fa-wallet text-[11px] text-neutral-500" aria-hidden="true" />
                 <span className="flex flex-col items-start leading-none">
-                    <span className="text-[9px] font-semibold uppercase tracking-wider text-neutral-500">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         {overShort ? 'Over today' : 'Safe today'}
                     </span>
                     <span
@@ -153,10 +153,10 @@ export default function QuickLog() {
             </button>
 
             {open && (
-                <Modal
+                <Drawer size="md"
                     open
                     onClose={() => setOpen(false)}
-                    size="sm"
+                   
                     title="Log a spend"
                     footer={
                         <Button variant="ghost" onClick={() => setOpen(false)}>
@@ -165,14 +165,14 @@ export default function QuickLog() {
                     }
                 >
                     {loggableRows.length === 0 ? (
-                        <p className="py-4 text-sm text-neutral-400">
+                        <p className="py-4 text-sm text-neutral-500">
                             No daily budgets with amounts set yet.
                         </p>
                     ) : (
                         <form onSubmit={submit} className="flex flex-col gap-4">
                             {/* Safe-to-spend hero */}
                             <div className="rounded-2xl bg-neutral-950 px-5 py-4 text-white">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     {overShort ? 'Over budget today' : 'Safe to spend today'}
                                 </p>
                                 <p
@@ -262,7 +262,7 @@ export default function QuickLog() {
                             <Spinner />
                         </div>
                     )}
-                </Modal>
+                </Drawer>
             )}
         </>
     )

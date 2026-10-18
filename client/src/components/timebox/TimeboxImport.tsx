@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import Modal from '../Modal'
+import Drawer from '../Drawer'
 import Button from '../Button'
 import Accordion from '../Accordion'
 import DatePicker, { type DatePickerValue } from '../DatePicker'
@@ -177,7 +177,7 @@ export default function TimeboxImport({
         <div className="flex flex-col gap-4">
             {/* Frequency */}
             <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     Repeat
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -239,7 +239,7 @@ export default function TimeboxImport({
             {repeats && (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Starts
                         </span>
                         <DatePicker
@@ -251,7 +251,7 @@ export default function TimeboxImport({
                         />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Ends{' '}
                             <span className="normal-case font-normal text-neutral-300">
                                 (optional)
@@ -272,7 +272,7 @@ export default function TimeboxImport({
 
             {repeats && (
                 <p className="flex items-center gap-2 rounded-xl bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-500">
-                    <i className="fa-solid fa-rotate text-neutral-400" aria-hidden="true" />
+                    <i className="fa-solid fa-rotate text-neutral-500" aria-hidden="true" />
                     {repeatSummary()}
                 </p>
             )}
@@ -280,18 +280,18 @@ export default function TimeboxImport({
     )
 
     return (
-        <Modal
+        <Drawer size="xl"
             open={open}
             onClose={onClose}
             title="Import day plan"
-            size="lg"
+           
             footer={
                 <>
-                    <Button variant="secondary" size="sm" onClick={onClose} disabled={importing}>
+                    <Button variant="secondary" onClick={onClose} disabled={importing}>
                         Cancel
                     </Button>
                     <Button
-                        size="sm"
+                       
                         icon="fa-solid fa-file-import"
                         onClick={handleImport}
                         disabled={importing || !text.trim()}
@@ -332,7 +332,7 @@ export default function TimeboxImport({
                         setText(SAMPLE)
                         setError('')
                     }}
-                    className="self-start text-xs font-semibold text-neutral-400 hover:text-neutral-600"
+                    className="self-start text-xs font-semibold text-neutral-500 hover:text-neutral-600"
                 >
                     <i className="fa-solid fa-wand-magic-sparkles mr-1" aria-hidden="true" />
                     Insert sample
@@ -357,13 +357,13 @@ export default function TimeboxImport({
                     </p>
                 )}
 
-                <p className="text-xs text-neutral-400">
+                <p className="text-xs text-neutral-500">
                     <i className="fa-solid fa-circle-info mr-1" aria-hidden="true" />
                     {repeats
                         ? 'Repeating blocks are added as a recurring series and skip overlap checks.'
                         : 'Blocks that overlap an existing block are skipped.'}
                 </p>
             </div>
-        </Modal>
+        </Drawer>
     )
 }

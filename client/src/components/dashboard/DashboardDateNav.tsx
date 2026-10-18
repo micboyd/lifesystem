@@ -12,17 +12,17 @@ export default function DashboardDateNav({ date, onChange }: Props) {
     return (
         // One tidy full-width row on phones: left-packing these wrapped "Today"
         // onto a line of its own, which read as a mistake.
-        <div className="flex w-full items-center gap-2 sm:w-auto">
+        <div className="flex w-full items-center gap-2 lg:w-auto">
             <button
                 type="button"
                 onClick={() => onChange(addDays(date, -1))}
                 aria-label="Previous day"
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition-colors hover:border-neutral-300 hover:text-neutral-900"
             >
                 <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
             </button>
 
-            <div className="min-w-0 flex-1 sm:w-auto sm:flex-none">
+            <div className="min-w-0 flex-1 lg:w-auto lg:flex-none">
                 <DatePicker
                     value={date}
                     onChange={(v: DatePickerValue) => {
@@ -35,7 +35,7 @@ export default function DashboardDateNav({ date, onChange }: Props) {
                 type="button"
                 onClick={() => onChange(addDays(date, 1))}
                 aria-label="Next day"
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition-colors hover:border-neutral-300 hover:text-neutral-900"
             >
                 <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
             </button>
@@ -44,7 +44,7 @@ export default function DashboardDateNav({ date, onChange }: Props) {
                 type="button"
                 onClick={() => onChange(todayKey())}
                 disabled={isToday}
-                className="shrink-0 whitespace-nowrap rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-40 disabled:hover:bg-white"
+                className="h-11 shrink-0 whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-4 text-sm font-medium text-neutral-700 transition-colors hover:border-neutral-300 hover:text-neutral-900 disabled:opacity-40 disabled:hover:border-neutral-200"
             >
                 Today
             </button>

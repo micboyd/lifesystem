@@ -99,7 +99,7 @@ function LocationPicker({
         return (
             <div className="flex items-center justify-between gap-3">
                 <p className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
-                    <i className="fa-solid fa-location-dot text-neutral-400" aria-hidden="true" />
+                    <i className="fa-solid fa-location-dot text-neutral-500" aria-hidden="true" />
                     {current?.name}
                 </p>
                 <Button variant="secondary" size="sm" icon="fa-solid fa-pen" onClick={() => setEditing(true)}>
@@ -143,7 +143,7 @@ function LocationPicker({
                     type="button"
                     onClick={useMyLocation}
                     disabled={locating || saving}
-                    className="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-3.5 py-2 text-xs font-semibold text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-[10px] border border-neutral-200 px-3.5 h-9 text-xs font-medium text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
                 >
                     <i
                         className={
@@ -182,7 +182,7 @@ function LocationPicker({
                                         {r.name}
                                     </span>
                                     {placeLabel(r) && (
-                                        <span className="block truncate text-xs text-neutral-400">
+                                        <span className="block truncate text-xs text-neutral-500">
                                             {placeLabel(r)}
                                         </span>
                                     )}
@@ -192,7 +192,7 @@ function LocationPicker({
                     ))}
                 </ul>
             ) : query.trim().length >= 2 ? (
-                <p className="px-1 py-2 text-sm text-neutral-400">No matches found.</p>
+                <p className="px-1 py-2 text-sm text-neutral-500">No matches found.</p>
             ) : null}
         </div>
     )
@@ -244,7 +244,7 @@ export default function Weather() {
     return (
         <Container as="main" className="py-10">
             <header className="mb-8">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Weather</h1>
+                <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Weather</h1>
                 <p className="mt-1 text-sm text-neutral-500">
                     Today's conditions, the next 12 hours, and what to wear
                 </p>
@@ -281,7 +281,7 @@ export default function Weather() {
                 <div className="flex flex-col gap-6">
                     {/* Current conditions */}
                     <div>
-                        <p className="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-400">
+                        <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Right now
                         </p>
                         <Card>
@@ -298,7 +298,7 @@ export default function Weather() {
                                         <span className="text-5xl font-bold tracking-tighter text-neutral-900">
                                             {current.temperature}
                                         </span>
-                                        <span className="mt-1 text-2xl font-semibold text-neutral-400">°C</span>
+                                        <span className="mt-1 text-2xl font-semibold text-neutral-500">°C</span>
                                     </div>
                                     <p className="text-sm font-medium text-neutral-600">
                                         {weatherInfo(current.code, current.isDay).label}
@@ -344,7 +344,7 @@ export default function Weather() {
 
                     {/* Forecast */}
                     <div>
-                        <p className="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-400">
+                        <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Next 5 days
                         </p>
                         <div className="grid gap-4 sm:grid-cols-2">
@@ -360,11 +360,11 @@ export default function Weather() {
                                                 <p className="text-sm font-bold text-neutral-900">
                                                     {dayLabel(d.date, today)}
                                                 </p>
-                                                <p className="text-xs text-neutral-400">{info.label}</p>
+                                                <p className="text-xs text-neutral-500">{info.label}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-lg font-bold text-neutral-900">{d.tempMax}°</p>
-                                                <p className="text-xs text-neutral-400">{d.tempMin}°</p>
+                                                <p className="text-xs text-neutral-500">{d.tempMin}°</p>
                                             </div>
                                         </div>
 
@@ -386,7 +386,7 @@ export default function Weather() {
                                         </div>
 
                                         <p className="mt-3 border-t border-neutral-100 pt-3 text-xs text-neutral-600">
-                                            <i className="fa-solid fa-shirt mr-1.5 text-neutral-400" aria-hidden="true" />
+                                            <i className="fa-solid fa-shirt mr-1.5 text-neutral-500" aria-hidden="true" />
                                             {whatToWear(d)}
                                         </p>
                                     </Card>
@@ -415,14 +415,14 @@ function HourlyStrip({ forecast }: { forecast: Forecast }) {
 
     return (
         <div>
-            <p className="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-400">
+            <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 Next 12 hours
             </p>
 
             {gradient && (
                 <div className="mb-5 px-1">
                     <div
-                        className="relative h-2 rounded-full ring-1 ring-black/5"
+                        className="relative h-2 rounded-full ring-1 ring-neutral-900/5"
                         style={{ background: `linear-gradient(to right, ${gradient})` }}
                     >
                         {markers.map((m) => (
@@ -431,7 +431,7 @@ function HourlyStrip({ forecast }: { forecast: Forecast }) {
                                 className="absolute top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
                                 style={{ left: `${m.position}%` }}
                             >
-                                <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[9px] text-neutral-600 shadow ring-1 ring-black/5">
+                                <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[9px] text-neutral-600 shadow ring-1 ring-neutral-900/5">
                                     <i
                                         className={
                                             m.kind === 'sunrise'
@@ -441,7 +441,7 @@ function HourlyStrip({ forecast }: { forecast: Forecast }) {
                                         aria-hidden="true"
                                     />
                                 </span>
-                                <span className="mt-1 whitespace-nowrap text-[10px] font-medium text-neutral-400">
+                                <span className="mt-1 whitespace-nowrap text-[11px] font-medium text-neutral-500">
                                     {m.time}
                                 </span>
                             </div>
@@ -461,7 +461,7 @@ function HourlyStrip({ forecast }: { forecast: Forecast }) {
                                 <p className="text-lg font-bold text-neutral-900">{h.temperature}°</p>
                                 <p
                                     className={`text-xs ${
-                                        h.precipitationProbability >= 40 ? 'text-sky-600' : 'text-neutral-400'
+                                        h.precipitationProbability >= 40 ? 'text-sky-600' : 'text-neutral-500'
                                     }`}
                                 >
                                     <i className="fa-solid fa-droplet mr-1" aria-hidden="true" />
@@ -487,7 +487,7 @@ function ClothingOutlook({ forecast }: { forecast: Forecast }) {
 
     return (
         <div>
-            <p className="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-400">
+            <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 What to wear
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -505,7 +505,7 @@ function ClothingOutlook({ forecast }: { forecast: Forecast }) {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-bold text-neutral-900">{title}</p>
-                                    <p className="text-xs text-neutral-400">
+                                    <p className="text-xs text-neutral-500">
                                         {hourLabel(first.hour)}–{hourLabel(last.hour + 1)} · {info.label} ·{' '}
                                         {wear.tempMin}°–{wear.tempMax}°
                                     </p>
@@ -525,8 +525,8 @@ function ClothingOutlook({ forecast }: { forecast: Forecast }) {
 function Stat({ icon, label, value }: { icon: string; label: string; value: string }) {
     return (
         <div>
-            <p className="flex items-center gap-1.5 text-xs font-medium text-neutral-400">
-                <i className={`${icon} text-[10px]`} aria-hidden="true" />
+            <p className="flex items-center gap-1.5 text-xs font-medium text-neutral-500">
+                <i className={`${icon} text-[11px]`} aria-hidden="true" />
                 {label}
             </p>
             <p className="mt-0.5 text-sm font-semibold text-neutral-900">{value}</p>

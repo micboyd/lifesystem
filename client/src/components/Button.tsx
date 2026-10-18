@@ -1,6 +1,12 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
-type Variant = 'primary' | 'brand' | 'secondary' | 'ghost'
+/**
+ * `primary` is coral and appears once per view. `secondary` is the white,
+ * hairline-bordered default for everything else. `ghost` is for quiet toolbar
+ * actions, `strong` is ink for a confident non-primary action (on dark cards,
+ * for instance), and `danger` is the tinted destructive action.
+ */
+type Variant = 'primary' | 'secondary' | 'ghost' | 'strong' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -14,20 +20,19 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<Variant, string> = {
-    primary:
-        'bg-coral-500 text-white shadow-sm shadow-coral-500/25 hover:bg-coral-600 active:bg-coral-700',
-    // The work workspace's accent. Same shape as `primary`, so a page can pick
-    // the accent that matches the workspace it's in without restyling itself.
-    brand: 'bg-brand-600 text-white shadow-sm shadow-brand-600/25 hover:bg-brand-500 active:bg-brand-700',
+    primary: 'bg-coral-500 text-white hover:bg-coral-600 active:bg-coral-700',
     secondary:
         'bg-white text-neutral-900 border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 active:bg-neutral-100',
     ghost: 'bg-transparent text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 active:bg-neutral-200',
+    strong: 'bg-neutral-900 text-neutral-50 hover:bg-neutral-800 active:bg-neutral-700',
+    danger: 'bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-100',
 }
 
+// 44px is the default so every primary control meets the touch-target size.
 const sizeClasses: Record<Size, string> = {
-    sm: 'px-4 py-2 text-xs',
-    md: 'px-6 py-3 text-sm',
-    lg: 'px-8 py-3.5 text-base',
+    sm: 'h-9 rounded-[10px] px-3.5 text-[13px]',
+    md: 'h-11 rounded-xl px-[18px] text-sm',
+    lg: 'h-12 rounded-xl px-6 text-[15px]',
 }
 
 export default function Button({
@@ -41,12 +46,13 @@ export default function Button({
     disabled,
     ...props
 }: ButtonProps) {
-    const iconEl = icon ? <i className={icon} aria-hidden="true" /> : null
+    const iconEl = icon ? <i className={`${icon} text-[0.9em]`} aria-hidden="true" /> : null
 
     return (
         <button
             className={[
-                'inline-flex items-center justify-center gap-2 rounded-full font-semibold tracking-tight transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed',
+                'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors duration-150',
+                'disabled:cursor-not-allowed disabled:border-transparent disabled:bg-neutral-100 disabled:text-neutral-500',
                 variantClasses[variant],
                 sizeClasses[size],
                 fullWidth ? 'w-full' : '',

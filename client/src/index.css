@@ -1,44 +1,115 @@
-@import '@fontsource/dm-sans/400.css';
-@import '@fontsource/dm-sans/500.css';
-@import '@fontsource/dm-sans/600.css';
-@import '@fontsource/dm-sans/700.css';
+@import '@fontsource/geist/400.css';
+@import '@fontsource/geist/500.css';
+@import '@fontsource/geist/600.css';
+@import '@fontsource/geist/700.css';
+@import '@fontsource/geist-mono/400.css';
+@import '@fontsource/geist-mono/500.css';
+@import '@fontsource/geist-mono/600.css';
 @import 'tailwindcss';
 
+/* AdminLife 2.0 — flat, warm and uniform. Every value here comes from the 2.0
+   foundations board. The Tailwind defaults the app leans on (neutral, emerald,
+   amber, red, radius, shadow, weight) are redefined in place so every screen
+   picks the new look up without touching its classes. */
 @theme {
-    --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
-    --color-herb: #708c69;
-    --color-marigold: #f4a258;
-    --color-brand: #013d5a;
+    --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-    /* Opaque tints of herb/marigold, matched to how the /10 and /30 alphas used
-       to composite on white — so surfaces that float over content (toasts) stay
-       solid instead of showing the page through them. */
-    --color-herb-50: #f1f4f0;
-    --color-herb-200: #d4dcd2;
-    --color-marigold-50: #fef6ee;
-    --color-marigold-200: #fbdabc;
+    /* Headings soften from 700 to 600; nothing in 2.0 is heavier. */
+    --font-weight-bold: 600;
+    --font-weight-extrabold: 600;
+    --font-weight-black: 600;
 
-    /* Coral — the Airbnb-warm accent used for primary actions and active states. */
+    /* Semantic tokens: prefer these in new code. */
+    --color-canvas: #f6f5f2;
+    --color-surface: #ffffff;
+    --color-surface-sunken: #efede8;
+    --color-line: #e4e1da;
+    --color-ink: #1a1917;
+    --color-ink-secondary: #5f5b54;
+    --color-ink-tertiary: #716d66;
+    --color-accent: #e0294a;
+    --color-on: #1a1917;
+
+    --color-success: #1f7a45;
+    --color-success-bg: #ecfdf3;
+    --color-warning: #9a5200;
+    --color-warning-bg: #fff7eb;
+    --color-danger: #c02639;
+    --color-danger-bg: #fef1f2;
+    --color-info: #0b5c7d;
+    --color-info-bg: #eef4f7;
+
+    /* Coral, deepened so white on 500 passes 4.6:1. */
     --color-coral-50: #fff1f2;
-    --color-coral-100: #ffe4e7;
-    --color-coral-200: #fecdd3;
-    --color-coral-300: #fda4af;
-    --color-coral-500: #ff385c;
-    --color-coral-600: #e11d48;
-    --color-coral-700: #be123c;
+    --color-coral-100: #ffe1e5;
+    --color-coral-200: #ffc2cb;
+    --color-coral-300: #ff8e9f;
+    --color-coral-400: #ff6b80;
+    --color-coral-500: #e0294a;
+    --color-coral-600: #c92343;
+    --color-coral-700: #b81e3b;
 
-    /* Brand navy — the work workspace's accent, chosen to read as unmistakably
-       "not life" the moment the rail changes colour. Ramped around the existing
-       --color-brand so both modes stay in the same family. */
-    --color-brand-50: #eff5f8;
+    /* Brand navy: info and charts. */
+    --color-brand: #013d5a;
+    --color-brand-50: #eef4f7;
     --color-brand-100: #d7e6ee;
+    --color-brand-300: #a9c7d6;
+    --color-brand-400: #5e95af;
     --color-brand-500: #0b5c7d;
     --color-brand-600: #044b6b;
     --color-brand-700: #013d5a;
 
-    /* Warm canvas + ink so white cards feel cosy rather than clinical. */
-    --color-canvas: #f7f6f3;
-    --color-ink: #222222;
+    /* Herb and marigold now resolve to the 2.0 success and warning hues. */
+    --color-herb: #1f7a45;
+    --color-herb-50: #ecfdf3;
+    --color-herb-200: #c6ebd3;
+    --color-marigold: #e89a3c;
+    --color-marigold-50: #fff7eb;
+    --color-marigold-200: #fce3bf;
+
+    /* Stone: warm-tinted greys in place of Tailwind's pure neutral. */
+    --color-neutral-50: #f6f5f2;
+    --color-neutral-100: #efede8;
+    --color-neutral-200: #e4e1da;
+    --color-neutral-300: #cfcbc2;
+    --color-neutral-400: #a8a39a;
+    --color-neutral-500: #716d66;
+    --color-neutral-600: #5f5b54;
+    --color-neutral-700: #45423d;
+    --color-neutral-800: #2e2c29;
+    --color-neutral-900: #1a1917;
+    --color-neutral-950: #121110;
+
+    /* Status steps used as text, retuned so each passes 4.5:1 on its tint. */
+    --color-emerald-50: #ecfdf3;
+    --color-emerald-100: #d3f5e0;
+    --color-emerald-600: #1f7a45;
+    --color-emerald-700: #1a6a3c;
+    --color-emerald-800: #155632;
+    --color-amber-50: #fff7eb;
+    --color-amber-100: #ffeccf;
+    --color-amber-600: #a65a00;
+    --color-amber-700: #9a5200;
+    --color-amber-800: #7f4400;
+    --color-red-50: #fef1f2;
+    --color-red-100: #fde0e3;
+    --color-red-500: #c02639;
+    --color-red-600: #c02639;
+    --color-red-700: #a11f30;
+
+    /* Calmer shapes: cards at 20px, buttons and fields at 12px (rounded-xl). */
+    --radius-3xl: 1.25rem;
+
+    /* Flat depth: stone-tinted, soft, always read with a hairline ring. */
+    --shadow-xs: 0 1px 1px rgba(26, 25, 23, 0.03);
+    --shadow-sm: 0 1px 2px rgba(26, 25, 23, 0.05);
+    --shadow-md: 0 2px 6px -1px rgba(26, 25, 23, 0.07);
+    --shadow-lg: 0 8px 24px -6px rgba(26, 25, 23, 0.12);
+    --shadow-xl: 0 24px 48px -12px rgba(26, 25, 23, 0.22);
+    --shadow-2xl: 0 32px 64px -16px rgba(26, 25, 23, 0.28);
+
+    --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 body {
@@ -48,9 +119,22 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/* Figures that change get Geist Mono, so columns line up and values stop
+   jittering as they update. Anything already marked tabular-nums is a figure. */
+.tabular-nums {
+    font-family: var(--font-mono);
+    letter-spacing: -0.01em;
+}
+
+/* One focus treatment everywhere: an ink ring with a 2px gap. */
+:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+}
+
 ::selection {
-    background: var(--color-coral-500);
-    color: #ffffff;
+    background: var(--color-coral-200);
+    color: var(--color-ink);
 }
 
 button {

@@ -414,7 +414,7 @@ export default function EventEditor({
                 {/* Calendar (layer) — only worth showing once there's a choice. */}
                 {calendars.length > 1 && (
                     <div className="flex flex-col gap-2">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <label className="text-[13px] font-medium text-neutral-700">
                             Calendar
                         </label>
                         <div className="flex flex-wrap gap-1.5">
@@ -445,7 +445,7 @@ export default function EventEditor({
                 {/* Cross-calendar overlap — information, not a blocker. */}
                 {overlaps.length > 0 && (
                     <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 px-4 py-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Also in this slot
                         </p>
                         {overlaps.map((other) => {
@@ -508,7 +508,7 @@ export default function EventEditor({
 
                 {/* Type */}
                 <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <label className="text-[13px] font-medium text-neutral-700">
                         Type
                     </label>
                     <div className="grid grid-cols-2 gap-2">
@@ -537,7 +537,7 @@ export default function EventEditor({
                 {/* Date */}
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <label className="text-[13px] font-medium text-neutral-700">
                             Date
                         </label>
                         <Switch
@@ -568,7 +568,7 @@ export default function EventEditor({
 
                 {/* When in the day */}
                 <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <label className="text-[13px] font-medium text-neutral-700">
                         When
                     </label>
 
@@ -607,13 +607,13 @@ export default function EventEditor({
                             {!isAllDay && !isNa && (
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-3">
-                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-400">
+                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-500">
                                             Starts
                                         </span>
                                         <PartSegment value={startPart} onChange={setStartPart} />
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-400">
+                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-500">
                                             Ends
                                         </span>
                                         <PartSegment value={endPart} onChange={setEndPart} />
@@ -627,7 +627,7 @@ export default function EventEditor({
                 {/* Optional time — single-day, not all-day, not na */}
                 {!multiDay && !isAllDay && !isNa && (
                     <div className="flex flex-col gap-2">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <label className="text-[13px] font-medium text-neutral-700">
                             Time{' '}
                             <span className="normal-case font-normal text-neutral-300">
                                 (optional)
@@ -655,7 +655,7 @@ export default function EventEditor({
                         onChange={setIgnoreClash}
                         label="Ignore planner clashes"
                     />
-                    <p className="text-xs text-neutral-400">
+                    <p className="text-xs text-neutral-500">
                         Keep this event off the Fitness planner’s clash warnings — it won’t flag
                         against gym sessions in the same slot.
                     </p>

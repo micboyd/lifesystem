@@ -555,10 +555,11 @@ export default function DatePicker({
     }
 
     const triggerClasses = [
-        'group flex w-full items-center gap-3 rounded-xl border bg-white py-2.5 pl-4 pr-3 text-sm outline-none transition-all duration-150',
+        // Same height, radius and focus as every other field (fieldStyles).
+        'group flex h-11 w-full items-center gap-3 rounded-xl border bg-white pl-3.5 pr-3 text-[15px] outline-none focus-visible:outline-none transition-[border-color,box-shadow] duration-150',
         open
-            ? 'border-neutral-400 ring-2 ring-neutral-200'
-            : 'border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50',
+            ? 'border-neutral-900 ring-4 ring-neutral-100'
+            : 'border-neutral-200 hover:border-neutral-300 focus-visible:border-neutral-900 focus-visible:ring-4 focus-visible:ring-neutral-100',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
     ].join(' ')
 
@@ -573,11 +574,11 @@ export default function DatePicker({
                 className={triggerClasses}
             >
                 <i
-                    className="fa-regular fa-calendar shrink-0 text-sm text-neutral-400"
+                    className="fa-regular fa-calendar shrink-0 text-sm text-neutral-500"
                     aria-hidden="true"
                 />
                 <span
-                    className={`flex-1 text-left whitespace-nowrap ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-400'}`}
+                    className={`flex-1 text-left whitespace-nowrap ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-500'}`}
                 >
                     {hasValue ? (displayLabel ?? triggerLabel) : placeholder}
                 </span>
@@ -588,11 +589,11 @@ export default function DatePicker({
                         aria-label="Clear"
                         className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors duration-150 hover:bg-neutral-200 hover:text-neutral-600"
                     >
-                        <i className="fa-solid fa-xmark text-[10px]" aria-hidden="true" />
+                        <i className="fa-solid fa-xmark text-[11px]" aria-hidden="true" />
                     </span>
                 ) : (
                     <i
-                        className={`fa-solid fa-chevron-down shrink-0 text-[10px] text-neutral-300 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                        className={`fa-solid fa-chevron-down shrink-0 text-[11px] text-neutral-300 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
                         aria-hidden="true"
                     />
                 )}
@@ -606,7 +607,7 @@ export default function DatePicker({
                 <div
                     ref={menuRef}
                     style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-                    className={`z-[100] max-w-[calc(100vw-1rem)] rounded-2xl border border-neutral-100 bg-white p-4 shadow-xl ${isRange ? 'w-80' : 'w-72'}`}
+                    className={`z-[100] max-w-[calc(100vw-1rem)] rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-4 shadow-xl ${isRange ? 'w-80' : 'w-72'}`}
                 >
                     {/* Header nav */}
                     <div className="mb-3 flex items-center justify-between gap-2">
@@ -640,7 +641,7 @@ export default function DatePicker({
                     {view === 'days' && (
                         <>
                             {isRange && (
-                                <p className="mb-3 text-center text-[11px] font-medium text-neutral-400">
+                                <p className="mb-3 text-center text-[11px] font-medium text-neutral-500">
                                     {rangeHint}
                                 </p>
                             )}
@@ -649,7 +650,7 @@ export default function DatePicker({
                                 {WEEKDAYS.map((d) => (
                                     <div
                                         key={d}
-                                        className="py-1 text-center text-[10px] font-semibold uppercase tracking-widest text-neutral-400"
+                                        className="py-1 text-center text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600"
                                     >
                                         {d}
                                     </div>
@@ -701,7 +702,7 @@ export default function DatePicker({
                     {view === 'months' && (
                         <>
                             {isMonth && isRange && (
-                                <p className="mb-3 text-center text-[11px] font-medium text-neutral-400">
+                                <p className="mb-3 text-center text-[11px] font-medium text-neutral-500">
                                     {rangeHint}
                                 </p>
                             )}
@@ -761,7 +762,7 @@ export default function DatePicker({
                         <button
                             type="button"
                             onClick={goToday}
-                            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
+                            className="inline-flex items-center gap-1.5 rounded-[10px] px-3 h-8 text-xs font-medium text-neutral-600 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
                         >
                             <i className="fa-regular fa-calendar-check" aria-hidden="true" />
                             {isMonth ? 'This month' : 'Today'}

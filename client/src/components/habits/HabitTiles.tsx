@@ -93,9 +93,9 @@ export default function HabitTiles({ date = todayKey() }: { date?: string }) {
 
     if (habits.length === 0) {
         return (
-            <p className="py-4 text-sm text-neutral-400">
+            <p className="py-4 text-sm text-neutral-500">
                 No habits yet.{' '}
-                <Link to="/habits" className="font-semibold text-neutral-600 underline underline-offset-2">
+                <Link to="/goals" className="font-semibold text-neutral-600 underline underline-offset-2">
                     Add some
                 </Link>
                 .
@@ -108,22 +108,22 @@ export default function HabitTiles({ date = todayKey() }: { date?: string }) {
     const allDone = done === total
 
     return (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
             {/* Progress header */}
             <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-semibold text-neutral-500">
-                    {allDone ? 'All done today 🎉' : `${done}/${total} today`}
+                <span className="text-[13px] text-neutral-600">
+                    {allDone ? 'All done today' : `${done} of ${total} done today`}
                 </span>
-                <div className="h-1.5 w-24 overflow-hidden rounded-full bg-neutral-100">
+                <div className="h-1 w-28 overflow-hidden rounded-full bg-neutral-200">
                     <div
-                        className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                        className="h-full rounded-full bg-success transition-all duration-300"
                         style={{ width: total ? `${(done / total) * 100}%` : '0%' }}
                     />
                 </div>
             </div>
 
             {/* Tiles */}
-            <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(5.25rem,1fr))]">
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(5.75rem,1fr))]">
                 {habits.map((habit) => {
                     const dates = doneDates(habit._id)
                     const completed = dates.has(date)
@@ -138,10 +138,10 @@ export default function HabitTiles({ date = todayKey() }: { date?: string }) {
                             title={habit.description || habit.name}
                             aria-pressed={completed}
                             className={[
-                                'group relative flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl p-2 text-center transition-all duration-150',
+                                'group relative flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl p-2.5 text-center transition-colors duration-150',
                                 completed
-                                    ? 'bg-emerald-500 text-white shadow-sm'
-                                    : 'bg-neutral-50 text-neutral-500 ring-1 ring-inset ring-neutral-200 hover:bg-neutral-100 hover:ring-neutral-300',
+                                    ? 'bg-success text-white'
+                                    : 'bg-white text-neutral-600 ring-1 ring-inset ring-neutral-200 hover:ring-neutral-300',
                                 busy ? 'opacity-60' : '',
                             ].join(' ')}
                         >
@@ -149,8 +149,8 @@ export default function HabitTiles({ date = todayKey() }: { date?: string }) {
                             {streak > 0 && (
                                 <span
                                     className={[
-                                        'absolute right-1 top-1 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none',
-                                        completed ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-600',
+                                        'absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium leading-none tabular-nums',
+                                        completed ? 'bg-white/15 text-neutral-50' : 'bg-warning-bg text-warning',
                                     ].join(' ')}
                                 >
                                     <i className="fa-solid fa-fire text-[9px]" aria-hidden="true" />
@@ -160,7 +160,7 @@ export default function HabitTiles({ date = todayKey() }: { date?: string }) {
 
                             {/* Done check */}
                             {completed && (
-                                <span className="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-white/25 text-[8px]">
+                                <span className="absolute left-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-full bg-white/15 text-[8px]">
                                     <i className="fa-solid fa-check" aria-hidden="true" />
                                 </span>
                             )}
@@ -168,15 +168,15 @@ export default function HabitTiles({ date = todayKey() }: { date?: string }) {
                             <i
                                 className={[
                                     iconForHabit(habit.name, habit.icon),
-                                    'text-xl transition-transform group-hover:scale-110',
-                                    completed ? 'text-white' : 'text-neutral-400',
+                                    'text-xl',
+                                    completed ? 'text-neutral-50' : 'text-neutral-500',
                                 ].join(' ')}
                                 aria-hidden="true"
                             />
                             <span
                                 className={[
-                                    'line-clamp-2 text-[11px] font-semibold leading-tight',
-                                    completed ? 'text-white' : 'text-neutral-700',
+                                    'line-clamp-2 text-xs font-medium leading-tight',
+                                    completed ? 'text-neutral-50' : 'text-neutral-700',
                                 ].join(' ')}
                             >
                                 {habit.name}

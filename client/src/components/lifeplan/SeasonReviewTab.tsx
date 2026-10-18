@@ -56,7 +56,7 @@ function ScoreRow({ score }: { score: PillarScore }) {
                 </div>
                 <p className="text-xs text-neutral-500">{score.headline}</p>
                 {score.detail && (
-                    <p className="text-xs font-semibold text-neutral-400">{score.detail}</p>
+                    <p className="text-xs font-semibold text-neutral-500">{score.detail}</p>
                 )}
                 {score.score !== null && (
                     <Progress
@@ -143,13 +143,13 @@ export default function SeasonReviewTab({
                 season &&
                 scorecard && (
                     <>
-                        <div className="rounded-2xl border border-black/[0.06] bg-white p-5">
+                        <div className="rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-5">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="min-w-0">
                                     <h3 className="truncate text-base font-bold text-neutral-950">
                                         {season.name}
                                     </h3>
-                                    <p className="text-xs font-semibold text-neutral-400">
+                                    <p className="text-xs font-semibold text-neutral-500">
                                         {formatMonthRange(season.startMonth, season.endMonth)} ·{' '}
                                         {scorecard.complete
                                             ? `${scorecard.totalDays} days, finished`
@@ -158,10 +158,10 @@ export default function SeasonReviewTab({
                                 </div>
                                 {overall !== null && (
                                     <div className="text-right">
-                                        <p className="text-3xl font-bold tabular-nums tracking-tight text-neutral-950">
+                                        <p className="text-3xl font-medium tabular-nums tracking-tight text-neutral-950">
                                             {overall}%
                                         </p>
-                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                             Overall
                                         </p>
                                     </div>
@@ -169,25 +169,25 @@ export default function SeasonReviewTab({
                             </div>
 
                             {!scorecard.complete && scorecard.elapsedDays > 0 && (
-                                <p className="mt-3 rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+                                <p className="mt-3 rounded-xl bg-neutral-50 px-3 py-2 text-[11px] text-neutral-500">
                                     This season is still running, so it&apos;s scored on the days that
                                     have elapsed rather than the whole window.
                                 </p>
                             )}
                             {scorecard.elapsedDays === 0 && (
-                                <p className="mt-3 rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+                                <p className="mt-3 rounded-xl bg-neutral-50 px-3 py-2 text-[11px] text-neutral-500">
                                     This season hasn&apos;t started yet — there&apos;s nothing to score.
                                 </p>
                             )}
 
                             {season.intent.length > 0 && (
                                 <div className="mt-4 space-y-1.5 border-t border-neutral-100 pt-4">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         What it was for
                                     </p>
                                     {season.intent.map((intent) => (
                                         <p key={intent.pillar} className="text-sm text-neutral-600">
-                                            <span className="font-semibold text-neutral-500">
+                                            <span className="font-medium text-neutral-500">
                                                 {LIFE_PILLAR_LABELS[intent.pillar]}
                                             </span>{' '}
                                             — {intent.text}
@@ -203,14 +203,14 @@ export default function SeasonReviewTab({
                             </div>
                         </div>
 
-                        <div className="rounded-2xl border border-black/[0.06] bg-white p-5">
-                            <h3 className="text-base font-bold text-neutral-950">Retro</h3>
+                        <div className="rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-5">
+                            <h3 className="text-base font-medium text-neutral-950">Retro</h3>
                             <p className="mt-1 text-sm text-neutral-500">
                                 The part the numbers can&apos;t tell you.
                             </p>
                             <div className="mt-4 space-y-4">
                                 <div>
-                                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         How did it go?
                                     </p>
                                     <Rating value={rating} onChange={setRating} />
@@ -235,7 +235,7 @@ export default function SeasonReviewTab({
                                         {saving ? 'Saving…' : 'Save retro'}
                                     </Button>
                                     {season.review?.reviewedAt && (
-                                        <p className="text-xs text-neutral-400">
+                                        <p className="text-xs text-neutral-500">
                                             Last saved {season.review.reviewedAt}
                                         </p>
                                     )}

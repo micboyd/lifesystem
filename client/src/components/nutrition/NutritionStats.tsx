@@ -127,7 +127,7 @@ export default function NutritionStats({ settingsGoals }: { settingsGoals?: Macr
 
     return (
         <div className="flex flex-col gap-4">
-            <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-3 ring-1 ring-black/[0.06] sm:p-4">
+            <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-3 ring-1 ring-neutral-900/[0.06] sm:p-4">
                 <PillToggle
                     label="Range"
                     value={range}
@@ -203,14 +203,14 @@ function StepButton({ label, icon, onClick }: { label: string; icon: string; onC
             type="button"
             aria-label={label}
             onClick={onClick}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300"
         >
             <i className={`fa-solid ${icon} text-xs`} aria-hidden="true" />
         </button>
     )
 }
 
-const card = 'rounded-3xl bg-white p-4 ring-1 ring-black/[0.06] sm:p-5'
+const card = 'rounded-3xl bg-white p-4 ring-1 ring-neutral-900/[0.06] sm:p-5'
 
 function CardTitle({ children, aside }: { children: string; aside?: ReactNode }) {
     return (
@@ -245,7 +245,7 @@ function Summary({
     return (
         <section className={`${card} flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}>
             <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Balance</p>
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Balance</p>
                 {totalNet === null ? (
                     <>
                         <p className="text-3xl font-bold tracking-tight text-neutral-300">—</p>
@@ -284,10 +284,10 @@ function Summary({
 function MiniStat({ label, value, sub }: { label: string; value: string; sub: string }) {
     return (
         <div className="min-w-0 rounded-2xl bg-neutral-50 px-3 py-2 sm:bg-transparent sm:p-0 sm:text-right">
-            <dt className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{label}</dt>
+            <dt className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">{label}</dt>
             <dd className="text-xl font-bold tabular-nums text-neutral-900">
                 {value}
-                {value !== '—' && <span className="ml-1 text-xs font-semibold text-neutral-400">kcal</span>}
+                {value !== '—' && <span className="ml-1 text-xs font-semibold text-neutral-500">kcal</span>}
             </dd>
             <dd className="truncate text-[11px] text-neutral-500">{sub}</dd>
         </div>
@@ -339,14 +339,14 @@ function DailyChart({ days }: { days: Day[] }) {
                         {shown.eaten && shown.out !== null && <> · {signedKcal(shown.eaten.calories - shown.out)}</>}
                     </>
                 ) : (
-                    <span className="text-neutral-400">Hover or tap a day for its numbers</span>
+                    <span className="text-neutral-500">Hover or tap a day for its numbers</span>
                 )}
             </div>
 
             <div className="relative h-44 border-b border-neutral-200" onMouseLeave={() => setActive(null)}>
                 {[0.5, 1].map((f) => (
                     <div key={f} aria-hidden="true" className="absolute inset-x-0 border-t border-neutral-100" style={{ bottom: `${f * 100}%` }}>
-                        <span className="absolute -top-2 right-0 bg-white pl-1 text-[10px] tabular-nums text-neutral-400">
+                        <span className="absolute -top-2 right-0 bg-white pl-1 text-[11px] tabular-nums text-neutral-500">
                             {kcal(Math.round((max * f) / 100) * 100)}
                         </span>
                     </div>
@@ -392,7 +392,7 @@ function DailyChart({ days }: { days: Day[] }) {
                     const { day } = parseDateKey(d.date)
                     const label = many ? (i % 5 === 0 ? String(day) : '') : weekdayOf(d.date)
                     return (
-                        <span key={d.date} className="min-w-0 flex-1 text-center text-[10px] font-medium tabular-nums text-neutral-400">
+                        <span key={d.date} className="min-w-0 flex-1 text-center text-[11px] font-medium tabular-nums text-neutral-500">
                             {label}
                         </span>
                     )
@@ -414,9 +414,9 @@ function MacroAverages({ logged }: { logged: Day[] }) {
     ]
     return (
         <section className={card}>
-            <CardTitle aside={<span className="text-[11px] text-neutral-400">per logged day</span>}>Average macros</CardTitle>
+            <CardTitle aside={<span className="text-[11px] text-neutral-500">per logged day</span>}>Average macros</CardTitle>
             {logged.length === 0 ? (
-                <p className="py-4 text-center text-sm text-neutral-400">Nothing eaten logged in this range yet.</p>
+                <p className="py-4 text-center text-sm text-neutral-500">Nothing eaten logged in this range yet.</p>
             ) : (
                 <div className="flex flex-col gap-3.5">
                     {rows.map((r) => {
@@ -433,7 +433,7 @@ function MacroAverages({ logged }: { logged: Day[] }) {
                                         <span className="font-bold text-neutral-900">
                                             {show(value)} {r.unit}
                                         </span>
-                                        {target && <span className="text-neutral-400"> / {show(target)}</span>}
+                                        {target && <span className="text-neutral-500"> / {show(target)}</span>}
                                         {ratio !== null && (
                                             <span className="ml-2 text-xs font-semibold text-neutral-500">{Math.round(ratio * 100)}%</span>
                                         )}
@@ -467,7 +467,7 @@ function DayList({ days, today }: { days: Day[]; today: string }) {
                             <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-semibold text-neutral-900">
                                     {shortDay(d.date)}
-                                    {d.date === today && <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-coral-500">Today</span>}
+                                    {d.date === today && <span className="ml-2 text-[11px] font-medium uppercase tracking-[0.06em] text-coral-500">Today</span>}
                                 </p>
                                 <p className="truncate text-xs tabular-nums text-neutral-500">
                                     {d.eaten

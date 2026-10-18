@@ -78,7 +78,7 @@ export default function WeekView({
                     {/* Day headers */}
                     <thead>
                         <tr className="border-b border-neutral-200">
-                            <th className="sticky left-0 z-10 w-28 bg-neutral-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <th className="sticky left-0 z-10 w-28 bg-neutral-50 px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Period
                             </th>
                             {weekDays.map((date) => {
@@ -100,7 +100,7 @@ export default function WeekView({
                                                 ].join(' ')}
                                             >
                                                 <span
-                                                    className={`text-[10px] font-semibold uppercase leading-none ${isToday ? 'text-white/70' : 'text-neutral-400'}`}
+                                                    className={`text-[11px] font-semibold uppercase leading-none ${isToday ? 'text-white/70' : 'text-neutral-500'}`}
                                                 >
                                                     {WEEKDAYS_LONG[weekday].slice(0, 3)}
                                                 </span>
@@ -135,7 +135,7 @@ export default function WeekView({
                                 >
                                     <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
                                         <i
-                                            className={`${period.icon} w-4 text-center text-neutral-400`}
+                                            className={`${period.icon} w-4 text-center text-neutral-500`}
                                             aria-hidden="true"
                                         />
                                         {period.label}
@@ -186,7 +186,7 @@ export default function WeekView({
                                 >
                                     <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
                                         <i
-                                            className="fa-solid fa-ellipsis w-4 text-center text-neutral-400"
+                                            className="fa-solid fa-ellipsis w-4 text-center text-neutral-500"
                                             aria-hidden="true"
                                         />
                                         Other
@@ -236,7 +236,7 @@ export default function WeekView({
                                 >
                                     <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
                                         <i
-                                            className="fa-solid fa-umbrella-beach w-4 text-center text-neutral-400"
+                                            className="fa-solid fa-umbrella-beach w-4 text-center text-neutral-500"
                                             aria-hidden="true"
                                         />
                                         Leave
@@ -277,7 +277,7 @@ export default function WeekView({
                                                     onClick={() => onOpenDay(date)}
                                                     className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100"
                                                 >
-                                                    <i className="fa-solid fa-plus text-[10px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100" />
+                                                    <i className="fa-solid fa-plus text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100" />
                                                 </button>
                                             )}
                                         </td>

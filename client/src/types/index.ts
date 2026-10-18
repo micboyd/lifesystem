@@ -34,8 +34,6 @@ export interface UserSettings {
     workEnd?: string
     showTotals?: boolean
     workDays?: number[]
-    /** Id of the totals row whose hours feed the Study section. */
-    studyRowId?: string
     /** YYYY-MM-DD — all finance data before this date is hidden. */
     financeStartDate?: string
     /** Saved location the weather forecast is based on. */
@@ -117,26 +115,6 @@ export interface DailyEnergy {
     /** Total calories burned across the whole day. */
     caloriesOut: number
     notes?: string
-    createdAt: string
-    updatedAt: string
-}
-
-export type CourseKind = 'course' | 'block'
-
-export interface Course {
-    _id: string
-    name: string
-    /** 'course' for formal courses; 'block' for ad-hoc manual study blocks. */
-    kind: CourseKind
-    /** Free-text label describing a block (e.g. "Reading", "Revision"). */
-    category?: string
-    requiredHours: number
-    completedHours: number
-    order: number
-    notes?: string
-    link?: string
-    /** Optional "YYYY-MM-DD" deadline used for on-track pacing. */
-    targetDate?: string
     createdAt: string
     updatedAt: string
 }
@@ -998,99 +976,6 @@ export interface Note {
     updatedAt: string
 }
 
-export const CHECKLIST_COLORS = [
-    'neutral',
-    'emerald',
-    'sky',
-    'violet',
-    'amber',
-    'rose',
-    'teal',
-] as const
-export type ChecklistColor = (typeof CHECKLIST_COLORS)[number]
-
-/** Tailwind classes per accent. Keys are bare classes — no dynamic construction. */
-export const CHECKLIST_COLOR_CLASSES: Record<
-    ChecklistColor,
-    { dot: string; text: string; soft: string; ring: string; bar: string }
-> = {
-    neutral: {
-        dot: 'bg-neutral-400',
-        text: 'text-neutral-600',
-        soft: 'bg-neutral-100',
-        ring: 'ring-neutral-300',
-        bar: 'bg-neutral-400',
-    },
-    emerald: {
-        dot: 'bg-emerald-500',
-        text: 'text-emerald-700',
-        soft: 'bg-emerald-50',
-        ring: 'ring-emerald-400',
-        bar: 'bg-emerald-500',
-    },
-    sky: {
-        dot: 'bg-sky-500',
-        text: 'text-sky-700',
-        soft: 'bg-sky-50',
-        ring: 'ring-sky-400',
-        bar: 'bg-sky-500',
-    },
-    violet: {
-        dot: 'bg-violet-500',
-        text: 'text-violet-700',
-        soft: 'bg-violet-50',
-        ring: 'ring-violet-400',
-        bar: 'bg-violet-500',
-    },
-    amber: {
-        dot: 'bg-amber-500',
-        text: 'text-amber-700',
-        soft: 'bg-amber-50',
-        ring: 'ring-amber-400',
-        bar: 'bg-amber-500',
-    },
-    rose: {
-        dot: 'bg-rose-500',
-        text: 'text-rose-700',
-        soft: 'bg-rose-50',
-        ring: 'ring-rose-400',
-        bar: 'bg-rose-500',
-    },
-    teal: {
-        dot: 'bg-teal-500',
-        text: 'text-teal-700',
-        soft: 'bg-teal-50',
-        ring: 'ring-teal-400',
-        bar: 'bg-teal-500',
-    },
-}
-
-export interface ChecklistItem {
-    _id: string
-    text: string
-    done: boolean
-    order: number
-}
-
-export interface ChecklistGroup {
-    _id: string
-    /** Empty string renders as an ungrouped section. */
-    name: string
-    items: ChecklistItem[]
-    order: number
-}
-
-export interface Checklist {
-    _id: string
-    title: string
-    description?: string
-    color: ChecklistColor
-    groups: ChecklistGroup[]
-    order: number
-    createdAt: string
-    updatedAt: string
-}
-
 export interface Birthday {
     _id: string
     name: string
@@ -1359,7 +1244,7 @@ export const TIMEBOX_DEFAULT_COLORS = {
     bg: 'bg-neutral-100',
     border: 'border-neutral-200',
     text: 'text-neutral-700',
-    sub: 'text-neutral-400',
+    sub: 'text-neutral-500',
 }
 
 export type RecurrenceFreq = 'daily' | 'weekly' | 'weekdays' | 'custom'
@@ -1606,14 +1491,13 @@ export interface LoginResponseData {
  * from a module that already records the underlying data; the life plan only
  * says what the stretch of time is *for*.
  */
-export const LIFE_PILLARS = ['training', 'nutrition', 'money', 'study', 'life'] as const
+export const LIFE_PILLARS = ['training', 'nutrition', 'money', 'life'] as const
 export type LifePillar = (typeof LIFE_PILLARS)[number]
 
 export const LIFE_PILLAR_LABELS: Record<LifePillar, string> = {
     training: 'Training',
     nutrition: 'Nutrition',
     money: 'Money',
-    study: 'Study',
     life: 'Life',
 }
 
@@ -1621,7 +1505,6 @@ export const LIFE_PILLAR_ICONS: Record<LifePillar, string> = {
     training: 'fa-dumbbell',
     nutrition: 'fa-bowl-food',
     money: 'fa-wallet',
-    study: 'fa-graduation-cap',
     life: 'fa-compass',
 }
 
@@ -1641,7 +1524,6 @@ export interface SeasonLinks {
     nutritionPhases: string[]
     savingsTargets: string[]
     goals: string[]
-    courses: string[]
     monthNotes: string[]
 }
 
@@ -1712,7 +1594,6 @@ export const EMPTY_SEASON_LINKS: SeasonLinks = {
     nutritionPhases: [],
     savingsTargets: [],
     goals: [],
-    courses: [],
     monthNotes: [],
 }
 
@@ -1908,99 +1789,4 @@ export interface PhaseAdjustmentInput {
     targets: MacroGoals
     reason?: string
     source?: AdjustmentSource
-}
-
-/* ── Work workspace ─────────────────────────────────────────────────────────
- *
- * Deliberately its own set of shapes rather than reusing the life types. A
- * life `Task` belongs to a day and sorts within it; a work task belongs to a
- * project and a status, and may sit for weeks without a date at all — the two
- * only look alike from a distance.
- */
-
-export const RELATIONSHIPS = ['manager', 'report', 'peer', 'stakeholder', 'external'] as const
-export type Relationship = (typeof RELATIONSHIPS)[number]
-
-export interface Person {
-    _id: string
-    name: string
-    role?: string
-    team?: string
-    relationship: Relationship
-    notes?: string
-    /** Archived people keep their history but drop out of the pickers. */
-    archived: boolean
-    createdAt: string
-    updatedAt: string
-}
-
-export const WORK_PROJECT_STATUSES = ['active', 'paused', 'done', 'archived'] as const
-export type WorkProjectStatus = (typeof WORK_PROJECT_STATUSES)[number]
-
-export const WORK_PROJECT_COLORS = [
-    'slate',
-    'blue',
-    'violet',
-    'emerald',
-    'amber',
-    'rose',
-    'teal',
-] as const
-export type WorkProjectColor = (typeof WORK_PROJECT_COLORS)[number]
-
-/** Task counts the server rolls up per project, so the cards mean something. */
-export interface ProjectStats {
-    open: number
-    done: number
-    waiting: number
-    overdue: number
-    /** Earliest due date among the project's open tasks. */
-    nextDue: string | null
-}
-
-export interface WorkProject {
-    _id: string
-    name: string
-    /** What the project is. */
-    summary?: string
-    /** Where it's at now — see `stateUpdatedAt` for how stale that is. */
-    state?: string
-    stateUpdatedAt?: string | null
-    status: WorkProjectStatus
-    dueDate?: string
-    color: WorkProjectColor
-    order: number
-    stats: ProjectStats
-    createdAt: string
-    updatedAt: string
-}
-
-export const WORK_TASK_STATUSES = ['todo', 'doing', 'waiting', 'done'] as const
-export type WorkTaskStatus = (typeof WORK_TASK_STATUSES)[number]
-
-export const WORK_TASK_PRIORITIES = ['low', 'normal', 'high'] as const
-export type WorkTaskPriority = (typeof WORK_TASK_PRIORITIES)[number]
-
-export interface WorkTask {
-    _id: string
-    title: string
-    notes?: string
-    status: WorkTaskStatus
-    priority: WorkTaskPriority
-    /** Owning project, or null for unfiled work. */
-    project: string | null
-    dueDate?: string
-    /** Where it came from — an email, a meeting, a corridor conversation. */
-    source?: string
-    /** Who owes it, while the status is 'waiting'. */
-    waitingOn: string | null
-    waitingFor?: string
-    /** Server-stamped on entering 'waiting'; the age shown on the Waiting page. */
-    waitingSince?: string
-    /** Server-stamped date of the last chase. */
-    nudgedAt?: string
-    completedAt?: string | null
-    order: number
-    createdAt: string
-    updatedAt: string
 }

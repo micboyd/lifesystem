@@ -48,7 +48,7 @@ export default function ImportConflictList({
         <Card as="section" hover={false}>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h3 className="text-sm font-bold uppercase tracking-wide text-neutral-400">
+                    <h3 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Name clashes
                     </h3>
                     <p className="mt-1 text-sm text-neutral-600">
@@ -115,7 +115,7 @@ export default function ImportConflictList({
                 })}
             </ul>
 
-            <p className="mt-3 text-xs text-neutral-400">
+            <p className="mt-3 text-xs text-neutral-500">
                 {overwriteCount} will overwrite · {conflicts.length - overwriteCount} will be added as
                 new
             </p>

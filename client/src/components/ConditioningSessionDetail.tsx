@@ -79,7 +79,7 @@ export default function ConditioningSessionDetail({
 
             {session.purpose && (
                 <section>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Purpose
                     </p>
                     <p className="whitespace-pre-wrap text-sm text-neutral-600">{session.purpose}</p>
@@ -88,7 +88,7 @@ export default function ConditioningSessionDetail({
 
             {!!session.helpers?.length && (
                 <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3">
-                    <p className="mb-2 inline-flex items-center gap-2 text-sm font-bold text-neutral-900">
+                    <p className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-neutral-900">
                         <i className="fa-solid fa-flag text-amber-600" aria-hidden="true" />
                         Helpers
                     </p>
@@ -181,7 +181,7 @@ export default function ConditioningSessionDetail({
 
             {session.howToUse && (
                 <section>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         How to use
                     </p>
                     <p className="whitespace-pre-wrap text-sm text-neutral-600">{session.howToUse}</p>

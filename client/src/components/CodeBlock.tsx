@@ -17,12 +17,12 @@ export default function CodeBlock({ code, language = 'tsx' }: CodeBlockProps) {
     return (
         <div className="relative overflow-hidden rounded-2xl bg-neutral-950 text-neutral-100">
             <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-2.5">
-                <span className="text-xs font-semibold tracking-widest uppercase text-neutral-500">
+                <span className="text-[11px] font-medium tracking-[0.06em] uppercase text-neutral-500">
                     {language}
                 </span>
                 <button
                     onClick={handleCopy}
-                    className="rounded-full px-3 py-1 text-xs font-semibold tracking-tight text-neutral-400 transition-colors duration-150 hover:bg-neutral-800 hover:text-white"
+                    className="rounded-full px-3 py-1 text-[11px] font-medium tracking-tight text-neutral-500 transition-colors duration-150 hover:bg-neutral-800 hover:text-white"
                 >
                     {copied ? 'Copied!' : 'Copy'}
                 </button>

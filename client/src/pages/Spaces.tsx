@@ -22,7 +22,7 @@ function SpaceCard({ space }: { space: StarlingSpace }) {
                 >
                     <i className={`fa-solid ${isSpending ? 'fa-credit-card' : 'fa-piggy-bank'}`} aria-hidden="true" />
                 </span>
-                <span className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                <span className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     {isSpending ? 'Spending' : 'Savings'}
                 </span>
             </div>
@@ -112,14 +112,14 @@ export default function Spaces() {
     return (
         <>
             <header className="mb-8">
-                <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">Spaces</h1>
+                <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Spaces</h1>
                 <p className="mt-1 text-sm text-neutral-500">
                     A live snapshot of every Starling space and its balance.
                 </p>
             </header>
 
             <div className="mb-8 rounded-3xl bg-neutral-950 p-6 text-white sm:p-8">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     Total across all spaces
                 </p>
                 <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight sm:text-5xl">£{fmt(total)}</p>
@@ -130,7 +130,7 @@ export default function Spaces() {
 
             {spending.length > 0 && (
                 <section className="mb-8">
-                    <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                    <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Spending spaces
                     </h2>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -143,7 +143,7 @@ export default function Spaces() {
 
             {savings.length > 0 && (
                 <section>
-                    <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                    <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Savings goals
                     </h2>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

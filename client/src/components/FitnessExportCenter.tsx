@@ -371,21 +371,21 @@ export default function FitnessExportCenter({ open, onClose }: { open: boolean; 
                 {bundle && (
                     <>
                         <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 {selectedKeys.length} of {DATASETS.length} selected
                             </span>
                             <div className="flex gap-1">
                                 <button
                                     type="button"
                                     onClick={() => setSelected(new Set(DATASETS.map((d) => d.key)))}
-                                    className="rounded-lg px-2 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
+                                    className="rounded-lg px-2 py-1 text-[11px] font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
                                 >
                                     Select all
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setSelected(new Set())}
-                                    className="rounded-lg px-2 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
+                                    className="rounded-lg px-2 py-1 text-[11px] font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
                                 >
                                     Clear
                                 </button>
@@ -394,7 +394,7 @@ export default function FitnessExportCenter({ open, onClose }: { open: boolean; 
 
                         {groups.map((group) => (
                             <section key={group} className="flex flex-col gap-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     {group}
                                 </p>
                                 {DATASETS.filter((d) => d.group === group).map((d) => {
@@ -417,7 +417,7 @@ export default function FitnessExportCenter({ open, onClose }: { open: boolean; 
                                                 className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
                                                     on
                                                         ? 'bg-coral-100 text-coral-600'
-                                                        : 'bg-neutral-100 text-neutral-400'
+                                                        : 'bg-neutral-100 text-neutral-500'
                                                 }`}
                                             >
                                                 <i className={`fa-solid ${d.icon}`} />
@@ -430,7 +430,7 @@ export default function FitnessExportCenter({ open, onClose }: { open: boolean; 
                                                     <span
                                                         className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                                                             empty
-                                                                ? 'bg-neutral-100 text-neutral-400'
+                                                                ? 'bg-neutral-100 text-neutral-500'
                                                                 : 'bg-neutral-900 text-white'
                                                         }`}
                                                     >

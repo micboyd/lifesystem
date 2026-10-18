@@ -25,10 +25,10 @@ interface ToastProps {
  * glance without staining the whole surface.
  */
 const variantClasses: Record<ToastVariant, { badge: string; rail: string }> = {
-    info: { badge: 'bg-neutral-100 text-neutral-600', rail: 'bg-neutral-400' },
-    success: { badge: 'bg-herb-50 text-herb', rail: 'bg-herb' },
-    warning: { badge: 'bg-marigold-50 text-amber-700', rail: 'bg-marigold' },
-    danger: { badge: 'bg-red-50 text-red-600', rail: 'bg-red-500' },
+    info: { badge: 'bg-neutral-900 text-neutral-50', rail: 'bg-neutral-400' },
+    success: { badge: 'bg-neutral-900 text-neutral-50', rail: 'bg-success' },
+    warning: { badge: 'bg-warning-bg text-warning', rail: 'bg-marigold' },
+    danger: { badge: 'bg-danger-bg text-danger', rail: 'bg-danger' },
 }
 
 const variantIcons: Record<ToastVariant, string> = {
@@ -61,17 +61,17 @@ export default function Toast({
     return (
         <div
             role={variant === 'danger' ? 'alert' : 'status'}
-            className={`toast-enter relative flex items-center gap-3 overflow-hidden rounded-2xl bg-white py-3 pl-3 pr-2.5 shadow-xl shadow-neutral-950/10 ring-1 ring-neutral-950/[0.06] ${className}`}
+            className={`toast-enter relative flex items-center gap-3 overflow-hidden rounded-2xl bg-white py-3 pl-3.5 pr-2.5 shadow-xl ring-1 ring-neutral-900/[0.06] ${className}`}
         >
             {iconClass && (
                 <span
-                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs ${badge}`}
+                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-xs ${badge}`}
                 >
                     <i className={iconClass} aria-hidden="true" />
                 </span>
             )}
 
-            <div className="min-w-0 flex-1 text-sm font-medium leading-snug text-neutral-800">
+            <div className="min-w-0 flex-1 text-sm leading-snug text-neutral-900">
                 {children}
             </div>
 
@@ -80,7 +80,7 @@ export default function Toast({
                     type="button"
                     onClick={onClose}
                     aria-label="Dismiss"
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-xmark text-sm" aria-hidden="true" />
                 </button>

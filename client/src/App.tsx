@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactElement } from 'react'
-import { Routes, Route, Outlet, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Routes, Route, Outlet, Navigate, useLocation } from 'react-router-dom'
 import { documentTitleForPath } from './lib/pageTitle'
 import Sidebar from './components/Sidebar'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -8,8 +8,6 @@ import Home from './pages/Home'
 import Calendar from './pages/Calendar'
 import Day from './pages/Day'
 import Timebox from './pages/Timebox'
-import Habits from './pages/Habits'
-import Study from './pages/Study'
 import Fitness from './pages/Fitness'
 import Nutrition from './pages/Nutrition'
 import FinanceLayout from './pages/FinanceLayout'
@@ -25,25 +23,14 @@ import DaysUntil from './pages/DaysUntil'
 import Goals from './pages/Goals'
 import LifePlan from './pages/LifePlan'
 import Notes from './pages/Notes'
-import Reports from './pages/Reports'
-import Report from './pages/Report'
-import Checklists from './pages/Checklists'
 import Weather from './pages/Weather'
 import Login from './pages/Login'
 import Profile from './pages/Profile'
 import StyleGuide from './pages/StyleGuide'
 import NotFound from './pages/NotFound'
-import WorkDashboard from './pages/work/Dashboard'
-import ModulePlaceholder from './pages/work/ModulePlaceholder'
-import WorkTasks from './pages/work/Tasks'
-import WorkWaiting from './pages/work/Waiting'
-import WorkProjects from './pages/work/Projects'
-import WorkPeople from './pages/work/People'
-import { WORK_MODULES, workspaceForPath } from './lib/workspace'
 
 /** The signed-in app shell: sidebar nav plus the matched page. */
 function AppLayout() {
-    const { pathname } = useLocation()
     // Persist the desktop rail's collapsed state across reloads.
     const [collapsed, setCollapsed] = useState(
         () => localStorage.getItem('sidebarCollapsed') !== '0'
@@ -62,21 +49,10 @@ function AppLayout() {
                 <main className="flex-1">
                     <Outlet />
                 </main>
-                {/* QuickLog logs personal spending — it has no business in the
-                    work workspace, which gets its own capture surface later. */}
-                {workspaceForPath(pathname) === 'life' && <QuickLog />}
+                <QuickLog />
             </div>
         </div>
     )
-}
-
-/** The work modules that have a real page. Everything else falls through to
- *  the placeholder. Keyed by the same route the nav config uses. */
-const WORK_PAGES: Record<string, ReactElement> = {
-    '/work/tasks': <WorkTasks />,
-    '/work/waiting': <WorkWaiting />,
-    '/work/projects': <WorkProjects />,
-    '/work/people': <WorkPeople />,
 }
 
 export default function App() {
@@ -104,8 +80,7 @@ export default function App() {
                 <Route path="/calendar" element={<Calendar />} />
                 <Route path="/day/:date" element={<Day />} />
                 <Route path="/timebox" element={<Timebox />} />
-                <Route path="/habits" element={<Habits />} />
-                <Route path="/study" element={<Study />} />
+                <Route path="/habits" element={<Navigate to="/goals" replace />} />
                 <Route path="/fitness" element={<Fitness />} />
                 <Route path="/nutrition" element={<Nutrition />} />
                 <Route path="/finances/breakdown/:rowId" element={<FinanceBreakdown />} />
@@ -124,18 +99,7 @@ export default function App() {
                 <Route path="/goals" element={<Goals />} />
                 <Route path="/life-plan" element={<LifePlan />} />
                 <Route path="/notes" element={<Notes />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/reports/:date" element={<Report />} />
-                <Route path="/checklists" element={<Checklists />} />
                 <Route path="/styleguide" element={<StyleGuide />} />
-
-                {/* Work workspace. Every module in the nav config gets a route
-                    here — the built ones render their page, the rest a
-                    placeholder — so a new entry there can't leave a dead link. */}
-                <Route path="/work" element={<WorkDashboard />} />
-                {WORK_MODULES.map(({ to }) => (
-                    <Route key={to} path={to} element={WORK_PAGES[to] ?? <ModulePlaceholder />} />
-                ))}
 
                 <Route path="*" element={<NotFound />} />
             </Route>

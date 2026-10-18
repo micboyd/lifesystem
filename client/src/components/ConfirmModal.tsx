@@ -44,7 +44,7 @@ export default function ConfirmModal({
                         variant="primary"
                         className={
                             danger
-                                ? 'bg-red-600 shadow-red-600/25 hover:bg-red-700 active:bg-red-800'
+                                ? 'bg-red-600 hover:bg-red-700 active:bg-red-800'
                                 : ''
                         }
                         onClick={() => {

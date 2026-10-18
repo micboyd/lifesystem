@@ -24,12 +24,12 @@ export default function BarList({ items }: { items: BarItem[] }) {
                     <div className="flex items-baseline justify-between gap-2 text-xs">
                         <span
                             className={`min-w-0 truncate font-semibold ${
-                                item.muted ? 'text-neutral-400' : 'text-neutral-700'
+                                item.muted ? 'text-neutral-500' : 'text-neutral-700'
                             }`}
                         >
                             {item.label}
                         </span>
-                        <span className="shrink-0 tabular-nums text-neutral-400">
+                        <span className="shrink-0 tabular-nums text-neutral-500">
                             {item.valueLabel}
                         </span>
                     </div>

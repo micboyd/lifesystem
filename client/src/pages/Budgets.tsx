@@ -236,14 +236,14 @@ function AdjustForm({ variant, suggestedAmount, onAdd, onCancel }: AdjustFormPro
                     type="button"
                     onClick={onCancel}
                     aria-label="Cancel"
-                    className="grid h-6 w-6 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+                    className="grid h-6 w-6 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
                 >
                     <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
                 </button>
             </div>
             <div className="flex gap-2">
                 <div className="relative min-w-0 flex-1">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-400">£</span>
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-500">£</span>
                     <input
                         autoFocus
                         type="number"
@@ -252,13 +252,13 @@ function AdjustForm({ variant, suggestedAmount, onAdd, onCancel }: AdjustFormPro
                         placeholder="0.00"
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
-                        className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
+                        className="w-full rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white h-10.5 pl-7 pr-3 text-sm tabular-nums placeholder:font-sans placeholder:text-neutral-500 transition-colors focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 outline-none focus:ring-4 focus:ring-neutral-950/5 focus-visible:outline-none"
                     />
                 </div>
                 <button
                     type="submit"
                     disabled={saving || draft.trim() === ''}
-                    className="shrink-0 rounded-xl bg-neutral-950 px-5 py-2.5 text-xs font-semibold tracking-tight text-white transition-all duration-150 hover:bg-neutral-800 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
+                    className="h-11 shrink-0 rounded-xl bg-neutral-900 px-5 text-sm font-medium text-neutral-50 transition-colors duration-150 hover:bg-neutral-800 disabled:opacity-40 disabled:active:scale-100"
                 >
                     {saving ? '…' : 'Add'}
                 </button>
@@ -269,9 +269,9 @@ function AdjustForm({ variant, suggestedAmount, onAdd, onCancel }: AdjustFormPro
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={200}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-neutral-300 transition-colors focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-950/5"
+                className="w-full rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white px-3.5 h-10.5 text-sm placeholder:text-neutral-500 transition-colors focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 outline-none focus:ring-4 focus:ring-neutral-950/5 focus-visible:outline-none"
             />
-            <p className="text-[11px] text-neutral-400">{copy.hint}</p>
+            <p className="text-[11px] text-neutral-500">{copy.hint}</p>
         </form>
     )
 }
@@ -333,11 +333,11 @@ function MonthlyOverview({ rows, groups, entries, spends, topUps, excludedDates,
             >
                 <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-neutral-800">Monthly overview</span>
-                    <span className={`text-xs font-semibold tabular-nums ${totalRemaining < 0 ? 'text-red-500' : 'text-neutral-400'}`}>
+                    <span className={`text-xs font-semibold tabular-nums ${totalRemaining < 0 ? 'text-red-500' : 'text-neutral-500'}`}>
                         £{fmt(Math.abs(totalRemaining))} {totalRemaining < 0 ? 'over' : 'remaining'}
                     </span>
                 </div>
-                <i className={`fa-solid fa-chevron-down text-[10px] text-neutral-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+                <i className={`fa-solid fa-chevron-down text-[11px] text-neutral-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
             </button>
 
             {open && (
@@ -346,7 +346,7 @@ function MonthlyOverview({ rows, groups, entries, spends, topUps, excludedDates,
                     <div>
                         <div className="mb-1.5 flex items-baseline justify-between gap-2">
                             <span className="text-xs font-semibold text-neutral-500">Total</span>
-                            <span className="text-xs tabular-nums text-neutral-400">
+                            <span className="text-xs tabular-nums text-neutral-500">
                                 £{fmt(totalSpent)} of £{fmt(totalBudget)}
                             </span>
                         </div>
@@ -367,7 +367,7 @@ function MonthlyOverview({ rows, groups, entries, spends, topUps, excludedDates,
                                 <div key={s.name}>
                                     <div className="mb-1 flex items-baseline justify-between gap-2">
                                         <span className="truncate text-xs font-semibold text-neutral-700">{s.name}</span>
-                                        <span className={`shrink-0 text-xs tabular-nums ${remaining < 0 ? 'text-red-500' : 'text-neutral-400'}`}>
+                                        <span className={`shrink-0 text-xs tabular-nums ${remaining < 0 ? 'text-red-500' : 'text-neutral-500'}`}>
                                             {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))} {remaining < 0 ? 'over' : 'left'} · £{fmt(s.budget)}
                                         </span>
                                     </div>
@@ -450,7 +450,7 @@ function LinkSpaceModal({ row, spaces, loading, error, onClose, onChoose }: Link
                                 >
                                     <div className="min-w-0">
                                         <p className="truncate text-sm font-semibold">{s.name}</p>
-                                        <p className="text-xs text-neutral-400">
+                                        <p className="text-xs text-neutral-500">
                                             {s.type === 'spending' ? 'Spending space' : 'Savings goal'}{' '}
                                             · £{fmt(s.balance)}
                                         </p>
@@ -562,7 +562,7 @@ function ReconcileDrawer({
                         </span>
                         <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-neutral-800">{info.label}</p>
-                            <p className="text-xs text-neutral-400">
+                            <p className="text-xs text-neutral-500">
                                 {formatShortDate(m.date)}
                                 {m.counterPartyName ? ` · ${m.counterPartyName}` : ''}
                             </p>
@@ -601,7 +601,7 @@ function ReconcileDrawer({
                         >
                             {recordingKey === key ? '…' : 'Record as withdrawal'}
                         </button>
-                        <p className="text-xs text-neutral-400">
+                        <p className="text-xs text-neutral-500">
                             Records money you took out of this budget for something else, lowering
                             what's left to match the space. Or move it back in at the bank, or delete
                             a matching top-up if one exists.
@@ -617,7 +617,7 @@ function ReconcileDrawer({
             <div className="flex flex-col gap-5">
                 <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-xl bg-neutral-50 px-4 py-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Space balance
                         </p>
                         <p className="mt-1 text-lg font-bold tabular-nums text-neutral-900">
@@ -625,7 +625,7 @@ function ReconcileDrawer({
                         </p>
                     </div>
                     <div className="rounded-xl bg-neutral-50 px-4 py-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Budget remaining
                         </p>
                         <p className="mt-1 text-lg font-bold tabular-nums text-neutral-900">
@@ -656,7 +656,7 @@ function ReconcileDrawer({
                 {/* Automatic diagnosis — pin the gap on specific movements */}
                 {diagnosis && (
                     <div className="flex flex-col gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Where the difference comes from
                         </p>
 
@@ -695,7 +695,7 @@ function ReconcileDrawer({
                                     {diagnosis.unaccounted.map((e, i) => renderUnrecorded(e, `unaccounted-${i}`))}
                                 </ul>
                                 {Math.abs(diagnosis.residualAfterAll) > RECONCILE_EPSILON && (
-                                    <p className="text-xs text-neutral-400">
+                                    <p className="text-xs text-neutral-500">
                                         Even counting all of these, £{fmt(Math.abs(diagnosis.residualAfterAll))}{' '}
                                         remains unexplained — most likely money that was already in the
                                         space before this month, or a transaction that was edited or
@@ -716,7 +716,7 @@ function ReconcileDrawer({
                 {/* Day-off spending — left the space, but counts toward the pot */}
                 {excludedDaySpends.length > 0 && (
                     <div>
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                        <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Day-off spending
                         </p>
                         <p className="mb-2 text-sm text-neutral-500">
@@ -733,7 +733,7 @@ function ReconcileDrawer({
                                         <p className="truncate text-sm font-semibold text-neutral-800">
                                             {s.note || row.name}
                                         </p>
-                                        <p className="text-xs text-neutral-400">{formatShortDate(s.date)}</p>
+                                        <p className="text-xs text-neutral-500">{formatShortDate(s.date)}</p>
                                     </div>
                                     <span className="shrink-0 text-sm tabular-nums text-neutral-700">
                                         -£{fmt(s.amount)}
@@ -747,7 +747,7 @@ function ReconcileDrawer({
                 {/* Refills — money put back into the space, doesn't raise the budget */}
                 {refills.length > 0 && (
                     <div>
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                        <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Refilled from day-off pot
                         </p>
                         <ul className="flex flex-col gap-1.5">
@@ -801,7 +801,7 @@ function ReconcileDrawer({
                         </p>
                     ) : (
                         <div>
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 What moved this month
                             </p>
                             <ul className="flex flex-col gap-1.5">
@@ -822,7 +822,7 @@ function ReconcileDrawer({
                                                     <p className="truncate text-sm font-semibold text-neutral-800">
                                                         {info.label}
                                                     </p>
-                                                    <p className="text-xs text-neutral-400">
+                                                    <p className="text-xs text-neutral-500">
                                                         {formatShortDate(m.date)}
                                                         {m.counterPartyName ? ` · ${m.counterPartyName}` : ''}
                                                     </p>
@@ -874,10 +874,10 @@ function RemovedTransactionsDrawer({
                                 <p className="truncate text-sm font-semibold text-neutral-800">
                                     {x.note || 'Transaction'}
                                 </p>
-                                <p className="text-xs text-neutral-400">
+                                <p className="text-xs text-neutral-500">
                                     {formatShortDate(x.date)} · £{fmt(x.amount)}
                                 </p>
-                                <p className="mt-0.5 text-xs text-neutral-400">
+                                <p className="mt-0.5 text-xs text-neutral-500">
                                     {x.reason === 'deleted'
                                         ? `Deleted from ${x.originalRowName}`
                                         : `Moved from ${x.originalRowName} to ${x.movedToRowName}`}
@@ -991,7 +991,7 @@ function AllTransactionsDrawer({ row, month, spends, topUps, excludedDates, onCl
             ) : (
                 <>
                     <div className="mb-3 flex items-baseline justify-between gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             {range ? formatDateRange(range.start, range.end) : ''}
                         </span>
                         <span className="text-xs font-semibold tabular-nums text-neutral-500">
@@ -1040,7 +1040,7 @@ function AllTransactionsDrawer({ row, month, spends, topUps, excludedDates, onCl
                                                         type="button"
                                                         onClick={() => onDelete(t._id)}
                                                         aria-label="Delete transaction"
-                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                                        className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-500"
                                                     >
                                                         <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
                                                     </button>
@@ -1105,10 +1105,10 @@ function AllowanceHero({ periodLabel, rangeLabel, allowance, remaining, spent, s
     return (
         <div className="rounded-2xl bg-neutral-950 p-4 text-white sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     {periodLabel}
                 </span>
-                <span className="text-[11px] font-medium tabular-nums text-neutral-400">{rangeLabel}</span>
+                <span className="text-[11px] font-medium tabular-nums text-neutral-500">{rangeLabel}</span>
             </div>
 
             {/* Wraps on narrow cards: a four-figure amount plus its caption is
@@ -1117,7 +1117,7 @@ function AllowanceHero({ periodLabel, rangeLabel, allowance, remaining, spent, s
                 <p className={['text-3xl font-bold tabular-nums tracking-tight sm:text-4xl', over ? 'text-red-400' : 'text-white'].join(' ')}>
                     £{fmt(Math.abs(remaining))}
                 </p>
-                <span className="text-sm font-medium text-neutral-400">{over ? 'over budget' : 'left to spend'}</span>
+                <span className="text-sm font-medium text-neutral-500">{over ? 'over budget' : 'left to spend'}</span>
             </div>
 
             <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
@@ -1126,7 +1126,7 @@ function AllowanceHero({ periodLabel, rangeLabel, allowance, remaining, spent, s
                     style={{ width: `${pct}%` }}
                 />
             </div>
-            <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-400">
+            <div className="mt-2 flex justify-between text-[11px] tabular-nums text-neutral-500">
                 <span>£{fmt(spent)} spent</span>
                 <span>of £{fmt(allowance)}</span>
             </div>
@@ -1155,7 +1155,7 @@ function LedgerRow({ title, date, caption, amount, sign = '', tone = 'neutral', 
         emerald: { border: 'border-emerald-100 bg-emerald-50/60', title: 'text-emerald-800', sub: 'text-emerald-600/70', amt: 'text-emerald-700', del: 'text-emerald-400 hover:bg-emerald-100 hover:text-emerald-700' },
         sky: { border: 'border-sky-100 bg-sky-50/60', title: 'text-sky-800', sub: 'text-sky-600/70', amt: 'text-sky-700', del: 'text-sky-400 hover:bg-sky-100 hover:text-sky-700' },
         amber: { border: 'border-amber-100 bg-amber-50/60', title: 'text-amber-800', sub: 'text-amber-600/70', amt: 'text-amber-700', del: 'text-amber-400 hover:bg-amber-100 hover:text-amber-700' },
-        neutral: { border: 'border-neutral-100', title: 'text-neutral-800', sub: 'text-neutral-400', amt: 'text-neutral-700', del: 'text-neutral-400 hover:bg-red-50 hover:text-red-500' },
+        neutral: { border: 'border-neutral-100', title: 'text-neutral-800', sub: 'text-neutral-500', amt: 'text-neutral-700', del: 'text-neutral-500 hover:bg-red-50 hover:text-red-500' },
     }[tone]
     return (
         <li className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${toneMap.border}`}>
@@ -1341,11 +1341,11 @@ function BudgetCard({
             {/* Header — category, name, and the monthly figure with its status */}
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-400">{group.name}</p>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">{group.name}</p>
                     <p className="mt-1 truncate text-lg font-bold tracking-tight text-neutral-900">{row.name}</p>
                 </div>
                 <div className="shrink-0 text-right">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Monthly budget</p>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Monthly budget</p>
                     <p className="mt-0.5 text-xl font-bold tabular-nums tracking-tight text-neutral-900">
                         {effectiveMonthlyAmount > 0 ? `£${fmt(effectiveMonthlyAmount)}` : '—'}
                     </p>
@@ -1353,11 +1353,11 @@ function BudgetCard({
                         canReconcile ? (
                             // Linked budgets defer to the bank: the space balance is the
                             // money that's actually left, the ledger is just the plan.
-                            <p className="mt-0.5 text-xs font-semibold tabular-nums text-neutral-400">
+                            <p className="mt-0.5 text-xs font-semibold tabular-nums text-neutral-500">
                                 £{fmt(linkedSpace!.balance)} in space
                             </p>
                         ) : (
-                            <p className={['mt-0.5 text-xs font-semibold tabular-nums', monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-400'].join(' ')}>
+                            <p className={['mt-0.5 text-xs font-semibold tabular-nums', monthlyRemaining < 0 ? 'text-red-500' : 'text-neutral-500'].join(' ')}>
                                 £{fmt(Math.abs(monthlyRemaining))} {monthlyRemaining < 0 ? 'over' : 'left'}
                             </p>
                         )
@@ -1366,7 +1366,7 @@ function BudgetCard({
                         <button
                             type="button"
                             onClick={() => onOpenReconcile(row)}
-                            className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+                            className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
                         >
                             <i className="fa-solid fa-triangle-exclamation text-[9px]" aria-hidden="true" />
                             Out of sync
@@ -1380,13 +1380,13 @@ function BudgetCard({
                 spread, so surface the day-off state instead of a bare £0. */}
             {trackingView &&
                 (allWeekExcluded ? (
-                    <div className="flex items-center gap-3 rounded-2xl bg-neutral-100 p-4 ring-1 ring-black/[0.04]">
-                        <i className="fa-solid fa-plane-departure text-neutral-400" aria-hidden="true" />
+                    <div className="flex items-center gap-3 rounded-2xl bg-neutral-100 p-4 ring-1 ring-neutral-900/[0.04]">
+                        <i className="fa-solid fa-plane-departure text-neutral-500" aria-hidden="true" />
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Day off — no budget this week
                             </p>
-                            <p className="mt-0.5 text-xs text-neutral-400">
+                            <p className="mt-0.5 text-xs text-neutral-500">
                                 {rangeLabel} · every day excluded
                             </p>
                         </div>
@@ -1421,9 +1421,9 @@ function BudgetCard({
                         type="button"
                         onClick={() => setDayOffInfoOpen((v) => !v)}
                         aria-expanded={dayOffInfoOpen}
-                        className="flex items-center gap-1.5 self-start text-xs font-medium tabular-nums text-neutral-400 transition-colors hover:text-neutral-700"
+                        className="flex items-center gap-1.5 self-start text-xs font-medium tabular-nums text-neutral-500 transition-colors hover:text-neutral-700"
                     >
-                        <i className="fa-solid fa-umbrella-beach text-[10px]" aria-hidden="true" />
+                        <i className="fa-solid fa-umbrella-beach text-[11px]" aria-hidden="true" />
                         £{fmt(excludedDaySpendTotal)} spent on day off
                         <i className={`fa-solid fa-chevron-down text-[9px] transition-transform ${dayOffInfoOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
                     </button>
@@ -1456,7 +1456,7 @@ function BudgetCard({
                     onClick={() => onOpenTransactions(row)}
                     className="inline-flex items-center gap-1.5 font-semibold text-neutral-500 transition-colors hover:text-neutral-900"
                 >
-                    <i className="fa-solid fa-receipt text-[10px]" aria-hidden="true" />
+                    <i className="fa-solid fa-receipt text-[11px]" aria-hidden="true" />
                     Transactions
                 </button>
 
@@ -1467,7 +1467,7 @@ function BudgetCard({
                         disabled={syncing}
                         className="inline-flex items-center gap-1.5 font-semibold text-neutral-500 transition-colors hover:text-neutral-900 disabled:opacity-50"
                     >
-                        <i className={`fa-solid fa-arrows-rotate text-[10px] ${syncing ? 'animate-spin' : ''}`} aria-hidden="true" />
+                        <i className={`fa-solid fa-arrows-rotate text-[11px] ${syncing ? 'animate-spin' : ''}`} aria-hidden="true" />
                         {syncing ? 'Syncing…' : 'Sync'}
                     </button>
                 )}
@@ -1798,7 +1798,7 @@ export default function Budgets() {
         <>
             <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">Budgets</h1>
+                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Budgets</h1>
                     <p className="mt-1 text-sm text-neutral-500">Spending targets derived from your monthly figures.</p>
                 </div>
 
@@ -1812,7 +1812,7 @@ export default function Budgets() {
                             onClick={() => setExclusionsOpen(true)}
                             aria-label="Removed transactions"
                             title="Removed transactions"
-                            className="relative grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                            className="relative grid h-9 w-9 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                         >
                             <i className="fa-solid fa-clock-rotate-left text-xs" aria-hidden="true" />
                             {exclusions.length > 0 && (
@@ -1826,14 +1826,14 @@ export default function Budgets() {
                     <button
                         type="button"
                         onClick={goToPrevWeek}
-                        className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                        className="grid h-9 w-9 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                     >
                         <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
                     </button>
 
                     <div className="text-center">
                         <p className="text-sm font-bold text-neutral-900">{monthLabel} — Week {weekNum}</p>
-                        <p className="text-[11px] text-neutral-400">
+                        <p className="text-[11px] text-neutral-500">
                             of {totalWeeks} · {new Date(`${weekStart}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}–{new Date(`${weekEnd}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                         </p>
                     </div>
@@ -1841,7 +1841,7 @@ export default function Budgets() {
                     <button
                         type="button"
                         onClick={goToNextWeek}
-                        className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                        className="grid h-9 w-9 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                     >
                         <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
                     </button>

@@ -6,7 +6,7 @@ import DatePicker from './DatePicker'
 import Spinner from './Spinner'
 import EmptyState from './EmptyState'
 import ConfirmModal from './ConfirmModal'
-import Modal from './Modal'
+import Drawer from './Drawer'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { todayKey, parseDateKey, MONTHS } from '../lib/calendar'
@@ -322,7 +322,7 @@ function WeighInForm({
     return (
         <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
             <div className="flex w-52 flex-col gap-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                <label className="text-[13px] font-medium text-neutral-700">
                     Date
                 </label>
                 <DatePicker
@@ -393,7 +393,7 @@ const PAD_Y = 12
 function TrendChart({ points, target }: { points: TrendPoint[]; target?: number }) {
     if (points.length < 2) {
         return (
-            <p className="py-10 text-center text-sm text-neutral-400">
+            <p className="py-10 text-center text-sm text-neutral-500">
                 One more weigh-in and the trend line appears.
             </p>
         )
@@ -439,7 +439,7 @@ function TrendChart({ points, target }: { points: TrendPoint[]; target?: number 
                             x={CHART_W - PAD_X}
                             y={y(target) - 5}
                             textAnchor="end"
-                            className="fill-emerald-600 text-[10px] font-semibold"
+                            className="fill-emerald-600 text-[11px] font-semibold"
                         >
                             Target {target} kg
                         </text>
@@ -465,7 +465,7 @@ function TrendChart({ points, target }: { points: TrendPoint[]; target?: number 
                     strokeLinecap="round"
                 />
             </svg>
-            <div className="flex justify-between px-1 text-[11px] text-neutral-400">
+            <div className="flex justify-between px-1 text-[11px] text-neutral-500">
                 <span>{longDate(first)}</span>
                 <span>{longDate(points[points.length - 1].date)}</span>
             </div>
@@ -547,7 +547,7 @@ function RecentLog({
         <Card hover={false} flush className="overflow-hidden">
             <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4">
                 <h3 className="text-sm font-bold text-neutral-900">Weigh-ins</h3>
-                <span className="text-xs text-neutral-400">{logs.length} recorded</span>
+                <span className="text-xs text-neutral-500">{logs.length} recorded</span>
             </div>
             <ul className="divide-y divide-neutral-100">
                 {shown.map((log) => (
@@ -558,15 +558,15 @@ function RecentLog({
                         <span className="w-20 text-sm font-semibold tabular-nums text-neutral-900">
                             {log.weight.toFixed(1)} kg
                         </span>
-                        <span className="w-24 text-sm tabular-nums text-neutral-400">
+                        <span className="w-24 text-sm tabular-nums text-neutral-500">
                             {trendByDate.has(log.date)
                                 ? `${trendByDate.get(log.date)!.toFixed(1)} trend`
                                 : ''}
                         </span>
-                        <span className="w-24 text-sm tabular-nums text-neutral-400">
+                        <span className="w-24 text-sm tabular-nums text-neutral-500">
                             {log.waist ? `${log.waist} cm waist` : ''}
                         </span>
-                        <span className="flex-1 text-sm tabular-nums text-neutral-400">
+                        <span className="flex-1 text-sm tabular-nums text-neutral-500">
                             {log.bodyFat ? `${log.bodyFat.toFixed(1)}% fat` : ''}
                         </span>
                         <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
@@ -616,7 +616,7 @@ function RowButton({
             type="button"
             aria-label={label}
             onClick={onClick}
-            className={`grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors ${
+            className={`grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors ${
                 danger
                     ? 'hover:bg-red-50 hover:text-red-500'
                     : 'hover:bg-neutral-100 hover:text-neutral-900'
@@ -687,11 +687,11 @@ function GoalsModal({
     }
 
     return (
-        <Modal
+        <Drawer size="md"
             open={open}
             onClose={onClose}
             title="Body targets"
-            size="sm"
+           
             footer={
                 <>
                     <Button variant="ghost" onClick={onClose}>
@@ -726,7 +726,7 @@ function GoalsModal({
                     hint="Judged on the trend, not one reading — measure the same way each time."
                 />
                 <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Direction
                     </span>
                     <div className="flex gap-2">
@@ -760,7 +760,7 @@ function GoalsModal({
                     hint="0.5–1% of bodyweight a week is the usual sustainable range for a cut."
                 />
             </div>
-        </Modal>
+        </Drawer>
     )
 }
 
@@ -788,11 +788,11 @@ function Stat({
 }) {
     return (
         <Card hover={false} className="flex flex-col gap-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 {label}
             </p>
             <p className={`text-2xl font-bold tabular-nums ${TONE_TEXT[tone]}`}>{value}</p>
-            {sub && <p className="text-xs text-neutral-400">{sub}</p>}
+            {sub && <p className="text-xs text-neutral-500">{sub}</p>}
         </Card>
     )
 }

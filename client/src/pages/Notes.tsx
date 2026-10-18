@@ -5,7 +5,7 @@ import Button from '../components/Button'
 import Input from '../components/Input'
 import Textarea from '../components/Textarea'
 import Select from '../components/Select'
-import Modal from '../components/Modal'
+import Drawer from '../components/Drawer'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import { useToast } from '../context/ToastContext'
@@ -192,7 +192,7 @@ function NoteModal({
     }
 
     return (
-        <Modal
+        <Drawer size="xl"
             open
             onClose={onClose}
             title={note ? 'Edit note' : 'New note'}
@@ -271,7 +271,7 @@ function NoteModal({
                 {/* Hidden submit so Enter works while focus is in the title field. */}
                 <button type="submit" className="hidden" aria-hidden="true" />
             </form>
-        </Modal>
+        </Drawer>
     )
 }
 
@@ -341,11 +341,11 @@ function CategoryModal({ categories, counts, onClose, onChanged }: CategoryModal
     }
 
     return (
-        <Modal open onClose={onClose} title="Categories" footer={<Button onClick={onClose}>Done</Button>}>
+        <Drawer size="lg" open onClose={onClose} title="Categories" footer={<Button onClick={onClose}>Done</Button>}>
             <div className="flex flex-col gap-5">
                 {/* Existing categories */}
                 {categories.length === 0 ? (
-                    <p className="text-sm text-neutral-400">No categories yet — add one below.</p>
+                    <p className="text-sm text-neutral-500">No categories yet — add one below.</p>
                 ) : (
                     <div className="flex flex-col gap-3">
                         {categories.map((cat) => (
@@ -358,7 +358,7 @@ function CategoryModal({ categories, counts, onClose, onChanged }: CategoryModal
                                     onBlur={(e) => handleRename(cat, e.target.value)}
                                     className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm font-semibold text-neutral-800 hover:border-neutral-200 focus:border-neutral-400 focus:bg-white focus:outline-none"
                                 />
-                                <span className="shrink-0 text-xs tabular-nums text-neutral-400">
+                                <span className="shrink-0 text-xs tabular-nums text-neutral-500">
                                     {counts[cat._id] ?? 0}
                                 </span>
                                 <div className="flex shrink-0 gap-1">
@@ -380,7 +380,7 @@ function CategoryModal({ categories, counts, onClose, onChanged }: CategoryModal
                                     type="button"
                                     onClick={() => handleDelete(cat)}
                                     aria-label="Delete category"
-                                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                                    className="grid h-7 w-7 shrink-0 place-items-center rounded-[10px] text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
                                 >
                                     <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
                                 </button>
@@ -403,7 +403,7 @@ function CategoryModal({ categories, counts, onClose, onChanged }: CategoryModal
                     </Button>
                 </form>
             </div>
-        </Modal>
+        </Drawer>
     )
 }
 
@@ -422,11 +422,11 @@ function NoteCard({
         <button
             type="button"
             onClick={onOpen}
-            className="flex h-full flex-col rounded-2xl border border-neutral-100 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-neutral-200 hover:shadow-md"
+            className="flex h-full flex-col rounded-2xl border border-neutral-100 bg-white p-5 text-left shadow-sm transition-all hover:border-neutral-200 hover:shadow-md"
         >
             <h3 className="flex items-center gap-2 font-bold text-neutral-900 line-clamp-1">
                 {note.locked && (
-                    <i className="fa-solid fa-lock shrink-0 text-xs text-neutral-400" aria-hidden="true" />
+                    <i className="fa-solid fa-lock shrink-0 text-xs text-neutral-500" aria-hidden="true" />
                 )}
                 <span className="line-clamp-1">{note.title}</span>
             </h3>
@@ -450,7 +450,7 @@ function NoteCard({
                 ) : (
                     <span className="text-[11px] font-medium text-neutral-300">Uncategorised</span>
                 )}
-                <span className="shrink-0 text-[11px] tabular-nums text-neutral-400">
+                <span className="shrink-0 text-[11px] tabular-nums text-neutral-500">
                     {fmtWhen(note.updatedAt)}
                 </span>
             </div>
@@ -566,7 +566,7 @@ export default function Notes() {
         <Container as="main" className="py-10">
             <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Notes</h1>
+                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Notes</h1>
                     <p className="mt-1 text-sm text-neutral-500">
                         {notes.length} note{notes.length !== 1 ? 's' : ''}
                         {categories.length > 0 && (
@@ -605,7 +605,7 @@ export default function Notes() {
                     onClick={() => setManagingCategories(true)}
                     className="ml-1 inline-flex items-center gap-1.5 rounded-full border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:border-neutral-400 hover:text-neutral-800"
                 >
-                    <i className="fa-solid fa-sliders text-[10px]" aria-hidden="true" />
+                    <i className="fa-solid fa-sliders text-[11px]" aria-hidden="true" />
                     Categories
                 </button>
             </div>
@@ -746,7 +746,7 @@ function FilterChip({
                 <span className={`h-2 w-2 rounded-full ${NOTE_CATEGORY_COLOR_CLASSES[color].dot}`} />
             )}
             {label}
-            <span className={active ? 'text-white/60' : 'text-neutral-400'}>{count}</span>
+            <span className={active ? 'text-white/60' : 'text-neutral-500'}>{count}</span>
         </button>
     )
 }

@@ -1,20 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardAction, CardHeader, CardTitle } from '../Card'
-import Spinner from '../Spinner'
+import DashSection, { SectionLoading } from './DashSection'
 import { useAuth } from '../../context/AuthContext'
 import {
     fetchForecast,
     weatherInfo,
-    dayCondition,
     type Forecast,
     type HourlySlot,
 } from '../../lib/weather'
 
-/** A short weekday ("Mon", "Tue") for an ahead-tile. */
-function dayLabel(date: string): string {
-    const [y, m, d] = date.split('-').map(Number)
-    return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short' })
+/** Sun reads amber, the moon violet, wet or cloudy weather sky blue. */
+function iconTint(icon: string): string {
+    if (icon.includes('fa-sun') && !icon.includes('rain')) return 'text-amber-500'
+    if (icon.includes('fa-moon') && !icon.includes('rain')) return 'text-violet-500'
+    return 'text-sky-500'
 }
 
 /** Compact clock label for an hourly tile ("9am", "3pm", "12pm"). */
@@ -39,137 +38,99 @@ function nextHours(forecast: Forecast, count = 5): HourlySlot[] {
         .slice(0, count)
 }
 
-/**
- * `hourly` → today's next few hours (for "Today's outlook").
- * `daily`  → the five days from tomorrow (for "Looking ahead").
- */
-type WeatherVariant = 'hourly' | 'daily'
-
-export default function WeatherWidget({ variant = 'daily' }: { variant?: WeatherVariant }) {
+/** Today's next few hours; the full outlook lives on the Weather page. */
+export default function WeatherWidget() {
     const { user } = useAuth()
     const location = user?.settings?.weatherLocation ?? null
 
-    const [forecast, setForecast] = useState<Forecast | null>(null)
-    const [loading, setLoading] = useState(!!location)
-    const [error, setError] = useState(false)
+    // Keyed by place, so loading is derived rather than set inside the effect.
+    const placeKey = location ? `${location.latitude},${location.longitude}` : null
+    const [result, setResult] = useState<{ key: string; forecast: Forecast | null } | null>(null)
+    const loading = placeKey !== null && result?.key !== placeKey
+    const forecast = result?.key === placeKey ? result.forecast : null
+    const error = !loading && forecast === null
 
     useEffect(() => {
-        if (!location) return
+        if (!location || !placeKey) return
         let active = true
-        setLoading(true)
-        setError(false)
         fetchForecast(location)
-            .then((f) => active && setForecast(f))
-            .catch(() => active && setError(true))
-            .finally(() => active && setLoading(false))
+            .then((f) => active && setResult({ key: placeKey, forecast: f }))
+            .catch(() => active && setResult({ key: placeKey, forecast: null }))
         return () => {
             active = false
         }
-    }, [location?.latitude, location?.longitude])
+        // `location` is read through `placeKey`, which changes exactly when it does.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [placeKey])
 
     // Prompt to set a location the first time.
     if (!location) {
         return (
-            <Card>
+            <DashSection title="Weather" icon="fa-solid fa-cloud-sun" tone="sky">
                 <Link
                     to="/weather"
-                    className="flex items-center gap-4 text-left transition-opacity hover:opacity-80"
+                    className="group flex items-center gap-4 border-y border-neutral-200 py-5 text-left"
                 >
-                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-sky-100 text-xl text-sky-500">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-info-bg text-base text-info">
                         <i className="fa-solid fa-location-dot" aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-neutral-900">Set your location</p>
-                        <p className="text-xs text-neutral-400">
-                            Add a location to see the five-day forecast
-                        </p>
+                        <p className="text-[15px] font-medium text-neutral-900">Set your location</p>
+                        <p className="text-[13px] text-neutral-500">Add a location to see today&apos;s forecast</p>
                     </div>
-                    <i className="fa-solid fa-chevron-right text-xs text-neutral-300" aria-hidden="true" />
+                    <i className="fa-solid fa-chevron-right text-xs text-neutral-500 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                 </Link>
-            </Card>
+            </DashSection>
         )
     }
 
     const pending = loading || (!forecast && !error)
-    // Ahead tiles run from tomorrow onwards (today lives in its own hourly strip).
-    const days = forecast?.daily.slice(1, 6) ?? []
     const hours = forecast ? nextHours(forecast) : []
-    const tiles = variant === 'hourly' ? hours : days
+
+    const now = hours[0]
 
     return (
-        <Card>
-            <CardHeader className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                    <CardTitle>{variant === 'hourly' ? "Today's weather" : 'Weather outlook'}</CardTitle>
-                    <p className="mt-0.5 truncate text-xs text-neutral-400">
-                        <i className="fa-solid fa-location-dot mr-1" aria-hidden="true" />
-                        {location.name}
-                    </p>
-                </div>
-                <CardAction to="/weather">Full forecast</CardAction>
-            </CardHeader>
-
+        <DashSection title="Weather" icon="fa-solid fa-cloud-sun" tone="sky" meta={location.name} to="/weather" action="Forecast">
             {pending ? (
-                <div className="grid place-items-center py-8">
-                    <Spinner />
-                </div>
-            ) : error || tiles.length === 0 ? (
-                <p className="py-4 text-sm text-neutral-400">Couldn&apos;t load the forecast right now.</p>
-            ) : variant === 'hourly' ? (
-                <div className="grid grid-cols-5 gap-1.5">
-                    {hours.map((h) => {
-                        const info = weatherInfo(h.code, h.hour >= 6 && h.hour < 20)
-                        return (
-                            <div
-                                key={`${h.date}-${h.hour}`}
-                                className="flex flex-col items-center gap-1.5 rounded-2xl bg-white px-1 py-3 ring-1 ring-black/[0.06]"
-                                title={info.label}
-                            >
-                                <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
-                                    {hourLabel(h.hour)}
-                                </span>
-                                <i className={`${info.icon} text-lg text-sky-500`} aria-hidden="true" />
-                                <span className="text-sm font-bold tabular-nums text-neutral-900">
-                                    {h.temperature}&deg;
-                                </span>
-                                {h.precipitationProbability >= 20 ? (
-                                    <span className="text-[10px] font-medium tabular-nums text-sky-500">
-                                        {h.precipitationProbability}%
-                                    </span>
-                                ) : (
-                                    <span className="text-[10px] text-neutral-300">&ndash;</span>
-                                )}
-                            </div>
-                        )
-                    })}
-                </div>
+                <SectionLoading rows={2} />
+            ) : error || hours.length === 0 ? (
+                <p className="py-4 text-[15px] text-neutral-500">Couldn&apos;t load the forecast right now.</p>
             ) : (
-                <div className="grid grid-cols-5 gap-1.5">
-                    {days.map((day) => {
-                        const info = weatherInfo(
-                            dayCondition(day, forecast!.hourlyByDate[day.date] ?? [])
-                        )
-                        return (
-                            <div
-                                key={day.date}
-                                className="flex flex-col items-center gap-1.5 rounded-2xl bg-white px-1 py-3 ring-1 ring-black/[0.06]"
-                                title={info.label}
-                            >
-                                <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
-                                    {dayLabel(day.date)}
-                                </span>
-                                <i className={`${info.icon} text-lg text-sky-500`} aria-hidden="true" />
-                                <span className="text-sm font-bold tabular-nums text-neutral-900">
-                                    {day.tempMax}&deg;
-                                </span>
-                                <span className="text-[10px] tabular-nums text-neutral-400">
-                                    {day.tempMin}&deg;
-                                </span>
-                            </div>
-                        )
-                    })}
+                <div className="flex flex-col gap-6">
+                    <div className="flex items-center gap-4">
+                        <i
+                            className={`${weatherInfo(now.code, now.hour >= 6 && now.hour < 20).icon} text-4xl ${iconTint(weatherInfo(now.code, now.hour >= 6 && now.hour < 20).icon)}`}
+                            aria-hidden="true"
+                        />
+                        <span className="text-5xl font-medium leading-none tracking-[-0.05em] tabular-nums text-neutral-950">
+                            {now.temperature}&deg;
+                        </span>
+                        <span className="text-[15px] leading-snug text-neutral-600">
+                            {weatherInfo(now.code, now.hour >= 6 && now.hour < 20).label}
+                            <span className="block text-[13px] text-neutral-500">at {hourLabel(now.hour)}</span>
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-5 border-t border-neutral-200 pt-5">
+                        {hours.map((h) => {
+                            const info = weatherInfo(h.code, h.hour >= 6 && h.hour < 20)
+                            return (
+                                <div
+                                    key={`${h.date}-${h.hour}`}
+                                    className="flex flex-col items-center gap-2"
+                                    title={info.label}
+                                >
+                                    <span className="text-xs text-neutral-500">{hourLabel(h.hour)}</span>
+                                    <i className={`${info.icon} text-lg ${iconTint(info.icon)}`} aria-hidden="true" />
+                                    <span className="text-sm tabular-nums text-neutral-900">{h.temperature}&deg;</span>
+                                    <span className="text-[11px] tabular-nums text-info">
+                                        {h.precipitationProbability >= 20 ? `${h.precipitationProbability}%` : '\u00a0'}
+                                    </span>
+                                </div>
+                            )
+                        })}
+                    </div>
                 </div>
             )}
-        </Card>
+        </DashSection>
     )
 }

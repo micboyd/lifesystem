@@ -143,7 +143,6 @@ function readSeasonBody(
             nutritionPhases: readIds(l.nutritionPhases),
             savingsTargets: readIds(l.savingsTargets),
             goals: readIds(l.goals),
-            courses: readIds(l.courses),
             monthNotes: readIds(l.monthNotes),
         },
     }

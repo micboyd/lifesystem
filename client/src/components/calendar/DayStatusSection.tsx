@@ -135,7 +135,7 @@ export default function DayStatusSection({ date, defaultAdding = false }: Props)
 
                     {/* Date range */}
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Date range
                         </span>
                         <DatePicker

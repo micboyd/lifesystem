@@ -195,7 +195,7 @@ export default function JsonImportPanel({
                 <button
                     type="button"
                     onClick={reconciling ? () => setConflicts([]) : onBack}
-                    className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-400 transition-colors hover:text-neutral-900"
+                    className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-arrow-left text-xs" aria-hidden="true" />
                     {reconciling ? 'Back to paste' : 'Back to library'}
@@ -244,7 +244,7 @@ export default function JsonImportPanel({
                     {/* Template */}
                     <Card as="section" hover={false}>
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                            <h3 className="text-sm font-bold uppercase tracking-wide text-neutral-400">
+                            <h3 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Template
                             </h3>
                             <Button
@@ -264,7 +264,7 @@ export default function JsonImportPanel({
 
                     {/* Paste + import */}
                     <Card as="section" hover={false}>
-                        <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-400">
+                        <h3 className="mb-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Paste JSON
                         </h3>
 
@@ -274,7 +274,7 @@ export default function JsonImportPanel({
                             spellCheck={false}
                             rows={12}
                             placeholder="Paste your JSON here…"
-                            className="w-full resize-y rounded-xl border border-neutral-200 bg-white p-4 font-mono text-xs leading-relaxed text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+                            className="w-full resize-y rounded-xl border border-neutral-200 bg-white p-4 font-mono text-xs leading-relaxed text-neutral-800 outline-none placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                         />
 
                         <div className="mt-4 flex items-center justify-end gap-3">

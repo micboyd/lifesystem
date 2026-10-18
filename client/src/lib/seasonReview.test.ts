@@ -6,7 +6,7 @@ import {
     overallScore,
     type ReviewInput,
 } from './seasonReview'
-import { EMPTY_SEASON_LINKS, type Course, type SavingsTarget, type Season } from '../types'
+import { EMPTY_SEASON_LINKS, type SavingsTarget, type Season } from '../types'
 
 function season(startMonth = '2026-09', endMonth = '2026-11'): Season {
     return {
@@ -33,7 +33,6 @@ function input(overrides: Partial<ReviewInput> = {}): ReviewInput {
         weightLogs: [],
         habitLogs: [],
         habitCount: 0,
-        courses: [],
         savingsTargets: [],
         nutritionPhases: [],
         ...overrides,
@@ -242,35 +241,6 @@ describe('money score', () => {
 
     it('is unscored with nothing linked', () => {
         expect(scoreFor('money').score).toBeNull()
-    })
-})
-
-describe('study score', () => {
-    function course(requiredHours: number, completedHours: number, name: string): Course {
-        return {
-            _id: `c-${name}`,
-            name,
-            kind: 'course',
-            requiredHours,
-            completedHours,
-            order: 0,
-            createdAt: '',
-            updatedAt: '',
-        }
-    }
-
-    it('pools hours across the season courses', () => {
-        const row = scoreFor('study', {
-            courses: [course(40, 30, 'a'), course(60, 20, 'b')],
-        })
-        expect(row.score).toBe(50)
-        expect(row.headline).toBe('50 of 100 hours done')
-    })
-
-    it('is unscored when the courses set no target', () => {
-        const row = scoreFor('study', { courses: [course(0, 12, 'a')] })
-        expect(row.score).toBeNull()
-        expect(row.headline).toBe('12h logged, no target set')
     })
 })
 

@@ -139,7 +139,7 @@ export default function TrainingConsistencyPanel({
                             Total kilograms moved each week. Empty weeks are drawn as empty.
                         </p>
                     </div>
-                    <p className="text-xs tabular-nums text-neutral-400">
+                    <p className="text-xs tabular-nums text-neutral-500">
                         {trainedWeeks} of {weeks.length} weeks trained
                     </p>
                 </div>
@@ -155,7 +155,7 @@ export default function TrainingConsistencyPanel({
                     </p>
                 </div>
                 {balance.length === 0 ? (
-                    <p className="text-sm text-neutral-400">
+                    <p className="text-sm text-neutral-500">
                         No sets with a weight and reps on them in this range.
                     </p>
                 ) : (
@@ -201,7 +201,7 @@ function WeekBars({ weeks }: { weeks: WeekLoad[] }) {
                         className="pointer-events-none absolute inset-x-0 border-t border-dashed border-neutral-300"
                         style={{ bottom: `${(mean / max) * 100}%` }}
                     >
-                        <span className="absolute -top-4 right-0 text-[10px] font-semibold tabular-nums text-neutral-400">
+                        <span className="absolute -top-4 right-0 text-[11px] font-semibold tabular-nums text-neutral-500">
                             avg {tonnage(mean)}
                         </span>
                     </div>
@@ -230,7 +230,7 @@ function WeekBars({ weeks }: { weeks: WeekLoad[] }) {
                     </div>
                 ))}
             </div>
-            <div className="flex justify-between text-[11px] tabular-nums text-neutral-400">
+            <div className="flex justify-between text-[11px] tabular-nums text-neutral-500">
                 <span>{shortDate(weeks[0].weekStart)}</span>
                 <span>{shortDate(weeks[weeks.length - 1].weekStart)}</span>
             </div>

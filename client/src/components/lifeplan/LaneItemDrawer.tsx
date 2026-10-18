@@ -6,7 +6,6 @@ import { formatDateLong, formatMonthRange } from '../../lib/calendar'
 import { laneItemHref, type LaneItem, type LaneSource } from '../../lib/lifeTimeline'
 import {
     NUTRITION_PHASE_LABELS,
-    type Course,
     type Goal,
     type MonthNote,
     type NutritionPhase,
@@ -27,27 +26,23 @@ const SOURCE_LABELS: Record<LaneSource, string> = {
     trainingPlan: 'Training plan',
     nutritionPhase: 'Nutrition phase',
     savingsTarget: 'Savings target',
-    course: 'Study',
     monthNote: 'Month flag',
     goal: 'Goal',
-    workProject: 'Work project',
 }
 
 const SOURCE_LINK_LABELS: Record<LaneSource, string> = {
     trainingPlan: 'Open in Fitness',
     nutritionPhase: 'Edit in Nutrition',
     savingsTarget: 'Open in Forecast',
-    course: 'Open in Studying',
     monthNote: 'Open in Calendar',
     goal: 'Open in Goals',
-    workProject: 'Open in Work',
 }
 
 /** A labelled row of detail. */
 function Row({ label, value }: { label: string; value: string }) {
     return (
         <div className="flex items-baseline justify-between gap-4 py-1.5">
-            <span className="text-xs font-semibold text-neutral-400">{label}</span>
+            <span className="text-xs font-semibold text-neutral-500">{label}</span>
             <span className="text-right text-sm font-semibold tabular-nums text-neutral-900">
                 {value}
             </span>
@@ -59,7 +54,6 @@ export interface LaneItemRecords {
     trainingPlans?: TrainingPlan[]
     nutritionPhases?: NutritionPhase[]
     savingsTargets?: SavingsTarget[]
-    courses?: Course[]
     monthNotes?: MonthNote[]
     goals?: Goal[]
 }
@@ -86,7 +80,7 @@ export default function LaneItemDrawer({
                 item && (
                     <Link
                         to={laneItemHref(item)}
-                        className="flex items-center justify-center gap-2 rounded-full bg-neutral-950 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-neutral-800"
+                        className="flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-6 h-11 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
                     >
                         {SOURCE_LINK_LABELS[item.source]}
                         <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
@@ -119,7 +113,6 @@ export default function LaneItemDrawer({
                     {source === 'trainingPlan' && <TrainingPlanDetail item={item} records={records} />}
                     {source === 'nutritionPhase' && <PhaseDetail item={item} records={records} />}
                     {source === 'savingsTarget' && <SavingsDetail item={item} records={records} />}
-                    {source === 'course' && <CourseDetail item={item} records={records} />}
                     {source === 'monthNote' && <FlagDetail item={item} records={records} />}
                     {source === 'goal' && <GoalDetail item={item} records={records} />}
                 </div>
@@ -139,7 +132,7 @@ function TrainingPlanDetail({ item, records }: { item: LaneItem; records: LaneIt
             </div>
             {plan.phases.length > 0 && (
                 <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <h4 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Phases
                     </h4>
                     {/* A phase's dates are free text in the source document, so they
@@ -206,25 +199,6 @@ function SavingsDetail({ item, records }: { item: LaneItem; records: LaneItemRec
                 <Row label="Window" value={formatMonthRange(target.startMonth, target.targetMonth)} />
             </div>
             {target.notes && <p className="text-sm text-neutral-600">{target.notes}</p>}
-        </>
-    )
-}
-
-function CourseDetail({ item, records }: { item: LaneItem; records: LaneItemRecords }) {
-    const course = records.courses?.find((c) => c._id === item.recordId)
-    if (!course) return null
-    const pct =
-        course.requiredHours > 0
-            ? Math.min(100, Math.round((course.completedHours / course.requiredHours) * 100))
-            : 0
-    return (
-        <>
-            <div className="divide-y divide-neutral-100">
-                {course.targetDate && <Row label="Deadline" value={formatDateLong(course.targetDate)} />}
-                <Row label="Hours" value={`${course.completedHours} of ${course.requiredHours}`} />
-            </div>
-            <Progress value={pct} showLabel />
-            {course.notes && <p className="text-sm text-neutral-600">{course.notes}</p>}
         </>
     )
 }

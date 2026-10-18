@@ -57,7 +57,7 @@ export default function RoundCounter({
     return (
         <div className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
             <div className="mb-2.5 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     {target} {many}
                 </span>
                 <span
@@ -96,7 +96,7 @@ export default function RoundCounter({
                                               : 'bg-neutral-100 text-neutral-500'
                                     }`}
                                 >
-                                    {isDone ? <i className="fa-solid fa-check text-[10px]" /> : i + 1}
+                                    {isDone ? <i className="fa-solid fa-check text-[11px]" /> : i + 1}
                                 </span>
                                 <span
                                     className={`min-w-0 flex-1 text-sm ${

@@ -337,20 +337,21 @@ export default function TimePicker({
     const quickTimes = QUICK_TIMES.filter((t) => !isDisabled(t))
 
     const triggerClasses = [
-        'group flex w-full items-center gap-3 rounded-xl border bg-white py-2.5 pl-4 pr-3 text-sm outline-none transition-all duration-150',
+        // Same height, radius and focus as every other field (fieldStyles).
+        'group flex h-11 w-full items-center gap-3 rounded-xl border bg-white pl-3.5 pr-3 text-[15px] outline-none focus-visible:outline-none transition-[border-color,box-shadow] duration-150',
         open
-            ? 'border-neutral-400 ring-2 ring-neutral-200'
-            : 'border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50',
+            ? 'border-neutral-900 ring-4 ring-neutral-100'
+            : 'border-neutral-200 hover:border-neutral-300 focus-visible:border-neutral-900 focus-visible:ring-4 focus-visible:ring-neutral-100',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
     ].join(' ')
 
     const spinnerBtn =
-        'grid h-7 w-7 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 active:bg-neutral-200'
+        'grid h-7 w-7 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 active:bg-neutral-200'
 
     const digitDisplay =
-        'h-12 w-14 rounded-xl border border-neutral-100 text-center text-2xl font-bold tabular-nums text-neutral-900 transition-colors hover:border-neutral-300 hover:bg-neutral-50'
+        'h-12 w-14 rounded-xl border border-neutral-200 text-center text-2xl font-medium tabular-nums text-neutral-900 transition-colors hover:border-neutral-300 hover:bg-neutral-50'
     const digitInput =
-        'h-12 w-14 rounded-xl border border-neutral-950 bg-white text-center text-2xl font-bold tabular-nums text-neutral-900 focus:outline-none'
+        'h-12 w-14 rounded-xl border border-neutral-900 bg-white text-center text-2xl font-medium tabular-nums text-neutral-900 ring-4 ring-neutral-100 focus:outline-none'
 
     return (
         <div ref={containerRef} className={`relative ${className}`}>
@@ -362,11 +363,11 @@ export default function TimePicker({
                 className={triggerClasses}
             >
                 <i
-                    className="fa-solid fa-clock shrink-0 text-sm text-neutral-400"
+                    className="fa-solid fa-clock shrink-0 text-sm text-neutral-500"
                     aria-hidden="true"
                 />
                 <span
-                    className={`flex-1 text-left whitespace-nowrap ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-400'}`}
+                    className={`flex-1 text-left whitespace-nowrap ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-500'}`}
                 >
                     {hasValue ? formatDisplay(current!, use12Hour) : placeholder}
                 </span>
@@ -377,11 +378,11 @@ export default function TimePicker({
                         aria-label="Clear"
                         className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-200 hover:text-neutral-600"
                     >
-                        <i className="fa-solid fa-xmark text-[10px]" aria-hidden="true" />
+                        <i className="fa-solid fa-xmark text-[11px]" aria-hidden="true" />
                     </span>
                 ) : (
                     <i
-                        className={`fa-solid fa-chevron-down shrink-0 text-[10px] text-neutral-300 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                        className={`fa-solid fa-chevron-down shrink-0 text-[11px] text-neutral-300 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
                         aria-hidden="true"
                     />
                 )}
@@ -393,7 +394,7 @@ export default function TimePicker({
                     ref={menuRef}
                     style={shift ? { transform: `translateX(${shift}px)` } : undefined}
                     className={[
-                        'absolute top-full z-50 mt-2 max-w-[calc(100vw-1rem)] rounded-2xl border border-neutral-100 bg-white shadow-xl',
+                        'absolute top-full z-50 mt-2 max-w-[calc(100vw-1rem)] rounded-2xl bg-white shadow-xl ring-1 ring-neutral-900/[0.06]',
                         align === 'right' ? 'right-0' : 'left-0',
                         use12Hour ? 'w-72' : 'w-60',
                     ].join(' ')}
@@ -519,7 +520,7 @@ export default function TimePicker({
                     {/* Quick select */}
                     {quickTimes.length > 0 && (
                         <div className="border-t border-neutral-100 px-3 py-2.5">
-                            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+                            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Quick select
                             </p>
                             <div className="grid grid-cols-3 gap-1">
@@ -551,9 +552,9 @@ export default function TimePicker({
                         <button
                             type="button"
                             onClick={selectNow}
-                            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                            className="inline-flex items-center gap-1.5 rounded-[10px] px-3 h-8 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                         >
-                            <i className="fa-solid fa-clock text-[10px]" aria-hidden="true" />
+                            <i className="fa-solid fa-clock text-[11px]" aria-hidden="true" />
                             Now
                         </button>
                         <button

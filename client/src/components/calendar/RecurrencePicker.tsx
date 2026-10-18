@@ -55,13 +55,13 @@ export default function RecurrencePicker({
                         ))}
                     </div>
                     {frequency === 'lastWeekday' && (
-                        <p className="flex items-center gap-1.5 text-xs text-neutral-400">
-                            <i className="fa-solid fa-circle-info text-[10px]" aria-hidden="true" />
+                        <p className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+                            <i className="fa-solid fa-circle-info text-[11px]" aria-hidden="true" />
                             Repeats on the last weekday (Mon–Fri) of each month.
                         </p>
                     )}
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Ends on{' '}
                             <span className="normal-case font-normal text-neutral-300">
                                 (optional)

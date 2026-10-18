@@ -242,7 +242,7 @@ export default function NutritionPlanner({ meals, settingsGoals }: { meals: Meal
                 />
             </HeroShell>
 
-            <section className="flex flex-col gap-3 rounded-3xl bg-white p-3 ring-1 ring-black/[0.06] sm:p-4">
+            <section className="flex flex-col gap-3 rounded-3xl bg-white p-3 ring-1 ring-neutral-900/[0.06] sm:p-4">
                 <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                     <div className="flex min-w-0 items-center gap-2">
                         <WeekStepButton label="Previous week" icon="fa-chevron-left" onClick={() => setSelected(addDays(selected, -7))} />
@@ -391,7 +391,7 @@ function WeekStepButton({ label, icon, onClick }: { label: string; icon: string;
             type="button"
             aria-label={label}
             onClick={onClick}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300"
         >
             <i className={`fa-solid ${icon} text-xs`} aria-hidden="true" />
         </button>
@@ -417,7 +417,7 @@ function ToolButton({
             onClick={onClick}
             className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 disabled:opacity-40"
         >
-            <i className={`fa-solid ${icon} text-[11px] text-neutral-400`} aria-hidden="true" />
+            <i className={`fa-solid ${icon} text-[11px] text-neutral-500`} aria-hidden="true" />
             {children}
         </button>
     )
@@ -426,14 +426,14 @@ function ToolButton({
 /** What's on the clipboard, and where "Paste" appears. */
 function ClipNote({ clip, working, onClear }: { clip: Clip | null; working: boolean; onClear: () => void }) {
     if (working) return <p className="text-xs text-neutral-500">Working…</p>
-    if (!clip) return <p className="text-xs text-neutral-400">Copy a day or a week, then paste it onto another.</p>
+    if (!clip) return <p className="text-xs text-neutral-500">Copy a day or a week, then paste it onto another.</p>
     const n = clip.items.length
     return (
         <p className="flex items-center gap-1.5 text-xs text-neutral-600">
-            <i className="fa-solid fa-clipboard text-neutral-400" aria-hidden="true" />
+            <i className="fa-solid fa-clipboard text-neutral-500" aria-hidden="true" />
             <span className="min-w-0">
                 Copied {clip.label} — {n} meal{n === 1 ? '' : 's'}.{' '}
-                <span className="text-neutral-400">
+                <span className="text-neutral-500">
                     {clip.kind === 'day' ? 'Paste day is on each other day.' : 'Go to another week to paste.'}
                 </span>
             </span>
@@ -441,7 +441,7 @@ function ClipNote({ clip, working, onClear }: { clip: Clip | null; working: bool
                 type="button"
                 onClick={onClear}
                 aria-label="Clear clipboard"
-                className="ml-auto grid h-7 w-7 shrink-0 place-items-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                className="ml-auto grid h-7 w-7 shrink-0 place-items-center rounded-[10px] text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
             >
                 <i className="fa-solid fa-xmark" aria-hidden="true" />
             </button>
@@ -470,7 +470,7 @@ function DayBanner({
     const pending = sumPendingMacros(entries)
 
     return (
-        <div className="flex flex-col gap-3 rounded-2xl bg-black/15 p-3 sm:p-4">
+        <div className="flex flex-col gap-3 rounded-2xl bg-white/[0.06] p-3 sm:p-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <BannerStat
                     label="Calories in"
@@ -540,7 +540,7 @@ function OutField({ out, onSave, dark = false }: { out: number | null; onSave: (
 function NetLine({ eaten, out, dark = false }: { eaten: number; out: number | null; dark?: boolean }) {
     const net = out === null ? null : eaten - out
     if (net === null) {
-        return <p className={`text-sm font-semibold ${dark ? 'text-white/50' : 'text-neutral-400'}`}>Add calories out to see the balance</p>
+        return <p className={`text-sm font-semibold ${dark ? 'text-white/50' : 'text-neutral-500'}`}>Add calories out to see the balance</p>
     }
     const [under, over, even] = dark
         ? ['text-emerald-300', 'text-amber-300', 'text-white']
@@ -557,7 +557,7 @@ function NetLine({ eaten, out, dark = false }: { eaten: number; out: number | nu
 function BannerStat({ label, value, sub, big = false }: { label: string; value: string; sub?: string; big?: boolean }) {
     return (
         <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">{label}</p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-white/50">{label}</p>
             <p className={`truncate font-bold tabular-nums tracking-tight ${big ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'}`}>{value}</p>
             {sub && <p className="truncate text-[11px] tabular-nums text-white/60">{sub}</p>}
         </div>
@@ -671,10 +671,10 @@ function DayTotals({ total, eaten }: { total: Macros; eaten: Macros }) {
                 const e = Math.round(c.eaten)
                 return (
                     <div key={c.label} className="min-w-0 px-2 text-center">
-                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{c.label}</dt>
+                        <dt className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">{c.label}</dt>
                         <dd className="truncate text-sm font-bold tabular-nums text-neutral-900 sm:text-base">
                             {c.label === 'Calories' ? kcal(t) : fmt(t)}
-                            <span className="text-xs font-semibold text-neutral-400">{c.unit || ' kcal'}</span>
+                            <span className="text-xs font-semibold text-neutral-500">{c.unit || ' kcal'}</span>
                         </dd>
                         <dd className={`truncate text-[11px] tabular-nums ${e >= t && t > 0 ? 'text-emerald-600' : 'text-neutral-500'}`}>
                             {e >= t && t > 0 ? 'all eaten' : `${c.label === 'Calories' ? kcal(e) : fmt(e)} eaten`}
@@ -703,13 +703,13 @@ function SlotList({
     return (
         <section className="rounded-2xl bg-neutral-50 p-2">
             <header className="flex items-center justify-between px-2 py-1">
-                <h4 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{label}</h4>
+                <h4 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">{label}</h4>
                 {onAdd && (
                     <button
                         type="button"
                         onClick={onAdd}
                         aria-label={`Add to ${label.toLowerCase()}`}
-                        className="-mr-1 grid h-9 w-9 place-items-center rounded-full text-neutral-500 hover:bg-white active:bg-neutral-200"
+                        className="-mr-1 grid h-9 w-9 place-items-center rounded-xl text-neutral-500 hover:bg-white active:bg-neutral-200"
                     >
                         <i className="fa-solid fa-plus text-sm" aria-hidden="true" />
                     </button>
@@ -717,7 +717,7 @@ function SlotList({
             </header>
             {entries.length === 0 ? (
                 onAdd && (
-                    <button type="button" onClick={onAdd} className="w-full px-2 pb-1.5 text-left text-sm text-neutral-400">
+                    <button type="button" onClick={onAdd} className="w-full px-2 pb-1.5 text-left text-sm text-neutral-500">
                         Nothing planned
                     </button>
                 )
@@ -754,7 +754,7 @@ function SlotList({
                                     type="button"
                                     onClick={() => onRemove(e)}
                                     aria-label={`Remove ${e.name}`}
-                                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-neutral-300 hover:bg-white hover:text-neutral-600"
+                                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-neutral-300 hover:bg-white hover:text-neutral-600"
                                 >
                                     <i className="fa-solid fa-xmark" aria-hidden="true" />
                                 </button>

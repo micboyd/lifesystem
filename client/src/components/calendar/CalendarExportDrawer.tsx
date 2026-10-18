@@ -184,7 +184,7 @@ export default function CalendarExportDrawer({
                 </p>
 
                 <section className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Starting
                     </p>
                     <DatePicker
@@ -197,7 +197,7 @@ export default function CalendarExportDrawer({
                 </section>
 
                 <section className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Months
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
@@ -226,7 +226,7 @@ export default function CalendarExportDrawer({
                                     setMonths(Math.min(MAX_MONTHS, Math.max(1, n)))
                             }}
                             aria-label="Number of months"
-                            className="w-20 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
+                            className="w-20 rounded-[10px] border border-neutral-200 hover:border-neutral-300 px-3 h-10.5 text-sm focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 outline-none focus-visible:outline-none"
                         />
                     </div>
                     <p className="text-xs text-neutral-500">
@@ -235,7 +235,7 @@ export default function CalendarExportDrawer({
                 </section>
 
                 <section className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Include
                     </p>
                     {TOGGLES.map((t) => {
@@ -285,7 +285,7 @@ export default function CalendarExportDrawer({
                 {payload && !loading && (
                     <section className="flex flex-col gap-2">
                         <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Preview
                             </p>
                             <p className="text-xs text-neutral-500">

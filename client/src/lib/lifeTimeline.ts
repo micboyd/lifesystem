@@ -2,7 +2,6 @@ import { monthKey, monthKeyOf, addMonthsToKey, daysInMonth, parseDateKey } from 
 import { LIFE_PILLAR_LABELS } from '../types'
 import type {
     CalendarColor,
-    Course,
     Goal,
     LifePillar,
     LifePlan,
@@ -41,21 +40,16 @@ export type LaneSource =
     | 'trainingPlan'
     | 'nutritionPhase'
     | 'savingsTarget'
-    | 'course'
     | 'monthNote'
     | 'goal'
-    /** Load only — work projects spend focus but aren't drawn as a lane. */
-    | 'workProject'
 
 /** Where the "edit this" link on a lane item points. */
 export const LANE_SOURCE_ROUTES: Record<LaneSource, string> = {
     trainingPlan: '/fitness',
     nutritionPhase: '/nutrition',
     savingsTarget: '/finances/forecast',
-    course: '/study',
     monthNote: '/calendar',
     goal: '/goals',
-    workProject: '/work',
 }
 
 /**
@@ -133,7 +127,6 @@ export interface TimelineInput {
     trainingPlans?: TrainingPlan[]
     nutritionPhases?: NutritionPhase[]
     savingsTargets?: SavingsTarget[]
-    courses?: Course[]
     monthNotes?: MonthNote[]
     goals?: Goal[]
 }
@@ -346,8 +339,8 @@ function phaseDetail(phase: NutritionPhase): string | undefined {
  * Build every lane, marker and season band for a plan's window.
  *
  * Only records overlapping the window appear, and only the pillars the plan
- * tracks get a lane — a plan that doesn't track study shouldn't show an empty
- * study row.
+ * tracks get a lane — a plan that doesn't track a pillar shouldn't show an empty
+ * row for it.
  */
 export function buildTimeline(input: TimelineInput): Timeline {
     const { plan } = input
@@ -436,24 +429,6 @@ export function buildTimeline(input: TimelineInput): Timeline {
             'amber',
             'bar',
             `£${Math.round(target.requiredMonthly)}/mo`
-        )
-    }
-
-    for (const course of input.courses ?? []) {
-        // A course with no deadline has no position on the grid, so it's left off
-        // rather than parked arbitrarily.
-        if (!course.targetDate) continue
-        const remaining = Math.max(0, course.requiredHours - course.completedHours)
-        push(
-            'course',
-            course._id,
-            'study',
-            course.name,
-            course.targetDate,
-            course.targetDate,
-            'indigo',
-            'marker',
-            remaining > 0 ? `${remaining}h remaining` : 'Complete'
         )
     }
 

@@ -43,7 +43,7 @@ function Section({ title, description, preview, code }: SectionProps) {
         <section className="space-y-4">
             <div>
                 <h2 className="text-2xl font-bold tracking-tight text-neutral-950">{title}</h2>
-                {description && <p className="mt-1 text-sm text-neutral-400">{description}</p>}
+                {description && <p className="mt-1 text-sm text-neutral-500">{description}</p>}
             </div>
             {/* Live preview */}
             <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-8">{preview}</div>
@@ -67,7 +67,7 @@ function ChipDemo() {
                 </Chip>
             ))}
             {chips.length === 0 && (
-                <span className="text-sm text-neutral-400">All removed — refresh to reset.</span>
+                <span className="text-sm text-neutral-500">All removed — refresh to reset.</span>
             )}
         </div>
     )
@@ -180,13 +180,13 @@ export default function StyleGuide() {
             {/* Header */}
             <section className="border-b border-neutral-100 pt-12 pb-10">
                 <Container>
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         AdminLife — Design System
                     </p>
                     <h1 className="mb-3 text-4xl font-bold tracking-tight text-neutral-950 sm:text-5xl">
                         Style Guide
                     </h1>
-                    <p className="mb-6 max-w-xl text-base text-neutral-400 sm:text-lg">
+                    <p className="mb-6 max-w-xl text-base text-neutral-500 sm:text-lg">
                         Every component in the library, with live examples and copy-paste code
                         snippets.
                     </p>
@@ -553,19 +553,19 @@ toast.error("Couldn't save your changes.")`}
                     preview={
                         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                             <div>
-                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     Single date
                                 </p>
                                 <DatePicker className="max-w-xs" />
                             </div>
                             <div>
-                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     Date range
                                 </p>
                                 <DatePicker mode="range" className="max-w-xs" />
                             </div>
                             <div>
-                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     Disabled + error dates
                                 </p>
                                 <DatePicker
@@ -574,12 +574,12 @@ toast.error("Couldn't save your changes.")`}
                                     disabledDates={(d) => d.getDay() === 0 || d.getDay() === 6}
                                     errorDates={[plusDays(3), plusDays(4)]}
                                 />
-                                <p className="mt-1.5 text-xs text-neutral-400">
+                                <p className="mt-1.5 text-xs text-neutral-500">
                                     Past dates &amp; weekends disabled; two days flagged red.
                                 </p>
                             </div>
                             <div>
-                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     Month range
                                 </p>
                                 <DatePicker
@@ -587,7 +587,7 @@ toast.error("Couldn't save your changes.")`}
                                     precision="month"
                                     className="max-w-xs"
                                 />
-                                <p className="mt-1.5 text-xs text-neutral-400">
+                                <p className="mt-1.5 text-xs text-neutral-500">
                                     Values are &quot;YYYY-MM&quot;; the day grid is never reached.
                                 </p>
                             </div>
@@ -619,19 +619,19 @@ toast.error("Couldn't save your changes.")`}
                     preview={
                         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                             <div>
-                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     24-hour
                                 </p>
                                 <TimePicker className="max-w-xs" />
                             </div>
                             <div>
-                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     12-hour (AM/PM)
                                 </p>
                                 <TimePicker use12Hour minuteStep={15} className="max-w-xs" />
                             </div>
                             <div>
-                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     Bounded (09:00–17:30)
                                 </p>
                                 <TimePicker
@@ -640,7 +640,7 @@ toast.error("Couldn't save your changes.")`}
                                     maxTime="17:30"
                                     minuteStep={30}
                                 />
-                                <p className="mt-1.5 text-xs text-neutral-400">
+                                <p className="mt-1.5 text-xs text-neutral-500">
                                     Times outside business hours are disabled.
                                 </p>
                             </div>

@@ -172,7 +172,7 @@ export default function TimeboxEditor({
 
                 {/* Category */}
                 <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <label className="text-[13px] font-medium text-neutral-700">
                         Category{' '}
                         <span className="normal-case font-normal text-neutral-300">(optional)</span>
                     </label>
@@ -202,7 +202,7 @@ export default function TimeboxEditor({
                 {/* Times */}
                 <div className="grid grid-cols-2 gap-3">
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Start
                         </span>
                         <TimePicker
@@ -214,7 +214,7 @@ export default function TimeboxEditor({
                         />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             End
                         </span>
                         <TimePicker
@@ -231,16 +231,16 @@ export default function TimeboxEditor({
                 {duration && (
                     <p className="text-sm font-medium text-neutral-500">
                         <i
-                            className="fa-regular fa-clock mr-1.5 text-neutral-400"
+                            className="fa-regular fa-clock mr-1.5 text-neutral-500"
                             aria-hidden="true"
                         />
-                        Duration: <span className="font-semibold text-neutral-700">{duration}</span>
+                        Duration: <span className="font-medium text-neutral-700">{duration}</span>
                     </p>
                 )}
 
                 {/* Recurrence */}
                 <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <label className="text-[13px] font-medium text-neutral-700">
                         Repeat
                     </label>
                     <div className="flex flex-wrap gap-1.5">
@@ -293,7 +293,7 @@ export default function TimeboxEditor({
                         </div>
                     )}
                     {isRecurring && recurrenceFreq !== 'none' && (
-                        <p className="text-xs text-neutral-400">
+                        <p className="text-xs text-neutral-500">
                             <i className="fa-solid fa-circle-info mr-1" aria-hidden="true" />
                             Saving will update all occurrences of this block.
                         </p>

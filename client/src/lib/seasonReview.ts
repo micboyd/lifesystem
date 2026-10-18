@@ -1,6 +1,5 @@
 import { daysInMonth } from './calendar'
 import type {
-    Course,
     EntryStatus,
     FitnessPlanKind,
     LifePillar,
@@ -14,7 +13,7 @@ import type {
  *
  * The plan is only worth writing if it gets checked, and everything needed to
  * check it is already recorded — workout logs, meal statuses, weigh-ins, habit
- * ticks, course hours. This turns those into one scorecard per season so the next
+ * ticks. This turns those into one scorecard per season so the next
  * season's intent can be written with the last one's result in front of you.
  *
  * An in-flight season is scored on the days that have actually elapsed, never the
@@ -96,7 +95,6 @@ export interface ReviewInput {
     /** How many habits were being tracked — the denominator for consistency. */
     habitCount: number
     /** Only the records the season links; an unlinked one isn't this season's business. */
-    courses: Course[]
     savingsTargets: SavingsTarget[]
     nutritionPhases: NutritionPhase[]
 }
@@ -189,24 +187,6 @@ function scoreMoney(input: ReviewInput): PillarScore {
     }
 }
 
-/** Study: hours banked against hours required, across the season's courses. */
-function scoreStudy(input: ReviewInput): PillarScore {
-    const courses = input.courses
-    if (courses.length === 0) {
-        return { key: 'study', score: null, headline: 'No courses linked' }
-    }
-    const required = courses.reduce((sum, c) => sum + c.requiredHours, 0)
-    const done = courses.reduce((sum, c) => sum + c.completedHours, 0)
-    if (required === 0) {
-        return { key: 'study', score: null, headline: `${done}h logged, no target set` }
-    }
-    return {
-        key: 'study',
-        score: pct(done, required),
-        headline: `${done} of ${required} hours done`,
-    }
-}
-
 /** Habits: ticks landed against ticks available over the elapsed days. */
 function scoreHabits(input: ReviewInput, elapsedDays: number): PillarScore {
     if (input.habitCount === 0 || elapsedDays === 0) {
@@ -246,7 +226,6 @@ export function buildScorecard(input: ReviewInput): SeasonScorecard {
             scoreTraining(input, startDate, end),
             scoreNutrition(input, startDate, end),
             scoreMoney(input),
-            scoreStudy(input),
             scoreHabits(input, elapsedDays),
         ],
     }

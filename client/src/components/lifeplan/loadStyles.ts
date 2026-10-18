@@ -39,7 +39,7 @@ export const LEVEL_PILL: Record<LoadLevel, string> = {
 
 /** The styling for a reserve whose capacity isn't known. */
 export const UNKNOWN_BAR = 'bg-neutral-200'
-export const UNKNOWN_PILL = 'bg-neutral-100 text-neutral-400'
+export const UNKNOWN_PILL = 'bg-neutral-100 text-neutral-500'
 
 /**
  * A demand in its reserve's own unit.

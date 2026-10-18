@@ -57,7 +57,7 @@ export default function AmountScopeDialog({ name, monthLabel, onClose, onConfirm
                         className="rounded-xl border border-neutral-200 px-4 py-3 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
                     >
                         <p className="text-sm font-semibold text-neutral-900">{c.label}</p>
-                        <p className="mt-0.5 text-xs text-neutral-400">{c.detail}</p>
+                        <p className="mt-0.5 text-xs text-neutral-500">{c.detail}</p>
                     </button>
                 ))}
             </div>

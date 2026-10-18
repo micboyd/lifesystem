@@ -134,12 +134,12 @@ export default function Birthdays() {
             <header className="mb-8 flex flex-wrap items-center gap-3">
                 <Link
                     to="/profile"
-                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
+                    className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-arrow-left text-sm" aria-hidden="true" />
                 </Link>
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Birthdays</h1>
+                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Birthdays</h1>
                     <p className="mt-1 text-sm text-neutral-500">
                         Birthdays appear as all-day events on the calendar
                     </p>
@@ -155,7 +155,7 @@ export default function Birthdays() {
                     <CardBody>
                         <form onSubmit={handleAdd} className="flex flex-col gap-4">
                             {error && (
-                                <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                                <p className="rounded-2xl bg-danger-bg px-4 py-3.5 text-[13px] text-red-700">
                                     {error}
                                 </p>
                             )}
@@ -204,7 +204,7 @@ export default function Birthdays() {
                                 <Spinner />
                             </div>
                         ) : birthdays.length === 0 ? (
-                            <p className="py-4 text-sm text-neutral-400">
+                            <p className="py-4 text-sm text-neutral-500">
                                 No birthdays added yet. Add one on the left.
                             </p>
                         ) : (
@@ -266,12 +266,12 @@ export default function Birthdays() {
                                             key={b._id}
                                             className="flex items-center gap-3 py-3"
                                         >
-                                            <i className="fa-solid fa-cake-candles text-neutral-400" aria-hidden="true" />
+                                            <i className="fa-solid fa-cake-candles text-neutral-500" aria-hidden="true" />
                                             <div className="min-w-0 flex-1">
                                                 <p className="truncate text-sm font-semibold text-neutral-900">
                                                     {b.name}
                                                 </p>
-                                                <p className="text-xs text-neutral-400">
+                                                <p className="text-xs text-neutral-500">
                                                     {formatDate(b.date)}
                                                     <span className="mx-1.5 text-neutral-200">·</span>
                                                     <span className="text-neutral-500">
@@ -282,7 +282,7 @@ export default function Birthdays() {
                                             <button
                                                 type="button"
                                                 onClick={() => startEdit(b)}
-                                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                                className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                             >
                                                 <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
                                             </button>
@@ -290,7 +290,7 @@ export default function Birthdays() {
                                                 type="button"
                                                 onClick={() => handleDelete(b._id)}
                                                 disabled={deletingId === b._id}
-                                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                                className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-500"
                                             >
                                                 <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
                                             </button>

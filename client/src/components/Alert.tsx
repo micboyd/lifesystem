@@ -14,11 +14,12 @@ interface AlertProps {
 
 // Every variant is fully opaque — an alert can float over page content (as a
 // toast does), where a tinted alpha would let whatever is behind it show through.
+// Flat tinted panels with no border: the tint is the edge.
 const variantClasses: Record<AlertVariant, string> = {
-    info: 'bg-neutral-50 border-neutral-200 text-neutral-700',
-    success: 'bg-herb-50 border-herb-200 text-herb',
-    warning: 'bg-marigold-50 border-marigold-200 text-amber-800',
-    danger: 'bg-red-50 border-red-100 text-red-700',
+    info: 'bg-info-bg text-info',
+    success: 'bg-success-bg text-emerald-800',
+    warning: 'bg-warning-bg text-amber-800',
+    danger: 'bg-danger-bg text-red-700',
 }
 
 const variantIcons: Record<AlertVariant, string> = {
@@ -41,13 +42,13 @@ export default function Alert({
     return (
         <div
             role="alert"
-            className={`flex items-start gap-3 rounded-xl border p-4 ${variantClasses[variant]} ${className}`}
+            className={`flex items-start gap-3 rounded-2xl px-4 py-3.5 ${variantClasses[variant]} ${className}`}
         >
             {iconClass && <i className={`${iconClass} mt-0.5 text-sm`} aria-hidden="true" />}
             <div className="min-w-0 flex-1">
-                {title && <p className="text-sm font-semibold tracking-tight">{title}</p>}
+                {title && <p className="text-sm font-semibold">{title}</p>}
                 {children && (
-                    <div className={`text-sm ${title ? 'mt-0.5 opacity-80' : ''}`}>{children}</div>
+                    <div className={`text-[13px] leading-[19px] ${title ? 'mt-0.5' : ''}`}>{children}</div>
                 )}
             </div>
             {onClose && (

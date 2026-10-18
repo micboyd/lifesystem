@@ -165,7 +165,7 @@ export default function ExerciseProgressPanel({
                 />
 
                 {shown.length < series.length && (
-                    <p className="text-[11px] text-neutral-400">
+                    <p className="text-[11px] text-neutral-500">
                         Showing {rangeLabel.toLowerCase()} — {series.length - shown.length} earlier
                         {series.length - shown.length === 1 ? ' session' : ' sessions'} not plotted.
                     </p>
@@ -176,10 +176,10 @@ export default function ExerciseProgressPanel({
                 <Card hover={false} className="flex flex-col gap-3">
                     <h3 className="text-sm font-bold text-neutral-900">Recent sessions</h3>
                     {history.length === 0 ? (
-                        <p className="text-sm text-neutral-400">Nothing logged yet.</p>
+                        <p className="text-sm text-neutral-500">Nothing logged yet.</p>
                     ) : (
                         <div className="flex flex-col gap-1.5">
-                            <div className="grid grid-cols-[4.5rem_1fr_auto] gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                            <div className="grid grid-cols-[4.5rem_1fr_auto] gap-2 px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 <span>Date</span>
                                 <span>Top set</span>
                                 <span className="text-right">Volume</span>
@@ -194,14 +194,14 @@ export default function ExerciseProgressPanel({
                                             key={session.date}
                                             className="grid grid-cols-[4.5rem_1fr_auto] items-baseline gap-2 rounded-lg px-1 py-1 text-sm odd:bg-neutral-50/70"
                                         >
-                                            <span className="tabular-nums text-neutral-400">
+                                            <span className="tabular-nums text-neutral-500">
                                                 {shortDate(session.date)}
                                             </span>
                                             <span className="font-semibold tabular-nums text-neutral-900">
                                                 {top && top.weight != null && top.reps != null
                                                     ? setLabel(top.weight, top.reps)
                                                     : '—'}
-                                                <span className="ml-2 font-normal text-neutral-400">
+                                                <span className="ml-2 font-normal text-neutral-500">
                                                     {plural(session.workingSets, 'set')}
                                                 </span>
                                             </span>
@@ -270,15 +270,15 @@ function Best({
 }) {
     return (
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-neutral-100 pb-2 last:border-0 last:pb-0">
-            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 {label}
             </span>
             <span className="flex items-baseline gap-2">
                 <span className="text-sm font-bold tabular-nums text-neutral-900">
                     {value ?? '—'}
                 </span>
-                {note && <span className="text-[11px] text-neutral-400">{note}</span>}
-                {date && <span className="text-[11px] tabular-nums text-neutral-400">{longDate(date)}</span>}
+                {note && <span className="text-[11px] text-neutral-500">{note}</span>}
+                {date && <span className="text-[11px] tabular-nums text-neutral-500">{longDate(date)}</span>}
             </span>
         </div>
     )

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 
 export interface MenuItem {
@@ -37,48 +38,64 @@ export default function DropdownMenu({
     const [open, setOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const menuRef = useRef<HTMLDivElement>(null)
-    // Horizontal nudge that pulls the menu back inside the viewport on narrow
-    // screens, where a wide menu on an edge-anchored trigger would overflow.
-    const [shift, setShift] = useState(0)
+    // Fixed-viewport coordinates for the portaled menu. It renders on <body> so
+    // no ancestor's overflow or stacking context can clip it or cover it.
+    const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
     useEffect(() => {
         if (!open) return
         function handle(event: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setOpen(false)
-            }
+            const target = event.target as Node
+            if (containerRef.current?.contains(target) || menuRef.current?.contains(target)) return
+            setOpen(false)
+        }
+        function onKey(event: KeyboardEvent) {
+            if (event.key === 'Escape') setOpen(false)
         }
         document.addEventListener('mousedown', handle)
-        return () => document.removeEventListener('mousedown', handle)
+        document.addEventListener('keydown', onKey)
+        return () => {
+            document.removeEventListener('mousedown', handle)
+            document.removeEventListener('keydown', onKey)
+        }
     }, [open])
 
-    // Measure once the menu is up, then shift it just enough to fit.
+    // Pin the menu to its trigger: below it, flipped above when there's no room,
+    // and nudged sideways to stay on screen. Re-run as anything scrolls.
     useLayoutEffect(() => {
-        // No reset on close: the menu unmounts, and the measurement below
-        // subtracts any carried-over shift, so a stale value self-corrects
-        // before the next paint.
-        const el = menuRef.current
-        if (!open || !el) return
-        const margin = 8
-        // Measure against the unshifted position so the correction is absolute.
-        const rect = el.getBoundingClientRect()
-        const left = rect.left - shift
-        const right = rect.right - shift
-        if (right > window.innerWidth - margin) {
-            setShift(Math.max(window.innerWidth - margin - right, margin - left))
-        } else if (left < margin) {
-            setShift(margin - left)
-        } else {
-            setShift(0)
+        if (!open) return
+        function place() {
+            const trigger = containerRef.current
+            const menu = menuRef.current
+            if (!trigger || !menu) return
+            const rect = trigger.getBoundingClientRect()
+            const gap = 8
+            const margin = 8
+            const width = menu.offsetWidth
+            const height = menu.offsetHeight
+
+            let left = align === 'right' ? rect.right - width : rect.left
+            left = Math.min(left, window.innerWidth - margin - width)
+            left = Math.max(left, margin)
+
+            let top = rect.bottom + gap
+            if (top + height > window.innerHeight - margin && rect.top - gap - height > margin) {
+                top = rect.top - gap - height
+            }
+            setPos({ top, left })
         }
-        // `shift` is deliberately excluded: including it would re-run on every
-        // correction and oscillate.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        place()
+        window.addEventListener('scroll', place, true)
+        window.addEventListener('resize', place)
+        return () => {
+            window.removeEventListener('scroll', place, true)
+            window.removeEventListener('resize', place)
+        }
     }, [open, items.length, align, size])
 
     const itemClass = (danger?: boolean) =>
         [
-            'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors duration-100',
+            'flex min-h-10 w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-sm transition-colors duration-100',
             danger ? 'text-red-600 hover:bg-red-50' : 'text-neutral-700 hover:bg-neutral-100',
         ].join(' ')
 
@@ -88,60 +105,71 @@ export default function DropdownMenu({
                 {trigger}
             </div>
 
-            {open && (
-                <div
-                    ref={menuRef}
-                    role="menu"
-                    style={shift ? { transform: `translateX(${shift}px)` } : undefined}
-                    className={`absolute z-50 mt-2 ${SIZE_WIDTH[size]} max-w-[calc(100vw-1rem)] rounded-xl border border-neutral-100 bg-white p-1.5 shadow-lg ${
-                        align === 'right' ? 'right-0' : 'left-0'
-                    }`}
-                >
-                    {items.map((item, i) => {
-                        if (item === 'divider') {
-                            return <div key={`divider-${i}`} className="my-1 h-px bg-neutral-100" />
-                        }
-                        const inner = (
-                            <>
-                                {item.icon && (
-                                    <i
-                                        className={`${item.icon} w-4 text-center text-xs ${item.danger ? 'text-red-500' : 'text-neutral-400'}`}
-                                        aria-hidden="true"
+            {open &&
+                createPortal(
+                    <div
+                        ref={menuRef}
+                        role="menu"
+                        // Hidden until measured, so it never flashes at the origin.
+                        style={{
+                            position: 'fixed',
+                            top: pos?.top ?? 0,
+                            left: pos?.left ?? 0,
+                            visibility: pos ? 'visible' : 'hidden',
+                        }}
+                        className={`z-[100] ${SIZE_WIDTH[size]} max-w-[calc(100vw-1rem)] rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-neutral-900/[0.06]`}
+                    >
+                        {items.map((item, i) => {
+                            if (item === 'divider') {
+                                return (
+                                    <div
+                                        key={`divider-${i}`}
+                                        className="my-1 h-px bg-neutral-100"
                                     />
-                                )}
-                                {item.label}
-                            </>
-                        )
-                        if (item.href) {
+                                )
+                            }
+                            const inner = (
+                                <>
+                                    {item.icon && (
+                                        <i
+                                            className={`${item.icon} w-4 text-center text-xs ${item.danger ? 'text-red-500' : 'text-neutral-500'}`}
+                                            aria-hidden="true"
+                                        />
+                                    )}
+                                    {item.label}
+                                </>
+                            )
+                            if (item.href) {
+                                return (
+                                    <Link
+                                        key={item.label}
+                                        to={item.href}
+                                        role="menuitem"
+                                        onClick={() => setOpen(false)}
+                                        className={itemClass(item.danger)}
+                                    >
+                                        {inner}
+                                    </Link>
+                                )
+                            }
                             return (
-                                <Link
+                                <button
                                     key={item.label}
-                                    to={item.href}
+                                    type="button"
                                     role="menuitem"
-                                    onClick={() => setOpen(false)}
+                                    onClick={() => {
+                                        setOpen(false)
+                                        item.onClick?.()
+                                    }}
                                     className={itemClass(item.danger)}
                                 >
                                     {inner}
-                                </Link>
+                                </button>
                             )
-                        }
-                        return (
-                            <button
-                                key={item.label}
-                                type="button"
-                                role="menuitem"
-                                onClick={() => {
-                                    item.onClick?.()
-                                    setOpen(false)
-                                }}
-                                className={itemClass(item.danger)}
-                            >
-                                {inner}
-                            </button>
-                        )
-                    })}
-                </div>
-            )}
+                        })}
+                    </div>,
+                    document.body
+                )}
         </div>
     )
 }

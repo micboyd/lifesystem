@@ -79,7 +79,7 @@ export default function SettingsCard() {
 
                     {/* Wake up / Bed time */}
                     <div>
-                        <p className="mb-3 text-sm font-semibold text-neutral-700">Your day</p>
+                        <p className="mb-3 text-sm font-medium text-neutral-700">Your day</p>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field label="Wake up">
                                 <TimePicker
@@ -101,8 +101,8 @@ export default function SettingsCard() {
 
                     {/* Working hours — within the day */}
                     <div className="rounded-2xl border border-neutral-100 bg-white p-4">
-                        <p className="mb-1 text-sm font-semibold text-neutral-700">Working hours</p>
-                        <p className="mb-3 text-xs text-neutral-400">
+                        <p className="mb-1 text-sm font-medium text-neutral-700">Working hours</p>
+                        <p className="mb-3 text-[11px] text-neutral-500">
                             Sits within your wake and bed times.
                         </p>
                         <div className="grid gap-4 sm:grid-cols-2">
@@ -126,7 +126,7 @@ export default function SettingsCard() {
                             </Field>
                         </div>
                         <div className="mt-4">
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">Working days</p>
+                            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Working days</p>
                             <div className="flex gap-1.5">
                                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, i) => {
                                     const day = i === 6 ? 0 : i + 1
@@ -145,7 +145,7 @@ export default function SettingsCard() {
                                             className={`flex h-8 w-9 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
                                                 active
                                                     ? 'bg-neutral-900 text-white'
-                                                    : 'bg-white text-neutral-400 ring-1 ring-neutral-200 hover:ring-neutral-300'
+                                                    : 'bg-white text-neutral-500 ring-1 ring-neutral-200 hover:ring-neutral-300'
                                             }`}
                                         >
                                             {label}
@@ -159,7 +159,7 @@ export default function SettingsCard() {
                     {/* Finance start date */}
                     <div className="border-t border-neutral-100 pt-6">
                         <p className="text-sm font-semibold text-neutral-700">Finance start date</p>
-                        <p className="mt-0.5 mb-3 text-xs text-neutral-400">
+                        <p className="mt-0.5 mb-3 text-xs text-neutral-500">
                             Hide all financial data before this date. Useful for starting fresh from a specific point.
                         </p>
                         <DatePicker
@@ -173,7 +173,7 @@ export default function SettingsCard() {
                     {/* Nutrition — daily macro goals */}
                     <div className="border-t border-neutral-100 pt-6">
                         <p className="text-sm font-semibold text-neutral-700">Daily macro goals</p>
-                        <p className="mt-0.5 mb-3 text-xs text-neutral-400">
+                        <p className="mt-0.5 mb-3 text-xs text-neutral-500">
                             Per-day targets, tracked against your weekly meal plan. Leave a field
                             blank for no goal.
                         </p>
@@ -225,7 +225,7 @@ export default function SettingsCard() {
                     <div className="flex items-start justify-between gap-4 border-t border-neutral-100 pt-6">
                         <div>
                             <p className="text-sm font-semibold text-neutral-700">Totals</p>
-                            <p className="mt-0.5 text-xs text-neutral-400">
+                            <p className="mt-0.5 text-xs text-neutral-500">
                                 Show custom number-tracking rows on the year calendar.
                             </p>
                         </div>
@@ -246,7 +246,7 @@ export default function SettingsCard() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 {label}
             </span>
             {children}

@@ -31,7 +31,7 @@ export default function Avatar({ src, name, size = 'md', className = '' }: Avata
     }
 
     return (
-        <span className={`${base} bg-neutral-950 font-semibold text-white`} aria-label={name}>
+        <span className={`${base} bg-neutral-900 font-semibold text-neutral-50`} aria-label={name}>
             {initials(name)}
         </span>
     )

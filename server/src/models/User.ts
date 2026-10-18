@@ -35,8 +35,6 @@ export interface IUserSettings {
     workEnd?: string
     showTotals?: boolean
     workDays?: number[]
-    /** Id of the totals row whose hours feed the Study section. */
-    studyRowId?: string
     /** YYYY-MM-DD — all finance data before this date is hidden. */
     financeStartDate?: string
     /** Saved location the weather forecast is based on. */
@@ -92,7 +90,6 @@ const settingsSchema = new Schema<IUserSettings>(
         workEnd: { type: String, match: TIME_PATTERN },
         showTotals: { type: Boolean, default: false },
         workDays: { type: [Number], default: undefined },
-        studyRowId: { type: String },
         financeStartDate: { type: String },
         weatherLocation: { type: weatherLocationSchema, default: undefined },
         macroGoals: { type: macroGoalsSchema, default: undefined },

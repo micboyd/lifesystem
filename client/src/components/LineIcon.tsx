@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 /**
  * Thin, feather-style line icons drawn as stroked SVG paths. Shared across the
- * app's IKEA-flavoured surfaces (sidebar, Study) so the icon language stays
+ * app's IKEA-flavoured surfaces (sidebar) so the icon language stays
  * consistent. Colour comes from `currentColor`; stroke weight is tunable.
  *
  * Dots (grip, more) set their own `fill` so they read as solid marks even
@@ -48,13 +48,6 @@ const paths: Record<string, ReactNode> = {
             <path d="M3.5 11.5V9a3 3 0 0 1 3-3h14" />
             <path d="M7 21.5 3.5 18 7 14.5" />
             <path d="M20.5 12.5V15a3 3 0 0 1-3 3h-14" />
-        </>
-    ),
-    study: (
-        <>
-            <path d="M12 4 2.5 8.5 12 13l9.5-4.5z" />
-            <path d="M6.5 10.5V16c0 1 2.5 2.5 5.5 2.5s5.5-1.5 5.5-2.5v-5.5" />
-            <path d="M21.5 8.5V14" />
         </>
     ),
     notes: (

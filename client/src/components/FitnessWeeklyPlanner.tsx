@@ -335,7 +335,7 @@ const CATEGORY_CHIP: Record<ConditioningCategory, string> = {
 function CategoryChip({ category }: { category: ConditioningCategory }) {
     return (
         <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${CATEGORY_CHIP[category]}`}
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${CATEGORY_CHIP[category]}`}
         >
             {category}
         </span>
@@ -1423,9 +1423,9 @@ function ClashModal({
                                             {planItemName(clash.entry) ??
                                                 KIND_META[clash.entry.kind].noun}
                                         </span>
-                                        <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                                        <span className="ml-auto flex items-center gap-1 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                             <i
-                                                className={`${PART_META[part].icon} text-[10px]`}
+                                                className={`${PART_META[part].icon} text-[11px]`}
                                                 aria-hidden="true"
                                             />
                                             {PART_META[part].label}
@@ -1438,13 +1438,13 @@ function ClashModal({
                                                 className="flex items-center gap-2 text-sm text-neutral-600"
                                             >
                                                 <i
-                                                    className="fa-regular fa-calendar shrink-0 text-xs text-neutral-400"
+                                                    className="fa-regular fa-calendar shrink-0 text-xs text-neutral-500"
                                                     aria-hidden="true"
                                                 />
                                                 <span className="min-w-0 flex-1 truncate font-medium text-neutral-700">
                                                     {event.title}
                                                 </span>
-                                                <span className="shrink-0 text-xs text-neutral-400">
+                                                <span className="shrink-0 text-xs text-neutral-500">
                                                     {eventWhenLabel(event, date)}
                                                 </span>
                                             </div>
@@ -1477,7 +1477,7 @@ function ClashModal({
             )}
             {date && accepted.length > 0 && (
                 <div className={`flex flex-col gap-2 ${live.length > 0 ? 'mt-5' : ''}`}>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Accepted on this day
                     </p>
                     <ul className="flex flex-col gap-1.5">
@@ -1487,7 +1487,7 @@ function ClashModal({
                                 className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2"
                             >
                                 <i
-                                    className={`${KIND_META[clash.entry.kind].icon} shrink-0 text-xs text-neutral-400`}
+                                    className={`${KIND_META[clash.entry.kind].icon} shrink-0 text-[11px] text-neutral-500`}
                                     aria-hidden="true"
                                 />
                                 <div className="min-w-0 flex-1">
@@ -1495,7 +1495,7 @@ function ClashModal({
                                         {planItemName(clash.entry) ??
                                             KIND_META[clash.entry.kind].noun}
                                     </p>
-                                    <p className="truncate text-xs text-neutral-400">
+                                    <p className="truncate text-[11px] text-neutral-500">
                                         Clashes with {clash.events.map((e) => e.title).join(', ')}
                                     </p>
                                 </div>
@@ -1533,7 +1533,7 @@ function SlotChoices({
 }) {
     if (slots.every((s) => s.blocked !== null)) {
         return (
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
                 <i className="fa-solid fa-ban text-[11px]" aria-hidden="true" />
                 Nowhere free on this day
             </span>
@@ -1656,9 +1656,9 @@ function OverloadModal({
                                 key={overload.part}
                                 className="rounded-xl border border-violet-200 bg-violet-50/50 p-3"
                             >
-                                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-violet-500">
+                                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.06em] text-violet-500">
                                     <i
-                                        className={`${PART_META[overload.part].icon} text-[10px]`}
+                                        className={`${PART_META[overload.part].icon} text-[11px]`}
                                         aria-hidden="true"
                                     />
                                     {PART_META[overload.part].label}
@@ -1693,7 +1693,7 @@ function OverloadModal({
                                                         Move to {PART_META[target].label}
                                                     </button>
                                                 ) : (
-                                                    <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-neutral-400">
+                                                    <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-neutral-500">
                                                         <i
                                                             className="fa-solid fa-ban text-[11px]"
                                                             aria-hidden="true"
@@ -1731,7 +1731,7 @@ function OverloadModal({
             )}
             {date && accepted.length > 0 && (
                 <div className={`flex flex-col gap-2 ${live.length > 0 ? 'mt-5' : ''}`}>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Accepted on this day
                     </p>
                     <ul className="flex flex-col gap-1.5">
@@ -1741,14 +1741,14 @@ function OverloadModal({
                                 className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2"
                             >
                                 <i
-                                    className={`${PART_META[overload.part].icon} shrink-0 text-xs text-neutral-400`}
+                                    className={`${PART_META[overload.part].icon} shrink-0 text-xs text-neutral-500`}
                                     aria-hidden="true"
                                 />
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-medium text-neutral-600">
                                         {PART_META[overload.part].label}
                                     </p>
-                                    <p className="truncate text-xs text-neutral-400">
+                                    <p className="truncate text-xs text-neutral-500">
                                         {overload.entries
                                             .map((e) => planItemName(e) ?? KIND_META[e.kind].noun)
                                             .join(' + ')}
@@ -1859,7 +1859,7 @@ function WeekCopyControls({
                     // can't open off-screen; from sm up it hangs under the button.
                     <div className="absolute inset-x-0 top-full z-50 mt-2 rounded-xl border border-neutral-100 bg-white p-3 shadow-lg sm:inset-x-auto sm:right-0 sm:top-auto sm:min-w-56">
                         <div className="mb-2 flex items-center justify-between">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Copy which categories
                             </p>
                             <button
@@ -2058,7 +2058,7 @@ function FitnessWeekHero({
                         {weekNote.label || 'Flagged week'}
                         {editing && (
                             <i
-                                className="fa-solid fa-pen text-[10px] text-neutral-400"
+                                className="fa-solid fa-pen text-[11px] text-neutral-500"
                                 aria-hidden="true"
                             />
                         )}
@@ -2068,9 +2068,9 @@ function FitnessWeekHero({
                         <button
                             type="button"
                             onClick={onEditFlag}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-white/30 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/60 hover:text-white"
+                            className="inline-flex items-center gap-1.5 rounded-[10px] border border-dashed border-white/30 px-3 h-8 text-xs font-medium text-white/70 transition-colors hover:border-white/60 hover:text-white"
                         >
-                            <i className="fa-solid fa-flag text-[10px]" aria-hidden="true" />
+                            <i className="fa-solid fa-flag text-[11px]" aria-hidden="true" />
                             Flag week
                         </button>
                     )
@@ -2092,7 +2092,7 @@ function FitnessWeekHero({
                 {ready && t.minutes > 0 && (
                     <HeroChip>
                         <i
-                            className="fa-regular fa-clock text-[10px] text-white/60"
+                            className="fa-regular fa-clock text-[11px] text-white/60"
                             aria-hidden="true"
                         />
                         <span className="tabular-nums">{t.minutes}</span>
@@ -2181,7 +2181,7 @@ function LayoutToggle({
                                 : 'text-white/70 hover:text-white'
                         }`}
                     >
-                        <i className={`${o.icon} text-[10px]`} aria-hidden="true" />
+                        <i className={`${o.icon} text-[11px]`} aria-hidden="true" />
                         {o.label}
                     </button>
                 )
@@ -2374,7 +2374,7 @@ function IconButton({
             aria-label={label}
             onClick={onClick}
             disabled={disabled}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-500"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-500"
         >
             <i className={icon} aria-hidden="true" />
         </button>
@@ -2517,7 +2517,7 @@ function DayCard({
     const parts = FITNESS_PLAN_PARTS
 
     const todayPill = isToday && (
-        <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-coral-600">
+        <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-coral-600">
             Today
         </span>
     )
@@ -2631,7 +2631,7 @@ function DayCard({
                     onClick={onClear}
                     aria-label={`Clear ${weekday}`}
                     title="Clear day"
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
                 >
                     <i className="fa-solid fa-broom text-[12px]" aria-hidden="true" />
                 </button>
@@ -2731,7 +2731,7 @@ function DayCard({
                             </button>
                         </>
                     ) : (
-                        <p className="text-xs text-neutral-400">Nothing planned for {weekday}.</p>
+                        <p className="text-xs text-neutral-500">Nothing planned for {weekday}.</p>
                     )}
                 </div>
             ) : (
@@ -2862,8 +2862,8 @@ function SlotSection({
         : {}
 
     const label = (
-        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-            <i className={`${meta.icon} text-[10px]`} aria-hidden="true" />
+        <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+            <i className={`${meta.icon} text-[11px]`} aria-hidden="true" />
             {meta.label}
         </span>
     )
@@ -2898,7 +2898,7 @@ function SlotSection({
                     {rows}
                 </ul>
                 {entries.length === 0 && (
-                    <p className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-400">
+                    <p className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
                         Empty
                     </p>
                 )}
@@ -2919,7 +2919,7 @@ function SlotSection({
                     type="button"
                     aria-label={`Add to ${meta.label.toLowerCase()}`}
                     onClick={onAdd}
-                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-neutral-500 shadow-sm ring-1 ring-black/[0.06] transition-colors hover:bg-neutral-900 hover:text-white"
+                    className="grid h-8 w-8 place-items-center rounded-[10px] bg-white text-neutral-500 shadow-sm ring-1 ring-neutral-900/[0.06] transition-colors hover:bg-neutral-900 hover:text-white"
                 >
                     <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
                 </button>
@@ -2936,11 +2936,11 @@ function SlotSection({
                     className={`flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed py-3 text-xs font-semibold transition-colors ${
                         dragActive
                             ? 'border-coral-300 text-coral-500'
-                            : 'border-neutral-200 text-neutral-400 hover:border-neutral-300 hover:text-neutral-600'
+                            : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-600'
                     }`}
                 >
                     <i
-                        className={`fa-solid ${dragActive ? 'fa-arrow-down' : 'fa-plus'} text-[10px]`}
+                        className={`fa-solid ${dragActive ? 'fa-arrow-down' : 'fa-plus'} text-[11px]`}
                         aria-hidden="true"
                     />
                     {dragActive ? 'Move here' : `Add to ${meta.label.toLowerCase()}`}
@@ -2959,7 +2959,7 @@ function DropLine() {
 function KindChip({ kind }: { kind: FitnessPlanKind }) {
     return (
         <span
-            className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${KIND_TONE[kind].chip}`}
+            className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${KIND_TONE[kind].chip}`}
         >
             {KIND_META[kind].label}
         </span>
@@ -3034,7 +3034,7 @@ function PlannedRow({
             <span className="min-w-0 flex-1">
                 <span
                     className={`block truncate text-sm font-semibold ${
-                        done ? 'text-neutral-400' : 'text-neutral-900'
+                        done ? 'text-neutral-500' : 'text-neutral-900'
                     }`}
                 >
                     {name}
@@ -3069,10 +3069,10 @@ function PlannedRow({
                     : undefined
             }
             data-plan-row={dropId}
-            className={`group relative flex items-center bg-white ring-1 ring-black/[0.06] transition-all ${
+            className={`group relative flex items-center bg-white ring-1 ring-neutral-900/[0.06] transition-all ${
                 compact ? 'gap-1 rounded-xl p-1.5' : 'gap-2 rounded-2xl p-2 pr-2.5'
             } ${
-                onOpen ? 'hover:-translate-y-px hover:shadow-[0_6px_16px_-8px_rgba(0,0,0,0.2)]' : ''
+                onOpen ? ' hover:shadow-lg' : ''
             } ${draggable ? 'md:cursor-grab md:active:cursor-grabbing' : ''} ${
                 dragging ? 'opacity-40' : ''
             }`}
@@ -3112,7 +3112,7 @@ function PlannedRow({
                     aria-label="Done"
                     title="Completed"
                 >
-                    <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
+                    <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
                 </span>
             )}
             {onRemove && (
@@ -3294,14 +3294,14 @@ function ItemPicker({
             <div className="flex flex-col gap-4">
                 {slots.length > 0 ? (
                     <section className="flex flex-col gap-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             On this day
                         </p>
                         {slots.map(({ part, items }) => (
                             <div key={part} className="flex flex-col gap-1.5">
-                                <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                                <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     <i
-                                        className={`${PART_META[part].icon} text-[10px] text-neutral-400`}
+                                        className={`${PART_META[part].icon} text-[11px] text-neutral-500`}
                                         aria-hidden="true"
                                     />
                                     {PART_META[part].label}
@@ -3321,7 +3321,7 @@ function ItemPicker({
                     </section>
                 ) : (
                     !editable && (
-                        <p className="py-6 text-center text-sm text-neutral-400">
+                        <p className="py-6 text-center text-sm text-neutral-500">
                             Nothing planned — a rest day.
                         </p>
                     )
@@ -3330,10 +3330,10 @@ function ItemPicker({
                 {!editable ? null : (
                     <>
                         <div className="flex flex-col gap-1.5">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Slot
                             </p>
-                            <div className="inline-flex self-start rounded-full border border-neutral-200 bg-neutral-50 p-0.5">
+                            <div className="inline-flex self-start gap-1 rounded-xl bg-neutral-100 p-1">
                                 {FITNESS_PLAN_PARTS.map((p) => {
                                     const active = p === activePart
                                     return (
@@ -3341,9 +3341,9 @@ function ItemPicker({
                                             key={p}
                                             type="button"
                                             onClick={() => setActivePart(p)}
-                                            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                            className={`h-8 rounded-[9px] px-3 text-[13px] font-medium transition-all duration-200 ${
                                                 active
-                                                    ? 'bg-white text-neutral-900 shadow-sm'
+                                                    ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
                                                     : 'text-neutral-500 hover:text-neutral-900'
                                             }`}
                                         >
@@ -3355,10 +3355,10 @@ function ItemPicker({
                         </div>
 
                         <div className="flex flex-col gap-1.5">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Type
                             </p>
-                            <div className="inline-flex self-start rounded-full border border-neutral-200 bg-neutral-50 p-0.5">
+                            <div className="inline-flex self-start gap-1 rounded-xl bg-neutral-100 p-1">
                                 {FITNESS_PLAN_KINDS.map((k) => {
                                     const active = k === activeKind
                                     return (
@@ -3366,9 +3366,9 @@ function ItemPicker({
                                             key={k}
                                             type="button"
                                             onClick={() => setActiveKind(k)}
-                                            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                            className={`h-8 rounded-[9px] px-3 text-[13px] font-medium transition-all duration-200 ${
                                                 active
-                                                    ? 'bg-white text-neutral-900 shadow-sm'
+                                                    ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
                                                     : 'text-neutral-500 hover:text-neutral-900'
                                             }`}
                                         >
@@ -3386,7 +3386,7 @@ function ItemPicker({
                         />
 
                         {total > 0 && (
-                            <p className="text-xs text-neutral-400">
+                            <p className="text-xs text-neutral-500">
                                 {total <= PICKER_PAGE_SIZE
                                     ? `${total} ${meta.noun}${total === 1 ? '' : 's'}`
                                     : `Showing ${from + 1}–${Math.min(to, total)} of ${total} ${meta.noun}s`}
@@ -3396,7 +3396,7 @@ function ItemPicker({
 
                         {kind === 'workout' ? (
                             workoutResults.length === 0 ? (
-                                <p className="py-6 text-center text-sm text-neutral-400">
+                                <p className="py-6 text-center text-sm text-neutral-500">
                                     No workouts found.
                                 </p>
                             ) : (
@@ -3418,13 +3418,13 @@ function ItemPicker({
                                                         </p>
                                                         {w.showInPlanner && (
                                                             <i
-                                                                className="fa-solid fa-thumbtack shrink-0 text-[10px] text-coral-500"
+                                                                className="fa-solid fa-thumbtack shrink-0 text-[11px] text-coral-500"
                                                                 aria-hidden="true"
                                                                 title="Pinned"
                                                             />
                                                         )}
                                                     </div>
-                                                    <p className="text-xs tabular-nums text-neutral-400">
+                                                    <p className="text-xs tabular-nums text-neutral-500">
                                                         {w.main.length}{' '}
                                                         {w.main.length === 1
                                                             ? 'exercise'
@@ -3432,7 +3432,7 @@ function ItemPicker({
                                                     </p>
                                                 </div>
                                                 <i
-                                                    className="fa-solid fa-plus text-xs text-neutral-400"
+                                                    className="fa-solid fa-plus text-xs text-neutral-500"
                                                     aria-hidden="true"
                                                 />
                                             </button>
@@ -3442,7 +3442,7 @@ function ItemPicker({
                             )
                         ) : kind === 'conditioning' ? (
                             sessionResults.length === 0 ? (
-                                <p className="py-6 text-center text-sm text-neutral-400">
+                                <p className="py-6 text-center text-sm text-neutral-500">
                                     No sessions found.
                                 </p>
                             ) : (
@@ -3466,13 +3466,13 @@ function ItemPicker({
                                                     <p className="truncate text-sm font-medium text-neutral-800">
                                                         {s.name}
                                                     </p>
-                                                    <p className="text-xs tabular-nums text-neutral-400">
+                                                    <p className="text-xs tabular-nums text-neutral-500">
                                                         {s.duration} min
                                                     </p>
                                                 </div>
                                                 <CategoryChip category={s.category} />
                                                 <i
-                                                    className="fa-solid fa-plus text-xs text-neutral-400"
+                                                    className="fa-solid fa-plus text-xs text-neutral-500"
                                                     aria-hidden="true"
                                                 />
                                             </button>
@@ -3482,7 +3482,7 @@ function ItemPicker({
                             )
                         ) : kind === 'mobility' ? (
                             mobilityResults.length === 0 ? (
-                                <p className="py-6 text-center text-sm text-neutral-400">
+                                <p className="py-6 text-center text-sm text-neutral-500">
                                     No mobility routines found.
                                 </p>
                             ) : (
@@ -3501,7 +3501,7 @@ function ItemPicker({
                                                     <p className="truncate text-sm font-medium text-neutral-800">
                                                         {m.name}
                                                     </p>
-                                                    <p className="text-xs tabular-nums text-neutral-400">
+                                                    <p className="text-xs tabular-nums text-neutral-500">
                                                         {m.duration} min
                                                         {m.parts.length > 0
                                                             ? ` · ${m.parts.length} ${m.parts.length === 1 ? 'part' : 'parts'}`
@@ -3509,7 +3509,7 @@ function ItemPicker({
                                                     </p>
                                                 </div>
                                                 <i
-                                                    className="fa-solid fa-plus text-xs text-neutral-400"
+                                                    className="fa-solid fa-plus text-xs text-neutral-500"
                                                     aria-hidden="true"
                                                 />
                                             </button>
@@ -3518,7 +3518,7 @@ function ItemPicker({
                                 </ul>
                             )
                         ) : recoveryResults.length === 0 ? (
-                            <p className="py-6 text-center text-sm text-neutral-400">
+                            <p className="py-6 text-center text-sm text-neutral-500">
                                 No recovery items found.
                             </p>
                         ) : (
@@ -3538,13 +3538,13 @@ function ItemPicker({
                                                     {r.name}
                                                 </p>
                                                 {r.duration > 0 && (
-                                                    <p className="text-xs tabular-nums text-neutral-400">
+                                                    <p className="text-xs tabular-nums text-neutral-500">
                                                         {r.duration} min
                                                     </p>
                                                 )}
                                             </div>
                                             <i
-                                                className="fa-solid fa-plus text-xs text-neutral-400"
+                                                className="fa-solid fa-plus text-xs text-neutral-500"
                                                 aria-hidden="true"
                                             />
                                         </button>
@@ -3800,7 +3800,7 @@ function PlannedDetailDrawer({
 function DetailChip({ icon, children }: { icon: string; children: ReactNode }) {
     return (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
-            <i className={`${icon} text-neutral-400`} aria-hidden="true" />
+            <i className={`${icon} text-neutral-500`} aria-hidden="true" />
             {children}
         </span>
     )
@@ -3809,7 +3809,7 @@ function DetailChip({ icon, children }: { icon: string; children: ReactNode }) {
 function DetailSection({ label, children }: { label: string; children: ReactNode }) {
     return (
         <section>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 {label}
             </p>
             {children}
@@ -3866,7 +3866,7 @@ function WorkoutDetail({
                             className="mb-3"
                         />
                         {rows.length === 0 ? (
-                            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
+                            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500">
                                 No main-session exercises in this workout yet.
                             </p>
                         ) : (
@@ -4078,7 +4078,7 @@ function FlagEditorDrawer({
         >
             <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Colour
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -4094,7 +4094,7 @@ function FlagEditorDrawer({
                                     className={`grid h-8 w-8 place-items-center rounded-full ${FLAG_TONE[c].dot} transition-transform hover:scale-105 ${
                                         active
                                             ? 'ring-2 ring-neutral-900 ring-offset-2'
-                                            : 'ring-1 ring-inset ring-black/10'
+                                            : 'ring-1 ring-inset ring-neutral-900/10'
                                     }`}
                                 >
                                     {active && (
@@ -4110,7 +4110,7 @@ function FlagEditorDrawer({
                 </div>
 
                 <div className="flex flex-col gap-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Label
                     </p>
                     <Input

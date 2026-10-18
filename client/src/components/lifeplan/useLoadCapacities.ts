@@ -158,9 +158,7 @@ export function useLoadCapacities(
         records.trainingPlans?.length ?? 0,
         records.nutritionPhases?.length ?? 0,
         records.savingsTargets?.length ?? 0,
-        records.courses?.length ?? 0,
         records.goals?.length ?? 0,
-        records.workProjects?.length ?? 0,
         records.trainingDates?.length ?? 0,
     ].join(':')
 

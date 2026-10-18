@@ -20,9 +20,7 @@ import MonthLoadDrawer from '../components/lifeplan/MonthLoadDrawer'
 import ReserveMeter from '../components/lifeplan/ReserveMeter'
 import {
     LIFE_PILLAR_LABELS,
-    type Course,
     type Goal,
-    type WorkProject,
     type LifePlan as LifePlanType,
     type LifePlanInput,
     type MonthNote,
@@ -42,13 +40,11 @@ import * as lifePlans from '../services/lifePlans'
 import * as phaseService from '../services/nutritionPhases'
 import { listPlans } from '../services/plans'
 import { listSavingsTargets } from '../services/savingsTargets'
-import { listCourses } from '../services/courses'
 import { listGoals } from '../services/goals'
 import { listMonthNotes } from '../services/monthNotes'
 import { listPlanEntries as listFitnessEntries } from '../services/fitnessPlan'
 import { listPlanEntries as listMealEntries } from '../services/mealPlan'
 import { listLogs as listWorkoutLogs } from '../services/workoutLogs'
-import { listProjects } from '../services/workProjects'
 import { listLogs as listConditioningLogs } from '../services/conditioningLogs'
 import { listWeightLogs } from '../services/weightLogs'
 import { listHabits, listLogs as listHabitLogs } from '../services/habits'
@@ -70,10 +66,8 @@ interface LinkedRecords {
     trainingPlans: TrainingPlan[]
     nutritionPhases: NutritionPhase[]
     savingsTargets: SavingsTarget[]
-    courses: Course[]
     monthNotes: MonthNote[]
     goals: Goal[]
-    workProjects: WorkProject[]
     /** Dates of every logged session — tells a new routine from a new block. */
     trainingDates: string[]
 }
@@ -82,10 +76,8 @@ const EMPTY_RECORDS: LinkedRecords = {
     trainingPlans: [],
     nutritionPhases: [],
     savingsTargets: [],
-    courses: [],
     monthNotes: [],
     goals: [],
-    workProjects: [],
     trainingDates: [],
 }
 
@@ -138,12 +130,12 @@ export default function LifePlan() {
     // a window, so they're fetched once a plan is known.
     useEffect(() => {
         let cancelled = false
-        Promise.all([lifePlans.listLifePlans(), listPlans(), phaseService.listNutritionPhases(), listSavingsTargets(), listCourses(), listGoals()])
-            .then(([loadedPlans, trainingPlans, nutritionPhases, savingsTargets, courses, goals]) => {
+        Promise.all([lifePlans.listLifePlans(), listPlans(), phaseService.listNutritionPhases(), listSavingsTargets(), listGoals()])
+            .then(([loadedPlans, trainingPlans, nutritionPhases, savingsTargets, goals]) => {
                 if (cancelled) return
                 setPlans(loadedPlans)
                 setPlanId((current) => current ?? activePlan(loadedPlans, thisMonth)?._id ?? null)
-                setRecords((r) => ({ ...r, trainingPlans, nutritionPhases, savingsTargets, courses, goals }))
+                setRecords((r) => ({ ...r, trainingPlans, nutritionPhases, savingsTargets, goals }))
             })
             .catch((err) => {
                 if (!cancelled) setError(errorMessage(err, 'Could not load the life plan.'))
@@ -156,16 +148,15 @@ export default function LifePlan() {
         }
     }, [thisMonth])
 
-    // Focus inputs that no lane draws: work, and the training history that says
-    // whether a plan starts a routine or continues one. Neither is worth failing
-    // the page over.
+    // The training history that says whether a plan starts a routine or continues
+    // one. Not worth failing the page over.
     useEffect(() => {
         let cancelled = false
-        Promise.all([listProjects(), listWorkoutLogs(), listConditioningLogs()])
-            .then(([workProjects, workoutLogs, conditioningLogs]) => {
+        Promise.all([listWorkoutLogs(), listConditioningLogs()])
+            .then(([workoutLogs, conditioningLogs]) => {
                 if (cancelled) return
                 const trainingDates = [...workoutLogs, ...conditioningLogs].map((l) => l.date)
-                setRecords((r) => ({ ...r, workProjects, trainingDates }))
+                setRecords((r) => ({ ...r, trainingDates }))
             })
             .catch(() => {})
         return () => {
@@ -276,7 +267,6 @@ export default function LifePlan() {
                     weightLogs,
                     habitLogs,
                     habitCount: habits.length,
-                    courses: records.courses.filter((c) => season.links.courses.includes(c._id)),
                     savingsTargets: records.savingsTargets.filter((t) =>
                         season.links.savingsTargets.includes(t._id)
                     ),
@@ -290,7 +280,7 @@ export default function LifePlan() {
         } finally {
             setReviewLoading(false)
         }
-    }, [plan, reviewSeasonId, records.courses, records.savingsTargets, records.nutritionPhases])
+    }, [plan, reviewSeasonId, records.savingsTargets, records.nutritionPhases])
 
     // Score lazily: the review pulls seven collections, so it waits for the tab.
     useEffect(() => {
@@ -426,7 +416,7 @@ export default function LifePlan() {
                                         setPlanFormOpen(true)
                                     }}
                                     aria-label="Edit plan"
-                                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                                 >
                                     <i className="fa-solid fa-pen text-sm" aria-hidden="true" />
                                 </button>
@@ -434,7 +424,7 @@ export default function LifePlan() {
                                     type="button"
                                     onClick={() => setDeletingPlan(plan)}
                                     aria-label="Delete plan"
-                                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-600"
                                 >
                                     <i className="fa-solid fa-trash text-sm" aria-hidden="true" />
                                 </button>
@@ -483,21 +473,21 @@ export default function LifePlan() {
                 <>
                     <Container>
                         {/* Where you are right now, so the long view still opens on today. */}
-                        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-black/[0.06] bg-white px-5 py-4">
+                        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white px-5 py-4">
                             <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     {formatMonthKey(thisMonth)}
                                 </p>
                                 {currentSeason ? (
                                     <p className="truncate text-sm font-bold text-neutral-950">
                                         {currentSeason.name}
-                                        <span className="ml-2 font-semibold text-neutral-400">
+                                        <span className="ml-2 font-semibold text-neutral-500">
                                             month {seasonProgress(currentSeason, thisMonth).monthIndex} of{' '}
                                             {seasonProgress(currentSeason, thisMonth).monthCount}
                                         </span>
                                     </p>
                                 ) : (
-                                    <p className="text-sm font-bold text-neutral-400">
+                                    <p className="text-sm font-bold text-neutral-500">
                                         No season covers this month
                                     </p>
                                 )}
@@ -574,7 +564,7 @@ export default function LifePlan() {
                                             onSelectMonth={setSelectedMonth}
                                         />
                                     </div>
-                                    <p className="mt-4 text-xs text-neutral-400">
+                                    <p className="mt-4 text-xs text-neutral-500">
                                         Bars and diamonds are read-only here — tap one to open it in the
                                         module that owns it. Lanes shown:{' '}
                                         {plan.pillars.map((p) => LIFE_PILLAR_LABELS[p]).join(', ')}.

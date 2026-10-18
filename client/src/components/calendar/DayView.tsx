@@ -240,7 +240,7 @@ function AllDaySection({
     return (
         <div className="rounded-2xl border border-neutral-200 bg-white">
             <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-4 py-2.5">
-                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                <span className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     <i className="fa-regular fa-calendar text-neutral-300" aria-hidden="true" />
                     All day / Reference
                 </span>
@@ -248,16 +248,16 @@ function AllDaySection({
                     <button
                         type="button"
                         onClick={onAdd}
-                        className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                        className="flex items-center gap-1 rounded-[10px] px-2.5 h-8 text-[11px] font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                     >
-                        <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
+                        <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
                         Add
                     </button>
                 )}
             </div>
             <div className="min-h-10 flex flex-col gap-1 p-2">
                 {events.length === 0 ? (
-                    <p className="py-1 text-center text-xs text-neutral-300">Nothing here</p>
+                    <p className="py-1 text-center text-[11px] text-neutral-300">Nothing here</p>
                 ) : (
                     events.map((e) => (
                         <AllDayChip key={e._id} event={e} date={date} onClick={() => onEdit(e)} />
@@ -276,17 +276,17 @@ function AllDayChip({ event, date, onClick }: { event: Event; date: string; onCl
         <button
             type="button"
             onClick={onClick}
-            className={`flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm font-semibold transition-colors ${colors.bg} ${colors.hover} ${colors.text}`}
+            className={`flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm font-medium transition-colors ${colors.bg} ${colors.hover} ${colors.text}`}
         >
             {EVENT_TYPE_ICONS[event.eventType] && (
                 <i
-                    className={`${EVENT_TYPE_ICONS[event.eventType]} shrink-0 text-xs opacity-80`}
+                    className={`${EVENT_TYPE_ICONS[event.eventType]} shrink-0 text-[11px] opacity-80`}
                     aria-hidden="true"
                 />
             )}
             <span className="truncate">{event.title}</span>
             {isMultiDay && (
-                <span className="ml-auto shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">
+                <span className="ml-auto shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.06em]">
                     {event.startDate === date
                         ? 'starts'
                         : event.endDate === date
@@ -322,14 +322,14 @@ function PartRow({ label, icon, events, date, past = false, onEdit, onAdd }: Par
             <span
                 className={[
                     'mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl',
-                    past ? 'bg-neutral-200 text-neutral-400' : 'bg-neutral-100 text-neutral-500',
+                    past ? 'bg-neutral-200 text-neutral-500' : 'bg-neutral-100 text-neutral-500',
                 ].join(' ')}
             >
                 <i className={icon} aria-hidden="true" />
             </span>
 
             <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     {label}
                 </p>
 
@@ -344,25 +344,25 @@ function PartRow({ label, icon, events, date, past = false, onEdit, onAdd }: Par
                             onClick={() => onEdit(event)}
                             className="group -mx-2 mt-1 block w-[calc(100%+1rem)] rounded-lg px-2 py-1 text-left transition-colors hover:bg-neutral-100"
                         >
-                            <p className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                            <p className="flex items-center gap-2 text-sm font-medium text-neutral-900">
                                 <span
                                     className={`inline-block h-2 w-2 shrink-0 rounded-full ${colors.bg}`}
                                 />
                                 <span className="truncate">{event.title}</span>
                                 {event.time && (
-                                    <span className="shrink-0 font-medium tabular-nums text-neutral-400">
+                                    <span className="shrink-0 font-medium tabular-nums text-neutral-500">
                                         {event.time}
                                     </span>
                                 )}
                                 {calendar && !calendar.isDefault && (
                                     <span
-                                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${colors.bg} ${colors.text}`}
+                                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] ${colors.bg} ${colors.text}`}
                                     >
                                         {calendar.name}
                                     </span>
                                 )}
                                 {isMultiDay && (
-                                    <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                                    <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         {event.startDate === date
                                             ? 'starts'
                                             : event.endDate === date
@@ -380,15 +380,15 @@ function PartRow({ label, icon, events, date, past = false, onEdit, onAdd }: Par
                     )
                 })}
 
-                {past && events.length === 0 && <p className="mt-1 text-sm text-neutral-400">In the past</p>}
+                {past && events.length === 0 && <p className="mt-1 text-sm text-neutral-500">In the past</p>}
 
                 {!past && (
                     <button
                         type="button"
                         onClick={onAdd}
-                        className="-mx-2 mt-1 rounded-lg px-2 py-1 text-sm text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
+                        className="-mx-2 mt-1 rounded-lg px-2 py-1 text-sm text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
                     >
-                        <i className="fa-solid fa-plus mr-1.5 text-[10px]" aria-hidden="true" />
+                        <i className="fa-solid fa-plus mr-1.5 text-[11px]" aria-hidden="true" />
                         Add event
                     </button>
                 )}

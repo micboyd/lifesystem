@@ -297,7 +297,7 @@ function ExerciseLibrary({
                                         trigger={
                                             <span
                                                 aria-label="Exercise actions"
-                                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                                className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                             >
                                                 <LineIcon name="more" className="h-4 w-4" />
                                             </span>
@@ -367,10 +367,10 @@ function ExerciseTagChips({ exercise }: { exercise: Exercise }) {
                     key={chip.value}
                     title={chip.exact ? undefined : 'Read from the name — edit to set it exactly'}
                     className={[
-                        'inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                        'inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em]',
                         chip.exact
                             ? 'bg-neutral-100 text-neutral-600'
-                            : 'border border-dashed border-neutral-200 text-neutral-400',
+                            : 'border border-dashed border-neutral-200 text-neutral-500',
                     ].join(' ')}
                 >
                     {chip.value}
@@ -782,7 +782,7 @@ function WorkoutLibrary({
                                                 />
                                             )}
                                         </div>
-                                        <p className="mt-0.5 text-xs text-neutral-400">
+                                        <p className="mt-0.5 text-xs text-neutral-500">
                                             {workout.main.length}{' '}
                                             {workout.main.length === 1 ? 'exercise' : 'exercises'}
                                             {workout.warmUp.length > 0 && ' + warm-up'}
@@ -796,7 +796,7 @@ function WorkoutLibrary({
                                         trigger={
                                             <span
                                                 aria-label="Workout actions"
-                                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                                className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                             >
                                                 <LineIcon name="more" className="h-4 w-4" />
                                             </span>
@@ -984,7 +984,7 @@ function WorkoutViewDrawer({
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
                             <i
-                                className="fa-solid fa-dumbbell text-neutral-400"
+                                className="fa-solid fa-dumbbell text-neutral-500"
                                 aria-hidden="true"
                             />
                             {rows.length} {rows.length === 1 ? 'exercise' : 'exercises'}
@@ -999,7 +999,7 @@ function WorkoutViewDrawer({
                                 className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600"
                             >
                                 <i
-                                    className="fa-regular fa-clock text-neutral-400"
+                                    className="fa-regular fa-clock text-neutral-500"
                                     aria-hidden="true"
                                 />
                                 {time.estimated ? '~' : ''}
@@ -1035,7 +1035,7 @@ function WorkoutViewDrawer({
                                     className="mb-3"
                                 />
                                 {rows.length === 0 ? (
-                                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
+                                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500">
                                         No main-session exercises in this workout yet.
                                     </p>
                                 ) : (
@@ -1059,7 +1059,7 @@ function WorkoutViewDrawer({
                                                             </span>
                                                         )}
                                                         {item.rest && (
-                                                            <span className="text-xs text-neutral-400">
+                                                            <span className="text-xs text-neutral-500">
                                                                 rest {item.rest}
                                                             </span>
                                                         )}
@@ -1200,7 +1200,7 @@ function WorkoutFormDrawer({
                         <p className="text-sm font-semibold text-neutral-900">
                             Show in Week Planner
                         </p>
-                        <p className="mt-0.5 text-xs text-neutral-400">
+                        <p className="mt-0.5 text-xs text-neutral-500">
                             Pin this workout to the top of the planner
                         </p>
                     </div>
@@ -1335,7 +1335,7 @@ function ExercisePicker({
                                     aria-label={`Sets for ${ex.name}`}
                                     value={row.sets ?? ''}
                                     onChange={(e) => onSets(row.exercise, e.target.value)}
-                                    className="w-16 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+                                    className="w-16 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-2 h-10.5 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                                 />
                                 <input
                                     type="text"
@@ -1345,13 +1345,13 @@ function ExercisePicker({
                                     onChange={(e) =>
                                         update(row.exercise, { reps: e.target.value || undefined })
                                     }
-                                    className="w-24 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+                                    className="w-24 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-2 h-10.5 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                                 />
                                 <button
                                     type="button"
                                     aria-label={`Remove ${ex.name}`}
                                     onClick={() => remove(row.exercise)}
-                                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-red-600"
+                                    className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-red-600"
                                 >
                                     <i className="fa-solid fa-xmark" aria-hidden="true" />
                                 </button>
@@ -1363,13 +1363,13 @@ function ExercisePicker({
 
             {exercises.length === 0 ? (
                 phase === 'main' && (
-                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
+                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500">
                         No exercises yet — add some in the Exercises library first.
                     </p>
                 )
             ) : !browsing ? (
                 selected.length === 0 && (
-                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-3 text-center text-xs text-neutral-400">
+                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-3 text-center text-xs text-neutral-500">
                         {phase === 'warmUp'
                             ? 'No warm-up — the time estimate assumes 8 minutes.'
                             : 'No cool-down.'}
@@ -1387,7 +1387,7 @@ function ExercisePicker({
                     </div>
                     <ul className="max-h-64 overflow-y-auto p-1.5">
                         {filtered.length === 0 ? (
-                            <li className="px-3 py-4 text-center text-xs text-neutral-400">
+                            <li className="px-3 py-4 text-center text-xs text-neutral-500">
                                 No matches for “{query}”.
                             </li>
                         ) : (
@@ -1409,7 +1409,7 @@ function ExercisePicker({
                                                 ].join(' ')}
                                             >
                                                 <i
-                                                    className="fa-solid fa-check text-[10px]"
+                                                    className="fa-solid fa-check text-[11px]"
                                                     aria-hidden="true"
                                                 />
                                             </span>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import BottomSheet from '../BottomSheet'
+import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
 import Textarea from '../Textarea'
@@ -78,9 +78,7 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
 
     return (
         <div className="flex flex-col gap-5">
-            <section className="relative overflow-hidden rounded-[28px] bg-linear-to-br from-brand-700 via-brand-600 to-brand-500 text-white shadow-[0_18px_40px_-20px_rgba(1,61,90,0.6)]">
-                <span aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
-                <span aria-hidden="true" className="pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-coral-500/20 blur-3xl" />
+            <section className="relative overflow-hidden rounded-3xl bg-neutral-900 text-neutral-50">
                 <div className="relative flex flex-col gap-5 p-5 sm:p-7">
                     <div className="flex flex-wrap items-end justify-between gap-4">
                         <div>
@@ -139,7 +137,7 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <PillToggle label="Sort" value={sort} onChange={setSort} options={SORTS} />
                         {!grouped && (
-                            <p className="text-xs font-medium text-neutral-400">
+                            <p className="text-xs font-medium text-neutral-500">
                                 {flat.length} {flat.length === 1 ? 'meal' : 'meals'}
                             </p>
                         )}
@@ -154,13 +152,13 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
                                         <header className="flex items-center gap-2.5">
                                             <CategoryIcon type={t} size="sm" />
                                             <h3 className="text-base font-bold tracking-tight text-neutral-900">{CATEGORY[t].label}</h3>
-                                            <span className="text-sm font-medium text-neutral-400">{list.length}</span>
+                                            <span className="text-sm font-medium text-neutral-500">{list.length}</span>
                                         </header>
                                         {list.length === 0 ? (
                                             <button
                                                 type="button"
                                                 onClick={() => setEditing('new')}
-                                                className="rounded-3xl border border-dashed border-neutral-200 py-6 text-sm text-neutral-400 hover:bg-white"
+                                                className="rounded-3xl border border-dashed border-neutral-200 py-6 text-sm text-neutral-500 hover:bg-white"
                                             >
                                                 No {CATEGORY[t].label.toLowerCase()} yet — add one
                                             </button>
@@ -229,12 +227,12 @@ function FilterTab({
             aria-selected={active}
             onClick={onClick}
             className={`inline-flex min-h-[40px] shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-all ${
-                active ? 'bg-white text-brand-700 shadow-md' : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
+                active ? 'bg-white text-neutral-900' : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
             }`}
         >
             {icon && <i className={`${icon} text-xs ${active ? '' : 'text-white/60'}`} aria-hidden="true" />}
             {label}
-            <span className={`tabular-nums ${active ? 'text-brand-500' : 'text-white/50'}`}>{count}</span>
+            <span className={`tabular-nums ${active ? 'text-neutral-500' : 'text-white/50'}`}>{count}</span>
         </button>
     )
 }
@@ -259,7 +257,7 @@ function MealCard({ meal, onOpen }: { meal: Meal; onOpen: () => void }) {
         <button
             type="button"
             onClick={onOpen}
-            className="group flex h-full w-full flex-col gap-3 rounded-3xl bg-white p-4 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-16px_rgba(1,61,90,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500 active:translate-y-0"
+            className="group flex h-full w-full flex-col gap-3 rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-neutral-900/[0.06] transition-all hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500 active:translate-y-0"
         >
             <div className="flex items-start gap-3">
                 <div className="flex shrink-0 -space-x-2">
@@ -269,22 +267,22 @@ function MealCard({ meal, onOpen }: { meal: Meal; onOpen: () => void }) {
                         </span>
                     ))}
                     {meal.types.length === 0 && (
-                        <span className="grid h-9 w-9 place-items-center rounded-xl bg-neutral-100 text-sm text-neutral-400" aria-hidden="true">
+                        <span className="grid h-9 w-9 place-items-center rounded-xl bg-neutral-100 text-sm text-neutral-500" aria-hidden="true">
                             <i className="fa-solid fa-utensils" />
                         </span>
                     )}
                 </div>
-                <p className="line-clamp-2 min-w-0 flex-1 text-[15px] font-semibold leading-snug text-neutral-900">{meal.name}</p>
+                <p className="line-clamp-2 min-w-0 flex-1 text-[15px] font-medium leading-snug text-neutral-900">{meal.name}</p>
                 {isHighProtein(macros) && (
-                    <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-600">
+                    <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-brand-600">
                         High protein
                     </span>
                 )}
             </div>
             <div className="mt-auto flex flex-col gap-2">
-                <p className="text-2xl font-bold tabular-nums tracking-tight text-neutral-950">
+                <p className="text-2xl font-medium tabular-nums tracking-tight text-neutral-950">
                     {kcal(macros.calories)}
-                    <span className="ml-1 text-xs font-medium text-neutral-400">kcal</span>
+                    <span className="ml-1 text-[11px] font-medium text-neutral-500">kcal</span>
                 </p>
                 <MacroBar macros={macros} />
                 <MacroLegend macros={macros} />
@@ -295,7 +293,7 @@ function MealCard({ meal, onOpen }: { meal: Meal; onOpen: () => void }) {
 
 function EmptyLibrary({ onAdd, onImport }: { onAdd: () => void; onImport: () => void }) {
     return (
-        <div className="flex flex-col items-center gap-4 rounded-3xl bg-white px-6 py-12 text-center ring-1 ring-black/[0.06]">
+        <div className="flex flex-col items-center gap-4 rounded-3xl bg-white px-6 py-12 text-center ring-1 ring-neutral-900/[0.06]">
             <div className="flex -space-x-2">
                 {MEAL_TYPES.map((t) => (
                     <span key={t} className="rounded-2xl ring-4 ring-white">
@@ -304,7 +302,7 @@ function EmptyLibrary({ onAdd, onImport }: { onAdd: () => void; onImport: () => 
                 ))}
             </div>
             <div>
-                <p className="text-lg font-bold text-neutral-900">Start your library</p>
+                <p className="text-lg font-medium text-neutral-900">Start your library</p>
                 <p className="mt-1 text-sm text-neutral-500">Add the meals you eat — a name and its macros is all it takes.</p>
             </div>
             <div className="flex gap-2">
@@ -408,7 +406,7 @@ function MealForm({
 
     return (
         <>
-            <BottomSheet
+            <Drawer size="lg"
                 open={meal !== null}
                 onClose={onClose}
                 title={isEdit ? 'Edit meal' : 'New meal'}
@@ -443,7 +441,7 @@ function MealForm({
                                     aria-label="Delete meal"
                                     disabled={busy}
                                     onClick={() => setConfirmDelete(true)}
-                                    className="grid min-h-[48px] w-12 place-items-center rounded-xl text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                                    className="grid min-h-[48px] w-12 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                                 >
                                     <i className="fa-solid fa-trash-can" aria-hidden="true" />
                                 </button>
@@ -454,7 +452,7 @@ function MealForm({
             >
                 <div className="flex flex-col gap-5 pt-1">
                     {/* Live preview — the card as it will look. */}
-                    <div className="rounded-3xl bg-neutral-50 p-4 ring-1 ring-black/[0.04]">
+                    <div className="rounded-3xl bg-neutral-50 p-4 ring-1 ring-neutral-900/[0.04]">
                         <div className="flex items-center gap-3">
                             <div className="flex shrink-0 -space-x-2">
                                 {draft.types.length ? (
@@ -464,18 +462,18 @@ function MealForm({
                                         </span>
                                     ))
                                 ) : (
-                                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-neutral-200/60 text-sm text-neutral-400" aria-hidden="true">
+                                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-neutral-200/60 text-sm text-neutral-500" aria-hidden="true">
                                         <i className="fa-solid fa-utensils" />
                                     </span>
                                 )}
                             </div>
-                            <p className={`min-w-0 flex-1 truncate text-[15px] font-semibold ${draft.name.trim() ? 'text-neutral-900' : 'text-neutral-400'}`}>
+                            <p className={`min-w-0 flex-1 truncate text-[15px] font-semibold ${draft.name.trim() ? 'text-neutral-900' : 'text-neutral-500'}`}>
                                 {draft.name.trim() || 'Your meal'}
                             </p>
                         </div>
                         <p className="mt-3 text-3xl font-bold tabular-nums tracking-tight text-neutral-950">
                             {kcal(macros.calories)}
-                            <span className="ml-1 text-sm font-medium text-neutral-400">kcal</span>
+                            <span className="ml-1 text-sm font-medium text-neutral-500">kcal</span>
                         </p>
                         <div className="mt-2 flex flex-col gap-2">
                             <MacroBar macros={macros} thick />
@@ -498,7 +496,7 @@ function MealForm({
                                         aria-pressed={on}
                                         onClick={() => set({ types: on ? draft.types.filter((x) => x !== t) : [...draft.types, t] })}
                                         className={`flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-2xl text-xs font-semibold transition-all ${
-                                            on ? `${c.tile} ${c.text} ring-2 ${c.ring}` : 'bg-neutral-50 text-neutral-500 ring-1 ring-black/[0.04] hover:bg-neutral-100'
+                                            on ? `${c.tile} ${c.text} ring-2 ${c.ring}` : 'bg-neutral-50 text-neutral-500 ring-1 ring-neutral-900/[0.04] hover:bg-neutral-100'
                                         }`}
                                     >
                                         <i className={`${c.icon} text-lg`} aria-hidden="true" />
@@ -523,7 +521,7 @@ function MealForm({
                                 onClick={() => set({ calories: String(implied) })}
                                 className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-600 hover:bg-brand-100"
                             >
-                                <i className="fa-solid fa-wand-magic-sparkles text-[10px]" aria-hidden="true" />
+                                <i className="fa-solid fa-wand-magic-sparkles text-[11px]" aria-hidden="true" />
                                 Macros add up to {kcal(implied)} kcal — use that
                             </button>
                         )}
@@ -531,7 +529,7 @@ function MealForm({
 
                     <Textarea label="Notes" rows={2} value={draft.notes} placeholder="Optional" onChange={(e) => set({ notes: e.target.value })} />
                 </div>
-            </BottomSheet>
+            </Drawer>
             <ConfirmModal
                 open={confirmDelete}
                 title="Delete this meal?"
@@ -574,9 +572,9 @@ function MacroInput({
                     placeholder="0"
                     onChange={(e) => onChange(e.target.value)}
                     onFocus={(e) => e.target.select()}
-                    className="h-12 w-full rounded-xl border border-neutral-200 bg-white pl-3 pr-12 text-lg font-semibold tabular-nums text-neutral-900 focus:border-neutral-900 focus:outline-none"
+                    className="h-12 w-full rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white pl-3 pr-12 text-lg font-semibold tabular-nums text-neutral-900 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 outline-none focus-visible:outline-none"
                 />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-neutral-400">{unit}</span>
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-neutral-500">{unit}</span>
             </span>
         </label>
     )

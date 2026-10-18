@@ -183,7 +183,7 @@ export default function LogFilterBar<T extends DatedLog>({
             </div>
 
             {filtered.length > 0 && (
-                <p className="text-xs text-neutral-400">
+                <p className="text-xs text-neutral-500">
                     Showing{' '}
                     <span className="font-semibold tabular-nums text-neutral-600">
                         {first}–{last}

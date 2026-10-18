@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import Modal from '../Modal'
+import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
 import Select from '../Select'
@@ -374,7 +374,7 @@ export default function PhaseLibrary({
                     {phases.map((phase) => (
                         <div
                             key={phase._id}
-                            className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-black/[0.06] bg-white p-5"
+                            className="flex flex-wrap items-start justify-between gap-3 rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-5"
                         >
                             <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -391,7 +391,7 @@ export default function PhaseLibrary({
                                         </Badge>
                                     )}
                                 </div>
-                                <p className="mt-1 text-xs font-semibold text-neutral-400">
+                                <p className="mt-1 text-xs font-semibold text-neutral-500">
                                     {formatDateShort(phase.startDate)} → {formatDateShort(phase.endDate)}
                                 </p>
                                 <p className="mt-2 text-sm tabular-nums text-neutral-600">
@@ -406,7 +406,7 @@ export default function PhaseLibrary({
                                     type="button"
                                     onClick={() => startEdit(phase)}
                                     aria-label={`Edit ${phase.name}`}
-                                    className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                                    className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                                 >
                                     <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
                                 </button>
@@ -414,7 +414,7 @@ export default function PhaseLibrary({
                                     type="button"
                                     onClick={() => onDelete(phase)}
                                     aria-label={`Delete ${phase.name}`}
-                                    className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                    className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-600"
                                 >
                                     <i className="fa-solid fa-trash text-xs" aria-hidden="true" />
                                 </button>
@@ -424,7 +424,7 @@ export default function PhaseLibrary({
                 </div>
             )}
 
-            <Modal
+            <Drawer size="lg"
                 open={open}
                 onClose={() => setOpen(false)}
                 title={editing ? 'Edit phase' : 'New phase'}
@@ -454,7 +454,7 @@ export default function PhaseLibrary({
                     />
 
                     <div>
-                        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Runs
                         </p>
                         <DatePicker
@@ -539,7 +539,7 @@ export default function PhaseLibrary({
                             checked={form.adaptive}
                             onChange={(checked: boolean) => setForm((f) => ({ ...f, adaptive: checked }))}
                         />
-                        <p className="mt-1.5 text-[11px] text-neutral-400">
+                        <p className="mt-1.5 text-[11px] text-neutral-500">
                             Track a goal weight and let the review suggest calorie changes from your
                             weight trend. Nothing changes without your say-so.
                         </p>
@@ -558,7 +558,7 @@ export default function PhaseLibrary({
                                             setForm((f) => ({ ...f, goalMode: v as GoalMode }))
                                         }
                                     />
-                                    <p className="mt-1.5 text-[11px] text-neutral-400">
+                                    <p className="mt-1.5 text-[11px] text-neutral-500">
                                         What the goal is for. Recomposition reads a flat scale with a
                                         falling waist as success rather than a stall.
                                     </p>
@@ -663,7 +663,7 @@ export default function PhaseLibrary({
                                         }
                                     />
                                 </div>
-                                <p className="text-[11px] text-neutral-400">
+                                <p className="text-[11px] text-neutral-500">
                                     The band is the range of weekly change that needs no correction.
                                     Signed throughout: loss is negative, gain positive, maintenance
                                     around zero. The weekly rate above is its centre.
@@ -687,7 +687,7 @@ export default function PhaseLibrary({
 
                                     {showAdvanced && (
                                         <div className="mt-3 space-y-4">
-                                            <p className="text-[11px] text-neutral-400">
+                                            <p className="text-[11px] text-neutral-500">
                                                 Leave any of these blank to use the application
                                                 default, shown as the placeholder.
                                             </p>
@@ -745,7 +745,7 @@ export default function PhaseLibrary({
                                             </div>
 
                                             <div>
-                                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                                <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                                     When calories change
                                                 </p>
                                                 <div className="grid grid-cols-3 gap-3">
@@ -770,7 +770,7 @@ export default function PhaseLibrary({
                                                         />
                                                     ))}
                                                 </div>
-                                                <p className="mt-1.5 text-[11px] text-neutral-400">
+                                                <p className="mt-1.5 text-[11px] text-neutral-500">
                                                     Exactly one macro should take the remainder — it
                                                     absorbs the change when calories move.
                                                 </p>
@@ -789,7 +789,7 @@ export default function PhaseLibrary({
                             checked={form.cycling}
                             onChange={(checked: boolean) => setForm((f) => ({ ...f, cycling: checked }))}
                         />
-                        <p className="mt-1.5 text-[11px] text-neutral-400">
+                        <p className="mt-1.5 text-[11px] text-neutral-500">
                             Shift the daily target by how hard the fitness planner says the day
                             trains. Carbohydrate absorbs the difference, so the week still averages
                             the baseline.
@@ -827,7 +827,7 @@ export default function PhaseLibrary({
                         onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                     />
                 </div>
-            </Modal>
+            </Drawer>
         </div>
     )
 }

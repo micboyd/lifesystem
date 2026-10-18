@@ -41,11 +41,11 @@ export default function MonthFlags({ month, notes, onEdit, onAdd, className = ''
                         ].join(' ')}
                     >
                         {continuesBefore && (
-                            <i className="fa-solid fa-caret-left text-[10px] opacity-60" aria-hidden="true" />
+                            <i className="fa-solid fa-caret-left text-[11px] opacity-60" aria-hidden="true" />
                         )}
                         <span>{note.label}</span>
                         {continuesAfter && (
-                            <i className="fa-solid fa-caret-right text-[10px] opacity-60" aria-hidden="true" />
+                            <i className="fa-solid fa-caret-right text-[11px] opacity-60" aria-hidden="true" />
                         )}
                         {note.note && (
                             <i className="fa-solid fa-note-sticky text-[9px] opacity-50" aria-hidden="true" />
@@ -60,7 +60,7 @@ export default function MonthFlags({ month, notes, onEdit, onAdd, className = ''
                 title="Flag this month"
                 className="grid h-6 w-6 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
             >
-                <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
+                <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
             </button>
         </div>
     )

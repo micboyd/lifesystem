@@ -143,7 +143,7 @@ export default function PasswordModal({
                             setError('')
                             setRecovering(true)
                         }}
-                        className="self-start text-xs font-semibold text-neutral-400 transition-colors hover:text-neutral-700"
+                        className="self-start text-xs font-semibold text-neutral-500 transition-colors hover:text-neutral-700"
                     >
                         Forgot password?
                     </button>

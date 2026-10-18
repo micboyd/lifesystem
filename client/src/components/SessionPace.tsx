@@ -83,7 +83,7 @@ export function PaceBanner({
                 <span className={`rounded-full px-2.5 py-1 text-sm font-bold ${status.cls}`}>
                     {done ? `Done · ${status.label.toLowerCase()}` : status.label}
                 </span>
-                <span className="text-xs font-semibold tabular-nums text-neutral-400">
+                <span className="text-xs font-semibold tabular-nums text-neutral-500">
                     {pace.completed}/{pace.timed} done
                 </span>
             </div>
@@ -91,7 +91,7 @@ export function PaceBanner({
                 <p className="truncate text-sm text-neutral-600">
                     Next: <span className="font-semibold text-neutral-900">{names[pace.next.index]}</span>{' '}
                     — due {timeOfDay(pace.next.dueAt)}{' '}
-                    <span className={due.overdue ? 'font-semibold text-amber-700' : 'text-neutral-400'}>
+                    <span className={due.overdue ? 'font-semibold text-amber-700' : 'text-neutral-500'}>
                         ({due.label})
                     </span>
                 </p>
@@ -208,15 +208,15 @@ export function SlotInputs({
 }) {
     const bad =
         slot.startMin !== undefined && slot.endMin !== undefined && slot.endMin <= slot.startMin
-    const cls = `w-16 rounded-lg border bg-white px-2 py-1.5 text-base tabular-nums outline-none placeholder:text-neutral-400 focus:border-neutral-400 sm:text-sm ${
-        bad ? 'border-red-300' : 'border-neutral-200'
+    const cls = `h-10 w-16 rounded-[10px] border bg-white px-2 text-base tabular-nums outline-none focus-visible:outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 sm:text-sm ${
+        bad ? 'border-red-600' : 'border-neutral-200 hover:border-neutral-300'
     }`
     return (
         <div
             className="flex items-center gap-1.5"
             title={bad ? 'The end has to be after the start' : 'Minutes into the session'}
         >
-            <i className="fa-regular fa-clock text-xs text-neutral-400" aria-hidden="true" />
+            <i className="fa-regular fa-clock text-xs text-neutral-500" aria-hidden="true" />
             <input
                 type="number"
                 min={0}
@@ -228,7 +228,7 @@ export function SlotInputs({
                 onChange={(e) => onChange({ ...slot, startMin: toMark(e.target.value) })}
                 className={cls}
             />
-            <span className="text-xs text-neutral-400">–</span>
+            <span className="text-xs text-neutral-500">–</span>
             <input
                 type="number"
                 min={0}
@@ -240,7 +240,7 @@ export function SlotInputs({
                 onChange={(e) => onChange({ ...slot, endMin: toMark(e.target.value) })}
                 className={cls}
             />
-            <span className="text-xs text-neutral-400">min</span>
+            <span className="text-xs text-neutral-500">min</span>
         </div>
     )
 }
@@ -252,7 +252,7 @@ export type SaveState = 'idle' | 'saving' | 'saved' | 'local' | 'error'
 export function SaveStatus({ state, savedAt }: { state: SaveState; savedAt?: number | null }) {
     const view: Record<SaveState, { icon: string; label: string; cls: string } | null> = {
         idle: null,
-        saving: { icon: 'fa-solid fa-rotate fa-spin', label: 'Saving…', cls: 'text-neutral-400' },
+        saving: { icon: 'fa-solid fa-rotate fa-spin', label: 'Saving…', cls: 'text-neutral-500' },
         saved: {
             icon: 'fa-solid fa-cloud',
             label: savedAt ? `Saved ${timeOfDay(savedAt)}` : 'Saved',
@@ -261,7 +261,7 @@ export function SaveStatus({ state, savedAt }: { state: SaveState; savedAt?: num
         local: {
             icon: 'fa-solid fa-mobile-screen',
             label: 'On this device — saves as you go',
-            cls: 'text-neutral-400',
+            cls: 'text-neutral-500',
         },
         error: {
             icon: 'fa-solid fa-triangle-exclamation',
@@ -273,7 +273,7 @@ export function SaveStatus({ state, savedAt }: { state: SaveState; savedAt?: num
     if (!v) return null
     return (
         <span className={`inline-flex items-center gap-1.5 text-[11px] ${v.cls}`}>
-            <i className={`${v.icon} text-[10px]`} aria-hidden="true" />
+            <i className={`${v.icon} text-[11px]`} aria-hidden="true" />
             {v.label}
         </span>
     )

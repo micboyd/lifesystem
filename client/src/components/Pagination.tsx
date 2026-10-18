@@ -48,7 +48,7 @@ export default function Pagination({
 
     const arrowClass = (enabled: boolean) =>
         [
-            'grid h-9 w-9 place-items-center rounded-full border border-neutral-200 text-sm transition-colors duration-150',
+            'grid h-9 w-9 place-items-center rounded-[10px] border border-neutral-200 text-sm transition-colors duration-150',
             enabled
                 ? 'text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50'
                 : 'cursor-not-allowed text-neutral-300',
@@ -73,7 +73,7 @@ export default function Pagination({
                 p === 'ellipsis' ? (
                     <span
                         key={`ellipsis-${i}`}
-                        className="grid h-9 w-9 place-items-center text-sm text-neutral-400"
+                        className="grid h-9 w-9 place-items-center text-sm text-neutral-500"
                     >
                         …
                     </span>
@@ -84,9 +84,9 @@ export default function Pagination({
                         aria-current={p === page ? 'page' : undefined}
                         onClick={() => onChange(p)}
                         className={[
-                            'grid h-9 min-w-9 place-items-center rounded-full px-2 text-sm font-semibold tabular-nums transition-colors duration-150',
+                            'grid h-9 min-w-9 place-items-center rounded-[10px] px-2 text-sm font-medium tabular-nums transition-colors duration-150',
                             p === page
-                                ? 'bg-neutral-950 text-white'
+                                ? 'bg-neutral-900 text-neutral-50'
                                 : 'text-neutral-600 hover:bg-neutral-100',
                         ].join(' ')}
                     >

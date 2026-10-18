@@ -29,7 +29,7 @@ export default function Checkbox({
 
     return (
         <label
-            className={`inline-flex items-center gap-2.5 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${className}`}
+            className={`inline-flex items-center gap-3 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${className}`}
         >
             <button
                 type="button"
@@ -38,15 +38,15 @@ export default function Checkbox({
                 disabled={disabled}
                 onClick={toggle}
                 className={[
-                    'grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-all duration-150 disabled:cursor-not-allowed',
+                    'grid h-5 w-5 shrink-0 place-items-center rounded-md border-[1.5px] transition-all duration-150 disabled:cursor-not-allowed',
                     on
-                        ? 'border-neutral-950 bg-neutral-950 text-white'
-                        : 'border-neutral-300 bg-white hover:border-neutral-400',
+                        ? 'border-neutral-900 bg-neutral-900 text-white'
+                        : 'border-neutral-300 bg-white hover:border-neutral-500',
                 ].join(' ')}
             >
-                {on && <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />}
+                {on && <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />}
             </button>
-            {label && <span className="text-sm font-medium text-neutral-700">{label}</span>}
+            {label && <span className="text-sm text-neutral-700">{label}</span>}
         </label>
     )
 }

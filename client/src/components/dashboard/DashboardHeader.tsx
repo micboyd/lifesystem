@@ -11,47 +11,31 @@ function greeting(date: Date) {
     return 'Good evening'
 }
 
-function ordinal(day: number) {
-    const rem100 = day % 100
-    if (rem100 >= 11 && rem100 <= 13) return 'th'
-    switch (day % 10) {
-        case 1:
-            return 'st'
-        case 2:
-            return 'nd'
-        case 3:
-            return 'rd'
-        default:
-            return 'th'
-    }
-}
-
+/** "Saturday 17 October" — the year is never in doubt on a dashboard. */
 function formatDate(date: Date) {
-    const weekday = date.toLocaleDateString(undefined, { weekday: 'long' })
-    const month = date.toLocaleDateString(undefined, { month: 'long' })
-    const day = date.getDate()
-    const year = date.getFullYear()
-    return `${weekday}, ${day}${ordinal(day)} ${month} ${year}`
+    const weekday = date.toLocaleDateString('en-GB', { weekday: 'long' })
+    const month = date.toLocaleDateString('en-GB', { month: 'long' })
+    return `${weekday} ${date.getDate()} ${month}`
 }
 
 type Pill = { label: string; bg: string; text: string }
 
 const STATUS_PILLS: Record<DayStatusType, Pill> = {
     annual_leave_pending: {
-        label: 'Annual Leave',
-        bg: 'bg-orange-100',
-        text: 'text-orange-700',
+        label: 'Annual leave',
+        bg: 'bg-warning-bg',
+        text: 'text-warning',
     },
     annual_leave_approved: {
-        label: 'Annual Leave',
-        bg: 'bg-green-100',
-        text: 'text-green-700',
+        label: 'Annual leave',
+        bg: 'bg-success-bg',
+        text: 'text-success',
     },
-    bank_holiday: { label: 'Bank Holiday', bg: 'bg-green-100', text: 'text-green-700' },
+    bank_holiday: { label: 'Bank holiday', bg: 'bg-success-bg', text: 'text-success' },
     christmas_new_year: {
         label: 'Christmas & New Year',
-        bg: 'bg-red-100',
-        text: 'text-red-700',
+        bg: 'bg-danger-bg',
+        text: 'text-danger',
     },
 }
 
@@ -84,26 +68,22 @@ export default function DashboardHeader() {
     const pill: Pill = override
         ? STATUS_PILLS[override]
         : workDays.includes(now.getDay())
-          ? { label: 'Working', bg: 'bg-sky-100', text: 'text-sky-700' }
-          : { label: 'Weekend', bg: 'bg-coral-50', text: 'text-coral-600' }
+          ? { label: 'Working', bg: 'bg-info-bg', text: 'text-info' }
+          : { label: 'Weekend', bg: 'bg-coral-50', text: 'text-coral-700' }
 
     return (
-        <header>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <h1 className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-coral-600">
-                    <span className="h-1.5 w-1.5 rounded-full bg-coral-500" aria-hidden="true" />
-                    {greeting(now)},{' '}
-                    <span className="text-coral-500">{firstName}</span>
-                </h1>
+        <header className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+                <p className="text-sm text-neutral-500">{dateLabel}</p>
                 <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-[0.12em] ${pill.bg} ${pill.text}`}
+                    className={`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium ${pill.bg} ${pill.text}`}
                 >
                     {pill.label}
                 </span>
             </div>
-            <p className="mt-2 text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-[2.6rem] sm:leading-[1.05]">
-                {dateLabel}
-            </p>
+            <h1 className="mt-2 text-[34px] font-semibold leading-[1.1] tracking-[-0.035em] text-neutral-950 sm:text-5xl sm:leading-[1.05]">
+                {greeting(now)}, {firstName}
+            </h1>
         </header>
     )
 }

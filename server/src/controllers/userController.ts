@@ -99,13 +99,6 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         set['settings.showTotals'] = req.body.showTotals
     }
 
-    // Study source row: a string id, or null/'' to clear.
-    if (req.body.studyRowId === null || req.body.studyRowId === '') {
-        unset['settings.studyRowId'] = 1
-    } else if (typeof req.body.studyRowId === 'string') {
-        set['settings.studyRowId'] = req.body.studyRowId
-    }
-
     // Finance start date: YYYY-MM-DD string or null/'' to clear.
     const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
     if (req.body.financeStartDate === null || req.body.financeStartDate === '') {

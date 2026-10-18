@@ -13,6 +13,7 @@
         "conditioning:wipe": "tsx src/scripts/wipeConditioning.ts",
         "nutrition:seed-recomp": "tsx src/scripts/seedRecompPhase.ts",
         "nutrition:backup": "tsx src/scripts/backupNutrition.ts",
+        "retire:study": "tsx src/scripts/retireStudyModules.ts",
         "nutrition:simplify": "tsx src/scripts/simplifyNutrition.ts",
         "build": "tsc",
         "start": "node dist/index.js",

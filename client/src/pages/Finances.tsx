@@ -127,7 +127,7 @@ function AmountCell({ value, placeholder, onSave, large = false }: AmountCellPro
                 large ? 'py-1 text-sm font-semibold' : 'py-1 text-sm',
                 isPlaceholder
                     ? large
-                        ? 'text-neutral-400'
+                        ? 'text-neutral-500'
                         : 'text-neutral-300'
                     : 'text-neutral-900',
             ].join(' ')}
@@ -220,7 +220,7 @@ function PotCard({
                 ) : (
                     <>
                         <div className="flex items-center gap-2">
-                            <i className="fa-solid fa-layer-group text-xs text-neutral-400" aria-hidden="true" />
+                            <i className="fa-solid fa-layer-group text-xs text-neutral-500" aria-hidden="true" />
                             <span className="text-sm font-semibold text-neutral-700">{pot.name}</span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -230,16 +230,16 @@ function PotCard({
                             <button
                                 type="button"
                                 onClick={() => { setRenamingPot(true); setPotNameInput(pot.name) }}
-                                className="grid h-6 w-6 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                className="grid h-6 w-6 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                             >
-                                <i className="fa-solid fa-pen text-[10px]" aria-hidden="true" />
+                                <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
                             </button>
                             <button
                                 type="button"
                                 onClick={() => onDelete(pot._id)}
-                                className="grid h-6 w-6 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-100 hover:text-red-500"
+                                className="grid h-6 w-6 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-red-100 hover:text-red-500"
                             >
-                                <i className="fa-solid fa-trash-can text-[10px]" aria-hidden="true" />
+                                <i className="fa-solid fa-trash-can text-[11px]" aria-hidden="true" />
                             </button>
                         </div>
                     </>
@@ -299,12 +299,12 @@ function PotCard({
                             >
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
-                                        <span className="truncate text-sm font-semibold text-neutral-900">{row.name}</span>
+                                        <span className="truncate text-sm font-medium text-neutral-900">{row.name}</span>
                                         {row.budgeted && (
-                                            <i className="fa-solid fa-bookmark text-[10px] text-neutral-300" title="In Budgets" aria-hidden="true" />
+                                            <i className="fa-solid fa-bookmark text-[11px] text-neutral-300" title="In Budgets" aria-hidden="true" />
                                         )}
                                         {row.recurring === false && (
-                                            <span className="rounded-full bg-neutral-200/70 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neutral-500">
+                                            <span className="rounded-full bg-neutral-200/70 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                                 one-time
                                             </span>
                                         )}
@@ -314,7 +314,7 @@ function PotCard({
                                             <div className={`h-full rounded-full ${barCls}`} style={{ width: `${pct}%` }} />
                                         </div>
                                         {row.recurring !== false && monthlyDefault !== undefined && (
-                                            <span className="shrink-0 text-[11px] tabular-nums text-neutral-400">
+                                            <span className="shrink-0 text-[11px] tabular-nums text-neutral-500">
                                                 £{formatAmount(monthlyDefault)}/mo
                                             </span>
                                         )}
@@ -329,23 +329,23 @@ function PotCard({
 
                                 <div className="flex items-center gap-0.5 overflow-hidden opacity-100 transition-all duration-200 max-sm:w-full max-sm:justify-end sm:max-w-0 sm:opacity-0 sm:group-hover/row:max-w-[160px] sm:group-hover/row:opacity-100">
                                     <button type="button" onClick={() => onNavigate(row._id)} title="View breakdown"
-                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
-                                        <i className="fa-solid fa-chart-pie text-xs" aria-hidden="true" />
+                                        className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
+                                        <i className="fa-solid fa-chart-pie text-[11px]" aria-hidden="true" />
                                     </button>
                                     <button type="button" onClick={() => onToggleBudget(row._id, !row.budgeted)}
                                         title={row.budgeted ? 'Remove from Budgets' : 'Add to Budgets'}
-                                        className={['grid h-7 w-7 place-items-center rounded-full transition-colors',
+                                        className={['grid h-7 w-7 place-items-center rounded-[10px] transition-colors',
                                             row.budgeted ? 'text-neutral-900 hover:bg-neutral-100' : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500'].join(' ')}>
-                                        <i className="fa-solid fa-bookmark text-xs" aria-hidden="true" />
+                                        <i className="fa-solid fa-bookmark text-[11px]" aria-hidden="true" />
                                     </button>
                                     <button type="button" onClick={() => startEditRow(row)}
-                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
-                                        <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
+                                        className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
+                                        <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
                                     </button>
                                     {!isSavings && (
                                         <button type="button" onClick={() => onDeleteRow(row._id)}
-                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500">
-                                            <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
+                                            className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-500">
+                                            <i className="fa-solid fa-trash-can text-[11px]" aria-hidden="true" />
                                         </button>
                                     )}
                                 </div>
@@ -366,8 +366,8 @@ function PotCard({
                         <span />
                     )}
                     <div className="flex items-baseline gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300">Total</span>
-                        <span className={`pr-2 text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
+                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Total</span>
+                        <span className={`pr-2 text-sm font-medium tabular-nums tracking-tight ${totalCls}`}>
                             {formatMoney(total)}
                         </span>
                     </div>
@@ -505,7 +505,7 @@ function AddRowForm({ month, onSave, onCancel }: AddRowFormProps) {
             </div>
 
             <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-neutral-400">
+                <p className="text-xs text-neutral-500">
                     {isRecurring
                         ? 'Applied every month — you can override the amount per month.'
                         : `Only counts in ${monthLabel}.`}
@@ -961,7 +961,7 @@ export default function Finances() {
             {/* Header */}
             <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">Finances</h1>
+                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Finances</h1>
                     <p className="mt-1 text-sm text-neutral-500">Monthly income and expenses.</p>
                 </div>
                 {!addingGroup && (
@@ -977,7 +977,7 @@ export default function Finances() {
                     type="button"
                     onClick={() => setMonth((m) => addMonths(m, -1))}
                     disabled={!!(financeStartMonth && month <= financeStartMonth)}
-                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-30 disabled:pointer-events-none"
+                    className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-30 disabled:pointer-events-none"
                 >
                     <i className="fa-solid fa-chevron-left text-sm" aria-hidden="true" />
                 </button>
@@ -987,7 +987,7 @@ export default function Finances() {
                 <button
                     type="button"
                     onClick={() => setMonth((m) => addMonths(m, 1))}
-                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                    className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-chevron-right text-sm" aria-hidden="true" />
                 </button>
@@ -1022,9 +1022,9 @@ export default function Finances() {
                                 <span className="text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
                                     £{formatAmount(leftToPay)}
                                 </span>
-                                <span className="ml-2 text-sm text-neutral-400">left to pay</span>
+                                <span className="ml-2 text-sm text-neutral-500">left to pay</span>
                             </div>
-                            <span className="text-sm tabular-nums text-neutral-400">
+                            <span className="text-sm tabular-nums text-neutral-500">
                                 £{formatAmount(totalPaid)} of £{formatAmount(totalOwed)} done
                             </span>
                         </div>
@@ -1054,7 +1054,7 @@ export default function Finances() {
                                 'fa-solid mt-0.5 text-sm',
                                 savingsShort
                                     ? 'fa-triangle-exclamation text-amber-500'
-                                    : 'fa-piggy-bank text-neutral-400',
+                                    : 'fa-piggy-bank text-neutral-500',
                             ].join(' ')}
                             aria-hidden="true"
                         />
@@ -1120,7 +1120,7 @@ export default function Finances() {
             {/* Add group form */}
             {addingGroup && (
                 <Card className="mb-6">
-                    <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-400">
+                    <h2 className="mb-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         New group
                     </h2>
                     <div className="flex flex-col gap-3">
@@ -1162,7 +1162,7 @@ export default function Finances() {
                         {/* Monthly amount — savings only */}
                         {newGroupType === 'savings' && (
                             <div className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 focus-within:border-neutral-950 focus-within:ring-4 focus-within:ring-neutral-950/5">
-                                <span className="text-sm font-semibold text-neutral-400">£</span>
+                                <span className="text-sm font-semibold text-neutral-500">£</span>
                                 <input
                                     type="number"
                                     min="0"
@@ -1172,7 +1172,7 @@ export default function Finances() {
                                     onChange={(e) => setNewGroupMonthly(e.target.value)}
                                     className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-neutral-900 outline-none placeholder:font-normal placeholder:text-neutral-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                 />
-                                <span className="text-sm text-neutral-400">/ mo</span>
+                                <span className="text-sm text-neutral-500">/ mo</span>
                             </div>
                         )}
 
@@ -1234,7 +1234,7 @@ export default function Finances() {
             {/* Groups */}
             {monthGroups.length === 0 && !addingGroup ? (
                 <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-12 text-center">
-                    <p className="text-sm text-neutral-400">
+                    <p className="text-sm text-neutral-500">
                         {groups.length === 0
                             ? 'No groups yet. Add one to get started.'
                             : `No groups in ${formatMonth(month)}. Add one or switch months.`}
@@ -1318,7 +1318,7 @@ export default function Finances() {
                                                 <span className={`shrink-0 text-base font-bold tabular-nums tracking-tight ${totalCls}`}>
                                                     {formatMoney(total)}
                                                 </span>
-                                                <span className={`shrink-0 w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeCls}`}>
+                                                <span className={`shrink-0 w-fit rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] ${badgeCls}`}>
                                                     {group.type}
                                                 </span>
                                             </div>
@@ -1331,7 +1331,7 @@ export default function Finances() {
                                                             setEditingGroup(group._id)
                                                             setEditGroupName(group.name)
                                                         }}
-                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/60 hover:text-neutral-700"
+                                                        className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-white/60 hover:text-neutral-700"
                                                     >
                                                         <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
                                                     </button>
@@ -1345,7 +1345,7 @@ export default function Finances() {
                                                                 scoped: true,
                                                             })
                                                         }
-                                                        className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-100 hover:text-red-500"
+                                                        className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-100 hover:text-red-500"
                                                     >
                                                         <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
                                                     </button>
@@ -1360,11 +1360,11 @@ export default function Finances() {
                                                         allPaid
                                                             ? 'border-neutral-700 bg-neutral-700 text-white'
                                                             : somePaid
-                                                              ? 'border-neutral-400 bg-neutral-200 text-neutral-400'
+                                                              ? 'border-neutral-400 bg-neutral-200 text-neutral-500'
                                                               : 'border-neutral-300 bg-white/60 text-transparent hover:border-neutral-500',
                                                     ].join(' ')}
                                                 >
-                                                    <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
+                                                    <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
                                                 </button>
                                             </div>
                                         </>
@@ -1457,13 +1457,13 @@ export default function Finances() {
                                                             </span>
                                                             {row.budgeted && (
                                                                 <i
-                                                                    className="fa-solid fa-bookmark text-[10px] text-neutral-300"
+                                                                    className="fa-solid fa-bookmark text-[11px] text-neutral-300"
                                                                     title="In Budgets"
                                                                     aria-hidden="true"
                                                                 />
                                                             )}
                                                             {row.recurring === false && (
-                                                                <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neutral-400">
+                                                                <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                                                     one-time
                                                                 </span>
                                                             )}
@@ -1477,7 +1477,7 @@ export default function Finances() {
                                                             </div>
                                                             {row.recurring !== false &&
                                                                 monthlyDefault !== undefined && (
-                                                                    <span className="shrink-0 text-[11px] tabular-nums text-neutral-400">
+                                                                    <span className="shrink-0 text-[11px] tabular-nums text-neutral-500">
                                                                         £
                                                                         {formatAmount(
                                                                             monthlyDefault
@@ -1512,7 +1512,7 @@ export default function Finances() {
                                                                 )
                                                             }
                                                             title="View breakdown"
-                                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                                            className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                                         >
                                                             <i
                                                                 className="fa-solid fa-chart-pie text-xs"
@@ -1533,7 +1533,7 @@ export default function Finances() {
                                                                     : 'Add to Budgets'
                                                             }
                                                             className={[
-                                                                'grid h-7 w-7 place-items-center rounded-full transition-colors',
+                                                                'grid h-7 w-7 place-items-center rounded-[10px] transition-colors',
                                                                 row.budgeted
                                                                     ? 'text-neutral-900 hover:bg-neutral-100'
                                                                     : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500',
@@ -1560,7 +1560,7 @@ export default function Finances() {
                                                                         : ''
                                                                 )
                                                             }}
-                                                            className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                                            className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                                                         >
                                                             <i
                                                                 className="fa-solid fa-pen text-xs"
@@ -1579,7 +1579,7 @@ export default function Finances() {
                                                                             row.recurring !== false,
                                                                     })
                                                                 }
-                                                                className="grid h-7 w-7 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                                                className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-500"
                                                             >
                                                                 <i
                                                                     className="fa-solid fa-trash-can text-xs"
@@ -1600,7 +1600,7 @@ export default function Finances() {
                                                                 : 'border-neutral-300 bg-white text-transparent hover:border-neutral-500',
                                                         ].join(' ')}
                                                     >
-                                                        <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
+                                                        <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
                                                     </button>
                                                 </div>
                                             )
@@ -1652,13 +1652,13 @@ export default function Finances() {
                                         <div className="flex items-baseline gap-2">
                                             {somePaid ? (
                                                 <>
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300">
+                                                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                                         Paid
                                                     </span>
-                                                    <span className="pr-3 text-sm font-bold tabular-nums tracking-tight text-neutral-400">
+                                                    <span className="pr-3 text-sm font-bold tabular-nums tracking-tight text-neutral-500">
                                                         {formatMoney(paidSoFar)}
                                                     </span>
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                                                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                                         Left to pay
                                                     </span>
                                                     <span className={`pr-2 text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
@@ -1667,7 +1667,7 @@ export default function Finances() {
                                                 </>
                                             ) : (
                                                 <>
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300">
+                                                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                                         Total
                                                     </span>
                                                     <span className={`pr-2 text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
@@ -1724,7 +1724,7 @@ export default function Finances() {
                     {monthGroups.length > 0 && (
                         <div className="rounded-3xl border border-neutral-200 bg-neutral-950 p-6 text-white shadow-sm">
                             <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                                <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                     Summary
                                 </span>
                             </div>

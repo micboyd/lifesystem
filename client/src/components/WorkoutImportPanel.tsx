@@ -269,7 +269,7 @@ export default function WorkoutImportPanel({
                 <button
                     type="button"
                     onClick={preview ? backToPaste : onBack}
-                    className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-400 transition-colors hover:text-neutral-900"
+                    className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-arrow-left text-xs" aria-hidden="true" />
                     {preview ? 'Back to paste' : 'Back to library'}
@@ -323,7 +323,7 @@ export default function WorkoutImportPanel({
                     {/* Template */}
                     <Card as="section" hover={false}>
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                            <h3 className="text-sm font-bold uppercase tracking-wide text-neutral-400">
+                            <h3 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 Template
                             </h3>
                             <Button
@@ -388,7 +388,7 @@ export default function WorkoutImportPanel({
 
                     {/* Paste + preview */}
                     <Card as="section" hover={false}>
-                        <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-400">
+                        <h3 className="mb-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             Paste JSON
                         </h3>
                         <textarea
@@ -397,7 +397,7 @@ export default function WorkoutImportPanel({
                             spellCheck={false}
                             rows={12}
                             placeholder="Paste your JSON here…"
-                            className="w-full resize-y rounded-xl border border-neutral-200 bg-white p-4 font-mono text-xs leading-relaxed text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+                            className="w-full resize-y rounded-xl border border-neutral-200 bg-white p-4 font-mono text-xs leading-relaxed text-neutral-800 outline-none placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                         />
                         <div className="mt-4 flex items-center justify-end gap-3">
                             <Button
@@ -457,7 +457,7 @@ function ReconcileStage({
 
             {/* Exercise reconciliation */}
             <Card as="section" hover={false}>
-                <h3 className="mb-1 text-sm font-bold uppercase tracking-wide text-neutral-400">
+                <h3 className="mb-1 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     Exercises
                 </h3>
                 <p className="mb-4 text-xs text-neutral-500">
@@ -478,7 +478,7 @@ function ReconcileStage({
                                             {ex.name}
                                         </span>
                                         <span
-                                            className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${chip.className}`}
+                                            className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${chip.className}`}
                                         >
                                             {chip.label}
                                         </span>
@@ -518,7 +518,7 @@ function ReconcileStage({
 function Stat({ label, value }: { label: string; value: number }) {
     return (
         <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 {label}
             </p>
             <p className="text-lg font-bold tabular-nums text-neutral-900">{value}</p>

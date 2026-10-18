@@ -415,7 +415,7 @@ export default function PlanImportPanel({
                 <button
                     type="button"
                     onClick={onBack}
-                    className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-400 transition-colors hover:text-neutral-900"
+                    className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-900"
                 >
                     <i className="fa-solid fa-arrow-left text-xs" aria-hidden="true" />
                     Back to plans
@@ -478,7 +478,7 @@ export default function PlanImportPanel({
             {/* Template */}
             <Card as="section" hover={false}>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="text-sm font-bold uppercase tracking-wide text-neutral-400">
+                    <h3 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Template
                     </h3>
                     <div className="flex items-center gap-2">
@@ -604,7 +604,7 @@ export default function PlanImportPanel({
 
             {/* Paste + import */}
             <Card as="section" hover={false}>
-                <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-neutral-400">
+                <h3 className="mb-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     Paste plan JSON
                 </h3>
 
@@ -614,7 +614,7 @@ export default function PlanImportPanel({
                     spellCheck={false}
                     rows={12}
                     placeholder="Paste your plan here…"
-                    className="w-full resize-y rounded-xl border border-neutral-200 bg-white p-4 font-mono text-xs leading-relaxed text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+                    className="w-full resize-y rounded-xl border border-neutral-200 bg-white p-4 font-mono text-[11px] leading-relaxed text-neutral-800 outline-none placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                 />
 
                 <div className="mt-4 flex flex-col gap-3 rounded-xl border border-neutral-200 p-3">
@@ -623,7 +623,7 @@ export default function PlanImportPanel({
                         checked={updateExisting}
                         onChange={setUpdateExisting}
                     />
-                    <p className="pl-7 text-xs text-neutral-400">
+                    <p className="pl-7 text-[11px] text-neutral-500">
                         Refreshes matching workouts, sessions and routines from this plan — how a
                         correction reaches items an earlier import already created. They keep their
                         ids, so anything on the planner and every completed log stays linked.
@@ -642,7 +642,7 @@ export default function PlanImportPanel({
                             onChange={setReplaceClash}
                             className="mt-2"
                         />
-                        <p className="mt-1 pl-7 text-xs">
+                        <p className="mt-1 pl-7 text-[11px]">
                             {replaceClash
                                 ? 'The existing plan is overwritten in place. Sessions it put on the planner are cleared, ready to re-apply from the new schedule.'
                                 : 'Two plans will share the name, and applying both can double up on the planner.'}

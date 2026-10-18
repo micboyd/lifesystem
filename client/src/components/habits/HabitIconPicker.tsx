@@ -16,7 +16,7 @@ export default function HabitIconPicker({ value, onChange, name = '' }: Props) {
     const autoIcon = iconForHabit(name)
     return (
         <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Icon</label>
+            <label className="text-[13px] font-medium text-neutral-700">Icon</label>
             <div className="grid grid-cols-8 gap-1.5 sm:grid-cols-10">
                 {/* Auto (name-based) */}
                 <button
@@ -28,7 +28,7 @@ export default function HabitIconPicker({ value, onChange, name = '' }: Props) {
                         'relative grid aspect-square place-items-center rounded-xl text-sm transition-colors',
                         !value
                             ? 'bg-emerald-500 text-white'
-                            : 'bg-neutral-50 text-neutral-400 ring-1 ring-inset ring-neutral-200 hover:bg-neutral-100',
+                            : 'bg-neutral-50 text-neutral-500 ring-1 ring-inset ring-neutral-200 hover:bg-neutral-100',
                     ].join(' ')}
                 >
                     <i className={autoIcon} aria-hidden="true" />

@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import HabitDef from '../models/HabitDef'
 import HabitLog, { DATE_PATTERN } from '../models/HabitLog'
+import Goal from '../models/Goal'
 
 function isValidDate(v: unknown): v is string {
     return typeof v === 'string' && DATE_PATTERN.test(v)
@@ -77,6 +78,8 @@ export async function deleteHabit(req: AuthRequest, res: Response) {
         return
     }
     await HabitLog.deleteMany({ habit: req.params.id })
+    // A goal shouldn't keep pointing at a habit that no longer exists.
+    await Goal.updateMany({ user: req.userId }, { $pull: { linkedHabits: habit._id } })
     res.json({ message: 'Deleted', data: habit })
 }
 

@@ -116,7 +116,7 @@ export default function DeleteScopeDialog({
                         >
                             {c.label}
                         </p>
-                        <p className="mt-0.5 text-xs text-neutral-400">{c.detail}</p>
+                        <p className="mt-0.5 text-xs text-neutral-500">{c.detail}</p>
                     </button>
                 ))}
             </div>

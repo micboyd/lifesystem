@@ -98,7 +98,7 @@ export default function MealPicker({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search meals"
-                    className="h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm focus:border-neutral-900 focus:outline-none"
+                    className="h-11 w-full rounded-xl border border-neutral-200 hover:border-neutral-300 px-3 text-sm focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 outline-none focus-visible:outline-none"
                 />
                 <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
                     {(['all', ...MEAL_TYPES] as const).map((c) => {
@@ -138,12 +138,12 @@ export default function MealPicker({
                                 type="button"
                                 onClick={() => void pick(m)}
                                 disabled={busy}
-                                className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl bg-white px-3 py-3 text-left ring-1 ring-black/[0.06] transition-colors active:bg-neutral-50 disabled:opacity-60"
+                                className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl bg-white px-3 py-3 text-left ring-1 ring-neutral-900/[0.06] transition-colors active:bg-neutral-50 disabled:opacity-60"
                             >
                                 {m.types[0] ? (
                                     <CategoryIcon type={m.types[0]} />
                                 ) : (
-                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-sm text-neutral-400" aria-hidden="true">
+                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-sm text-neutral-500" aria-hidden="true">
                                         <i className="fa-solid fa-utensils" />
                                     </span>
                                 )}
@@ -152,7 +152,7 @@ export default function MealPicker({
                                         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-neutral-900">{m.name}</span>
                                         <span className="shrink-0 text-sm font-bold tabular-nums text-neutral-900">
                                             {kcal(m.macros.calories)}
-                                            <span className="ml-0.5 text-[10px] font-medium text-neutral-400">kcal</span>
+                                            <span className="ml-0.5 text-[11px] font-medium text-neutral-500">kcal</span>
                                         </span>
                                     </span>
                                     <MacroBar macros={m.macros} />

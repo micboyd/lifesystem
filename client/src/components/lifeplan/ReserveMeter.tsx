@@ -101,7 +101,7 @@ export default function ReserveMeter({
                 const body = (
                     <>
                         <i
-                            className={`fa-solid ${RESERVE_ICONS[reserve]} w-3.5 shrink-0 text-center text-[10px] text-neutral-300`}
+                            className={`fa-solid ${RESERVE_ICONS[reserve]} w-3.5 shrink-0 text-center text-[11px] text-neutral-300`}
                             aria-hidden="true"
                         />
                         {!compact && (
@@ -112,7 +112,7 @@ export default function ReserveMeter({
                         <Bar load={r} />
                         <span
                             className={`shrink-0 text-right text-[11px] font-semibold tabular-nums ${
-                                r.level === 'overloaded' ? 'text-coral-600' : 'text-neutral-400'
+                                r.level === 'overloaded' ? 'text-coral-600' : 'text-neutral-500'
                             }`}
                         >
                             {r.capacity === null

@@ -46,7 +46,7 @@ export default function Nutrition() {
         <main className="py-10">
             <Container>
                 <header className="mb-6">
-                    <h1 className="text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl">Nutrition</h1>
+                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Nutrition</h1>
                     <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
                 </header>
                 <div className="mb-6">

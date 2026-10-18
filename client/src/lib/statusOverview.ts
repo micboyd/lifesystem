@@ -1,7 +1,6 @@
 import type { Goal, DaysSinceItem } from '../types'
 import type { DisciplineSummary } from './budgetDiscipline'
 import type { HabitStreak } from './habits'
-import type { Pacing } from './pacing'
 import { daysBetween as daysSinceDaysBetween } from './daysSince'
 
 export type TrafficLightStatus = 'green' | 'yellow' | 'red' | 'neutral'
@@ -36,7 +35,7 @@ export function habitsDomainStatus({ doneToday, total, streak }: HabitStreak): D
         key: 'habits',
         label: 'Habits',
         icon: 'fa-solid fa-fire',
-        href: '/habits',
+        href: '/goals',
         status,
         detail: total === 0 ? 'No active habits' : `${doneToday}/${total} today`,
     }
@@ -114,27 +113,4 @@ export function daysSinceDomainStatus(items: DaysSinceItem[], today: string): Do
         status,
         detail,
     }
-}
-
-export function studyDomainStatus(pacing: Pacing | null): DomainStatus {
-    const base = {
-        key: 'study',
-        label: 'Studying',
-        icon: 'fa-solid fa-graduation-cap',
-        href: '/study',
-    }
-    if (!pacing || pacing.courses.length === 0) {
-        return { ...base, status: 'neutral', detail: 'No courses tracked' }
-    }
-
-    const overdue = pacing.courses.filter((c) => c.status === 'overdue').length
-    const status: TrafficLightStatus = overdue > 0 ? 'red' : pacing.behindCount > 0 ? 'yellow' : 'green'
-    const detail =
-        overdue > 0
-            ? `${overdue} overdue`
-            : pacing.behindCount > 0
-              ? `${pacing.behindCount} behind`
-              : `${pacing.onTrackCount} on track`
-
-    return { ...base, status, detail }
 }

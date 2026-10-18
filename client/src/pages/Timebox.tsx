@@ -377,7 +377,7 @@ export default function Timebox() {
         <Container as="main" className="py-10">
             <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">Timebox</h1>
+                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Timebox</h1>
                     <p className="mt-1 text-sm text-neutral-500">
                         {formatDateLong(date)} · plan your day
                     </p>
@@ -389,7 +389,7 @@ export default function Timebox() {
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className="bg-white">
-                        <i className="fa-regular fa-clock text-neutral-400" aria-hidden="true" />
+                        <i className="fa-regular fa-clock text-neutral-500" aria-hidden="true" />
                         {wake} – {bed}
                     </Badge>
                     {isWorkingDay && workStart && workEnd && (
@@ -467,7 +467,7 @@ export default function Timebox() {
                                 {hourLines.map((m, i) => (
                                     <span
                                         key={m}
-                                        className={`absolute right-0 text-[11px] font-semibold tabular-nums text-neutral-400 ${i === 0 ? '' : '-translate-y-1/2'}`}
+                                        className={`absolute right-0 text-[11px] font-semibold tabular-nums text-neutral-500 ${i === 0 ? '' : '-translate-y-1/2'}`}
                                         style={{ top: (m - wakeMin) * PX_PER_MIN }}
                                     >
                                         {minutesToTime(m)}
@@ -481,7 +481,7 @@ export default function Timebox() {
                                 onDragOver={handleDragOver}
                                 onDragLeave={handleDragLeave}
                                 onDrop={handleDrop}
-                                className="relative flex-1 cursor-copy overflow-hidden bg-white ring-1 ring-black/[0.03] shadow-sm"
+                                className="relative flex-1 cursor-copy overflow-hidden bg-white ring-1 ring-neutral-900/[0.03] shadow-sm"
                                 style={{ height: totalHeight }}
                             >
                                 {/* Working hours band */}
@@ -501,7 +501,7 @@ export default function Timebox() {
                                                     PX_PER_MIN,
                                             }}
                                         >
-                                            <span className="absolute right-2 top-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
+                                            <span className="absolute right-2 top-1 text-[11px] font-medium uppercase tracking-[0.06em] text-blue-300">
                                                 Working hours
                                             </span>
                                         </div>
@@ -605,7 +605,7 @@ export default function Timebox() {
                                                     {item.title}
                                                 </span>
                                                 <span
-                                                    className={`${compact ? '' : 'mt-0.5 block'} truncate text-[10px] font-medium ${c.sub}`}
+                                                    className={`${compact ? '' : 'mt-0.5 block'} truncate text-[11px] font-medium ${c.sub}`}
                                                 >
                                                     {minutesToTime(startMin)} –{' '}
                                                     {minutesToTime(startMin + durMin)} · {dur}
@@ -626,9 +626,9 @@ export default function Timebox() {
 
                     {/* Task panel */}
                     <aside className="lg:w-64 lg:shrink-0">
-                        <div className="rounded-3xl bg-white p-4 ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04)] lg:sticky lg:top-6">
+                        <div className="rounded-3xl bg-white p-4 ring-1 ring-neutral-900/[0.06] shadow-sm lg:sticky lg:top-6">
                             <h2 className="text-sm font-bold text-neutral-800">Tasks</h2>
-                            <p className="mt-0.5 text-xs text-neutral-400">
+                            <p className="mt-0.5 text-xs text-neutral-500">
                                 Drag a task onto the timeline to schedule it.
                             </p>
                             <div className="mt-3 flex flex-col gap-1.5">
@@ -661,7 +661,7 @@ export default function Timebox() {
                                             <span className="flex-1 truncate text-xs font-semibold text-neutral-700">
                                                 {task.title}
                                             </span>
-                                            <span className="shrink-0 text-[10px] font-semibold text-neutral-400">
+                                            <span className="shrink-0 text-[11px] font-semibold text-neutral-500">
                                                 {formatDuration(
                                                     task.duration ?? DEFAULT_TASK_DURATION
                                                 )}

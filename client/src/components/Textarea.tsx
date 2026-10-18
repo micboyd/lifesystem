@@ -1,4 +1,5 @@
 import type { TextareaHTMLAttributes } from 'react'
+import { FIELD_BASE, FIELD_ERROR, FIELD_ERROR_TEXT, FIELD_HINT, FIELD_IDLE, FIELD_LABEL } from './fieldStyles'
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
     label?: string
@@ -20,10 +21,7 @@ export default function Textarea({
     return (
         <div className="flex flex-col gap-1.5">
             {label && (
-                <label
-                    htmlFor={textareaId}
-                    className="text-xs font-semibold uppercase tracking-wide text-neutral-400"
-                >
+                <label htmlFor={textareaId} className={FIELD_LABEL}>
                     {label}
                 </label>
             )}
@@ -31,20 +29,22 @@ export default function Textarea({
                 id={textareaId}
                 rows={rows}
                 className={[
-                    'w-full resize-y rounded-xl border bg-white px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400',
-                    'outline-none transition-all duration-150 focus:ring-2',
-                    error
-                        ? 'border-red-400 focus:border-red-400 focus:ring-red-400/10'
-                        : 'border-neutral-200 focus:border-neutral-400 focus:ring-neutral-200',
-                    props.disabled ? 'opacity-50 cursor-not-allowed' : '',
+                    FIELD_BASE,
+                    'resize-y px-3.5 py-2.5 leading-6',
+                    error ? FIELD_ERROR : FIELD_IDLE,
                     className,
                 ]
                     .filter(Boolean)
                     .join(' ')}
                 {...props}
             />
-            {hint && !error && <p className="text-xs text-neutral-500">{hint}</p>}
-            {error && <p className="text-xs text-red-500">{error}</p>}
+            {hint && !error && <p className={FIELD_HINT}>{hint}</p>}
+            {error && (
+                <p className={FIELD_ERROR_TEXT}>
+                    <i className="fa-solid fa-circle-exclamation" aria-hidden="true" />
+                    {error}
+                </p>
+            )}
         </div>
     )
 }

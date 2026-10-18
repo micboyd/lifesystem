@@ -82,10 +82,10 @@ export default function PressureCheck({
             </div>
 
             {/* The year in four rows: one reserve each, one column a month. */}
-            <div className="rounded-2xl border border-black/[0.06] bg-white p-5">
+            <div className="rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-5">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <h3 className="text-sm font-bold text-neutral-900">The window at a glance</h3>
-                    <p className="text-xs text-neutral-400">
+                    <p className="text-xs text-neutral-500">
                         {points.length === 0
                             ? 'Nothing over capacity'
                             : `${points.length} month${points.length === 1 ? '' : 's'} worth a look`}
@@ -108,7 +108,7 @@ export default function PressureCheck({
                                     <ReserveBars load={load} title="" />
                                     <p
                                         className={`mt-1.5 truncate text-[9px] font-bold uppercase ${
-                                            isNow ? 'text-coral-600' : 'text-neutral-400'
+                                            isNow ? 'text-coral-600' : 'text-neutral-500'
                                         }`}
                                     >
                                         {formatMonthKey(load.month).slice(0, 3)}
@@ -126,7 +126,7 @@ export default function PressureCheck({
                             title={RESERVE_DESCRIPTIONS[reserve]}
                         >
                             <i
-                                className={`fa-solid ${RESERVE_ICONS[reserve]} w-3.5 text-center text-[10px] text-neutral-300`}
+                                className={`fa-solid ${RESERVE_ICONS[reserve]} w-3.5 text-center text-[11px] text-neutral-300`}
                                 aria-hidden="true"
                             />
                             {RESERVE_LABELS[reserve]}
@@ -172,7 +172,7 @@ export default function PressureCheck({
                                             {formatMonthKey(load.month)}
                                         </h3>
                                         {season && (
-                                            <p className="text-xs font-semibold text-neutral-400">
+                                            <p className="text-xs font-semibold text-neutral-500">
                                                 {season.name}
                                             </p>
                                         )}
@@ -192,7 +192,7 @@ export default function PressureCheck({
                                             >
                                                 <p className="flex items-center gap-2 text-xs font-bold text-coral-700">
                                                     <i
-                                                        className="fa-solid fa-circle-exclamation text-[10px]"
+                                                        className="fa-solid fa-circle-exclamation text-[11px]"
                                                         aria-hidden="true"
                                                     />
                                                     {conflict.title}
@@ -234,16 +234,16 @@ export default function PressureCheck({
 
                                 {(relief.get(load.month)?.length ?? 0) > 0 && (
                                     <div className="mt-4">
-                                        <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+                                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                             What would fix it
                                         </p>
                                         <ul className="mt-2 space-y-1.5">
                                             {relief.get(load.month)!.map((r) => (
                                                 <li
                                                     key={`${r.contributorId}-${r.shift}`}
-                                                    className="flex flex-wrap items-baseline gap-x-2 text-xs"
+                                                    className="flex flex-wrap items-baseline gap-x-2 text-[11px]"
                                                 >
-                                                    <span className="font-semibold text-neutral-800">
+                                                    <span className="font-medium text-neutral-800">
                                                         {describeRelief(r)}
                                                     </span>
                                                     <span className="tabular-nums text-neutral-500">
@@ -252,7 +252,7 @@ export default function PressureCheck({
                                                         <span
                                                             className={
                                                                 r.after < 1
-                                                                    ? 'font-bold text-herb'
+                                                                    ? 'font-medium text-herb'
                                                                     : 'text-neutral-500'
                                                             }
                                                         >
@@ -260,14 +260,14 @@ export default function PressureCheck({
                                                         </span>
                                                     </span>
                                                     {!r.clean && (
-                                                        <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                                                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-amber-700">
                                                             moves the problem
                                                         </span>
                                                     )}
                                                 </li>
                                             ))}
                                         </ul>
-                                        <p className="mt-2 text-[11px] text-neutral-400">
+                                        <p className="mt-2 text-[11px] text-neutral-500">
                                             Nothing is moved for you — these open in the module that
                                             owns them.
                                         </p>
@@ -277,7 +277,7 @@ export default function PressureCheck({
                                 <button
                                     type="button"
                                     onClick={() => onSelectMonth(load.month)}
-                                    className="mt-3 text-xs font-bold text-coral-600 hover:text-coral-700"
+                                    className="mt-3 text-[11px] font-medium text-coral-600 hover:text-coral-700"
                                 >
                                     Break {formatMonthKey(load.month)} down →
                                 </button>
@@ -289,9 +289,9 @@ export default function PressureCheck({
 
             {/* Where each denominator came from. The model is only worth as much
                 as its capacities, so it says which of them are actually yours. */}
-            <section className="rounded-2xl border border-black/[0.06] bg-white p-5">
-                <h3 className="text-sm font-bold text-neutral-900">How this is measured</h3>
-                <p className="mt-1 text-xs text-neutral-500">
+            <section className="rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-5">
+                <h3 className="text-sm font-medium text-neutral-900">How this is measured</h3>
+                <p className="mt-1 text-[11px] text-neutral-500">
                     A reserve is only over capacity against some number. These are the numbers.
                 </p>
 
@@ -314,7 +314,7 @@ export default function PressureCheck({
                                                 {RESERVE_UNITS[reserve]}
                                             </span>
                                         ) : (
-                                            <span className="ml-1.5 font-semibold text-neutral-400">
+                                            <span className="ml-1.5 font-semibold text-neutral-500">
                                                 not set
                                             </span>
                                         )}
@@ -336,7 +336,7 @@ export default function PressureCheck({
                     })}
                 </ul>
 
-                <p className="mt-4 border-t border-black/[0.05] pt-3 text-[11px] text-neutral-400">
+                <p className="mt-4 border-t border-black/[0.05] pt-3 text-[11px] text-neutral-500">
                     {capacities.calibrated
                         ? Object.keys(capacities.calibration).length > 0
                             ? `Ceilings above marked with a comparison were fitted from ${capacities.historyMonths} months of your own logs.`

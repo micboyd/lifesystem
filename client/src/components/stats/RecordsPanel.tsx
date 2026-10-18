@@ -140,7 +140,7 @@ export default function RecordsPanel({
                         </p>
                     </div>
                     {beaten.length === 0 ? (
-                        <p className="text-sm text-neutral-400">
+                        <p className="text-sm text-neutral-500">
                             Nothing beaten in this range. Records come in bursts; a quiet stretch
                             after a run of them is normal.
                         </p>
@@ -161,7 +161,7 @@ export default function RecordsPanel({
                                         <span className="text-[11px] text-emerald-600">
                                             +{Number((best.weightKg - best.previousKg!).toFixed(2))} kg
                                         </span>
-                                        <span className="text-[11px] text-neutral-400">
+                                        <span className="text-[11px] text-neutral-500">
                                             {longDate(best.date)}
                                         </span>
                                     </span>
@@ -191,14 +191,14 @@ export default function RecordsPanel({
                                     <span className="font-semibold text-neutral-900">
                                         {setLabel(best.weightKg, best.reps)}
                                     </span>
-                                    <span className="text-[11px] text-neutral-400">
+                                    <span className="text-[11px] text-neutral-500">
                                         {longDate(best.date)}
                                     </span>
                                 </span>
                             </div>
                         ))}
                         {board.length > BOARD_LIMIT && (
-                            <p className="px-1 pt-1 text-[11px] text-neutral-400">
+                            <p className="px-1 pt-1 text-[11px] text-neutral-500">
                                 {board.length - BOARD_LIMIT} more not shown.
                             </p>
                         )}
@@ -218,7 +218,7 @@ function LiftRow({ lift }: { lift: LiftTrend }) {
             <span className="flex min-w-0 items-baseline gap-2">
                 <span className="text-sm font-semibold text-neutral-900">{lift.label}</span>
                 {lift.bestKg !== null && (
-                    <span className="text-[11px] tabular-nums text-neutral-400">
+                    <span className="text-[11px] tabular-nums text-neutral-500">
                         best {kg(lift.bestKg)} est.
                     </span>
                 )}
@@ -238,7 +238,7 @@ function LiftRow({ lift }: { lift: LiftTrend }) {
                                 ? 'text-emerald-600'
                                 : lift.status === 'declining'
                                   ? 'text-red-600'
-                                  : 'text-neutral-400'
+                                  : 'text-neutral-500'
                         }`}
                     >
                         {signedPct(lift.changePct)}

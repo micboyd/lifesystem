@@ -316,7 +316,6 @@ whole point:
 | Course | ●●● | – | – | ●●● |
 | Month flag | ●● | – | – | ● |
 | Goal deadline | – | – | – | ●● |
-| Work project | – | – | – | ●● |
 
 Two consequences worth stating plainly, because they're the reason for the
 rework:
@@ -335,7 +334,7 @@ rework:
 | `body` (training) | Hard sessions/week, **unioned across plans** — see §8.10. Mobility and recovery count 0, exactly as in `overload.ts:isHardSession`. |
 | `body` (nutrition) | Not a demand at all — a deficit lowers the ceiling instead. See §8.10. |
 | `money` | `SavingsTarget.requiredMonthly`, exactly. |
-| `focus` | Phase 1, new routine 1 / new block 0.25 (charged once across plans), course 1, flag 0.5, deadline 1 (its month only), work project 0.5 (capped at 1.5). Phases and training taper as they settle — see §8.11. |
+| `focus` | Phase 1, new routine 1 / new block 0.25 (charged once across plans), course 1, flag 0.5, deadline 1 (its month only). Phases and training taper as they settle — see §8.11. |
 
 Everything is charged pro-rata for the fraction of the month it actually covers.
 
@@ -507,12 +506,8 @@ _Reported from use (2026-09-21): "why is focus dominated by fitness? That doesn'
 take a huge amount of focus."_ Three faults.
 
 **Only recorded commitments counted, and work had no record.** Fitness led the bar
-because it was nearly the only thing being measured. Work projects now feed focus
-(`LoadInput.workProjects`): 0.5 each while live — `createdAt` to `dueDate`, to the
-month it was marked done, or open-ended (`assumed`) — shared evenly past a cap of
-1.5, because the fifth project shows up as things slipping, not as a bar that
-climbs forever. Paused and archived projects cost nothing. Projects carry the
-`life` pillar rather than a new one, and relief never offers to move them.
+because it was nearly the only thing being measured. Work projects fed focus here for a while; the Work module was removed on 2026-10-17 and
+with it that contributor.
 
 **Costs were flat in time.** Week 30 of a routine cost what week 1 did.
 `noveltyFactor` now charges full price for four weeks and eases to a floor by

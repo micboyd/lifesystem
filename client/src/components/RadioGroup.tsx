@@ -71,7 +71,7 @@ export default function RadioGroup({
                             ].join(' ')}
                         >
                             {selected && (
-                                <span className="h-2.5 w-2.5 rounded-full bg-neutral-950" />
+                                <span className="h-2.5 w-2.5 rounded-full bg-neutral-900" />
                             )}
                         </button>
                         <span className="text-sm font-medium text-neutral-700">{option.label}</span>

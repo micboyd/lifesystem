@@ -20,11 +20,11 @@ export default function EmptyState({
         <div
             className={`flex flex-col items-center justify-center px-6 py-12 text-center ${className}`}
         >
-            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-neutral-100 text-xl text-neutral-400">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-neutral-100 text-lg text-neutral-600">
                 <i className={icon} aria-hidden="true" />
             </div>
-            <h3 className="mt-4 text-base font-bold tracking-tight text-neutral-900">{title}</h3>
-            {description && <p className="mt-1 max-w-sm text-sm text-neutral-400">{description}</p>}
+            <h3 className="mt-4 text-base font-semibold tracking-[-0.015em] text-neutral-900">{title}</h3>
+            {description && <p className="mt-1 max-w-sm text-sm leading-6 text-neutral-600">{description}</p>}
             {action && <div className="mt-5">{action}</div>}
         </div>
     )

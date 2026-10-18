@@ -53,7 +53,7 @@ function Chip({
                 />
             )}
             <span
-                className={`truncate font-semibold leading-tight ${mini ? 'text-[10px]' : 'text-[11px]'}`}
+                className={`truncate font-semibold leading-tight ${mini ? 'text-[11px]' : 'text-[11px]'}`}
             >
                 {event.title}
             </span>
@@ -158,7 +158,7 @@ export default function EventStack({
                     title={canPaste ? 'Right-click to paste event' : undefined}
                     className="group grid h-full w-full place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-500"
                 >
-                    <i className="fa-solid fa-plus text-[10px] opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" />
+                    <i className="fa-solid fa-plus text-[11px] opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" />
                 </button>
                 {contextMenu}
             </>
@@ -198,7 +198,7 @@ export default function EventStack({
                             onPick(events)
                         }}
                         onContextMenu={(e) => openMenu(e, null)}
-                        className={`flex min-h-0 flex-1 items-center justify-center rounded-md bg-neutral-200 text-[10px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-300 ${past ? 'opacity-50 hover:opacity-100' : ''}`}
+                        className={`flex min-h-0 flex-1 items-center justify-center rounded-md bg-neutral-200 text-[11px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-300 ${past ? 'opacity-50 hover:opacity-100' : ''}`}
                     >
                         +{events.length - 1} more
                     </button>

@@ -25,7 +25,7 @@ export default function ReminderChip({
                 aria-label="Add reminder"
                 className="group/rem grid h-full w-full place-items-center rounded-md text-amber-300 transition-colors hover:bg-amber-50"
             >
-                <i className="fa-solid fa-bell text-[10px] opacity-100 transition-opacity sm:opacity-0 sm:group-hover/rem:opacity-100" />
+                <i className="fa-solid fa-bell text-[11px] opacity-100 transition-opacity sm:opacity-0 sm:group-hover/rem:opacity-100" />
             </button>
         )
     }
@@ -42,7 +42,7 @@ export default function ReminderChip({
             className="flex w-full items-center gap-1 overflow-hidden rounded-md bg-amber-100 px-1.5 py-0.5 text-left text-amber-800 transition-colors hover:bg-amber-200"
         >
             <i className="fa-solid fa-bell shrink-0 text-[9px] opacity-70" aria-hidden="true" />
-            <span className="truncate text-[10px] font-semibold leading-tight">
+            <span className="truncate text-[11px] font-semibold leading-tight">
                 {reminders[0].text}
             </span>
             {reminders[0].recurrence && (

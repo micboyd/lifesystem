@@ -3,11 +3,13 @@ import { Card } from './Card'
 /** How a figure should read: plain, good news, worth watching, or bad news. */
 export type StatTone = 'neutral' | 'good' | 'warn' | 'bad'
 
-const TONE_TEXT: Record<StatTone, string> = {
-    neutral: 'text-neutral-900',
-    good: 'text-emerald-600',
-    warn: 'text-amber-600',
-    bad: 'text-red-600',
+// The figure stays ink; the tone colours the sub-line's pill, which carries the
+// change, so a red or green number never has to be read on colour alone.
+const TONE_PILL: Record<StatTone, string> = {
+    neutral: 'bg-neutral-100 text-neutral-700',
+    good: 'bg-success-bg text-success',
+    warn: 'bg-warning-bg text-warning',
+    bad: 'bg-danger-bg text-danger',
 }
 
 /**
@@ -30,12 +32,22 @@ export default function StatTile({
     tone?: StatTone
 }) {
     return (
-        <Card hover={false} className="flex flex-col gap-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                {label}
+        <Card hover={false} className="flex flex-col gap-1.5">
+            <p className="text-[13px] text-neutral-600">{label}</p>
+            <p className="text-[28px] font-medium leading-[34px] tracking-[-0.03em] tabular-nums text-neutral-900">
+                {value}
             </p>
-            <p className={`text-2xl font-bold tabular-nums ${TONE_TEXT[tone]}`}>{value}</p>
-            {sub && <p className="text-xs text-neutral-400">{sub}</p>}
+            {sub && (
+                <p className="text-xs text-neutral-500">
+                    {tone === 'neutral' ? (
+                        sub
+                    ) : (
+                        <span className={`rounded-full px-2 py-0.5 font-medium ${TONE_PILL[tone]}`}>
+                            {sub}
+                        </span>
+                    )}
+                </p>
+            )}
         </Card>
     )
 }

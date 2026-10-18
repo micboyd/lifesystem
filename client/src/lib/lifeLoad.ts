@@ -1,6 +1,6 @@
 import { daysInMonth, monthKeyOf, parseDateKey } from './calendar'
 import { monthRange, overlapsWindow, type LaneSource } from './lifeTimeline'
-import type { LifePillar, NutritionPhase, PlanRole, TrainingPlan, WorkProject } from '../types'
+import type { LifePillar, NutritionPhase, PlanRole, TrainingPlan } from '../types'
 import type { TimelineInput } from './lifeTimeline'
 
 /**
@@ -47,8 +47,7 @@ import type { TimelineInput } from './lifeTimeline'
  * ## Measured vs assumed
  *
  * Most of the intensity figures come off records the app already keeps — a
- * plan's own schedule, a savings target's `requiredMonthly`, a course's
- * remaining hours, a phase's intended rate. A few can't (what a month flag
+ * plan's own schedule, a savings target's `requiredMonthly`, a phase's intended rate. A few can't (what a month flag
  * labelled "Portugal" costs is unknowable), so those carry a prior instead.
  * Every contributor says which it is, so a month can be read as "four of five
  * inputs measured" rather than asking to be trusted whole.
@@ -91,7 +90,7 @@ export const RESERVE_DESCRIPTIONS: Record<Reserve, string> = {
     time: 'Hours a week the month is already spoken for.',
     body: 'Recovery demand — hard sessions plus how deep the deficit runs.',
     money: 'Committed each month, against what is free to commit.',
-    focus: 'What needs deliberate attention at once — new habits, study, work projects. Settled routines cost little.',
+    focus: 'What needs deliberate attention at once — new habits. Settled routines cost little.',
 }
 
 /** What one commitment costs, reserve by reserve. Zero where it costs nothing. */
@@ -272,17 +271,14 @@ export const PHASE_HOURS: Record<NutritionPhase['kind'], number> = {
  * to train from nothing is one too; a new block of training you were already
  * doing is a quarter of one — the habit exists, only the programme is new. A
  * deadline is a spike in the month it lands rather than a load across the months
- * before it. A course is charged in full throughout: studying toward a deadline
- * doesn't become automatic the way a routine does.
+ * before it.
  */
 export const FOCUS_COSTS = {
     phase: { cut: 1, gain: 1, maintain: 0 } as Record<NutritionPhase['kind'], number>,
     trainingRoutine: 1,
     trainingBlock: 0.25,
-    course: 1,
     monthNote: 0.5,
     goalDeadline: 1,
-    workProject: 0.5,
 } as const
 
 /**
@@ -305,15 +301,6 @@ export const NOVELTY_FULL_WEEKS = 4
  * median around 66 days — ten weeks is that, rounded to the week.
  */
 export const NOVELTY_SETTLED_WEEKS = 10
-
-/**
- * However many projects are live, work is charged at most this much focus.
- *
- * Past three or four projects the extra ones are being juggled, not held — the
- * cost shows up as things slipping, which the Work module already tracks, rather
- * than as a bar that climbs without end and drowns out everything beside it.
- */
-export const WORK_FOCUS_CAP = 1.5
 
 /**
  * Logged sessions in the four weeks before a plan starts that mark the training
@@ -341,9 +328,6 @@ export const DEEP_CUT_COST = 0.15
 
 /** Hard sessions a week at or past which the training week counts as heavy. */
 export const HEAVY_WEEK_SESSIONS = 4
-
-/** Longest a course's implied study rate is allowed to read, h/wk. */
-const MAX_COURSE_HOURS = 20
 
 // ─── Per-month results ──────────────────────────────────────────────────────
 
@@ -443,8 +427,6 @@ export interface LoadInput extends TimelineInput {
      * starts it — the first costs a quarter of the focus of the second.
      */
     trainingDates?: string[]
-    /** Work projects — the attention a job takes, which no other record carries. */
-    workProjects?: WorkProject[]
 }
 
 // ─── Month arithmetic ───────────────────────────────────────────────────────
@@ -468,13 +450,6 @@ function daysCovered(month: string, start: string, end: string): number {
 function coverageOf(month: string, start: string, end: string): number {
     const [year, m] = month.split('-').map(Number)
     return daysCovered(month, start, end) / daysInMonth(year, m - 1)
-}
-
-/** Whole months from the first of `from` to `to`, never below a quarter month. */
-function monthsUntil(from: string, to: string): number {
-    const [fy, fm] = from.split('-').map(Number)
-    const [ty, tm] = to.split('-').map(Number)
-    return Math.max(0.25, (ty - fy) * 12 + (tm - fm) + 1)
 }
 
 /** Whole days from one YYYY-MM-DD to another. Negative when `to` is earlier. */
@@ -709,24 +684,10 @@ function trainingFocus(
     return out
 }
 
-/** Whether a work project is running in `month`, and how sure that is. */
-function workProjectLive(project: WorkProject, month: string): 'measured' | 'assumed' | null {
-    if (project.status === 'paused' || project.status === 'archived') return null
-    const from = monthKeyOf(project.createdAt.slice(0, 10))
-    if (month < from) return null
-    if (project.status === 'done') {
-        return month <= monthKeyOf(project.updatedAt.slice(0, 10)) ? 'measured' : null
-    }
-    if (project.dueDate) return month <= monthKeyOf(project.dueDate) ? 'measured' : null
-    // Active with no due date: running as far ahead as the plan looks, which is a guess.
-    return 'assumed'
-}
-
 // ─── Building a month ───────────────────────────────────────────────────────
 
 function contributorsForMonth(input: LoadInput, month: string): LoadContributor[] {
     const out: LoadContributor[] = []
-    const weeks = weeksInMonth(month)
     const shares = trainingShares(input.trainingPlans ?? [], month)
     const focusByPlan = trainingFocus(
         input.trainingPlans ?? [],
@@ -818,38 +779,6 @@ function contributorsForMonth(input: LoadInput, month: string): LoadContributor[
         })
     }
 
-    for (const course of input.courses ?? []) {
-        // A Course records no start date, so it's read as live from the opening of
-        // the window until its deadline. A course with no deadline has no span at
-        // all and is left off, as it is on the timeline.
-        if (!course.targetDate) continue
-        const deadlineMonth = monthKeyOf(course.targetDate)
-        if (month > deadlineMonth) continue
-        const remaining = Math.max(0, course.requiredHours - course.completedHours)
-        // Hours left spread over the months left, so the rate rises as the deadline
-        // closes — which is what actually happens, and worth seeing before it does.
-        const perWeek = Math.min(
-            MAX_COURSE_HOURS,
-            remaining / (monthsUntil(month, deadlineMonth) * weeks)
-        )
-        const demand = emptyDemand()
-        demand.time = perWeek
-        demand.focus = FOCUS_COSTS.course
-        out.push({
-            id: `course:${course._id}`,
-            source: 'course',
-            recordId: course._id,
-            label: course.name,
-            pillar: 'study',
-            demand,
-            basis: 'measured',
-            detail:
-                remaining > 0
-                    ? `${remaining}h left · ${round(perWeek, 1)}h/wk to the deadline`
-                    : 'Complete',
-        })
-    }
-
     for (const note of input.monthNotes ?? []) {
         if (!overlapsWindow(note.startMonth, note.endMonth, month, month)) continue
         const demand = emptyDemand()
@@ -881,34 +810,6 @@ function contributorsForMonth(input: LoadInput, month: string): LoadContributor[
             demand,
             basis: 'measured',
             detail: 'Deadline lands this month',
-        })
-    }
-
-    const liveProjects = (input.workProjects ?? [])
-        .map((project) => ({ project, basis: workProjectLive(project, month) }))
-        .filter((p): p is { project: WorkProject; basis: DemandBasis } => p.basis !== null)
-    // Shared evenly once the projects between them would pass the cap.
-    const perProject =
-        liveProjects.length > 0
-            ? Math.min(FOCUS_COSTS.workProject, WORK_FOCUS_CAP / liveProjects.length)
-            : 0
-    for (const { project, basis } of liveProjects) {
-        const demand = emptyDemand()
-        demand.focus = perProject
-        const dueHere = project.dueDate && monthKeyOf(project.dueDate) === month
-        out.push({
-            id: `workProject:${project._id}`,
-            source: 'workProject',
-            recordId: project._id,
-            label: project.name,
-            pillar: 'life',
-            demand,
-            basis,
-            detail: dueHere ? 'Due this month' : project.dueDate ? `Due ${project.dueDate}` : 'Ongoing',
-            focusNote:
-                perProject < FOCUS_COSTS.workProject
-                    ? `one of ${liveProjects.length} live projects — work capped at ${WORK_FOCUS_CAP}`
-                    : undefined,
         })
     }
 

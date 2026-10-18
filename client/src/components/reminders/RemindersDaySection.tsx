@@ -136,7 +136,7 @@ export default function RemindersDaySection({
         <div className="flex flex-col gap-1">
             {showDaysAway && (
                 <p className="mb-2 flex items-center gap-1.5 px-3 text-xs font-semibold text-amber-600">
-                    <i className="fa-regular fa-clock text-[10px]" aria-hidden="true" />
+                    <i className="fa-regular fa-clock text-[11px]" aria-hidden="true" />
                     {daysAwayLabel(date)}
                 </p>
             )}
@@ -156,7 +156,7 @@ export default function RemindersDaySection({
                     </span>
                     {reminder.recurrence && (
                         <i
-                            className="fa-solid fa-repeat shrink-0 text-[10px] text-neutral-300"
+                            className="fa-solid fa-repeat shrink-0 text-[11px] text-neutral-300"
                             title="Repeats"
                             aria-hidden="true"
                         />
@@ -173,7 +173,7 @@ export default function RemindersDaySection({
             ))}
 
             {reminders.length === 0 && (
-                <p className="px-3 py-2 text-sm text-neutral-400">Nothing to be mindful of yet.</p>
+                <p className="px-3 py-2 text-sm text-neutral-500">Nothing to be mindful of yet.</p>
             )}
 
             {/* Quick add */}
@@ -189,14 +189,14 @@ export default function RemindersDaySection({
                             if (e.key === 'Enter') handleAdd()
                         }}
                         placeholder="Add a reminder…"
-                        className="flex-1 bg-transparent text-sm text-neutral-900 placeholder:text-neutral-400 outline-none"
+                        className="flex-1 bg-transparent text-sm text-neutral-900 placeholder:text-neutral-500 outline-none"
                     />
                     {newText.trim() && (
                         <button
                             type="button"
                             onClick={handleAdd}
                             disabled={adding}
-                            className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
+                            className="inline-flex items-center justify-center rounded-[10px] bg-neutral-900 px-3 h-8 text-xs font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
                         >
                             Add
                         </button>

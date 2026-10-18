@@ -1,4 +1,5 @@
 import { forwardRef, type InputHTMLAttributes } from 'react'
+import { FIELD_BASE, FIELD_ERROR, FIELD_ERROR_TEXT, FIELD_HINT, FIELD_IDLE, FIELD_LABEL } from './fieldStyles'
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     label?: string
@@ -17,30 +18,25 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     return (
         <div className="flex flex-col gap-1.5">
             {label && (
-                <label
-                    htmlFor={inputId}
-                    className="text-xs font-semibold uppercase tracking-wide text-neutral-400"
-                >
+                <label htmlFor={inputId} className={FIELD_LABEL}>
                     {label}
                 </label>
             )}
             <div className="relative">
                 {icon && (
-                    <span className="pointer-events-none absolute inset-y-0 left-4 grid place-items-center text-neutral-300">
+                    <span className="pointer-events-none absolute inset-y-0 left-3.5 grid place-items-center text-neutral-500">
                         <i className={`${icon} text-sm`} aria-hidden="true" />
                     </span>
                 )}
                 <input
                     ref={ref}
                     id={inputId}
+                    aria-invalid={error ? true : undefined}
                     className={[
-                        'w-full rounded-xl border bg-white py-2.5 pr-4 text-sm text-neutral-900 placeholder:text-neutral-400',
-                        icon ? 'pl-11' : 'pl-4',
-                        'outline-none transition-all duration-150 focus:ring-2',
-                        error
-                            ? 'border-red-400 focus:border-red-400 focus:ring-red-400/10'
-                            : 'border-neutral-200 focus:border-neutral-400 focus:ring-neutral-200',
-                        props.disabled ? 'opacity-50 cursor-not-allowed' : '',
+                        FIELD_BASE,
+                        'h-11 pr-3.5',
+                        icon ? 'pl-10' : 'pl-3.5',
+                        error ? FIELD_ERROR : FIELD_IDLE,
                         className,
                     ]
                         .filter(Boolean)
@@ -48,8 +44,13 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
                     {...props}
                 />
             </div>
-            {hint && !error && <p className="text-xs text-neutral-500">{hint}</p>}
-            {error && <p className="text-xs text-red-500">{error}</p>}
+            {hint && !error && <p className={FIELD_HINT}>{hint}</p>}
+            {error && (
+                <p className={FIELD_ERROR_TEXT}>
+                    <i className="fa-solid fa-circle-exclamation" aria-hidden="true" />
+                    {error}
+                </p>
+            )}
         </div>
     )
 })

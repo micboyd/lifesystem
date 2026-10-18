@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { MAX_SHIFT, describeRelief, findRelief } from './lifeRelief'
 import { computeMonthLoads, type LoadInput } from './lifeLoad'
-import type { Course, LifePlan, NutritionPhase, SavingsTarget, TrainingPlan } from '../types'
+import type { LifePlan, NutritionPhase, SavingsTarget, TrainingPlan } from '../types'
 
 function plan(start = '2026-01', end = '2026-12'): LifePlan {
     return {
@@ -9,7 +9,7 @@ function plan(start = '2026-01', end = '2026-12'): LifePlan {
         name: '2026',
         start,
         end,
-        pillars: ['training', 'nutrition', 'money', 'study', 'life'],
+        pillars: ['training', 'nutrition', 'money', 'life'],
         seasons: [],
         order: 0,
         createdAt: '',
@@ -82,20 +82,6 @@ function savings(
         totalContributions: 4800,
         interestEarned: 0,
         growthOnly: 0,
-        createdAt: '',
-        updatedAt: '',
-    }
-}
-
-function course(targetDate: string, name = 'Exam', required = 90, completed = 0): Course {
-    return {
-        _id: `c-${name}`,
-        name,
-        kind: 'course',
-        requiredHours: required,
-        completedHours: completed,
-        order: 0,
-        targetDate,
         createdAt: '',
         updatedAt: '',
     }
@@ -193,9 +179,11 @@ describe('findRelief', () => {
     })
 
     it('caps how far it will look', () => {
-        // A course far too big for its window: no shift inside the cap fixes it,
-        // because the hours only compress further as the deadline nears.
-        const input = { courses: [course('2026-02-28', 'Exam', 400, 0)] }
+        // A commitment far too big for its window: no shift inside the cap fixes it.
+        const input = {
+            savingsTargets: [savings('2026-01', '2026-02', 'Car', 5000)],
+            freeCash: { '2026-01': 100, '2026-02': 100 },
+        }
         const relief = reliefFor('2026-01', input)
         for (const r of relief) expect(Math.abs(r.shift)).toBeLessThanOrEqual(MAX_SHIFT)
     })
@@ -204,7 +192,8 @@ describe('findRelief', () => {
         const input = {
             trainingPlans: [trainingPlan('2026-05-01', '2026-05-31', '10K build')],
             nutritionPhases: [phase('2026-05-01', '2026-05-31', 'Autumn cut')],
-            courses: [course('2026-05-31')],
+            savingsTargets: [savings('2026-05', '2026-05', 'Car', 900)],
+            freeCash: { '2026-05': 700 },
         }
         expect(reliefFor('2026-05', input, 1)).toHaveLength(1)
     })
@@ -215,9 +204,9 @@ describe('describeRelief', () => {
         const base = {
             month: '2026-10',
             reserve: 'body' as const,
-            source: 'course' as const,
+            source: 'monthNote' as const,
             recordId: 'c1',
-            contributorId: 'course:c1',
+            contributorId: 'monthNote:c1',
             label: 'Exam',
             before: 1.2,
             after: 0.9,

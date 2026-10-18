@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import Modal from '../Modal'
+import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
 import Textarea from '../Textarea'
@@ -19,7 +19,7 @@ import { monthKey } from '../../lib/calendar'
  * Creating or editing a plan horizon.
  *
  * Pillars are chosen here rather than fixed, because an empty lane is worse than
- * no lane — a plan that isn't tracking study shouldn't carry a study row all year.
+ * no lane — a plan that isn't tracking a pillar shouldn't carry a row for it all year.
  */
 function currentYearBounds(): { start: string; end: string } {
     const year = new Date().getFullYear()
@@ -79,7 +79,7 @@ export default function PlanForm({
     const rangeInvalid = !!start && !!end && start > end
 
     return (
-        <Modal
+        <Drawer size="lg"
             open={open}
             onClose={onClose}
             title={plan ? 'Edit plan' : 'New life plan'}
@@ -118,7 +118,7 @@ export default function PlanForm({
 
                 <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             From
                         </p>
                         <DatePicker
@@ -130,7 +130,7 @@ export default function PlanForm({
                         />
                     </div>
                     <div>
-                        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                             To
                         </p>
                         <DatePicker
@@ -157,7 +157,7 @@ export default function PlanForm({
                 />
 
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Lanes
                     </p>
                     <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
@@ -172,6 +172,6 @@ export default function PlanForm({
                     </div>
                 </div>
             </div>
-        </Modal>
+        </Drawer>
     )
 }

@@ -54,7 +54,7 @@ export default function DayMarkers({
                     reminders.length ? `${FILLED} text-amber-500` : EMPTY
                 }`}
             >
-                <i className="fa-solid fa-bell text-[10px]" aria-hidden="true" />
+                <i className="fa-solid fa-bell text-[11px]" aria-hidden="true" />
                 {reminders.length > 1 && (
                     <span className="ml-0.5 text-[9px] font-bold">{reminders.length}</span>
                 )}
@@ -71,7 +71,7 @@ export default function DayMarkers({
                     birthdays.length ? `${FILLED} text-pink-500` : EMPTY
                 }`}
             >
-                <i className="fa-solid fa-cake-candles text-[10px]" aria-hidden="true" />
+                <i className="fa-solid fa-cake-candles text-[11px]" aria-hidden="true" />
                 {birthdays.length > 1 && (
                     <span className="ml-0.5 text-[9px] font-bold">{birthdays.length}</span>
                 )}

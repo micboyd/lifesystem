@@ -167,7 +167,7 @@ export default function Fitness() {
             <Container>
                 <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950">
+                        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
                             Fitness
                         </h1>
                         <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
@@ -553,7 +553,7 @@ function SessionCard({
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                     <p className="truncate font-semibold text-neutral-900">{session.name}</p>
-                    <p className="mt-0.5 text-xs text-neutral-400">
+                    <p className="mt-0.5 text-xs text-neutral-500">
                         {session.duration} min
                         {partCount > 0
                             ? ` · ${partCount} ${partCount === 1 ? 'part' : 'parts'}`
@@ -566,7 +566,7 @@ function SessionCard({
                     trigger={
                         <span
                             aria-label="Session actions"
-                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                            className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                         >
                             <LineIcon name="more" className="h-4 w-4" />
                         </span>
@@ -890,7 +890,7 @@ function PartsEditor({
             />
 
             {rows.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400">
+                <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500">
                     {EMPTY_PHASE_HINT[phase]}
                 </p>
             ) : (
@@ -905,7 +905,7 @@ function PartsEditor({
                                     {i + 1}
                                 </span>
                                 <input
-                                    className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+                                    className="min-w-0 flex-1 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-3 h-10 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                                     placeholder={
                                         phase === 'main'
                                             ? 'Part name (e.g. Intervals)'
@@ -918,13 +918,13 @@ function PartsEditor({
                                     type="button"
                                     aria-label="Remove part"
                                     onClick={() => remove(r.key)}
-                                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-red-600"
+                                    className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-red-600"
                                 >
                                     <i className="fa-solid fa-xmark" />
                                 </button>
                             </div>
                             <textarea
-                                className="w-full resize-y rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+                                className="w-full resize-y rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                                 rows={2}
                                 placeholder="Details (sets, reps, distance, pace…)"
                                 value={r.detail ?? ''}
@@ -948,7 +948,7 @@ function PartsEditor({
                                     type="number"
                                     min={1}
                                     step={1}
-                                    className="w-16 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+                                    className="w-16 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-2 h-10.5 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                                     placeholder="6"
                                     value={r.rounds ?? ''}
                                     onChange={(e) =>
@@ -961,7 +961,7 @@ function PartsEditor({
                                 />
                                 <span>rounds of</span>
                                 <input
-                                    className="w-28 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400 disabled:bg-neutral-50 disabled:text-neutral-400"
+                                    className="w-28 rounded-[10px] border border-neutral-200 hover:border-neutral-300 bg-white px-2 h-10.5 text-sm outline-none placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 disabled:bg-white disabled:text-neutral-500 focus-visible:outline-none"
                                     placeholder="round"
                                     disabled={!r.rounds}
                                     value={r.roundLabel ?? ''}

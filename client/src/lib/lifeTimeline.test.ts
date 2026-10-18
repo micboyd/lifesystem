@@ -14,7 +14,7 @@ import {
     type LaneItem,
     type LaneSource,
 } from './lifeTimeline'
-import type { Course, Goal, LifePlan, MonthNote, NutritionPhase, SavingsTarget, Season, TrainingPlan } from '../types'
+import type { Goal, LifePlan, MonthNote, NutritionPhase, SavingsTarget, Season, TrainingPlan } from '../types'
 import { EMPTY_SEASON_LINKS } from '../types'
 
 function season(startMonth: string, endMonth: string, name = 'Cut & 10K'): Season {
@@ -36,7 +36,7 @@ function plan(overrides: Partial<LifePlan> = {}): LifePlan {
         name: '2026',
         start: '2026-01',
         end: '2026-12',
-        pillars: ['training', 'nutrition', 'money', 'study', 'life'],
+        pillars: ['training', 'nutrition', 'money', 'life'],
         seasons: [],
         order: 0,
         createdAt: '',
@@ -89,18 +89,6 @@ const savingsTarget: SavingsTarget = {
     totalContributions: 4800,
     interestEarned: 100,
     growthOnly: 0,
-    createdAt: '',
-    updatedAt: '',
-}
-
-const course: Course = {
-    _id: 'c1',
-    name: 'Finals',
-    kind: 'course',
-    requiredHours: 40,
-    completedHours: 25,
-    order: 0,
-    targetDate: '2026-06-12',
     createdAt: '',
     updatedAt: '',
 }
@@ -168,7 +156,6 @@ describe('buildTimeline', () => {
         trainingPlans: [trainingPlan],
         nutritionPhases: [nutritionPhase],
         savingsTargets: [savingsTarget],
-        courses: [course],
         monthNotes: [monthNote],
         goals: [activeGoal],
     }
@@ -290,16 +277,6 @@ describe('buildTimeline', () => {
         })
     })
 
-    it('draws a course deadline as a marker on one month', () => {
-        const lane = buildTimeline(input).lanes.find((l) => l.pillar === 'study')
-        expect(lane?.items[0]).toMatchObject({
-            shape: 'marker',
-            startMonth: '2026-06',
-            endMonth: '2026-06',
-            detail: '15h remaining',
-        })
-    })
-
     it('puts goal deadlines in their own marker row, not a pillar lane', () => {
         const timeline = buildTimeline(input)
         expect(timeline.goals).toHaveLength(1)
@@ -335,14 +312,6 @@ describe('buildTimeline', () => {
     it('does not mark an unclipped bar as clipped', () => {
         const item = buildTimeline(input).lanes.find((l) => l.pillar === 'training')?.items[0]
         expect(item).toMatchObject({ clippedStart: false, clippedEnd: false })
-    })
-
-    it('skips a course with no deadline — it has nowhere to sit', () => {
-        const timeline = buildTimeline({
-            plan: plan(),
-            courses: [{ ...course, targetDate: undefined }],
-        })
-        expect(timeline.lanes.find((l) => l.pillar === 'study')?.items).toEqual([])
     })
 
     it('leaves out completed goals', () => {

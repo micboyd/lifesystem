@@ -122,7 +122,7 @@ export function WeekHero({
                             <button
                                 type="button"
                                 onClick={onToday}
-                                className="ml-1 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/25"
+                                className="inline-flex items-center justify-center ml-1 rounded-[10px] bg-white/15 px-3 h-8 text-xs font-medium text-white transition-colors hover:bg-white/25"
                             >
                                 Today
                             </button>
@@ -141,16 +141,7 @@ export function WeekHero({
 /** The gradient panel behind a hero, for planners that lay out their own top. */
 export function HeroShell({ children }: { children: ReactNode }) {
     return (
-        <section className="relative overflow-hidden rounded-[28px] bg-linear-to-br from-brand-700 via-brand-600 to-brand-500 text-white shadow-[0_18px_40px_-20px_rgba(1,61,90,0.6)]">
-            {/* Soft glows for depth — purely decorative. */}
-            <span
-                aria-hidden="true"
-                className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl"
-            />
-            <span
-                aria-hidden="true"
-                className="pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-coral-500/20 blur-3xl"
-            />
+        <section className="relative overflow-hidden rounded-3xl bg-neutral-900 text-neutral-50">
             <div className="relative flex flex-col gap-5 p-5 sm:p-7">{children}</div>
         </section>
     )
@@ -170,7 +161,7 @@ function HeroIconButton({
             type="button"
             aria-label={label}
             onClick={onClick}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white active:bg-white/25"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white active:bg-white/25"
         >
             <i className={`${icon} text-xs`} aria-hidden="true" />
         </button>
@@ -215,7 +206,7 @@ export function HeroButton({
             disabled={disabled}
             className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all disabled:opacity-60 ${
                 primary
-                    ? 'bg-white text-brand-700 shadow-sm hover:scale-[1.02] active:scale-[0.98]'
+                    ? 'bg-white text-neutral-900 hover:bg-neutral-100'
                     : 'bg-white/10 text-white ring-1 ring-inset ring-white/15 hover:bg-white/20'
             }`}
         >
@@ -307,7 +298,7 @@ export function ProgressRing({
                             {value}
                             <span className="text-white/50">/{max}</span>
                         </p>
-                        <p className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-white/50">
+                        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.06em] text-white/50">
                             {label}
                         </p>
                     </>
@@ -324,7 +315,7 @@ export function DayStrip({ children, light = false }: { children: ReactNode; lig
     return (
         <div
             className={`grid grid-cols-7 gap-1 rounded-2xl p-1 sm:gap-1.5 sm:p-1.5 ${
-                light ? 'bg-neutral-100' : 'bg-black/15'
+                light ? 'bg-neutral-100' : 'bg-white/[0.06]'
             }`}
         >
             {children}
@@ -364,15 +355,15 @@ export function DayPill({
             aria-current={active ? 'date' : undefined}
             className={`relative flex flex-col items-center gap-1 rounded-xl py-2 transition-all sm:py-2.5 ${
                 active
-                    ? 'bg-white text-brand-700 shadow-md'
+                    ? 'bg-white text-neutral-900'
                     : light
                       ? 'text-neutral-700 hover:bg-white/70'
                       : 'text-white/80 hover:bg-white/10 hover:text-white'
             }`}
         >
             <span
-                className={`text-[10px] font-semibold uppercase tracking-wider ${
-                    active ? 'text-brand-500' : light ? 'text-neutral-400' : 'text-white/50'
+                className={`text-[11px] font-medium uppercase tracking-[0.06em] ${
+                    active ? 'text-neutral-600' : light ? 'text-neutral-500' : 'text-white/50'
                 }`}
             >
                 <span className="sm:hidden">{weekday.slice(0, 1)}</span>
@@ -396,7 +387,7 @@ export function DayPill({
             {allDone && (
                 <span
                     className={`absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-emerald-500 text-white ring-2 ${
-                        light ? 'ring-neutral-100' : 'ring-brand-600'
+                        light ? 'ring-neutral-100' : 'ring-neutral-900'
                     }`}
                     title="All done"
                 >
@@ -405,7 +396,7 @@ export function DayPill({
             )}
             {alert && !allDone && (
                 <span
-                    className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-brand-600"
+                    className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-neutral-900"
                     title="Needs a look"
                 />
             )}
@@ -432,7 +423,7 @@ export function EditBar({
     busy?: boolean
 }) {
     return (
-        <div className="sticky top-16 z-30 flex flex-wrap items-center gap-2 rounded-2xl bg-white/90 p-2 pl-4 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.25)] ring-1 ring-black/[0.06] backdrop-blur-md lg:top-3">
+        <div className="sticky top-16 z-30 flex flex-wrap items-center gap-2 rounded-2xl bg-white/90 p-2 pl-4 shadow-lg ring-1 ring-neutral-900/[0.06] backdrop-blur-md lg:top-3">
             <span className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
                 <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-coral-500 opacity-60" />
@@ -475,8 +466,8 @@ export function DayBadge({ date, isToday }: { date: string; isToday: boolean }) 
         >
             <div className="text-center">
                 <p
-                    className={`text-[9px] font-bold uppercase tracking-wider ${
-                        isToday ? 'text-white/80' : 'text-neutral-400'
+                    className={`text-[11px] font-medium uppercase tracking-[0.06em] ${
+                        isToday ? 'text-white/80' : 'text-neutral-500'
                     }`}
                 >
                     {weekday.slice(0, 3)}
@@ -505,10 +496,10 @@ export function DayCardShell({
     return (
         <section
             id={id}
-            className={`relative scroll-mt-32 flex-col overflow-hidden rounded-3xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${
+            className={`relative scroll-mt-32 flex-col overflow-hidden rounded-3xl bg-white shadow-sm ${
                 compact ? 'gap-3 p-3' : 'gap-4 p-4 sm:p-5'
             } ${
-                isToday ? 'ring-2 ring-coral-200' : 'ring-1 ring-black/[0.06]'
+                isToday ? 'ring-2 ring-coral-200' : 'ring-1 ring-neutral-900/[0.06]'
             } ${className}`}
         >
             {children}
@@ -519,8 +510,8 @@ export function DayCardShell({
 /** The "swipe to change day" nudge under a phone's single day. */
 export function SwipeHint() {
     return (
-        <p className="text-center text-[11px] text-neutral-400 md:hidden">
-            <i className="fa-solid fa-arrows-left-right mr-1.5 text-[10px]" aria-hidden="true" />
+        <p className="text-center text-[11px] text-neutral-500 md:hidden">
+            <i className="fa-solid fa-arrows-left-right mr-1.5 text-[11px]" aria-hidden="true" />
             Swipe to change day
         </p>
     )

@@ -34,7 +34,7 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
     const scale = Math.max(demand, capacity ?? 0) || 1
 
     return (
-        <section className="rounded-2xl border border-black/[0.06] bg-white p-4">
+        <section className="rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="flex items-center gap-2 text-sm font-bold text-neutral-900">
                     <i
@@ -97,13 +97,13 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
                 </div>
             )}
             {capacity === null && demand > 0 && (
-                <p className="mt-2 text-xs text-neutral-400">
+                <p className="mt-2 text-xs text-neutral-500">
                     No capacity to measure this against yet.
                 </p>
             )}
 
             {contributions.length === 0 ? (
-                <p className="mt-3 text-xs text-neutral-400">{RESERVE_DESCRIPTIONS[reserve]}</p>
+                <p className="mt-3 text-xs text-neutral-500">{RESERVE_DESCRIPTIONS[reserve]}</p>
             ) : (
                 <ul className="mt-3 space-y-1.5">
                     {contributions.map(({ contributor, amount }) => (
@@ -117,14 +117,14 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
                                         {contributor.label}
                                     </span>
                                     {reserve === 'focus' && contributor.focusNote && (
-                                        <span className="block truncate text-[11px] text-neutral-400">
+                                        <span className="block truncate text-[11px] text-neutral-500">
                                             {contributor.focusNote}
                                         </span>
                                     )}
                                 </span>
                                 {contributor.basis === 'assumed' && (
                                     <span
-                                        className="shrink-0 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide text-neutral-400 ring-1 ring-inset ring-neutral-200"
+                                        className="shrink-0 rounded px-1 py-px text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600 ring-1 ring-inset ring-neutral-200"
                                         title="Stood in for — this record carries no figure to read"
                                     >
                                         est
@@ -143,13 +143,13 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
                 <p className={`mt-3 text-[11px] font-semibold ${LEVEL_TEXT[level!]}`}>
                     {Math.round(ratio * 100)}% of capacity
                     {load.capacityBasis === 'default' && (
-                        <span className="font-normal text-neutral-400">
+                        <span className="font-normal text-neutral-500">
                             {' '}
                             · against the default, not yours
                         </span>
                     )}
                     {load.capacityBasis === 'calibrated' && (
-                        <span className="font-normal text-neutral-400">
+                        <span className="font-normal text-neutral-500">
                             {' '}
                             · fitted from your own history
                         </span>

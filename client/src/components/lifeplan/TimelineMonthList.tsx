@@ -68,7 +68,7 @@ export default function TimelineMonthList({
                                     {formatMonthKey(month)}
                                 </h3>
                                 {isNow && (
-                                    <span className="shrink-0 rounded-full bg-coral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-coral-700">
+                                    <span className="shrink-0 rounded-full bg-coral-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-coral-700">
                                         Now
                                     </span>
                                 )}
@@ -89,7 +89,7 @@ export default function TimelineMonthList({
 
                         {load && load.conflicts.length > 0 && (
                             <p className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-coral-600">
-                                <i className="fa-solid fa-circle-exclamation text-[10px]" aria-hidden="true" />
+                                <i className="fa-solid fa-circle-exclamation text-[11px]" aria-hidden="true" />
                                 {load.conflicts[0].title}
                             </p>
                         )}
@@ -103,7 +103,7 @@ export default function TimelineMonthList({
                         )}
 
                         {groups.length === 0 && goals.length === 0 ? (
-                            <p className="mt-3 text-xs text-neutral-400">Nothing planned.</p>
+                            <p className="mt-3 text-xs text-neutral-500">Nothing planned.</p>
                         ) : (
                             <div className="mt-3 space-y-2.5">
                                 {groups.map(({ pillar, items }) => (

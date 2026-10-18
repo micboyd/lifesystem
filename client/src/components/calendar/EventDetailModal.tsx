@@ -145,7 +145,7 @@ export default function EventDetailModal({
                 {calendar && !calendar.isDefault && (
                     <span className="text-xs font-semibold text-neutral-500">{calendar.name}</span>
                 )}
-                <span className="text-xs font-medium text-neutral-400">
+                <span className="text-xs font-medium text-neutral-500">
                     {daysUntilLabel(event.startDate)}
                 </span>
             </div>
@@ -153,8 +153,8 @@ export default function EventDetailModal({
                 {event.title}
             </h2>
             {event.recurrence && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-neutral-400">
-                    <i className="fa-solid fa-repeat text-[10px]" aria-hidden="true" />
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-neutral-500">
+                    <i className="fa-solid fa-repeat text-[11px]" aria-hidden="true" />
                     Repeats {RECURRENCE_LABELS[event.recurrence.frequency].toLowerCase()}
                     {event.recurrence.endsOn ? ` · ends ${event.recurrence.endsOn}` : ''}
                 </p>
@@ -172,7 +172,7 @@ export default function EventDetailModal({
                             {(() => {
                                 const nights = nightsBetween(event.startDate, event.endDate)
                                 return (
-                                    <span className="ml-2 whitespace-nowrap text-neutral-400">
+                                    <span className="ml-2 whitespace-nowrap text-neutral-500">
                                         · {nights} {nights === 1 ? 'night' : 'nights'}
                                     </span>
                                 )
@@ -231,8 +231,8 @@ export default function EventDetailModal({
                             <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">
                                 {event.notes}
                             </p>
-                            <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-neutral-400 group-hover:text-neutral-500">
-                                <i className="fa-solid fa-pen text-[10px]" aria-hidden="true" />
+                            <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-neutral-500 group-hover:text-neutral-500">
+                                <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
                                 Edit notes
                             </span>
                         </button>
@@ -240,7 +240,7 @@ export default function EventDetailModal({
                         <button
                             type="button"
                             onClick={() => setEditingNotes(true)}
-                            className="flex items-center gap-2 rounded-2xl border border-dashed border-neutral-200 px-4 py-3 text-sm font-medium text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-600"
+                            className="flex items-center gap-2 rounded-2xl border border-dashed border-neutral-200 px-4 py-3 text-sm font-medium text-neutral-500 transition-colors hover:border-neutral-300 hover:text-neutral-600"
                         >
                             <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
                             Add notes
@@ -264,7 +264,7 @@ function DetailRow({ icon, children }: { icon: string; children: React.ReactNode
     return (
         <div className="flex items-start gap-3">
             <i
-                className={`${icon} mt-0.5 w-4 shrink-0 text-center text-sm text-neutral-400`}
+                className={`${icon} mt-0.5 w-4 shrink-0 text-center text-sm text-neutral-500`}
                 aria-hidden="true"
             />
             <span className="text-sm font-medium text-neutral-700">{children}</span>

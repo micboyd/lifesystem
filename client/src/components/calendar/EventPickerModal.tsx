@@ -31,7 +31,7 @@ export default function EventPickerModal({ events, onClose, onSelect }: Props) {
                                 <span className="block truncate text-sm font-semibold text-neutral-900">
                                     {event.title}
                                 </span>
-                                <span className="text-xs text-neutral-400">
+                                <span className="text-xs text-neutral-500">
                                     {calendar && !calendar.isDefault && `${calendar.name} · `}
                                     {isNa ? 'Other' : EVENT_TYPE_LABELS[event.eventType]}
                                     {event.recurrence && ' · recurring'}

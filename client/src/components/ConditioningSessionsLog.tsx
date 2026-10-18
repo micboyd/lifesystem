@@ -240,7 +240,7 @@ export default function ConditioningSessionsLog() {
                             <div className="flex flex-col gap-6">
                                 {controls.grouped.map(([date, dayLogs]) => (
                                     <section key={date} className="flex flex-col gap-2">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                             {formatLogDate(date, todayISO())}
                                         </p>
                                         <div className="flex flex-col gap-2">
@@ -335,7 +335,7 @@ function LogRow({
                         <p className="font-semibold text-neutral-900">{log.name}</p>
                         <CategoryChip category={log.category} />
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
                         <span>
                             <i className="fa-regular fa-clock mr-1" aria-hidden="true" />
                             {log.duration} min
@@ -375,7 +375,7 @@ function LogRow({
                     trigger={
                         <span
                             aria-label="Log actions"
-                            className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                            className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                         >
                             <LineIcon name="more" className="h-4 w-4" />
                         </span>
@@ -425,7 +425,7 @@ function RoundChips({
                 )
             })}
             {hidden > 0 && (
-                <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium text-neutral-400">
+                <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium text-neutral-500">
                     +{hidden} more
                 </span>
             )}
@@ -539,7 +539,7 @@ function LogViewDrawer({
                             </div>
                             {view.rounds && view.rounds.length > 0 && (
                                 <section>
-                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                                    <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                         Rounds completed
                                     </p>
                                     <RoundChips rounds={view.rounds} />
@@ -695,7 +695,7 @@ function LogFormDrawer({
                 )}
 
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    <label className="text-[13px] font-medium text-neutral-700">
                         Date *
                     </label>
                     <DatePicker

@@ -9,7 +9,7 @@ interface ProgressProps {
 
 const barClasses: Record<ProgressVariant, string> = {
     default: 'bg-neutral-900',
-    success: 'bg-herb',
+    success: 'bg-success',
 }
 
 export default function Progress({
@@ -23,15 +23,15 @@ export default function Progress({
     return (
         <div className={className}>
             {showLabel && (
-                <div className="mb-1.5 flex items-center justify-between text-xs text-neutral-400">
+                <div className="mb-2 flex items-center justify-between text-[13px] text-neutral-600">
                     <span>Progress</span>
-                    <span className="font-semibold tabular-nums text-neutral-500">
+                    <span className="tabular-nums text-neutral-600">
                         {Math.round(clamped)}%
                     </span>
                 </div>
             )}
             <div
-                className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100"
+                className="h-2 w-full overflow-hidden rounded-full bg-neutral-100"
                 role="progressbar"
                 aria-valuenow={Math.round(clamped)}
                 aria-valuemin={0}
