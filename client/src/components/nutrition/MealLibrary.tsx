@@ -3,6 +3,7 @@ import { Card } from '../Card'
 import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
+import LibraryToolbar from '../LibraryToolbar'
 import Textarea from '../Textarea'
 import Select from '../Select'
 import EmptyState from '../EmptyState'
@@ -129,52 +130,44 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
 
     return (
         <>
-            <div className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Input
-                        icon="fa-solid fa-magnifying-glass"
-                        type="search"
-                        placeholder="Search meals…"
-                        value={search}
-                        onChange={(e) => {
-                            setSearch(e.target.value)
-                            setPage(1)
-                        }}
-                        className="w-full sm:w-64"
-                    />
-                    <div className="flex items-center gap-2">
-                        <Button variant="secondary" icon="fa-solid fa-file-import" onClick={() => setImporting(true)}>
-                            Import
-                        </Button>
-                        <Button icon="fa-solid fa-plus" onClick={newMeal}>
-                            New meal
-                        </Button>
-                        {meals.length > 0 && (
-                            <DropdownMenu
-                                align="right"
-                                trigger={
-                                    <span
-                                        aria-label="More library actions"
-                                        className="grid h-10 w-10 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                                    >
-                                        <LineIcon name="more" className="h-4 w-4" />
-                                    </span>
-                                }
-                                items={[
-                                    {
-                                        label: 'Delete all meals',
-                                        icon: 'fa-solid fa-trash-can',
-                                        danger: true,
-                                        onClick: () => setClearing(true),
-                                    },
-                                ]}
-                            />
-                        )}
-                    </div>
-                </div>
-
+            <LibraryToolbar
+                search={search}
+                onSearch={(v) => {
+                    setSearch(v)
+                    setPage(1)
+                }}
+                placeholder="Search meals…"
+                count={meals.length ? filtered.length : undefined}
+                noun="meal"
+                onImport={() => setImporting(true)}
+                newLabel="New meal"
+                onNew={newMeal}
+                menu={
+                    meals.length > 0 && (
+                        <DropdownMenu
+                            align="right"
+                            trigger={
+                                <span
+                                    aria-label="More library actions"
+                                    className="grid h-10 w-10 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                >
+                                    <LineIcon name="more" className="h-4 w-4" />
+                                </span>
+                            }
+                            items={[
+                                {
+                                    label: 'Delete all meals',
+                                    icon: 'fa-solid fa-trash-can',
+                                    danger: true,
+                                    onClick: () => setClearing(true),
+                                },
+                            ]}
+                        />
+                    )
+                }
+            >
                 {meals.length > 0 && (
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                         <PillToggle
                             label="Meal of the day"
                             value={filter}
@@ -195,9 +188,9 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
                         />
                     </div>
                 )}
-            </div>
+            </LibraryToolbar>
 
-            <div className="mt-4">
+            <div className="mt-6">
                 {meals.length === 0 ? (
                     <EmptyState
                         icon="fa-solid fa-bowl-food"

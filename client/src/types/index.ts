@@ -359,6 +359,69 @@ export type EntryStatus = (typeof ENTRY_STATUSES)[number]
  * day never changes when the library does. `extra` is food added with "Log
  * more" rather than planned.
  */
+/** A raw ingredient in a box: how much goes in, and its packet macros per 100 g. */
+export interface Ingredient {
+    name: string
+    grams: number
+    per100: Macros
+}
+
+export type PlateFoodKind = 'box' | 'plain'
+
+/** One cook of a box — a batch, with its macros per 100 g of cooked food. */
+export interface BoxCook {
+    _id: string
+    food: string
+    name: string
+    /** "YYYY-MM-DD". */
+    date: string
+    ingredients: Ingredient[]
+    raw: Macros
+    cookedGrams: number
+    per100: Macros
+    finished: boolean
+    /** Grams eaten from it so far (open batches only). */
+    eatenGrams?: number
+    createdAt: string
+}
+
+/**
+ * Something weighed onto a plate: a box cooked from raw ingredients, or a
+ * plain food (cooked rice, say) with fixed macros per 100 g.
+ */
+export interface PlateFood {
+    _id: string
+    kind: PlateFoodKind
+    name: string
+    ingredients: Ingredient[]
+    per100?: Macros
+    notes?: string
+    order: number
+    /** A box's batches not yet finished, newest first. */
+    open: BoxCook[]
+    /** A box's latest cook, finished or not. */
+    last: BoxCook | null
+}
+
+export type PlateFoodInput = Pick<PlateFood, 'kind' | 'name' | 'ingredients' | 'per100' | 'notes'>
+
+/** One line of a plate: grams of a food, with the per-100 g figures it counts at. */
+export interface PlateLine {
+    food: string
+    name: string
+    grams: number
+    /** The cook a box line draws from. */
+    batch?: string
+    per100: Macros
+}
+
+/** A plate line as sent to the server — it fills in the figures. */
+export interface PlateLineInput {
+    food: string
+    grams: number
+    batch?: string
+}
+
 export interface MealPlanEntry {
     _id: string
     /** "YYYY-MM-DD". */
@@ -366,6 +429,8 @@ export interface MealPlanEntry {
     slot: MealType
     /** The library meal's id, if it still exists. */
     meal?: string
+    /** Set on a plate: foods weighed by the gram. `macros` is their total. */
+    plate?: PlateLine[]
     name: string
     macros: Macros
     status: EntryStatus

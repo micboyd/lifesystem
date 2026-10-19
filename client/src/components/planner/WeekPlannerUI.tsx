@@ -110,7 +110,7 @@ export function HeroShell({ tone = 'dark', children }: { tone?: HeroTone; childr
                 }
             >
                 <div
-                    className={`relative flex flex-col ${soft ? 'gap-3' : 'gap-5 p-5 sm:p-7'}`}
+                    className={`relative flex flex-col ${soft ? 'gap-5 sm:gap-3' : 'gap-5 p-5 sm:p-7'}`}
                 >
                     {children}
                 </div>
@@ -141,7 +141,7 @@ export function HeroIconButton({
             title={label}
             onClick={onClick}
             disabled={disabled}
-            className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors disabled:opacity-60 ${
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-colors sm:h-9 sm:w-9 disabled:opacity-60 ${
                 primary
                     ? soft
                         ? 'bg-neutral-900 text-white hover:bg-neutral-800'
@@ -188,7 +188,7 @@ export function HeroButton({
             disabled={disabled}
             aria-label={iconOnlyOnPhone && typeof children === 'string' ? children : undefined}
             className={`inline-flex items-center gap-2 text-sm font-semibold transition-all disabled:opacity-60 ${
-                soft ? 'h-9 px-3.5' : 'px-4 py-2'
+                soft ? 'h-10 px-4 sm:h-9 sm:px-3.5' : 'px-4 py-2'
             } ${look}`}
         >
             <i className={`${icon} text-xs`} aria-hidden="true" />
@@ -267,7 +267,9 @@ export function ProgressRing({
                             className={`font-bold tabular-nums ${soft ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'}`}
                         >
                             {value}
-                            <span className={soft ? 'text-neutral-400' : 'text-white/50'}>/{max}</span>
+                            <span className={soft ? 'text-neutral-400' : 'text-white/50'}>
+                                /{max}
+                            </span>
                         </p>
                         <p
                             className={`mt-1 text-[11px] font-medium uppercase tracking-[0.06em] ${
@@ -290,7 +292,7 @@ export function DayStrip({ children, light = false }: { children: ReactNode; lig
     const soft = useSoftHero()
     return (
         <div
-            className={`grid grid-cols-7 gap-1 rounded-2xl p-1 sm:gap-1.5 sm:p-1.5 ${
+            className={`grid grid-cols-7 gap-1.5 rounded-2xl p-1.5 ${
                 light
                     ? 'bg-neutral-100'
                     : soft
@@ -336,7 +338,7 @@ export function DayPill({
             onClick={onClick}
             aria-label={`${weekday} ${day} ${MONTHS[month]}`}
             aria-current={active ? 'date' : undefined}
-            className={`relative flex flex-col items-center gap-1 rounded-xl py-2 transition-all sm:py-2.5 ${
+            className={`relative flex flex-col items-center gap-1 rounded-xl py-2.5 transition-all ${
                 active
                     ? soft
                         ? 'bg-coral-50 text-neutral-900 ring-1 ring-inset ring-coral-200'
@@ -347,12 +349,11 @@ export function DayPill({
             }`}
         >
             <span
-                className={`text-[11px] font-medium uppercase tracking-[0.06em] ${
+                className={`text-[10px] font-semibold uppercase tracking-[0.04em] sm:text-[11px] sm:font-medium sm:tracking-[0.06em] ${
                     active ? 'text-neutral-600' : onLight ? 'text-neutral-500' : 'text-white/50'
                 }`}
             >
-                <span className="sm:hidden">{weekday.slice(0, 1)}</span>
-                <span className="hidden sm:inline">{weekday.slice(0, 3)}</span>
+                {weekday.slice(0, 3)}
             </span>
             <span
                 className={`grid h-7 w-7 place-items-center rounded-full text-sm font-bold tabular-nums sm:h-8 sm:w-8 sm:text-base ${
@@ -485,9 +486,7 @@ export function DayCardShell({
             id={id}
             className={`relative scroll-mt-32 flex-col overflow-hidden rounded-[20px] bg-white ${
                 compact ? 'gap-3 p-3' : 'gap-4 p-4 sm:p-5'
-            } ${
-                isToday ? 'ring-2 ring-coral-200' : 'ring-1 ring-neutral-900/[0.06]'
-            } ${className}`}
+            } ${isToday ? 'ring-2 ring-coral-200' : 'ring-1 ring-neutral-900/[0.06]'} ${className}`}
         >
             {children}
         </section>

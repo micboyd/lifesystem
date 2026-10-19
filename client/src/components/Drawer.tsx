@@ -45,8 +45,9 @@ export default function Drawer({
     // Kept mounted so the slide transition plays on both open and close.
 
     // Phones: a full-screen sheet. From sm up: a panel floating 8px off the
-    // edge with the same 20px rounding as a modal.
-    const hiddenTransform = side === 'right' ? 'translate-x-[calc(100%+1rem)]' : '-translate-x-[calc(100%+1rem)]'
+    // edge with the same 20px rounding as a modal. Parked far enough off-screen
+    // that shadow-xl's blur (~20px) can't bleed back into view while closed.
+    const hiddenTransform = side === 'right' ? 'translate-x-[calc(100%+3rem)]' : '-translate-x-[calc(100%+3rem)]'
 
     return createPortal(
         <div className={`fixed inset-0 z-50 ${open ? '' : 'pointer-events-none'}`}>

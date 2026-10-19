@@ -30,6 +30,8 @@ import { CATEGORY, MacroBar, MacroLegend } from './mealUi'
 import { fmt, kcal, signedKcal } from './format'
 import {
     addPlanEntry,
+    addPlatePlanEntry,
+    updatePlate,
     deletePlanEntry,
     listPlanEntries,
     setEntryStatus,
@@ -42,7 +44,20 @@ import { listNutritionPhases } from '../../services/nutritionPhases'
 import { addDays, formatWeekRange, parseDateKey, todayKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
 import { sumEatenMacros, sumMacros, targetsFor } from '../../lib/nutrition'
 import { MEAL_TYPES } from '../../types'
-import type { DailyEnergy, MacroGoals, Macros, Meal, MealPlanEntry, MealType, NutritionPhase } from '../../types'
+import { plateTotal } from '../../lib/plates'
+import { PlateBuilder, PlateLinesEditor, plateTitle } from './PlateUI'
+import type {
+    DailyEnergy,
+    MacroGoals,
+    Macros,
+    Meal,
+    MealPlanEntry,
+    MealType,
+    NutritionPhase,
+    PlateFood,
+    PlateLine,
+    PlateLineInput,
+} from '../../types'
 
 /**
  * The nutrition week planner, built from the same parts as the Fitness one and
@@ -93,7 +108,16 @@ function plannedMeta(entry: MealPlanEntry): string {
 
 type PickerTarget = { date: string; slot: MealType; extra: boolean }
 
-export default function NutritionPlanner({ meals, settingsGoals }: { meals: Meal[]; settingsGoals?: MacroGoals }) {
+export default function NutritionPlanner({
+    meals,
+    foods,
+    settingsGoals,
+}: {
+    meals: Meal[]
+    /** Boxes and plain foods, for weighing out plates. */
+    foods: PlateFood[]
+    settingsGoals?: MacroGoals
+}) {
     // Wide screens get the full-width week board; smaller ones a day feed (one
     // day at a time on a phone).
     const board = useMediaQuery(LARGE_QUERY)
@@ -162,6 +186,33 @@ export default function NutritionPlanner({ meals, settingsGoals }: { meals: Meal
             setEntries((prev) => [...prev, entry])
         } catch {
             toast.show('Could not add that meal — please try again.', 'danger')
+        }
+    }
+
+    async function handleAddPlate(date: string, slot: MealType, plate: PlateLineInput[], extra: boolean) {
+        try {
+            const entry = await addPlatePlanEntry(date, slot, plate, extra)
+            setEntries((prev) => [...prev, entry])
+        } catch {
+            toast.show('Could not add that plate — please try again.', 'danger')
+        }
+    }
+
+    // A plate's grams changed at the table. Lines keep their batch, so an eaten
+    // plate stays on the cook it came from. Optimistic, reverting on failure.
+    async function handleUpdatePlate(entry: MealPlanEntry, lines: PlateLine[]) {
+        setEntries((prev) =>
+            prev.map((e) => (e._id === entry._id ? { ...e, plate: lines, macros: plateTotal(lines) } : e))
+        )
+        try {
+            const saved = await updatePlate(
+                entry._id,
+                lines.map((l) => ({ food: l.food, grams: l.grams, ...(l.batch ? { batch: l.batch } : {}) }))
+            )
+            setEntries((prev) => prev.map((e) => (e._id === saved._id ? { ...saved, status: e.status } : e)))
+        } catch {
+            setEntries((prev) => prev.map((e) => (e._id === entry._id ? entry : e)))
+            toast.show('Could not save those grams — please try again.', 'danger')
         }
     }
 
@@ -269,7 +320,7 @@ export default function NutritionPlanner({ meals, settingsGoals }: { meals: Meal
     }
 
     return (
-        <div className="flex flex-col gap-4 sm:gap-5">
+        <div className="flex flex-col gap-6 sm:gap-5">
             <NutritionWeekHero
                 weekStart={range.start}
                 selected={anchor}
@@ -350,9 +401,11 @@ export default function NutritionPlanner({ meals, settingsGoals }: { meals: Meal
             <MealPickerDrawer
                 target={picker}
                 meals={meals}
+                foods={foods}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
                 onClose={() => setPicker(null)}
                 onAdd={handleAdd}
+                onAddPlate={handleAddPlate}
                 onRemove={handleRemove}
             />
 
@@ -361,6 +414,7 @@ export default function NutritionPlanner({ meals, settingsGoals }: { meals: Meal
                 meal={detailEntry?.meal ? (mealsById.get(detailEntry.meal) ?? null) : null}
                 onClose={() => setDetail(null)}
                 onToggle={handleToggle}
+                onUpdatePlate={handleUpdatePlate}
                 onRemove={(id) => {
                     setDetail(null)
                     void handleRemove(id)
@@ -600,32 +654,43 @@ function NutritionWeekHero({
         ready && entries.length === 0 && 'nothing planned yet',
     ].filter(Boolean)
 
+    const arrows = (
+        <div className="flex shrink-0 items-center gap-2 sm:gap-1">
+            <HeroIconButton label="Previous week" icon="fa-solid fa-chevron-left" onClick={() => onStep(-1)} />
+            <HeroIconButton label="Next week" icon="fa-solid fa-chevron-right" onClick={() => onStep(1)} />
+        </div>
+    )
+
+    // Phones: the week's title gets a row to itself, the controls a row under
+    // it. From `sm` up it all sits on one line — the same as the Fitness planner.
     return (
         <HeroShell tone="soft">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <div className="flex min-w-0 flex-1 basis-56 items-center gap-3">
-                    <div className="flex shrink-0 items-center gap-1">
-                        <HeroIconButton label="Previous week" icon="fa-solid fa-chevron-left" onClick={() => onStep(-1)} />
-                        <HeroIconButton label="Next week" icon="fa-solid fa-chevron-right" onClick={() => onStep(1)} />
-                    </div>
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="hidden sm:block">{arrows}</div>
                     <div className="min-w-0 flex-1">
-                        <h2 className="truncate text-lg font-semibold tracking-tight">
+                        <h2 className="truncate text-xl font-semibold tracking-tight sm:text-lg">
                             {relativeWeekLabel(weekStart, mondayOf(today))}
                         </h2>
-                        <p className="truncate text-[13px] text-neutral-500">{facts.join(' · ')}</p>
+                        <p className="mt-0.5 text-[13px] leading-snug text-neutral-500 sm:mt-0 sm:truncate">
+                            {facts.join(' · ')}
+                        </p>
                     </div>
                 </div>
 
-                <div className="ml-auto flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-3 sm:ml-auto sm:gap-2">
+                    <div className="sm:hidden">{arrows}</div>
                     {!isThisWeek && (
                         <HeroButton icon="fa-solid fa-calendar-day" onClick={() => onPick(today)}>
                             Today
                         </HeroButton>
                     )}
                     {canEdit && !editing && (
-                        <HeroButton primary icon="fa-solid fa-pen" onClick={onStartEditing}>
-                            Edit plan
-                        </HeroButton>
+                        <div className="ml-auto">
+                            <HeroButton primary icon="fa-solid fa-pen" onClick={onStartEditing}>
+                                Edit plan
+                            </HeroButton>
+                        </div>
                     )}
                 </div>
             </div>
@@ -1272,7 +1337,7 @@ function PlannedRow({
                 <span
                     className={`block truncate text-sm font-medium ${done && !entry.extra ? 'text-neutral-500' : 'text-neutral-900'}`}
                 >
-                    {entry.name}
+                    {plateTitle(entry)}
                 </span>
                 <span className="mt-0.5 block truncate text-[13px] text-neutral-500">{plannedMeta(entry)}</span>
             </span>
@@ -1496,18 +1561,24 @@ const PICKER_PAGE_SIZE = 10
 function MealPickerDrawer({
     target,
     meals,
+    foods,
     entries,
     onClose,
     onAdd,
+    onAddPlate,
     onRemove,
 }: {
     target: PickerTarget | null
     meals: Meal[]
+    foods: PlateFood[]
     entries: MealPlanEntry[]
     onClose: () => void
     onAdd: (date: string, slot: MealType, mealId: string, extra: boolean) => Promise<void>
+    onAddPlate: (date: string, slot: MealType, plate: PlateLineInput[], extra: boolean) => Promise<void>
     onRemove: (id: string) => void
 }) {
+    // A saved meal, or a plate weighed out from boxes and foods.
+    const [mode, setMode] = useState<'meal' | 'plate'>('meal')
     // Retain the last target so the drawer keeps its content while sliding shut.
     const [view, setView] = useState(target)
     const [query, setQuery] = useState('')
@@ -1520,7 +1591,10 @@ function MealPickerDrawer({
             setQuery('')
             setActiveSlot(target.slot)
             setPage(1)
+            // Lunch and dinner are usually plated from the boxes.
+            setMode(foods.length > 0 && (target.slot === 'lunch' || target.slot === 'dinner') ? 'plate' : 'meal')
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [target])
 
     useEffect(() => {
@@ -1618,6 +1692,47 @@ function MealPickerDrawer({
                     </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1">
+                    {(
+                        [
+                            ['meal', 'Saved meal', 'fa-solid fa-bowl-food'],
+                            ['plate', 'Plate by weight', 'fa-solid fa-scale-balanced'],
+                        ] as const
+                    ).map(([m, label, icon]) => (
+                        <button
+                            key={m}
+                            type="button"
+                            onClick={() => setMode(m)}
+                            aria-pressed={mode === m}
+                            className={`inline-flex h-10 items-center justify-center gap-2 rounded-[9px] text-[13px] font-semibold transition-all ${
+                                mode === m
+                                    ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
+                                    : 'text-neutral-500 hover:text-neutral-900'
+                            }`}
+                        >
+                            <i className={`${icon} text-xs`} aria-hidden="true" />
+                            {label}
+                        </button>
+                    ))}
+                </div>
+
+                {mode === 'plate' ? (
+                    <PlateBuilder
+                        foods={foods}
+                        busy={busy}
+                        actionLabel={extra ? 'Log plate' : 'Add plate'}
+                        onAdd={async (plate) => {
+                            if (!view) return
+                            setBusy(true)
+                            try {
+                                await onAddPlate(view.date, activeSlot, plate, extra)
+                            } finally {
+                                setBusy(false)
+                            }
+                        }}
+                    />
+                ) : (
+                <>
                 <Input
                     icon="fa-solid fa-magnifying-glass"
                     type="search"
@@ -1667,6 +1782,8 @@ function MealPickerDrawer({
                 )}
 
                 <Pagination page={page} pageCount={pageCount} onChange={setPage} />
+                </>
+                )}
             </div>
         </Drawer>
     )
@@ -1680,6 +1797,7 @@ function PlannedMealDrawer({
     meal,
     onClose,
     onToggle,
+    onUpdatePlate,
     onRemove,
 }: {
     entry: MealPlanEntry | null
@@ -1687,6 +1805,7 @@ function PlannedMealDrawer({
     meal: Meal | null
     onClose: () => void
     onToggle: (entry: MealPlanEntry) => void
+    onUpdatePlate: (entry: MealPlanEntry, lines: PlateLine[]) => void
     onRemove: (id: string) => void
 }) {
     // Retain the last entry while the drawer animates closed.
@@ -1736,6 +1855,9 @@ function PlannedMealDrawer({
             {e && (
                 <div className="flex flex-col gap-6">
                     <PlannedContext entry={e} />
+                    {e.plate?.length ? (
+                        <PlateLinesEditor key={e._id} lines={e.plate} onChange={(lines) => onUpdatePlate(e, lines)} />
+                    ) : null}
                     <StatStrip
                         stats={[
                             { icon: 'fa-solid fa-fire', label: 'Calories', value: `${kcal(e.macros.calories)} kcal` },

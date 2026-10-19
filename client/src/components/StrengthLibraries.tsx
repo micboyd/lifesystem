@@ -5,6 +5,7 @@ import { Card } from './Card'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
+import LibraryToolbar from './LibraryToolbar'
 import Textarea from './Textarea'
 import Select from './Select'
 import Switch from './Switch'
@@ -43,11 +44,7 @@ import { VideoButton } from './ExerciseVideo'
 import { parseVideo } from '../lib/video'
 import { SESSION_PHASES } from '../types'
 import type { Exercise, Phased, SessionPhase, Workout, WorkoutExercise } from '../types'
-import {
-    emptyPhases,
-    estimateWorkoutMinutes,
-    mapPhases,
-} from '../lib/phases'
+import { emptyPhases, estimateWorkoutMinutes, mapPhases } from '../lib/phases'
 
 // ─── Import templates ─────────────────────────────────────────────────────────
 
@@ -199,7 +196,8 @@ function ExerciseLibrary({
                             optional, and so is{' '}
                             <span className="font-semibold text-neutral-700">videoUrl</span> — a
                             demo video (a YouTube link plays in the app from the exercise&apos;s
-                            card; <span className="font-semibold text-neutral-700">youtubeLink</span>{' '}
+                            card;{' '}
+                            <span className="font-semibold text-neutral-700">youtubeLink</span>{' '}
                             works too).
                         </p>
                         <p>
@@ -233,31 +231,19 @@ function ExerciseLibrary({
 
     return (
         <>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <Input
-                    icon="fa-solid fa-magnifying-glass"
-                    type="search"
-                    placeholder="Search exercises…"
-                    value={search}
-                    onChange={(e) => {
-                        setSearch(e.target.value)
-                        setPage(1)
-                    }}
-                    className="w-full sm:w-64"
-                />
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="secondary"
-                        icon="fa-solid fa-file-import"
-                        onClick={() => setImporting(true)}
-                    >
-                        Import
-                    </Button>
-                    <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
-                        New exercise
-                    </Button>
-                </div>
-            </div>
+            <LibraryToolbar
+                search={search}
+                onSearch={(v) => {
+                    setSearch(v)
+                    setPage(1)
+                }}
+                placeholder="Search exercises…"
+                count={exercises.length ? filtered.length : undefined}
+                noun="exercise"
+                onImport={() => setImporting(true)}
+                newLabel="New exercise"
+                onNew={() => setDrawer({ mode: 'create' })}
+            />
 
             {exercises.length === 0 ? (
                 <EmptyState
@@ -681,29 +667,17 @@ function WorkoutLibrary({
 
     return (
         <>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <Input
-                    icon="fa-solid fa-magnifying-glass"
-                    type="search"
-                    placeholder="Search workouts…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full sm:w-64"
-                />
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="secondary"
-                        icon="fa-solid fa-file-import"
-                        onClick={openImport}
-                        disabled={openingImport}
-                    >
-                        Import
-                    </Button>
-                    <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
-                        New workout
-                    </Button>
-                </div>
-            </div>
+            <LibraryToolbar
+                search={search}
+                onSearch={setSearch}
+                placeholder="Search workouts…"
+                count={libLoading && lib.workouts.length === 0 ? undefined : lib.total}
+                noun="workout"
+                onImport={openImport}
+                importDisabled={openingImport}
+                newLabel="New workout"
+                onNew={() => setDrawer({ mode: 'create' })}
+            />
 
             {libLoading && lib.workouts.length === 0 ? (
                 <div className="grid place-items-center py-16">
@@ -919,7 +893,11 @@ function WorkoutViewDrawer({
                         >
                             Delete
                         </Button>
-                        <Button variant="secondary" icon="fa-solid fa-pen" onClick={() => onEdit(w)}>
+                        <Button
+                            variant="secondary"
+                            icon="fa-solid fa-pen"
+                            onClick={() => onEdit(w)}
+                        >
                             Edit
                         </Button>
                         <Button
@@ -1209,7 +1187,10 @@ function ExercisePicker({
                                     }
                                     className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] transition-colors hover:bg-neutral-100 ${showSteps ? 'text-neutral-900' : 'text-neutral-500'}`}
                                 >
-                                    <i className="fa-solid fa-list-check text-xs" aria-hidden="true" />
+                                    <i
+                                        className="fa-solid fa-list-check text-xs"
+                                        aria-hidden="true"
+                                    />
                                 </button>
                                 <button
                                     type="button"

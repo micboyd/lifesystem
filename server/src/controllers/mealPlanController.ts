@@ -3,6 +3,7 @@ import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import MealPlanEntry, { ENTRY_STATUSES, EntryStatus } from '../models/MealPlanEntry'
 import Meal, { MEAL_TYPES, MealType } from '../models/Meal'
+import { plateFields, resolvePlate } from '../lib/plateLines'
 
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
 const isSlot = (v: unknown): v is MealType => MEAL_TYPES.includes(v as MealType)
@@ -23,13 +24,34 @@ export async function listEntries(req: AuthRequest, res: Response) {
 }
 
 /**
- * POST /api/meal-plan { date, slot, meal, extra? } — puts a library meal on a
- * day. A planned meal waits to be ticked; an extra ("Log more") is eaten.
+ * POST /api/meal-plan { date, slot, meal | plate, extra? } — puts a library
+ * meal, or a plate of weighed foods (`[{ food, grams, batch? }]`), on a day.
+ * A planned meal waits to be ticked; an extra ("Log more") is eaten.
  */
 export async function createEntry(req: AuthRequest, res: Response) {
-    const { date, slot, meal: mealId, extra } = req.body ?? {}
+    const { date, slot, meal: mealId, plate, extra } = req.body ?? {}
     if (!isDate(date) || !isSlot(slot)) {
         res.status(400).json({ message: 'date and slot are required' })
+        return
+    }
+    const status = extra === true ? 'eaten' : 'planned'
+    if (plate !== undefined) {
+        const lines = await resolvePlate(req.userId!, plate)
+        if (typeof lines === 'string') {
+            res.status(400).json({ message: lines })
+            return
+        }
+        const last = await MealPlanEntry.findOne({ user: req.userId, date, slot }).sort({ order: -1 })
+        const entry = await MealPlanEntry.create({
+            user: req.userId,
+            date,
+            slot,
+            ...plateFields(lines),
+            status,
+            extra: extra === true,
+            order: (last?.order ?? -1) + 1,
+        })
+        res.status(201).json({ message: 'Created', data: entry })
         return
     }
     const meal = await Meal.findOne({ _id: mealId, user: req.userId })
@@ -52,22 +74,40 @@ export async function createEntry(req: AuthRequest, res: Response) {
     res.status(201).json({ message: 'Created', data: entry })
 }
 
-/** PATCH /api/meal-plan/:id { status } — the tick. */
+/**
+ * PATCH /api/meal-plan/:id { status?, plate? } — the tick, and a plate's
+ * grams (or batch) changed at the table. Each line keeps the batch figures it
+ * was given, so an eaten plate never moves when a box is cooked again.
+ */
 export async function updateEntry(req: AuthRequest, res: Response) {
-    const { status } = req.body ?? {}
-    if (!isStatus(status)) {
+    const { status, plate } = req.body ?? {}
+    if (status !== undefined && !isStatus(status)) {
         res.status(400).json({ message: 'status must be planned or eaten' })
         return
     }
-    const entry = await MealPlanEntry.findOneAndUpdate(
-        { _id: req.params.id, user: req.userId },
-        { status },
-        { new: true }
-    )
+    if (status === undefined && plate === undefined) {
+        res.status(400).json({ message: 'Nothing to update' })
+        return
+    }
+    const entry = await MealPlanEntry.findOne({ _id: req.params.id, user: req.userId })
     if (!entry) {
         res.status(404).json({ message: 'Entry not found' })
         return
     }
+    if (plate !== undefined) {
+        if (!entry.plate?.length) {
+            res.status(400).json({ message: 'Only a plate has grams to change' })
+            return
+        }
+        const lines = await resolvePlate(req.userId!, plate)
+        if (typeof lines === 'string') {
+            res.status(400).json({ message: lines })
+            return
+        }
+        Object.assign(entry, plateFields(lines))
+    }
+    if (status !== undefined) entry.status = status
+    await entry.save()
     res.json({ message: 'OK', data: entry })
 }
 
@@ -157,6 +197,7 @@ export async function copyWeek(req: AuthRequest, res: Response) {
             date,
             slot: e.slot,
             meal: e.meal,
+            ...(e.plate?.length ? { plate: e.plate } : {}),
             name: e.name,
             macros: e.macros,
             status: 'planned',

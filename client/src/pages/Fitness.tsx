@@ -5,6 +5,7 @@ import { Card } from '../components/Card'
 import Spinner from '../components/Spinner'
 import Button from '../components/Button'
 import Input from '../components/Input'
+import LibraryToolbar from '../components/LibraryToolbar'
 import Textarea from '../components/Textarea'
 import Select from '../components/Select'
 import EmptyState from '../components/EmptyState'
@@ -115,19 +116,11 @@ const SESSION_TEMPLATE = `[
 ]
 `
 
-const TABS = [
-    'Planner',
-    'Strength',
-    'Conditioning',
-    'Plans',
-    'Stats',
-    'Body',
-] as const
+const TABS = ['Planner', 'Strength', 'Conditioning', 'Plans', 'Stats', 'Body'] as const
 type Tab = (typeof TABS)[number]
 
 const SUBTITLE: Record<Tab, string> = {
-    Planner:
-        'Plan your training — drop strength and conditioning into each day.',
+    Planner: 'Plan your training — drop strength and conditioning into each day.',
     Plans: 'Whole training blocks — import a plan, then apply it to fill the planner day by day.',
     Stats: 'What the logs already know — progression per exercise, how often you train, records, and where the volume goes.',
     Body: 'Weigh in and watch the trend, not the scale — the smoothed line is what tracks fat.',
@@ -373,12 +366,12 @@ function ConditioningLibrary() {
                             and — required — their slot in the session:{' '}
                             <span className="font-semibold text-neutral-700">startMin</span> and{' '}
                             <span className="font-semibold text-neutral-700">endMin</span>, minutes
-                            from the start (e.g. 15 and 30), running in order. Your Completed
-                            press on each part is timed against it, so you can see if you&apos;re
-                            on time. An optional{' '}
-                            <span className="font-semibold text-neutral-700">steps</span> list
-                            (one string per step) gives a part a sub-list to tick off.
-                            Add <span className="font-semibold text-neutral-700">rounds</span> (a
+                            from the start (e.g. 15 and 30), running in order. Your Completed press
+                            on each part is timed against it, so you can see if you&apos;re on time.
+                            An optional{' '}
+                            <span className="font-semibold text-neutral-700">steps</span> list (one
+                            string per step) gives a part a sub-list to tick off. Add{' '}
+                            <span className="font-semibold text-neutral-700">rounds</span> (a
                             number) to a part to get a tap-to-count counter, plus an optional{' '}
                             <span className="font-semibold text-neutral-700">roundLabel</span>,{' '}
                             <span className="font-semibold text-neutral-700">roundDetails</span>{' '}
@@ -386,7 +379,8 @@ function ConditioningLibrary() {
                             <span className="font-semibold text-neutral-700">roundSeconds</span>{' '}
                             (each rep's length in seconds) with{' '}
                             <span className="font-semibold text-neutral-700">startAtSec</span>{' '}
-                            (seconds into the session when rep 1 starts; defaults to the part’s startMin) to show a time window on each rep.
+                            (seconds into the session when rep 1 starts; defaults to the part’s
+                            startMin) to show a time window on each rep.
                         </p>
                     </>
                 }
@@ -396,31 +390,19 @@ function ConditioningLibrary() {
 
     return (
         <>
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <Input
-                    icon="fa-solid fa-magnifying-glass"
-                    type="search"
-                    placeholder="Search sessions…"
-                    value={search}
-                    onChange={(e) => {
-                        setSearch(e.target.value)
-                        setPage(1)
-                    }}
-                    className="w-full sm:w-64"
-                />
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="secondary"
-                        icon="fa-solid fa-file-import"
-                        onClick={() => setImporting(true)}
-                    >
-                        Import
-                    </Button>
-                    <Button icon="fa-solid fa-plus" onClick={() => setDrawer({ mode: 'create' })}>
-                        New session
-                    </Button>
-                </div>
-            </div>
+            <LibraryToolbar
+                search={search}
+                onSearch={(v) => {
+                    setSearch(v)
+                    setPage(1)
+                }}
+                placeholder="Search sessions…"
+                count={loading || !sessions.length ? undefined : filtered.length}
+                noun="session"
+                onImport={() => setImporting(true)}
+                newLabel="New session"
+                onNew={() => setDrawer({ mode: 'create' })}
+            />
 
             {loading ? (
                 <div className="grid place-items-center py-16">
@@ -787,7 +769,9 @@ function SessionFormDrawer({
                 <Textarea
                     label="Helpers"
                     rows={3}
-                    placeholder={'Setup to lay out first, one per line, e.g.\nCones at 0, 5 and 10 m (5 m apart)\nStart line + turn line'}
+                    placeholder={
+                        'Setup to lay out first, one per line, e.g.\nCones at 0, 5 and 10 m (5 m apart)\nStart line + turn line'
+                    }
                     value={helpers}
                     onChange={(e) => setHelpers(e.target.value)}
                 />
@@ -832,7 +816,12 @@ function PartsEditor({
         const after = rows[rows.length - 1]?.endMin
         onChange([
             ...rows,
-            { key: nextKey(), name: '', detail: '', ...(after !== undefined ? { startMin: after } : {}) },
+            {
+                key: nextKey(),
+                name: '',
+                detail: '',
+                ...(after !== undefined ? { startMin: after } : {}),
+            },
         ])
     }
 

@@ -45,11 +45,7 @@ import {
     restorePlanWeek,
     type PlanWeekSnapshot,
 } from '../services/fitnessPlan'
-import {
-    FITNESS_PLAN_KINDS,
-    FITNESS_PLAN_PARTS,
-    FITNESS_FLAG_COLORS,
-} from '../types'
+import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS, FITNESS_FLAG_COLORS } from '../types'
 import type {
     Workout,
     Exercise,
@@ -576,11 +572,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     // The libraries — loaded once, for the picker, the "is it empty" check and
     // the detail drawer (exercises resolve a workout's exercise names).
     useEffect(() => {
-        Promise.all([
-            listWorkouts(),
-            listSessions(),
-            listExercises(),
-        ])
+        Promise.all([listWorkouts(), listSessions(), listExercises()])
             .then(([wk, se, ex]) => {
                 setWorkouts(wk)
                 setSessions(se)
@@ -954,7 +946,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     }
 
     return (
-        <div className="flex flex-col gap-4 sm:gap-5">
+        <div className="flex flex-col gap-6 sm:gap-5">
             <FitnessWeekHero
                 weekStart={range.start}
                 selected={anchor}
@@ -1957,42 +1949,55 @@ function FitnessWeekHero({
 
     const showActions = canEdit && !editing
 
+    const arrows = (
+        <div className="flex shrink-0 items-center gap-2 sm:gap-1">
+            <HeroIconButton
+                label="Previous week"
+                icon="fa-solid fa-chevron-left"
+                onClick={() => onStep(-1)}
+            />
+            <HeroIconButton
+                label="Next week"
+                icon="fa-solid fa-chevron-right"
+                onClick={() => onStep(1)}
+            />
+        </div>
+    )
+
+    // Phones: the week's title gets a row to itself, the controls a row under
+    // it. From `sm` up it all sits on one line.
     return (
         <HeroShell tone="soft">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <div className="flex min-w-0 flex-1 basis-56 items-center gap-3">
-                    <div className="flex shrink-0 items-center gap-1">
-                        <HeroIconButton
-                            label="Previous week"
-                            icon="fa-solid fa-chevron-left"
-                            onClick={() => onStep(-1)}
-                        />
-                        <HeroIconButton
-                            label="Next week"
-                            icon="fa-solid fa-chevron-right"
-                            onClick={() => onStep(1)}
-                        />
-                    </div>
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="hidden sm:block">{arrows}</div>
                     <div className="min-w-0 flex-1">
                         <div className="flex min-w-0 items-center gap-2">
-                            <h2 className="truncate text-lg font-semibold tracking-tight">
+                            <h2 className="truncate text-xl font-semibold tracking-tight sm:text-lg">
                                 {relativeWeekLabel(weekStart, mondayOf(today))}
                             </h2>
                             {weekFlag}
                         </div>
-                        <p className="truncate text-[13px] text-neutral-500">{facts.join(' · ')}</p>
+                        <p className="mt-0.5 text-[13px] leading-snug text-neutral-500 sm:mt-0 sm:truncate">
+                            {facts.join(' · ')}
+                        </p>
                     </div>
                 </div>
 
-                <div className="ml-auto flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-3 sm:ml-auto sm:gap-2">
+                    <div className="sm:hidden">{arrows}</div>
                     {!isThisWeek && (
                         <HeroButton icon="fa-solid fa-calendar-day" onClick={goToday}>
                             Today
                         </HeroButton>
                     )}
                     {showActions && (
-                        <>
-                            <HeroButton icon="fa-solid fa-file-export" onClick={onExport}>
+                        <div className="ml-auto flex items-center gap-3 sm:gap-2">
+                            <HeroButton
+                                icon="fa-solid fa-file-export"
+                                onClick={onExport}
+                                iconOnlyOnPhone={!isThisWeek}
+                            >
                                 Export
                             </HeroButton>
                             <HeroButton
@@ -2001,9 +2006,17 @@ function FitnessWeekHero({
                                 onClick={onStartEditing}
                                 disabled={discarding}
                             >
-                                Edit plan
+                                {isThisWeek ? (
+                                    'Edit plan'
+                                ) : (
+                                    // Make room for Today on a phone.
+                                    <>
+                                        <span className="sm:hidden">Edit</span>
+                                        <span className="hidden sm:inline">Edit plan</span>
+                                    </>
+                                )}
                             </HeroButton>
-                        </>
+                        </div>
                     )}
                 </div>
             </div>
@@ -2386,9 +2399,7 @@ function DayCard({
             <p className="text-[13px] text-neutral-500">
                 {total} {total === 1 ? 'session' : 'sessions'}
                 {minutes > 0 && ` · about ${minutes} min`}
-                {doneCount > 0 && (
-                    <span className="text-emerald-700"> · {doneCount} done</span>
-                )}
+                {doneCount > 0 && <span className="text-emerald-700"> · {doneCount} done</span>}
             </p>
             <div className="h-1 overflow-hidden rounded-full bg-neutral-100">
                 <div
@@ -2547,7 +2558,9 @@ function DayCard({
                             {restNote.text}
                         </button>
                     ) : (
-                        <p className="text-xs text-neutral-500">Nothing planned. Rest and recharge.</p>
+                        <p className="text-xs text-neutral-500">
+                            Nothing planned. Rest and recharge.
+                        </p>
                     )}
                 </div>
             ) : (
@@ -2710,7 +2723,9 @@ function SlotSection({
                 {entries.length > 0 ? (
                     <ul
                         className={
-                            compact ? 'flex flex-col gap-1.5' : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'
+                            compact
+                                ? 'flex flex-col gap-1.5'
+                                : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'
                         }
                     >
                         {rows}
@@ -3243,12 +3258,7 @@ function ItemPicker({
                                             type="button"
                                             onClick={() =>
                                                 view &&
-                                                onAdd(
-                                                    view.date,
-                                                    'conditioning',
-                                                    s._id,
-                                                    activePart
-                                                )
+                                                onAdd(view.date, 'conditioning', s._id, activePart)
                                             }
                                             className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
                                         >
@@ -3346,8 +3356,7 @@ function PlannedDetailDrawer({
     const canMarkDone =
         !!e &&
         !done &&
-        ((e.kind === 'workout' && !!e.workout) ||
-            (e.kind === 'conditioning' && !!e.session))
+        ((e.kind === 'workout' && !!e.workout) || (e.kind === 'conditioning' && !!e.session))
 
     async function markDone() {
         if (!e) return
@@ -3425,7 +3434,11 @@ function PlannedDetailDrawer({
                                 onClick={markDone}
                                 disabled={logging}
                             >
-                                {logging ? 'Logging…' : isSession ? 'Finish session' : 'Mark as done'}
+                                {logging
+                                    ? 'Logging…'
+                                    : isSession
+                                      ? 'Finish session'
+                                      : 'Mark as done'}
                             </Button>
                         )}
                         {e?.kind === 'workout' && e.workout && (
@@ -3495,7 +3508,8 @@ function PlannedDetailDrawer({
  */
 function stepTicksKey(entry: FitnessPlanEntry | null): string | null {
     if (!entry) return null
-    if (entry.kind === 'workout' && entry.workout) return workoutStepsKey(entry.workout._id, entry.date)
+    if (entry.kind === 'workout' && entry.workout)
+        return workoutStepsKey(entry.workout._id, entry.date)
     return `entry:${entry._id}`
 }
 

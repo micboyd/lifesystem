@@ -6,18 +6,23 @@ import Spinner from '../components/Spinner'
 import NutritionPlanner from '../components/nutrition/NutritionPlanner'
 import { LARGE_QUERY, useMediaQuery } from '../components/planner/WeekPlannerUI'
 import MealLibrary from '../components/nutrition/MealLibrary'
+import BoxLibrary from '../components/nutrition/BoxLibrary'
 import NutritionStats from '../components/nutrition/NutritionStats'
 import PhasesTab from '../components/nutrition/PhasesTab'
 import { useAuth } from '../context/AuthContext'
 import { listMeals } from '../services/meals'
-import type { Meal } from '../types'
+import { listPlateFoods } from '../services/plateFoods'
+import type { Meal, PlateFood } from '../types'
 
 const TABS = ['Planner', 'Library', 'Stats', 'Phases'] as const
 type Tab = (typeof TABS)[number]
 
+const LIBRARY_TABS = ['Meals', 'Boxes & foods'] as const
+type LibraryTab = (typeof LIBRARY_TABS)[number]
+
 const SUBTITLE: Record<Tab, string> = {
     Planner: 'Plan your meals — drop them into each day, then tick them off as you eat.',
-    Library: 'Your meals — breakfast, lunch, dinner and snacks.',
+    Library: 'Your meals, plus the boxes you batch-cook and foods you weigh out.',
     Stats: 'Calories in and out over a week, a month or a phase.',
     Phases: 'Dated cuts, bulks and maintenance stretches, with their targets.',
 }
@@ -37,11 +42,15 @@ export default function Nutrition() {
     }, [])
 
     const [meals, setMeals] = useState<Meal[]>([])
+    const [foods, setFoods] = useState<PlateFood[]>([])
     const [loading, setLoading] = useState(true)
     const reloadMeals = useCallback(() => listMeals().then(setMeals), [])
+    const reloadFoods = useCallback(() => listPlateFoods().then(setFoods), [])
     useEffect(() => {
-        reloadMeals().finally(() => setLoading(false))
-    }, [reloadMeals])
+        Promise.all([reloadMeals(), reloadFoods().catch(() => {})]).finally(() => setLoading(false))
+    }, [reloadMeals, reloadFoods])
+    // The Library is split: saved meals, and the boxes and foods plates are weighed from.
+    const [library, setLibrary] = useState<LibraryTab>('Meals')
 
     const isLarge = useMediaQuery(LARGE_QUERY)
     // The week board spans the screen below the tabs, as in Fitness; the header,
@@ -69,9 +78,21 @@ export default function Nutrition() {
                         <Spinner />
                     </div>
                 ) : tab === 'Planner' ? (
-                    <NutritionPlanner meals={meals} settingsGoals={user?.settings?.macroGoals} />
+                    <NutritionPlanner meals={meals} foods={foods} settingsGoals={user?.settings?.macroGoals} />
                 ) : tab === 'Library' ? (
-                    <MealLibrary meals={meals} onChanged={reloadMeals} />
+                    <div className="flex flex-col gap-6">
+                        <Tabs
+                            tabs={[...LIBRARY_TABS]}
+                            value={library}
+                            onChange={(t) => setLibrary(t as LibraryTab)}
+                            className="self-start"
+                        />
+                        {library === 'Meals' ? (
+                            <MealLibrary meals={meals} onChanged={reloadMeals} />
+                        ) : (
+                            <BoxLibrary foods={foods} onChanged={reloadFoods} />
+                        )}
+                    </div>
                 ) : tab === 'Stats' ? (
                     <NutritionStats settingsGoals={user?.settings?.macroGoals} />
                 ) : (
