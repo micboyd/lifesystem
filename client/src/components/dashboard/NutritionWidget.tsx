@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import DashSection, { SectionLoading } from './DashSection'
+import DashSection, { DASH, SectionLoading } from './DashSection'
 import { listPlanEntries } from '../../services/mealPlan'
 import { listNutritionPhases } from '../../services/nutritionPhases'
 import { listWeightLogs } from '../../services/weightLogs'
@@ -106,21 +106,32 @@ const SLOT_META: Record<MealType, { label: string; dot: string }> = {
     snack: { label: 'Snack', dot: 'bg-rose-400' },
 }
 
+/** The three macros in the order the nutrition pages use, each with its bar colour. */
+const MACROS = [
+    { key: 'protein', label: 'Protein', bar: 'bg-neutral-900' },
+    { key: 'carbs', label: 'Carbs', bar: 'bg-brand-500' },
+    { key: 'fat', label: 'Fat', bar: 'bg-marigold' },
+] as const
+
 /** "−0.21 kg/wk", with a real minus sign. */
 function rateLabel(n: number): string {
     return `${n < 0 ? '−' : '+'}${Math.abs(n).toFixed(2)} kg/wk`
 }
 
 /**
- * Today's meals by slot, then one quiet line on whether any of it is working.
+ * Today's meals by slot, the three macros against their goals, then one quiet
+ * line on whether any of it is working.
  * Calories already lead the at-a-glance strip, so this card doesn't repeat them
  * as a headline.
  */
 export default function NutritionWidget({ data }: { data: NutritionToday }) {
     const { loading, entries, eaten, goals, weightKg, ratePerWeek, waistChangeCm, phaseName, status } = data
     const bySlot = MEAL_TYPES.flatMap((slot) => entries.filter((e) => e.slot === slot))
-    const proteinGoal = goals?.protein ?? null
-    const proteinPct = proteinGoal ? Math.min(100, (eaten.protein / proteinGoal) * 100) : null
+    // All three macros, each against its goal when one is set.
+    const macros = MACROS.map((m) => {
+        const goal = goals?.[m.key] ?? null
+        return { ...m, eaten: eaten[m.key], goal, pct: goal ? Math.min(100, (eaten[m.key] / goal) * 100) : 0 }
+    })
 
     const kcalGoal = goals?.calories ?? null
 
@@ -144,60 +155,63 @@ export default function NutritionWidget({ data }: { data: NutritionToday }) {
             ) : (
                 <>
                     {bySlot.length === 0 ? (
-                        <p className="border-y border-neutral-200 py-5 text-[15px] text-neutral-500">
+                        <p className={DASH.empty}>
                             Nothing planned today.{' '}
-                            <Link to="/nutrition" className="font-medium text-neutral-900 underline underline-offset-4">
+                            <Link to="/nutrition" className={DASH.emptyLink}>
                                 Plan meals
                             </Link>
                         </p>
                     ) : (
-                        <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
+                        <ul className={DASH.list}>
                             {bySlot.map((entry) => (
-                                <li key={entry._id} className="flex items-center gap-3 py-3.5">
-                                    <span className="w-20 shrink-0 text-[13px] text-neutral-500">
+                                <li key={entry._id} className={DASH.row}>
+                                    <span className={DASH.rowLabel}>
                                         {SLOT_META[entry.slot].label}
                                     </span>
                                     <p
-                                        className={`min-w-0 flex-1 truncate text-[15px] ${
-                                            entry.status === 'eaten' ? 'text-neutral-500 line-through' : 'text-neutral-900'
-                                        }`}
+                                        className={
+                                            entry.status === 'eaten'
+                                                ? 'min-w-0 flex-1 truncate text-[15px] text-neutral-500 line-through'
+                                                : DASH.rowText
+                                        }
                                     >
                                         {entryName(entry)}
                                     </p>
-                                    <span className="shrink-0 tabular-nums text-[13px] text-neutral-500">
-                                        {Math.round(entryMacros(entry).calories)}
-                                    </span>
+                                    <span className={DASH.rowValue}>{Math.round(entryMacros(entry).calories)} kcal</span>
                                 </li>
                             ))}
                         </ul>
                     )}
 
-                    {proteinPct !== null && (
-                        <div className="mt-6">
-                            <div className="mb-2 flex justify-between text-[13px]">
-                                <span className="text-neutral-600">Protein</span>
-                                <span className="tabular-nums text-neutral-900">
-                                    {Math.round(eaten.protein)} / {Math.round(proteinGoal ?? 0)} g
-                                </span>
+                    <div className={`${DASH.block} grid grid-cols-3 gap-4 sm:gap-6`}>
+                        {macros.map((m) => (
+                            <div key={m.key} className="min-w-0">
+                                <p className={DASH.subhead}>{m.label}</p>
+                                <p className="mt-1 truncate text-[15px] tabular-nums text-neutral-900">
+                                    {Math.round(m.eaten)}
+                                    <span className="text-[13px] text-neutral-500">
+                                        {m.goal ? ` / ${Math.round(m.goal)} g` : ' g'}
+                                    </span>
+                                </p>
+                                <div className={`mt-2 ${DASH.track}`}>
+                                    <div className={`h-full rounded-full ${m.bar}`} style={{ width: `${m.pct}%` }} />
+                                </div>
                             </div>
-                            <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-200">
-                                <div className="h-full rounded-full bg-marigold" style={{ width: `${proteinPct}%` }} />
-                            </div>
-                        </div>
-                    )}
+                        ))}
+                    </div>
 
                     {(weightKg !== null || phaseName) && (
-                        <div className="mt-6 flex items-end justify-between gap-4">
+                        <div className={`${DASH.block} flex items-end justify-between gap-4 border-t border-neutral-200 pt-6`}>
                             {weightKg !== null && (
                                 <div>
-                                    <p className="text-[13px] text-neutral-600">Body weight</p>
-                                    <p className="mt-1 text-2xl font-medium tracking-[-0.03em] tabular-nums text-neutral-950">
+                                    <p className={DASH.subhead}>Body weight</p>
+                                    <p className={`mt-1 ${DASH.figureSm}`}>
                                         {weightKg.toFixed(1)}
                                         <span className="ml-1 text-sm tracking-normal text-neutral-500">kg</span>
                                     </p>
                                 </div>
                             )}
-                            <div className="min-w-0 text-right text-[13px] text-neutral-500">
+                            <div className={`min-w-0 text-right ${DASH.note}`}>
                                 {ratePerWeek !== null && <p className="tabular-nums">{rateLabel(ratePerWeek)}</p>}
                                 {waistChangeCm !== null && (
                                     <p className="tabular-nums">

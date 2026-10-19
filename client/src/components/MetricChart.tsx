@@ -127,7 +127,7 @@ export default function MetricChart({
                     strokeLinecap="round"
                 />
             </svg>
-            <div className="flex justify-between px-1 text-[11px] tabular-nums text-neutral-500">
+            <div className="flex justify-between px-1 text-[11px] nums text-neutral-500">
                 <span>
                     {format(points[0].value)} {unit}
                 </span>

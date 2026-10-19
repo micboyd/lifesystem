@@ -12,6 +12,7 @@ import Alert from './Alert'
 import Checkbox from './Checkbox'
 import LineIcon from './LineIcon'
 import PlanImportPanel from './PlanImportPanel'
+import { LeadText, StatStrip } from './session/SessionUI'
 import { useToast } from '../context/ToastContext'
 import {
     listPlans,
@@ -38,26 +39,21 @@ import type {
 
 // ─── Presentation ───────────────────────────────────────────────────────────────
 
-const KIND_META: Record<FitnessPlanKind, { label: string; icon: string; chip: string }> = {
+const KIND_META: Record<
+    FitnessPlanKind,
+    { label: string; icon: string; chip: string; bar: string }
+> = {
     workout: {
         label: 'Strength',
         icon: 'fa-solid fa-dumbbell',
-        chip: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
+        chip: 'bg-coral-50 text-coral-700 ring-coral-600/20',
+        bar: 'bg-coral-500',
     },
     conditioning: {
         label: 'Conditioning',
         icon: 'fa-solid fa-heart-pulse',
-        chip: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-    },
-    mobility: {
-        label: 'Mobility',
-        icon: 'fa-solid fa-person-walking',
-        chip: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-    },
-    recovery: {
-        label: 'Recovery',
-        icon: 'fa-solid fa-bed',
-        chip: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+        chip: 'bg-sky-50 text-sky-700 ring-sky-600/20',
+        bar: 'bg-sky-500',
     },
 }
 
@@ -72,8 +68,6 @@ const ROLE_LABEL: Record<PlanRole, string> = {
     strength: 'Strength workouts',
     run: 'Run progression',
     conditioning: 'Conditioning sessions',
-    mobility: 'Mobility routines',
-    recovery: 'Recovery items',
 }
 
 function KindChip({ kind, count }: { kind: FitnessPlanKind; count: number }) {
@@ -432,8 +426,6 @@ function describeCounts(c: Partial<RemovedLibrary>): string {
     const words: [keyof RemovedLibrary, string][] = [
         ['workout', 'workout'],
         ['conditioning', 'conditioning session'],
-        ['mobility', 'mobility routine'],
-        ['recovery', 'recovery routine'],
         ['exercise', 'exercise'],
     ]
     const bits = words.filter(([k]) => (c[k] ?? 0) > 0).map(([k, w]) => plural(c[k]!, w))
@@ -792,7 +784,7 @@ function PlanDetailDrawer({
             title={ready ? plan.name : 'Plan'}
             footer={
                 ready && (
-                    <>
+                    <div className="flex w-full flex-wrap items-center justify-end gap-3">
                         <Button
                             variant="secondary"
                             icon="fa-solid fa-file-export"
@@ -801,7 +793,7 @@ function PlanDetailDrawer({
                                 onClose()
                             }}
                         >
-                            Export JSON
+                            Export
                         </Button>
                         <Button
                             icon="fa-solid fa-calendar-plus"
@@ -812,7 +804,7 @@ function PlanDetailDrawer({
                         >
                             Apply to planner
                         </Button>
-                    </>
+                    </div>
                 )
             }
         >
@@ -828,26 +820,64 @@ function PlanDetailDrawer({
     )
 }
 
+/** Whole weeks a plan spans, counting a part week as one. */
+function weeksIn(plan: TrainingPlan): number {
+    const ms = new Date(plan.planEnd).getTime() - new Date(plan.planStart).getTime()
+    return Math.max(1, Math.ceil((ms / 86_400_000 + 1) / 7))
+}
+
+/** Where today sits in a plan: before it, inside it (with its week), or past it. */
+function planProgress(plan: TrainingPlan): { label: string; pct: number } {
+    const today = todayKey()
+    if (today < plan.planStart) return { label: `Starts ${formatDateShort(plan.planStart)}`, pct: 0 }
+    if (today > plan.planEnd) return { label: 'Finished', pct: 100 }
+    const total = new Date(plan.planEnd).getTime() - new Date(plan.planStart).getTime()
+    const gone = new Date(today).getTime() - new Date(plan.planStart).getTime()
+    const week = Math.floor(gone / (7 * 86_400_000)) + 1
+    return {
+        label: `Week ${week} of ${weeksIn(plan)}`,
+        pct: total > 0 ? Math.round((gone / total) * 100) : 100,
+    }
+}
+
 function PlanDetail({ plan }: { plan: TrainingPlan }) {
     const [tab, setTab] = useState<DetailTab>('Overview')
+    const progress = planProgress(plan)
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
-                    <i className="fa-regular fa-calendar text-neutral-500" aria-hidden="true" />
-                    {formatWeekRange(plan.planStart, plan.planEnd)}
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
-                    <i className="fa-solid fa-list-check text-neutral-500" aria-hidden="true" />
-                    {plan.schedule?.length ?? 0} scheduled sessions
-                </span>
-                {plan.appliedEntries > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-herb/10 px-2.5 py-1 text-xs font-semibold text-herb">
-                        <i className="fa-solid fa-circle-check" aria-hidden="true" />
-                        {plan.appliedEntries} on the planner
-                    </span>
-                )}
+            <div className="flex flex-col gap-4">
+                <StatStrip
+                    stats={[
+                        { icon: 'fa-regular fa-calendar', label: 'Length', value: `${weeksIn(plan)} weeks` },
+                        {
+                            icon: 'fa-solid fa-list-check',
+                            label: 'Sessions',
+                            value: plan.schedule?.length ?? 0,
+                        },
+                        {
+                            icon: 'fa-solid fa-calendar-check',
+                            label: 'On planner',
+                            value: plan.appliedEntries > 0 ? plan.appliedEntries : 'Not yet',
+                        },
+                    ]}
+                />
+                {/* Where the plan is up to, as a bar under its dates. */}
+                <div className="flex flex-col gap-1.5">
+                    <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                        <span className="text-neutral-500">
+                            {formatWeekRange(plan.planStart, plan.planEnd)}
+                        </span>
+                        <span className="font-medium text-neutral-700">{progress.label}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-neutral-100">
+                        <div
+                            className="h-full rounded-full bg-coral-500"
+                            style={{ width: `${progress.pct}%` }}
+                        />
+                    </div>
+                </div>
+                {plan.source && <LeadText>{readableDates(plan.source)}</LeadText>}
             </div>
 
             {plan.warnings.length > 0 && (
@@ -880,27 +910,80 @@ function PlanDetail({ plan }: { plan: TrainingPlan }) {
     )
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+    title,
+    meta,
+    children,
+}: {
+    title: string
+    meta?: ReactNode
+    children: ReactNode
+}) {
     return (
-        <section>
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                {title}
-            </p>
+        <section className="flex flex-col gap-3">
+            <div className="flex items-baseline justify-between gap-3">
+                <h3 className="text-[15px] font-semibold text-neutral-900">{title}</h3>
+                {meta && <span className="text-[13px] text-neutral-500">{meta}</span>}
+            </div>
             {children}
         </section>
     )
 }
 
+/** Label / value pairs on a soft panel, one per line, divided by hairlines. */
 function ProseList({ rows }: { rows: { label: string; value: string }[] }) {
     return (
-        <dl className="flex flex-col gap-2.5">
+        <dl className="divide-y divide-neutral-100 rounded-2xl bg-neutral-50 px-4">
             {rows.map((r) => (
-                <div key={r.label}>
-                    <dt className="text-[11px] font-medium text-neutral-500">{r.label}</dt>
-                    <dd className="text-sm text-neutral-700">{r.value}</dd>
+                <div key={r.label} className="flex flex-col gap-0.5 py-3 sm:flex-row sm:gap-4">
+                    <dt className="text-[13px] text-neutral-500 sm:w-40 sm:shrink-0">{r.label}</dt>
+                    <dd className="text-sm leading-relaxed text-neutral-800">{r.value}</dd>
                 </div>
             ))}
         </dl>
+    )
+}
+
+/** A plain list with soft check marks, for rules and how-tos. */
+function CheckList({ items }: { items: string[] }) {
+    return (
+        <ul className="flex flex-col gap-2">
+            {items.map((text, i) => (
+                <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-neutral-700">
+                    <i
+                        className="fa-solid fa-circle-check mt-[3px] shrink-0 text-[13px] text-neutral-300"
+                        aria-hidden="true"
+                    />
+                    <span>{readableDates(text)}</span>
+                </li>
+            ))}
+        </ul>
+    )
+}
+
+/** A dated list on a rail: a dot per entry, the date, then what happens. */
+function DatedRail({ rows }: { rows: { when: string; text: ReactNode; key: string | number }[] }) {
+    return (
+        <ol className="flex flex-col">
+            {rows.map((r, i) => (
+                <li key={r.key} className="relative flex gap-3 pb-4 last:pb-0">
+                    {i < rows.length - 1 && (
+                        <span
+                            className="absolute bottom-0 left-[5px] top-4 w-px bg-neutral-200"
+                            aria-hidden="true"
+                        />
+                    )}
+                    <span
+                        className="relative mt-1.5 h-[11px] w-[11px] shrink-0 rounded-full bg-white ring-2 ring-coral-300"
+                        aria-hidden="true"
+                    />
+                    <div className="min-w-0">
+                        <p className="text-[13px] font-medium text-neutral-500">{r.when}</p>
+                        <div className="text-sm leading-relaxed text-neutral-800">{r.text}</div>
+                    </div>
+                </li>
+            ))}
+        </ol>
     )
 }
 
@@ -915,92 +998,85 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
         : []
 
     return (
-        <div className="flex flex-col gap-6">
-            {plan.source && (
-                <p className="text-sm text-neutral-500">{readableDates(plan.source)}</p>
-            )}
-
+        <div className="flex flex-col gap-8">
             {goalRows.length > 0 && (
                 <Section title="Goal">
                     <ProseList rows={goalRows} />
                 </Section>
             )}
 
-            {measurement.length > 0 && (
-                <Section title="How to measure">
-                    <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-neutral-700">
-                        {measurement.map((m, i) => (
-                            <li key={i}>{readableDates(m)}</li>
-                        ))}
-                    </ul>
+            {checkpoints.length > 0 && (
+                <Section title="Checkpoints" meta={`${checkpoints.length}`}>
+                    <DatedRail
+                        rows={checkpoints.map((c, i) => ({
+                            key: i,
+                            when: c.date ? formatDateShort(c.date) : '',
+                            text: c.target ? readableDates(c.target) : '',
+                        }))}
+                    />
                 </Section>
             )}
 
-            {checkpoints.length > 0 && (
-                <Section title="Checkpoints">
-                    <ol className="flex flex-col gap-2">
-                        {checkpoints.map((c, i) => (
-                            <li key={i} className="flex gap-3 text-sm">
-                                <span className="w-28 shrink-0 font-medium text-neutral-500">
-                                    {c.date ? formatDateShort(c.date) : ''}
-                                </span>
-                                <span className="text-neutral-700">
-                                    {c.target ? readableDates(c.target) : ''}
-                                </span>
-                            </li>
-                        ))}
-                    </ol>
+            {measurement.length > 0 && (
+                <Section title="How to measure">
+                    <CheckList items={measurement} />
                 </Section>
             )}
 
             {plan.phases.length > 0 && (
-                <Section title="Phases">
-                    <ol className="flex flex-col gap-3">
+                <Section title="Phases" meta={`${plan.phases.length}`}>
+                    <ol className="flex flex-col gap-2.5">
                         {plan.phases.map((p, i) => (
-                            <li key={i} className="rounded-xl border border-neutral-200 p-3">
-                                <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                                    <p className="font-semibold text-neutral-900">{p.name}</p>
-                                    {p.dates && (
-                                        <p className="text-xs text-neutral-500">
-                                            {readableDates(p.dates)}
+                            <li
+                                key={i}
+                                className="flex gap-3 rounded-2xl border border-neutral-200 bg-white p-4"
+                            >
+                                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-coral-50 text-xs font-semibold text-coral-600">
+                                    {i + 1}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                                        <p className="font-semibold text-neutral-900">{p.name}</p>
+                                        {p.dates && (
+                                            <p className="text-[13px] text-neutral-500">
+                                                {readableDates(p.dates)}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {p.focus && (
+                                        <p className="mt-1 text-sm leading-relaxed text-neutral-600">
+                                            {readableDates(p.focus)}
                                         </p>
                                     )}
+                                    {(p.strength || p.conditioning || p.recoveryPriority) && (
+                                        <dl className="mt-3 flex flex-col gap-1.5">
+                                            {(
+                                                [
+                                                    ['Strength', p.strength, 'bg-coral-500'],
+                                                    ['Conditioning', p.conditioning, 'bg-sky-500'],
+                                                    ['Recovery', p.recoveryPriority, 'bg-emerald-500'],
+                                                ] as const
+                                            ).map(([label, text, bar]) =>
+                                                text ? (
+                                                    <div key={label} className="flex gap-2.5 text-[13px]">
+                                                        <span
+                                                            className={`w-1 shrink-0 rounded-full ${bar}`}
+                                                            aria-hidden="true"
+                                                        />
+                                                        <div className="min-w-0">
+                                                            <dt className="font-medium text-neutral-700">
+                                                                {label}
+                                                            </dt>
+                                                            <dd className="text-neutral-500">
+                                                                {readableDates(text)}
+                                                            </dd>
+                                                        </div>
+                                                    </div>
+                                                ) : null
+                                            )}
+                                        </dl>
+                                    )}
                                 </div>
-                                {p.focus && (
-                                    <p className="mt-1 text-sm text-neutral-600">
-                                        {readableDates(p.focus)}
-                                    </p>
-                                )}
-                                {(p.strength || p.conditioning || p.recoveryPriority) && (
-                                    <dl className="mt-2 flex flex-col gap-1 text-xs text-neutral-500">
-                                        {p.strength && (
-                                            <div>
-                                                <dt className="inline font-semibold">Strength: </dt>
-                                                <dd className="inline">
-                                                    {readableDates(p.strength)}
-                                                </dd>
-                                            </div>
-                                        )}
-                                        {p.conditioning && (
-                                            <div>
-                                                <dt className="inline font-semibold">
-                                                    Conditioning:{' '}
-                                                </dt>
-                                                <dd className="inline">
-                                                    {readableDates(p.conditioning)}
-                                                </dd>
-                                            </div>
-                                        )}
-                                        {p.recoveryPriority && (
-                                            <div>
-                                                <dt className="inline font-semibold">Recovery: </dt>
-                                                <dd className="inline">
-                                                    {readableDates(p.recoveryPriority)}
-                                                </dd>
-                                            </div>
-                                        )}
-                                    </dl>
-                                )}
                             </li>
                         ))}
                     </ol>
@@ -1014,78 +1090,99 @@ function OverviewTab({ plan }: { plan: TrainingPlan }) {
             )}
 
             {plan.overrides.length > 0 && (
-                <Section title={`Dated exceptions (${plan.overrides.length})`}>
-                    <ol className="flex flex-col gap-2">
-                        {plan.overrides.map((o, i) => (
-                            <li key={i} className="flex gap-3 text-sm">
-                                <span className="w-40 shrink-0 text-xs font-semibold text-neutral-500">
-                                    {o.start === o.end
-                                        ? formatDateShort(o.start)
-                                        : formatWeekRange(o.start, o.end)}
-                                </span>
-                                <span className="min-w-0 text-neutral-700">
+                <Section title="Dated exceptions" meta={`${plan.overrides.length}`}>
+                    <DatedRail
+                        rows={plan.overrides.map((o, i) => ({
+                            key: i,
+                            when:
+                                o.start === o.end
+                                    ? formatDateShort(o.start)
+                                    : formatWeekRange(o.start, o.end),
+                            text: (
+                                <>
                                     {readableDates(o.summary)}
                                     {o.notes && (
                                         <span className="text-neutral-500">
                                             {' '}
-                                            — {readableDates(o.notes)}
+                                            · {readableDates(o.notes)}
                                         </span>
                                     )}
-                                </span>
-                            </li>
-                        ))}
-                    </ol>
+                                </>
+                            ),
+                        }))}
+                    />
                 </Section>
             )}
 
             {plan.readinessRules.length > 0 && (
                 <Section title="Readiness rules">
-                    <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-neutral-700">
-                        {plan.readinessRules.map((r, i) => (
-                            <li key={i}>{readableDates(r)}</li>
-                        ))}
-                    </ul>
+                    <CheckList items={plan.readinessRules} />
                 </Section>
             )}
         </div>
     )
 }
 
+/** A quiet dashed note for a tab with nothing to show. */
+function EmptyNote({ children }: { children: ReactNode }) {
+    return (
+        <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-8 text-center text-sm text-neutral-500">
+            {children}
+        </p>
+    )
+}
+
+/** One line of plan content with a colour bar for its kind, like a planner row. */
+function KindLine({
+    bar,
+    title,
+    detail,
+    aside,
+}: {
+    bar: string
+    title: ReactNode
+    detail?: ReactNode
+    aside?: ReactNode
+}) {
+    return (
+        <div className="flex items-center gap-2.5 rounded-xl bg-neutral-50 px-3 py-2.5">
+            <span className={`w-1 shrink-0 self-stretch rounded-full ${bar}`} aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-neutral-900">{title}</p>
+                {detail && <p className="mt-0.5 text-[13px] text-neutral-500">{detail}</p>}
+            </div>
+            {aside}
+        </div>
+    )
+}
+
 function WeekTab({ plan }: { plan: TrainingPlan }) {
     if (plan.weeklyTemplate.length === 0) {
-        return (
-            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-6 text-center text-xs text-neutral-500">
-                This plan has no week-at-a-glance table.
-            </p>
-        )
+        return <EmptyNote>This plan has no week-at-a-glance table.</EmptyNote>
     }
-    const columns = [
-        { key: 'strength', label: 'Strength' },
-        { key: 'conditioning', label: 'Conditioning' },
-        { key: 'mobility', label: 'Mobility' },
-        { key: 'recovery', label: 'Recovery' },
-    ] as const
-
     return (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col divide-y divide-neutral-100">
             {plan.weeklyTemplate.map((row) => (
-                <div key={row.day} className="rounded-xl border border-neutral-200 p-3">
-                    <p className="font-medium text-neutral-900">{row.day}</p>
-                    <dl className="mt-1.5 flex flex-col gap-1 text-sm">
-                        {columns.map(({ key, label }) => {
-                            const value = row[key]
-                            return value ? (
-                                <div key={key} className="flex gap-2">
-                                    <dt className="w-28 shrink-0 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        {label}
-                                    </dt>
-                                    <dd className="min-w-0 text-neutral-700">
-                                        {readableDates(value)}
-                                    </dd>
-                                </div>
-                            ) : null
-                        })}
-                    </dl>
+                <div
+                    key={row.day}
+                    className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-3 first:pt-0 last:pb-0"
+                >
+                    <p className="pt-2.5 text-[13px] font-medium text-neutral-700">{row.day}</p>
+                    <div className="flex flex-col gap-1.5">
+                        {row.strength && (
+                            <KindLine bar="bg-coral-500" title="Strength" detail={readableDates(row.strength)} />
+                        )}
+                        {row.conditioning && (
+                            <KindLine
+                                bar="bg-sky-500"
+                                title="Conditioning"
+                                detail={readableDates(row.conditioning)}
+                            />
+                        )}
+                        {!row.strength && !row.conditioning && (
+                            <p className="py-2.5 text-[13px] text-neutral-400">Rest</p>
+                        )}
+                    </div>
                 </div>
             ))}
         </div>
@@ -1105,36 +1202,30 @@ function SessionsTab({ plan }: { plan: TrainingPlan }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [plan.items])
 
-    if (groups.length === 0) {
-        return (
-            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-6 text-center text-xs text-neutral-500">
-                This plan links no library items.
-            </p>
-        )
-    }
+    if (groups.length === 0) return <EmptyNote>This plan links no library items.</EmptyNote>
 
     return (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
             {groups.map(([role, items]) => (
-                <Section key={role} title={`${ROLE_LABEL[role]} (${items.length})`}>
+                <Section key={role} title={ROLE_LABEL[role]} meta={`${items.length}`}>
                     <ul className="flex flex-col gap-1.5">
                         {items.map((item) => (
-                            <li
-                                key={item.item}
-                                className="flex items-center justify-between gap-3 rounded-lg bg-neutral-50 px-3 py-2 text-sm"
-                            >
-                                <span className="min-w-0 truncate text-neutral-700">
-                                    {readableDates(item.label)}
-                                </span>
-                                {item.created ? (
-                                    <span className="shrink-0 text-[11px] font-semibold text-herb">
-                                        Added
-                                    </span>
-                                ) : (
-                                    <span className="shrink-0 text-[11px] font-medium text-neutral-500">
-                                        Existing
-                                    </span>
-                                )}
+                            <li key={item.item}>
+                                <KindLine
+                                    bar={KIND_META[item.kind].bar}
+                                    title={readableDates(item.label)}
+                                    aside={
+                                        item.created ? (
+                                            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                                                Added
+                                            </span>
+                                        ) : (
+                                            <span className="shrink-0 text-xs text-neutral-400">
+                                                In library
+                                            </span>
+                                        )
+                                    }
+                                />
                             </li>
                         ))}
                     </ul>
@@ -1169,11 +1260,9 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
         [...plan.overrides].reverse().find((o) => date >= o.start && date <= o.end) ?? null
 
     return (
-        <div className="flex flex-col gap-3">
-            <div className="flex w-52 flex-col gap-1.5">
-                <label className="text-[13px] font-medium text-neutral-700">
-                    Show from
-                </label>
+        <div className="flex flex-col gap-5">
+            <div className="flex w-56 flex-col gap-1.5">
+                <label className="text-[13px] font-medium text-neutral-700">Show from</label>
                 <DatePicker
                     value={from}
                     minDate={plan.planStart}
@@ -1183,56 +1272,59 @@ function ScheduleTab({ plan }: { plan: TrainingPlan }) {
             </div>
 
             {days.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-6 text-center text-[11px] text-neutral-500">
-                    Nothing scheduled from this date onwards.
-                </p>
+                <EmptyNote>Nothing scheduled from this date onwards.</EmptyNote>
             ) : (
-                days.map(([date, entries]) => (
-                    <div key={date} className="rounded-xl border border-neutral-200 p-3">
-                        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                {formatDateShort(date)}
-                            </p>
-                            {overrideOn(date) && (
-                                <span className="text-[11px] font-medium text-amber-700">
-                                    Exception ·{' '}
-                                    {readableDates(
-                                        overrideOn(date)!.notes ?? overrideOn(date)!.summary
+                <div className="flex flex-col divide-y divide-neutral-100">
+                    {days.map(([date, entries]) => {
+                        const exception = overrideOn(date)
+                        const notes = [
+                            ...new Set(entries.map((e) => e.notes).filter((n): n is string => !!n)),
+                        ]
+                        return (
+                            <div key={date} className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0">
+                                <div className="flex flex-wrap items-baseline gap-x-2">
+                                    <p className="text-[15px] font-semibold text-neutral-900">
+                                        {formatDateLong(date)}
+                                    </p>
+                                    {date === todayKey() && (
+                                        <span className="text-sm font-medium text-coral-600">Today</span>
                                     )}
-                                </span>
-                            )}
-                        </div>
-                        <ul className="mt-1.5 flex flex-col gap-1">
-                            {entries.map((e, i) => (
-                                <li key={i} className="flex items-baseline gap-2 text-sm">
-                                    <i
-                                        className={`${KIND_META[e.kind].icon} w-4 shrink-0 text-xs text-neutral-500`}
-                                        aria-hidden="true"
-                                    />
-                                    <span className="min-w-0 text-neutral-700">
-                                        {readableDates(e.label)}
-                                    </span>
-                                    <span className="ml-auto shrink-0 text-[11px] capitalize text-neutral-500">
-                                        {e.part}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                        {entries.some((e) => e.notes) && (
-                            <ul className="mt-1.5 flex flex-col gap-0.5 border-t border-neutral-100 pt-1.5">
-                                {[
-                                    ...new Set(
-                                        entries.map((e) => e.notes).filter((n): n is string => !!n)
-                                    ),
-                                ].map((note) => (
-                                    <li key={note} className="text-[11px] text-neutral-500">
-                                        {readableDates(note)}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                ))
+                                </div>
+                                {exception && (
+                                    <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+                                        <i
+                                            className="fa-solid fa-triangle-exclamation mt-[3px] text-[11px]"
+                                            aria-hidden="true"
+                                        />
+                                        <span>
+                                            Exception · {readableDates(exception.notes ?? exception.summary)}
+                                        </span>
+                                    </p>
+                                )}
+                                <ul className="flex flex-col gap-1.5">
+                                    {entries.map((e, i) => (
+                                        <li key={i}>
+                                            <KindLine
+                                                bar={KIND_META[e.kind].bar}
+                                                title={readableDates(e.label)}
+                                                detail={PART_META[e.part].label}
+                                            />
+                                        </li>
+                                    ))}
+                                </ul>
+                                {notes.length > 0 && (
+                                    <ul className="flex flex-col gap-0.5 pl-1">
+                                        {notes.map((note) => (
+                                            <li key={note} className="text-[13px] text-neutral-500">
+                                                {readableDates(note)}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        )
+                    })}
+                </div>
             )}
         </div>
     )

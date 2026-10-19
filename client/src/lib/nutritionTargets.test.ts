@@ -41,8 +41,6 @@ function fit(
         kind,
         workout: null,
         session: category ? ({ category } as FitnessPlanEntry['session']) : null,
-        recovery: null,
-        mobility: null,
         plan: null,
         order: 0,
         createdAt: '',
@@ -188,9 +186,8 @@ describe('classifyDay', () => {
         expect(classifyDay('2026-08-21', [])).toBeNull()
     })
 
-    it('calls a day with only recovery or mobility a rest day', () => {
-        const entries = [fit('2026-08-21', 'recovery'), fit('2026-08-21', 'mobility')]
-        expect(classifyDay('2026-08-21', entries)).toBe('rest')
+    it('takes a rest override over what is planned', () => {
+        expect(classifyDay('2026-08-21', [fit('2026-08-21', 'workout')], 'rest')).toBe('rest')
     })
 
     it('calls a single strength session a standard training day', () => {
@@ -263,9 +260,7 @@ describe('effectiveTargetsFor', () => {
         expect(hard.goals?.calories).toBe(3050)
         expect(hard.baseGoals?.calories).toBe(2950)
 
-        const rest = effectiveTargetsFor('2026-09-01', [cycling], null, [
-            fit('2026-09-01', 'recovery'),
-        ])
+        const rest = effectiveTargetsFor('2026-09-01', [cycling], null, [], 'rest')
         expect(rest.goals?.calories).toBe(2800)
     })
 
@@ -295,21 +290,15 @@ describe('effectiveTargetsFor', () => {
                 },
             ],
         })
-        const before = effectiveTargetsFor('2027-01-05', [revised], null, [
-            fit('2027-01-05', 'recovery'),
-        ])
+        const before = effectiveTargetsFor('2027-01-05', [revised], null, [], 'rest')
         expect(before.goals?.calories).toBe(2800)
 
-        const after = effectiveTargetsFor('2027-01-20', [revised], null, [
-            fit('2027-01-20', 'recovery'),
-        ])
+        const after = effectiveTargetsFor('2027-01-20', [revised], null, [], 'rest')
         expect(after.goals?.calories).toBe(2675)
     })
 
     it('never shifts a settings-sourced target', () => {
-        const r = effectiveTargetsFor('2020-01-01', [cycling], { calories: 2400 }, [
-            fit('2020-01-01', 'recovery'),
-        ])
+        const r = effectiveTargetsFor('2020-01-01', [cycling], { calories: 2400 }, [], 'rest')
         expect(r.source).toBe('settings')
         expect(r.modifier).toBe(0)
         expect(r.goals?.calories).toBe(2400)

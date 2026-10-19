@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Card } from '../Card'
+import { Surface } from './ui'
 import EmptyState from '../EmptyState'
 import MetricChart from '../MetricChart'
 import PillToggle from '../PillToggle'
@@ -141,13 +141,13 @@ export default function ExerciseProgressPanel({
                 />
             </div>
 
-            <Card hover={false} className="flex flex-col gap-4">
+            <Surface className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                        <h3 className="text-sm font-bold text-neutral-900">
+                        <h3 className="text-[15px] font-semibold text-neutral-900">
                             {current?.name ?? 'Progression'}
                         </h3>
-                        <p className="text-xs text-neutral-500">{metricMeta.hint}</p>
+                        <p className="mt-0.5 text-[13px] text-neutral-500">{metricMeta.hint}</p>
                     </div>
                     <PillToggle
                         label="Chart metric"
@@ -165,21 +165,21 @@ export default function ExerciseProgressPanel({
                 />
 
                 {shown.length < series.length && (
-                    <p className="text-[11px] text-neutral-500">
+                    <p className="text-xs text-neutral-500">
                         Showing {rangeLabel.toLowerCase()} — {series.length - shown.length} earlier
                         {series.length - shown.length === 1 ? ' session' : ' sessions'} not plotted.
                     </p>
                 )}
-            </Card>
+            </Surface>
 
             <div className="grid gap-4 lg:grid-cols-2">
-                <Card hover={false} className="flex flex-col gap-3">
-                    <h3 className="text-sm font-bold text-neutral-900">Recent sessions</h3>
+                <Surface className="flex flex-col gap-3">
+                    <h3 className="text-[15px] font-semibold text-neutral-900">Recent sessions</h3>
                     {history.length === 0 ? (
                         <p className="text-sm text-neutral-500">Nothing logged yet.</p>
                     ) : (
                         <div className="flex flex-col gap-1.5">
-                            <div className="grid grid-cols-[4.5rem_1fr_auto] gap-2 px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                            <div className="grid grid-cols-[4.5rem_1fr_auto] gap-2 px-1 text-[13px] text-neutral-500">
                                 <span>Date</span>
                                 <span>Top set</span>
                                 <span className="text-right">Volume</span>
@@ -194,10 +194,10 @@ export default function ExerciseProgressPanel({
                                             key={session.date}
                                             className="grid grid-cols-[4.5rem_1fr_auto] items-baseline gap-2 rounded-lg px-1 py-1 text-sm odd:bg-neutral-50/70"
                                         >
-                                            <span className="tabular-nums text-neutral-500">
+                                            <span className="nums text-neutral-500">
                                                 {shortDate(session.date)}
                                             </span>
-                                            <span className="font-semibold tabular-nums text-neutral-900">
+                                            <span className="font-semibold nums text-neutral-900">
                                                 {top && top.weight != null && top.reps != null
                                                     ? setLabel(top.weight, top.reps)
                                                     : '—'}
@@ -205,7 +205,7 @@ export default function ExerciseProgressPanel({
                                                     {plural(session.workingSets, 'set')}
                                                 </span>
                                             </span>
-                                            <span className="text-right tabular-nums text-neutral-500">
+                                            <span className="text-right nums text-neutral-500">
                                                 {session.volumeKg > 0
                                                     ? tonnage(session.volumeKg)
                                                     : '—'}
@@ -215,12 +215,12 @@ export default function ExerciseProgressPanel({
                                 })}
                         </div>
                     )}
-                </Card>
+                </Surface>
 
-                <Card hover={false} className="flex flex-col gap-3">
+                <Surface className="flex flex-col gap-3">
                     <div>
-                        <h3 className="text-sm font-bold text-neutral-900">Personal bests</h3>
-                        <p className="text-xs text-neutral-500">
+                        <h3 className="text-[15px] font-semibold text-neutral-900">Personal bests</h3>
+                        <p className="mt-0.5 text-[13px] text-neutral-500">
                             All-time, whatever the range above says.
                         </p>
                     </div>
@@ -250,7 +250,7 @@ export default function ExerciseProgressPanel({
                             date={records.bestVolume?.date}
                         />
                     </div>
-                </Card>
+                </Surface>
             </div>
         </div>
     )
@@ -270,15 +270,15 @@ function Best({
 }) {
     return (
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-neutral-100 pb-2 last:border-0 last:pb-0">
-            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+            <span className="text-[13px] text-neutral-500">
                 {label}
             </span>
             <span className="flex items-baseline gap-2">
-                <span className="text-sm font-bold tabular-nums text-neutral-900">
+                <span className="text-sm font-semibold nums text-neutral-900">
                     {value ?? '—'}
                 </span>
-                {note && <span className="text-[11px] text-neutral-500">{note}</span>}
-                {date && <span className="text-[11px] tabular-nums text-neutral-500">{longDate(date)}</span>}
+                {note && <span className="text-xs text-neutral-500">{note}</span>}
+                {date && <span className="text-xs nums text-neutral-500">{longDate(date)}</span>}
             </span>
         </div>
     )

@@ -4,6 +4,7 @@ import Container from '../components/Container'
 import Tabs from '../components/Tabs'
 import Spinner from '../components/Spinner'
 import NutritionPlanner from '../components/nutrition/NutritionPlanner'
+import { LARGE_QUERY, useMediaQuery } from '../components/planner/WeekPlannerUI'
 import MealLibrary from '../components/nutrition/MealLibrary'
 import NutritionStats from '../components/nutrition/NutritionStats'
 import PhasesTab from '../components/nutrition/PhasesTab'
@@ -15,7 +16,7 @@ const TABS = ['Planner', 'Library', 'Stats', 'Phases'] as const
 type Tab = (typeof TABS)[number]
 
 const SUBTITLE: Record<Tab, string> = {
-    Planner: 'Plan the week, tick off what you eat, log anything extra.',
+    Planner: 'Plan your meals — drop them into each day, then tick them off as you eat.',
     Library: 'Your meals — breakfast, lunch, dinner and snacks.',
     Stats: 'Calories in and out over a week, a month or a phase.',
     Phases: 'Dated cuts, bulks and maintenance stretches, with their targets.',
@@ -42,17 +43,27 @@ export default function Nutrition() {
         reloadMeals().finally(() => setLoading(false))
     }, [reloadMeals])
 
+    const isLarge = useMediaQuery(LARGE_QUERY)
+    // The week board spans the screen below the tabs, as in Fitness; the header,
+    // the tabs and every other tab sit in the usual column.
+    const fluid = tab === 'Planner' && isLarge
+
     return (
         <main className="py-10">
             <Container>
-                <header className="mb-6">
-                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Nutrition</h1>
-                    <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
+                <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
+                            Nutrition
+                        </h1>
+                        <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
+                    </div>
                 </header>
-                <div className="mb-6">
-                    <Tabs tabs={[...TABS]} value={tab} onChange={(t) => setTab(t as Tab)} />
-                </div>
 
+                <Tabs tabs={[...TABS]} value={tab} onChange={(t) => setTab(t as Tab)} className="self-start" />
+            </Container>
+
+            <Container fluid={fluid} className="mt-6">
                 {loading && (tab === 'Planner' || tab === 'Library') ? (
                     <div className="grid place-items-center py-16">
                         <Spinner />

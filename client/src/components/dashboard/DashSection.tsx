@@ -17,6 +17,39 @@ export const AREA_TONES = {
 
 export type AreaTone = keyof typeof AREA_TONES
 
+/**
+ * The type, rule and spacing conventions every dashboard section uses, so a row
+ * in Meals reads exactly like a row in Schedule or Countdowns.
+ *
+ * - Section heading: 20px semibold (DashSection). Meta under it: 13px muted.
+ * - Lists: hairline above, between and below; each row 14px tall padding.
+ * - Row: 13px muted label column, 15px ink text, 13px muted value on the right.
+ * - Sub-heading inside a section (a group or a macro name): 13px secondary.
+ * - Blocks inside a section sit 24px apart.
+ * - Bars: 4px track in stone-200.
+ */
+export const DASH = {
+    list: 'divide-y divide-neutral-200 border-y border-neutral-200',
+    row: 'flex min-h-[52px] items-center gap-3 py-3.5',
+    /** A row whose text can wrap onto several lines: icon pinned to the first line. */
+    rowWrap: 'flex items-start gap-3 py-3.5',
+    rowLabel: 'w-24 shrink-0 text-[13px] text-neutral-500',
+    rowText: 'min-w-0 flex-1 truncate text-[15px] text-neutral-900',
+    rowValue: 'shrink-0 text-[13px] tabular-nums text-neutral-500',
+    rowFigure: 'shrink-0 text-[15px] font-medium tabular-nums text-neutral-900',
+    rowIcon: 'w-4 shrink-0 text-center text-sm text-neutral-500',
+    subhead: 'text-[13px] text-neutral-600',
+    note: 'text-[13px] text-neutral-500',
+    empty: 'border-y border-neutral-200 py-5 text-[15px] text-neutral-500',
+    emptyLink: 'font-medium text-neutral-900 underline underline-offset-4',
+    block: 'mt-6',
+    stack: 'flex flex-col gap-6',
+    figure: 'text-[40px] font-medium leading-none tracking-[-0.04em] tabular-nums text-neutral-950',
+    figureSm: 'text-2xl font-medium tracking-[-0.03em] tabular-nums text-neutral-950',
+    track: 'h-1 w-full overflow-hidden rounded-full bg-neutral-200',
+    dot: 'inline-block h-2 w-2 shrink-0 rounded-full',
+} as const
+
 /** The tinted icon tile used beside headings and figures. */
 export function AreaIcon({ icon, tone, size = 'md' }: { icon: string; tone: AreaTone; size?: 'sm' | 'md' }) {
     const box = size === 'sm' ? 'h-7 w-7 rounded-lg text-xs' : 'h-8 w-8 rounded-[10px] text-sm'

@@ -28,11 +28,7 @@ export interface Overload<T extends SlotItem> {
     entries: T[]
 }
 
-/**
- * Whether a kind counts towards a slot's load. Mobility and recovery never
- * overload a slot — they're what you'd pair a hard session with — so only
- * strength and conditioning are weighed.
- */
+/** Whether a kind counts towards a slot's load — strength and conditioning both do. */
 export function isHardSession(kind: FitnessPlanKind): boolean {
     return kind === 'workout' || kind === 'conditioning'
 }

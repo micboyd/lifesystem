@@ -9,8 +9,6 @@ export type ImportResource =
     | 'conditioning'
     | 'exercises'
     | 'workouts'
-    | 'mobility'
-    | 'recovery'
     | 'meals'
 
 /** Chosen name-clash overwrites: `{ "<lowercased name>": "<existing id>" }`. */

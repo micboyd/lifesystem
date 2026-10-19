@@ -126,6 +126,12 @@ body {
     letter-spacing: -0.01em;
 }
 
+/* Figures that should line up but stay in the body font (no mono), e.g. the
+   fitness stats and body screens. */
+.nums {
+    font-variant-numeric: tabular-nums;
+}
+
 /* One focus treatment everywhere: an ink ring with a 2px gap. */
 :focus-visible {
     outline: 2px solid var(--color-ink);

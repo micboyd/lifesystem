@@ -105,18 +105,6 @@ describe('training score', () => {
         expect(row.headline).toBe('3 of 4 planned sessions done')
     })
 
-    it('leaves mobility and recovery out of the denominator', () => {
-        const row = scoreFor('training', {
-            fitnessEntries: [
-                { date: '2026-09-01', kind: 'workout' },
-                { date: '2026-09-02', kind: 'mobility' },
-                { date: '2026-09-03', kind: 'recovery' },
-            ],
-            workoutLogs: [{ date: '2026-09-01' }],
-        })
-        expect(row.score).toBe(100)
-    })
-
     it('ignores sessions outside the season window', () => {
         const row = scoreFor('training', {
             fitnessEntries: [

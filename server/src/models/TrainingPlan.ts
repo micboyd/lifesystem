@@ -11,14 +11,14 @@ import {
  * items of the same kind can serve different roles — a run from the base plan and
  * a rugby conditioning session are both `conditioning`.
  */
-export const PLAN_ROLES = ['strength', 'run', 'conditioning', 'mobility', 'recovery'] as const
+export const PLAN_ROLES = ['strength', 'run', 'conditioning'] as const
 export type PlanRole = (typeof PLAN_ROLES)[number]
 
 /** A library item this plan links to. Details are read from the library at display time. */
 export interface IPlanItem {
     kind: FitnessPlanKind
     role: PlanRole
-    /** The library document — a Workout, ConditioningSession, Mobility or Recovery. */
+    /** The library document — a Workout or ConditioningSession. */
     item: Types.ObjectId
     /** Name at import time, so the plan still reads sensibly if the item is deleted. */
     label: string
@@ -59,8 +59,6 @@ export interface IPlanWeekDay {
     day: string
     strength?: string
     conditioning?: string
-    mobility?: string
-    recovery?: string
 }
 
 /**
@@ -101,9 +99,6 @@ export interface ITrainingPlan extends Document {
     weeklyTemplate: IPlanWeekDay[]
     /** Progression rules — free-form, rendered as-is. */
     strengthProgression?: unknown
-    /** How mobility / recovery are used across the week, keyed by weekday. */
-    mobilityUse?: unknown
-    recoveryUse?: unknown
     readinessRules: string[]
     /** Every library item the plan links to. */
     items: IPlanItem[]
@@ -174,8 +169,6 @@ const weekDaySchema = new Schema<IPlanWeekDay>(
         day: { type: String, required: true, trim: true },
         strength: { type: String, trim: true },
         conditioning: { type: String, trim: true },
-        mobility: { type: String, trim: true },
-        recovery: { type: String, trim: true },
     },
     { _id: false }
 )
@@ -210,8 +203,6 @@ const trainingPlanSchema = new Schema<ITrainingPlan>(
         phases: { type: [phaseSchema], default: [] },
         weeklyTemplate: { type: [weekDaySchema], default: [] },
         strengthProgression: { type: Schema.Types.Mixed },
-        mobilityUse: { type: Schema.Types.Mixed },
-        recoveryUse: { type: Schema.Types.Mixed },
         readinessRules: { type: [String], default: [] },
         items: { type: [planItemSchema], default: [] },
         createdExercises: { type: [Schema.Types.ObjectId], ref: 'Exercise', default: [] },

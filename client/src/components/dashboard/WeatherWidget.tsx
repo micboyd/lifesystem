@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import DashSection, { SectionLoading } from './DashSection'
+import DashSection, { DASH, SectionLoading } from './DashSection'
 import { useAuth } from '../../context/AuthContext'
 import {
     fetchForecast,
@@ -69,14 +69,14 @@ export default function WeatherWidget() {
             <DashSection title="Weather" icon="fa-solid fa-cloud-sun" tone="sky">
                 <Link
                     to="/weather"
-                    className="group flex items-center gap-4 border-y border-neutral-200 py-5 text-left"
+                    className={`group flex items-center gap-3 text-left ${DASH.list} py-3.5`}
                 >
-                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-info-bg text-base text-info">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-info-bg text-sm text-info">
                         <i className="fa-solid fa-location-dot" aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
                         <p className="text-[15px] font-medium text-neutral-900">Set your location</p>
-                        <p className="text-[13px] text-neutral-500">Add a location to see today&apos;s forecast</p>
+                        <p className={DASH.note}>Add a location to see today&apos;s forecast</p>
                     </div>
                     <i className="fa-solid fa-chevron-right text-xs text-neutral-500 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                 </Link>
@@ -94,23 +94,23 @@ export default function WeatherWidget() {
             {pending ? (
                 <SectionLoading rows={2} />
             ) : error || hours.length === 0 ? (
-                <p className="py-4 text-[15px] text-neutral-500">Couldn&apos;t load the forecast right now.</p>
+                <p className={DASH.empty}>Couldn&apos;t load the forecast right now.</p>
             ) : (
-                <div className="flex flex-col gap-6">
+                <div className={DASH.stack}>
                     <div className="flex items-center gap-4">
                         <i
                             className={`${weatherInfo(now.code, now.hour >= 6 && now.hour < 20).icon} text-4xl ${iconTint(weatherInfo(now.code, now.hour >= 6 && now.hour < 20).icon)}`}
                             aria-hidden="true"
                         />
-                        <span className="text-5xl font-medium leading-none tracking-[-0.05em] tabular-nums text-neutral-950">
+                        <span className={DASH.figure}>
                             {now.temperature}&deg;
                         </span>
                         <span className="text-[15px] leading-snug text-neutral-600">
                             {weatherInfo(now.code, now.hour >= 6 && now.hour < 20).label}
-                            <span className="block text-[13px] text-neutral-500">at {hourLabel(now.hour)}</span>
+                            <span className={`block ${DASH.note}`}>at {hourLabel(now.hour)}</span>
                         </span>
                     </div>
-                    <div className="grid grid-cols-5 border-t border-neutral-200 pt-5">
+                    <div className="grid grid-cols-5 border-y border-neutral-200 py-4">
                         {hours.map((h) => {
                             const info = weatherInfo(h.code, h.hour >= 6 && h.hour < 20)
                             return (
@@ -119,9 +119,9 @@ export default function WeatherWidget() {
                                     className="flex flex-col items-center gap-2"
                                     title={info.label}
                                 >
-                                    <span className="text-xs text-neutral-500">{hourLabel(h.hour)}</span>
+                                    <span className={DASH.note}>{hourLabel(h.hour)}</span>
                                     <i className={`${info.icon} text-lg ${iconTint(info.icon)}`} aria-hidden="true" />
-                                    <span className="text-sm tabular-nums text-neutral-900">{h.temperature}&deg;</span>
+                                    <span className="text-[15px] tabular-nums text-neutral-900">{h.temperature}&deg;</span>
                                     <span className="text-[11px] tabular-nums text-info">
                                         {h.precipitationProbability >= 20 ? `${h.precipitationProbability}%` : '\u00a0'}
                                     </span>

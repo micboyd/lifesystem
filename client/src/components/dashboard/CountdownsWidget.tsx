@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import DashSection, { SectionLoading } from './DashSection'
+import DashSection, { DASH, SectionLoading } from './DashSection'
 import { listDaysUntil } from '../../services/daysUntil'
 import { listDaysSince } from '../../services/daysSince'
 import { daysUntil } from '../../lib/daysUntil'
@@ -33,15 +33,15 @@ function Row({
     value: string
 }) {
     return (
-        <li className="flex items-center gap-3 py-3.5">
+        <li className={DASH.row}>
             <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-sm ${tile} ${accent}`}>
                 <i className={icon} aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] text-neutral-900">{label}</p>
-                {note && <p className="text-xs text-neutral-500">{note}</p>}
+                {note && <p className={DASH.note}>{note}</p>}
             </div>
-            <span className="shrink-0 text-lg font-medium tracking-[-0.02em] tabular-nums text-neutral-950">
+            <span className={DASH.rowFigure}>
                 {value}
             </span>
         </li>
@@ -51,13 +51,13 @@ function Row({
 function Group({ title, to, children }: { title: string; to: string; children: ReactNode }) {
     return (
         <section>
-            <div className="mb-1 flex items-center justify-between">
-                <p className="text-[13px] text-neutral-600">{title}</p>
+            <div className="mb-2 flex items-center justify-between">
+                <p className={DASH.subhead}>{title}</p>
                 <Link to={to} className="text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900">
                     All
                 </Link>
             </div>
-            <ul className="divide-y divide-neutral-200 border-y border-neutral-200">{children}</ul>
+            <ul className={DASH.list}>{children}</ul>
         </section>
     )
 }
@@ -95,14 +95,14 @@ export default function CountdownsWidget() {
             {loading ? (
                 <SectionLoading />
             ) : empty ? (
-                <p className="text-[15px] text-neutral-500">
+                <p className={DASH.empty}>
                     Nothing counting.{' '}
-                    <Link to="/days-until" className="font-medium text-neutral-900 underline underline-offset-4">
+                    <Link to="/days-until" className={DASH.emptyLink}>
                         Add a countdown
                     </Link>
                 </p>
             ) : (
-                <div className="flex flex-col gap-8">
+                <div className={DASH.stack}>
                     {upcoming.length > 0 && (
                         <Group title="Coming up" to="/days-until">
                             {upcoming.map(({ item, days }) => {

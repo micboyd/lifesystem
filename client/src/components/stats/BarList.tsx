@@ -29,7 +29,7 @@ export default function BarList({ items }: { items: BarItem[] }) {
                         >
                             {item.label}
                         </span>
-                        <span className="shrink-0 tabular-nums text-neutral-500">
+                        <span className="shrink-0 nums text-neutral-500">
                             {item.valueLabel}
                         </span>
                     </div>

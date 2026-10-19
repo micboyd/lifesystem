@@ -15,6 +15,8 @@ export interface IWorkoutExercise {
     /** Planned slot, in minutes from the start of the session (e.g. 15 → 30). */
     startMin?: number
     endMin?: number
+    /** A sub-list of things to do within the line, ticked off one by one. */
+    steps?: string[]
 }
 
 /**
@@ -49,6 +51,7 @@ const workoutExerciseSchema = new Schema<IWorkoutExercise>(
         notes: { type: String, trim: true },
         startMin: { type: Number, min: 0 },
         endMin: { type: Number, min: 0 },
+        steps: { type: [String], default: undefined },
     },
     { _id: false }
 )

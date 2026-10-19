@@ -55,7 +55,7 @@ export default function RoundCounter({
     }
 
     return (
-        <div className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+        <div className="rounded-xl bg-neutral-50 p-3">
             <div className="mb-2.5 flex items-center justify-between">
                 <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                     {target} {many}

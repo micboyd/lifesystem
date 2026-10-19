@@ -23,7 +23,6 @@ import type {
     FitnessPlanKind,
     FitnessPlanNote,
     FitnessPlanPart,
-    RecoveryLog,
     SessionPart,
     Workout,
     WorkoutLog,
@@ -76,20 +75,15 @@ export interface PlannerExportInput {
     options: PlannerExportOptions
 }
 
-/**
- * The logs, as the three logged categories keep them. Mobility is supplementary
- * and keeps no logs — a mobility entry is done when it's ticked on the planner.
- */
+/** The logs, as each logged category keeps them. */
 export interface PlannerExportLogs {
     workout: WorkoutLog[]
     conditioning: ConditioningLog[]
-    recovery: RecoveryLog[]
 }
 
 export const NO_LOGS: PlannerExportLogs = {
     workout: [],
     conditioning: [],
-    recovery: [],
 }
 
 // ─── Payload shape ──────────────────────────────────────────────────────────────
@@ -182,17 +176,13 @@ export function logKey(kind: FitnessPlanKind, libId: string, date: string): stri
 /** The library item id behind a planned entry, whichever category it is. */
 function entryLibId(entry: FitnessPlanEntry): string | undefined {
     if (entry.kind === 'workout') return entry.workout?._id
-    if (entry.kind === 'conditioning') return entry.session?._id
-    if (entry.kind === 'mobility') return entry.mobility?._id
-    return entry.recovery?._id
+    return entry.session?._id
 }
 
 /** The display name of a planned item, whichever library it comes from. */
 function entryName(entry: FitnessPlanEntry): string | undefined {
     if (entry.kind === 'workout') return entry.workout?.name
-    if (entry.kind === 'conditioning') return entry.session?.name
-    if (entry.kind === 'mobility') return entry.mobility?.name
-    return entry.recovery?.name
+    return entry.session?.name
 }
 
 /** The slot an entry sits in, defaulting legacy entries (no `part`) to morning. */
@@ -225,10 +215,10 @@ function weekdayName(date: string): string {
 }
 
 function emptyTotals(): PlannerTotals {
-    return { workout: 0, conditioning: 0, mobility: 0, recovery: 0 }
+    return { workout: 0, conditioning: 0 }
 }
 
-/** Strip a session/mobility part down to the fields worth exporting. */
+/** Strip a session part down to the fields worth exporting. */
 function shapeParts(parts: SessionPart[]) {
     return parts.map((p) => ({
         name: p.name,
@@ -281,22 +271,6 @@ function entryDetails(
             ...(s.helpers?.length ? { helpers: s.helpers } : {}),
         }
     }
-    if (entry.kind === 'mobility' && entry.mobility) {
-        const m = entry.mobility
-        return {
-            duration: m.duration,
-            ...(m.purpose ? { purpose: m.purpose } : {}),
-            parts: shapeParts(m.parts),
-        }
-    }
-    if (entry.kind === 'recovery' && entry.recovery) {
-        const r = entry.recovery
-        return {
-            duration: r.duration,
-            ...(r.purpose ? { purpose: r.purpose } : {}),
-            ...(r.notes ? { notes: r.notes } : {}),
-        }
-    }
     return undefined
 }
 
@@ -321,12 +295,7 @@ function shapeEntry(
         plan: entry.plan,
         ...(entry.ignoreClash === true ? { ignoreClash: true as const } : {}),
         ...(input.options.completion
-            ? {
-                  done:
-                      entry.kind === 'mobility'
-                          ? entry.done === true
-                          : doneKeys.has(logKey(entry.kind, item, entry.date)),
-              }
+            ? { done: doneKeys.has(logKey(entry.kind, item, entry.date)) }
             : {}),
         ...(details ? { details } : {}),
     }
@@ -401,16 +370,6 @@ function logsByDate(
             ...(includeDetails && l.rounds?.length ? { details: { rounds: l.rounds } } : {}),
         })
 
-    for (const l of logs.recovery)
-        add(l.date, {
-            kind: 'recovery',
-            name: l.name,
-            item: l.recovery,
-            planned: wasPlanned('recovery', l.recovery, l.date),
-            ...(l.duration != null ? { durationMin: l.duration } : {}),
-            ...(l.notes ? { notes: l.notes } : {}),
-        })
-
     // A day's logs read in the planner's own category order, then by name, so two
     // exports of the same day come out identical however the logs were fetched.
     const kindOrder = new Map(FITNESS_PLAN_KINDS.map((k, i) => [k, i]))
@@ -428,7 +387,6 @@ function completionKeys(logs: PlannerExportLogs): Set<string> {
     for (const l of logs.workout) if (l.workout) keys.add(logKey('workout', l.workout, l.date))
     for (const l of logs.conditioning)
         if (l.session) keys.add(logKey('conditioning', l.session, l.date))
-    for (const l of logs.recovery) if (l.recovery) keys.add(logKey('recovery', l.recovery, l.date))
     return keys
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import DashSection from './DashSection'
+import DashSection, { DASH } from './DashSection'
 import { useAuth } from '../../context/AuthContext'
 import { useCalendars } from '../../context/CalendarsContext'
 import { useDataVersion } from '../../context/DataSyncContext'
@@ -144,6 +144,22 @@ function prepChecklist(
     return items
 }
 
+/** One "get ready" line: a small label stacked over a sentence that may wrap. */
+function PrepRow({ icon, label, text, accent = false }: { icon: string; label: string; text: string; accent?: boolean }) {
+    return (
+        <li className={DASH.rowWrap}>
+            <i
+                className={`${icon} mt-[3px] w-4 shrink-0 text-center text-sm ${accent ? 'text-violet-500' : 'text-neutral-500'}`}
+                aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1">
+                <p className={DASH.note}>{label}</p>
+                <p className="mt-0.5 text-[15px] leading-6 text-neutral-900">{text}</p>
+            </div>
+        </li>
+    )
+}
+
 /**
  * The evening counterpart to the dashboard: once today is effectively over, what
  * matters is what you need to have ready. Weather and clothing come first because
@@ -213,263 +229,139 @@ function TomorrowBrief({
                     {warnings.map((w) => (
                         <div
                             key={w.id}
-                            className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 ${SEVERITY_STYLES[w.severity]}`}
+                            className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 ${SEVERITY_STYLES[w.severity]}`}
                         >
-                            <i
-                                className={`${w.icon} mt-0.5 shrink-0 text-sm ${SEVERITY_ICON_STYLES[w.severity]}`}
-                                aria-hidden="true"
-                            />
+                            <i className={`${w.icon} mt-0.5 shrink-0 text-sm ${SEVERITY_ICON_STYLES[w.severity]}`} aria-hidden="true" />
                             <div className="min-w-0">
-                                <p className="text-xs font-semibold leading-tight">{w.title}</p>
-                                <p className="mt-0.5 text-[11px] opacity-80">{w.detail}</p>
+                                <p className="text-sm font-semibold">{w.title}</p>
+                                <p className="mt-0.5 text-[13px] leading-[19px]">{w.detail}</p>
                             </div>
                         </div>
                     ))}
                 </div>
             )}
 
-            <div className="grid gap-8 sm:grid-cols-2">
-                {/* Weather + clothing */}
-                <div className="flex flex-col gap-3">
-                    {day && info ? (
-                        <>
-                            <div className="flex items-center gap-4">
-                                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-sky-50 text-2xl text-sky-500">
-                                    <i className={info.icon} aria-hidden="true" />
+            {/* One full-width column: weather, then what to get ready, then what's on.
+                (Two side-by-side columns squeezed every row to a few words wide.) */}
+            <div className={DASH.stack}>
+                {day && info ? (
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                        <div className="flex items-center gap-4">
+                            <i className={`${info.icon} text-4xl text-sky-500`} aria-hidden="true" />
+                            <div className="min-w-0">
+                                <p className="flex items-baseline gap-2">
+                                    <span className={DASH.figureSm}>{day.tempMax}&deg;</span>
+                                    <span className="text-[15px] text-neutral-600">{info.label}</span>
+                                </p>
+                                <p className={DASH.note}>
+                                    Low {day.tempMin}&deg;
+                                    {day.precipitationProbability > 0 && <> · {day.precipitationProbability}% rain</>}
+                                    {` · wind ${day.windMax} mph`}
+                                </p>
+                            </div>
+                        </div>
+                        {/* Numbers worth knowing the night before. */}
+                        <div className={`flex flex-wrap gap-x-5 gap-y-1 ${DASH.note}`}>
+                            {day.sunrise && <span>Sunrise <span className="tabular-nums text-neutral-900">{formatClock(day.sunrise)}</span></span>}
+                            {day.sunset && <span>Sunset <span className="tabular-nums text-neutral-900">{formatClock(day.sunset)}</span></span>}
+                            {day.uvIndexMax != null && <span>UV <span className="tabular-nums text-neutral-900">{Math.round(day.uvIndexMax)}</span></span>}
+                            {maxGust > day.windMax + 5 && <span>Gusts <span className="tabular-nums text-neutral-900">{maxGust} mph</span></span>}
+                            {totalRain > 0.2 && <span>Rain <span className="tabular-nums text-neutral-900">{Math.round(totalRain * 10) / 10}mm</span></span>}
+                            {minVis < 10 && (
+                                <span>
+                                    Visibility{' '}
+                                    <span className="tabular-nums text-neutral-900">
+                                        {minVis < 1 ? `${Math.round(minVis * 1000)}m` : `${minVis}km`}
+                                    </span>
                                 </span>
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-2xl font-bold tracking-tight text-neutral-900">
-                                            {day.tempMax}&deg;
-                                        </span>
-                                        <span className="truncate text-sm font-medium text-neutral-500">
-                                            {info.label}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-neutral-500">
-                                        Low {day.tempMin}&deg;
-                                        {day.precipitationProbability > 0 && (
-                                            <> · {day.precipitationProbability}% rain</>
-                                        )}
-                                        {` · wind ${day.windMax} mph`}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {insight && (
-                                <p className="rounded-xl bg-neutral-50 px-3 py-2.5 text-xs text-neutral-600">
-                                    <i
-                                        className="fa-solid fa-lightbulb mr-1.5 text-neutral-500"
-                                        aria-hidden="true"
-                                    />
-                                    {insight}
-                                </p>
                             )}
+                        </div>
+                    </div>
+                ) : (
+                    <p className={DASH.empty}>
+                        No forecast for tomorrow yet.{' '}
+                        <Link to="/weather" className={DASH.emptyLink}>
+                            Open weather
+                        </Link>
+                    </p>
+                )}
 
-                            {/* What to wear leads the prep — it's the thing you
-                                sort out the night before. */}
-                            <div className="rounded-xl bg-neutral-50 px-3 py-3">
-                                <p className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                    <i className="fa-solid fa-shirt" aria-hidden="true" />
-                                    What to wear
-                                </p>
-                                <p className="text-sm leading-snug text-neutral-700">
-                                    {whatToWear(day)}
-                                </p>
-                            </div>
+                {day && info && (
+                    <div>
+                        <p className={`mb-2 ${DASH.subhead}`}>Get ready</p>
+                        <ul className={DASH.list}>
+                            {/* What to wear leads — it's the thing you sort out the night before. */}
+                            <PrepRow icon="fa-solid fa-shirt" label="What to wear" text={whatToWear(day)} />
+                            {insight && <PrepRow icon="fa-solid fa-lightbulb" label="Worth knowing" text={insight} />}
+                            {/* Tonight's checklist — actions before bed, only when something applies. */}
+                            {prep.map((item) => (
+                                <PrepRow key={item.id} icon={item.icon} label="Tonight" text={item.text} accent />
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
-                            {/* Tonight's checklist — actions to take before bed, not
-                                what to put on. Only shown when something applies. */}
-                            {prep.length > 0 && (
-                                <div className="rounded-xl border border-neutral-100 px-3 py-3">
-                                    <p className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        <i className="fa-solid fa-list-check" aria-hidden="true" />
-                                        Tonight
-                                    </p>
-                                    <ul className="flex flex-col gap-2">
-                                        {prep.map((item) => (
-                                            <li key={item.id} className="flex items-start gap-2.5">
-                                                <i
-                                                    className={`${item.icon} mt-0.5 w-4 shrink-0 text-center text-xs text-indigo-400`}
-                                                    aria-hidden="true"
-                                                />
-                                                <span className="text-xs leading-snug text-neutral-600">
-                                                    {item.text}
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
-                            {/* Numbers worth knowing the night before. */}
-                            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-neutral-500">
-                                {day.sunrise && (
-                                    <span>
-                                        <i
-                                            className="fa-solid fa-arrow-up mr-1 text-neutral-300"
-                                            aria-hidden="true"
-                                        />
-                                        Sunrise {formatClock(day.sunrise)}
-                                    </span>
-                                )}
-                                {day.sunset && (
-                                    <span>
-                                        <i
-                                            className="fa-solid fa-arrow-down mr-1 text-neutral-300"
-                                            aria-hidden="true"
-                                        />
-                                        Sunset {formatClock(day.sunset)}
-                                    </span>
-                                )}
-                                {day.uvIndexMax != null && (
-                                    <span>
-                                        <i
-                                            className="fa-solid fa-sun mr-1 text-neutral-300"
-                                            aria-hidden="true"
-                                        />
-                                        UV {Math.round(day.uvIndexMax)}
-                                    </span>
-                                )}
-                                {maxGust > day.windMax + 5 && (
-                                    <span>
-                                        <i
-                                            className="fa-solid fa-wind mr-1 text-neutral-300"
-                                            aria-hidden="true"
-                                        />
-                                        Gusts {maxGust} mph
-                                    </span>
-                                )}
-                                {totalRain > 0.2 && (
-                                    <span>
-                                        <i
-                                            className="fa-solid fa-cloud-rain mr-1 text-neutral-300"
-                                            aria-hidden="true"
-                                        />
-                                        {Math.round(totalRain * 10) / 10}mm rain
-                                    </span>
-                                )}
-                                {minVis < 10 && (
-                                    <span>
-                                        <i
-                                            className="fa-solid fa-eye mr-1 text-neutral-300"
-                                            aria-hidden="true"
-                                        />
-                                        Vis {minVis < 1 ? `${Math.round(minVis * 1000)}m` : `${minVis}km`}
-                                    </span>
-                                )}
-                            </div>
-
-                        </>
-                    ) : (
-                        <p className="text-sm text-neutral-500">
-                            No forecast for tomorrow yet.{' '}
-                            <Link
-                                to="/weather"
-                                className="font-semibold text-neutral-600 underline underline-offset-2"
-                            >
-                                Open weather
-                            </Link>
-                        </p>
-                    )}
-                </div>
-
-                {/* What's coming up */}
-                <div className="flex flex-col gap-1">
+                <div>
+                    <p className={`mb-2 ${DASH.subhead}`}>
+                        {firstTimed ? (
+                            <>
+                                First thing: <span className="text-neutral-900">{firstTimed.title}</span> at{' '}
+                                <span className="tabular-nums text-neutral-900">{firstTimed.time}</span>
+                            </>
+                        ) : (
+                            "What's on"
+                        )}
+                    </p>
                     {statusOption && (
-                        <div
-                            className={`mb-1 flex items-center gap-2 rounded-xl px-3 py-2 ${statusOption.bg} ${statusOption.text}`}
-                        >
-                            <i
-                                className="fa-solid fa-umbrella-beach w-4 shrink-0 text-center text-sm opacity-70"
-                                aria-hidden="true"
-                            />
-                            <span className="truncate text-sm font-semibold">{statusOption.label}</span>
-                        </div>
-                    )}
-
-                    {firstTimed && (
-                        <p className="mb-1 text-xs font-semibold text-neutral-500">
-                            First thing: {firstTimed.title} at {firstTimed.time}
+                        <p className={`mb-3 flex h-10 items-center gap-2.5 rounded-xl px-4 text-sm font-medium ${statusOption.bg} ${statusOption.text}`}>
+                            <i className="fa-solid fa-umbrella-beach text-sm" aria-hidden="true" />
+                            {statusOption.label}
                         </p>
                     )}
-
-                    {allDay.map((e) => {
-                        const colors = colorsForEvent(e, calendarsById)
-                        return (
-                            <div
-                                key={e._id}
-                                className={`flex items-center gap-3 rounded-xl px-3 py-2 ${colors.bg}`}
-                            >
-                                <i
-                                    className="fa-regular fa-calendar w-4 shrink-0 text-center text-sm opacity-60"
-                                    aria-hidden="true"
-                                />
-                                <p className={`min-w-0 flex-1 truncate text-sm font-semibold ${colors.text}`}>
-                                    {e.title}
-                                </p>
-                                <span className={`shrink-0 text-xs font-medium opacity-60 ${colors.text}`}>
-                                    all day
-                                </span>
-                            </div>
-                        )
-                    })}
-
-                    {parts.map(({ period, event }) => {
-                        const colors = colorsForEvent(event!, calendarsById)
-                        return (
-                            <div
-                                key={period.key}
-                                className={`flex items-center gap-3 rounded-xl px-3 py-2 ${colors.bg}`}
-                            >
-                                <i
-                                    className={`${period.icon} w-4 shrink-0 text-center text-sm opacity-60 ${colors.text}`}
-                                    aria-hidden="true"
-                                />
-                                <span className={`mr-2 w-16 shrink-0 text-[11px] font-medium uppercase tracking-[0.06em] opacity-70 ${colors.text}`}>
-                                    {period.label}
-                                </span>
-                                <span className={`min-w-0 flex-1 truncate text-sm font-medium ${colors.text}`}>
-                                    {event!.title}
-                                </span>
-                                {event!.time && (
-                                    <span className={`shrink-0 text-[11px] tabular-nums opacity-70 ${colors.text}`}>
-                                        {event!.time}
+                    {nothingOn ? (
+                        <p className={DASH.empty}>Nothing scheduled — a clear day ahead.</p>
+                    ) : (
+                        <ul className={DASH.list}>
+                            {allDay.map((e) => {
+                                const colors = colorsForEvent(e, calendarsById)
+                                return (
+                                    <li key={e._id} className={DASH.row}>
+                                        <i className={`fa-regular fa-calendar ${DASH.rowIcon}`} aria-hidden="true" />
+                                        <span className={DASH.rowLabel}>All day</span>
+                                        <span className={`${DASH.dot} ${colors.bg}`} />
+                                        <span className={DASH.rowText}>{e.title}</span>
+                                    </li>
+                                )
+                            })}
+                            {parts.map(({ period, event }) => {
+                                const colors = colorsForEvent(event!, calendarsById)
+                                return (
+                                    <li key={period.key} className={DASH.row}>
+                                        <i className={`${period.icon} ${DASH.rowIcon}`} aria-hidden="true" />
+                                        <span className={DASH.rowLabel}>{period.label}</span>
+                                        <span className={`${DASH.dot} ${colors.bg}`} />
+                                        <span className={DASH.rowText}>{event!.title}</span>
+                                        {event!.time && <span className={DASH.rowValue}>{event!.time}</span>}
+                                    </li>
+                                )
+                            })}
+                            {reminders.map((r) => (
+                                <li key={`${r._id}-${r.date}`} className={DASH.row}>
+                                    <i className="fa-solid fa-bell w-4 shrink-0 text-center text-sm text-amber-500" aria-hidden="true" />
+                                    <span className={DASH.rowLabel}>Reminder</span>
+                                    <span className={DASH.rowText}>{r.text}</span>
+                                </li>
+                            ))}
+                            {openTasks.length > 0 && (
+                                <li className={DASH.row}>
+                                    <i className={`fa-solid fa-list-check ${DASH.rowIcon}`} aria-hidden="true" />
+                                    <span className={DASH.rowLabel}>Tasks</span>
+                                    <span className={DASH.rowText}>
+                                        {openTasks.length} task{openTasks.length !== 1 ? 's' : ''} lined up
                                     </span>
-                                )}
-                            </div>
-                        )
-                    })}
-
-                    {reminders.map((r) => (
-                        <div
-                            key={`${r._id}-${r.date}`}
-                            className="flex items-center gap-3 rounded-xl px-3 py-2"
-                        >
-                            <i
-                                className="fa-solid fa-bell w-4 shrink-0 text-center text-sm text-amber-400"
-                                aria-hidden="true"
-                            />
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800">
-                                {r.text}
-                            </span>
-                        </div>
-                    ))}
-
-                    {openTasks.length > 0 && (
-                        <div className="flex items-center gap-3 rounded-xl px-3 py-2">
-                            <i
-                                className="fa-solid fa-list-check w-4 shrink-0 text-center text-sm text-neutral-300"
-                                aria-hidden="true"
-                            />
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800">
-                                {openTasks.length} task{openTasks.length !== 1 ? 's' : ''} lined up
-                            </span>
-                        </div>
-                    )}
-
-                    {nothingOn && (
-                        <p className="text-sm text-neutral-500">Nothing scheduled — a clear day ahead.</p>
+                                </li>
+                            )}
+                        </ul>
                     )}
                 </div>
             </div>

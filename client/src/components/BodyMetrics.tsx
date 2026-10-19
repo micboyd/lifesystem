@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Card } from './Card'
+import StatTile from './StatTile'
+import PillToggle from './PillToggle'
+import { Surface, PanelHeader } from './stats/ui'
 import Button from './Button'
 import Input from './Input'
 import DatePicker from './DatePicker'
@@ -59,7 +61,8 @@ export default function BodyMetrics() {
 
     const [logs, setLogs] = useState<WeightLog[] | null>(null)
     const [windowDays, setWindowDays] = useState<number>(28)
-    const [editing, setEditing] = useState<WeightLog | null>(null)
+    // The weigh-in drawer: a new reading, or an existing one to correct.
+    const [entry, setEntry] = useState<{ log: WeightLog | null } | null>(null)
     const [confirmDelete, setConfirmDelete] = useState<WeightLog | null>(null)
     const [goalsOpen, setGoalsOpen] = useState(false)
 
@@ -87,7 +90,8 @@ export default function BodyMetrics() {
             const rest = (prev ?? []).filter((l) => l.date !== saved.date)
             return [...rest, saved].sort((a, b) => a.date.localeCompare(b.date))
         })
-        setEditing(null)
+        setEntry(null)
+        toast.show('Weigh-in saved.', 'success')
     }
 
     async function handleDelete(log: WeightLog) {
@@ -114,23 +118,37 @@ export default function BodyMetrics() {
         )
     }
 
+    const lastLog = logs.length ? logs[logs.length - 1] : null
+
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <WeighInForm
-                    key={editing?._id ?? 'new'}
-                    initial={editing}
-                    onSave={handleSave}
-                    onCancelEdit={editing ? () => setEditing(null) : undefined}
-                />
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    icon="fa-solid fa-bullseye"
-                    onClick={() => setGoalsOpen(true)}
-                >
-                    Targets
-                </Button>
+        <div className="flex flex-col gap-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-neutral-500">
+                    {lastLog ? (
+                        <>
+                            Last weigh-in{' '}
+                            <span className="nums font-medium text-neutral-900">
+                                {lastLog.weight.toFixed(1)} kg
+                            </span>{' '}
+                            · {longDate(lastLog.date)}
+                        </>
+                    ) : (
+                        'No weigh-ins yet'
+                    )}
+                </p>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        icon="fa-solid fa-bullseye"
+                        onClick={() => setGoalsOpen(true)}
+                    >
+                        Targets
+                    </Button>
+                    <Button size="sm" icon="fa-solid fa-plus" onClick={() => setEntry({ log: null })}>
+                        Log weigh-in
+                    </Button>
+                </div>
             </div>
 
             {points.length === 0 ? (
@@ -142,16 +160,16 @@ export default function BodyMetrics() {
             ) : (
                 <>
                     <div
-                        className={`grid gap-4 sm:grid-cols-2 ${
+                        className={`grid grid-cols-2 gap-3 ${
                             latestFat || goals?.targetBodyFat ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
                         }`}
                     >
-                        <Stat
+                        <StatTile
                             label="Trend"
                             value={`${latest!.trend.toFixed(1)} kg`}
-                            sub={`Last scale reading ${latest!.weight.toFixed(1)} kg`}
+                            sub={`Scale said ${latest!.weight.toFixed(1)} kg`}
                         />
-                        <Stat
+                        <StatTile
                             label={`Rate · ${WINDOWS.find((w) => w.days === windowDays)?.label}`}
                             value={rate === null ? '—' : `${signed(rate)} kg/wk`}
                             sub={
@@ -161,7 +179,7 @@ export default function BodyMetrics() {
                             }
                             tone={STATUS_TONE[status]}
                         />
-                        <Stat
+                        <StatTile
                             label="Target"
                             value={goals?.targetWeight ? `${goals.targetWeight} kg` : '—'}
                             sub={
@@ -170,7 +188,7 @@ export default function BodyMetrics() {
                                     : 'Set one under Targets'
                             }
                         />
-                        <Stat
+                        <StatTile
                             label="Projected"
                             value={eta ? longDate(eta) : '—'}
                             sub={
@@ -178,7 +196,7 @@ export default function BodyMetrics() {
                             }
                         />
                         {(latestFat || goals?.targetBodyFat) && (
-                            <Stat
+                            <StatTile
                                 label="Body fat"
                                 value={latestFat ? `${latestFat.trend.toFixed(1)}%` : '—'}
                                 sub={bodyFatSub(latestFat, goals?.targetBodyFat)}
@@ -186,32 +204,19 @@ export default function BodyMetrics() {
                         )}
                     </div>
 
-                    <Card hover={false} className="flex flex-col gap-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                                <h3 className="text-sm font-bold text-neutral-900">Weight trend</h3>
-                                <p className="text-xs text-neutral-500">
-                                    Faint dots are the scale; the line is what&rsquo;s actually
-                                    happening.
-                                </p>
-                            </div>
-                            <div className="flex gap-1">
-                                {WINDOWS.map((w) => (
-                                    <button
-                                        key={w.days}
-                                        type="button"
-                                        onClick={() => setWindowDays(w.days)}
-                                        className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                                            windowDays === w.days
-                                                ? 'bg-neutral-950 text-white'
-                                                : 'text-neutral-500 hover:bg-neutral-100'
-                                        }`}
-                                    >
-                                        {w.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                    <Surface className="flex flex-col gap-4">
+                        <PanelHeader
+                            title="Weight trend"
+                            hint="Faint dots are the scale; the line is what’s actually happening."
+                            aside={
+                                <PillToggle
+                                    label="Rate window"
+                                    options={WINDOWS.map((w) => ({ value: w.days, label: w.label }))}
+                                    value={windowDays}
+                                    onChange={setWindowDays}
+                                />
+                            }
+                        />
                         <TrendChart
                             points={points.filter(
                                 (p) => daysBetween(p.date, todayKey()) <= HISTORY_DAYS
@@ -219,16 +224,25 @@ export default function BodyMetrics() {
                             target={goals?.targetWeight}
                         />
                         <RateVerdict status={status} rate={rate} intended={goals?.weeklyRate} />
-                    </Card>
+                    </Surface>
 
                     <RecentLog
                         logs={[...logs].reverse()}
                         points={points}
-                        onEdit={setEditing}
-                        onDelete={setConfirmDelete}
+                        onOpen={(log) => setEntry({ log })}
                     />
                 </>
             )}
+
+            <WeighInDrawer
+                // Remounted per reading so the fields start from it.
+                key={entry ? (entry.log?._id ?? 'new') : 'closed'}
+                open={!!entry}
+                initial={entry?.log ?? null}
+                onSave={handleSave}
+                onDelete={(log) => setConfirmDelete(log)}
+                onClose={() => setEntry(null)}
+            />
 
             <GoalsModal
                 key={goalsOpen ? 'open' : 'closed'}
@@ -248,7 +262,11 @@ export default function BodyMetrics() {
                 }
                 confirmLabel="Delete"
                 danger
-                onConfirm={() => confirmDelete && void handleDelete(confirmDelete)}
+                onConfirm={() => {
+                    if (!confirmDelete) return
+                    setEntry(null)
+                    void handleDelete(confirmDelete)
+                }}
                 onClose={() => setConfirmDelete(null)}
             />
         </div>
@@ -258,18 +276,22 @@ export default function BodyMetrics() {
 // ─── Weigh-in entry ─────────────────────────────────────────────────────────────
 
 /**
- * The inline weigh-in row. Doubles as the edit form: passing `initial` fills it
- * and switches the button to Save. Because the API upserts on the date, editing
- * a past day is just re-submitting it.
+ * Logging or correcting one weigh-in. Passing `initial` fills it and offers
+ * Delete; because the API upserts on the date, editing a past day is just
+ * re-submitting it.
  */
-function WeighInForm({
+function WeighInDrawer({
+    open,
     initial,
     onSave,
-    onCancelEdit,
+    onDelete,
+    onClose,
 }: {
+    open: boolean
     initial: WeightLog | null
     onSave: (payload: WeighInPayload) => Promise<void>
-    onCancelEdit?: () => void
+    onDelete: (log: WeightLog) => void
+    onClose: () => void
 }) {
     const toast = useToast()
     const [date, setDate] = useState(initial?.date ?? todayKey())
@@ -278,8 +300,8 @@ function WeighInForm({
     const [bodyFat, setBodyFat] = useState(initial?.bodyFat ? String(initial.bodyFat) : '')
     const [saving, setSaving] = useState(false)
 
-    async function submit(e: FormEvent) {
-        e.preventDefault()
+    async function submit(e?: FormEvent) {
+        e?.preventDefault()
         const kg = Number(weight)
         if (!Number.isFinite(kg) || kg <= 0) {
             toast.error('Enter a weight in kg')
@@ -307,11 +329,6 @@ function WeighInForm({
                 bodyFat: fat,
                 notes: initial?.notes,
             })
-            if (!initial) {
-                setWeight('')
-                setWaist('')
-                setBodyFat('')
-            }
         } catch {
             toast.error('Could not save that weigh-in')
         } finally {
@@ -320,18 +337,45 @@ function WeighInForm({
     }
 
     return (
-        <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
-            <div className="flex w-52 flex-col gap-1.5">
-                <label className="text-[13px] font-medium text-neutral-700">
-                    Date
-                </label>
-                <DatePicker
-                    value={date}
-                    maxDate={todayKey()}
-                    onChange={(v) => setDate(typeof v === 'string' ? v : todayKey())}
-                />
-            </div>
-            <div className="w-28">
+        <Drawer
+            size="md"
+            open={open}
+            onClose={onClose}
+            title={initial ? 'Edit weigh-in' : 'Log weigh-in'}
+            footer={
+                <div className="flex w-full flex-wrap items-center justify-end gap-3">
+                    {initial && (
+                        <Button
+                            variant="ghost"
+                            icon="fa-solid fa-trash-can"
+                            className="mr-auto"
+                            onClick={() => onDelete(initial)}
+                        >
+                            Delete
+                        </Button>
+                    )}
+                    <Button variant="ghost" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button icon="fa-solid fa-check" onClick={() => void submit()} disabled={saving}>
+                        {saving ? 'Saving…' : 'Save'}
+                    </Button>
+                </div>
+            }
+        >
+            <form onSubmit={submit} className="flex flex-col gap-5">
+                <p className="text-sm leading-relaxed text-neutral-500">
+                    Weigh first thing, after the loo and before eating, so every reading is taken
+                    the same way.
+                </p>
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[13px] font-medium text-neutral-700">Date</label>
+                    <DatePicker
+                        value={date}
+                        maxDate={todayKey()}
+                        onChange={(v) => setDate(typeof v === 'string' ? v : todayKey())}
+                    />
+                </div>
                 <Input
                     label="Weight (kg)"
                     type="number"
@@ -341,40 +385,32 @@ function WeighInForm({
                     value={weight}
                     onChange={(e) => setWeight(e.target.value)}
                 />
-            </div>
-            <div className="w-28">
-                <Input
-                    label="Waist (cm)"
-                    type="number"
-                    step="0.1"
-                    inputMode="decimal"
-                    placeholder="optional"
-                    value={waist}
-                    onChange={(e) => setWaist(e.target.value)}
-                />
-            </div>
-            <div className="w-28">
-                <Input
-                    label="Body fat (%)"
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    max={100}
-                    inputMode="decimal"
-                    placeholder="optional"
-                    value={bodyFat}
-                    onChange={(e) => setBodyFat(e.target.value)}
-                />
-            </div>
-            <Button type="submit" disabled={saving} icon="fa-solid fa-plus">
-                {initial ? 'Save' : 'Log weigh-in'}
-            </Button>
-            {onCancelEdit && (
-                <Button type="button" variant="ghost" onClick={onCancelEdit}>
-                    Cancel
-                </Button>
-            )}
-        </form>
+                <div className="grid grid-cols-2 gap-3">
+                    <Input
+                        label="Waist (cm)"
+                        type="number"
+                        step="0.1"
+                        inputMode="decimal"
+                        placeholder="Optional"
+                        value={waist}
+                        onChange={(e) => setWaist(e.target.value)}
+                    />
+                    <Input
+                        label="Body fat (%)"
+                        type="number"
+                        step="0.1"
+                        min={0}
+                        max={100}
+                        inputMode="decimal"
+                        placeholder="Optional"
+                        value={bodyFat}
+                        onChange={(e) => setBodyFat(e.target.value)}
+                    />
+                </div>
+                {/* Enter in a field saves. */}
+                <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+            </form>
+        </Drawer>
     )
 }
 
@@ -531,99 +567,72 @@ function RateVerdict({
 function RecentLog({
     logs,
     points,
-    onEdit,
-    onDelete,
+    onOpen,
 }: {
     logs: WeightLog[]
     points: TrendPoint[]
-    onEdit: (log: WeightLog) => void
-    onDelete: (log: WeightLog) => void
+    onOpen: (log: WeightLog) => void
 }) {
     const [expanded, setExpanded] = useState(false)
     const trendByDate = useMemo(() => new Map(points.map((p) => [p.date, p.trend])), [points])
     const shown = expanded ? logs : logs.slice(0, 10)
 
     return (
-        <Card hover={false} flush className="overflow-hidden">
-            <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4">
-                <h3 className="text-sm font-bold text-neutral-900">Weigh-ins</h3>
-                <span className="text-xs text-neutral-500">{logs.length} recorded</span>
+        <Surface flush className="overflow-hidden">
+            <div className="px-4 pb-2 pt-4 sm:px-5 sm:pt-5">
+                <PanelHeader
+                    title="Weigh-ins"
+                    hint="Tap one to correct or delete it."
+                    aside={<span className="text-[13px] text-neutral-500">{logs.length} recorded</span>}
+                />
             </div>
             <ul className="divide-y divide-neutral-100">
-                {shown.map((log) => (
-                    <li key={log._id} className="group flex items-center gap-4 px-6 py-3">
-                        <span className="w-28 shrink-0 text-sm text-neutral-500">
-                            {longDate(log.date)}
-                        </span>
-                        <span className="w-20 text-sm font-semibold tabular-nums text-neutral-900">
-                            {log.weight.toFixed(1)} kg
-                        </span>
-                        <span className="w-24 text-sm tabular-nums text-neutral-500">
-                            {trendByDate.has(log.date)
-                                ? `${trendByDate.get(log.date)!.toFixed(1)} trend`
-                                : ''}
-                        </span>
-                        <span className="w-24 text-sm tabular-nums text-neutral-500">
-                            {log.waist ? `${log.waist} cm waist` : ''}
-                        </span>
-                        <span className="flex-1 text-sm tabular-nums text-neutral-500">
-                            {log.bodyFat ? `${log.bodyFat.toFixed(1)}% fat` : ''}
-                        </span>
-                        <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                            <RowButton
-                                icon="fa-solid fa-pen"
-                                label={`Edit ${log.date}`}
-                                onClick={() => onEdit(log)}
-                            />
-                            <RowButton
-                                icon="fa-solid fa-trash"
-                                label={`Delete ${log.date}`}
-                                danger
-                                onClick={() => onDelete(log)}
-                            />
-                        </div>
-                    </li>
-                ))}
+                {shown.map((log) => {
+                    const trend = trendByDate.get(log.date)
+                    const extras = [
+                        trend !== undefined && `${trend.toFixed(1)} trend`,
+                        log.waist && `${log.waist} cm waist`,
+                        log.bodyFat && `${log.bodyFat.toFixed(1)}% fat`,
+                    ].filter(Boolean)
+                    return (
+                        <li key={log._id}>
+                            <button
+                                type="button"
+                                onClick={() => onOpen(log)}
+                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-50 sm:px-5"
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm text-neutral-900">{longDate(log.date)}</p>
+                                    {extras.length > 0 && (
+                                        <p className="nums mt-0.5 truncate text-[13px] text-neutral-500">
+                                            {extras.join(' · ')}
+                                        </p>
+                                    )}
+                                </div>
+                                <span className="nums shrink-0 text-[15px] font-semibold text-neutral-900">
+                                    {log.weight.toFixed(1)} kg
+                                </span>
+                                <i
+                                    className="fa-solid fa-chevron-right shrink-0 text-[11px] text-neutral-300"
+                                    aria-hidden="true"
+                                />
+                            </button>
+                        </li>
+                    )
+                })}
             </ul>
             {logs.length > 10 && (
-                <div className="border-t border-neutral-100 px-6 py-3">
+                <div className="border-t border-neutral-100 px-4 py-3 sm:px-5">
                     <button
                         type="button"
                         onClick={() => setExpanded((v) => !v)}
-                        className="text-xs font-semibold text-neutral-500 hover:text-neutral-900"
+                        className="text-[13px] font-medium text-neutral-500 hover:text-neutral-900"
                     >
                         {expanded ? 'Show less' : `Show all ${logs.length}`}
                     </button>
                 </div>
             )}
-        </Card>
-    )
-}
-
-function RowButton({
-    icon,
-    label,
-    onClick,
-    danger = false,
-}: {
-    icon: string
-    label: string
-    onClick: () => void
-    danger?: boolean
-}) {
-    return (
-        <button
-            type="button"
-            aria-label={label}
-            onClick={onClick}
-            className={`grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors ${
-                danger
-                    ? 'hover:bg-red-50 hover:text-red-500'
-                    : 'hover:bg-neutral-100 hover:text-neutral-900'
-            }`}
-        >
-            <i className={`${icon} text-[11px]`} aria-hidden="true" />
-        </button>
+        </Surface>
     )
 }
 
@@ -687,23 +696,27 @@ function GoalsModal({
     }
 
     return (
-        <Drawer size="md"
+        <Drawer
+            size="md"
             open={open}
             onClose={onClose}
             title="Body targets"
-           
             footer={
-                <>
+                <div className="flex w-full flex-wrap items-center justify-end gap-3">
                     <Button variant="ghost" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button onClick={submit} disabled={saving}>
-                        Save
+                    <Button icon="fa-solid fa-check" onClick={submit} disabled={saving}>
+                        {saving ? 'Saving…' : 'Save'}
                     </Button>
-                </>
+                </div>
             }
         >
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-5">
+                <p className="text-sm leading-relaxed text-neutral-500">
+                    The Body tab judges your trend against these: how far there is to go, whether
+                    the pace is right, and when you&rsquo;ll get there.
+                </p>
                 <Input
                     label="Target weight (kg)"
                     type="number"
@@ -726,24 +739,28 @@ function GoalsModal({
                     hint="Judged on the trend, not one reading — measure the same way each time."
                 />
                 <div className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        Direction
-                    </span>
-                    <div className="flex gap-2">
+                    <span className="text-[13px] font-medium text-neutral-700">Direction</span>
+                    <div
+                        role="group"
+                        aria-label="Direction"
+                        className="grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1"
+                    >
                         {[
-                            { label: 'Losing', value: true },
-                            { label: 'Gaining', value: false },
+                            { label: 'Losing', value: true, icon: 'fa-solid fa-arrow-trend-down' },
+                            { label: 'Gaining', value: false, icon: 'fa-solid fa-arrow-trend-up' },
                         ].map((opt) => (
                             <button
                                 key={opt.label}
                                 type="button"
+                                aria-pressed={losing === opt.value}
                                 onClick={() => setLosing(opt.value)}
-                                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                                className={`inline-flex h-9 items-center justify-center gap-2 rounded-[9px] text-[13px] font-medium transition-colors ${
                                     losing === opt.value
-                                        ? 'bg-neutral-950 text-white'
-                                        : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                                        ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
+                                        : 'text-neutral-600 hover:text-neutral-900'
                                 }`}
                             >
+                                <i className={`${opt.icon} text-[11px]`} aria-hidden="true" />
                                 {opt.label}
                             </button>
                         ))}
@@ -767,35 +784,6 @@ function GoalsModal({
 // ─── Bits ───────────────────────────────────────────────────────────────────────
 
 type Tone = 'neutral' | 'good' | 'warn' | 'bad'
-
-const TONE_TEXT: Record<Tone, string> = {
-    neutral: 'text-neutral-900',
-    good: 'text-emerald-600',
-    warn: 'text-amber-600',
-    bad: 'text-red-600',
-}
-
-function Stat({
-    label,
-    value,
-    sub,
-    tone = 'neutral',
-}: {
-    label: string
-    value: string
-    sub?: string
-    tone?: Tone
-}) {
-    return (
-        <Card hover={false} className="flex flex-col gap-1">
-            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                {label}
-            </p>
-            <p className={`text-2xl font-bold tabular-nums ${TONE_TEXT[tone]}`}>{value}</p>
-            {sub && <p className="text-xs text-neutral-500">{sub}</p>}
-        </Card>
-    )
-}
 
 /** "-0.4" / "+0.4" — the sign carries the meaning, so it's always shown. */
 function signed(n: number, dp = 1): string {

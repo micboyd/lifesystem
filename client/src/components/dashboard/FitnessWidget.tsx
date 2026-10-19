@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import DashSection, { SectionLoading } from './DashSection'
+import DashSection, { DASH, SectionLoading } from './DashSection'
 import { listPlanEntries } from '../../services/fitnessPlan'
 import type { FitnessPlanEntry, FitnessPlanKind, ConditioningCategory } from '../../types'
 
@@ -9,8 +9,6 @@ import type { FitnessPlanEntry, FitnessPlanKind, ConditioningCategory } from '..
 const KIND_META: Record<FitnessPlanKind, { icon: string }> = {
     workout: { icon: 'fa-solid fa-dumbbell' },
     conditioning: { icon: 'fa-solid fa-heart-pulse' },
-    mobility: { icon: 'fa-solid fa-person-walking' },
-    recovery: { icon: 'fa-solid fa-spa' },
 }
 
 /** The icon colour each kind takes on the ink panel. Full class strings so Tailwind keeps them. */
@@ -36,9 +34,7 @@ const CATEGORY_TONE: Record<ConditioningCategory, Tone> = {
 /** Strength reads coral; conditioning takes its category's colour. */
 function toneFor(entry: FitnessPlanEntry): Tone {
     if (entry.kind === 'workout') return TONES.coral
-    if (entry.kind === 'conditioning') return entry.session ? CATEGORY_TONE[entry.session.category] : TONES.rose
-    if (entry.kind === 'mobility') return TONES.amber
-    return TONES.emerald
+    return entry.session ? CATEGORY_TONE[entry.session.category] : TONES.rose
 }
 
 /** "HIIT · 25 min", "6 exercises" — the one line of detail under the name. */
@@ -50,21 +46,12 @@ function detailFor(entry: FitnessPlanEntry): string | null {
         return `Strength · ${n} ${n === 1 ? 'exercise' : 'exercises'}`
     }
     if (entry.kind === 'conditioning' && entry.session) return join(entry.session.category, mins(entry.session.duration))
-    if (entry.kind === 'mobility' && entry.mobility) return join('Mobility', mins(entry.mobility.duration))
-    if (entry.recovery) return join('Recovery', mins(entry.recovery.duration))
     return null
 }
 
 /** Name + a one-line detail for a single planned item. */
 function planName(entry: FitnessPlanEntry): string {
-    const name =
-        entry.kind === 'workout'
-            ? entry.workout?.name
-            : entry.kind === 'conditioning'
-              ? entry.session?.name
-              : entry.kind === 'mobility'
-                ? entry.mobility?.name
-                : entry.recovery?.name
+    const name = entry.kind === 'workout' ? entry.workout?.name : entry.session?.name
     return name ?? 'Untitled'
 }
 
@@ -119,13 +106,13 @@ function TodayFitness({ date }: { date: string }) {
             {loading ? (
                 <SectionLoading rows={2} />
             ) : count === 0 ? (
-                <div className="flex items-center gap-4 border-y border-neutral-200 py-5">
-                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-success-bg text-base text-success">
+                <div className={`flex items-center gap-3 ${DASH.list} py-3.5`}>
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-success-bg text-sm text-success">
                         <i className="fa-solid fa-mug-hot" aria-hidden="true" />
                     </span>
                     <div>
-                        <p className="text-base font-medium text-neutral-900">Nothing scheduled</p>
-                        <p className="mt-0.5 text-sm text-neutral-500">Recover well.</p>
+                        <p className="text-[15px] text-neutral-900">Nothing scheduled</p>
+                        <p className={DASH.note}>Recover well.</p>
                     </div>
                 </div>
             ) : (

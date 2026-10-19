@@ -27,6 +27,8 @@ export interface ISessionPart {
     /** Planned slot, in minutes from the start of the session (e.g. 15 → 30). */
     startMin?: number
     endMin?: number
+    /** A sub-list of things to do within the part, ticked off one by one. */
+    steps?: string[]
 }
 
 /** A session's parts sit in three ordered phases: warmUp, main, coolDown (Phased). */
@@ -61,6 +63,7 @@ const partSchema = new Schema<ISessionPart>(
         startAtSec: { type: Number, min: 0 },
         startMin: { type: Number, min: 0 },
         endMin: { type: Number, min: 0 },
+        steps: { type: [String], default: undefined },
     },
     { _id: false }
 )

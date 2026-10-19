@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import DashSection, { SectionLoading } from './DashSection'
+import DashSection, { DASH, SectionLoading } from './DashSection'
 import {
     PERIODS,
     todayKey,
@@ -57,13 +57,13 @@ export default function TodayWidget({
             ) : (
                 <div className="flex flex-col">
                     {allDayEvents.length > 0 && (
-                        <div className="mb-3 flex flex-col gap-1.5">
+                        <div className="mb-4 flex flex-col gap-2">
                             {allDayEvents.map((e) => (
                                 <AllDayRow key={e._id} event={e} date={date} />
                             ))}
                         </div>
                     )}
-                    <div className="divide-y divide-neutral-200 border-y border-neutral-200">
+                    <div className={DASH.list}>
                         {PERIODS.map((period) => {
                             const event = events.find((e) => eventCoversSlot(e, date, period.key as Part)) ?? null
                             return <PartRow key={period.key} label={period.label} icon={period.icon} event={event} />
@@ -80,7 +80,7 @@ function AllDayRow({ event, date }: { event: Event; date: string }) {
     const colors = colorsForEvent(event, byId)
     const isMultiDay = event.startDate !== event.endDate
     return (
-        <div className={`flex items-center gap-3 rounded-xl px-4 py-2.5 ${colors.bg}`}>
+        <div className={`flex h-10 items-center gap-3 rounded-xl px-4 ${colors.bg}`}>
             <i
                 className="fa-regular fa-calendar w-4 shrink-0 text-center text-sm opacity-60"
                 aria-hidden="true"
@@ -106,18 +106,18 @@ function PartRow({ label, icon, event }: { label: string; icon: string; event: E
     const colors = event ? colorsForEvent(event, byId) : null
 
     return (
-        <div className="flex items-center gap-4 py-4">
-            <i className={`${icon} w-4 shrink-0 text-center text-sm text-neutral-400`} aria-hidden="true" />
-            <span className="w-24 shrink-0 text-[13px] text-neutral-500">{label}</span>
+        <div className={DASH.row}>
+            <i className={`${icon} ${DASH.rowIcon}`} aria-hidden="true" />
+            <span className={DASH.rowLabel}>{label}</span>
             {event ? (
                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${colors?.bg}`} />
-                    <span className="truncate text-[15px] font-medium text-neutral-900">{event.title}</span>
+                    <span className={`${DASH.dot} ${colors?.bg}`} />
+                    <span className={DASH.rowText}>{event.title}</span>
                     {event.time && (
-                        <span className="ml-auto shrink-0 tabular-nums text-[13px] text-neutral-500">{event.time}</span>
+                        <span className={DASH.rowValue}>{event.time}</span>
                     )}
                     <span
-                        className={`hidden shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium sm:inline ${colors?.bg} ${colors?.text} ${event.time ? '' : 'ml-auto'}`}
+                        className={`hidden h-6 shrink-0 items-center rounded-full px-2.5 text-xs font-medium sm:inline-flex ${colors?.bg} ${colors?.text}`}
                     >
                         {EVENT_TYPE_LABELS[event.eventType]}
                     </span>

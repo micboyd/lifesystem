@@ -28,24 +28,31 @@ const CREATE = '__create__'
  * ignores them, so the template pastes straight back in as it is.
  */
 const WORKOUT_TEMPLATE = `[
-  // Each workout: "name" is required, and every exercise line needs "startMin"
-  // and "endMin". Everything else is optional: "description", "showInPlanner",
+  // Each workout: "name" is required. Everything else is optional: "description", "showInPlanner",
   // "bring" (kit to pack from home) and, on a line, "sets", "reps", "rest",
-  // "notes" and "videoUrl" (a YouTube demo of the exercise).
+  // "notes", "steps" (a sub-list to tick off) and "videoUrl" (a YouTube demo).
+  // Lines are matched to your exercise library by name; a name it doesn't know
+  // ("General warm-up") is offered to you to add before anything is saved.
   {
     "name": "Full Body Blast",                         // required
     "description": "Combines cardio and strength training.",
     "showInPlanner": true,                             // pin to the top of the planner
     "bring": ["Lifting belt", "Resistance band"],      // optional: kit to pack from home
     // Three phases, in order: warmUp, main, coolDown. Only main counts toward progress.
-    // Every line needs "startMin" and "endMin" — its slot in minutes from the start
-    // of the session, running in order (each ends at or after the one before).
-    // In the gym, your Completed press on each line is timed against the gap
-    // from the line before, so you see if you're on time. "endMin" is when it
-    // should be finished. Decimals are fine (1.5 = 1:30).
     "warmUp": [
-      { "name": "Band pull-apart", "sets": 2, "reps": "15", "startMin": 0, "endMin": 4 },
-      { "name": "Goblet squat", "sets": 2, "reps": "10", "startMin": 4, "endMin": 8 }
+      {
+        // A line can be a block of drills rather than one lift: give it "steps",
+        // a sub-list you tick off one by one in the gym. Sets and reps are optional.
+        "name": "General warm-up",
+        "steps": [
+          "5 min easy bike",
+          "Arm circles ×10 each way",
+          "Band pull-aparts ×15",
+          "Hip circles ×10 each side",
+          "Bodyweight squats ×10"
+        ]
+      },
+      { "name": "Goblet squat", "sets": 2, "reps": "10", "notes": "Light — just grooving the pattern." }
     ],
     "main": [
       {
@@ -54,17 +61,18 @@ const WORKOUT_TEMPLATE = `[
         "reps": "6-8",                                 // free text: "8", "8-12", "AMRAP"
         "rest": "2-3 min",                             // optional, free text
         "notes": "Keep 1-2 reps in reserve.",          // optional coaching cue
-        "startMin": 8,
-        "endMin": 22,
         // Optional demo video, saved on the exercise. A YouTube link plays in the
         // app from the exercise's card. "youtubeLink" works as the key too.
         "videoUrl": "https://youtu.be/xxxxxxxxxxx"
       },
-      { "name": "Barbell row", "sets": 4, "reps": "8-10", "startMin": 22, "endMin": 34 },
-      { "name": "Box Squats", "sets": 3, "reps": "10", "startMin": 34, "endMin": 45 }
+      { "name": "Barbell row", "sets": 4, "reps": "8-10" },
+      { "name": "Box Squats", "sets": 3, "reps": "10" }
     ],
     "coolDown": [
-      { "name": "Couch stretch", "sets": 1, "reps": "60s each side", "startMin": 45, "endMin": 50 }
+      {
+        "name": "Stretch",
+        "steps": ["Couch stretch 60s each side", "Doorway pec stretch 30s each side", "Child's pose 60s"]
+      }
     ]
   }
 ]
@@ -366,18 +374,16 @@ export default function WorkoutImportPanel({
                                 <span className="font-semibold text-neutral-700">coolDown</span> are
                                 each a list of{' '}
                                 <span className="font-semibold text-neutral-700">
-                                    {'{ name, startMin, endMin, sets, reps }'}
+                                    {'{ name, sets, reps }'}
                                 </span>{' '}
-                                objects. <span className="font-semibold text-neutral-700">startMin</span>{' '}
-                                and <span className="font-semibold text-neutral-700">endMin</span>{' '}
-                                are required — the line&apos;s slot in minutes from the start of the
-                                session (e.g. 15 and 30), running in order. Your Completed press on
-                                each line in the gym is timed against it, so you can see if
-                                you&apos;re on time.
+                                objects.
                                 Sets and reps prescribe volume (
                                 <span className="font-semibold text-neutral-700">reps</span> is
                                 free-form, e.g. &quot;8-12&quot;). Only main-session sets count
-                                toward progress. A flat{' '}
+                                toward progress. Add{' '}
+                                <span className="font-semibold text-neutral-700">steps</span> (a
+                                list of short strings) to give a line a sub-list to tick off —
+                                handy for a warm-up or cool-down block. A flat{' '}
                                 <span className="font-semibold text-neutral-700">exercises</span>{' '}
                                 list still works and goes into main. On the next step you&apos;ll
                                 confirm how each name links to your library — matched to an existing

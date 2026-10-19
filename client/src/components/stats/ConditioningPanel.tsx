@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import BarList from './BarList'
-import { Card } from '../Card'
+import { Surface } from './ui'
 import EmptyState from '../EmptyState'
 import StatTile from '../StatTile'
 import { strengthSummary, PERFORMANCE_LABELS } from '../../lib/strengthTrend'
@@ -57,10 +57,10 @@ export default function ConditioningPanel({
 
     return (
         <div className="flex flex-col gap-6">
-            <Card hover={false} className="flex flex-col gap-3">
+            <Surface className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 className="text-sm font-bold text-neutral-900">{read.headline}</h3>
-                    <p className="text-xs text-neutral-500">{rangeLabel}</p>
+                    <h3 className="text-[15px] font-semibold text-neutral-900">{read.headline}</h3>
+                    <p className="mt-0.5 text-[13px] text-neutral-500">{rangeLabel}</p>
                 </div>
                 <p className="max-w-2xl text-sm text-neutral-500">{read.detail}</p>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -88,11 +88,11 @@ export default function ConditioningPanel({
                         tone={read.tone}
                     />
                 </div>
-                <p className="text-[11px] text-neutral-500">
+                <p className="text-xs text-neutral-500">
                     The fuller read — waist, intake and intended rate together — lives on Nutrition
                     → Progress.
                 </p>
-            </Card>
+            </Surface>
 
             {conditioningLogs.length === 0 ? (
                 <EmptyState
@@ -137,10 +137,10 @@ export default function ConditioningPanel({
                         />
                     </div>
 
-                    <Card hover={false} className="flex flex-col gap-4">
+                    <Surface className="flex flex-col gap-4">
                         <div>
-                            <h3 className="text-sm font-bold text-neutral-900">Category mix</h3>
-                            <p className="text-xs text-neutral-500">
+                            <h3 className="text-[15px] font-semibold text-neutral-900">Category mix</h3>
+                            <p className="mt-0.5 text-[13px] text-neutral-500">
                                 Minutes by kind of session, {rangeLabel.toLowerCase()}.
                             </p>
                         </div>
@@ -158,7 +158,7 @@ export default function ConditioningPanel({
                                 }))}
                             />
                         )}
-                    </Card>
+                    </Surface>
                 </>
             )}
         </div>

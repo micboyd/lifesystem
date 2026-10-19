@@ -7,14 +7,11 @@ import User from '../models/User'
 import Exercise from '../models/Exercise'
 import Workout from '../models/Workout'
 import ConditioningSession from '../models/ConditioningSession'
-import Mobility from '../models/Mobility'
-import Recovery from '../models/Recovery'
 import FitnessPlanEntry from '../models/FitnessPlanEntry'
 import FitnessPlanNote from '../models/FitnessPlanNote'
 import TrainingPlan from '../models/TrainingPlan'
 import WorkoutLog from '../models/WorkoutLog'
 import ConditioningLog from '../models/ConditioningLog'
-import RecoveryLog from '../models/RecoveryLog'
 
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 
@@ -40,7 +37,7 @@ const backupDir = process.env.WIPE_BACKUP_DIR ?? process.cwd()
 
 /**
  * The slice of a Mongoose model this script needs, declared structurally so one
- * table can hold twelve differently-typed collections.
+ * table can hold the differently-typed collections.
  */
 interface WipeableModel {
     find(filter: Record<string, unknown>): { lean(): Promise<unknown[]> }
@@ -57,8 +54,6 @@ const ALL_TARGETS: { key: string; label: string; model: WipeableModel }[] = [
         label: 'Conditioning sessions',
         model: ConditioningSession as unknown as WipeableModel,
     },
-    { key: 'mobility', label: 'Mobility routines', model: Mobility as unknown as WipeableModel },
-    { key: 'recovery', label: 'Recovery items', model: Recovery as unknown as WipeableModel },
     {
         key: 'planEntries',
         label: 'Planner entries',
@@ -80,7 +75,6 @@ const ALL_TARGETS: { key: string; label: string; model: WipeableModel }[] = [
         label: 'Conditioning logs',
         model: ConditioningLog as unknown as WipeableModel,
     },
-    { key: 'recoveryLogs', label: 'Recovery logs', model: RecoveryLog as unknown as WipeableModel },
 ]
 
 const TARGETS = keepLogs ? ALL_TARGETS.filter((t) => !t.key.endsWith('Logs')) : ALL_TARGETS

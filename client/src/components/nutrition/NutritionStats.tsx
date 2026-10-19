@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import Spinner from '../Spinner'
 import PillToggle from '../PillToggle'
 import Select from '../Select'
+import Button from '../Button'
+import EmptyState from '../EmptyState'
+import { Surface, PanelHeader } from '../stats/ui'
 import { fmt, kcal, signedKcal, signedKg } from './format'
 import { mondayOf } from './NutritionPlanner'
 import { listPlanEntries } from '../../services/mealPlan'
@@ -126,8 +129,8 @@ export default function NutritionStats({ settingsGoals }: { settingsGoals?: Macr
     }
 
     return (
-        <div className="flex flex-col gap-4">
-            <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-3 ring-1 ring-neutral-900/[0.06] sm:p-4">
+        <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <PillToggle
                     label="Range"
                     value={range}
@@ -150,29 +153,29 @@ export default function NutritionStats({ settingsGoals }: { settingsGoals?: Macr
                 ) : (
                     <div className="flex w-full items-center gap-1.5 sm:w-auto">
                         <StepButton label="Previous" icon="fa-chevron-left" onClick={() => step(-1)} />
-                        <p className="min-w-0 flex-1 truncate text-center text-sm font-bold text-neutral-900 sm:min-w-[11rem]">{title}</p>
+                        <p className="min-w-0 flex-1 truncate text-center text-[15px] font-semibold text-neutral-900 sm:min-w-[11rem]">{title}</p>
                         <StepButton label="Next" icon="fa-chevron-right" onClick={() => step(1)} />
                         {!isCurrent && (
-                            <button
-                                type="button"
-                                onClick={() => setAnchor(today)}
-                                className="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200"
-                            >
+                            <Button variant="secondary" size="sm" icon="fa-solid fa-calendar-day" onClick={() => setAnchor(today)}>
                                 {range === 'week' ? 'This week' : 'This month'}
-                            </button>
+                            </Button>
                         )}
                     </div>
                 )}
-            </section>
+            </div>
 
             {range === 'phase' && !phase ? (
-                <p className="rounded-3xl border border-dashed border-neutral-200 py-10 text-center text-sm text-neutral-500">
-                    No phases yet — set one up in the Phases tab.
-                </p>
+                <EmptyState
+                    icon="fa-solid fa-flag"
+                    title="No phases yet"
+                    description="Set one up in the Phases tab to see how a cut or a bulk is going."
+                />
             ) : start > last ? (
-                <p className="rounded-3xl border border-dashed border-neutral-200 py-10 text-center text-sm text-neutral-500">
-                    Nothing to show — this is still to come.
-                </p>
+                <EmptyState
+                    icon="fa-solid fa-hourglass-start"
+                    title="Nothing to show yet"
+                    description="This is still to come — check back once it has started."
+                />
             ) : loading ? (
                 <div className="grid place-items-center py-16">
                     <Spinner />
@@ -203,20 +206,17 @@ function StepButton({ label, icon, onClick }: { label: string; icon: string; onC
             type="button"
             aria-label={label}
             onClick={onClick}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-neutral-600 ring-1 ring-neutral-900/[0.06] transition-colors hover:text-neutral-900"
         >
             <i className={`fa-solid ${icon} text-xs`} aria-hidden="true" />
         </button>
     )
 }
 
-const card = 'rounded-3xl bg-white p-4 ring-1 ring-neutral-900/[0.06] sm:p-5'
-
 function CardTitle({ children, aside }: { children: string; aside?: ReactNode }) {
     return (
-        <div className="mb-3 flex items-baseline justify-between gap-3">
-            <h3 className="text-sm font-bold text-neutral-900">{children}</h3>
-            {aside}
+        <div className="mb-4">
+            <PanelHeader title={children} aside={aside} />
         </div>
     )
 }
@@ -243,18 +243,18 @@ function Summary({
 }) {
     const deficit = totalNet !== null && totalNet < 0
     return (
-        <section className={`${card} flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}>
+        <Surface className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
                 <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Balance</p>
                 {totalNet === null ? (
                     <>
-                        <p className="text-3xl font-bold tracking-tight text-neutral-300">—</p>
+                        <p className="text-3xl font-semibold tracking-tight text-neutral-300">—</p>
                         <p className="text-xs text-neutral-500">Needs days with both calories in and out</p>
                     </>
                 ) : (
                     <>
                         <p className="flex items-baseline gap-2">
-                            <span className={`text-3xl font-bold tabular-nums tracking-tight sm:text-4xl ${deficit ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            <span className={`text-3xl font-semibold tabular-nums tracking-tight sm:text-4xl ${deficit ? 'text-emerald-600' : 'text-amber-600'}`}>
                                 {signedKcal(totalNet)}
                             </span>
                             <span className="text-sm font-semibold text-neutral-500">kcal</span>
@@ -277,7 +277,7 @@ function Summary({
                 <MiniStat label="In / day" value={avgIn === null ? '—' : kcal(avgIn)} sub={`${logged} of ${total} days logged`} />
                 <MiniStat label="Out / day" value={avgOut === null ? '—' : kcal(avgOut)} sub={`${outDays} of ${total} days entered`} />
             </dl>
-        </section>
+        </Surface>
     )
 }
 
@@ -285,7 +285,7 @@ function MiniStat({ label, value, sub }: { label: string; value: string; sub: st
     return (
         <div className="min-w-0 rounded-2xl bg-neutral-50 px-3 py-2 sm:bg-transparent sm:p-0 sm:text-right">
             <dt className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">{label}</dt>
-            <dd className="text-xl font-bold tabular-nums text-neutral-900">
+            <dd className="text-xl font-semibold tabular-nums text-neutral-900">
                 {value}
                 {value !== '—' && <span className="ml-1 text-xs font-semibold text-neutral-500">kcal</span>}
             </dd>
@@ -310,7 +310,7 @@ function DailyChart({ days }: { days: Day[] }) {
     const shown = days.find((d) => d.date === active) ?? null
 
     return (
-        <section className={card}>
+        <Surface>
             <CardTitle
                 aside={
                     <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[11px] text-neutral-500">
@@ -398,7 +398,7 @@ function DailyChart({ days }: { days: Day[] }) {
                     )
                 })}
             </div>
-        </section>
+        </Surface>
     )
 }
 
@@ -413,7 +413,7 @@ function MacroAverages({ logged }: { logged: Day[] }) {
         { key: 'fat', label: 'Fat', unit: 'g' },
     ]
     return (
-        <section className={card}>
+        <Surface>
             <CardTitle aside={<span className="text-[11px] text-neutral-500">per logged day</span>}>Average macros</CardTitle>
             {logged.length === 0 ? (
                 <p className="py-4 text-center text-sm text-neutral-500">Nothing eaten logged in this range yet.</p>
@@ -430,7 +430,7 @@ function MacroAverages({ logged }: { logged: Day[] }) {
                                 <div className="flex items-baseline justify-between gap-3 text-sm">
                                     <span className="font-semibold text-neutral-700">{r.label}</span>
                                     <span className="tabular-nums">
-                                        <span className="font-bold text-neutral-900">
+                                        <span className="font-semibold text-neutral-900">
                                             {show(value)} {r.unit}
                                         </span>
                                         {target && <span className="text-neutral-500"> / {show(target)}</span>}
@@ -449,7 +449,7 @@ function MacroAverages({ logged }: { logged: Day[] }) {
                     })}
                 </div>
             )}
-        </section>
+        </Surface>
     )
 }
 
@@ -457,7 +457,7 @@ function MacroAverages({ logged }: { logged: Day[] }) {
 
 function DayList({ days, today }: { days: Day[]; today: string }) {
     return (
-        <section className={card}>
+        <Surface>
             <CardTitle>Day by day</CardTitle>
             <ul className="-mx-2 flex flex-col divide-y divide-neutral-100">
                 {days.map((d) => {
@@ -482,7 +482,7 @@ function DayList({ days, today }: { days: Day[]; today: string }) {
                                 <p>{d.out !== null ? kcal(d.out) : '—'} out</p>
                             </div>
                             <span
-                                className={`w-[4.5rem] shrink-0 rounded-full py-1 text-center text-xs font-bold tabular-nums ${
+                                className={`w-[4.5rem] shrink-0 rounded-full py-1 text-center text-xs font-semibold tabular-nums ${
                                     net === null
                                         ? 'bg-neutral-50 text-neutral-300'
                                         : net < 0
@@ -496,6 +496,6 @@ function DayList({ days, today }: { days: Day[]; today: string }) {
                     )
                 })}
             </ul>
-        </section>
+        </Surface>
     )
 }

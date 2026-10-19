@@ -29,8 +29,6 @@ const RESOURCE_KEYS: Record<ImportResource, string[]> = {
     conditioning: ['conditioning', 'sessions'],
     exercises: ['exercises'],
     workouts: ['workouts'],
-    mobility: ['mobility'],
-    recovery: ['recovery'],
     meals: ['meals'],
 }
 

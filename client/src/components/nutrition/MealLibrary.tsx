@@ -1,14 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Card } from '../Card'
 import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
 import Textarea from '../Textarea'
-import ConfirmModal from '../ConfirmModal'
+import Select from '../Select'
+import EmptyState from '../EmptyState'
+import Pagination from '../Pagination'
 import PillToggle from '../PillToggle'
+import DropdownMenu from '../DropdownMenu'
+import LineIcon from '../LineIcon'
+import ConfirmModal from '../ConfirmModal'
 import JsonImportPanel from '../JsonImportPanel'
-import { HeroButton } from '../planner/WeekPlannerUI'
-import { CATEGORY, CategoryIcon, MacroBar, MacroLegend, MACRO_DOT, caloriesFromMacros, isHighProtein } from './mealUi'
-import { kcal } from './format'
+import { StatStrip, NoteBlock } from '../session/SessionUI'
+import { FIELD_LABEL } from '../fieldStyles'
+import { CATEGORY, MacroBar, MacroLegend, caloriesFromMacros, isHighProtein } from './mealUi'
+import { fmt, kcal } from './format'
 import { createMeal, deleteAllMeals, deleteMeal, importMeals, updateMeal } from '../../services/meals'
 import { MEAL_TYPES, type Macros, type Meal, type MealInput, type MealType } from '../../types'
 
@@ -16,7 +23,7 @@ type Filter = MealType | 'all'
 type Sort = 'library' | 'protein' | 'lightest' | 'name'
 
 const SORTS: { value: Sort; label: string }[] = [
-    { value: 'library', label: 'Default' },
+    { value: 'library', label: 'Library order' },
     { value: 'protein', label: 'Most protein' },
     { value: 'lightest', label: 'Lightest' },
     { value: 'name', label: 'A–Z' },
@@ -30,30 +37,72 @@ function sortMeals(list: Meal[], sort: Sort): Meal[] {
     return out
 }
 
+const PAGE_SIZE = 9
+
+/** Drawer state: viewing a meal, adding a new one, or editing an existing one. */
+type Drawered =
+    | { mode: 'view'; meal: Meal }
+    | { mode: 'create'; type: MealType | null }
+    | { mode: 'edit'; meal: Meal }
+    | null
+
 /**
- * The meal library: every meal you eat, by meal of the day, each one a name
- * and its macros. Browsing shows where each meal's calories come from at a
- * glance; tapping one opens it to edit.
+ * The meal library, laid out like the Fitness libraries: search and actions
+ * above a paged grid of cards. A card opens the meal; its menu edits,
+ * duplicates or deletes it.
  */
 export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onChanged: () => Promise<void> }) {
-    const [editing, setEditing] = useState<Meal | 'new' | null>(null)
+    const [drawer, setDrawer] = useState<Drawered>(null)
     const [importing, setImporting] = useState(false)
     const [clearing, setClearing] = useState(false)
+    const [deleting, setDeleting] = useState<Meal | null>(null)
     const [search, setSearch] = useState('')
     const [filter, setFilter] = useState<Filter>('all')
     const [sort, setSort] = useState<Sort>('library')
+    const [page, setPage] = useState(1)
 
-    const q = search.trim().toLowerCase()
-    const matching = useMemo(
-        () => sortMeals(meals.filter((m) => !q || m.name.toLowerCase().includes(q)), sort),
-        [meals, q, sort]
-    )
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase()
+        return sortMeals(
+            meals.filter(
+                (m) =>
+                    (filter === 'all' || m.types.includes(filter)) &&
+                    (!q || m.name.toLowerCase().includes(q) || (m.notes ?? '').toLowerCase().includes(q))
+            ),
+            sort
+        )
+    }, [meals, search, filter, sort])
+
+    const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+    // A new search or a shrinking list can leave `page` past the end — pull it back.
+    useEffect(() => {
+        if (page > pageCount) setPage(pageCount)
+    }, [page, pageCount])
+    const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
     const count = (t: MealType) => meals.filter((m) => m.types.includes(t)).length
 
-    // Browsing everything: grouped by meal of the day. Filtering or searching:
-    // one flat grid of what matched.
-    const grouped = filter === 'all' && !q
-    const flat = filter === 'all' ? matching : matching.filter((m) => m.types.includes(filter))
+    async function handleAdd(fields: MealInput) {
+        await createMeal(fields)
+        await onChanged()
+    }
+
+    async function handleSave(id: string, fields: MealInput) {
+        const updated = await updateMeal(id, fields)
+        setDrawer((d) => (d?.mode === 'view' && d.meal._id === id ? { mode: 'view', meal: updated } : d))
+        await onChanged()
+    }
+
+    async function handleDuplicate(meal: Meal) {
+        await createMeal({ name: `${meal.name} (copy)`, types: meal.types, macros: meal.macros, notes: meal.notes })
+        await onChanged()
+    }
+
+    async function handleDelete(meal: Meal) {
+        setDrawer((d) => (d && d.mode !== 'create' && d.meal._id === meal._id ? null : d))
+        await deleteMeal(meal._id)
+        await onChanged()
+    }
 
     if (importing) {
         return (
@@ -76,124 +125,155 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
         )
     }
 
+    const newMeal = () => setDrawer({ mode: 'create', type: filter === 'all' ? null : filter })
+
     return (
-        <div className="flex flex-col gap-5">
-            <section className="relative overflow-hidden rounded-3xl bg-neutral-900 text-neutral-50">
-                <div className="relative flex flex-col gap-5 p-5 sm:p-7">
-                    <div className="flex flex-wrap items-end justify-between gap-4">
-                        <div>
-                            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Meal library</h2>
-                            <p className="mt-1 text-sm font-medium text-white/60">
-                                {meals.length} {meals.length === 1 ? 'meal' : 'meals'} · macros per serving
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {meals.length > 0 && (
-                                <HeroButton icon="fa-solid fa-trash-can" onClick={() => setClearing(true)}>
-                                    Delete all
-                                </HeroButton>
-                            )}
-                            <HeroButton icon="fa-solid fa-file-import" onClick={() => setImporting(true)}>
-                                Import
-                            </HeroButton>
-                            <HeroButton primary icon="fa-solid fa-plus" onClick={() => setEditing('new')}>
-                                Add meal
-                            </HeroButton>
-                        </div>
-                    </div>
-
-                    <label className="relative block">
-                        <span className="sr-only">Search meals</span>
-                        <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white/50" aria-hidden="true" />
-                        <input
-                            type="search"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search your meals"
-                            className="h-12 w-full rounded-2xl border border-white/15 bg-white/10 pl-11 pr-4 text-[15px] text-white placeholder:text-white/50 focus:border-white/50 focus:bg-white/15 focus:outline-none"
-                        />
-                    </label>
-
-                    <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Meal of the day">
-                        <FilterTab active={filter === 'all'} onClick={() => setFilter('all')} label="All" count={meals.length} />
-                        {MEAL_TYPES.map((t) => (
-                            <FilterTab
-                                key={t}
-                                active={filter === t}
-                                onClick={() => setFilter(t)}
-                                label={CATEGORY[t].label}
-                                count={count(t)}
-                                icon={CATEGORY[t].icon}
+        <>
+            <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Input
+                        icon="fa-solid fa-magnifying-glass"
+                        type="search"
+                        placeholder="Search meals…"
+                        value={search}
+                        onChange={(e) => {
+                            setSearch(e.target.value)
+                            setPage(1)
+                        }}
+                        className="w-full sm:w-64"
+                    />
+                    <div className="flex items-center gap-2">
+                        <Button variant="secondary" icon="fa-solid fa-file-import" onClick={() => setImporting(true)}>
+                            Import
+                        </Button>
+                        <Button icon="fa-solid fa-plus" onClick={newMeal}>
+                            New meal
+                        </Button>
+                        {meals.length > 0 && (
+                            <DropdownMenu
+                                align="right"
+                                trigger={
+                                    <span
+                                        aria-label="More library actions"
+                                        className="grid h-10 w-10 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                    >
+                                        <LineIcon name="more" className="h-4 w-4" />
+                                    </span>
+                                }
+                                items={[
+                                    {
+                                        label: 'Delete all meals',
+                                        icon: 'fa-solid fa-trash-can',
+                                        danger: true,
+                                        onClick: () => setClearing(true),
+                                    },
+                                ]}
                             />
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {meals.length === 0 ? (
-                <EmptyLibrary onAdd={() => setEditing('new')} onImport={() => setImporting(true)} />
-            ) : (
-                <>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <PillToggle label="Sort" value={sort} onChange={setSort} options={SORTS} />
-                        {!grouped && (
-                            <p className="text-xs font-medium text-neutral-500">
-                                {flat.length} {flat.length === 1 ? 'meal' : 'meals'}
-                            </p>
                         )}
                     </div>
+                </div>
 
-                    {grouped ? (
-                        <div className="flex flex-col gap-8">
-                            {MEAL_TYPES.map((t) => {
-                                const list = matching.filter((m) => m.types.includes(t))
-                                return (
-                                    <section key={t} className="flex flex-col gap-3">
-                                        <header className="flex items-center gap-2.5">
-                                            <CategoryIcon type={t} size="sm" />
-                                            <h3 className="text-base font-bold tracking-tight text-neutral-900">{CATEGORY[t].label}</h3>
-                                            <span className="text-sm font-medium text-neutral-500">{list.length}</span>
-                                        </header>
-                                        {list.length === 0 ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditing('new')}
-                                                className="rounded-3xl border border-dashed border-neutral-200 py-6 text-sm text-neutral-500 hover:bg-white"
-                                            >
-                                                No {CATEGORY[t].label.toLowerCase()} yet — add one
-                                            </button>
-                                        ) : (
-                                            <MealGrid meals={list} onOpen={setEditing} />
-                                        )}
-                                    </section>
-                                )
-                            })}
-                            {matching.some((m) => m.types.length === 0) && (
-                                <section className="flex flex-col gap-3">
-                                    <h3 className="text-base font-bold tracking-tight text-neutral-900">Other</h3>
-                                    <MealGrid meals={matching.filter((m) => m.types.length === 0)} onOpen={setEditing} />
-                                </section>
-                            )}
+                {meals.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <PillToggle
+                            label="Meal of the day"
+                            value={filter}
+                            onChange={(v) => {
+                                setFilter(v)
+                                setPage(1)
+                            }}
+                            options={[
+                                { value: 'all' as Filter, label: `All ${meals.length}` },
+                                ...MEAL_TYPES.map((t) => ({ value: t as Filter, label: `${CATEGORY[t].label} ${count(t)}` })),
+                            ]}
+                        />
+                        <Select
+                            value={sort}
+                            onChange={(v) => setSort(v as Sort)}
+                            options={SORTS}
+                            className="w-full sm:w-44"
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-4">
+                {meals.length === 0 ? (
+                    <EmptyState
+                        icon="fa-solid fa-bowl-food"
+                        title="No meals yet"
+                        description="Add the meals you eat — a name and its macros is all it takes."
+                        action={
+                            <Button icon="fa-solid fa-plus" onClick={newMeal}>
+                                New meal
+                            </Button>
+                        }
+                    />
+                ) : filtered.length === 0 ? (
+                    <EmptyState
+                        icon="fa-solid fa-magnifying-glass"
+                        title="No matches"
+                        description={
+                            search.trim()
+                                ? `No meals match “${search.trim()}”.`
+                                : `No ${filter === 'all' ? '' : CATEGORY[filter].label.toLowerCase()} meals yet.`
+                        }
+                    />
+                ) : (
+                    <>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {pageItems.map((meal) => (
+                                <MealCard
+                                    key={meal._id}
+                                    meal={meal}
+                                    onOpen={() => setDrawer({ mode: 'view', meal })}
+                                    onEdit={() => setDrawer({ mode: 'edit', meal })}
+                                    onDuplicate={() => void handleDuplicate(meal)}
+                                    onDelete={() => setDeleting(meal)}
+                                />
+                            ))}
                         </div>
-                    ) : flat.length === 0 ? (
-                        <p className="rounded-3xl border border-dashed border-neutral-200 py-12 text-center text-sm text-neutral-500">
-                            {q ? `Nothing matches “${search.trim()}”.` : 'Nothing here yet.'}
-                        </p>
-                    ) : (
-                        <MealGrid meals={flat} onOpen={setEditing} />
-                    )}
-                </>
-            )}
+                        <Pagination page={page} pageCount={pageCount} onChange={setPage} className="mt-6 justify-center" />
+                    </>
+                )}
+            </div>
 
-            <MealForm
-                meal={editing}
-                defaultType={filter === 'all' ? null : filter}
-                onClose={() => setEditing(null)}
-                onSaved={async () => {
-                    setEditing(null)
-                    await onChanged()
+            <MealViewDrawer
+                meal={drawer?.mode === 'view' ? drawer.meal : null}
+                onClose={() => setDrawer(null)}
+                onEdit={(meal) => setDrawer({ mode: 'edit', meal })}
+                onDuplicate={async (meal) => {
+                    await handleDuplicate(meal)
+                    setDrawer(null)
                 }}
+                onDelete={setDeleting}
             />
+
+            <MealFormDrawer
+                form={drawer?.mode === 'create' || drawer?.mode === 'edit' ? drawer : null}
+                onClose={() => setDrawer(null)}
+                onAdd={handleAdd}
+                onSave={handleSave}
+            />
+
+            <ConfirmModal
+                open={!!deleting}
+                title="Delete this meal?"
+                message={
+                    <>
+                        Delete <span className="font-semibold">{deleting?.name}</span>? It comes off any days
+                        where it’s only planned. Days you’ve already eaten it keep it.
+                    </>
+                }
+                confirmLabel="Delete"
+                danger
+                onConfirm={() => {
+                    if (deleting) void handleDelete(deleting)
+                    setDeleting(null)
+                }}
+                onClose={() => setDeleting(null)}
+            />
+
             <ConfirmModal
                 open={clearing}
                 title={`Delete all ${meals.length} meals?`}
@@ -203,384 +283,338 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
                 onConfirm={() => void deleteAllMeals().finally(onChanged)}
                 onClose={() => setClearing(false)}
             />
-        </div>
+        </>
     )
 }
 
-function FilterTab({
-    active,
-    onClick,
-    label,
-    count,
-    icon,
+// ─── Meal card ──────────────────────────────────────────────────────────────────
+
+/** A meal-of-the-day chip in its own colour. */
+function TypeChip({ type }: { type: MealType }) {
+    const c = CATEGORY[type]
+    return (
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${c.tile} ${c.text}`}>
+            <i className={`${c.icon} text-[10px]`} aria-hidden="true" />
+            {c.label}
+        </span>
+    )
+}
+
+function MealCard({
+    meal,
+    onOpen,
+    onEdit,
+    onDuplicate,
+    onDelete,
 }: {
-    active: boolean
-    onClick: () => void
-    label: string
-    count: number
-    icon?: string
+    meal: Meal
+    onOpen: () => void
+    onEdit: () => void
+    onDuplicate: () => void
+    onDelete: () => void
 }) {
-    return (
-        <button
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={onClick}
-            className={`inline-flex min-h-[40px] shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-all ${
-                active ? 'bg-white text-neutral-900' : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
-            }`}
-        >
-            {icon && <i className={`${icon} text-xs ${active ? '' : 'text-white/60'}`} aria-hidden="true" />}
-            {label}
-            <span className={`tabular-nums ${active ? 'text-neutral-500' : 'text-white/50'}`}>{count}</span>
-        </button>
-    )
-}
-
-// ── Cards ────────────────────────────────────────────────────────────────────
-
-function MealGrid({ meals, onOpen }: { meals: Meal[]; onOpen: (m: Meal) => void }) {
-    return (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {meals.map((m) => (
-                <li key={m._id}>
-                    <MealCard meal={m} onOpen={() => onOpen(m)} />
-                </li>
-            ))}
-        </ul>
-    )
-}
-
-function MealCard({ meal, onOpen }: { meal: Meal; onOpen: () => void }) {
     const { macros } = meal
     return (
-        <button
-            type="button"
-            onClick={onOpen}
-            className="group flex h-full w-full flex-col gap-3 rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-neutral-900/[0.06] transition-all hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500 active:translate-y-0"
-        >
-            <div className="flex items-start gap-3">
-                <div className="flex shrink-0 -space-x-2">
-                    {(meal.types.length ? meal.types : []).map((t) => (
-                        <span key={t} className="rounded-xl ring-2 ring-white">
-                            <CategoryIcon type={t} />
+        <Card as="div" className="relative flex flex-col gap-3">
+            <button
+                type="button"
+                aria-label={`View ${meal.name}`}
+                onClick={onOpen}
+                className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
+            />
+
+            <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <p className="truncate font-semibold text-neutral-900">{meal.name}</p>
+                    <p className="mt-0.5 text-xs tabular-nums text-neutral-500">
+                        {kcal(macros.calories)} kcal · {fmt(Math.round(macros.protein))} g protein
+                    </p>
+                </div>
+                <DropdownMenu
+                    align="right"
+                    className="relative z-20 -mr-1 -mt-1 shrink-0"
+                    trigger={
+                        <span
+                            aria-label="Meal actions"
+                            className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                        >
+                            <LineIcon name="more" className="h-4 w-4" />
                         </span>
+                    }
+                    items={[
+                        { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onEdit },
+                        { label: 'Duplicate', icon: 'fa-regular fa-copy', onClick: onDuplicate },
+                        { label: 'Delete', icon: 'fa-solid fa-trash-can', danger: true, onClick: onDelete },
+                    ]}
+                />
+            </div>
+
+            {(meal.types.length > 0 || isHighProtein(macros)) && (
+                <div className="flex flex-wrap gap-1.5">
+                    {meal.types.map((t) => (
+                        <TypeChip key={t} type={t} />
                     ))}
-                    {meal.types.length === 0 && (
-                        <span className="grid h-9 w-9 place-items-center rounded-xl bg-neutral-100 text-sm text-neutral-500" aria-hidden="true">
-                            <i className="fa-solid fa-utensils" />
+                    {isHighProtein(macros) && (
+                        <span className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
+                            High protein
                         </span>
                     )}
                 </div>
-                <p className="line-clamp-2 min-w-0 flex-1 text-[15px] font-medium leading-snug text-neutral-900">{meal.name}</p>
-                {isHighProtein(macros) && (
-                    <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-brand-600">
-                        High protein
-                    </span>
-                )}
-            </div>
-            <div className="mt-auto flex flex-col gap-2">
-                <p className="text-2xl font-medium tabular-nums tracking-tight text-neutral-950">
-                    {kcal(macros.calories)}
-                    <span className="ml-1 text-[11px] font-medium text-neutral-500">kcal</span>
-                </p>
+            )}
+
+            <div className="mt-auto flex flex-col gap-2 border-t border-neutral-100 pt-3">
                 <MacroBar macros={macros} />
-                <MacroLegend macros={macros} />
+                <MacroLegend macros={macros} compact />
             </div>
-        </button>
+        </Card>
     )
 }
 
-function EmptyLibrary({ onAdd, onImport }: { onAdd: () => void; onImport: () => void }) {
+// ─── View drawer ────────────────────────────────────────────────────────────────
+
+function MealViewDrawer({
+    meal,
+    onClose,
+    onEdit,
+    onDuplicate,
+    onDelete,
+}: {
+    meal: Meal | null
+    onClose: () => void
+    onEdit: (meal: Meal) => void
+    onDuplicate: (meal: Meal) => Promise<void>
+    onDelete: (meal: Meal) => void
+}) {
+    // Retain the last meal while the drawer animates closed.
+    const [view, setView] = useState<Meal | null>(meal)
+    useEffect(() => {
+        if (meal) setView(meal)
+    }, [meal])
+
+    const m = view
     return (
-        <div className="flex flex-col items-center gap-4 rounded-3xl bg-white px-6 py-12 text-center ring-1 ring-neutral-900/[0.06]">
-            <div className="flex -space-x-2">
-                {MEAL_TYPES.map((t) => (
-                    <span key={t} className="rounded-2xl ring-4 ring-white">
-                        <CategoryIcon type={t} size="lg" />
-                    </span>
-                ))}
+        <Drawer
+            open={!!meal}
+            onClose={onClose}
+            size="xl"
+            title={m?.name ?? 'Meal'}
+            footer={
+                m && (
+                    <div className="flex w-full flex-wrap items-center justify-end gap-3">
+                        <Button variant="ghost" icon="fa-solid fa-trash-can" className="mr-auto" onClick={() => onDelete(m)}>
+                            Delete
+                        </Button>
+                        <Button variant="secondary" icon="fa-regular fa-copy" onClick={() => void onDuplicate(m)}>
+                            Duplicate
+                        </Button>
+                        <Button icon="fa-solid fa-pen" onClick={() => onEdit(m)}>
+                            Edit
+                        </Button>
+                    </div>
+                )
+            }
+        >
+            {m && <MealDetail meal={m} />}
+        </Drawer>
+    )
+}
+
+/** A meal's chips, numbers, macro split and notes. */
+function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'notes'> }) {
+    const { macros } = meal
+    return (
+        <div className="flex flex-col gap-6">
+            {meal.types.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                    {meal.types.map((t) => (
+                        <TypeChip key={t} type={t} />
+                    ))}
+                </div>
+            )}
+            <StatStrip
+                stats={[
+                    { icon: 'fa-solid fa-fire', label: 'Calories', value: `${kcal(macros.calories)} kcal` },
+                    { icon: 'fa-solid fa-drumstick-bite', label: 'Protein', value: `${fmt(macros.protein)} g` },
+                    { icon: 'fa-solid fa-wheat-awn', label: 'Carbs', value: `${fmt(macros.carbs)} g` },
+                    { icon: 'fa-solid fa-droplet', label: 'Fat', value: `${fmt(macros.fat)} g` },
+                ]}
+            />
+            <div className="flex flex-col gap-2">
+                <MacroBar macros={macros} thick />
+                <MacroLegend macros={macros} />
             </div>
-            <div>
-                <p className="text-lg font-medium text-neutral-900">Start your library</p>
-                <p className="mt-1 text-sm text-neutral-500">Add the meals you eat — a name and its macros is all it takes.</p>
-            </div>
-            <div className="flex gap-2">
-                <Button variant="secondary" icon="fa-solid fa-file-import" onClick={onImport}>
-                    Import a list
-                </Button>
-                <Button icon="fa-solid fa-plus" onClick={onAdd}>
-                    Add a meal
-                </Button>
-            </div>
+            {meal.notes && (
+                <NoteBlock icon="fa-regular fa-note-sticky" title="Notes">
+                    {meal.notes}
+                </NoteBlock>
+            )}
         </div>
     )
 }
 
-// ── Add / edit ───────────────────────────────────────────────────────────────
+// ─── Add / edit drawer ──────────────────────────────────────────────────────────
 
-type Draft = { name: string; types: MealType[]; calories: string; protein: string; carbs: string; fat: string; notes: string }
-
-const blank = (type: MealType | null): Draft => ({
-    name: '',
-    types: type ? [type] : [],
-    calories: '',
-    protein: '',
-    carbs: '',
-    fat: '',
-    notes: '',
-})
-
-function toDraft(m: Meal): Draft {
-    return {
-        name: m.name,
-        types: m.types,
-        calories: String(m.macros.calories),
-        protein: String(m.macros.protein),
-        carbs: String(m.macros.carbs),
-        fat: String(m.macros.fat),
-        notes: m.notes ?? '',
-    }
-}
+type FormState = { mode: 'create'; type: MealType | null } | { mode: 'edit'; meal: Meal }
 
 const num = (v: string) => Math.max(0, Number(v) || 0)
 
-function draftMacros(d: Draft): Macros {
-    return { calories: num(d.calories), protein: num(d.protein), carbs: num(d.carbs), fat: num(d.fat) }
-}
-
-function MealForm({
-    meal,
-    defaultType,
+function MealFormDrawer({
+    form,
     onClose,
-    onSaved,
+    onAdd,
+    onSave,
 }: {
-    meal: Meal | 'new' | null
-    /** New meals start in the category being browsed. */
-    defaultType: MealType | null
+    form: FormState | null
     onClose: () => void
-    onSaved: () => Promise<void>
+    onAdd: (fields: MealInput) => Promise<void>
+    onSave: (id: string, fields: MealInput) => Promise<void>
 }) {
-    const [draft, setDraft] = useState<Draft>(blank(null))
+    const [view, setView] = useState<FormState | null>(form)
+    useEffect(() => {
+        if (form) setView(form)
+    }, [form])
+
+    const editing = view?.mode === 'edit' ? view.meal : undefined
+
+    const [name, setName] = useState('')
+    const [types, setTypes] = useState<MealType[]>([])
+    const [calories, setCalories] = useState('')
+    const [protein, setProtein] = useState('')
+    const [carbs, setCarbs] = useState('')
+    const [fat, setFat] = useState('')
+    const [notes, setNotes] = useState('')
+    const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
-    const [busy, setBusy] = useState(false)
-    const [confirmDelete, setConfirmDelete] = useState(false)
 
-    const [loaded, setLoaded] = useState<Meal | 'new' | null>(null)
-    if (meal !== loaded) {
-        setLoaded(meal)
-        if (meal) {
-            setDraft(meal === 'new' ? blank(defaultType) : toDraft(meal))
-            setError('')
-        }
-    }
+    // Reset the fields whenever the drawer opens for a different meal.
+    useEffect(() => {
+        setName(editing?.name ?? '')
+        setTypes(editing?.types ?? (view?.mode === 'create' && view.type ? [view.type] : []))
+        setCalories(editing ? String(editing.macros.calories) : '')
+        setProtein(editing ? String(editing.macros.protein) : '')
+        setCarbs(editing ? String(editing.macros.carbs) : '')
+        setFat(editing ? String(editing.macros.fat) : '')
+        setNotes(editing?.notes ?? '')
+        setSaving(false)
+        setError('')
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [view])
 
-    const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
-    const macros = draftMacros(draft)
+    const macros: Macros = { calories: num(calories), protein: num(protein), carbs: num(carbs), fat: num(fat) }
     const implied = caloriesFromMacros(macros)
     // Offer the macro-derived figure when calories are blank or clearly off.
     const offerImplied =
         implied > 0 && (macros.calories === 0 || Math.abs(implied - macros.calories) > Math.max(25, macros.calories * 0.15))
 
-    function fields(): MealInput | null {
-        if (!draft.name.trim()) {
-            setError('Give it a name')
-            return null
-        }
-        return { name: draft.name.trim(), types: draft.types, macros, notes: draft.notes.trim() || undefined }
+    const valid = name.trim() !== ''
+
+    function toggleType(t: MealType) {
+        setTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : MEAL_TYPES.filter((x) => x === t || prev.includes(x))))
     }
 
-    async function run(fn: () => Promise<unknown>) {
-        setBusy(true)
+    async function submit() {
+        if (!view || !valid) return
+        const fields: MealInput = { name: name.trim(), types, macros, notes: notes.trim() || undefined }
+        setSaving(true)
+        setError('')
         try {
-            await fn()
-            await onSaved()
+            if (view.mode === 'create') await onAdd(fields)
+            else await onSave(view.meal._id, fields)
+            onClose()
         } catch {
             setError('Could not save — try again.')
         } finally {
-            setBusy(false)
+            setSaving(false)
         }
     }
 
-    const isEdit = meal !== null && meal !== 'new'
-
     return (
-        <>
-            <Drawer size="lg"
-                open={meal !== null}
-                onClose={onClose}
-                title={isEdit ? 'Edit meal' : 'New meal'}
-                footer={
-                    <div className="flex gap-2">
-                        <Button
-                            className="min-h-[48px] flex-1"
-                            disabled={busy}
-                            onClick={() => {
-                                const f = fields()
-                                if (f) void run(() => (isEdit ? updateMeal((meal as Meal)._id, f) : createMeal(f)))
-                            }}
-                        >
-                            {isEdit ? 'Save' : 'Add to library'}
-                        </Button>
-                        {isEdit && (
-                            <>
-                                <Button
-                                    variant="secondary"
-                                    className="min-h-[48px]"
-                                    icon="fa-regular fa-copy"
-                                    disabled={busy}
-                                    onClick={() => {
-                                        const f = fields()
-                                        if (f) void run(() => createMeal({ ...f, name: `${f.name} (copy)` }))
-                                    }}
-                                >
-                                    <span className="hidden sm:inline">Duplicate</span>
-                                </Button>
-                                <button
-                                    type="button"
-                                    aria-label="Delete meal"
-                                    disabled={busy}
-                                    onClick={() => setConfirmDelete(true)}
-                                    className="grid min-h-[48px] w-12 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                                >
-                                    <i className="fa-solid fa-trash-can" aria-hidden="true" />
-                                </button>
-                            </>
-                        )}
-                    </div>
-                }
-            >
-                <div className="flex flex-col gap-5 pt-1">
-                    {/* Live preview — the card as it will look. */}
-                    <div className="rounded-3xl bg-neutral-50 p-4 ring-1 ring-neutral-900/[0.04]">
-                        <div className="flex items-center gap-3">
-                            <div className="flex shrink-0 -space-x-2">
-                                {draft.types.length ? (
-                                    draft.types.map((t) => (
-                                        <span key={t} className="rounded-xl ring-2 ring-neutral-50">
-                                            <CategoryIcon type={t} />
-                                        </span>
-                                    ))
-                                ) : (
-                                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-neutral-200/60 text-sm text-neutral-500" aria-hidden="true">
-                                        <i className="fa-solid fa-utensils" />
-                                    </span>
-                                )}
-                            </div>
-                            <p className={`min-w-0 flex-1 truncate text-[15px] font-semibold ${draft.name.trim() ? 'text-neutral-900' : 'text-neutral-500'}`}>
-                                {draft.name.trim() || 'Your meal'}
-                            </p>
-                        </div>
-                        <p className="mt-3 text-3xl font-bold tabular-nums tracking-tight text-neutral-950">
-                            {kcal(macros.calories)}
-                            <span className="ml-1 text-sm font-medium text-neutral-500">kcal</span>
-                        </p>
-                        <div className="mt-2 flex flex-col gap-2">
-                            <MacroBar macros={macros} thick />
-                            <MacroLegend macros={macros} />
-                        </div>
-                    </div>
-
-                    <Input label="Name" value={draft.name} error={error} placeholder="e.g. Scrambled eggs on toast" onChange={(e) => set({ name: e.target.value })} />
-
-                    <div>
-                        <p className="mb-2 text-sm font-medium text-neutral-700">Meal of the day</p>
-                        <div className="grid grid-cols-4 gap-2">
-                            {MEAL_TYPES.map((t) => {
-                                const on = draft.types.includes(t)
-                                const c = CATEGORY[t]
-                                return (
-                                    <button
-                                        key={t}
-                                        type="button"
-                                        aria-pressed={on}
-                                        onClick={() => set({ types: on ? draft.types.filter((x) => x !== t) : [...draft.types, t] })}
-                                        className={`flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-2xl text-xs font-semibold transition-all ${
-                                            on ? `${c.tile} ${c.text} ring-2 ${c.ring}` : 'bg-neutral-50 text-neutral-500 ring-1 ring-neutral-900/[0.04] hover:bg-neutral-100'
-                                        }`}
-                                    >
-                                        <i className={`${c.icon} text-lg`} aria-hidden="true" />
-                                        {c.label}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-
-                    <div>
-                        <p className="mb-2 text-sm font-medium text-neutral-700">Per serving</p>
-                        <div className="grid grid-cols-2 gap-3">
-                            <MacroInput label="Protein" dot={MACRO_DOT.protein} unit="g" value={draft.protein} onChange={(v) => set({ protein: v })} />
-                            <MacroInput label="Carbs" dot={MACRO_DOT.carbs} unit="g" value={draft.carbs} onChange={(v) => set({ carbs: v })} />
-                            <MacroInput label="Fat" dot={MACRO_DOT.fat} unit="g" value={draft.fat} onChange={(v) => set({ fat: v })} />
-                            <MacroInput label="Calories" unit="kcal" value={draft.calories} onChange={(v) => set({ calories: v })} />
-                        </div>
-                        {offerImplied && (
-                            <button
-                                type="button"
-                                onClick={() => set({ calories: String(implied) })}
-                                className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-600 hover:bg-brand-100"
-                            >
-                                <i className="fa-solid fa-wand-magic-sparkles text-[11px]" aria-hidden="true" />
-                                Macros add up to {kcal(implied)} kcal — use that
-                            </button>
-                        )}
-                    </div>
-
-                    <Textarea label="Notes" rows={2} value={draft.notes} placeholder="Optional" onChange={(e) => set({ notes: e.target.value })} />
-                </div>
-            </Drawer>
-            <ConfirmModal
-                open={confirmDelete}
-                title="Delete this meal?"
-                message="It comes off any days where it's only planned. Days you've already eaten it keep it."
-                confirmLabel="Delete"
-                danger
-                onConfirm={() => {
-                    if (isEdit) void run(() => deleteMeal((meal as Meal)._id))
-                }}
-                onClose={() => setConfirmDelete(false)}
-            />
-        </>
-    )
-}
-
-function MacroInput({
-    label,
-    dot,
-    unit,
-    value,
-    onChange,
-}: {
-    label: string
-    dot?: string
-    unit: string
-    value: string
-    onChange: (v: string) => void
-}) {
-    return (
-        <label className="flex flex-col gap-1.5">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
-                {dot && <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />}
-                {label}
-            </span>
-            <span className="relative">
-                <input
-                    type="text"
-                    inputMode="decimal"
-                    value={value}
-                    placeholder="0"
-                    onChange={(e) => onChange(e.target.value)}
-                    onFocus={(e) => e.target.select()}
-                    className="h-12 w-full rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white pl-3 pr-12 text-lg font-semibold tabular-nums text-neutral-900 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 outline-none focus-visible:outline-none"
+        <Drawer
+            open={!!form}
+            onClose={onClose}
+            size="xl"
+            title={view?.mode === 'edit' ? 'Edit meal' : 'New meal'}
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button onClick={submit} disabled={saving || !valid}>
+                        {saving ? 'Saving…' : view?.mode === 'edit' ? 'Save' : 'Add'}
+                    </Button>
+                </>
+            }
+        >
+            <div className="flex flex-col gap-5">
+                <Input
+                    label="Meal name *"
+                    autoFocus
+                    placeholder="e.g. Chicken, rice & veg"
+                    value={name}
+                    error={error || undefined}
+                    onChange={(e) => setName(e.target.value)}
                 />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-neutral-500">{unit}</span>
-            </span>
-        </label>
+
+                <div className="flex flex-col gap-1.5">
+                    <p className={FIELD_LABEL}>Meal of the day</p>
+                    <div className="flex flex-wrap gap-2">
+                        {MEAL_TYPES.map((t) => {
+                            const on = types.includes(t)
+                            const c = CATEGORY[t]
+                            return (
+                                <button
+                                    key={t}
+                                    type="button"
+                                    aria-pressed={on}
+                                    onClick={() => toggleType(t)}
+                                    className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors ${
+                                        on ? `${c.tile} ${c.text} ring-1 ring-inset ${c.ring}` : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                    }`}
+                                >
+                                    <i className={`${c.icon} text-[11px]`} aria-hidden="true" />
+                                    {c.label}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-2 gap-3">
+                        <Input label="Protein (g)" type="number" min={0} step="any" inputMode="decimal" placeholder="0" value={protein} onChange={(e) => setProtein(e.target.value)} />
+                        <Input label="Carbs (g)" type="number" min={0} step="any" inputMode="decimal" placeholder="0" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
+                        <Input label="Fat (g)" type="number" min={0} step="any" inputMode="decimal" placeholder="0" value={fat} onChange={(e) => setFat(e.target.value)} />
+                        <Input label="Calories (kcal)" type="number" min={0} step="any" inputMode="decimal" placeholder="0" value={calories} onChange={(e) => setCalories(e.target.value)} />
+                    </div>
+                    {offerImplied && (
+                        <button
+                            type="button"
+                            onClick={() => setCalories(String(implied))}
+                            className="inline-flex items-center gap-1.5 self-start rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-200"
+                        >
+                            <i className="fa-solid fa-wand-magic-sparkles text-[11px]" aria-hidden="true" />
+                            Macros add up to {kcal(implied)} kcal — use that
+                        </button>
+                    )}
+                    <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 px-3.5 py-3">
+                        <MacroBar macros={macros} thick />
+                        <MacroLegend macros={macros} compact />
+                    </div>
+                </div>
+
+                <Textarea
+                    label="Notes"
+                    rows={3}
+                    placeholder="Portions, where it’s from, how to make it…"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                />
+            </div>
+        </Drawer>
     )
 }
 
-// ── Import ───────────────────────────────────────────────────────────────────
+// ─── Import ─────────────────────────────────────────────────────────────────────
 
 const MEAL_TEMPLATE = JSON.stringify(
     [
@@ -609,24 +643,23 @@ function ImportNotes() {
     const f = (s: string) => <span className="font-semibold text-neutral-700">{s}</span>
     return (
         <>
+            <p>{f('name')} is required. Everything else is optional.</p>
             <p>
-                {f('name')} is required. Everything else is optional.
-            </p>
-            <p>
-                {f('types')} is a list of when you eat it: {MEAL_TYPES.map((t, i) => (
+                {f('types')} is a list of when you eat it:{' '}
+                {MEAL_TYPES.map((t, i) => (
                     <span key={t}>
                         {i > 0 && ', '}
                         <code className="rounded bg-neutral-100 px-1">{t}</code>
                     </span>
                 ))}
-                . A meal can be more than one. Leave it out and it only turns up under “All” and in search, so it’s worth setting.
+                . A meal can be more than one. Leave it out and it only turns up under “All” and in search, so it’s worth
+                setting.
             </p>
             <p>
-                {f('macros')} are per serving: {f('calories')} (kcal), {f('protein')}, {f('carbs')} and {f('fat')} (grams). Missing ones count as 0.
+                {f('macros')} are per serving: {f('calories')} (kcal), {f('protein')}, {f('carbs')} and {f('fat')}{' '}
+                (grams). Missing ones count as 0.
             </p>
-            <p>
-                {f('notes')} is free text — portions, where it’s from, how to make it.
-            </p>
+            <p>{f('notes')} is free text — portions, where it’s from, how to make it.</p>
             <p>A meal with the same name as one already in your library lets you choose to update it or keep both.</p>
         </>
     )

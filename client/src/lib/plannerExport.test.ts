@@ -21,9 +21,6 @@ import type {
     FitnessPlanKind,
     FitnessPlanNote,
     FitnessPlanPart,
-    Mobility,
-    Recovery,
-    RecoveryLog,
     Workout,
     WorkoutLog,
 } from '../types'
@@ -62,10 +59,6 @@ function session(over: Partial<ConditioningSession> = {}): ConditioningSession {
     }
 }
 
-function recovery(over: Partial<Recovery> = {}): Recovery {
-    return { _id: 'r1', name: 'Sauna', duration: 20, order: 0, ...STAMP, ...over }
-}
-
 /** A planned entry. `kind` decides which populated slot the item lands in. */
 function entry(
     over: Partial<FitnessPlanEntry> & { date: string; kind: FitnessPlanKind }
@@ -75,8 +68,6 @@ function entry(
         part: 'morning' as FitnessPlanPart,
         workout: null,
         session: null,
-        recovery: null,
-        mobility: null,
         plan: null,
         order: 0,
         ...STAMP,
@@ -111,17 +102,6 @@ function conditioningLog(over: Partial<ConditioningLog> & { date: string }): Con
         name: 'Bike Intervals',
         category: 'HIIT',
         duration: 25,
-        ...STAMP,
-        ...over,
-    }
-}
-
-function recoveryLog(over: Partial<RecoveryLog> & { date: string }): RecoveryLog {
-    return {
-        _id: `rl-${over.date}`,
-        recovery: 'r1',
-        name: 'Sauna',
-        duration: 20,
         ...STAMP,
         ...over,
     }
@@ -188,9 +168,9 @@ describe('buildPlannerExport', () => {
                 entries: [
                     entry({
                         date: '2026-08-19',
-                        kind: 'recovery',
+                        kind: 'conditioning',
                         part: 'evening',
-                        recovery: recovery(),
+                        session: session(),
                     }),
                     entry({
                         date: '2026-08-19',
@@ -209,7 +189,7 @@ describe('buildPlannerExport', () => {
         expect(day.weekday).toBe('Wednesday')
         expect(day.morning?.map((e) => e.name)).toEqual(['Lower A'])
         expect(day.afternoon).toBeUndefined()
-        expect(day.evening?.map((e) => e.name)).toEqual(['Sauna'])
+        expect(day.evening?.map((e) => e.name)).toEqual(['Bike Intervals'])
     })
 
     it('sorts a slot by each entry’s order', () => {
@@ -276,14 +256,9 @@ describe('buildPlannerExport', () => {
             NOW
         )
 
-        expect(payload.totals).toEqual({ workout: 2, conditioning: 1, mobility: 0, recovery: 0 })
+        expect(payload.totals).toEqual({ workout: 2, conditioning: 1 })
         expect(payload.weeks[0].totals.workout).toBe(2)
-        expect(payload.weeks[1].totals).toEqual({
-            workout: 0,
-            conditioning: 1,
-            mobility: 0,
-            recovery: 0,
-        })
+        expect(payload.weeks[1].totals).toEqual({ workout: 0, conditioning: 1 })
         expect(countEntries(payload)).toBe(3)
     })
 
@@ -371,28 +346,6 @@ describe('buildPlannerExport — completion', () => {
             NOW
         )
 
-        const rows = payload.weeks[0].days.flatMap((d) => d.morning ?? [])
-        expect(rows.map((r) => r.done)).toEqual([true, false])
-    })
-
-    it('marks mobility done from its own tick — mobility keeps no logs', () => {
-        const hips: Mobility = {
-            _id: 'm1',
-            name: 'Hips',
-            duration: 10,
-            parts: [],
-            order: 0,
-            ...STAMP,
-        }
-        const payload = buildPlannerExport(
-            input({
-                entries: [
-                    entry({ date: '2026-08-19', kind: 'mobility', mobility: hips, done: true }),
-                    entry({ date: '2026-08-20', kind: 'mobility', mobility: hips }),
-                ],
-            }),
-            NOW
-        )
         const rows = payload.weeks[0].days.flatMap((d) => d.morning ?? [])
         expect(rows.map((r) => r.done)).toEqual([true, false])
     })
@@ -516,8 +469,10 @@ describe('buildPlannerExport — completed sessions', () => {
                 options: withLogs,
                 logs: logs({
                     workout: [workoutLog({ date: '2026-08-19', durationMin: 52 })],
-                    conditioning: [conditioningLog({ date: '2026-08-19', rpe: 8 })],
-                    recovery: [recoveryLog({ date: '2026-08-21' })],
+                    conditioning: [
+                        conditioningLog({ date: '2026-08-19', rpe: 8 }),
+                        conditioningLog({ date: '2026-08-21' }),
+                    ],
                 }),
             }),
             NOW
@@ -532,7 +487,7 @@ describe('buildPlannerExport — completed sessions', () => {
         expect(days[0].completed?.[0].durationMin).toBe(52)
         expect(days[0].completed?.[1].rpe).toBe(8)
         expect(days[0].completed?.[1].category).toBe('HIIT')
-        expect(days[1].completed?.map((c) => c.kind)).toEqual(['recovery'])
+        expect(days[1].completed?.map((c) => c.kind)).toEqual(['conditioning'])
     })
 
     it('keeps a day nothing was planned on but something was done on', () => {
@@ -588,18 +543,13 @@ describe('buildPlannerExport — completed sessions', () => {
                 entries: [entry({ date: '2026-08-19', kind: 'workout', workout: workout() })],
                 logs: logs({
                     workout: [workoutLog({ date: '2026-08-19' })],
-                    recovery: [recoveryLog({ date: '2026-08-22' })],
+                    conditioning: [conditioningLog({ date: '2026-08-22' })],
                 }),
             }),
             NOW
         )
-        expect(payload.totals).toEqual({ workout: 1, conditioning: 0, mobility: 0, recovery: 0 })
-        expect(payload.completed).toEqual({
-            workout: 1,
-            conditioning: 0,
-            mobility: 0,
-            recovery: 1,
-        })
+        expect(payload.totals).toEqual({ workout: 1, conditioning: 0 })
+        expect(payload.completed).toEqual({ workout: 1, conditioning: 1 })
         expect(payload.weeks[0].completed).toEqual(payload.completed)
         expect(countEntries(payload)).toBe(1)
         expect(countCompleted(payload)).toBe(2)

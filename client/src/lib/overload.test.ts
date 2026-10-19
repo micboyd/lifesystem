@@ -12,11 +12,9 @@ function item(
 }
 
 describe('isHardSession', () => {
-    it('counts strength and conditioning, but not mobility or recovery', () => {
+    it('counts strength and conditioning', () => {
         expect(isHardSession('workout')).toBe(true)
         expect(isHardSession('conditioning')).toBe(true)
-        expect(isHardSession('mobility')).toBe(false)
-        expect(isHardSession('recovery')).toBe(false)
     })
 })
 
@@ -42,13 +40,6 @@ describe('findOverloads', () => {
         expect(
             findOverloads([item('conditioning', 'evening'), item('conditioning', 'evening')])
         ).toHaveLength(1)
-    })
-
-    it('leaves a hard session paired with mobility or recovery alone', () => {
-        expect(findOverloads([item('workout', 'morning'), item('mobility', 'morning')])).toEqual([])
-        expect(
-            findOverloads([item('conditioning', 'evening'), item('recovery', 'evening')])
-        ).toEqual([])
     })
 
     it('leaves hard sessions in different slots of the same day alone', () => {
@@ -111,19 +102,13 @@ describe('findFreeSlot', () => {
         expect(findFreeSlot(strength, day)).toBe('evening')
     })
 
-    it('will move next to mobility or recovery', () => {
-        const strength = item('workout', 'morning')
-        const day = [strength, item('conditioning', 'morning'), item('recovery', 'afternoon')]
-        expect(findFreeSlot(strength, day)).toBe('afternoon')
-    })
-
     it('refuses a slot already holding two items', () => {
         const strength = item('workout', 'morning')
         const day = [
             strength,
             item('conditioning', 'morning'),
-            item('mobility', 'afternoon'),
-            item('recovery', 'afternoon'),
+            item('workout', 'afternoon'),
+            item('conditioning', 'afternoon'),
         ]
         expect(findFreeSlot(strength, day)).toBe('evening')
     })

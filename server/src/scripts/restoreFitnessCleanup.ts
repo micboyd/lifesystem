@@ -6,19 +6,16 @@ import { connectDB } from '../config/db'
 import Exercise from '../models/Exercise'
 import Workout from '../models/Workout'
 import ConditioningSession from '../models/ConditioningSession'
-import Mobility from '../models/Mobility'
-import Recovery from '../models/Recovery'
 import FitnessPlanEntry from '../models/FitnessPlanEntry'
 import FitnessPlanNote from '../models/FitnessPlanNote'
 import TrainingPlan from '../models/TrainingPlan'
 import WorkoutLog from '../models/WorkoutLog'
 import ConditioningLog from '../models/ConditioningLog'
-import RecoveryLog from '../models/RecoveryLog'
 
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
 
 /**
- * Puts back what cleanupFitnessLibrary.ts removed, from the backup JSON it
+ * Puts back what a fitness wipe or cleanup removed, from the backup JSON it
  * wrote. Documents go back with their original _ids, so every reference to
  * them — planner entries, training plan items, workout exercise lines —
  * resolves again without further repair.
@@ -26,7 +23,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '../.env') })
  * DRY RUN by default. Set RESTORE_CONFIRM=1 to write.
  *
  * RESTORE_FILE       path to the backup JSON (required).
- * RESTORE_CATEGORIES comma-separated subset, e.g. "conditioning,recovery".
+ * RESTORE_CATEGORIES comma-separated subset, e.g. "conditioning,workouts".
  *                    Defaults to everything the backup holds except
  *                    "repointedWorkouts", which is opt-in.
  * RESTORE_NAMES      comma-separated exact names, to bring back just a few.
@@ -40,13 +37,10 @@ const LIBRARY_CATEGORIES = [
     'exercises',
     'workouts',
     'conditioning',
-    'mobility',
-    'recovery',
 ] as const
 const LOG_CATEGORIES = [
     'workoutLogs',
     'conditioningLogs',
-    'recoveryLogs',
 ] as const
 /**
  * Restored by default. Everything a wipe or cleanup removed goes back, since
@@ -83,11 +77,8 @@ const MODELS: Record<Category, RestorableModel> = {
     exercises: Exercise as unknown as RestorableModel,
     workouts: Workout as unknown as RestorableModel,
     conditioning: ConditioningSession as unknown as RestorableModel,
-    mobility: Mobility as unknown as RestorableModel,
-    recovery: Recovery as unknown as RestorableModel,
     workoutLogs: WorkoutLog as unknown as RestorableModel,
     conditioningLogs: ConditioningLog as unknown as RestorableModel,
-    recoveryLogs: RecoveryLog as unknown as RestorableModel,
     planEntries: FitnessPlanEntry as unknown as RestorableModel,
     planNotes: FitnessPlanNote as unknown as RestorableModel,
     trainingPlans: TrainingPlan as unknown as RestorableModel,
@@ -119,10 +110,12 @@ async function restore() {
     )
     const unknown = requested.filter((c) => !(ALL_CATEGORIES as readonly string[]).includes(c))
     if (unknown.length) console.log(`  ignoring unknown category: ${unknown.join(', ')}`)
-    // Mobility keeps no completion logs any more; older backups still carry them.
-    const mobilityLogs = backup.mobilityLogs
-    if (Array.isArray(mobilityLogs) && mobilityLogs.length)
-        console.log(`  skipping ${mobilityLogs.length} mobility log(s): mobility is no longer logged`)
+    // Mobility and recovery were removed from the app; older backups still carry them.
+    for (const key of ['mobility', 'recovery', 'mobilityLogs', 'recoveryLogs']) {
+        const docs = backup[key]
+        if (Array.isArray(docs) && docs.length)
+            console.log(`  skipping ${docs.length} ${key}: no longer part of the app`)
+    }
 
     await connectDB()
     console.log(confirm ? 'MODE: RESTORE (RESTORE_CONFIRM=1)' : 'MODE: DRY RUN')

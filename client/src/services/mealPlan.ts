@@ -27,3 +27,21 @@ export async function setEntryStatus(id: string, status: EntryStatus): Promise<M
 export async function deletePlanEntry(id: string): Promise<void> {
     await api.delete(`/meal-plan/${id}`)
 }
+
+/** A slot's planned meals in their new order; a meal dragged in from elsewhere moves there. */
+export async function reorderPlanSlot(date: string, slot: MealType, ids: string[]): Promise<void> {
+    await api.post('/meal-plan/reorder', { date, slot, ids })
+}
+
+/**
+ * Put the planned meals in `slots` from the week starting `from` onto the week
+ * starting `to`, replacing that week's still-planned meals in those slots.
+ */
+export async function copyPlanWeek(from: string, to: string, slots: MealType[]): Promise<void> {
+    await api.post('/meal-plan/copy-week', { from, to, slots })
+}
+
+/** Remove the planned meals not yet eaten from [start, end]. */
+export async function clearPlanRange(start: string, end: string): Promise<void> {
+    await api.post('/meal-plan/clear', { start, end })
+}

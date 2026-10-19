@@ -206,19 +206,11 @@ export function levelRank(level: LoadLevel): number {
 
 // ─── Costs ──────────────────────────────────────────────────────────────────
 
-/**
- * What an hour of each kind of session costs the week.
- *
- * Mobility and recovery take real time but no recovery, which is the same call
- * `overload.ts:isHardSession` makes a day at a time — they're what you'd pair a
- * hard session with, not another hard session.
- */
+/** What an hour of each kind of session costs the week. */
 export const SESSION_HOURS: Record<PlanRole, number> = {
     strength: 1,
     run: 0.75,
     conditioning: 0.75,
-    mobility: 0.25,
-    recovery: 0.25,
 }
 
 /** The roles that spend `body`. */
@@ -526,7 +518,7 @@ interface PlanShare {
 }
 
 function emptyRoles(): Record<PlanRole, number> {
-    return { strength: 0, run: 0, conditioning: 0, mobility: 0, recovery: 0 }
+    return { strength: 0, run: 0, conditioning: 0 }
 }
 
 /**
@@ -579,7 +571,7 @@ function trainingShares(plans: TrainingPlan[], month: string): PlanShare[] {
             basis = 'assumed'
             const coverage = coverageOf(month, plan.planStart, plan.planEnd)
             for (const [i, day] of plan.weeklyTemplate.entries()) {
-                for (const role of ['strength', 'conditioning', 'mobility', 'recovery'] as const) {
+                for (const role of ['strength', 'conditioning'] as const) {
                     const cell = day[role]
                     if (!cell || EMPTY_CELL.test(cell.trim())) continue
                     slots.set(`${i}|${role}`, { role, perWeek: coverage })

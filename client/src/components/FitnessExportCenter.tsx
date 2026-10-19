@@ -6,8 +6,6 @@ import Spinner from './Spinner'
 import { listExercises } from '../services/exercises'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
-import { listMobility } from '../services/mobility'
-import { listRecovery } from '../services/recovery'
 import { listLogs as listWorkoutLogs } from '../services/workoutLogs'
 import { listLogs as listConditioningLogs } from '../services/conditioningLogs'
 import type {
@@ -15,8 +13,6 @@ import type {
     SessionPart,
     Workout,
     ConditioningSession,
-    Mobility,
-    Recovery,
     WorkoutLog,
     ConditioningLog,
 } from '../types'
@@ -29,8 +25,6 @@ type DatasetKey =
     | 'exercises'
     | 'workouts'
     | 'conditioning'
-    | 'mobility'
-    | 'recovery'
     | 'workoutLogs'
     | 'conditioningLogs'
 
@@ -65,20 +59,6 @@ const DATASETS: DatasetMeta[] = [
         group: 'Libraries',
     },
     {
-        key: 'mobility',
-        label: 'Mobility routines',
-        hint: 'Mobility flows and circuits.',
-        icon: 'fa-person-walking',
-        group: 'Libraries',
-    },
-    {
-        key: 'recovery',
-        label: 'Recovery items',
-        hint: 'Stretching, sauna, foam rolling and more.',
-        icon: 'fa-spa',
-        group: 'Libraries',
-    },
-    {
         key: 'workoutLogs',
         label: 'Workout log',
         hint: 'Completed strength workouts, by date.',
@@ -99,8 +79,6 @@ interface Bundle {
     exercises: Exercise[]
     workouts: Workout[]
     conditioning: ConditioningSession[]
-    mobility: Mobility[]
-    recovery: Recovery[]
     workoutLogs: WorkoutLog[]
     conditioningLogs: ConditioningLog[]
 }
@@ -132,6 +110,7 @@ function shapeWorkouts(rows: Workout[], nameById: Map<string, string>) {
                 ...(x.reps ? { reps: x.reps } : {}),
                 ...(x.rest ? { rest: x.rest } : {}),
                 ...(x.notes ? { notes: x.notes } : {}),
+                ...(x.steps?.length ? { steps: x.steps } : {}),
                 // The importer requires each line's slot.
                 ...(x.startMin != null && x.endMin != null
                     ? { startMin: x.startMin, endMin: x.endMin }
@@ -150,6 +129,7 @@ function shapeParts(parts: SessionPart[]) {
         ...(p.rounds && p.roundDetails?.length ? { roundDetails: p.roundDetails } : {}),
         ...(p.rounds && p.roundSeconds?.length ? { roundSeconds: p.roundSeconds } : {}),
         ...(p.rounds && p.startAtSec != null ? { startAtSec: p.startAtSec } : {}),
+        ...(p.steps?.length ? { steps: p.steps } : {}),
         // The conditioning importer requires each part's slot.
         ...(p.startMin != null && p.endMin != null
             ? { startMin: p.startMin, endMin: p.endMin }
@@ -166,25 +146,6 @@ function shapeConditioning(rows: ConditioningSession[]) {
         ...mapPhases(s, shapeParts),
         ...(s.howToUse ? { howToUse: s.howToUse } : {}),
         ...(s.helpers?.length ? { helpers: s.helpers } : {}),
-    }))
-}
-
-function shapeMobility(rows: Mobility[]) {
-    return rows.map((m) => ({
-        name: m.name,
-        duration: m.duration,
-        ...(m.purpose ? { purpose: m.purpose } : {}),
-        parts: shapeParts(m.parts),
-        ...(m.howToUse ? { howToUse: m.howToUse } : {}),
-    }))
-}
-
-function shapeRecovery(rows: Recovery[]) {
-    return rows.map((r) => ({
-        name: r.name,
-        duration: r.duration,
-        ...(r.purpose ? { purpose: r.purpose } : {}),
-        ...(r.notes ? { notes: r.notes } : {}),
     }))
 }
 
@@ -219,15 +180,13 @@ function buildPayload(bundle: Bundle, selected: Set<DatasetKey>): Record<string,
     if (selected.has('exercises')) out.exercises = shapeExercises(bundle.exercises)
     if (selected.has('workouts')) out.workouts = shapeWorkouts(bundle.workouts, nameById)
     if (selected.has('conditioning')) out.conditioning = shapeConditioning(bundle.conditioning)
-    if (selected.has('mobility')) out.mobility = shapeMobility(bundle.mobility)
-    if (selected.has('recovery')) out.recovery = shapeRecovery(bundle.recovery)
     if (selected.has('workoutLogs')) out.workoutLogs = shapeWorkoutLogs(bundle.workoutLogs)
     if (selected.has('conditioningLogs'))
         out.conditioningLogs = shapeConditioningLogs(bundle.conditioningLogs)
     return out
 }
 
-const LIBRARY_KEYS: DatasetKey[] = ['exercises', 'workouts', 'conditioning', 'mobility', 'recovery']
+const LIBRARY_KEYS: DatasetKey[] = ['exercises', 'workouts', 'conditioning']
 
 // ─── Component ──────────────────────────────────────────────────────────────────
 
@@ -248,18 +207,14 @@ export default function FitnessExportCenter({ open, onClose }: { open: boolean; 
             listExercises(),
             listWorkouts(),
             listSessions(),
-            listMobility(),
-            listRecovery(),
             listWorkoutLogs(),
             listConditioningLogs(),
         ])
-            .then(([exercises, workouts, conditioning, mobility, recovery, workoutLogs, conditioningLogs]) =>
+            .then(([exercises, workouts, conditioning, workoutLogs, conditioningLogs]) =>
                 setBundle({
                     exercises,
                     workouts,
                     conditioning,
-                    mobility,
-                    recovery,
                     workoutLogs,
                     conditioningLogs,
                 })
@@ -273,8 +228,6 @@ export default function FitnessExportCenter({ open, onClose }: { open: boolean; 
             exercises: bundle?.exercises.length ?? 0,
             workouts: bundle?.workouts.length ?? 0,
             conditioning: bundle?.conditioning.length ?? 0,
-            mobility: bundle?.mobility.length ?? 0,
-            recovery: bundle?.recovery.length ?? 0,
             workoutLogs: bundle?.workoutLogs.length ?? 0,
             conditioningLogs: bundle?.conditioningLogs.length ?? 0,
         }),

@@ -31,18 +31,24 @@ function errorMessage(err: unknown): string {
 const TEMPLATE = `{
   // ── What every plan needs ────────────────────────────────────────────────
   // 1. "planName", "planStart" and "planEnd".
-  // 2. On every strength exercise line and every conditioning part: "startMin"
-  //    and "endMin" — its slot in minutes from the start of the session
-  //    (squats 15 → 30). Mobility parts don't need them.
+  // 2. On every conditioning part: "startMin" and "endMin" — its slot in
+  //    minutes from the start of the session (run 7 → 28). Strength lines don't
+  //    need them.
   //
-  // How the times are used: in the gym each item has a Completed button that
-  // records the time you press it. Each press is compared with the previous
-  // one against the planned gap between the two items' "endMin"s, so you see
-  // "on time", "4 min behind" or "3 min ahead", and when the next item is due.
-  // So "endMin" is when the item should be finished, and the slots must run in
-  // session order — warm-up, then main, then cool-down, each item ending at or
-  // after the one before. A plan missing a time, or with one out of order, is
-  // rejected with the item named.
+  // How the times are used (conditioning only): in the session each part has a
+  // Completed button that records the time you press it. Each press is
+  // compared with the previous one against the planned gap between the two
+  // parts' "endMin"s, so you see "on time", "4 min behind" or "3 min ahead",
+  // and when the next part is due. So "endMin" is when the part should be
+  // finished, and the slots must run in session order — warm-up, then main,
+  // then cool-down, each part ending at or after the one before. A session
+  // missing a time, or with one out of order, is rejected with the part named.
+  // Strength is a plain list of sets and reps — no times.
+  //
+  // ── Worth adding: sub-lists ──────────────────────────────────────────────
+  // Put "steps" on any strength line or conditioning part — a list of short
+  // strings — to give it a sub-list ticked off one by one, e.g. a warm-up line
+  // "General warm-up" with ["5 min easy bike", "Arm circles ×10", …].
   //
   // ── Worth adding: exercise demo videos ───────────────────────────────────
   // Put "videoUrl" (or "youtubeLink") on any strength line — or on the exercise
@@ -93,15 +99,13 @@ const TEMPLATE = `{
 
   // ── The week ─────────────────────────────────────────────────────────────
   // Optional. One row per weekday, repeated every week of the plan.
-  // Cells are prose: any library name found in the text is scheduled, so
-  // "Sauna Recovery optional" places Sauna Recovery, and one cell can name two.
+  // Cells are prose: any workout name found in the strength text is scheduled,
+  // and one cell can name two.
   "weeklyTemplate": [
     {
       "day": "Monday",                 // "Monday", "Mon" or "mon" all work
       "strength": "Upper A",           // a strength workout by name
       "conditioning": null,            // shown on the plan only — runs are placed from "conditioning" below
-      "mobility": "Shoulder Mobility", // a mobility routine
-      "recovery": "Post-Training Recovery Routine",
       "slot": "Morning"                // Morning | Afternoon | Evening, for the whole row
     }
   ],
@@ -135,17 +139,18 @@ const TEMPLATE = `{
       // one comma-separated string is fine.
       "bring": ["Lifting belt", "Resistance band"],
       // Three phases, in order: warmUp, main, coolDown. Only main counts toward progress.
-      // Every line needs "startMin" and "endMin": minutes from the start of the
-      // session, running in order. "endMin" is when it should be finished — the
-      // Completed press is timed against it. Minutes can be decimals (1.5 = 1:30).
       // "videoUrl" (optional): a YouTube demo of the exercise — see the top.
       "warmUp": [
+        {
+          // A line can be a block of drills: "steps" is a sub-list to tick off.
+          // Sets and reps are optional.
+          "name": "General warm-up",
+          "steps": ["5 min easy bike", "Arm circles ×10 each way", "Band pull-aparts ×15"]
+        },
         {
           "name": "Band pull-apart",
           "sets": 2,
           "reps": "15",
-          "startMin": 0,
-          "endMin": 5,
           "videoUrl": "https://youtu.be/xxxxxxxxxxx"
         }
       ],
@@ -156,8 +161,6 @@ const TEMPLATE = `{
           "reps": "5-8",               // free text: "8", "8-12", "AMRAP"
           "rest": "2-3 min",           // free text
           "notes": "Keep 1-2 reps in reserve.",
-          "startMin": 5,
-          "endMin": 20,
           "videoUrl": "https://www.youtube.com/watch?v=xxxxxxxxxxx"
         },
         {
@@ -168,19 +171,13 @@ const TEMPLATE = `{
           // A "phase" that isn't warmUp/main/coolDown is read as when in the plan
           // the line applies, and added to its notes.
           "phase": "From 2026-10-16 onward",
-          "startMin": 20,
-          "endMin": 35,
           "youtubeLink": "https://youtube.com/shorts/xxxxxxxxxxx" // "youtubeLink" works too; Shorts play portrait
         }
       ],
       "coolDown": [
         {
-          "name": "Couch stretch",
-          "sets": 1,
-          "reps": "60s each side",
-          "startMin": 55,
-          "endMin": 60,
-          "videoUrl": "https://youtu.be/xxxxxxxxxxx"
+          "name": "Stretch",
+          "steps": ["Couch stretch 60s each side", "Doorway pec stretch 30s each side"]
         }
       ]
     }
@@ -202,7 +199,7 @@ const TEMPLATE = `{
         "name": "Intervals - Wed 2 Sep",
         "date": "2026-09-02",
         "slot": "Morning",             // optional; conditioning defaults to Afternoon
-        "duration": 33,
+        "duration": 36,
         "category": "Endurance",       // HIIT | Cardio | Endurance | Mobility | Recovery
         "purpose": "Aerobic base.",
         "notes": "Easy if the knee is sore.", // shown on that day in the plan's calendar
@@ -210,7 +207,13 @@ const TEMPLATE = `{
         "helpers": ["Cones at 0, 5 and 10 m"], // optional: setup to lay out first, one line each
         // Same three phases. Every part needs "startMin" and "endMin", in order, as above.
         "warmUp": [
-          { "name": "Walk", "detail": "3 min at 4.2 km/h, then 4 min at 5.2 km/h.", "startMin": 0, "endMin": 7 }
+          {
+            "name": "Mobility drills",
+            "startMin": 0,
+            "endMin": 3,
+            "steps": ["Leg swings ×10 each side", "Walking lunges ×10", "Ankle circles ×10 each way"]
+          },
+          { "name": "Walk", "detail": "2 min at 4.2 km/h, then 2 min at 5.2 km/h.", "startMin": 3, "endMin": 7 }
         ],
         "main": [
           {
@@ -231,7 +234,13 @@ const TEMPLATE = `{
           }
         ],
         "coolDown": [
-          { "name": "Walk", "detail": "2 min at 5.0 km/h, then 3 min at 4.0 km/h.", "startMin": 28, "endMin": 33 }
+          { "name": "Walk", "detail": "2 min at 5.0 km/h, then 3 min at 4.0 km/h.", "startMin": 28, "endMin": 33 },
+          {
+            "name": "Stretch",
+            "startMin": 33,
+            "endMin": 36,
+            "steps": ["Calf stretch 30s each side", "Hamstring stretch 30s each side"]
+          }
         ]
       }
     ],
@@ -263,32 +272,6 @@ const TEMPLATE = `{
     ]
   },
 
-  // ── Mobility and recovery ────────────────────────────────────────────────
-  // Placed by the weeklyTemplate's mobility and recovery cells.
-  "mobility": {
-    "library": [
-      {
-        "name": "Shoulder Mobility",
-        "duration": 12,
-        "purpose": "Open the shoulders before pressing.",
-        "parts": [{ "name": "Wall slides", "detail": "2 x 10 reps" }], // no time slots needed
-        "howToUse": "Before any upper-body session."
-      }
-    ],
-    "weeklyUse": { "summary": "Before every lifting session." } // optional; kept with the plan
-  },
-  "recovery": {
-    "library": [
-      {
-        "name": "Post-Training Recovery Routine",
-        "duration": 30,
-        "purpose": "Start recovery straight after training.",
-        "notes": "10 min easy walking, then food and water."
-      }
-    ],
-    "weeklyUse": { "summary": "After every hard session." } // optional; kept with the plan
-  },
-
   // ── Exceptions ───────────────────────────────────────────────────────────
   // Dated changes to the weekly pattern: holidays, matches, injuries, deloads.
   // Applied in order, so a later one wins.
@@ -298,8 +281,8 @@ const TEMPLATE = `{
     { "date": "2026-10-05", "strength": "Upper A", "notes": "Moved off Tuesday this week" },
     // …null empties it, and leaving the key out leaves the day alone.
     { "date": "2026-10-06", "strength": null, "notes": "Travelling" },
-    // suppressRecurringStrength (or …Conditioning / …Mobility / …Recovery, or
-    // suppressRecurring for all four) drops only the weekly repeats, so dated
+    // suppressRecurringStrength (or …Conditioning, or suppressRecurring for
+    // both) drops only the weekly repeats, so dated
     // runs on those days stay.
     { "start": "2026-10-10", "end": "2026-10-18", "suppressRecurringStrength": true, "notes": "Holiday — no gym" }
   ],
@@ -404,9 +387,7 @@ export default function PlanImportPanel({
     const added = summary
         ? summary.exercisesCreated +
           summary.workoutsCreated +
-          summary.conditioningCreated +
-          summary.mobilityCreated +
-          summary.recoveryCreated
+          summary.conditioningCreated
         : 0
 
     return (
@@ -444,8 +425,6 @@ export default function PlanImportPanel({
                                     [summary.exercisesCreated, 'exercise'],
                                     [summary.workoutsCreated, 'workout'],
                                     [summary.conditioningCreated, 'conditioning'],
-                                    [summary.mobilityCreated, 'mobility'],
-                                    [summary.recoveryCreated, 'recovery'],
                                 ]
                                     .filter(([n]) => (n as number) > 0)
                                     .map(([n, label]) => `${n} ${label}`)
@@ -511,7 +490,7 @@ export default function PlanImportPanel({
                         required, and so are{' '}
                         <span className="font-semibold text-neutral-700">startMin</span> and{' '}
                         <span className="font-semibold text-neutral-700">endMin</span> on every
-                        strength line and conditioning part — the minutes into the session each
+                        conditioning part — the minutes into the session each
                         item should start and finish, in session order. In the gym your Completed
                         press on each item is timed against the gap from the one before, which is
                         how you see whether you&apos;re on time. Every other section is optional,
@@ -559,9 +538,8 @@ export default function PlanImportPanel({
                     </p>
                     <p>
                         <span className="font-semibold text-neutral-700">weeklyTemplate</span> fills
-                        in mobility and recovery. Cells can be prose — any library name inside the
-                        text is picked up, so “Sauna Recovery optional” schedules Sauna Recovery,
-                        and a cell can name two routines.
+                        in strength by weekday. Cells can be prose — any workout name inside the
+                        text is picked up, and a cell can name two.
                     </p>
                     <p>
                         <span className="font-semibold text-neutral-700">scheduleOverrides</span>{' '}
@@ -575,10 +553,8 @@ export default function PlanImportPanel({
                     </p>
                     <p>
                         Naming a category —{' '}
-                        <span className="font-semibold text-neutral-700">strength</span>,{' '}
-                        <span className="font-semibold text-neutral-700">conditioning</span>,{' '}
-                        <span className="font-semibold text-neutral-700">mobility</span> or{' '}
-                        <span className="font-semibold text-neutral-700">recovery</span> — replaces
+                        <span className="font-semibold text-neutral-700">strength</span> or{' '}
+                        <span className="font-semibold text-neutral-700">conditioning</span> — replaces
                         everything of that category on those days.{' '}
                         <span className="font-semibold text-neutral-700">null</span> empties it;
                         leaving the key out altogether leaves the day alone.
@@ -587,9 +563,9 @@ export default function PlanImportPanel({
                         <span className="font-semibold text-neutral-700">
                             suppressRecurringStrength
                         </span>{' '}
-                        (and the Conditioning / Mobility / Recovery variants, or{' '}
+                        (and the Conditioning variant, or{' '}
                         <span className="font-semibold text-neutral-700">suppressRecurring</span>{' '}
-                        for all four) drops only the weekly repeats — so a week away clears the gym
+                        for both) drops only the weekly repeats — so a week away clears the gym
                         work while the runs written for those exact days stay put. Overrides apply
                         in order, so a later one wins.
                     </p>

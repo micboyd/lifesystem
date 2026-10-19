@@ -6,9 +6,7 @@ export interface PlanImportSummary {
     exercisesCreated: number
     workoutsCreated: number
     conditioningCreated: number
-    mobilityCreated: number
-    recoveryCreated: number
-    /** New library items across all five libraries. */
+    /** New library items across all four libraries. */
     itemsCreated: number
     /** Existing library items refreshed from the plan, when that was asked for. */
     itemsUpdated: number

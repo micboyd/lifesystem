@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import Badge from '../Badge'
-import { Card } from '../Card'
+import { Surface } from './ui'
 import EmptyState from '../EmptyState'
 import StatTile from '../StatTile'
 import { personalBests, type PersonalBest } from '../../lib/exerciseProgress'
@@ -116,10 +116,10 @@ export default function RecordsPanel({
                 />
             </div>
 
-            <Card hover={false} className="flex flex-col gap-4">
+            <Surface className="flex flex-col gap-4">
                 <div>
-                    <h3 className="text-sm font-bold text-neutral-900">Key lifts</h3>
-                    <p className="text-xs text-neutral-500">
+                    <h3 className="text-[15px] font-semibold text-neutral-900">Key lifts</h3>
+                    <p className="mt-0.5 text-[13px] text-neutral-500">
                         The last {weeks} weeks against the {weeks} before, by estimated one-rep max.
                         Holding through a deficit is the good outcome, not the boring one.
                     </p>
@@ -129,13 +129,13 @@ export default function RecordsPanel({
                         <LiftRow key={lift.lift} lift={lift} />
                     ))}
                 </div>
-            </Card>
+            </Surface>
 
             <div className="grid gap-4 lg:grid-cols-2">
-                <Card hover={false} className="flex flex-col gap-4">
+                <Surface className="flex flex-col gap-4">
                     <div>
-                        <h3 className="text-sm font-bold text-neutral-900">Personal bests beaten</h3>
-                        <p className="text-xs text-neutral-500">
+                        <h3 className="text-[15px] font-semibold text-neutral-900">Personal bests beaten</h3>
+                        <p className="mt-0.5 text-[13px] text-neutral-500">
                             {rangeLabel} — a heavier top set than you had ever done before.
                         </p>
                     </div>
@@ -154,14 +154,14 @@ export default function RecordsPanel({
                                     <span className="min-w-0 truncate font-semibold text-neutral-900">
                                         {best.name}
                                     </span>
-                                    <span className="flex items-baseline gap-2 tabular-nums">
+                                    <span className="flex items-baseline gap-2 nums">
                                         <span className="font-semibold text-neutral-900">
                                             {setLabel(best.weightKg, best.reps)}
                                         </span>
-                                        <span className="text-[11px] text-emerald-600">
+                                        <span className="text-xs text-emerald-600">
                                             +{Number((best.weightKg - best.previousKg!).toFixed(2))} kg
                                         </span>
-                                        <span className="text-[11px] text-neutral-500">
+                                        <span className="text-xs text-neutral-500">
                                             {longDate(best.date)}
                                         </span>
                                     </span>
@@ -169,12 +169,12 @@ export default function RecordsPanel({
                             ))}
                         </div>
                     )}
-                </Card>
+                </Surface>
 
-                <Card hover={false} className="flex flex-col gap-4">
+                <Surface className="flex flex-col gap-4">
                     <div>
-                        <h3 className="text-sm font-bold text-neutral-900">Current bests</h3>
-                        <p className="text-xs text-neutral-500">
+                        <h3 className="text-[15px] font-semibold text-neutral-900">Current bests</h3>
+                        <p className="mt-0.5 text-[13px] text-neutral-500">
                             The heaviest set on record for every movement, newest first.
                         </p>
                     </div>
@@ -187,23 +187,23 @@ export default function RecordsPanel({
                                 <span className="min-w-0 truncate font-semibold text-neutral-900">
                                     {best.name}
                                 </span>
-                                <span className="flex items-baseline gap-2 tabular-nums">
+                                <span className="flex items-baseline gap-2 nums">
                                     <span className="font-semibold text-neutral-900">
                                         {setLabel(best.weightKg, best.reps)}
                                     </span>
-                                    <span className="text-[11px] text-neutral-500">
+                                    <span className="text-xs text-neutral-500">
                                         {longDate(best.date)}
                                     </span>
                                 </span>
                             </div>
                         ))}
                         {board.length > BOARD_LIMIT && (
-                            <p className="px-1 pt-1 text-[11px] text-neutral-500">
+                            <p className="px-1 pt-1 text-xs text-neutral-500">
                                 {board.length - BOARD_LIMIT} more not shown.
                             </p>
                         )}
                     </div>
-                </Card>
+                </Surface>
             </div>
         </div>
     )
@@ -218,12 +218,12 @@ function LiftRow({ lift }: { lift: LiftTrend }) {
             <span className="flex min-w-0 items-baseline gap-2">
                 <span className="text-sm font-semibold text-neutral-900">{lift.label}</span>
                 {lift.bestKg !== null && (
-                    <span className="text-[11px] tabular-nums text-neutral-500">
+                    <span className="text-xs nums text-neutral-500">
                         best {kg(lift.bestKg)} est.
                     </span>
                 )}
             </span>
-            <span className="flex items-center gap-2 tabular-nums">
+            <span className="flex items-center gap-2 nums">
                 <span className="text-sm font-semibold text-neutral-900">
                     {lift.recentKg !== null
                         ? kg(lift.recentKg)
@@ -233,7 +233,7 @@ function LiftRow({ lift }: { lift: LiftTrend }) {
                 </span>
                 {judged && lift.changePct !== null && (
                     <span
-                        className={`text-[11px] ${
+                        className={`text-xs ${
                             lift.status === 'improving'
                                 ? 'text-emerald-600'
                                 : lift.status === 'declining'

@@ -191,6 +191,8 @@ export interface WorkoutExercise {
     /** Planned slot, in minutes from the start of the session (e.g. 15 → 30). */
     startMin?: number
     endMin?: number
+    /** A sub-list of things to do within the line, ticked off one by one. */
+    steps?: string[]
 }
 
 /** Exercises sit in three ordered phases: warmUp, main, coolDown. Only main counts toward progress. */
@@ -284,6 +286,8 @@ export interface SessionPart {
     /** Planned slot, in minutes from the start of the session (e.g. 15 → 30). */
     startMin?: number
     endMin?: number
+    /** A sub-list of things to do within the part, e.g. the drills of a warm-up. */
+    steps?: string[]
 }
 
 /** Parts sit in three ordered phases: warmUp, main, coolDown. */
@@ -346,22 +350,6 @@ export interface ConditioningLog {
     updatedAt: string
 }
 
-/** A record that a recovery item was completed on a given day. */
-export interface RecoveryLog {
-    _id: string
-    /** Library recovery item this came from, if any. Null once that item is deleted. */
-    recovery: string | null
-    /** Snapshot of the recovery item name at log time. */
-    name: string
-    /** YYYY-MM-DD — the day it was completed. */
-    date: string
-    /** Actual minutes spent. */
-    duration: number
-    notes?: string
-    createdAt: string
-    updatedAt: string
-}
-
 export const ENTRY_STATUSES = ['planned', 'eaten'] as const
 /** Whether a planned meal was eaten. */
 export type EntryStatus = (typeof ENTRY_STATUSES)[number]
@@ -387,52 +375,14 @@ export interface MealPlanEntry {
     updatedAt: string
 }
 
-/**
- * A reusable recovery item — e.g. a stretch routine, sauna, foam rolling.
- * Deliberately lightweight: just a name, duration and free-text notes.
- */
-export interface Recovery {
-    _id: string
-    name: string
-    /** Planned duration in minutes. */
-    duration: number
-    /** What the recovery item is for. */
-    purpose?: string
-    /** Free-text guidance on how / when to use it. */
-    notes?: string
-    order: number
-    createdAt: string
-    updatedAt: string
-}
-
-/**
- * A reusable mobility routine — e.g. a hip flow or shoulder circuit. Structured
- * like a conditioning session (ordered parts + how-to-use) but without a category.
- */
-export interface Mobility {
-    _id: string
-    name: string
-    /** Planned duration in minutes. */
-    duration: number
-    /** What the routine is for. */
-    purpose?: string
-    /** Ordered parts making up the routine. */
-    parts: SessionPart[]
-    /** Guidance on how / when to run the routine. */
-    howToUse?: string
-    order: number
-    createdAt: string
-    updatedAt: string
-}
-
-export const FITNESS_PLAN_KINDS = ['workout', 'conditioning', 'recovery', 'mobility'] as const
+export const FITNESS_PLAN_KINDS = ['workout', 'conditioning'] as const
 export type FitnessPlanKind = (typeof FITNESS_PLAN_KINDS)[number]
 
 /** Which slot of the day a planned item sits in. */
 export const FITNESS_PLAN_PARTS = ['morning', 'afternoon', 'evening'] as const
 export type FitnessPlanPart = (typeof FITNESS_PLAN_PARTS)[number]
 
-/** A workout, conditioning session or recovery item placed on one day of the planner. */
+/** A workout or conditioning session placed on one day of the planner. */
 export interface FitnessPlanEntry {
     _id: string
     /** "YYYY-MM-DD" — the day this sits on. */
@@ -445,10 +395,6 @@ export interface FitnessPlanEntry {
     workout: Workout | null
     /** Populated for `kind: 'conditioning'`, otherwise null. */
     session: ConditioningSession | null
-    /** Populated for `kind: 'recovery'`, otherwise null. */
-    recovery: Recovery | null
-    /** Populated for `kind: 'mobility'`, otherwise null. */
-    mobility: Mobility | null
     /** Id of the training plan that placed this, or null when placed by hand. */
     plan: string | null
     order: number
@@ -456,11 +402,6 @@ export interface FitnessPlanEntry {
     ignoreClash?: boolean
     /** When true this item's overloaded slot has been accepted, so it stops warning. */
     ignoreOverload?: boolean
-    /**
-     * Ticked off — mobility only. Mobility is supplementary and keeps no records,
-     * so its tick lives on the entry; other kinds are done when a log exists.
-     */
-    done?: boolean
     createdAt: string
     updatedAt: string
 }
@@ -492,14 +433,14 @@ export interface FitnessPlanNote {
 // ─── Training plans ─────────────────────────────────────────────────────────────
 
 /** Which part of a training plan a linked item plays. */
-export const PLAN_ROLES = ['strength', 'run', 'conditioning', 'mobility', 'recovery'] as const
+export const PLAN_ROLES = ['strength', 'run', 'conditioning'] as const
 export type PlanRole = (typeof PLAN_ROLES)[number]
 
 /** A library item a plan links to. Details live in the library it points at. */
 export interface PlanItem {
     kind: FitnessPlanKind
     role: PlanRole
-    /** Id of the Workout / ConditioningSession / Mobility / Recovery. */
+    /** Id of the Workout / ConditioningSession. */
     item: string
     /** The item's name at import time. */
     label: string
@@ -535,8 +476,6 @@ export interface PlanWeekDay {
     day: string
     strength?: string
     conditioning?: string
-    mobility?: string
-    recovery?: string
 }
 
 /**
@@ -579,9 +518,6 @@ export interface TrainingPlan {
     weeklyTemplate: PlanWeekDay[]
     /** Free-form progression rules, rendered as key/value prose. */
     strengthProgression?: Record<string, unknown>
-    /** Weekday → how mobility / recovery are used, from the source document. */
-    mobilityUse?: Record<string, string>
-    recoveryUse?: Record<string, string>
     readinessRules: string[]
     items: PlanItem[]
     /** Only present on the detail endpoint. */

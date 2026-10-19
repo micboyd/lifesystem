@@ -99,13 +99,7 @@ export interface ReviewInput {
     nutritionPhases: NutritionPhase[]
 }
 
-/**
- * Training: planned hard sessions against sessions actually logged.
- *
- * Mobility and recovery are left out of the denominator for the same reason
- * `overload.ts` leaves them out of a slot's load — they're what you pair a hard
- * session with, not the thing being asked of you.
- */
+/** Training: planned sessions against sessions actually logged. */
 function scoreTraining(input: ReviewInput, start: string, end: string): PillarScore {
     const planned = input.fitnessEntries.filter(
         (e) => inRange(e.date, start, end) && (e.kind === 'workout' || e.kind === 'conditioning')

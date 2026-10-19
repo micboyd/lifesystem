@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BringChips, BringInput } from './BringList'
+import { BringInput } from './BringList'
 import PhaseHeading, { phaseSpan } from './PhaseHeading'
 import { Card } from './Card'
 import Spinner from './Spinner'
@@ -33,19 +33,17 @@ import {
     type WorkoutInput,
 } from '../services/workouts'
 import WorkoutsLog from './WorkoutsLog'
-import WorkoutLogWeightsDrawer from './WorkoutLogWeightsDrawer'
-import { createLog as createWorkoutLog, type WorkoutLogInput } from '../services/workoutLogs'
+import WorkoutDetail from './session/WorkoutDetail'
+import { createLog as createWorkoutLog } from '../services/workoutLogs'
 import { useToast } from '../context/ToastContext'
 import { todayKey } from '../lib/calendar'
 import { MUSCLE_GROUPS, EQUIPMENT, resolveTags } from '../lib/exerciseSwap'
-import { SlotInputs } from './SessionPace'
+import { StepsInput, useStepTicks, workoutStepsKey } from './session/SessionUI'
 import { VideoButton } from './ExerciseVideo'
 import { parseVideo } from '../lib/video'
-import { hasSlot, slotLabel } from '../lib/sessionPace'
 import { SESSION_PHASES } from '../types'
 import type { Exercise, Phased, SessionPhase, Workout, WorkoutExercise } from '../types'
 import {
-    WORKOUT_ESTIMATE_HINT,
     emptyPhases,
     estimateWorkoutMinutes,
     mapPhases,
@@ -539,7 +537,6 @@ type WorkoutDrawered =
     | { mode: 'view'; workout: Workout }
     | { mode: 'create' }
     | { mode: 'edit'; workout: Workout }
-    | { mode: 'log'; workout: Workout }
     | null
 
 /**
@@ -550,16 +547,6 @@ type WorkoutDrawered =
 function workoutMinutes(workout: Workout): { minutes: number; estimated: boolean } {
     if (workout.duration > 0) return { minutes: workout.duration, estimated: false }
     return { minutes: estimateWorkoutMinutes(workout), estimated: true }
-}
-
-/** Compact "3 × 8-12" / "3 sets" / "8-12 reps" label, or '' when neither is set. */
-function formatSetsReps(e: { sets?: number; reps?: string }): string {
-    const sets = e.sets && e.sets > 0 ? e.sets : undefined
-    const reps = e.reps?.trim() || undefined
-    if (sets && reps) return `${sets} × ${reps}`
-    if (sets) return `${sets} ${sets === 1 ? 'set' : 'sets'}`
-    if (reps) return `${reps} reps`
-    return ''
 }
 
 function WorkoutLibrary({
@@ -690,15 +677,6 @@ function WorkoutLibrary({
     async function handleDone(workout: Workout) {
         await createWorkoutLog({ workout: workout._id, date: todayKey() })
         toast.show(`Logged “${workout.name}”.`, 'success')
-    }
-
-    // Record a workout with the actual weight × reps of each set, entered in the
-    // weight-logging drawer. Shares the same log store as the quick Done above.
-    async function handleLogWeights(workout: Workout, fields: WorkoutLogInput) {
-        const log = await createWorkoutLog(fields)
-        toast.show(`Logged “${workout.name}”.`, 'success')
-        // Handed back so the drawer can keep saving into this log as the session runs.
-        return log
     }
 
     return (
@@ -863,17 +841,6 @@ function WorkoutLibrary({
                 onEdit={(workout) => setDrawer({ mode: 'edit', workout })}
                 onDelete={handleDelete}
                 onDone={handleDone}
-                onLogWeights={(workout) => setDrawer({ mode: 'log', workout })}
-            />
-
-            <WorkoutLogWeightsDrawer
-                workout={drawer?.mode === 'log' ? drawer.workout : null}
-                byId={byId}
-                onClose={() => setDrawer(null)}
-                // Created mid-session from the swap picker — pull it into the
-                // exercise library so both grids show it without a refresh.
-                onExerciseCreated={() => void reload()}
-                onSubmit={handleLogWeights}
             />
 
             <WorkoutFormDrawer
@@ -889,6 +856,11 @@ function WorkoutLibrary({
 
 // ─── Workout view drawer ──────────────────────────────────────────────────────
 
+/**
+ * A library workout opened for a look: the very same view the planner's drawer
+ * shows (shared `WorkoutDetail`), just without starting the workout — that's
+ * done from the planner. Here it can be edited, deleted or marked as done.
+ */
 function WorkoutViewDrawer({
     workout,
     byId,
@@ -896,7 +868,6 @@ function WorkoutViewDrawer({
     onEdit,
     onDelete,
     onDone,
-    onLogWeights,
 }: {
     workout: Workout | null
     byId: Map<string, Exercise>
@@ -904,7 +875,6 @@ function WorkoutViewDrawer({
     onEdit: (workout: Workout) => void
     onDelete: (id: string) => void
     onDone: (workout: Workout) => Promise<void>
-    onLogWeights: (workout: Workout) => void
 }) {
     // Retain the last workout while the drawer animates closed.
     const [view, setView] = useState<Workout | null>(workout)
@@ -917,17 +887,9 @@ function WorkoutViewDrawer({
     }, [workout])
 
     const w = view
-    // Pair each workout slot with its resolved library exercise, phase by
-    // phase and in order, dropping any that were since deleted.
-    const phases = w
-        ? mapPhases(w, (list) =>
-              list
-                  .map((item) => ({ item, ex: byId.get(item.exercise) }))
-                  .filter((r): r is { item: WorkoutExercise; ex: Exercise } => !!r.ex)
-          )
-        : emptyPhases<{ item: WorkoutExercise; ex: Exercise }>()
-    const rows = phases.main
-    const time = w ? workoutMinutes(w) : null
+    // Steps ticked here are today's for this workout — the same ticks the
+    // planner and the logger read on the day.
+    const steps = useStepTicks(w ? workoutStepsKey(w._id, todayKey()) : null)
 
     async function markDone() {
         if (!w) return
@@ -948,7 +910,7 @@ function WorkoutViewDrawer({
             title={w?.name ?? 'Workout'}
             footer={
                 w && (
-                    <>
+                    <div className="flex w-full flex-wrap items-center justify-end gap-3">
                         <Button
                             variant="ghost"
                             icon="fa-solid fa-trash-can"
@@ -957,11 +919,7 @@ function WorkoutViewDrawer({
                         >
                             Delete
                         </Button>
-                        <Button
-                            variant="secondary"
-                            icon="fa-solid fa-pen"
-                            onClick={() => onEdit(w)}
-                        >
+                        <Button variant="secondary" icon="fa-solid fa-pen" onClick={() => onEdit(w)}>
                             Edit
                         </Button>
                         <Button
@@ -970,125 +928,20 @@ function WorkoutViewDrawer({
                             onClick={markDone}
                             disabled={logging}
                         >
-                            {logging ? 'Logging…' : 'Quick log'}
+                            {logging ? 'Logging…' : 'Mark as done'}
                         </Button>
-                        <Button icon="fa-solid fa-dumbbell" onClick={() => onLogWeights(w)}>
-                            Log sets
-                        </Button>
-                    </>
+                    </div>
                 )
             }
         >
             {w && (
-                <div className="flex flex-col gap-6">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
-                            <i
-                                className="fa-solid fa-dumbbell text-neutral-500"
-                                aria-hidden="true"
-                            />
-                            {rows.length} {rows.length === 1 ? 'exercise' : 'exercises'}
-                        </span>
-                        {time && rows.length > 0 && (
-                            <span
-                                title={
-                                    time.estimated
-                                        ? WORKOUT_ESTIMATE_HINT
-                                        : 'The duration set on this workout.'
-                                }
-                                className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600"
-                            >
-                                <i
-                                    className="fa-regular fa-clock text-neutral-500"
-                                    aria-hidden="true"
-                                />
-                                {time.estimated ? '~' : ''}
-                                {time.minutes} min
-                            </span>
-                        )}
-                        {w.showInPlanner && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-coral-50 px-2.5 py-1 text-xs font-semibold text-coral-600">
-                                <i className="fa-solid fa-thumbtack" aria-hidden="true" />
-                                Pinned
-                            </span>
-                        )}
-                    </div>
-
-                    {w.description && (
-                        <p className="whitespace-pre-wrap text-sm text-neutral-600">
-                            {w.description}
-                        </p>
-                    )}
-
-                    <BringChips items={w.bring} />
-
-                    {SESSION_PHASES.map((phase) => {
-                        const rows = phases[phase]
-                        // An empty warm-up or cool-down isn't worth a heading;
-                        // an empty main session is, so the gap is obvious.
-                        if (rows.length === 0 && phase !== 'main') return null
-                        return (
-                            <section key={phase}>
-                                <PhaseHeading
-                                    phase={phase}
-                                    meta={phaseSpan(rows.map(({ item }) => item))}
-                                    className="mb-3"
-                                />
-                                {rows.length === 0 ? (
-                                    <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500">
-                                        No main-session exercises in this workout yet.
-                                    </p>
-                                ) : (
-                                    <ol className="flex flex-col gap-3">
-                                        {rows.map(({ item, ex }, i) => (
-                                            <li
-                                                key={`${ex._id}-${i}`}
-                                                className="flex gap-3 text-sm"
-                                            >
-                                                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
-                                                    {i + 1}
-                                                </span>
-                                                <div className="min-w-0 flex-1 pt-0.5">
-                                                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                                        <p className="font-semibold text-neutral-900">
-                                                            {ex.name}
-                                                        </p>
-                                                        {formatSetsReps(item) && (
-                                                            <span className="text-xs font-medium text-coral-600">
-                                                                {formatSetsReps(item)}
-                                                            </span>
-                                                        )}
-                                                        {item.rest && (
-                                                            <span className="text-xs text-neutral-500">
-                                                                rest {item.rest}
-                                                            </span>
-                                                        )}
-                                                        {hasSlot(item) && (
-                                                            <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-neutral-500">
-                                                                {slotLabel(item)} min
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {item.notes && (
-                                                        <p className="mt-0.5 text-xs italic text-neutral-500">
-                                                            {item.notes}
-                                                        </p>
-                                                    )}
-                                                    {ex.description && (
-                                                        <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
-                                                            {ex.description}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <VideoButton url={ex.videoUrl} title={ex.name} />
-                                            </li>
-                                        ))}
-                                    </ol>
-                                )}
-                            </section>
-                        )
-                    })}
-                </div>
+                <WorkoutDetail
+                    workout={w}
+                    exercisesById={byId}
+                    packKey={w._id}
+                    stepTicks={steps.ticks}
+                    onToggleStep={steps.toggle}
+                />
             )}
         </Drawer>
     )
@@ -1242,6 +1095,8 @@ function ExercisePicker({
 }) {
     const [query, setQuery] = useState('')
     const [browsing, setBrowsing] = useState(phase === 'main')
+    /** Lines with their sub-list editor opened (a line with steps always shows it). */
+    const [stepsOpen, setStepsOpen] = useState<Set<string>>(new Set())
 
     const byId = useMemo(() => {
         const m = new Map<string, Exercise>()
@@ -1260,9 +1115,7 @@ function ExercisePicker({
     function toggle(id: string) {
         if (selectedIds.has(id)) onChange(selected.filter((s) => s.exercise !== id))
         else {
-            // A new line picks up where the last one's slot ends.
-            const after = selected[selected.length - 1]?.endMin
-            onChange([...selected, { exercise: id, ...(after !== undefined ? { startMin: after } : {}) }])
+            onChange([...selected, { exercise: id }])
         }
     }
     function update(id: string, patch: Partial<WorkoutExercise>) {
@@ -1309,6 +1162,7 @@ function ExercisePicker({
                     {selected.map((row, i) => {
                         const ex = byId.get(row.exercise)
                         if (!ex) return null
+                        const showSteps = stepsOpen.has(row.exercise) || !!row.steps?.length
                         return (
                             <li
                                 key={row.exercise}
@@ -1320,13 +1174,6 @@ function ExercisePicker({
                                 <span className="min-w-0 flex-1 basis-40 truncate text-sm font-medium text-neutral-800">
                                     {ex.name}
                                 </span>
-                                <SlotInputs
-                                    slot={row}
-                                    label={ex.name}
-                                    onChange={(s) =>
-                                        update(row.exercise, { startMin: s.startMin, endMin: s.endMin })
-                                    }
-                                />
                                 <input
                                     type="number"
                                     min={0}
@@ -1349,12 +1196,38 @@ function ExercisePicker({
                                 />
                                 <button
                                     type="button"
+                                    aria-label={`Sub-list for ${ex.name}`}
+                                    aria-pressed={showSteps}
+                                    title="Add a sub-list of steps to tick off"
+                                    onClick={() =>
+                                        setStepsOpen((prev) => {
+                                            const next = new Set(prev)
+                                            if (next.has(row.exercise)) next.delete(row.exercise)
+                                            else next.add(row.exercise)
+                                            return next
+                                        })
+                                    }
+                                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] transition-colors hover:bg-neutral-100 ${showSteps ? 'text-neutral-900' : 'text-neutral-500'}`}
+                                >
+                                    <i className="fa-solid fa-list-check text-xs" aria-hidden="true" />
+                                </button>
+                                <button
+                                    type="button"
                                     aria-label={`Remove ${ex.name}`}
                                     onClick={() => remove(row.exercise)}
                                     className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-red-600"
                                 >
                                     <i className="fa-solid fa-xmark" aria-hidden="true" />
                                 </button>
+                                {showSteps && (
+                                    <div className="basis-full pl-8">
+                                        <StepsInput
+                                            steps={row.steps}
+                                            label={ex.name}
+                                            onChange={(steps) => update(row.exercise, { steps })}
+                                        />
+                                    </div>
+                                )}
                             </li>
                         )
                     })}

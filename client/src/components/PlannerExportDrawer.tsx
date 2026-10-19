@@ -8,7 +8,6 @@ import { listPlanEntries, listPlanNotes } from '../services/fitnessPlan'
 import { listExercises } from '../services/exercises'
 import { listLogs as listWorkoutLogs } from '../services/workoutLogs'
 import { listLogs as listConditioningLogs } from '../services/conditioningLogs'
-import { listLogs as listRecoveryLogs } from '../services/recoveryLogs'
 import type { Exercise, FitnessPlanEntry, FitnessPlanNote } from '../types'
 import {
     addDays,
@@ -165,9 +164,8 @@ export default function PlannerExportDrawer({
             listExercises().catch(() => [] as Exercise[]),
             listWorkoutLogs().catch(() => []),
             listConditioningLogs().catch(() => []),
-            listRecoveryLogs().catch(() => []),
         ])
-            .then(([entries, notes, exercises, wLogs, cLogs, rLogs]) => {
+            .then(([entries, notes, exercises, wLogs, cLogs]) => {
                 if (!active) return
                 setLoaded({
                     start: range.start,
@@ -179,7 +177,6 @@ export default function PlannerExportDrawer({
                     logs: {
                         workout: wLogs,
                         conditioning: cLogs,
-                        recovery: rLogs,
                     },
                     exercisesById: new Map(exercises.map((e) => [e._id, e])),
                 })

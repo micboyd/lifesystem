@@ -186,11 +186,11 @@ export function matchByName(text: unknown, refs: NamedRef[]): NamedRef | null {
 
 // ─── Building a schedule ────────────────────────────────────────────────────────
 
-/** The four libraries a plan can place from. Mirrors `FitnessPlanKind`. */
-export type ScheduleKind = 'workout' | 'conditioning' | 'mobility' | 'recovery'
+/** The libraries a plan can place from. Mirrors `FitnessPlanKind`. */
+export type ScheduleKind = 'workout' | 'conditioning'
 
 /** Which part of the plan an entry plays. Mirrors `PlanRole`. */
-export type ScheduleRole = 'strength' | 'run' | 'conditioning' | 'mobility' | 'recovery'
+export type ScheduleRole = 'strength' | 'run' | 'conditioning'
 
 /** Which slot of the day an entry sits in. Mirrors `FitnessPlanPart`. */
 export type SchedulePart = 'morning' | 'afternoon' | 'evening'
@@ -216,13 +216,11 @@ export interface ScheduleEntry {
 
 const PART_ORDER: SchedulePart[] = ['morning', 'afternoon', 'evening']
 
-/** Order within a slot, so mobility is listed before the session it warms up for. */
+/** Order within a slot. */
 const ROLE_ORDER: Record<ScheduleRole, number> = {
-    mobility: 0,
-    strength: 1,
-    run: 2,
-    conditioning: 3,
-    recovery: 4,
+    strength: 0,
+    run: 1,
+    conditioning: 2,
 }
 
 interface BuiltEntry extends ScheduleEntry {
@@ -304,20 +302,15 @@ export class ScheduleBuilder {
 const SUPPRESSIBLE = [
     { key: 'suppressRecurringStrength', kind: 'workout', label: 'strength' },
     { key: 'suppressRecurringConditioning', kind: 'conditioning', label: 'conditioning' },
-    { key: 'suppressRecurringMobility', kind: 'mobility', label: 'mobility' },
-    { key: 'suppressRecurringRecovery', kind: 'recovery', label: 'recovery' },
 ] as const satisfies readonly { key: string; kind: ScheduleKind; label: string }[]
 
 /**
  * The categories an override can set outright, named to match the weekly
- * template's columns. Mobility and recovery fall back to each other for the same
- * reason the template does — the two libraries cross over in practice.
+ * template's columns.
  */
 const OVERRIDE_CELLS = [
     { key: 'strength', role: 'strength', primary: 'workout', fallback: null },
     { key: 'conditioning', role: 'conditioning', primary: 'conditioning', fallback: null },
-    { key: 'mobility', role: 'mobility', primary: 'mobility', fallback: 'recovery' },
-    { key: 'recovery', role: 'recovery', primary: 'recovery', fallback: 'mobility' },
 ] as const satisfies readonly {
     key: string
     role: ScheduleRole
@@ -341,12 +334,10 @@ export interface OverrideResult {
     problems: string[]
 }
 
-/** Default slot per kind: prep, then train, then wind down. */
+/** Default slot per kind. */
 export const DEFAULT_PART: Record<ScheduleKind, SchedulePart> = {
-    mobility: 'morning',
     workout: 'morning',
     conditioning: 'afternoon',
-    recovery: 'evening',
 }
 
 /**

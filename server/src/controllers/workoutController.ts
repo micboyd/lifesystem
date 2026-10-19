@@ -5,8 +5,9 @@ import Workout, { IWorkoutExercise } from '../models/Workout'
 import Exercise from '../models/Exercise'
 import { newBatchId, makeLastImportHandler, makeUndoImportHandler } from '../lib/importBatch'
 import { nameKey, extractOverwrite } from '../lib/importReconcile'
-import { missingWindows, readWindow } from '../lib/timeWindow'
+import { readWindow } from '../lib/timeWindow'
 import { readVideoUrl } from '../lib/videoUrl'
+import { readSteps } from '../lib/steps'
 import { readBringList } from '../lib/bringList'
 import { applyExerciseVideos } from '../lib/exerciseVideos'
 import {
@@ -65,6 +66,7 @@ async function toWorkoutExercises(raw: unknown, userId: unknown): Promise<IWorko
                 rest: toReps(o.rest),
                 notes: toReps(o.notes),
                 ...readWindow(o),
+                ...readSteps(o),
             }
         }
         if (!id || !Types.ObjectId.isValid(id) || seen.has(id)) continue
@@ -211,6 +213,7 @@ interface NormExercise {
     notes?: string
     startMin?: number
     endMin?: number
+    steps?: string[]
     /** A demo video for the exercise, attached to it in the library. */
     videoUrl?: string
 }
@@ -270,6 +273,7 @@ function toNormLines(list: unknown[]): NormExercise[] {
                 rest: toReps(o.rest),
                 notes: toReps(o.notes),
                 ...readWindow(o),
+                ...readSteps(o),
                 videoUrl: readVideoUrl(o),
             }
         }
@@ -302,12 +306,6 @@ function normaliseWorkouts(rawList: unknown[]): { items: NormWorkout[]; errors: 
             return
         }
         const raw = readPhased(item, 'exercises')
-        // Every line has to say when it happens — the session runs to the clock.
-        const untimed = missingWindows(raw, `Workout "${name}"`)
-        if (untimed.length) {
-            errors.push(...untimed)
-            return
-        }
         const phases = mapPhases(raw, toNormLines)
         items.push({
             name,

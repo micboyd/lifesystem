@@ -1,5 +1,6 @@
 import { ISessionPart } from '../models/ConditioningSession'
 import { readWindow } from './timeWindow'
+import { readSteps } from './steps'
 
 /**
  * Normalise the `parts` array of an imported conditioning session, dropping
@@ -9,7 +10,8 @@ import { readWindow } from './timeWindow'
  * the same session shape, and a part carries more than it looks like it does —
  * `rounds` turns it into a tap-to-count block, and `roundSeconds` plus
  * `startAtSec` are what put a running clock on each rep, and `startMin`/
- * `endMin` are the part's planned slot in the session. Anything that
+ * `endMin` are the part's planned slot in the session, and `steps` is its
+ * tick-off sub-list. Anything that
  * normalises parts must carry all of them, so there is only one copy of this.
  */
 export function toSessionParts(raw: unknown): ISessionPart[] {
@@ -51,6 +53,7 @@ export function toSessionParts(raw: unknown): ISessionPart[] {
             roundSeconds: roundSeconds && roundSeconds.length ? roundSeconds : undefined,
             startAtSec,
             ...readWindow(item),
+            ...readSteps(item),
         })
     }
     return out

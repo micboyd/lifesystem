@@ -8,6 +8,9 @@ import Switch from '../Switch'
 import Alert from '../Alert'
 import Badge from '../Badge'
 import EmptyState from '../EmptyState'
+import { Card } from '../Card'
+import DropdownMenu from '../DropdownMenu'
+import LineIcon from '../LineIcon'
 import DatePicker, { type DatePickerValue, type DateRange } from '../DatePicker'
 import {
     GOAL_MODES,
@@ -347,84 +350,44 @@ export default function PhaseLibrary({
     const rangeInvalid = form.startDate > form.endDate
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h2 className="text-lg font-bold tracking-tight text-neutral-950">
-                        Nutrition phases
-                    </h2>
-                    <p className="text-sm text-neutral-500">
-                        Dated targets the nutrition lane draws and adherence is judged against.
-                    </p>
-                </div>
-                <Button icon="fa-solid fa-plus" onClick={startNew} size="sm">
+        <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+                <p className="max-w-xl text-sm text-neutral-500">
+                    A phase is a dated stretch of eating — a cut, a bulk or maintenance — with the
+                    targets the planner and stats judge each day against.
+                </p>
+                <Button icon="fa-solid fa-plus" onClick={startNew}>
                     New phase
                 </Button>
             </div>
 
             {phases.length === 0 ? (
                 <EmptyState
-                    icon="fa-bowl-food"
+                    icon="fa-solid fa-flag"
                     title="No phases yet"
                     description="A phase is a stretch of eating with its own calorie and protein targets."
-                    action={<Button onClick={startNew}>Add a phase</Button>}
+                    action={
+                        <Button icon="fa-solid fa-plus" onClick={startNew}>
+                            New phase
+                        </Button>
+                    }
                 />
             ) : (
-                <div className="space-y-3">
-                    {phases.map((phase) => (
-                        <div
-                            key={phase._id}
-                            className="flex flex-wrap items-start justify-between gap-3 rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-5"
-                        >
-                            <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <h3 className="truncate text-base font-bold text-neutral-950">
-                                        {phase.name}
-                                    </h3>
-                                    <Badge variant={KIND_VARIANTS[phase.kind]}>
-                                        {NUTRITION_PHASE_LABELS[phase.kind]}
-                                    </Badge>
-                                    {typeof phase.weeklyRate === 'number' && phase.weeklyRate !== 0 && (
-                                        <Badge variant="outline">
-                                            {phase.weeklyRate > 0 ? '+' : ''}
-                                            {phase.weeklyRate} kg/wk
-                                        </Badge>
-                                    )}
-                                </div>
-                                <p className="mt-1 text-xs font-semibold text-neutral-500">
-                                    {formatDateShort(phase.startDate)} → {formatDateShort(phase.endDate)}
-                                </p>
-                                <p className="mt-2 text-sm tabular-nums text-neutral-600">
-                                    {targetSummary(phase.targets)}
-                                </p>
-                                {phase.notes && (
-                                    <p className="mt-2 text-sm text-neutral-500">{phase.notes}</p>
-                                )}
-                            </div>
-                            <div className="flex shrink-0 gap-1">
-                                <button
-                                    type="button"
-                                    onClick={() => startEdit(phase)}
-                                    aria-label={`Edit ${phase.name}`}
-                                    className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                                >
-                                    <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => onDelete(phase)}
-                                    aria-label={`Delete ${phase.name}`}
-                                    className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-600"
-                                >
-                                    <i className="fa-solid fa-trash text-xs" aria-hidden="true" />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {[...phases]
+                        .sort((a, b) => b.startDate.localeCompare(a.startDate))
+                        .map((phase) => (
+                            <PhaseCard
+                                key={phase._id}
+                                phase={phase}
+                                onOpen={() => startEdit(phase)}
+                                onDelete={() => onDelete(phase)}
+                            />
+                        ))}
                 </div>
             )}
 
-            <Drawer size="lg"
+            <Drawer size="xl"
                 open={open}
                 onClose={() => setOpen(false)}
                 title={editing ? 'Edit phase' : 'New phase'}
@@ -829,5 +792,87 @@ export default function PhaseLibrary({
                 </div>
             </Drawer>
         </div>
+    )
+}
+
+// ─── Phase card ─────────────────────────────────────────────────────────────────
+
+/** Where a phase sits relative to today, for the card's footer. */
+function phaseStatus(phase: NutritionPhase, today: string): { label: string; tone: string } {
+    const days = (a: string, b: string) =>
+        Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000)
+    if (today < phase.startDate) {
+        const n = days(today, phase.startDate)
+        return { label: `Starts in ${n} day${n === 1 ? '' : 's'}`, tone: 'text-neutral-500' }
+    }
+    if (today > phase.endDate) return { label: 'Finished', tone: 'text-neutral-500' }
+    const left = days(today, phase.endDate)
+    return {
+        label: `Current · ${left} day${left === 1 ? '' : 's'} left`,
+        tone: 'text-emerald-700 font-semibold',
+    }
+}
+
+function PhaseCard({
+    phase,
+    onOpen,
+    onDelete,
+}: {
+    phase: NutritionPhase
+    onOpen: () => void
+    onDelete: () => void
+}) {
+    const status = phaseStatus(phase, todayKey())
+    return (
+        <Card as="div" className="relative flex flex-col gap-3">
+            <button
+                type="button"
+                aria-label={`Edit ${phase.name}`}
+                onClick={onOpen}
+                className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
+            />
+
+            <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <p className="truncate font-semibold text-neutral-900">{phase.name}</p>
+                    <p className="mt-0.5 text-xs text-neutral-500">
+                        {formatDateShort(phase.startDate)} → {formatDateShort(phase.endDate)}
+                    </p>
+                </div>
+                <DropdownMenu
+                    align="right"
+                    className="relative z-20 -mr-1 -mt-1 shrink-0"
+                    trigger={
+                        <span
+                            aria-label="Phase actions"
+                            className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                        >
+                            <LineIcon name="more" className="h-4 w-4" />
+                        </span>
+                    }
+                    items={[
+                        { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onOpen },
+                        { label: 'Delete', icon: 'fa-solid fa-trash-can', danger: true, onClick: onDelete },
+                    ]}
+                />
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+                <Badge variant={KIND_VARIANTS[phase.kind]}>{NUTRITION_PHASE_LABELS[phase.kind]}</Badge>
+                {typeof phase.weeklyRate === 'number' && phase.weeklyRate !== 0 && (
+                    <Badge variant="outline">
+                        {phase.weeklyRate > 0 ? '+' : ''}
+                        {phase.weeklyRate} kg/wk
+                    </Badge>
+                )}
+            </div>
+
+            <p className="text-sm tabular-nums text-neutral-600">{targetSummary(phase.targets)}</p>
+            {phase.notes && <p className="line-clamp-2 text-sm text-neutral-500">{phase.notes}</p>}
+
+            <div className="mt-auto border-t border-neutral-100 pt-3">
+                <span className={`text-xs ${status.tone}`}>{status.label}</span>
+            </div>
+        </Card>
     )
 }

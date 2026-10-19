@@ -1,6 +1,12 @@
-import { useRef, useSyncExternalStore, type ReactNode, type TouchEvent } from 'react'
+import {
+    createContext,
+    useContext,
+    useRef,
+    useSyncExternalStore,
+    type ReactNode,
+    type TouchEvent,
+} from 'react'
 import Button from '../Button'
-import DatePicker from '../DatePicker'
 import { parseDateKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
 
 /**
@@ -83,105 +89,70 @@ export function useDaySwipe(onSwipe: (dir: -1 | 1) => void) {
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
 /**
- * The top of a planner: week navigation and title on the left, a ring on the
- * right, then whatever the planner stacks beneath (stats, strip, actions).
+ * How loud a hero is: `dark` is the near-black panel, `soft` no panel at all —
+ * just the controls in dark type on the page. The hero's pieces read it from context, so only the shell
+ * needs telling.
  */
-export function WeekHero({
-    title,
-    subtitle,
-    isThisWeek,
-    onStep,
-    onToday,
-    ring,
-    children,
-}: {
-    title: string
-    subtitle: string
-    isThisWeek: boolean
-    onStep: (dir: -1 | 1) => void
-    onToday: () => void
-    ring: ReactNode
-    children: ReactNode
-}) {
+export type HeroTone = 'dark' | 'soft'
+const HeroToneContext = createContext<HeroTone>('dark')
+const useSoftHero = () => useContext(HeroToneContext) === 'soft'
+
+/** The panel behind a hero, for planners that lay out their own top. */
+export function HeroShell({ tone = 'dark', children }: { tone?: HeroTone; children: ReactNode }) {
+    const soft = tone === 'soft'
     return (
-        <HeroShell>
-            <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                        <HeroIconButton
-                            label="Previous week"
-                            icon="fa-solid fa-chevron-left"
-                            onClick={() => onStep(-1)}
-                        />
-                        <HeroIconButton
-                            label="Next week"
-                            icon="fa-solid fa-chevron-right"
-                            onClick={() => onStep(1)}
-                        />
-                        {!isThisWeek && (
-                            <button
-                                type="button"
-                                onClick={onToday}
-                                className="inline-flex items-center justify-center ml-1 rounded-[10px] bg-white/15 px-3 h-8 text-xs font-medium text-white transition-colors hover:bg-white/25"
-                            >
-                                Today
-                            </button>
-                        )}
-                    </div>
-                    <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">{title}</h2>
-                    <p className="mt-1 text-sm font-medium text-white/60">{subtitle}</p>
+        <HeroToneContext.Provider value={tone}>
+            <section
+                className={
+                    soft
+                        ? 'text-neutral-900'
+                        : 'relative overflow-hidden rounded-3xl bg-neutral-900 text-neutral-50'
+                }
+            >
+                <div
+                    className={`relative flex flex-col ${soft ? 'gap-3' : 'gap-5 p-5 sm:p-7'}`}
+                >
+                    {children}
                 </div>
-                {ring}
-            </div>
-            {children}
-        </HeroShell>
+            </section>
+        </HeroToneContext.Provider>
     )
 }
 
-/** The gradient panel behind a hero, for planners that lay out their own top. */
-export function HeroShell({ children }: { children: ReactNode }) {
-    return (
-        <section className="relative overflow-hidden rounded-3xl bg-neutral-900 text-neutral-50">
-            <div className="relative flex flex-col gap-5 p-5 sm:p-7">{children}</div>
-        </section>
-    )
-}
-
-function HeroIconButton({
+/** A square icon-only hero button; `primary` is the solid one. */
+export function HeroIconButton({
     icon,
     label,
     onClick,
+    primary = false,
+    disabled = false,
 }: {
     icon: string
     label: string
     onClick: () => void
+    primary?: boolean
+    disabled?: boolean
 }) {
+    const soft = useSoftHero()
     return (
         <button
             type="button"
             aria-label={label}
+            title={label}
             onClick={onClick}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white active:bg-white/25"
+            disabled={disabled}
+            className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors disabled:opacity-60 ${
+                primary
+                    ? soft
+                        ? 'bg-neutral-900 text-white hover:bg-neutral-800'
+                        : 'bg-white text-neutral-900 hover:bg-neutral-100'
+                    : soft
+                      ? 'bg-white text-neutral-600 ring-1 ring-neutral-900/[0.06] hover:text-neutral-900'
+                      : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white active:bg-white/25'
+            }`}
         >
             <i className={`${icon} text-xs`} aria-hidden="true" />
         </button>
-    )
-}
-
-/** A pill on the hero — a stat, a count, a phase. */
-export function HeroChip({
-    children,
-    className = '',
-}: {
-    children: ReactNode
-    className?: string
-}) {
-    return (
-        <span
-            className={`inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-inset ring-white/10 ${className}`}
-        >
-            {children}
-        </span>
     )
 }
 
@@ -192,50 +163,37 @@ export function HeroButton({
     onClick,
     primary = false,
     disabled = false,
+    iconOnlyOnPhone = false,
 }: {
     icon: string
     children: ReactNode
     onClick: () => void
     primary?: boolean
     disabled?: boolean
+    /** Hide the words below `sm`, leaving just the icon (they become its label). */
+    iconOnlyOnPhone?: boolean
 }) {
+    const soft = useSoftHero()
+    const look = soft
+        ? primary
+            ? 'rounded-xl bg-neutral-900 text-white hover:bg-neutral-800'
+            : 'rounded-xl bg-white text-neutral-700 ring-1 ring-inset ring-neutral-900/[0.06] hover:text-neutral-900'
+        : primary
+          ? 'rounded-full bg-white text-neutral-900 hover:bg-neutral-100'
+          : 'rounded-full bg-white/10 text-white ring-1 ring-inset ring-white/15 hover:bg-white/20'
     return (
         <button
             type="button"
             onClick={onClick}
             disabled={disabled}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all disabled:opacity-60 ${
-                primary
-                    ? 'bg-white text-neutral-900 hover:bg-neutral-100'
-                    : 'bg-white/10 text-white ring-1 ring-inset ring-white/15 hover:bg-white/20'
-            }`}
+            aria-label={iconOnlyOnPhone && typeof children === 'string' ? children : undefined}
+            className={`inline-flex items-center gap-2 text-sm font-semibold transition-all disabled:opacity-60 ${
+                soft ? 'h-9 px-3.5' : 'px-4 py-2'
+            } ${look}`}
         >
             <i className={`${icon} text-xs`} aria-hidden="true" />
-            {children}
+            {iconOnlyOnPhone ? <span className="hidden sm:inline">{children}</span> : children}
         </button>
-    )
-}
-
-/** The hero's "Jump to…" date picker — any day jumps to the week holding it. */
-export function HeroJumpPicker({
-    value,
-    onPick,
-    className = '',
-}: {
-    value: string
-    onPick: (date: string) => void
-    className?: string
-}) {
-    return (
-        <DatePicker
-            value={value}
-            displayLabel="Jump to…"
-            clearable={false}
-            onChange={(v) => {
-                if (typeof v === 'string' && v) onPick(v)
-            }}
-            className={`w-[9.5rem] [&>button]:rounded-full [&>button]:border-white/15 [&>button]:bg-white/10 [&>button]:py-2 [&>button]:text-white [&>button:hover]:bg-white/20 [&_i]:text-white/60 [&_span]:text-white ${className}`}
-        />
     )
 }
 
@@ -257,8 +215,13 @@ export function ProgressRing({
     const c = 2 * Math.PI * r
     const pct = max > 0 ? Math.min(1, value / max) : 0
     const complete = max > 0 && value >= max
+    const soft = useSoftHero()
     return (
-        <div className="relative grid h-20 w-20 shrink-0 place-items-center sm:h-24 sm:w-24">
+        <div
+            className={`relative grid shrink-0 place-items-center ${
+                soft ? 'h-16 w-16 sm:h-20 sm:w-20' : 'h-20 w-20 sm:h-24 sm:w-24'
+            }`}
+        >
             <svg
                 viewBox="0 0 72 72"
                 className="absolute inset-0 h-full w-full -rotate-90"
@@ -270,7 +233,7 @@ export function ProgressRing({
                     r={r}
                     fill="none"
                     strokeWidth="6"
-                    className="stroke-white/15"
+                    className={soft ? 'stroke-coral-100' : 'stroke-white/15'}
                 />
                 <circle
                     cx="36"
@@ -282,23 +245,35 @@ export function ProgressRing({
                     strokeDasharray={c}
                     strokeDashoffset={c * (1 - pct)}
                     className={`transition-[stroke-dashoffset] duration-700 ease-out ${
-                        complete ? 'stroke-emerald-400' : 'stroke-white'
+                        complete
+                            ? soft
+                                ? 'stroke-emerald-500'
+                                : 'stroke-emerald-400'
+                            : soft
+                              ? 'stroke-coral-500'
+                              : 'stroke-white'
                     }`}
                 />
             </svg>
             <div className="text-center leading-none">
                 {complete ? (
                     <i
-                        className="fa-solid fa-check text-xl text-emerald-300"
+                        className={`fa-solid fa-check text-xl ${soft ? 'text-emerald-600' : 'text-emerald-300'}`}
                         aria-label={completeLabel}
                     />
                 ) : (
                     <>
-                        <p className="text-lg font-bold tabular-nums sm:text-xl">
+                        <p
+                            className={`font-bold tabular-nums ${soft ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'}`}
+                        >
                             {value}
-                            <span className="text-white/50">/{max}</span>
+                            <span className={soft ? 'text-neutral-400' : 'text-white/50'}>/{max}</span>
                         </p>
-                        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.06em] text-white/50">
+                        <p
+                            className={`mt-1 text-[11px] font-medium uppercase tracking-[0.06em] ${
+                                soft ? 'text-neutral-500' : 'text-white/50'
+                            }`}
+                        >
                             {label}
                         </p>
                     </>
@@ -312,10 +287,15 @@ export function ProgressRing({
 
 /** The seven-day strip's frame. */
 export function DayStrip({ children, light = false }: { children: ReactNode; light?: boolean }) {
+    const soft = useSoftHero()
     return (
         <div
             className={`grid grid-cols-7 gap-1 rounded-2xl p-1 sm:gap-1.5 sm:p-1.5 ${
-                light ? 'bg-neutral-100' : 'bg-white/[0.06]'
+                light
+                    ? 'bg-neutral-100'
+                    : soft
+                      ? 'bg-white ring-1 ring-inset ring-neutral-900/[0.06]'
+                      : 'bg-white/[0.06]'
             }`}
         >
             {children}
@@ -347,6 +327,9 @@ export function DayPill({
 }) {
     const { year, month, day } = parseDateKey(date)
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
+    // A soft hero is light enough to style its strip like one on a white card.
+    const soft = useSoftHero()
+    const onLight = light || soft
     return (
         <button
             type="button"
@@ -355,15 +338,17 @@ export function DayPill({
             aria-current={active ? 'date' : undefined}
             className={`relative flex flex-col items-center gap-1 rounded-xl py-2 transition-all sm:py-2.5 ${
                 active
-                    ? 'bg-white text-neutral-900'
-                    : light
-                      ? 'text-neutral-700 hover:bg-white/70'
+                    ? soft
+                        ? 'bg-coral-50 text-neutral-900 ring-1 ring-inset ring-coral-200'
+                        : 'bg-white text-neutral-900'
+                    : onLight
+                      ? `text-neutral-700 ${soft ? 'hover:bg-neutral-50' : 'hover:bg-white/70'}`
                       : 'text-white/80 hover:bg-white/10 hover:text-white'
             }`}
         >
             <span
                 className={`text-[11px] font-medium uppercase tracking-[0.06em] ${
-                    active ? 'text-neutral-600' : light ? 'text-neutral-500' : 'text-white/50'
+                    active ? 'text-neutral-600' : onLight ? 'text-neutral-500' : 'text-white/50'
                 }`}
             >
                 <span className="sm:hidden">{weekday.slice(0, 1)}</span>
@@ -380,14 +365,14 @@ export function DayPill({
                 {dots.map((cls, i) => (
                     <span
                         key={i}
-                        className={`h-1.5 w-1.5 rounded-full ${cls} ${active || light ? '' : 'ring-1 ring-white/20'}`}
+                        className={`h-1.5 w-1.5 rounded-full ${cls} ${active || onLight ? '' : 'ring-1 ring-white/20'}`}
                     />
                 ))}
             </span>
             {allDone && (
                 <span
                     className={`absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-emerald-500 text-white ring-2 ${
-                        light ? 'ring-neutral-100' : 'ring-neutral-900'
+                        light ? 'ring-neutral-100' : soft ? 'ring-white' : 'ring-neutral-900'
                     }`}
                     title="All done"
                 >
@@ -396,7 +381,9 @@ export function DayPill({
             )}
             {alert && !allDone && (
                 <span
-                    className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-neutral-900"
+                    className={`absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ${
+                        onLight ? 'ring-white' : 'ring-neutral-900'
+                    }`}
                     title="Needs a look"
                 />
             )}
@@ -496,7 +483,7 @@ export function DayCardShell({
     return (
         <section
             id={id}
-            className={`relative scroll-mt-32 flex-col overflow-hidden rounded-3xl bg-white shadow-sm ${
+            className={`relative scroll-mt-32 flex-col overflow-hidden rounded-[20px] bg-white ${
                 compact ? 'gap-3 p-3' : 'gap-4 p-4 sm:p-5'
             } ${
                 isToday ? 'ring-2 ring-coral-200' : 'ring-1 ring-neutral-900/[0.06]'

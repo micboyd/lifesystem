@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import BarList from './BarList'
-import { Card } from '../Card'
+import { Surface } from './ui'
 import EmptyState from '../EmptyState'
 import StatTile from '../StatTile'
 import { exerciseKey } from '../../lib/exerciseProgress'
@@ -131,25 +131,25 @@ export default function TrainingConsistencyPanel({
                 />
             </div>
 
-            <Card hover={false} className="flex flex-col gap-4">
+            <Surface className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h3 className="text-sm font-bold text-neutral-900">Weekly volume</h3>
-                        <p className="text-xs text-neutral-500">
+                        <h3 className="text-[15px] font-semibold text-neutral-900">Weekly volume</h3>
+                        <p className="mt-0.5 text-[13px] text-neutral-500">
                             Total kilograms moved each week. Empty weeks are drawn as empty.
                         </p>
                     </div>
-                    <p className="text-xs tabular-nums text-neutral-500">
+                    <p className="text-xs nums text-neutral-500">
                         {trainedWeeks} of {weeks.length} weeks trained
                     </p>
                 </div>
                 <WeekBars weeks={weeks} />
-            </Card>
+            </Surface>
 
-            <Card hover={false} className="flex flex-col gap-4">
+            <Surface className="flex flex-col gap-4">
                 <div>
-                    <h3 className="text-sm font-bold text-neutral-900">Where the work went</h3>
-                    <p className="text-xs text-neutral-500">
+                    <h3 className="text-[15px] font-semibold text-neutral-900">Where the work went</h3>
+                    <p className="mt-0.5 text-[13px] text-neutral-500">
                         Volume by muscle group, {rangeLabel.toLowerCase()}. Groups you never train
                         simply aren&rsquo;t here — which is its own answer.
                     </p>
@@ -173,7 +173,7 @@ export default function TrainingConsistencyPanel({
                         }))}
                     />
                 )}
-            </Card>
+            </Surface>
         </div>
     )
 }
@@ -201,7 +201,7 @@ function WeekBars({ weeks }: { weeks: WeekLoad[] }) {
                         className="pointer-events-none absolute inset-x-0 border-t border-dashed border-neutral-300"
                         style={{ bottom: `${(mean / max) * 100}%` }}
                     >
-                        <span className="absolute -top-4 right-0 text-[11px] font-semibold tabular-nums text-neutral-500">
+                        <span className="absolute -top-4 right-0 text-[11px] font-semibold nums text-neutral-500">
                             avg {tonnage(mean)}
                         </span>
                     </div>
@@ -230,7 +230,7 @@ function WeekBars({ weeks }: { weeks: WeekLoad[] }) {
                     </div>
                 ))}
             </div>
-            <div className="flex justify-between text-[11px] tabular-nums text-neutral-500">
+            <div className="flex justify-between text-[11px] nums text-neutral-500">
                 <span>{shortDate(weeks[0].weekStart)}</span>
                 <span>{shortDate(weeks[weeks.length - 1].weekStart)}</span>
             </div>

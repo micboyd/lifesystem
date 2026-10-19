@@ -42,9 +42,9 @@ export default function Home() {
                 />
             </div>
 
-            <div className="mt-12 grid gap-x-16 gap-y-14 sm:mt-16 lg:grid-cols-12">
+            <div className="mt-12 grid gap-x-16 gap-y-12 sm:mt-16 lg:grid-cols-12">
                 {/* Act on */}
-                <div className="flex min-w-0 flex-col gap-14 lg:col-span-7">
+                <div className="flex min-w-0 flex-col gap-12 lg:col-span-7">
                     {/* Evenings only: tonight's prep for tomorrow comes first. */}
                     {showTomorrow && <TomorrowWidget date={date} />}
                     <FitnessWidget date={date} />

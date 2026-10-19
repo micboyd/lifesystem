@@ -29,8 +29,6 @@ export interface PlanWeekSnapshot {
         ignoreClash: boolean
         /** Whether its overloaded slot had been accepted. */
         ignoreOverload: boolean
-        /** Whether it had been ticked off (mobility only). */
-        done?: boolean
     }[]
     notes: {
         scope: FitnessNoteScope
@@ -57,7 +55,7 @@ export async function listPlanEntries(start: string, end: string): Promise<Fitne
     return res.data.data
 }
 
-/** Place a workout, conditioning session or recovery item into a day's slot. */
+/** Place a workout or conditioning session into a day's slot. */
 export async function addPlanEntry(
     date: string,
     kind: FitnessPlanKind,
@@ -76,8 +74,7 @@ export async function addPlanEntry(
 /**
  * Change a planned entry: move it to a different slot (morning / afternoon /
  * evening) of its day, accept a warning against it — a calendar clash, or the
- * overloaded slot it shares — so it stops warning, tick a mobility entry off
- * (`done`), or any combination.
+ * overloaded slot it shares — so it stops warning, or both.
  */
 export async function updatePlanEntry(
     id: string,
@@ -85,7 +82,6 @@ export async function updatePlanEntry(
         part?: FitnessPlanPart
         ignoreClash?: boolean
         ignoreOverload?: boolean
-        done?: boolean
     }
 ): Promise<FitnessPlanEntry> {
     const res = await api.patch<ApiResponse<FitnessPlanEntry>>(`/fitness-plan/${id}`, patch)

@@ -1,14 +1,21 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import Spinner from '../Spinner'
+import Button from '../Button'
+import Input from '../Input'
+import Pagination from '../Pagination'
+import EmptyState from '../EmptyState'
+import Drawer from '../Drawer'
 import Checkbox from '../Checkbox'
 import ConfirmModal from '../ConfirmModal'
-import MealPicker, { CATEGORY_LABEL } from './MealPicker'
+import { StatStrip, NoteBlock } from '../session/SessionUI'
+import { useToast } from '../../context/ToastContext'
 import {
     HeroShell,
-    ProgressRing,
+    HeroIconButton,
+    HeroButton,
     DayStrip,
     DayPill,
-    DayBadge,
+    EditBar,
     DayCardShell,
     SwipeHint,
     dayCardId,
@@ -16,143 +23,212 @@ import {
     scrollToDay,
     relativeWeekLabel,
     useDaySwipe,
+    useMediaQuery,
+    LARGE_QUERY,
 } from '../planner/WeekPlannerUI'
+import { CATEGORY, MacroBar, MacroLegend } from './mealUi'
 import { fmt, kcal, signedKcal } from './format'
-import { addPlanEntry, deletePlanEntry, listPlanEntries, setEntryStatus } from '../../services/mealPlan'
+import {
+    addPlanEntry,
+    deletePlanEntry,
+    listPlanEntries,
+    setEntryStatus,
+    reorderPlanSlot,
+    copyPlanWeek,
+    clearPlanRange,
+} from '../../services/mealPlan'
 import { listDailyEnergy, saveDailyEnergy, deleteDailyEnergy } from '../../services/dailyEnergy'
 import { listNutritionPhases } from '../../services/nutritionPhases'
-import { addDays, formatWeekRange, getWeekStart, parseDateKey, todayKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
-import { sumEatenMacros, sumMacros, sumPendingMacros, targetsFor } from '../../lib/nutrition'
+import { addDays, formatWeekRange, parseDateKey, todayKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
+import { sumEatenMacros, sumMacros, targetsFor } from '../../lib/nutrition'
 import { MEAL_TYPES } from '../../types'
 import type { DailyEnergy, MacroGoals, Macros, Meal, MealPlanEntry, MealType, NutritionPhase } from '../../types'
 
-/** The Monday of the week holding `date`. */
-export function mondayOf(date: string): string {
-    const sunday = getWeekStart(date)
-    return date === sunday ? addDays(sunday, -6) : addDays(sunday, 1)
-}
-
-function dayName(date: string): string {
-    const { year, month, day } = parseDateKey(date)
-    return `${WEEKDAYS_LONG[new Date(year, month, day).getDay()]} ${day} ${MONTHS[month].slice(0, 3)}`
-}
-
-type Picking = { date: string; slot: MealType; extra: false } | { date: string; slot: null; extra: true }
-
 /**
- * A copied day or week of planned meals. `offset` is days from the source's
- * start, so a week pastes Monday onto Monday; a day's are all 0.
+ * The nutrition week planner, built from the same parts as the Fitness one and
+ * laid out the same way: a week hero with the day strip, a sticky edit bar,
+ * and a card per day split into breakfast, lunch, dinner and snacks. Wide
+ * screens get the seven days side by side; phones one day at a time.
+ *
+ * Viewing, each meal ticks off as it's eaten and "Log more" adds anything
+ * else. Editing adds, removes and drags meals between slots and days, and
+ * copies, pastes or clears a week.
  */
-type Clip = {
-    kind: 'day' | 'week'
-    from: string
-    label: string
-    items: { offset: number; slot: MealType; meal: string }[]
+
+// ─── Date helpers ───────────────────────────────────────────────────────────────
+
+/** The Monday (YYYY-MM-DD) that starts the week containing `date`. */
+export function mondayOf(date: string): string {
+    const { year, month, day } = parseDateKey(date)
+    const dow = new Date(year, month, day).getDay() // 0 Sun … 6 Sat
+    return addDays(date, -((dow + 6) % 7))
 }
 
-/** Planned meals still waiting to be eaten — the only ones "Clear" removes. */
+/** "Mon 4 Aug" — a compact label for a single day. */
+function shortDayLabel(date: string): string {
+    const { year, month, day } = parseDateKey(date)
+    const wd = WEEKDAYS_LONG[new Date(year, month, day).getDay()].slice(0, 3)
+    return `${wd} ${day} ${MONTHS[month].slice(0, 3)}`
+}
+
+// ─── Slot presentation ──────────────────────────────────────────────────────────
+
+/** A short lower-case description of a set of slots, e.g. "lunch + dinner" or "everything". */
+function slotsLabel(slots: MealType[]): string {
+    if (slots.length >= MEAL_TYPES.length) return 'everything'
+    return slots.map((s) => CATEGORY[s].label.toLowerCase()).join(' + ')
+}
+
+/** Planned meals still waiting to be eaten — the only ones a clear or a paste replaces. */
 const clearable = (e: MealPlanEntry) => !e.extra && e.status === 'planned'
 
-const ADVANCED_KEY = 'nutrition.planner.advanced'
+const isEaten = (e: MealPlanEntry) => e.status === 'eaten'
 
-function readAdvanced(): boolean {
-    try {
-        return localStorage.getItem(ADVANCED_KEY) === '1'
-    } catch {
-        return false
-    }
+/** The one-line summary under a planned meal's name. */
+function plannedMeta(entry: MealPlanEntry): string {
+    return `${kcal(entry.macros.calories)} kcal · ${fmt(Math.round(entry.macros.protein))} g protein`
 }
 
-/**
- * Seven days of meals. Plan them from the library, tick them off as you eat,
- * and "Log more" whatever else you had. The banner at the top is always today:
- * what's gone in, what went out, and the difference. The week and its controls
- * sit beneath it; "Show advanced options" adds copy, paste and clear.
- */
-export default function NutritionPlanner({ meals, settingsGoals }: { meals: Meal[]; settingsGoals?: MacroGoals }) {
-    const today = todayKey()
-    const [selected, setSelected] = useState(today)
-    const weekStart = mondayOf(selected)
-    const weekEnd = addDays(weekStart, 6)
-    const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
-    const todayInWeek = today >= weekStart && today <= weekEnd
+// ─── Planner ────────────────────────────────────────────────────────────────────
 
-    // The week on show, plus today whenever the week doesn't hold it — the banner needs it.
+type PickerTarget = { date: string; slot: MealType; extra: boolean }
+
+export default function NutritionPlanner({ meals, settingsGoals }: { meals: Meal[]; settingsGoals?: MacroGoals }) {
+    // Wide screens get the full-width week board; smaller ones a day feed (one
+    // day at a time on a phone).
+    const board = useMediaQuery(LARGE_QUERY)
+    // Any day inside the week on show; the week's Monday is derived from it.
+    const [anchor, setAnchor] = useState(() => todayKey())
     const [entries, setEntries] = useState<MealPlanEntry[]>([])
     const [energy, setEnergy] = useState<DailyEnergy[]>([])
     const [phases, setPhases] = useState<NutritionPhase[]>([])
     const [loading, setLoading] = useState(true)
-    const [picking, setPicking] = useState<Picking | null>(null)
+    // The planner opens read-only; Edit reveals the add/remove/drag controls.
+    const [editing, setEditing] = useState(false)
+    // The day drawer: a day + slot to add to, or a day to "Log more" on.
+    const [picker, setPicker] = useState<PickerTarget | null>(null)
+    // A planned meal opened for a closer look.
+    const [detail, setDetail] = useState<MealPlanEntry | null>(null)
+    // A copied week held for pasting elsewhere: its Monday and which slots.
+    const [clipboard, setClipboard] = useState<{ from: string; slots: MealType[] } | null>(null)
+    // A pending "clear" awaiting confirmation: a single day, or the whole week.
+    const [clearTarget, setClearTarget] = useState<{ type: 'day'; date: string } | { type: 'week' } | null>(null)
 
-    const [advanced, setAdvanced] = useState(readAdvanced)
-    const [clip, setClip] = useState<Clip | null>(null)
-    const [working, setWorking] = useState(false)
-    const [clearing, setClearing] = useState<{ dates: string[]; label: string } | null>(null)
+    const today = todayKey()
+    const toast = useToast()
 
-    const load = useCallback(() => {
-        const ranges: [string, string][] = [[weekStart, weekEnd]]
-        if (!todayInWeek) ranges.push([today, today])
-        Promise.all(
-            ranges.map(([a, b]) =>
-                Promise.all([
-                    listPlanEntries(a, b),
-                    listDailyEnergy(a, b),
-                    listNutritionPhases(a, b).catch(() => [] as NutritionPhase[]),
-                ])
-            )
-        )
-            .then((results) => {
-                setEntries(results.flatMap(([e]) => e))
-                setEnergy(results.flatMap(([, en]) => en))
-                const seen = new Set<string>()
-                setPhases(results.flatMap(([, , p]) => p).filter((p) => !seen.has(p._id) && !!seen.add(p._id)))
+    const range = useMemo(() => {
+        const start = mondayOf(anchor)
+        return { start, end: addDays(start, 6) }
+    }, [anchor])
+
+    useEffect(() => {
+        // Refetch silently on a week change — the days keep the previous meals
+        // until the new ones arrive, so navigation never flashes a spinner.
+        let active = true
+        Promise.all([
+            listPlanEntries(range.start, range.end),
+            listDailyEnergy(range.start, range.end).catch(() => [] as DailyEnergy[]),
+            listNutritionPhases(range.start, range.end).catch(() => [] as NutritionPhase[]),
+        ])
+            .then(([rows, en, ph]) => {
+                if (!active) return
+                setEntries(rows)
+                setEnergy(en)
+                setPhases(ph)
             })
-            .finally(() => setLoading(false))
-    }, [weekStart, weekEnd, today, todayInWeek])
-    useEffect(load, [load])
+            .finally(() => active && setLoading(false))
+        return () => {
+            active = false
+        }
+    }, [range.start, range.end])
 
-    const swipe = useDaySwipe((dir) => setSelected((d) => addDays(d, dir)))
+    // Keep an open detail drawer in step with the row it was opened from.
+    const detailEntry = detail ? (entries.find((e) => e._id === detail._id) ?? null) : null
+    const mealsById = useMemo(() => new Map(meals.map((m) => [m._id, m])), [meals])
 
-    function select(date: string) {
-        setSelected(date)
-        if (isWide() && date >= weekStart && date <= weekEnd) scrollToDay('meals', date)
+    function step(dir: -1 | 1) {
+        setAnchor((a) => addDays(mondayOf(a), dir * 7))
     }
 
-    function toggleAdvanced(on: boolean) {
-        setAdvanced(on)
+    function stopEditing() {
+        setPicker(null)
+        setEditing(false)
+    }
+
+    async function handleAdd(date: string, slot: MealType, mealId: string, extra: boolean) {
         try {
-            localStorage.setItem(ADVANCED_KEY, on ? '1' : '0')
+            const entry = await addPlanEntry(date, slot, mealId, extra)
+            setEntries((prev) => [...prev, entry])
         } catch {
-            // Just won't be remembered.
+            toast.show('Could not add that meal — please try again.', 'danger')
         }
     }
 
-    const byDay = (date: string) => entries.filter((e) => e.date === date)
+    async function handleRemove(id: string) {
+        const removed = entries.find((e) => e._id === id)
+        setEntries((prev) => prev.filter((e) => e._id !== id))
+        try {
+            await deletePlanEntry(id)
+        } catch {
+            if (removed) setEntries((prev) => [...prev, removed])
+        }
+    }
 
-    async function toggle(entry: MealPlanEntry) {
+    // The tick: eaten, or back to planned. Optimistic, reverting on failure.
+    async function handleToggle(entry: MealPlanEntry) {
         const next = entry.status === 'eaten' ? 'planned' : 'eaten'
         setEntries((prev) => prev.map((e) => (e._id === entry._id ? { ...e, status: next } : e)))
         try {
             await setEntryStatus(entry._id, next)
         } catch {
             setEntries((prev) => prev.map((e) => (e._id === entry._id ? entry : e)))
+            toast.show('Could not save that tick — please try again.', 'danger')
         }
     }
 
-    async function remove(entry: MealPlanEntry) {
-        setEntries((prev) => prev.filter((e) => e._id !== entry._id))
+    // Reorder a slot from a drag — and, when the dragged meal came from another
+    // slot or day, move it in at the chosen spot. Optimistic, reverting on failure.
+    async function handleReorder(date: string, slot: MealType, ids: string[]) {
+        const position = new Map(ids.map((id, i) => [id, i]))
+        const snapshot = entries
+        setEntries((prev) =>
+            prev.map((e) => (position.has(e._id) ? { ...e, date, slot, order: position.get(e._id)! } : e))
+        )
         try {
-            await deletePlanEntry(entry._id)
+            await reorderPlanSlot(date, slot, ids)
         } catch {
-            setEntries((prev) => [...prev, entry])
+            setEntries(snapshot)
         }
     }
 
-    async function add(meal: Meal) {
-        if (!picking) return
-        const slot = picking.slot ?? meal.types[0] ?? 'snack'
-        const entry = await addPlanEntry(picking.date, slot, meal._id, picking.extra)
-        setEntries((prev) => [...prev, entry])
+    function handleCopyWeek(slots: MealType[]) {
+        setClipboard({ from: range.start, slots })
+    }
+
+    // Paste the clipboard onto this week — replacing only still-planned meals in
+    // the copied slots — then refetch so the days show the pasted plan.
+    async function handlePasteWeek() {
+        if (!clipboard) return
+        try {
+            await copyPlanWeek(clipboard.from, range.start, clipboard.slots)
+            setEntries(await listPlanEntries(range.start, range.end))
+        } catch {
+            toast.show('Could not paste that week — please try again.', 'danger')
+        }
+    }
+
+    // Clear the planned, uneaten meals from a span of days. Optimistic.
+    async function clearDays(start: string, end: string) {
+        const removed = entries.filter((e) => e.date >= start && e.date <= end && clearable(e))
+        if (removed.length === 0) return
+        const ids = new Set(removed.map((e) => e._id))
+        setEntries((prev) => prev.filter((e) => !ids.has(e._id)))
+        try {
+            await clearPlanRange(start, end)
+        } catch {
+            setEntries((prev) => [...prev, ...removed])
+        }
     }
 
     async function saveOut(date: string, value: number | null) {
@@ -165,333 +241,1193 @@ export default function NutritionPlanner({ meals, settingsGoals }: { meals: Meal
         }
     }
 
-    // ── Advanced: copy, paste, clear ─────────────────────────────────────────
+    // Which slots the week already has planned meals in — a paste only needs
+    // confirming when it would replace one of these.
+    const weekSlots = useMemo(() => {
+        const s = new Set<MealType>()
+        for (const e of entries) if (clearable(e)) s.add(e.slot)
+        return s
+    }, [entries])
 
-    function copy(kind: Clip['kind'], dates: string[]) {
-        const items = dates.flatMap((date, offset) =>
-            byDay(date)
-                .filter((e) => !e.extra && e.meal)
-                .map((e) => ({ offset, slot: e.slot, meal: e.meal as string }))
-        )
-        const label = kind === 'day' ? dayName(dates[0]) : `week of ${formatWeekRange(dates[0], dates[6])}`
-        setClip({ kind, from: dates[0], label, items })
-    }
-
-    /** Adds the clipboard's meals from `start` on, as planned. Adds — never replaces. */
-    async function paste(start: string) {
-        if (!clip) return
-        setWorking(true)
-        try {
-            // One at a time so each slot keeps the copied order.
-            for (const item of clip.items) {
-                try {
-                    const entry = await addPlanEntry(addDays(start, item.offset), item.slot, item.meal)
-                    setEntries((prev) => [...prev, entry])
-                } catch {
-                    // The meal's gone from the library since it was copied — skip it.
-                }
-            }
-        } finally {
-            setWorking(false)
+    const clearInfo = useMemo(() => {
+        if (!clearTarget) return null
+        if (clearTarget.type === 'day') {
+            const count = entries.filter((e) => e.date === clearTarget.date && clearable(e)).length
+            return { count, where: shortDayLabel(clearTarget.date), scope: 'day' as const }
         }
-    }
+        const count = entries.filter((e) => e.date >= range.start && e.date <= range.end && clearable(e)).length
+        return { count, where: formatWeekRange(range.start, range.end), scope: 'week' as const }
+    }, [clearTarget, entries, range.start, range.end])
 
-    async function clear(dates: string[]) {
-        const doomed = entries.filter((e) => dates.includes(e.date) && clearable(e))
-        setWorking(true)
-        try {
-            for (const e of doomed) {
-                await deletePlanEntry(e._id)
-                setEntries((prev) => prev.filter((x) => x._id !== e._id))
-            }
-        } finally {
-            setWorking(false)
-        }
-    }
+    const libraryEmpty = meals.length === 0
+    const weekHasClearable = entries.some(clearable)
 
-    if (loading) {
-        return (
-            <div className="grid place-items-center py-16">
-                <Spinner />
-            </div>
-        )
+    // Picking a day focuses it; on wide screens it also scrolls there.
+    function selectDay(date: string) {
+        setAnchor(date)
+        if (isWide() && date >= range.start && date <= range.end) scrollToDay('meals', date)
     }
-
-    const todayEntries = byDay(today)
-    const todayPlanned = todayEntries.filter((e) => !e.extra)
-    const todayEaten = todayPlanned.filter((e) => e.status === 'eaten').length
-    const weekHasPlanned = days.some((d) => byDay(d).some((e) => !e.extra && e.meal))
-    const weekHasClearable = entries.some((e) => e.date >= weekStart && e.date <= weekEnd && clearable(e))
 
     return (
         <div className="flex flex-col gap-4 sm:gap-5">
-            <HeroShell>
-                <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Today</h2>
-                        <p className="mt-1 text-sm font-medium text-white/60">{dayName(today)}</p>
-                    </div>
-                    <ProgressRing value={todayEaten} max={todayPlanned.length} label="eaten" completeLabel="All planned meals eaten" />
-                </div>
-                <DayBanner
-                    key={today}
-                    entries={todayEntries}
-                    out={energy.find((e) => e.date === today)?.caloriesOut ?? null}
-                    goals={targetsFor(today, phases, settingsGoals).goals}
-                    onSaveOut={(v) => saveOut(today, v)}
-                />
-            </HeroShell>
+            <NutritionWeekHero
+                weekStart={range.start}
+                selected={anchor}
+                today={today}
+                rangeLabel={formatWeekRange(range.start, range.end)}
+                entries={entries}
+                ready={!loading}
+                editing={editing}
+                canEdit={!libraryEmpty}
+                onStep={step}
+                onSelect={selectDay}
+                onPick={setAnchor}
+                onStartEditing={() => {
+                    setPicker(null)
+                    setEditing(true)
+                }}
+                board={board}
+            />
 
-            <section className="flex flex-col gap-3 rounded-3xl bg-white p-3 ring-1 ring-neutral-900/[0.06] sm:p-4">
-                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                        <WeekStepButton label="Previous week" icon="fa-chevron-left" onClick={() => setSelected(addDays(selected, -7))} />
-                        <div className="min-w-0 px-1">
-                            <h2 className="truncate text-lg font-bold tracking-tight text-neutral-900">
-                                {relativeWeekLabel(weekStart, mondayOf(today))}
-                            </h2>
-                            <p className="truncate text-xs tabular-nums text-neutral-500">{formatWeekRange(weekStart, weekEnd)}</p>
-                        </div>
-                        <WeekStepButton label="Next week" icon="fa-chevron-right" onClick={() => setSelected(addDays(selected, 7))} />
-                        {!todayInWeek && (
-                            <button
-                                type="button"
-                                onClick={() => select(today)}
-                                className="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200"
-                            >
-                                Today
-                            </button>
-                        )}
-                    </div>
-                    <Checkbox checked={advanced} onChange={toggleAdvanced} label="Show advanced options" />
-                </div>
-
-                <DayStrip light>
-                    {days.map((d) => {
-                        const list = byDay(d).filter((e) => !e.extra)
-                        return (
-                            <DayPill
-                                key={d}
-                                date={d}
-                                light
-                                active={d === selected}
-                                isToday={d === today}
-                                dots={list.map((e) => (e.status === 'eaten' ? 'bg-emerald-500' : 'bg-neutral-300'))}
-                                allDone={list.length > 0 && list.every((e) => e.status === 'eaten')}
-                                onClick={() => select(d)}
-                            />
-                        )
-                    })}
-                </DayStrip>
-
-                {advanced && (
-                    <div className="flex flex-col gap-2 border-t border-neutral-100 pt-3">
-                        <div className="flex flex-wrap gap-1.5">
-                            <ToolButton icon="fa-copy" disabled={working || !weekHasPlanned} onClick={() => copy('week', days)}>
-                                Copy week
-                            </ToolButton>
-                            {clip?.kind === 'week' && clip.from !== weekStart && (
-                                <ToolButton icon="fa-paste" disabled={working} onClick={() => void paste(weekStart)}>
-                                    Paste week
-                                </ToolButton>
-                            )}
-                            <ToolButton
-                                icon="fa-eraser"
-                                disabled={working || !weekHasClearable}
-                                onClick={() => setClearing({ dates: days, label: 'this week' })}
-                            >
-                                Clear week
-                            </ToolButton>
-                        </div>
-                        <ClipNote clip={clip} working={working} onClear={() => setClip(null)} />
-                    </div>
-                )}
-            </section>
-
-            <div {...swipe} className="flex flex-col gap-3 md:gap-4">
-                {days.map((date) => (
-                    <DayCard
-                        key={date}
-                        date={date}
-                        className={date === selected ? 'flex' : 'hidden md:flex'}
-                        isToday={date === today}
-                        isSelected={date === selected}
-                        entries={byDay(date)}
-                        out={date < today ? (energy.find((e) => e.date === date)?.caloriesOut ?? null) : undefined}
-                        onSaveOut={(v) => saveOut(date, v)}
-                        tools={
-                            advanced ? (
-                                <>
-                                    <ToolButton
-                                        icon="fa-copy"
-                                        disabled={working || !byDay(date).some((e) => !e.extra && e.meal)}
-                                        onClick={() => copy('day', [date])}
-                                    >
-                                        Copy day
-                                    </ToolButton>
-                                    {clip?.kind === 'day' && clip.from !== date && (
-                                        <ToolButton icon="fa-paste" disabled={working} onClick={() => void paste(date)}>
-                                            Paste day
-                                        </ToolButton>
-                                    )}
-                                    <ToolButton
-                                        icon="fa-eraser"
-                                        disabled={working || !byDay(date).some(clearable)}
-                                        onClick={() => setClearing({ dates: [date], label: dayName(date) })}
-                                    >
-                                        Clear day
-                                    </ToolButton>
-                                </>
-                            ) : null
-                        }
-                        onSelect={() => setSelected(date)}
-                        onAdd={(slot) => setPicking({ date, slot, extra: false })}
-                        onLogMore={() => setPicking({ date, slot: null, extra: true })}
-                        onToggle={(e) => void toggle(e)}
-                        onRemove={(e) => void remove(e)}
+            {editing && (
+                // Every change saves as it's made, so there's nothing to cancel.
+                <EditBar onDone={stopEditing}>
+                    <WeekCopyControls
+                        weekStart={range.start}
+                        weekEnd={range.end}
+                        clipboard={clipboard}
+                        presentSlots={weekSlots}
+                        onCopy={handleCopyWeek}
+                        onPaste={handlePasteWeek}
+                        onClearClipboard={() => setClipboard(null)}
                     />
-                ))}
-                <SwipeHint />
-            </div>
+                    {weekHasClearable && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            icon="fa-solid fa-broom"
+                            onClick={() => setClearTarget({ type: 'week' })}
+                            className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                        >
+                            Clear week
+                        </Button>
+                    )}
+                </EditBar>
+            )}
 
-            <MealPicker
-                open={picking !== null}
-                title={
-                    picking?.extra
-                        ? `Log more — ${dayName(picking.date)}`
-                        : picking
-                          ? `Add to ${CATEGORY_LABEL[picking.slot].toLowerCase()}`
-                          : ''
-                }
+            {loading ? (
+                <div className="grid place-items-center py-16">
+                    <Spinner />
+                </div>
+            ) : libraryEmpty && entries.length === 0 ? (
+                <EmptyState
+                    icon="fa-solid fa-calendar-week"
+                    title="Nothing to plan with yet"
+                    description="Add some meals to your library first, then drop them into the plan."
+                />
+            ) : (
+                <WeekView
+                    board={board}
+                    weekStart={range.start}
+                    selected={anchor}
+                    today={today}
+                    editing={editing}
+                    entries={entries}
+                    goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
+                    outFor={(date) => energy.find((e) => e.date === date)?.caloriesOut ?? null}
+                    onSelect={setAnchor}
+                    onAdd={(date, slot) => setPicker({ date, slot, extra: false })}
+                    onLogMore={(date) => setPicker({ date, slot: 'snack', extra: true })}
+                    onOpen={setDetail}
+                    onToggle={handleToggle}
+                    onRemove={handleRemove}
+                    onReorder={handleReorder}
+                    onClearDay={(date) => setClearTarget({ type: 'day', date })}
+                    onSaveOut={saveOut}
+                />
+            )}
+
+            <MealPickerDrawer
+                target={picker}
                 meals={meals}
-                category={picking?.extra ? null : (picking?.slot ?? null)}
-                multi={picking?.extra}
-                onPick={add}
-                onClose={() => setPicking(null)}
+                entries={picker ? entries.filter((e) => e.date === picker.date) : []}
+                onClose={() => setPicker(null)}
+                onAdd={handleAdd}
+                onRemove={handleRemove}
+            />
+
+            <PlannedMealDrawer
+                entry={detailEntry}
+                meal={detailEntry?.meal ? (mealsById.get(detailEntry.meal) ?? null) : null}
+                onClose={() => setDetail(null)}
+                onToggle={handleToggle}
+                onRemove={(id) => {
+                    setDetail(null)
+                    void handleRemove(id)
+                }}
             />
 
             <ConfirmModal
-                open={clearing !== null}
-                title={`Clear ${clearing?.label ?? ''}?`}
-                message="Removes the planned meals you haven't ticked yet. Eaten meals and anything you logged stay."
-                confirmLabel="Clear"
+                open={clearTarget !== null}
                 danger
-                onConfirm={() => clearing && void clear(clearing.dates)}
-                onClose={() => setClearing(null)}
+                title={clearInfo?.scope === 'week' ? 'Clear this week?' : 'Clear this day?'}
+                message={
+                    clearInfo ? (
+                        <>
+                            Remove{' '}
+                            <span className="font-semibold">
+                                {clearInfo.count} planned meal{clearInfo.count !== 1 ? 's' : ''}
+                            </span>{' '}
+                            from <span className="font-semibold">{clearInfo.where}</span>? Meals you’ve
+                            eaten and anything you logged stay.
+                        </>
+                    ) : (
+                        ''
+                    )
+                }
+                confirmLabel="Clear"
+                onConfirm={() => {
+                    if (!clearTarget) return
+                    if (clearTarget.type === 'week') void clearDays(range.start, range.end)
+                    else void clearDays(clearTarget.date, clearTarget.date)
+                    setClearTarget(null)
+                }}
+                onClose={() => setClearTarget(null)}
             />
         </div>
     )
 }
 
-// ── Week controls ────────────────────────────────────────────────────────────
+// ─── Copy / paste week ──────────────────────────────────────────────────────────
 
-function WeekStepButton({ label, icon, onClick }: { label: string; icon: string; onClick: () => void }) {
+/**
+ * Copy this week's plan and paste it onto another. "Copy week" opens a
+ * checklist of slots; navigating to a different week reveals "Paste", which
+ * replaces only the still-planned meals in those slots there.
+ */
+function WeekCopyControls({
+    weekStart,
+    weekEnd,
+    clipboard,
+    presentSlots,
+    onCopy,
+    onPaste,
+    onClearClipboard,
+}: {
+    weekStart: string
+    weekEnd: string
+    clipboard: { from: string; slots: MealType[] } | null
+    presentSlots: Set<MealType>
+    onCopy: (slots: MealType[]) => void
+    onPaste: () => void
+    onClearClipboard: () => void
+}) {
+    const [confirming, setConfirming] = useState(false)
+    const [open, setOpen] = useState(false)
+    const [selected, setSelected] = useState<Set<MealType>>(() => new Set(MEAL_TYPES))
+    const panelRef = useRef<HTMLDivElement>(null)
+
+    // Close the checklist on an outside click.
+    useEffect(() => {
+        if (!open) return
+        function handle(e: MouseEvent) {
+            if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', handle)
+        return () => document.removeEventListener('mousedown', handle)
+    }, [open])
+
+    const sameWeek = clipboard?.from === weekStart
+    const wouldReplace = clipboard?.slots.some((s) => presentSlots.has(s)) ?? false
+    const chosen = MEAL_TYPES.filter((s) => selected.has(s))
+    const allSelected = chosen.length === MEAL_TYPES.length
+
+    function toggle(slot: MealType) {
+        setSelected((prev) => {
+            const next = new Set(prev)
+            if (next.has(slot)) next.delete(slot)
+            else next.add(slot)
+            return next
+        })
+    }
+
+    return (
+        <div className="flex items-center gap-2">
+            <div ref={panelRef} className="inline-block sm:relative">
+                <Button variant="secondary" size="sm" icon="fa-solid fa-copy" onClick={() => setOpen((o) => !o)}>
+                    Copy week
+                </Button>
+                {open && (
+                    // On a phone the panel spans the edit bar so it can't open
+                    // off-screen; from sm up it hangs under the button.
+                    <div className="absolute inset-x-0 top-full z-50 mt-2 rounded-xl border border-neutral-100 bg-white p-3 shadow-lg sm:inset-x-auto sm:right-0 sm:top-auto sm:min-w-56">
+                        <div className="mb-2 flex items-center justify-between">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                                Copy which meals
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setSelected(allSelected ? new Set() : new Set(MEAL_TYPES))}
+                                className="text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-900"
+                            >
+                                {allSelected ? 'Clear' : 'All'}
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                            {MEAL_TYPES.map((s) => (
+                                <Checkbox
+                                    key={s}
+                                    checked={selected.has(s)}
+                                    onChange={() => toggle(s)}
+                                    label={CATEGORY[s].label}
+                                    className="rounded-lg px-1.5 py-1 hover:bg-neutral-50"
+                                />
+                            ))}
+                        </div>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            icon="fa-solid fa-copy"
+                            onClick={() => {
+                                if (chosen.length === 0) return
+                                onCopy(chosen)
+                                setOpen(false)
+                            }}
+                            disabled={chosen.length === 0}
+                            className="mt-3 w-full justify-center"
+                        >
+                            Copy {chosen.length ? slotsLabel(chosen) : ''}
+                        </Button>
+                    </div>
+                )}
+            </div>
+
+            {clipboard && (
+                <div className="flex items-center gap-1">
+                    <Button
+                        variant="primary"
+                        size="sm"
+                        icon="fa-solid fa-paste"
+                        disabled={sameWeek}
+                        onClick={() => (wouldReplace ? setConfirming(true) : onPaste())}
+                        title={sameWeek ? 'This is the week you copied — move to another week to paste' : undefined}
+                    >
+                        Paste {slotsLabel(clipboard.slots)}
+                    </Button>
+                    <IconButton icon="fa-solid fa-xmark" label="Clear copied week" onClick={onClearClipboard} />
+                </div>
+            )}
+
+            <ConfirmModal
+                open={confirming}
+                title="Paste week plan?"
+                confirmLabel="Paste"
+                message={
+                    clipboard && (
+                        <p className="text-sm text-neutral-600">
+                            Replace the planned{' '}
+                            <span className="font-semibold">{slotsLabel(clipboard.slots)}</span> for{' '}
+                            <span className="font-semibold">{formatWeekRange(weekStart, weekEnd)}</span> with
+                            the plan copied from{' '}
+                            <span className="font-semibold">
+                                {formatWeekRange(clipboard.from, addDays(clipboard.from, 6))}
+                            </span>
+                            ? Meals already eaten stay as they are.
+                        </p>
+                    )
+                }
+                onConfirm={onPaste}
+                onClose={() => setConfirming(false)}
+            />
+        </div>
+    )
+}
+
+// ─── Week hero ────────────────────────────────────────────────────────────────
+
+/** The slots a list of entries has meals in, in canonical order. */
+function slotsIn(entries: MealPlanEntry[]): MealType[] {
+    const present = new Set(entries.map((e) => e.slot))
+    return MEAL_TYPES.filter((s) => present.has(s))
+}
+
+/**
+ * The top of the planner: which week it is, how much of it has been eaten,
+ * and a strip of the seven days — the day switcher on a phone and a
+ * jump-to-day on wider screens.
+ */
+function NutritionWeekHero({
+    weekStart,
+    selected,
+    today,
+    rangeLabel,
+    entries,
+    ready,
+    editing,
+    canEdit,
+    onStep,
+    onSelect,
+    onPick,
+    onStartEditing,
+    board,
+}: {
+    weekStart: string
+    selected: string
+    today: string
+    rangeLabel: string
+    entries: MealPlanEntry[]
+    ready: boolean
+    editing: boolean
+    canEdit: boolean
+    onStep: (dir: -1 | 1) => void
+    onSelect: (date: string) => void
+    onPick: (date: string) => void
+    onStartEditing: () => void
+    board: boolean
+}) {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+    const planned = entries.filter((e) => !e.extra)
+    const eaten = planned.filter(isEaten).length
+    // Average planned calories over the days that have anything on them.
+    const daysWithMeals = days.filter((d) => entries.some((e) => e.date === d))
+    const avgKcal = daysWithMeals.length ? sumMacros(entries).calories / daysWithMeals.length : 0
+    const isThisWeek = mondayOf(today) === weekStart
+
+    const facts = [
+        rangeLabel,
+        ready && planned.length > 0 && `${eaten} of ${planned.length} eaten`,
+        ready && avgKcal > 0 && `~${kcal(avgKcal)} kcal a day`,
+        ready && entries.length === 0 && 'nothing planned yet',
+    ].filter(Boolean)
+
+    return (
+        <HeroShell tone="soft">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="flex min-w-0 flex-1 basis-56 items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-1">
+                        <HeroIconButton label="Previous week" icon="fa-solid fa-chevron-left" onClick={() => onStep(-1)} />
+                        <HeroIconButton label="Next week" icon="fa-solid fa-chevron-right" onClick={() => onStep(1)} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h2 className="truncate text-lg font-semibold tracking-tight">
+                            {relativeWeekLabel(weekStart, mondayOf(today))}
+                        </h2>
+                        <p className="truncate text-[13px] text-neutral-500">{facts.join(' · ')}</p>
+                    </div>
+                </div>
+
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                    {!isThisWeek && (
+                        <HeroButton icon="fa-solid fa-calendar-day" onClick={() => onPick(today)}>
+                            Today
+                        </HeroButton>
+                    )}
+                    {canEdit && !editing && (
+                        <HeroButton primary icon="fa-solid fa-pen" onClick={onStartEditing}>
+                            Edit plan
+                        </HeroButton>
+                    )}
+                </div>
+            </div>
+
+            {!board && (
+                <DayStrip>
+                    {days.map((date) => {
+                        const dayEntries = entries.filter((e) => e.date === date)
+                        const dayPlanned = dayEntries.filter((e) => !e.extra)
+                        return (
+                            <DayPill
+                                key={date}
+                                date={date}
+                                active={date === selected}
+                                isToday={date === today}
+                                dots={ready ? slotsIn(dayPlanned).map((s) => CATEGORY[s].solid) : []}
+                                allDone={ready && dayPlanned.length > 0 && dayPlanned.every(isEaten)}
+                                onClick={() => onSelect(date)}
+                            />
+                        )
+                    })}
+                </DayStrip>
+            )}
+        </HeroShell>
+    )
+}
+
+// ─── Week view ────────────────────────────────────────────────────────────────
+
+function WeekView({
+    board,
+    weekStart,
+    selected,
+    today,
+    editing,
+    entries,
+    goalsFor,
+    outFor,
+    onSelect,
+    onAdd,
+    onLogMore,
+    onOpen,
+    onToggle,
+    onRemove,
+    onReorder,
+    onClearDay,
+    onSaveOut,
+}: {
+    /** Lay the seven days side by side across the screen, rather than stacked. */
+    board: boolean
+    weekStart: string
+    /** The focused day — the only one shown on a phone. */
+    selected: string
+    today: string
+    editing: boolean
+    entries: MealPlanEntry[]
+    goalsFor: (date: string) => MacroGoals | null
+    outFor: (date: string) => number | null
+    onSelect: (date: string) => void
+    onAdd: (date: string, slot: MealType) => void
+    onLogMore: (date: string) => void
+    onOpen: (entry: MealPlanEntry) => void
+    onToggle: (entry: MealPlanEntry) => void
+    onRemove: (id: string) => void
+    onReorder: (date: string, slot: MealType, ids: string[]) => void
+    onClearDay: (date: string) => void
+    onSaveOut: (date: string, value: number | null) => Promise<void>
+}) {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+
+    // Drag-and-drop state, held here so a meal can be dragged across days.
+    // `dropAt` is where it would land: a day + slot and the row to drop before
+    // (`refId`, or null to append).
+    const [dragId, setDragId] = useState<string | null>(null)
+    const [dropAt, setDropAt] = useState<{
+        date: string
+        slot: MealType
+        refId: string | null
+        after: boolean
+    } | null>(null)
+
+    const swipeProps = useDaySwipe((dir) => onSelect(addDays(selected, dir)))
+
+    const slotItems = (date: string, slot: MealType) =>
+        entries.filter((e) => e.date === date && e.slot === slot && !e.extra).sort((a, b) => a.order - b.order)
+
+    function resetDrag() {
+        setDragId(null)
+        setDropAt(null)
+    }
+
+    function handleDrop() {
+        const dragged = dragId ? entries.find((e) => e._id === dragId) : null
+        const target = dropAt
+        resetDrag()
+        if (!dragged || !target) return
+
+        const display = slotItems(target.date, target.slot).map((e) => e._id)
+        const ids = display.filter((id) => id !== dragged._id)
+        let pos = ids.length
+        if (target.refId !== null) {
+            const ri = ids.indexOf(target.refId)
+            if (ri !== -1) pos = target.after ? ri + 1 : ri
+        }
+        ids.splice(pos, 0, dragged._id)
+
+        if (dragged.date === target.date && dragged.slot === target.slot && ids.join() === display.join()) return
+        onReorder(target.date, target.slot, ids)
+    }
+
+    return (
+        <div
+            {...(board ? {} : swipeProps)}
+            className={board ? 'grid grid-cols-7 items-stretch gap-2 xl:gap-3' : 'flex flex-col gap-3 md:gap-4'}
+        >
+            {days.map((date) => (
+                <DayCard
+                    key={date}
+                    date={date}
+                    compact={board}
+                    className={board || date === selected ? 'flex' : 'hidden md:flex'}
+                    isToday={date === today}
+                    // Calories out only make sense once the day has happened.
+                    hasHappened={date <= today}
+                    editable={editing}
+                    entries={entries.filter((e) => e.date === date)}
+                    goals={goalsFor(date)}
+                    out={outFor(date)}
+                    onAdd={(slot) => onAdd(date, slot)}
+                    onLogMore={() => onLogMore(date)}
+                    onOpen={onOpen}
+                    onToggle={onToggle}
+                    onRemove={onRemove}
+                    dragActive={dragId !== null}
+                    draggedId={dragId}
+                    dropForDay={dropAt && dropAt.date === date ? dropAt : null}
+                    onEntryDragStart={setDragId}
+                    onEntryDragEnd={resetDrag}
+                    onTarget={(slot, refId, after) => setDropAt({ date, slot, refId, after })}
+                    onClearTarget={(slot) => setDropAt((d) => (d && d.date === date && d.slot === slot ? null : d))}
+                    onDropEntry={handleDrop}
+                    onClear={() => onClearDay(date)}
+                    onSaveOut={(v) => onSaveOut(date, v)}
+                />
+            ))}
+            {!editing && !board && <SwipeHint />}
+        </div>
+    )
+}
+
+function IconButton({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
     return (
         <button
             type="button"
             aria-label={label}
             onClick={onClick}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
         >
-            <i className={`fa-solid ${icon} text-xs`} aria-hidden="true" />
+            <i className={icon} aria-hidden="true" />
         </button>
     )
 }
 
-/** A small action in the advanced tools rows. */
-function ToolButton({
-    icon,
-    disabled = false,
-    onClick,
-    children,
-}: {
-    icon: string
-    disabled?: boolean
-    onClick: () => void
-    children: string
-}) {
-    return (
-        <button
-            type="button"
-            disabled={disabled}
-            onClick={onClick}
-            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 disabled:opacity-40"
-        >
-            <i className={`fa-solid ${icon} text-[11px] text-neutral-500`} aria-hidden="true" />
-            {children}
-        </button>
-    )
-}
-
-/** What's on the clipboard, and where "Paste" appears. */
-function ClipNote({ clip, working, onClear }: { clip: Clip | null; working: boolean; onClear: () => void }) {
-    if (working) return <p className="text-xs text-neutral-500">Working…</p>
-    if (!clip) return <p className="text-xs text-neutral-500">Copy a day or a week, then paste it onto another.</p>
-    const n = clip.items.length
-    return (
-        <p className="flex items-center gap-1.5 text-xs text-neutral-600">
-            <i className="fa-solid fa-clipboard text-neutral-500" aria-hidden="true" />
-            <span className="min-w-0">
-                Copied {clip.label} — {n} meal{n === 1 ? '' : 's'}.{' '}
-                <span className="text-neutral-500">
-                    {clip.kind === 'day' ? 'Paste day is on each other day.' : 'Go to another week to paste.'}
-                </span>
-            </span>
-            <button
-                type="button"
-                onClick={onClear}
-                aria-label="Clear clipboard"
-                className="ml-auto grid h-7 w-7 shrink-0 place-items-center rounded-[10px] text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
-            >
-                <i className="fa-solid fa-xmark" aria-hidden="true" />
-            </button>
-        </p>
-    )
-}
-
-// ── The banner ───────────────────────────────────────────────────────────────
-
-/**
- * Today: calories and macros in (eaten only), calories out typed from your
- * watch, and the balance between them.
- */
-function DayBanner({
+function DayCard({
+    date,
+    compact = false,
+    className = '',
+    isToday,
+    hasHappened,
+    editable,
     entries,
-    out,
     goals,
+    out,
+    onAdd,
+    onLogMore,
+    onOpen,
+    onToggle,
+    onRemove,
+    dragActive,
+    draggedId,
+    dropForDay,
+    onEntryDragStart,
+    onEntryDragEnd,
+    onTarget,
+    onClearTarget,
+    onDropEntry,
+    onClear,
     onSaveOut,
 }: {
+    date: string
+    compact?: boolean
+    className?: string
+    isToday: boolean
+    /** Today or earlier — the day gets its calories-out line. */
+    hasHappened: boolean
+    editable: boolean
     entries: MealPlanEntry[]
-    out: number | null
     goals: MacroGoals | null
+    out: number | null
+    onAdd: (slot: MealType) => void
+    onLogMore: () => void
+    onOpen: (entry: MealPlanEntry) => void
+    onToggle: (entry: MealPlanEntry) => void
+    onRemove: (id: string) => void
+    dragActive: boolean
+    draggedId: string | null
+    dropForDay: { slot: MealType; refId: string | null; after: boolean } | null
+    onEntryDragStart: (id: string) => void
+    onEntryDragEnd: () => void
+    onTarget: (slot: MealType, refId: string | null, after: boolean) => void
+    onClearTarget: (slot: MealType) => void
+    onDropEntry: () => void
+    onClear: () => void
     onSaveOut: (value: number | null) => Promise<void>
 }) {
-    const eaten = sumEatenMacros(entries)
-    const pending = sumPendingMacros(entries)
+    const { year, month, day } = parseDateKey(date)
+    const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
+    const planned = entries.filter((e) => !e.extra)
+    const extras = entries.filter((e) => e.extra).sort((a, b) => a.order - b.order)
+    const total = planned.length
+    const eatenCount = planned.filter(isEaten).length
+    const empty = entries.length === 0
+    const plannedKcal = sumMacros(planned).calories
+
+    const slotItems = (slot: MealType) => planned.filter((e) => e.slot === slot).sort((a, b) => a.order - b.order)
+
+    // What the day holds, with a thin bar filling as meals are eaten.
+    const summary =
+        total === 0 ? (
+            <p className="text-[13px] text-neutral-500">
+                {extras.length > 0 ? `${extras.length} logged` : 'Nothing planned'}
+            </p>
+        ) : (
+            <div className="flex flex-col gap-1.5">
+                <p className="text-[13px] text-neutral-500">
+                    {total} {total === 1 ? 'meal' : 'meals'}
+                    {plannedKcal > 0 && ` · ${kcal(plannedKcal)} kcal`}
+                    {eatenCount > 0 && <span className="text-emerald-700"> · {eatenCount} eaten</span>}
+                    {extras.length > 0 && ` · ${extras.length} logged`}
+                </p>
+                <div className="h-1 overflow-hidden rounded-full bg-neutral-100">
+                    <div
+                        className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
+                        style={{ width: `${(eatenCount / total) * 100}%` }}
+                    />
+                </div>
+            </div>
+        )
+
+    const canClear = editable && planned.some(clearable)
+    const canLogMore = !editable && hasHappened
+    const actions = (canClear || canLogMore) && (
+        <div className="-my-1.5 ml-auto flex shrink-0 items-center gap-1">
+            {canLogMore && (
+                <button
+                    type="button"
+                    onClick={onLogMore}
+                    aria-label={`Log something else on ${weekday}`}
+                    title="Log more"
+                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg px-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                >
+                    <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
+                    {!compact && <span>Log more</span>}
+                </button>
+            )}
+            {canClear && (
+                <button
+                    type="button"
+                    onClick={onClear}
+                    aria-label={`Clear ${weekday}`}
+                    title="Clear day"
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                >
+                    <i className="fa-solid fa-broom text-[12px]" aria-hidden="true" />
+                </button>
+            )}
+        </div>
+    )
+
+    const titleRow = (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h3 className={`font-semibold tracking-tight text-neutral-900 ${compact ? 'text-base' : 'text-lg'}`}>
+                {compact ? weekday.slice(0, 3) : weekday}
+            </h3>
+            <span className="text-sm text-neutral-500">
+                {day} {compact ? MONTHS[month].slice(0, 3) : MONTHS[month]}
+            </span>
+            {isToday && <span className="text-sm font-medium text-coral-600">Today</span>}
+            {actions}
+        </div>
+    )
 
     return (
-        <div className="flex flex-col gap-3 rounded-2xl bg-white/[0.06] p-3 sm:p-4">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <BannerStat
-                    label="Calories in"
-                    value={kcal(eaten.calories)}
-                    sub={goals?.calories ? `of ${kcal(goals.calories)}` : pending.calories > 0 ? `+${kcal(pending.calories)} planned` : undefined}
-                    big
+        <DayCardShell id={dayCardId('meals', date)} isToday={isToday} compact={compact} className={className}>
+            <header className="flex flex-col gap-2">
+                {titleRow}
+                {summary}
+            </header>
+
+            {empty && !editable ? (
+                <div
+                    className={`flex items-center gap-3 rounded-xl bg-neutral-50 px-3 py-3 ${
+                        compact ? 'flex-1 flex-col justify-center text-center' : ''
+                    }`}
+                >
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-500">
+                        <i className="fa-solid fa-utensils text-sm" aria-hidden="true" />
+                    </span>
+                    <p className="text-xs text-neutral-500">No meals planned for this day.</p>
+                </div>
+            ) : (
+                <div
+                    className={
+                        editable
+                            ? compact
+                                ? 'flex flex-col gap-3'
+                                : 'grid gap-3 lg:grid-cols-2 2xl:grid-cols-4'
+                            : 'flex flex-col divide-y divide-neutral-100'
+                    }
+                >
+                    {MEAL_TYPES.map((slot) => (
+                        <SlotSection
+                            key={slot}
+                            compact={compact}
+                            slot={slot}
+                            editable={editable}
+                            entries={slotItems(slot)}
+                            onAdd={() => onAdd(slot)}
+                            onOpen={onOpen}
+                            onToggle={onToggle}
+                            onRemove={onRemove}
+                            dragActive={dragActive}
+                            draggedId={draggedId}
+                            drop={dropForDay && dropForDay.slot === slot ? dropForDay : null}
+                            onEntryDragStart={onEntryDragStart}
+                            onEntryDragEnd={onEntryDragEnd}
+                            onTarget={(refId, after) => onTarget(slot, refId, after)}
+                            onClearTarget={() => onClearTarget(slot)}
+                            onDropEntry={onDropEntry}
+                        />
+                    ))}
+                    {extras.length > 0 && (
+                        <ExtrasSection
+                            compact={compact}
+                            editable={editable}
+                            entries={extras}
+                            onOpen={onOpen}
+                            onRemove={onRemove}
+                        />
+                    )}
+                </div>
+            )}
+
+            {hasHappened && !editable && (
+                <DayEnergy
+                    key={out ?? 'none'}
+                    compact={compact}
+                    eaten={sumEatenMacros(entries)}
+                    goals={goals}
+                    out={out}
+                    onSaveOut={onSaveOut}
                 />
-                <BannerStat label="Protein" value={`${fmt(Math.round(eaten.protein))} g`} sub={goals?.protein ? `of ${fmt(goals.protein)} g` : undefined} />
-                <BannerStat label="Carbs" value={`${fmt(Math.round(eaten.carbs))} g`} sub={goals?.carbs ? `of ${fmt(goals.carbs)} g` : undefined} />
-                <BannerStat label="Fat" value={`${fmt(Math.round(eaten.fat))} g`} sub={goals?.fat ? `of ${fmt(goals.fat)} g` : undefined} />
+            )}
+        </DayCardShell>
+    )
+}
+
+/**
+ * One meal slot of a day. Viewing, it's a label beside its meals (or over them
+ * in a board column); editing, it becomes a lane — an add button and a drop
+ * target, shown even when empty.
+ */
+function SlotSection({
+    compact = false,
+    slot,
+    editable,
+    entries,
+    onAdd,
+    onOpen,
+    onToggle,
+    onRemove,
+    dragActive,
+    draggedId,
+    drop,
+    onEntryDragStart,
+    onEntryDragEnd,
+    onTarget,
+    onClearTarget,
+    onDropEntry,
+}: {
+    compact?: boolean
+    slot: MealType
+    editable: boolean
+    entries: MealPlanEntry[]
+    onAdd: () => void
+    onOpen: (entry: MealPlanEntry) => void
+    onToggle: (entry: MealPlanEntry) => void
+    onRemove: (id: string) => void
+    dragActive: boolean
+    draggedId: string | null
+    drop: { refId: string | null; after: boolean } | null
+    onEntryDragStart: (id: string) => void
+    onEntryDragEnd: () => void
+    onTarget: (refId: string | null, after: boolean) => void
+    onClearTarget: () => void
+    onDropEntry: () => void
+}) {
+    const meta = CATEGORY[slot]
+    const listRef = useRef<HTMLUListElement>(null)
+
+    // The whole slot is one drop target: the insertion point comes from the
+    // cursor's Y against each row's midpoint, skipping the row in flight.
+    const targetForY = (clientY: number): { refId: string | null; after: boolean } => {
+        const rows = listRef.current?.querySelectorAll<HTMLElement>('[data-plan-row]')
+        if (rows) {
+            for (const row of Array.from(rows)) {
+                const id = row.getAttribute('data-plan-row')
+                if (id === draggedId) continue
+                const rect = row.getBoundingClientRect()
+                if (clientY < rect.top + rect.height / 2) return { refId: id, after: false }
+            }
+        }
+        return { refId: null, after: false }
+    }
+
+    const containerDropProps = dragActive
+        ? {
+              onDragOver: (e: DragEvent) => {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  const t = targetForY(e.clientY)
+                  onTarget(t.refId, t.after)
+              },
+              onDragLeave: (e: DragEvent) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) onClearTarget()
+              },
+              onDrop: (e: DragEvent) => {
+                  e.preventDefault()
+                  onDropEntry()
+              },
+          }
+        : {}
+
+    const label = <span className="text-[13px] font-medium text-neutral-500">{meta.label}</span>
+
+    const rows = entries.map((e) => (
+        <PlannedRow
+            key={e._id}
+            compact={compact}
+            entry={e}
+            dropId={e._id}
+            onOpen={() => onOpen(e)}
+            onToggle={editable ? undefined : () => onToggle(e)}
+            onRemove={editable ? () => onRemove(e._id) : undefined}
+            draggable={editable}
+            onDragStart={() => onEntryDragStart(e._id)}
+            onDragEnd={onEntryDragEnd}
+            dropEdge={drop && drop.refId === e._id ? (drop.after ? 'bottom' : 'top') : null}
+        />
+    ))
+
+    if (!editable) {
+        return (
+            <div
+                className={
+                    compact
+                        ? 'flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0'
+                        : 'grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-3 first:pt-0 last:pb-0'
+                }
+            >
+                <span className={compact ? '' : 'pt-2'}>{label}</span>
+                {entries.length > 0 ? (
+                    <ul className={compact ? 'flex flex-col gap-1.5' : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'}>
+                        {rows}
+                    </ul>
+                ) : (
+                    <EmptySlotTile compact={compact} title="Free" detail="Nothing planned" />
+                )}
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/10 pt-3">
-                <OutField out={out} onSave={onSaveOut} dark />
-                <NetLine eaten={eaten.calories} out={out} dark />
+        )
+    }
+
+    return (
+        <div
+            {...containerDropProps}
+            className={`flex flex-col gap-2 rounded-2xl transition-colors ${compact ? 'p-1.5' : 'p-2.5'} ${
+                drop ? 'bg-coral-50 ring-2 ring-inset ring-coral-200' : 'bg-neutral-50'
+            }`}
+        >
+            <div className="flex items-center justify-between pl-1">
+                {label}
+                <button
+                    type="button"
+                    aria-label={`Add to ${meta.label.toLowerCase()}`}
+                    onClick={onAdd}
+                    className="grid h-8 w-8 place-items-center rounded-[10px] bg-white text-neutral-500 shadow-sm ring-1 ring-neutral-900/[0.06] transition-colors hover:bg-neutral-900 hover:text-white"
+                >
+                    <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
+                </button>
+            </div>
+            {entries.length > 0 ? (
+                <ul ref={listRef} className={`flex flex-col ${compact ? 'gap-1.5' : 'gap-2'}`}>
+                    {rows}
+                    {drop && drop.refId === null && <DropLine />}
+                </ul>
+            ) : (
+                <button type="button" onClick={onAdd} className="group block w-full text-left">
+                    <EmptySlotTile
+                        compact={compact}
+                        active={dragActive}
+                        title={dragActive ? 'Move here' : `Add to ${meta.label.toLowerCase()}`}
+                        detail={dragActive ? 'Drop to move it' : 'Pick a meal'}
+                    />
+                </button>
+            )}
+        </div>
+    )
+}
+
+/** Whatever was logged with "Log more" — eaten already, so never dragged or ticked. */
+function ExtrasSection({
+    compact,
+    editable,
+    entries,
+    onOpen,
+    onRemove,
+}: {
+    compact: boolean
+    editable: boolean
+    entries: MealPlanEntry[]
+    onOpen: (entry: MealPlanEntry) => void
+    onRemove: (id: string) => void
+}) {
+    const label = <span className="text-[13px] font-medium text-neutral-500">Also ate</span>
+    const rows = entries.map((e) => (
+        <PlannedRow
+            key={e._id}
+            compact={compact}
+            entry={e}
+            onOpen={() => onOpen(e)}
+            onRemove={editable ? () => onRemove(e._id) : undefined}
+            draggable={false}
+            lane={editable}
+        />
+    ))
+    if (editable) {
+        return (
+            <div className={`flex flex-col gap-2 rounded-2xl bg-neutral-50 ${compact ? 'p-1.5' : 'p-2.5'}`}>
+                <div className="flex h-8 items-center pl-1">{label}</div>
+                <ul className={`flex flex-col ${compact ? 'gap-1.5' : 'gap-2'}`}>{rows}</ul>
+            </div>
+        )
+    }
+    return (
+        <div
+            className={
+                compact
+                    ? 'flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0'
+                    : 'grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-3 first:pt-0 last:pb-0'
+            }
+        >
+            <span className={compact ? '' : 'pt-2'}>{label}</span>
+            <ul className={compact ? 'flex flex-col gap-1.5' : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'}>{rows}</ul>
+        </div>
+    )
+}
+
+/** A slot with nothing in it, built like a planned row so it stands as tall as one. */
+function EmptySlotTile({
+    compact = false,
+    active = false,
+    title,
+    detail,
+}: {
+    compact?: boolean
+    active?: boolean
+    title: string
+    detail: string
+}) {
+    return (
+        <span
+            className={`flex items-center rounded-xl outline-1 -outline-offset-1 outline-dashed transition-colors ${
+                compact ? 'p-2' : 'px-2.5 py-2'
+            } ${
+                active
+                    ? 'bg-coral-50 text-coral-600 outline-coral-300'
+                    : 'text-neutral-400 outline-neutral-200 group-hover:text-neutral-600 group-hover:outline-neutral-300'
+            }`}
+        >
+            <span className="flex min-w-0 items-stretch gap-2.5">
+                <span className="w-1 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1 py-0.5">
+                    <span className="block truncate text-sm font-medium">{title}</span>
+                    <span className="mt-0.5 block truncate text-[13px] opacity-80">{detail}</span>
+                </span>
+            </span>
+        </span>
+    )
+}
+
+/** The coral marker showing where a dragged row will drop within a slot. */
+function DropLine() {
+    return <li aria-hidden="true" className="h-0.5 rounded-full bg-coral-500" />
+}
+
+function PlannedRow({
+    compact = false,
+    entry,
+    onOpen,
+    onToggle,
+    onRemove,
+    draggable = false,
+    lane = draggable,
+    onDragStart,
+    onDragEnd,
+    dropId,
+    dropEdge = null,
+}: {
+    compact?: boolean
+    entry: MealPlanEntry
+    onOpen?: () => void
+    /** Viewing: the tick that marks the meal eaten, or back to planned. */
+    onToggle?: () => void
+    onRemove?: () => void
+    draggable?: boolean
+    /** Sits in a grey edit lane, so it stands off it in white. */
+    lane?: boolean
+    onDragStart?: () => void
+    onDragEnd?: () => void
+    dropId?: string
+    /** Which edge to mark as the pending drop spot — an overlay, so the row never shifts. */
+    dropEdge?: 'top' | 'bottom' | null
+}) {
+    const done = isEaten(entry)
+    const [dragging, setDragging] = useState(false)
+
+    const body = (
+        <span className="flex min-w-0 items-stretch gap-2.5">
+            <span
+                className={`w-1 shrink-0 rounded-full ${entry.extra ? 'bg-neutral-300' : CATEGORY[entry.slot].solid}`}
+                aria-hidden="true"
+            />
+            <span className="min-w-0 flex-1 py-0.5">
+                <span
+                    className={`block truncate text-sm font-medium ${done && !entry.extra ? 'text-neutral-500' : 'text-neutral-900'}`}
+                >
+                    {entry.name}
+                </span>
+                <span className="mt-0.5 block truncate text-[13px] text-neutral-500">{plannedMeta(entry)}</span>
+            </span>
+        </span>
+    )
+
+    const tickSize = compact ? 'h-6 w-6' : 'h-8 w-8'
+
+    return (
+        <li
+            draggable={draggable}
+            onDragStart={
+                draggable
+                    ? (e: DragEvent) => {
+                          e.dataTransfer.setData('text/plain', entry._id)
+                          e.dataTransfer.effectAllowed = 'move'
+                          setDragging(true)
+                          onDragStart?.()
+                      }
+                    : undefined
+            }
+            onDragEnd={
+                draggable
+                    ? () => {
+                          setDragging(false)
+                          onDragEnd?.()
+                      }
+                    : undefined
+            }
+            data-plan-row={dropId}
+            className={`group relative flex items-center rounded-xl transition-colors ${
+                compact ? 'gap-1 p-2' : 'gap-2 px-2.5 py-2'
+            } ${lane ? 'bg-white ring-1 ring-neutral-900/[0.06]' : 'bg-neutral-50'} ${
+                onOpen ? (lane ? 'hover:ring-neutral-900/[0.12]' : 'hover:bg-neutral-100') : ''
+            } ${draggable ? 'md:cursor-grab md:active:cursor-grabbing' : ''} ${dragging ? 'opacity-40' : ''}`}
+        >
+            {dropEdge && (
+                <span
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute inset-x-0 h-0.5 rounded-full bg-coral-500 ${
+                        dropEdge === 'top' ? '-top-[5px]' : '-bottom-[5px]'
+                    }`}
+                />
+            )}
+            {draggable && !compact && (
+                <i
+                    className="fa-solid fa-grip-vertical hidden shrink-0 pl-1 text-[11px] text-neutral-300 md:inline"
+                    aria-hidden="true"
+                />
+            )}
+            {onOpen ? (
+                <button
+                    type="button"
+                    onClick={onOpen}
+                    aria-label={`View ${entry.name}`}
+                    className="min-w-0 flex-1 rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-300"
+                >
+                    {body}
+                </button>
+            ) : (
+                <div className="min-w-0 flex-1">{body}</div>
+            )}
+            {onToggle ? (
+                <button
+                    type="button"
+                    aria-pressed={done}
+                    aria-label={done ? `Mark ${entry.name} as not eaten` : `Mark ${entry.name} as eaten`}
+                    title={done ? 'Eaten' : 'Mark as eaten'}
+                    onClick={onToggle}
+                    className={`grid shrink-0 place-items-center rounded-full transition-colors ${tickSize} ${
+                        done
+                            ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                            : 'bg-white text-neutral-300 ring-1 ring-inset ring-neutral-200 hover:text-emerald-600 hover:ring-emerald-300'
+                    }`}
+                >
+                    <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
+                </button>
+            ) : (
+                done &&
+                !entry.extra && (
+                    <span
+                        className={`grid shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-600 ${
+                            compact ? 'h-5 w-5' : 'h-6 w-6'
+                        }`}
+                        aria-label="Eaten"
+                        title="Eaten"
+                    >
+                        <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
+                    </span>
+                )
+            )}
+            {onRemove && (
+                <button
+                    type="button"
+                    aria-label={`Remove ${entry.name}`}
+                    onClick={onRemove}
+                    className={`grid shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500 ${
+                        compact ? 'h-6 w-6' : 'h-8 w-8'
+                    }`}
+                >
+                    <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
+                </button>
+            )}
+        </li>
+    )
+}
+
+// ─── Calories in and out ─────────────────────────────────────────────────────
+
+/**
+ * The day's balance, once it's happened: what's been eaten against the
+ * target, calories out typed from a watch, and the difference.
+ */
+function DayEnergy({
+    compact,
+    eaten,
+    goals,
+    out,
+    onSaveOut,
+}: {
+    compact: boolean
+    eaten: Macros
+    goals: MacroGoals | null
+    out: number | null
+    onSaveOut: (value: number | null) => Promise<void>
+}) {
+    const macro = (label: string, value: number, goal?: number) =>
+        `${label} ${fmt(Math.round(value))}${goal ? `/${fmt(goal)}` : ''} g`
+    return (
+        <div className={`flex flex-col gap-2 rounded-xl bg-neutral-50 ${compact ? 'p-2' : 'px-3 py-2.5'}`}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                <p className="text-[13px] text-neutral-500">
+                    <span className="font-semibold tabular-nums text-neutral-900">{kcal(eaten.calories)}</span> in
+                    {goals?.calories ? <span className="tabular-nums"> of {kcal(goals.calories)}</span> : null}
+                </p>
+                <p className="truncate text-[11px] tabular-nums text-neutral-500">
+                    {[
+                        macro('P', eaten.protein, goals?.protein),
+                        !compact && macro('C', eaten.carbs, goals?.carbs),
+                        !compact && macro('F', eaten.fat, goals?.fat),
+                    ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                </p>
+            </div>
+            <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 ${compact ? 'flex-col items-start' : ''}`}>
+                <OutField out={out} onSave={onSaveOut} />
+                <NetLine eaten={eaten.calories} out={out} />
             </div>
         </div>
     )
 }
 
-/** "Calories out" — typed in, saved on blur or Enter, cleared by emptying it. */
-function OutField({ out, onSave, dark = false }: { out: number | null; onSave: (value: number | null) => Promise<void>; dark?: boolean }) {
+/** "Out" — typed in, saved on blur or Enter, cleared by emptying it. */
+function OutField({ out, onSave }: { out: number | null; onSave: (value: number | null) => Promise<void> }) {
     const [value, setValue] = useState(out === null ? '' : String(out))
     const [saving, setSaving] = useState(false)
 
@@ -514,8 +1450,8 @@ function OutField({ out, onSave, dark = false }: { out: number | null; onSave: (
     }
 
     return (
-        <label className={`flex items-center gap-2 text-sm font-semibold ${dark ? 'text-white/80' : 'text-neutral-600'}`}>
-            Calories out
+        <label className="flex items-center gap-2 text-[13px] text-neutral-500">
+            Out
             <input
                 type="text"
                 inputMode="numeric"
@@ -527,242 +1463,331 @@ function OutField({ out, onSave, dark = false }: { out: number | null; onSave: (
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                 }}
-                className={`h-10 w-24 rounded-xl border px-3 text-right text-base font-bold tabular-nums focus:outline-none ${
-                    dark
-                        ? 'border-white/20 bg-white/10 text-white placeholder:text-white/40 focus:border-white/60'
-                        : 'border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-300 focus:border-neutral-400'
-                }`}
+                className="h-8 w-20 rounded-[10px] border border-neutral-200 bg-white px-2.5 text-right text-sm font-semibold tabular-nums text-neutral-900 outline-none placeholder:text-neutral-300 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100"
             />
+            kcal
         </label>
     )
 }
 
-function NetLine({ eaten, out, dark = false }: { eaten: number; out: number | null; dark?: boolean }) {
-    const net = out === null ? null : eaten - out
-    if (net === null) {
-        return <p className={`text-sm font-semibold ${dark ? 'text-white/50' : 'text-neutral-500'}`}>Add calories out to see the balance</p>
-    }
-    const [under, over, even] = dark
-        ? ['text-emerald-300', 'text-amber-300', 'text-white']
-        : ['text-emerald-600', 'text-amber-600', 'text-neutral-900']
-    const tone = net < 0 ? under : net > 0 ? over : even
+function NetLine({ eaten, out }: { eaten: number; out: number | null }) {
+    if (out === null) return <p className="text-[13px] text-neutral-400">Add calories out for the balance</p>
+    const net = eaten - out
+    const tone = net < 0 ? 'text-emerald-700' : net > 0 ? 'text-amber-700' : 'text-neutral-900'
     return (
-        <p className="text-sm font-semibold tabular-nums">
-            <span className={tone}>{signedKcal(net)} kcal</span>
-            <span className={`ml-1.5 ${dark ? 'text-white/60' : 'text-neutral-500'}`}>{net < 0 ? 'deficit' : net > 0 ? 'surplus' : 'even'}</span>
+        <p className="text-[13px] tabular-nums">
+            <span className={`font-semibold ${tone}`}>{signedKcal(net)} kcal</span>
+            <span className="ml-1 text-neutral-500">{net < 0 ? 'deficit' : net > 0 ? 'surplus' : 'even'}</span>
         </p>
     )
 }
 
-function BannerStat({ label, value, sub, big = false }: { label: string; value: string; sub?: string; big?: boolean }) {
-    return (
-        <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-white/50">{label}</p>
-            <p className={`truncate font-bold tabular-nums tracking-tight ${big ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'}`}>{value}</p>
-            {sub && <p className="truncate text-[11px] tabular-nums text-white/60">{sub}</p>}
-        </div>
-    )
-}
+// ─── Day drawer: add a meal / log more ───────────────────────────────────────
 
-// ── A day ────────────────────────────────────────────────────────────────────
+/** How many library meals the add list lays out at a time. */
+const PICKER_PAGE_SIZE = 10
 
-function DayCard({
-    date,
-    className,
-    isToday,
-    isSelected,
+/**
+ * The day drawer. Planning, it targets a day + slot: the slot toggle picks
+ * where an added meal lands and narrows the list to meals tagged for it (a
+ * search reaches the whole library). "Log more" uses the same drawer, but
+ * what's added goes straight in as eaten.
+ */
+function MealPickerDrawer({
+    target,
+    meals,
     entries,
-    out,
-    onSaveOut,
-    tools,
-    onSelect,
+    onClose,
     onAdd,
-    onLogMore,
-    onToggle,
     onRemove,
 }: {
-    date: string
-    className: string
-    isToday: boolean
-    isSelected: boolean
+    target: PickerTarget | null
+    meals: Meal[]
     entries: MealPlanEntry[]
-    /** Past days only — today's lives in the banner, future days have none yet. */
-    out: number | null | undefined
-    onSaveOut: (value: number | null) => Promise<void>
-    /** Advanced options: copy, paste, clear. */
-    tools: ReactNode
-    onSelect: () => void
-    onAdd: (slot: MealType) => void
-    onLogMore: () => void
-    onToggle: (e: MealPlanEntry) => void
-    onRemove: (e: MealPlanEntry) => void
+    onClose: () => void
+    onAdd: (date: string, slot: MealType, mealId: string, extra: boolean) => Promise<void>
+    onRemove: (id: string) => void
 }) {
-    const eaten = sumEatenMacros(entries)
-    const extras = entries.filter((e) => e.extra)
-    const { year, month, day } = parseDateKey(date)
-    const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
+    // Retain the last target so the drawer keeps its content while sliding shut.
+    const [view, setView] = useState(target)
+    const [query, setQuery] = useState('')
+    const [activeSlot, setActiveSlot] = useState<MealType>('breakfast')
+    const [page, setPage] = useState(1)
+    const [busy, setBusy] = useState(false)
+    useEffect(() => {
+        if (target) {
+            setView(target)
+            setQuery('')
+            setActiveSlot(target.slot)
+            setPage(1)
+        }
+    }, [target])
+
+    useEffect(() => {
+        setPage(1)
+    }, [activeSlot, query])
+
+    const extra = view?.extra ?? false
+    const title = extra ? 'Log more' : 'Add to day'
+
+    const results = useMemo(() => {
+        const q = query.trim().toLowerCase()
+        const base = q ? meals.filter((m) => m.name.toLowerCase().includes(q)) : meals.filter((m) => m.types.includes(activeSlot))
+        return [...base].sort((a, b) => a.name.localeCompare(b.name))
+    }, [meals, query, activeSlot])
+
+    const total = results.length
+    const pageCount = Math.max(1, Math.ceil(total / PICKER_PAGE_SIZE))
+    useEffect(() => {
+        if (page > pageCount) setPage(pageCount)
+    }, [page, pageCount])
+    const from = (page - 1) * PICKER_PAGE_SIZE
+    const to = from + PICKER_PAGE_SIZE
+
+    // The day's meals, grouped by slot: what's planned, or — logging — what's
+    // been logged so far.
+    const slots = MEAL_TYPES.map((slot) => ({
+        slot,
+        items: entries.filter((e) => e.slot === slot && e.extra === extra).sort((a, b) => a.order - b.order),
+    })).filter((s) => s.items.length > 0)
+
+    async function add(meal: Meal) {
+        if (!view || busy) return
+        setBusy(true)
+        try {
+            await onAdd(view.date, activeSlot, meal._id, extra)
+        } finally {
+            setBusy(false)
+        }
+    }
 
     return (
-        <DayCardShell id={dayCardId('meals', date)} isToday={isToday} className={`${className} ${isSelected ? 'md:ring-2 md:ring-brand-300' : ''}`}>
-            <button type="button" onClick={onSelect} className="flex items-center gap-3 text-left">
-                <DayBadge date={date} isToday={isToday} />
-                <div className="min-w-0 flex-1">
-                    <h3 className="text-base font-bold tracking-tight text-neutral-900">{weekday}</h3>
-                    <p className="text-xs tabular-nums text-neutral-500">
-                        {entries.length === 0
-                            ? 'Nothing planned yet'
-                            : `${entries.filter((e) => e.status === 'eaten').length} of ${entries.length} meal${entries.length === 1 ? '' : 's'} eaten`}
-                    </p>
-                </div>
-            </button>
-
-            {entries.length > 0 && <DayTotals total={sumMacros(entries)} eaten={eaten} />}
-
-            {tools && <div className="-mt-1 flex flex-wrap gap-1.5">{tools}</div>}
-
-            <div className="grid gap-3 lg:grid-cols-2">
-                {MEAL_TYPES.map((slot) => (
-                    <SlotList
-                        key={slot}
-                        label={CATEGORY_LABEL[slot]}
-                        entries={entries.filter((e) => e.slot === slot && !e.extra)}
-                        onAdd={() => onAdd(slot)}
-                        onToggle={onToggle}
-                        onRemove={onRemove}
-                    />
-                ))}
-            </div>
-
-            {extras.length > 0 && (
-                <SlotList label="Also ate" entries={extras} onToggle={onToggle} onRemove={onRemove} />
-            )}
-
-            <button
-                type="button"
-                onClick={onLogMore}
-                className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-300 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100"
-            >
-                <i className="fa-solid fa-plus" aria-hidden="true" />
-                Log more
-            </button>
-
-            {out !== undefined && (
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-neutral-100 pt-3">
-                    <OutField key={out ?? 'none'} out={out} onSave={onSaveOut} />
-                    <NetLine eaten={eaten.calories} out={out} />
-                </div>
-            )}
-        </DayCardShell>
-    )
-}
-
-/** The day's macros added up: everything on it, with what's been eaten beneath. */
-function DayTotals({ total, eaten }: { total: Macros; eaten: Macros }) {
-    const cells = [
-        { label: 'Calories', total: total.calories, eaten: eaten.calories, unit: '' },
-        { label: 'Protein', total: total.protein, eaten: eaten.protein, unit: ' g' },
-        { label: 'Carbs', total: total.carbs, eaten: eaten.carbs, unit: ' g' },
-        { label: 'Fat', total: total.fat, eaten: eaten.fat, unit: ' g' },
-    ]
-    return (
-        <dl className="grid grid-cols-4 divide-x divide-neutral-200/70 rounded-2xl bg-neutral-50 py-2.5">
-            {cells.map((c) => {
-                const t = Math.round(c.total)
-                const e = Math.round(c.eaten)
-                return (
-                    <div key={c.label} className="min-w-0 px-2 text-center">
-                        <dt className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">{c.label}</dt>
-                        <dd className="truncate text-sm font-bold tabular-nums text-neutral-900 sm:text-base">
-                            {c.label === 'Calories' ? kcal(t) : fmt(t)}
-                            <span className="text-xs font-semibold text-neutral-500">{c.unit || ' kcal'}</span>
-                        </dd>
-                        <dd className={`truncate text-[11px] tabular-nums ${e >= t && t > 0 ? 'text-emerald-600' : 'text-neutral-500'}`}>
-                            {e >= t && t > 0 ? 'all eaten' : `${c.label === 'Calories' ? kcal(e) : fmt(e)} eaten`}
-                        </dd>
-                    </div>
-                )
-            })}
-        </dl>
-    )
-}
-
-function SlotList({
-    label,
-    entries,
-    onAdd,
-    onToggle,
-    onRemove,
-}: {
-    label: string
-    entries: MealPlanEntry[]
-    /** Omitted for "Also ate", which is filled by Log more. */
-    onAdd?: () => void
-    onToggle: (e: MealPlanEntry) => void
-    onRemove: (e: MealPlanEntry) => void
-}) {
-    return (
-        <section className="rounded-2xl bg-neutral-50 p-2">
-            <header className="flex items-center justify-between px-2 py-1">
-                <h4 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">{label}</h4>
-                {onAdd && (
-                    <button
-                        type="button"
-                        onClick={onAdd}
-                        aria-label={`Add to ${label.toLowerCase()}`}
-                        className="-mr-1 grid h-9 w-9 place-items-center rounded-xl text-neutral-500 hover:bg-white active:bg-neutral-200"
-                    >
-                        <i className="fa-solid fa-plus text-sm" aria-hidden="true" />
-                    </button>
+        <Drawer
+            open={!!target}
+            onClose={onClose}
+            title={title}
+            badge={view ? shortDayLabel(view.date) : undefined}
+            footer={
+                <Button variant="ghost" onClick={onClose}>
+                    Done
+                </Button>
+            }
+        >
+            <div className="flex flex-col gap-4">
+                {slots.length > 0 && (
+                    <section className="flex flex-col gap-3">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                            {extra ? 'Logged on this day' : 'On this day'}
+                        </p>
+                        {slots.map(({ slot, items }) => (
+                            <div key={slot} className="flex flex-col gap-1.5">
+                                <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                                    <i className={`${CATEGORY[slot].icon} text-[11px] text-neutral-500`} aria-hidden="true" />
+                                    {CATEGORY[slot].label}
+                                </span>
+                                <ul className="flex flex-col gap-1">
+                                    {items.map((e) => (
+                                        <PlannedRow key={e._id} entry={e} onRemove={() => onRemove(e._id)} />
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
+                    </section>
                 )}
-            </header>
-            {entries.length === 0 ? (
-                onAdd && (
-                    <button type="button" onClick={onAdd} className="w-full px-2 pb-1.5 text-left text-sm text-neutral-500">
-                        Nothing planned
-                    </button>
-                )
-            ) : (
-                <ul className="flex flex-col">
-                    {entries.map((e) => {
-                        const eaten = e.status === 'eaten'
-                        return (
-                            <li key={e._id} className="flex items-center gap-1">
+
+                <div className="flex flex-col gap-1.5">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Slot</p>
+                    <div className="inline-flex flex-wrap self-start gap-1 rounded-xl bg-neutral-100 p-1">
+                        {MEAL_TYPES.map((s) => {
+                            const active = s === activeSlot
+                            return (
                                 <button
+                                    key={s}
                                     type="button"
-                                    aria-pressed={eaten}
-                                    aria-label={eaten ? `Mark ${e.name} as not eaten` : `Mark ${e.name} as eaten`}
-                                    onClick={() => onToggle(e)}
-                                    className="flex min-h-[48px] min-w-0 flex-1 items-center gap-3 rounded-xl px-2 text-left active:bg-white"
+                                    onClick={() => setActiveSlot(s)}
+                                    className={`h-8 rounded-[9px] px-3 text-[13px] font-medium transition-all duration-200 ${
+                                        active
+                                            ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
+                                            : 'text-neutral-500 hover:text-neutral-900'
+                                    }`}
                                 >
-                                    <span
-                                        className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border-2 transition-colors ${
-                                            eaten ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-neutral-300 bg-white'
-                                        }`}
-                                    >
-                                        {eaten && <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />}
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                        <span className={`block truncate text-sm font-semibold ${eaten ? 'text-neutral-900' : 'text-neutral-600'}`}>
-                                            {e.name}
-                                        </span>
-                                        <span className="block text-xs tabular-nums text-neutral-500">
-                                            {kcal(e.macros.calories)} kcal · {fmt(Math.round(e.macros.protein))} g protein
-                                        </span>
-                                    </span>
+                                    {CATEGORY[s].label}
                                 </button>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                <Input
+                    icon="fa-solid fa-magnifying-glass"
+                    type="search"
+                    placeholder="Search every meal…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                />
+
+                {total > 0 && (
+                    <p className="text-xs text-neutral-500">
+                        {query.trim()
+                            ? `${total} matching meal${total === 1 ? '' : 's'}`
+                            : `${total} ${CATEGORY[activeSlot].label.toLowerCase()} meal${total === 1 ? '' : 's'}`}
+                        {total > PICKER_PAGE_SIZE && ` — showing ${from + 1}–${Math.min(to, total)}`}
+                    </p>
+                )}
+
+                {results.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-neutral-500">
+                        {meals.length === 0
+                            ? 'Your library is empty — add meals in the Library tab.'
+                            : query.trim()
+                              ? 'No meals found.'
+                              : `No meals tagged ${CATEGORY[activeSlot].label.toLowerCase()} — search to find any meal.`}
+                    </p>
+                ) : (
+                    <ul className="flex flex-col gap-1.5">
+                        {results.slice(from, to).map((m) => (
+                            <li key={m._id}>
                                 <button
                                     type="button"
-                                    onClick={() => onRemove(e)}
-                                    aria-label={`Remove ${e.name}`}
-                                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-neutral-300 hover:bg-white hover:text-neutral-600"
+                                    disabled={busy}
+                                    onClick={() => void add(m)}
+                                    className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-60"
                                 >
-                                    <i className="fa-solid fa-xmark" aria-hidden="true" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium text-neutral-800">{m.name}</p>
+                                        <p className="text-xs tabular-nums text-neutral-500">
+                                            {kcal(m.macros.calories)} kcal · {fmt(Math.round(m.macros.protein))} g protein
+                                        </p>
+                                    </div>
+                                    <i className="fa-solid fa-plus text-xs text-neutral-500" aria-hidden="true" />
                                 </button>
                             </li>
-                        )
-                    })}
-                </ul>
+                        ))}
+                    </ul>
+                )}
+
+                <Pagination page={page} pageCount={pageCount} onChange={setPage} />
+            </div>
+        </Drawer>
+    )
+}
+
+// ─── Planned meal drawer ─────────────────────────────────────────────────────
+
+/** A planned meal opened from its row: its numbers, its notes, and the tick. */
+function PlannedMealDrawer({
+    entry,
+    meal,
+    onClose,
+    onToggle,
+    onRemove,
+}: {
+    entry: MealPlanEntry | null
+    /** The library meal it came from, for its notes — gone if it's been deleted. */
+    meal: Meal | null
+    onClose: () => void
+    onToggle: (entry: MealPlanEntry) => void
+    onRemove: (id: string) => void
+}) {
+    // Retain the last entry while the drawer animates closed.
+    const [view, setView] = useState<MealPlanEntry | null>(entry)
+    const [viewMeal, setViewMeal] = useState<Meal | null>(meal)
+    useEffect(() => {
+        if (entry) {
+            setView(entry)
+            setViewMeal(meal)
+        }
+    }, [entry, meal])
+
+    const e = view
+    const done = !!e && isEaten(e)
+
+    return (
+        <Drawer
+            open={!!entry}
+            onClose={onClose}
+            size="xl"
+            title={e?.name ?? 'Meal'}
+            footer={
+                e && (
+                    <div className="flex w-full flex-wrap items-center justify-end gap-3">
+                        <Button
+                            variant="ghost"
+                            icon="fa-solid fa-trash-can"
+                            className="mr-auto"
+                            onClick={() => onRemove(e._id)}
+                        >
+                            Remove
+                        </Button>
+                        {!e.extra &&
+                            (done ? (
+                                <Button variant="ghost" icon="fa-solid fa-rotate-left" onClick={() => onToggle(e)}>
+                                    Mark as not eaten
+                                </Button>
+                            ) : (
+                                <Button icon="fa-solid fa-check" onClick={() => onToggle(e)}>
+                                    Mark as eaten
+                                </Button>
+                            ))}
+                    </div>
+                )
+            }
+        >
+            {e && (
+                <div className="flex flex-col gap-6">
+                    <PlannedContext entry={e} />
+                    <StatStrip
+                        stats={[
+                            { icon: 'fa-solid fa-fire', label: 'Calories', value: `${kcal(e.macros.calories)} kcal` },
+                            { icon: 'fa-solid fa-drumstick-bite', label: 'Protein', value: `${fmt(e.macros.protein)} g` },
+                            { icon: 'fa-solid fa-wheat-awn', label: 'Carbs', value: `${fmt(e.macros.carbs)} g` },
+                            { icon: 'fa-solid fa-droplet', label: 'Fat', value: `${fmt(e.macros.fat)} g` },
+                        ]}
+                    />
+                    <div className="flex flex-col gap-2">
+                        <MacroBar macros={e.macros} thick />
+                        <MacroLegend macros={e.macros} />
+                    </div>
+                    {viewMeal?.notes && (
+                        <NoteBlock icon="fa-regular fa-note-sticky" title="Notes">
+                            {viewMeal.notes}
+                        </NoteBlock>
+                    )}
+                    {e.meal && !viewMeal && (
+                        <p className="text-xs text-neutral-500">
+                            This meal has since left your library — the day keeps its numbers.
+                        </p>
+                    )}
+                </div>
             )}
-        </section>
+        </Drawer>
+    )
+}
+
+/** The slot, day and status a planned meal sits in. */
+function PlannedContext({ entry }: { entry: MealPlanEntry }) {
+    const c = CATEGORY[entry.slot]
+    const done = isEaten(entry)
+    return (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold ${c.tile} ${c.text}`}>
+                <i className={`${c.icon} text-[11px]`} aria-hidden="true" />
+                {c.label}
+            </span>
+            <span className="text-sm text-neutral-500">{shortDayLabel(entry.date)}</span>
+            {entry.extra ? (
+                <span className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 text-xs font-semibold text-neutral-600">
+                    <i className="fa-solid fa-plus" aria-hidden="true" />
+                    Logged
+                </span>
+            ) : (
+                done && (
+                    <span className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700">
+                        <i className="fa-solid fa-circle-check" aria-hidden="true" />
+                        Eaten
+                    </span>
+                )
+            )}
+        </div>
     )
 }

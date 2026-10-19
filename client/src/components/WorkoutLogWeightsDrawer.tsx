@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BringChips } from './BringList'
-import PhaseHeading, { phaseSpan } from './PhaseHeading'
+import { PhaseChip } from './PhaseHeading'
 import Drawer from './Drawer'
 import Button from './Button'
 import DatePicker from './DatePicker'
 import Textarea from './Textarea'
 import ExerciseSwapPicker from './ExerciseSwapPicker'
 import { VideoButton } from './ExerciseVideo'
-import { CompleteButton, PaceBanner, SaveStatus, SlotChip, type SaveState } from './SessionPace'
-import { paceOf, type Slot } from '../lib/sessionPace'
+import { SaveStatus, type SaveState } from './SessionPace'
+import { ItemCue, StepChecklist, useStepTicks, workoutStepsKey } from './session/SessionUI'
 import type {
     Exercise,
     LoggedSet,
@@ -43,13 +43,16 @@ function todayISO(): string {
  * - `exerciseId`/`name` — the exercise actually being performed, which changes
  *   when the row is swapped; `swappedFrom` keeps the prescribed original.
  * - `prescription` — the "3 × 8-12" hint.
- * - `sets` — weights and reps as typed, so a blank input stays blank.
+ * - `sets` — weights and reps as typed, so a blank input stays blank, and
+ *   whether each was ticked off. Only ticked sets go into the log.
  * - `removed` — skipped today. The row stays in the array so every index still
  *   lines up with the workout's exercises, and is dropped at save time.
- * - `completedAt` — when its Completed button was pressed in the gym.
  */
 type ExerciseDraft = DraftExercise
 type SetDraft = ExerciseDraft['sets'][number]
+
+/** Where the stepper is: on one exercise (its row index), or the wrap-up. */
+type Step = number | 'summary'
 
 /**
  * Seed a set's reps from the prescription when it's a plain number (e.g. "8"),
@@ -122,31 +125,43 @@ function toNum(s: string): number | undefined {
     return Number.isFinite(n) && n >= 0 ? n : undefined
 }
 
-
-/** A set as "60×8" / "60 kg" / "8 reps" for a completed card's summary. */
-function setSummary(s: SetDraft): string | null {
+/** A set as "60×8" / "60 kg" / "8 reps" / "done", for the wrap-up. */
+function setSummary(s: SetDraft): string {
     const w = s.weight.trim()
     const r = s.reps.trim()
     if (w && r) return `${w}×${r}`
     if (w) return `${w} kg`
     if (r) return `${r} reps`
-    return null
+    return 'done'
+}
+
+/** How far through an exercise is: none, some or all of its sets ticked. */
+function progressOf(ex: ExerciseDraft): 'none' | 'some' | 'all' {
+    const done = ex.sets.filter((s) => s.done).length
+    if (done === 0) return 'none'
+    return done === ex.sets.length ? 'all' : 'some'
+}
+
+/** Where to open: the first exercise not finished, else the wrap-up. */
+function resumeStep(drafts: ExerciseDraft[]): Step {
+    const i = drafts.findIndex((d) => !d.removed && progressOf(d) !== 'all')
+    return i !== -1 ? i : 'summary'
 }
 
 /** How long after the last edit the session saves itself to the log. */
 const AUTOSAVE_MS = 2000
 
 /**
- * Logging a strength workout in the gym. Each exercise is a card: its planned
- * slot, the weight × reps of each set, and a big Completed button that stamps
- * the time — a banner on top turns those times into "on time / behind / ahead"
- * against the plan, and says what's next and when it's due. A completed card
- * folds down to a one-line summary and the next one scrolls into view.
+ * Logging a strength workout in the gym, one exercise at a time. A stepper runs
+ * across the top; each step is a single exercise — its target, any cue and
+ * sub-list, and its sets to fill in and tick off — with Back and Next at the
+ * bottom. After the last exercise comes a wrap-up: what was done, notes, the
+ * date, and Finish.
  *
  * Nothing needs saving by hand. Every edit lands on the device at once (a
  * locked phone or a reload loses nothing), and once there's something worth
- * recording — an exercise completed, a weight typed — it saves itself to the
- * log a couple of seconds later: the first save creates the log, every later one
+ * recording — a set ticked, a weight typed — it saves itself to the log a
+ * couple of seconds later: the first save creates the log, every later one
  * rewrites that same log. Finish saves one last time and closes.
  */
 export default function WorkoutLogWeightsDrawer({
@@ -180,6 +195,7 @@ export default function WorkoutLogWeightsDrawer({
     const [date, setDate] = useState(defaultDate ?? todayISO())
     const [notes, setNotes] = useState('')
     const [drafts, setDrafts] = useState<ExerciseDraft[]>([])
+    const [step, setStep] = useState<Step>(0)
     /** Finish is mid-save. */
     const [finishing, setFinishing] = useState(false)
     /** The log this session has been saved to, once it has been saved at all. */
@@ -189,10 +205,8 @@ export default function WorkoutLogWeightsDrawer({
     /** Where the entries are: saving, saved to the log, or only on this device. */
     const [saveState, setSaveState] = useState<SaveState>('idle')
     const [serverSavedAt, setServerSavedAt] = useState<number | null>(null)
-    /** Index of the row whose swap picker is open, or null when none is. */
-    const [swapping, setSwapping] = useState<number | null>(null)
-    /** Completed cards opened back up to edit their sets. */
-    const [expanded, setExpanded] = useState<Set<number>>(new Set())
+    /** The swap picker is open on the current exercise. */
+    const [swapping, setSwapping] = useState(false)
     /** Set when this session was picked up from a draft, so the drawer can say so. */
     const [restoredFrom, setRestoredFrom] = useState<number | null>(null)
     /** Bumped to re-run the autosave when an edit lands mid-save. */
@@ -206,36 +220,36 @@ export default function WorkoutLogWeightsDrawer({
     const edits = useRef(0)
     /** The save in flight, if any — Finish waits for it rather than racing it. */
     const inflight = useRef<Promise<boolean> | null>(null)
-    const cards = useRef<(HTMLElement | null)[]>([])
+    /** The top of the step, scrolled back into view on every move. */
+    const top = useRef<HTMLDivElement | null>(null)
 
     const signature = useMemo(() => (view ? signatureOf(view, byId) : ''), [view, byId])
 
-    // Each row's planned slot, aligned to the rows the same way the draft is:
-    // the workout's resolved lines, warm-up to cool-down. Skipped rows aren't
-    // being done, so pacing leaves them out.
-    const slots: Slot[] = useMemo(() => {
-        if (!view) return []
-        return flattenPhases(view)
-            .filter(({ item }) => byId.has(item.exercise))
-            .map(({ item }, i) =>
-                drafts[i]?.removed ? {} : { startMin: item.startMin, endMin: item.endMin }
-            )
-    }, [view, byId, drafts])
-    const times = drafts.map((d) => (d.removed ? null : (d.completedAt ?? null)))
-    const pace = paceOf(slots, times)
-    // The exercise to do next: the first not skipped and not completed.
-    const nextIndex = drafts.findIndex((d) => !d.removed && d.completedAt == null)
+    // Each row's line in the workout, aligned to the rows the same way the draft
+    // is — its rest, cue and sub-list.
+    const lines: WorkoutExercise[] = useMemo(
+        () =>
+            view
+                ? flattenPhases(view)
+                      .filter(({ item }) => byId.has(item.exercise))
+                      .map(({ item }) => item)
+                : [],
+        [view, byId]
+    )
+    // Sub-list ticks, shared with the planner drawer for the same workout and day.
+    const stepTicks = useStepTicks(view ? workoutStepsKey(view._id, date) : null)
 
     useEffect(() => {
         if (!workout) return
         const seeded = seedDrafts(workout, byId)
         const draft = readDraft(workout._id, signatureOf(workout, byId))
+        const rows = draft?.exercises ?? seeded
         setView(workout)
         setDate(draft?.date ?? defaultDate ?? todayISO())
         setNotes(draft?.notes ?? '')
-        setDrafts(draft?.exercises ?? seeded)
-        setSwapping(null)
-        setExpanded(new Set())
+        setDrafts(rows)
+        setStep(resumeStep(rows))
+        setSwapping(false)
         setFinishing(false)
         // A restored draft is already on the device — keep saving over it. If it
         // carries a log id, this session is already in the record and every save
@@ -286,11 +300,12 @@ export default function WorkoutLogWeightsDrawer({
         const edit = edits.current
         // Align one entry per row, in the order the server snapshots. Skipped
         // rows keep their slot — the indices all have to agree — and send
-        // nothing; `omitted` is what actually drops them.
+        // nothing; `omitted` is what actually drops them. Only ticked sets count.
         const loggedSets: LoggedSet[][] = drafts.map((ex) =>
             ex.removed
                 ? []
                 : ex.sets
+                      .filter((s) => s.done)
                       .map((s): LoggedSet => {
                           const weight = toNum(s.weight)
                           const reps = toNum(s.reps)
@@ -308,9 +323,6 @@ export default function WorkoutLogWeightsDrawer({
         )
         const swapped = substitutions.some(Boolean)
         const omitted = drafts.flatMap((ex, i) => (ex.removed ? [i] : []))
-        const completedAt = drafts.map((ex) =>
-            ex.completedAt != null && !ex.removed ? new Date(ex.completedAt).toISOString() : null
-        )
 
         const fields: WorkoutLogInput = {
             workout: view._id,
@@ -318,7 +330,6 @@ export default function WorkoutLogWeightsDrawer({
             // Always a string on the update path, so clearing the notes clears them.
             notes: notes.trim(),
             loggedSets,
-            completedAt,
             ...(swapped ? { substitutions } : {}),
             ...(omitted.length ? { omitted } : {}),
         }
@@ -376,10 +387,7 @@ export default function WorkoutLogWeightsDrawer({
 
     // Autosave to the log — once there's something worth recording.
     const worthSaving =
-        !!logId ||
-        drafts.some(
-            (d) => !d.removed && (d.completedAt != null || d.sets.some((s) => s.weight.trim()))
-        )
+        !!logId || drafts.some((d) => !d.removed && d.sets.some((s) => s.done || s.weight.trim()))
     useEffect(() => {
         if (!view || !unsaved || !worthSaving) return
         const timer = setTimeout(() => void save(), AUTOSAVE_MS)
@@ -407,11 +415,12 @@ export default function WorkoutLogWeightsDrawer({
     function discardDraft() {
         if (!view) return
         clearDraft(view._id)
-        setDrafts(seedDrafts(view, byId))
+        const rows = seedDrafts(view, byId)
+        setDrafts(rows)
+        setStep(resumeStep(rows))
         setDate(defaultDate ?? todayISO())
         setNotes('')
-        setSwapping(null)
-        setExpanded(new Set())
+        setSwapping(false)
         dirty.current = false
         setRestoredFrom(null)
         setUnsaved(false)
@@ -453,17 +462,8 @@ export default function WorkoutLogWeightsDrawer({
         [drafts]
     )
 
-    // Phase headings only earn their place once a warm-up or cool-down is in play.
-    const phased = drafts.some((d) => phaseOf(d) !== 'main')
-    /** Whether row `i` is the first visible row of its phase. */
-    function phaseStarts(i: number): boolean {
-        const phase = phaseOf(drafts[i])
-        for (let j = i - 1; j >= 0; j--) {
-            if (drafts[j].removed) continue
-            return phaseOf(drafts[j]) !== phase
-        }
-        return true
-    }
+    /** The exercises being done today, in order — the steps of the stepper. */
+    const active = useMemo(() => drafts.flatMap((d, i) => (d.removed ? [] : [i])), [drafts])
 
     /** Rows skipped today, with the index each one sits at. */
     const skipped = useMemo(
@@ -471,13 +471,13 @@ export default function WorkoutLogWeightsDrawer({
         [drafts]
     )
 
-    // Total training volume (Σ weight × reps) across every filled set, in kg.
-    // Skipped rows don't count — they aren't being performed.
+    // Total training volume (Σ weight × reps) across every ticked set, in kg.
     const volume = useMemo(() => {
         let total = 0
         for (const ex of drafts) {
             if (ex.removed) continue
             for (const s of ex.sets) {
+                if (!s.done) continue
                 const w = toNum(s.weight)
                 const r = toNum(s.reps)
                 if (w !== undefined && r !== undefined) total += w * r
@@ -485,6 +485,35 @@ export default function WorkoutLogWeightsDrawer({
         }
         return Math.round(total)
     }, [drafts])
+
+    const setsDone = drafts.reduce(
+        (n, d) => n + (d.removed ? 0 : d.sets.filter((s) => s.done).length),
+        0
+    )
+    const exercisesDone = drafts.filter((d) => !d.removed && progressOf(d) === 'all').length
+
+    // ── Moving between steps ──────────────────────────────────────────────────
+
+    function goTo(next: Step) {
+        setStep(next)
+        setSwapping(false)
+        setTimeout(() => top.current?.scrollIntoView({ block: 'start' }), 0)
+    }
+
+    const current = typeof step === 'number' ? drafts[step] : undefined
+    const onSummary = !current || current.removed
+    /** Where the stepper stands among today's exercises; the wrap-up comes after them all. */
+    const pos = onSummary ? active.length : active.indexOf(step as number)
+    const isLast = pos === active.length - 1
+
+    function goNext() {
+        goTo(pos + 1 < active.length ? active[pos + 1] : 'summary')
+    }
+    function goBack() {
+        if (pos > 0) goTo(active[pos - 1])
+    }
+
+    // ── Editing the current exercise ──────────────────────────────────────────
 
     function patchRow(ei: number, patch: Partial<ExerciseDraft>) {
         markDirty()
@@ -502,13 +531,33 @@ export default function WorkoutLogWeightsDrawer({
         )
     }
 
+    /**
+     * Tick a set off (or back on). Ticking carries its weight down to the next
+     * set if that one's still blank — the next set is usually the same again.
+     */
+    function toggleSet(ei: number, si: number) {
+        markDirty()
+        setDrafts((prev) =>
+            prev.map((ex, i) => {
+                if (i !== ei) return ex
+                const done = !ex.sets[si].done
+                const sets = ex.sets.map((s, j) => {
+                    if (j === si) return { ...s, done }
+                    if (done && j === si + 1 && !s.weight.trim() && !s.done)
+                        return { ...s, weight: ex.sets[si].weight }
+                    return s
+                })
+                return { ...ex, sets }
+            })
+        )
+    }
+
     function addSet(ei: number) {
         markDirty()
         setDrafts((prev) =>
             prev.map((ex, i) => {
                 if (i !== ei) return ex
-                // A new set copies the last set's weight and reps — the next set
-                // is usually the same again.
+                // A new set copies the last set's weight and reps.
                 const last = ex.sets[ex.sets.length - 1]
                 return {
                     ...ex,
@@ -518,65 +567,31 @@ export default function WorkoutLogWeightsDrawer({
         )
     }
 
-    function removeSet(ei: number, si: number) {
+    function removeLastSet(ei: number) {
         markDirty()
         setDrafts((prev) =>
             prev.map((ex, i) =>
-                i === ei ? { ...ex, sets: ex.sets.filter((_, j) => j !== si) } : ex
+                i === ei && ex.sets.length > 1 ? { ...ex, sets: ex.sets.slice(0, -1) } : ex
             )
         )
-    }
-
-    /**
-     * Stamp an exercise completed now, fold its card down and bring the next
-     * one into view — in the gym you're straight on to it.
-     */
-    function complete(ei: number) {
-        patchRow(ei, { completedAt: Date.now() })
-        setExpanded((prev) => {
-            const next = new Set(prev)
-            next.delete(ei)
-            return next
-        })
-        setSwapping(null)
-        const upcoming = drafts.findIndex(
-            (d, i) => i !== ei && !d.removed && d.completedAt == null
-        )
-        if (upcoming !== -1) {
-            setTimeout(
-                () => cards.current[upcoming]?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
-                60
-            )
-        }
-    }
-
-    function uncomplete(ei: number) {
-        patchRow(ei, { completedAt: undefined })
-    }
-
-    function toggleExpanded(ei: number) {
-        setExpanded((prev) => {
-            const next = new Set(prev)
-            if (next.has(ei)) next.delete(ei)
-            else next.add(ei)
-            return next
-        })
     }
 
     /**
      * Skip an exercise for this session — the machine was taken, the shoulder
-     * wasn't having it, you ran out of time. The row stays in the draft (one tap
-     * from coming back, and keeping every index aligned with the workout's
-     * exercises) and is dropped from the log at save time.
+     * wasn't having it. The row stays in the draft (one tap from coming back on
+     * the wrap-up, and keeping every index aligned with the workout's exercises)
+     * and is dropped from the log at save time. The stepper moves on.
      */
-    function removeExercise(ei: number) {
-        setSwapping(null)
+    function skipExercise(ei: number) {
+        const next = active.find((i) => i > ei)
         patchRow(ei, { removed: true })
+        goTo(next ?? 'summary')
     }
 
-    /** Put a skipped exercise back, with whatever was already typed into it. */
+    /** Put a skipped exercise back, and go to it. */
     function restoreExercise(ei: number) {
         patchRow(ei, { removed: undefined })
+        goTo(ei)
     }
 
     /**
@@ -603,7 +618,7 @@ export default function WorkoutLogWeightsDrawer({
                 return { ...ex, exerciseId: exercise._id, name: exercise.name, swappedFrom: origin }
             })
         )
-        setSwapping(null)
+        setSwapping(false)
     }
 
     function undoSwap(ei: number) {
@@ -617,8 +632,6 @@ export default function WorkoutLogWeightsDrawer({
     }
 
     const w = view
-    const inputCls =
-        'h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-base tabular-nums text-neutral-900 outline-none focus-visible:outline-none transition-[border-color,box-shadow] placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100'
 
     return (
         <Drawer
@@ -627,36 +640,42 @@ export default function WorkoutLogWeightsDrawer({
             size="2xl"
             title={w ? w.name : 'Log workout'}
             footer={
-                <div className="flex w-full items-center justify-between gap-3">
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                        <span className="text-sm text-neutral-500">
-                            Volume{' '}
-                            <span className="font-semibold tabular-nums text-neutral-900">
-                                {volume.toLocaleString()} kg
-                            </span>
-                        </span>
+                <div className="flex w-full items-center gap-3">
+                    <div className="mr-auto min-w-0">
                         <SaveStatus
                             state={saveState}
                             savedAt={saveState === 'saved' ? serverSavedAt : null}
                         />
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                        <Button variant="ghost" onClick={onClose}>
-                            Close
+                    {pos > 0 && (
+                        <Button
+                            variant="secondary"
+                            icon="fa-solid fa-arrow-left"
+                            onClick={goBack}
+                            aria-label="Previous exercise"
+                        >
+                            <span className="hidden sm:inline">Back</span>
                         </Button>
-                        <Button icon="fa-solid fa-flag-checkered" onClick={finish} disabled={finishing}>
-                            {finishing ? 'Saving…' : 'Finish'}
+                    )}
+                    {onSummary ? (
+                        <Button
+                            icon="fa-solid fa-flag-checkered"
+                            onClick={finish}
+                            disabled={finishing}
+                        >
+                            {finishing ? 'Saving…' : 'Finish workout'}
                         </Button>
-                    </div>
+                    ) : (
+                        <Button onClick={goNext}>
+                            {isLast ? 'Wrap up' : 'Next exercise'}
+                            <i className="fa-solid fa-arrow-right ml-2 text-xs" aria-hidden="true" />
+                        </Button>
+                    )}
                 </div>
             }
         >
             {w && (
-                <div className="flex flex-col gap-5">
-                    <PaceBanner slots={slots} completedAt={times} names={drafts.map((d) => d.name)} />
-
-                    <BringChips items={w.bring} />
-
+                <div ref={top} className="flex scroll-mt-5 flex-col gap-6">
                     {restoredFrom !== null && (
                         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-marigold-200 bg-marigold-50 px-3 py-2 text-xs text-amber-800">
                             <span className="inline-flex items-center gap-2">
@@ -687,271 +706,524 @@ export default function WorkoutLogWeightsDrawer({
                             This workout has no exercises to record.
                         </p>
                     ) : (
-                        <div className="flex flex-col gap-3">
-                            {drafts.map((ex, ei) => {
-                                if (ex.removed) return null
-                                const done = ex.completedAt != null
-                                const folded = done && !expanded.has(ei)
-                                const summary = ex.sets.map(setSummary).filter(Boolean)
-                                return (
-                                    <div key={ei} className="flex flex-col gap-2">
-                                        {phased && phaseStarts(ei) && (
-                                            <PhaseHeading
-                                                phase={phaseOf(ex)}
-                                                meta={phaseSpan(
-                                                    slots.filter(
-                                                        (_, i) =>
-                                                            !drafts[i]?.removed &&
-                                                            phaseOf(drafts[i]) === phaseOf(ex)
-                                                    )
-                                                )}
-                                                className={ei === 0 ? '' : 'mt-4'}
+                        <>
+                            <StepperBar
+                                drafts={drafts}
+                                active={active}
+                                step={onSummary ? 'summary' : step}
+                                onGo={goTo}
+                            />
+
+                            {pos === 0 && <BringChips items={w.bring} />}
+
+                            {onSummary || typeof step !== 'number' ? (
+                                <WrapUp
+                                    drafts={drafts}
+                                    active={active}
+                                    skipped={skipped}
+                                    exercisesDone={exercisesDone}
+                                    setsDone={setsDone}
+                                    volume={volume}
+                                    notes={notes}
+                                    date={date}
+                                    onNotes={(v) => {
+                                        markDirty()
+                                        setNotes(v)
+                                    }}
+                                    onDate={(v) => {
+                                        markDirty()
+                                        setDate(v)
+                                    }}
+                                    onGo={goTo}
+                                    onRestore={restoreExercise}
+                                />
+                            ) : (
+                                <ExerciseStep
+                                    ex={current!}
+                                    line={lines[step]}
+                                    number={pos + 1}
+                                    total={active.length}
+                                    videoUrl={resolved.get(current!.exerciseId)?.videoUrl}
+                                    swapPicker={
+                                        swapping && resolved.get(current!.exerciseId) ? (
+                                            <ExerciseSwapPicker
+                                                target={resolved.get(current!.exerciseId)!}
+                                                library={library}
+                                                excludeIds={inSession}
+                                                onPick={(picked) => applySwap(step, picked)}
+                                                onCreate={handleCreateExercise}
+                                                onCancel={() => setSwapping(false)}
                                             />
-                                        )}
-                                        <section
-                                            ref={(el) => {
-                                                cards.current[ei] = el
-                                            }}
-                                            className={`flex flex-col gap-3 rounded-2xl border p-3 transition-colors sm:p-4 ${
-                                                done
-                                                    ? 'border-emerald-200 bg-emerald-50/30'
-                                                    : ei === nextIndex
-                                                      ? 'border-coral-200 ring-1 ring-coral-100'
-                                                      : 'border-neutral-200'
-                                            }`}
-                                        >
-                                            {/* Header: name, planned slot, target; swap and skip. */}
-                                            <div className="flex items-start justify-between gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => done && toggleExpanded(ei)}
-                                                    className={`min-w-0 text-left ${done ? 'cursor-pointer' : 'cursor-default'}`}
-                                                    aria-expanded={done ? !folded : undefined}
-                                                >
-                                                    <p className="text-base font-semibold text-neutral-900">
-                                                        {ex.name}
-                                                    </p>
-                                                    <p className="mt-0.5 text-xs text-neutral-500">
-                                                        {folded
-                                                            ? summary.length
-                                                                ? summary.join(' · ')
-                                                                : 'No sets recorded'
-                                                            : ex.prescription
-                                                              ? `Target ${ex.prescription}`
-                                                              : 'No target set'}
-                                                    </p>
-                                                </button>
-                                                <div className="flex shrink-0 items-center gap-1">
-                                                    <SlotChip slot={slots[ei] ?? {}} />
-                                                    <VideoButton
-                                                        url={resolved.get(ex.exerciseId)?.videoUrl}
-                                                        title={ex.name}
-                                                    />
-                                                    {!folded && (
-                                                        <>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setSwapping(
-                                                                        swapping === ei ? null : ei
-                                                                    )
-                                                                }
-                                                                aria-expanded={swapping === ei}
-                                                                aria-label={`Swap ${ex.name}`}
-                                                                title="Machine taken? Swap this out"
-                                                                className="grid h-9 w-9 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
-                                                            >
-                                                                <i
-                                                                    className="fa-solid fa-right-left text-xs"
-                                                                    aria-hidden="true"
-                                                                />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => removeExercise(ei)}
-                                                                aria-label={`Skip ${ex.name}`}
-                                                                title="Skip this exercise today"
-                                                                className="grid h-9 w-9 place-items-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-coral-600"
-                                                            >
-                                                                <i
-                                                                    className="fa-solid fa-ban text-[11px]"
-                                                                    aria-hidden="true"
-                                                                />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {ex.swappedFrom && !folded && (
-                                                <p className="-mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-500">
-                                                    <span>
-                                                        Swapped in for{' '}
-                                                        <span className="font-medium text-neutral-500">
-                                                            {ex.swappedFrom.name}
-                                                        </span>
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => undoSwap(ei)}
-                                                        className="font-medium text-coral-600 transition-colors hover:text-coral-700"
-                                                    >
-                                                        Undo
-                                                    </button>
-                                                </p>
-                                            )}
-
-                                            {swapping === ei && resolved.get(ex.exerciseId) && (
-                                                <ExerciseSwapPicker
-                                                    target={resolved.get(ex.exerciseId)!}
-                                                    library={library}
-                                                    excludeIds={inSession}
-                                                    onPick={(picked) => applySwap(ei, picked)}
-                                                    onCreate={handleCreateExercise}
-                                                    onCancel={() => setSwapping(null)}
-                                                />
-                                            )}
-
-                                            {!folded && (
-                                                <div className="flex flex-col gap-2">
-                                                    <div className="grid grid-cols-[1.75rem_1fr_1fr_2.25rem] items-center gap-2 px-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                                        <span>Set</span>
-                                                        <span>kg</span>
-                                                        <span>Reps</span>
-                                                        <span />
-                                                    </div>
-                                                    {ex.sets.map((s, si) => (
-                                                        <div
-                                                            key={si}
-                                                            className="grid grid-cols-[1.75rem_1fr_1fr_2.25rem] items-center gap-2"
-                                                        >
-                                                            <span className="grid h-7 w-7 place-items-center rounded-full bg-neutral-100 text-[11px] font-medium tabular-nums text-neutral-500">
-                                                                {si + 1}
-                                                            </span>
-                                                            <input
-                                                                type="number"
-                                                                inputMode="decimal"
-                                                                min={0}
-                                                                step="any"
-                                                                placeholder="—"
-                                                                aria-label={`Set ${si + 1} weight`}
-                                                                value={s.weight}
-                                                                onChange={(e) =>
-                                                                    updateSet(ei, si, {
-                                                                        weight: e.target.value,
-                                                                    })
-                                                                }
-                                                                className={inputCls}
-                                                            />
-                                                            <input
-                                                                type="number"
-                                                                inputMode="numeric"
-                                                                min={0}
-                                                                step="1"
-                                                                placeholder="—"
-                                                                aria-label={`Set ${si + 1} reps`}
-                                                                value={s.reps}
-                                                                onChange={(e) =>
-                                                                    updateSet(ei, si, {
-                                                                        reps: e.target.value,
-                                                                    })
-                                                                }
-                                                                className={inputCls}
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                aria-label={`Remove set ${si + 1}`}
-                                                                onClick={() => removeSet(ei, si)}
-                                                                disabled={ex.sets.length === 1}
-                                                                className="grid h-9 w-9 place-items-center rounded-xl text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-0"
-                                                            >
-                                                                <i className="fa-solid fa-xmark text-xs" />
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => addSet(ei)}
-                                                        className="inline-flex h-9 items-center gap-1.5 self-start rounded-lg px-2 text-xs font-semibold text-coral-600 transition-colors hover:bg-coral-50"
-                                                    >
-                                                        <i className="fa-solid fa-plus text-[11px]" />
-                                                        Add set
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            <CompleteButton
-                                                completedAt={ex.completedAt}
-                                                delta={pace.delta[ei]}
-                                                isNext={ei === nextIndex}
-                                                onComplete={() => complete(ei)}
-                                                onUndo={() => uncomplete(ei)}
-                                            />
-                                        </section>
-                                    </div>
-                                )
-                            })}
-
-                            {skipped.length === drafts.length && (
-                                <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500">
-                                    Every exercise skipped — finishing records the session with no
-                                    lifts against it.
-                                </p>
+                                        ) : null
+                                    }
+                                    swapping={swapping}
+                                    ticks={stepTicks.ticks[step]}
+                                    onToggleStep={(s) => stepTicks.toggle(step, s)}
+                                    onSwap={() => setSwapping((v) => !v)}
+                                    onUndoSwap={() => undoSwap(step)}
+                                    onSkip={() => skipExercise(step)}
+                                    onSet={(si, patch) => updateSet(step, si, patch)}
+                                    onToggleSet={(si) => toggleSet(step, si)}
+                                    onAddSet={() => addSet(step)}
+                                    onRemoveSet={() => removeLastSet(step)}
+                                />
                             )}
-
-                            {skipped.length > 0 && (
-                                <div className="flex flex-col gap-2 rounded-xl bg-neutral-50 px-3 py-3">
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Skipped today · left out of the log
-                                    </p>
-                                    {skipped.map(({ ex, i }) => (
-                                        <div
-                                            key={i}
-                                            className="flex items-center justify-between gap-2"
-                                        >
-                                            <span className="min-w-0 truncate text-sm text-neutral-500 line-through">
-                                                {ex.name}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                onClick={() => restoreExercise(i)}
-                                                className="shrink-0 px-1 py-1 text-xs font-semibold text-coral-600 transition-colors hover:text-coral-700"
-                                            >
-                                                Put back
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                        </>
                     )}
-
-                    <Textarea
-                        label="Notes"
-                        rows={3}
-                        placeholder="How did it go? Anything to remember for next time…"
-                        value={notes}
-                        onChange={(e) => {
-                            markDirty()
-                            setNotes(e.target.value)
-                        }}
-                    />
-
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-[13px] font-medium text-neutral-700">
-                            Date
-                        </label>
-                        <DatePicker
-                            value={date}
-                            maxDate={todayISO()}
-                            onChange={(v) => {
-                                markDirty()
-                                setDate(typeof v === 'string' ? v : todayISO())
-                            }}
-                        />
-                    </div>
                 </div>
             )}
         </Drawer>
+    )
+}
+
+// ─── Stepper bar ────────────────────────────────────────────────────────────────
+
+/**
+ * One segment per exercise being done today, then a flag for the wrap-up.
+ * Green once every set is ticked, pale green part-way, ink for where you are.
+ * Every segment jumps straight to its exercise.
+ */
+function StepperBar({
+    drafts,
+    active,
+    step,
+    onGo,
+}: {
+    drafts: ExerciseDraft[]
+    active: number[]
+    step: Step
+    onGo: (step: Step) => void
+}) {
+    return (
+        <nav aria-label="Exercises" className="flex items-center gap-1">
+            {active.map((i, n) => {
+                const ex = drafts[i]
+                const p = progressOf(ex)
+                const here = step === i
+                return (
+                    <button
+                        key={i}
+                        type="button"
+                        onClick={() => onGo(i)}
+                        aria-label={`Exercise ${n + 1}: ${ex.name}`}
+                        aria-current={here ? 'step' : undefined}
+                        className="group flex flex-1 items-center py-2"
+                    >
+                        <span
+                            className={`h-1.5 w-full rounded-full transition-colors ${
+                                here
+                                    ? 'bg-neutral-900'
+                                    : p === 'all'
+                                      ? 'bg-emerald-600'
+                                      : p === 'some'
+                                        ? 'bg-emerald-100'
+                                        : 'bg-neutral-200 group-hover:bg-neutral-300'
+                            }`}
+                        />
+                    </button>
+                )
+            })}
+            <button
+                type="button"
+                onClick={() => onGo('summary')}
+                aria-label="Wrap up"
+                aria-current={step === 'summary' ? 'step' : undefined}
+                className={`ml-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] transition-colors ${
+                    step === 'summary'
+                        ? 'bg-neutral-900 text-white'
+                        : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                }`}
+            >
+                <i className="fa-solid fa-flag-checkered" aria-hidden="true" />
+            </button>
+        </nav>
+    )
+}
+
+// ─── One exercise ───────────────────────────────────────────────────────────────
+
+const inputCls =
+    'h-12 w-full min-w-0 rounded-xl border bg-white px-2 text-center text-base font-semibold tabular-nums text-neutral-900 outline-none transition-[border-color,box-shadow] placeholder:font-normal placeholder:text-neutral-400 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none'
+
+function ExerciseStep({
+    ex,
+    line,
+    number,
+    total,
+    videoUrl,
+    swapping,
+    swapPicker,
+    ticks,
+    onToggleStep,
+    onSwap,
+    onUndoSwap,
+    onSkip,
+    onSet,
+    onToggleSet,
+    onAddSet,
+    onRemoveSet,
+}: {
+    ex: ExerciseDraft
+    line?: WorkoutExercise
+    number: number
+    total: number
+    videoUrl?: string
+    swapping: boolean
+    swapPicker: ReactNode
+    ticks?: number[]
+    onToggleStep: (step: number) => void
+    onSwap: () => void
+    onUndoSwap: () => void
+    onSkip: () => void
+    onSet: (si: number, patch: Partial<SetDraft>) => void
+    onToggleSet: (si: number) => void
+    onAddSet: () => void
+    onRemoveSet: () => void
+}) {
+    const done = ex.sets.filter((s) => s.done).length
+    // The set you're on: the first not ticked.
+    const nextSet = ex.sets.findIndex((s) => !s.done)
+    const rest = line?.rest?.trim()
+
+    return (
+        <div className="flex flex-col gap-7">
+            <header className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                        Exercise {number} of {total}
+                    </span>
+                    <PhaseChip phase={phaseOf(ex)} />
+                </div>
+                <div>
+                    <h3 className="text-2xl font-semibold leading-tight tracking-[-0.02em] text-neutral-900">
+                        {ex.name}
+                    </h3>
+                    <p className="mt-1.5 text-[15px] font-medium text-coral-600">
+                        {ex.prescription ? `Target ${ex.prescription}` : 'No target set'}
+                        {rest && <span className="font-normal text-neutral-500"> · rest {rest}</span>}
+                    </p>
+                    {ex.swappedFrom && (
+                        <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
+                            <span>
+                                Swapped in for{' '}
+                                <span className="font-medium text-neutral-700">
+                                    {ex.swappedFrom.name}
+                                </span>
+                            </span>
+                            <button
+                                type="button"
+                                onClick={onUndoSwap}
+                                className="font-medium text-coral-600 transition-colors hover:text-coral-700"
+                            >
+                                Undo
+                            </button>
+                        </p>
+                    )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    <StepAction
+                        icon="fa-solid fa-right-left"
+                        label="Swap"
+                        pressed={swapping}
+                        title="Machine taken? Swap this out"
+                        onClick={onSwap}
+                    />
+                    <StepAction
+                        icon="fa-solid fa-forward"
+                        label="Skip"
+                        title="Skip this exercise today"
+                        onClick={onSkip}
+                    />
+                    <VideoButton url={videoUrl} title={ex.name} />
+                </div>
+            </header>
+
+            {swapPicker}
+
+            {(line?.notes || !!line?.steps?.length) && (
+                <div className="flex flex-col gap-4">
+                    <ItemCue>{line?.notes}</ItemCue>
+                    <StepChecklist steps={line?.steps} ticked={ticks} onToggle={onToggleStep} />
+                </div>
+            )}
+
+            <section className="flex flex-col gap-2">
+                <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                        Sets
+                    </span>
+                    <span
+                        className={`text-xs font-semibold tabular-nums ${done === ex.sets.length ? 'text-emerald-700' : 'text-neutral-500'}`}
+                    >
+                        {done === ex.sets.length ? 'All done' : `${done}/${ex.sets.length} done`}
+                    </span>
+                </div>
+                <div className="grid grid-cols-[2.25rem_1fr_1fr_3rem] items-center gap-2 px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400">
+                    <span />
+                    <span className="text-center">kg</span>
+                    <span className="text-center">Reps</span>
+                    <span />
+                </div>
+                {ex.sets.map((s, si) => {
+                    const here = si === nextSet
+                    const prevWeight = si > 0 ? ex.sets[si - 1].weight : ''
+                    return (
+                        <div
+                            key={si}
+                            className={`grid grid-cols-[2.25rem_1fr_1fr_3rem] items-center gap-2 rounded-2xl p-1 transition-colors ${
+                                s.done ? 'bg-emerald-50' : here ? 'bg-neutral-50' : ''
+                            }`}
+                        >
+                            <span
+                                className={`grid h-9 w-9 place-items-center text-sm font-semibold tabular-nums ${
+                                    s.done
+                                        ? 'text-emerald-700'
+                                        : here
+                                          ? 'text-neutral-900'
+                                          : 'text-neutral-400'
+                                }`}
+                            >
+                                {si + 1}
+                            </span>
+                            <input
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                step="any"
+                                placeholder={prevWeight || '—'}
+                                aria-label={`Set ${si + 1} weight`}
+                                value={s.weight}
+                                onChange={(e) => onSet(si, { weight: e.target.value })}
+                                className={`${inputCls} ${s.done ? 'border-emerald-200' : 'border-neutral-200'}`}
+                            />
+                            <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step="1"
+                                placeholder="—"
+                                aria-label={`Set ${si + 1} reps`}
+                                value={s.reps}
+                                onChange={(e) => onSet(si, { reps: e.target.value })}
+                                className={`${inputCls} ${s.done ? 'border-emerald-200' : 'border-neutral-200'}`}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => onToggleSet(si)}
+                                aria-pressed={!!s.done}
+                                aria-label={s.done ? `Untick set ${si + 1}` : `Tick off set ${si + 1}`}
+                                className={`grid h-12 w-12 place-items-center rounded-xl transition-colors ${
+                                    s.done
+                                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                        : here
+                                          ? 'bg-neutral-900 text-white hover:bg-neutral-800'
+                                          : 'border border-neutral-200 bg-white text-neutral-300 hover:text-neutral-600'
+                                }`}
+                            >
+                                <i className="fa-solid fa-check" aria-hidden="true" />
+                            </button>
+                        </div>
+                    )
+                })}
+                <div className="flex items-center gap-1 pt-1">
+                    <button
+                        type="button"
+                        onClick={onAddSet}
+                        className="inline-flex h-10 items-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-coral-600 transition-colors hover:bg-coral-50"
+                    >
+                        <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                        Add set
+                    </button>
+                    {ex.sets.length > 1 && (
+                        <button
+                            type="button"
+                            onClick={onRemoveSet}
+                            className="inline-flex h-10 items-center rounded-[10px] px-3 text-sm font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
+                        >
+                            Remove last
+                        </button>
+                    )}
+                </div>
+            </section>
+        </div>
+    )
+}
+
+function StepAction({
+    icon,
+    label,
+    title,
+    pressed,
+    onClick,
+}: {
+    icon: string
+    label: string
+    title: string
+    pressed?: boolean
+    onClick: () => void
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            title={title}
+            aria-pressed={pressed}
+            className={`inline-flex h-9 items-center gap-2 rounded-[10px] border px-3 text-[13px] font-medium transition-colors ${
+                pressed
+                    ? 'border-neutral-900 bg-neutral-900 text-white'
+                    : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+            }`}
+        >
+            <i className={`${icon} text-[11px]`} aria-hidden="true" />
+            {label}
+        </button>
+    )
+}
+
+// ─── Wrap-up ────────────────────────────────────────────────────────────────────
+
+function WrapUp({
+    drafts,
+    active,
+    skipped,
+    exercisesDone,
+    setsDone,
+    volume,
+    notes,
+    date,
+    onNotes,
+    onDate,
+    onGo,
+    onRestore,
+}: {
+    drafts: ExerciseDraft[]
+    active: number[]
+    skipped: { ex: ExerciseDraft; i: number }[]
+    exercisesDone: number
+    setsDone: number
+    volume: number
+    notes: string
+    date: string
+    onNotes: (v: string) => void
+    onDate: (v: string) => void
+    onGo: (step: Step) => void
+    onRestore: (i: number) => void
+}) {
+    return (
+        <div className="flex flex-col gap-7">
+            <header>
+                <h3 className="text-2xl font-semibold tracking-[-0.02em] text-neutral-900">
+                    Wrap up
+                </h3>
+                <p className="mt-1 text-sm text-neutral-500">
+                    Check it over, add a note, and finish.
+                </p>
+            </header>
+
+            <dl className="grid grid-cols-3 gap-2">
+                {[
+                    { label: 'Exercises', value: `${exercisesDone}/${active.length}` },
+                    { label: 'Sets', value: setsDone },
+                    { label: 'Volume', value: `${volume.toLocaleString()} kg` },
+                ].map((s) => (
+                    <div
+                        key={s.label}
+                        className="flex min-w-0 flex-col gap-1 rounded-2xl bg-neutral-50 px-3.5 py-3"
+                    >
+                        <dt className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                            {s.label}
+                        </dt>
+                        <dd className="truncate text-base font-semibold tabular-nums text-neutral-900">
+                            {s.value}
+                        </dd>
+                    </div>
+                ))}
+            </dl>
+
+            {active.length > 0 && (
+                <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                    {active.map((i) => {
+                        const ex = drafts[i]
+                        const p = progressOf(ex)
+                        const sets = ex.sets.filter((s) => s.done).map(setSummary)
+                        return (
+                            <li key={i}>
+                                <button
+                                    type="button"
+                                    onClick={() => onGo(i)}
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors first:rounded-t-2xl hover:bg-neutral-50"
+                                >
+                                    <span
+                                        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] ${
+                                            p === 'all'
+                                                ? 'bg-emerald-600 text-white'
+                                                : p === 'some'
+                                                  ? 'bg-emerald-100 text-emerald-700'
+                                                  : 'bg-neutral-100 text-neutral-400'
+                                        }`}
+                                    >
+                                        <i
+                                            className={`fa-solid ${p === 'none' ? 'fa-minus' : 'fa-check'}`}
+                                            aria-hidden="true"
+                                        />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-sm font-semibold text-neutral-900">
+                                            {ex.name}
+                                        </span>
+                                        <span className="block truncate text-xs tabular-nums text-neutral-500">
+                                            {sets.length ? sets.join(' · ') : 'Nothing ticked yet'}
+                                        </span>
+                                    </span>
+                                    <i
+                                        className="fa-solid fa-chevron-right text-[11px] text-neutral-300"
+                                        aria-hidden="true"
+                                    />
+                                </button>
+                            </li>
+                        )
+                    })}
+                </ul>
+            )}
+
+            {skipped.length > 0 && (
+                <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 px-4 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                        Skipped today · left out of the log
+                    </p>
+                    {skipped.map(({ ex, i }) => (
+                        <div key={i} className="flex items-center justify-between gap-2">
+                            <span className="min-w-0 truncate text-sm text-neutral-500 line-through">
+                                {ex.name}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => onRestore(i)}
+                                className="shrink-0 px-1 py-1 text-xs font-semibold text-coral-600 transition-colors hover:text-coral-700"
+                            >
+                                Put back
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <Textarea
+                label="Notes"
+                rows={3}
+                placeholder="How did it go? Anything to remember for next time…"
+                value={notes}
+                onChange={(e) => onNotes(e.target.value)}
+            />
+
+            <div className="flex flex-col gap-1.5">
+                <label className="text-[13px] font-medium text-neutral-700">Date</label>
+                <DatePicker
+                    value={date}
+                    maxDate={todayISO()}
+                    onChange={(v) => onDate(typeof v === 'string' ? v : todayISO())}
+                />
+            </div>
+        </div>
     )
 }

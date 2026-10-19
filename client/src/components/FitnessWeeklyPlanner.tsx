@@ -1,6 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
-import { BringChecklist } from './BringList'
-import PhaseHeading, { phaseSpan } from './PhaseHeading'
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
@@ -13,12 +11,11 @@ import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
 import ConditioningSessionDetail from './ConditioningSessionDetail'
 import { SaveStatus } from './SessionPace'
-import { VideoButton } from './ExerciseVideo'
+import { useStepTicks, workoutStepsKey } from './session/SessionUI'
+import WorkoutDetail from './session/WorkoutDetail'
 import { useConditioningLog } from './useConditioningLog'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
-import { listRecovery } from '../services/recovery'
-import { listMobility } from '../services/mobility'
 import { listExercises } from '../services/exercises'
 import {
     createLog as createWorkoutLog,
@@ -32,11 +29,6 @@ import {
     listLogs as listConditioningLogs,
     deleteLog as deleteConditioningLog,
 } from '../services/conditioningLogs'
-import {
-    createLog as createRecoveryLog,
-    listLogs as listRecoveryLogs,
-    deleteLog as deleteRecoveryLog,
-} from '../services/recoveryLogs'
 import { useToast } from '../context/ToastContext'
 import { listEvents } from '../services/events'
 import {
@@ -57,16 +49,12 @@ import {
     FITNESS_PLAN_KINDS,
     FITNESS_PLAN_PARTS,
     FITNESS_FLAG_COLORS,
-    SESSION_PHASES,
 } from '../types'
 import type {
     Workout,
-    WorkoutExercise,
     Exercise,
     ConditioningSession,
     ConditioningCategory,
-    Recovery,
-    Mobility,
     FitnessPlanEntry,
     FitnessPlanKind,
     FitnessPlanPart,
@@ -87,15 +75,12 @@ import {
 } from '../lib/calendar'
 import { findOverloads, findFreeSlot, type Overload } from '../lib/overload'
 import {
-    WeekHero,
-    HeroChip,
+    HeroShell,
+    HeroIconButton,
     HeroButton,
-    HeroJumpPicker,
-    ProgressRing,
     DayStrip,
     DayPill,
     EditBar,
-    DayBadge,
     DayCardShell,
     SwipeHint,
     dayCardId,
@@ -106,8 +91,7 @@ import {
     useMediaQuery,
     LARGE_QUERY,
 } from './planner/WeekPlannerUI'
-import { estimateWorkoutMinutes, mapPhases } from '../lib/phases'
-import { hasSlot, slotLabel } from '../lib/sessionPace'
+import { estimateWorkoutMinutes } from '../lib/phases'
 import { restDayNote } from '../lib/restDayMessage'
 
 // ─── Kind presentation ────────────────────────────────────────────────────────
@@ -115,8 +99,6 @@ import { restDayNote } from '../lib/restDayMessage'
 const KIND_META: Record<FitnessPlanKind, { label: string; noun: string; icon: string }> = {
     workout: { label: 'Strength', noun: 'workout', icon: 'fa-solid fa-dumbbell' },
     conditioning: { label: 'Conditioning', noun: 'session', icon: 'fa-solid fa-heart-pulse' },
-    mobility: { label: 'Mobility', noun: 'routine', icon: 'fa-solid fa-person-walking' },
-    recovery: { label: 'Recovery', noun: 'item', icon: 'fa-solid fa-spa' },
 }
 
 /** A short lower-case description of a set of kinds, e.g. "strength" or "everything". */
@@ -126,8 +108,8 @@ function kindsLabel(kinds: FitnessPlanKind[]): string {
 }
 
 // Each plan kind carries its own colour so the categories read apart at a
-// glance — coral for strength, sky for conditioning, amber for mobility,
-// emerald for recovery (matching the chips used elsewhere in Fitness).
+// glance — coral for strength, sky for conditioning (matching the chips used
+// elsewhere in Fitness).
 const KIND_TONE: Record<
     FitnessPlanKind,
     { label: string; icon: string; row: string; chip: string; tile: string; dot: string }
@@ -147,22 +129,6 @@ const KIND_TONE: Record<
         chip: 'bg-sky-50 text-sky-700',
         tile: 'bg-sky-50 text-sky-500',
         dot: 'bg-sky-500',
-    },
-    mobility: {
-        label: 'text-amber-600',
-        icon: 'text-amber-500',
-        row: 'border-l-2 border-amber-300 bg-amber-50/60',
-        chip: 'bg-amber-50 text-amber-700',
-        tile: 'bg-amber-50 text-amber-500',
-        dot: 'bg-amber-500',
-    },
-    recovery: {
-        label: 'text-emerald-600',
-        icon: 'text-emerald-500',
-        row: 'border-l-2 border-emerald-300 bg-emerald-50/60',
-        chip: 'bg-emerald-50 text-emerald-700',
-        tile: 'bg-emerald-50 text-emerald-500',
-        dot: 'bg-emerald-500',
     },
 }
 
@@ -242,9 +208,7 @@ function partOf(entry: FitnessPlanEntry): FitnessPlanPart {
 /** The display name of a planned item, whichever library it comes from. */
 function planItemName(entry: FitnessPlanEntry): string | undefined {
     if (entry.kind === 'workout') return entry.workout?.name
-    if (entry.kind === 'conditioning') return entry.session?.name
-    if (entry.kind === 'mobility') return entry.mobility?.name
-    return entry.recovery?.name
+    return entry.session?.name
 }
 
 // ─── Completion (done) tracking ────────────────────────────────────────────────
@@ -252,8 +216,7 @@ function planItemName(entry: FitnessPlanEntry): string | undefined {
 /**
  * A planned item is "done" once a matching log exists for its library item on its
  * day. Logs are keyed by kind + library id + date so a tick can be shown on the
- * planned row. Strength and conditioning always logged this way; mobility and
- * recovery now log the same, giving every category a completion record.
+ * planned row.
  */
 function doneKey(kind: FitnessPlanKind, libId: string, date: string): string {
     return `${kind}:${libId}:${date}`
@@ -262,9 +225,7 @@ function doneKey(kind: FitnessPlanKind, libId: string, date: string): string {
 /** The library item id behind a planned entry, whichever category it is. */
 function entryLibId(entry: FitnessPlanEntry): string | undefined {
     if (entry.kind === 'workout') return entry.workout?._id
-    if (entry.kind === 'conditioning') return entry.session?._id
-    if (entry.kind === 'mobility') return entry.mobility?._id
-    return entry.recovery?._id
+    return entry.session?._id
 }
 
 /**
@@ -295,7 +256,6 @@ function snapshotWeek(
                     order: e.order,
                     ignoreClash: e.ignoreClash === true,
                     ignoreOverload: e.ignoreOverload === true,
-                    ...(e.done ? { done: true } : {}),
                 },
             ]
         }),
@@ -315,15 +275,6 @@ function entryDoneKey(entry: FitnessPlanEntry): string | null {
 }
 
 /** Compact "3 × 8-12" / "3 sets" / "8-12 reps" label, or '' when neither is set. */
-function formatSetsReps(e: { sets?: number; reps?: string }): string {
-    const sets = e.sets && e.sets > 0 ? e.sets : undefined
-    const reps = e.reps?.trim() || undefined
-    if (sets && reps) return `${sets} × ${reps}`
-    if (sets) return `${sets} ${sets === 1 ? 'set' : 'sets'}`
-    if (reps) return `${reps} reps`
-    return ''
-}
-
 const CATEGORY_CHIP: Record<ConditioningCategory, string> = {
     HIIT: 'bg-rose-50 text-rose-700 ring-rose-600/20',
     Cardio: 'bg-sky-50 text-sky-700 ring-sky-600/20',
@@ -492,8 +443,6 @@ function findFreeSlotAround(
 interface WeekTally {
     workouts: number
     sessions: number
-    mobility: number
-    recovery: number
     /** Total planned conditioning minutes across the range. */
     minutes: number
 }
@@ -502,37 +451,22 @@ function tally(entries: FitnessPlanEntry[]): WeekTally {
     return entries.reduce<WeekTally>(
         (acc, e) => {
             if (e.kind === 'workout') acc.workouts += 1
-            else if (e.kind === 'conditioning') {
+            else {
                 acc.sessions += 1
                 acc.minutes += e.session?.duration ?? 0
-            } else if (e.kind === 'mobility') acc.mobility += 1
-            else acc.recovery += 1
+            }
             return acc
         },
-        { workouts: 0, sessions: 0, mobility: 0, recovery: 0, minutes: 0 }
+        { workouts: 0, sessions: 0, minutes: 0 }
     )
 }
 
 // ─── Planner ────────────────────────────────────────────────────────────────────
 
-/**
- * How the week lays out on a wide screen: `week` is a full-width board with the
- * seven days side by side; `days` is the feed of day cards, one under another.
- * Phones always show one day at a time.
- */
-export type PlannerLayout = 'week' | 'days'
-
-export default function FitnessWeeklyPlanner({
-    startOn,
-    layout = 'week',
-    onLayoutChange,
-}: {
-    startOn?: string
-    layout?: PlannerLayout
-    onLayoutChange?: (layout: PlannerLayout) => void
-}) {
-    const isLarge = useMediaQuery(LARGE_QUERY)
-    const board = isLarge && layout === 'week'
+export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) {
+    // Wide screens always get the full-width week board; smaller ones a day feed
+    // (one day at a time on a phone).
+    const board = useMediaQuery(LARGE_QUERY)
     // The anchor is any day inside the week on show; the week's Monday is derived
     // from it. Planning is week by week — one calendar week at a time. `startOn`
     // opens on a different week — applying a plan whose first session is next
@@ -540,8 +474,6 @@ export default function FitnessWeeklyPlanner({
     const [anchor, setAnchor] = useState(() => startOn ?? todayKey())
     const [workouts, setWorkouts] = useState<Workout[]>([])
     const [sessions, setSessions] = useState<ConditioningSession[]>([])
-    const [recovery, setRecovery] = useState<Recovery[]>([])
-    const [mobility, setMobility] = useState<Mobility[]>([])
     const [exercises, setExercises] = useState<Exercise[]>([])
     const [libLoading, setLibLoading] = useState(true)
     const [entries, setEntries] = useState<FitnessPlanEntry[]>([])
@@ -553,8 +485,8 @@ export default function FitnessWeeklyPlanner({
     // exists — and undo it by deleting that log again.
     const [doneLogs, setDoneLogs] = useState<Map<string, string>>(new Map())
     const [loading, setLoading] = useState(true)
-    // The picker always targets one day + slot; the type (strength / conditioning /
-    // recovery) and the slot are then chosen inside the drawer.
+    // The picker always targets one day + slot; the type (strength / conditioning)
+    // and the slot are then chosen inside the drawer.
     const [picker, setPicker] = useState<{ date: string; part: FitnessPlanPart } | null>(null)
     // A day or week whose flag+label is being edited (opens the flag editor).
     const [flagTarget, setFlagTarget] = useState<{
@@ -616,21 +548,13 @@ export default function FitnessWeeklyPlanner({
         })
     }
 
-    // Mobility is supplementary and keeps no logs: its tick lives on the entry.
-    async function setMobilityDone(entry: FitnessPlanEntry, done: boolean) {
-        await updatePlanEntry(entry._id, { done })
-        setEntries((prev) => prev.map((e) => (e._id === entry._id ? { ...e, done } : e)))
-    }
-
     // Undo a completion: delete the log behind it, in whichever category's log it
     // was recorded, then untick the row. Marking done can always be redone.
     async function handleUnlog(entry: FitnessPlanEntry, logId: string) {
-        if (entry.kind === 'mobility') return setMobilityDone(entry, false)
         const libId = entryLibId(entry)
         if (!libId) return
         if (entry.kind === 'workout') await deleteWorkoutLog(logId)
-        else if (entry.kind === 'conditioning') await deleteConditioningLog(logId)
-        else await deleteRecoveryLog(logId)
+        else await deleteConditioningLog(logId)
         clearDoneKey(entry.kind, libId, entry.date)
     }
 
@@ -655,15 +579,11 @@ export default function FitnessWeeklyPlanner({
         Promise.all([
             listWorkouts(),
             listSessions(),
-            listRecovery(),
-            listMobility(),
             listExercises(),
         ])
-            .then(([wk, se, re, mo, ex]) => {
+            .then(([wk, se, ex]) => {
                 setWorkouts(wk)
                 setSessions(se)
-                setRecovery(re)
-                setMobility(mo)
                 setExercises(ex)
             })
             .finally(() => setLibLoading(false))
@@ -688,9 +608,8 @@ export default function FitnessWeeklyPlanner({
             listEvents(range.start, range.end).catch(() => [] as Event[]),
             listWorkoutLogs().catch(() => []),
             listConditioningLogs().catch(() => []),
-            listRecoveryLogs().catch(() => []),
         ])
-            .then(([rows, noteRows, eventRows, wLogs, cLogs, rLogs]) => {
+            .then(([rows, noteRows, eventRows, wLogs, cLogs]) => {
                 if (!active) return
                 setEntries(rows)
                 setNotes(noteRows)
@@ -705,9 +624,6 @@ export default function FitnessWeeklyPlanner({
                 for (const l of cLogs)
                     if (l.session && inRange(l.date))
                         keys.set(doneKey('conditioning', l.session, l.date), l._id)
-                for (const l of rLogs)
-                    if (l.recovery && inRange(l.date))
-                        keys.set(doneKey('recovery', l.recovery, l.date), l._id)
                 setDoneLogs(keys)
             })
             .finally(() => active && setLoading(false))
@@ -988,11 +904,7 @@ export default function FitnessWeeklyPlanner({
         return m
     }, [entries])
 
-    const libraryEmpty =
-        workouts.length === 0 &&
-        sessions.length === 0 &&
-        recovery.length === 0 &&
-        mobility.length === 0
+    const libraryEmpty = workouts.length === 0 && sessions.length === 0
 
     // Which categories the displayed week already holds — a paste only needs
     // confirmation when it would overwrite one of these.
@@ -1004,18 +916,14 @@ export default function FitnessWeeklyPlanner({
 
     const rangeLabel = formatWeekRange(range.start, range.end)
 
-    // Whether a planned item has a matching completion log on its day — or, for
-    // mobility, which keeps no logs, whether the entry itself is ticked.
+    // Whether a planned item has a matching completion log on its day.
     const isDone = (entry: FitnessPlanEntry) => {
-        if (entry.kind === 'mobility') return entry.done === true
         const k = entryDoneKey(entry)
         return k ? doneLogs.has(k) : false
     }
 
-    // The id of the log that completed a planned item, when there is one. A
-    // ticked mobility entry is its own record, so it hands back its own id.
+    // The id of the log that completed a planned item, when there is one.
     const doneLogIdOf = (entry: FitnessPlanEntry) => {
-        if (entry.kind === 'mobility') return entry.done ? entry._id : null
         const k = entryDoneKey(entry)
         return (k ? doneLogs.get(k) : undefined) ?? null
     }
@@ -1072,8 +980,6 @@ export default function FitnessWeeklyPlanner({
                 }}
                 onExport={() => setExportOpen(true)}
                 board={board}
-                layout={layout}
-                onLayoutChange={onLayoutChange}
             />
 
             {editing && (
@@ -1150,8 +1056,6 @@ export default function FitnessWeeklyPlanner({
                 editable={editing}
                 workouts={workouts}
                 sessions={sessions}
-                recovery={recovery}
-                mobility={mobility}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
                 isDone={isDone}
                 onClose={() => setPicker(null)}
@@ -1169,7 +1073,6 @@ export default function FitnessWeeklyPlanner({
                     const id = entryLibId(entry)
                     if (id) markDoneKey(entry.kind, id, entry.date, logId)
                 }}
-                onTickMobility={setMobilityDone}
                 onUnlog={handleUnlog}
                 onLogWeights={(workout, date) => {
                     setDetail(null)
@@ -1983,8 +1886,6 @@ function FitnessWeekHero({
     onStartEditing,
     onExport,
     board,
-    layout,
-    onLayoutChange,
 }: {
     weekStart: string
     /** The focused day (the planner's anchor). */
@@ -2009,96 +1910,102 @@ function FitnessWeekHero({
     onExport: () => void
     /** The full-width week board is showing — it does the strip's job. */
     board: boolean
-    layout: PlannerLayout
-    onLayoutChange?: (layout: PlannerLayout) => void
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
     const t = tally(entries)
-    const toggle = onLayoutChange && (
-        <LayoutToggle value={layout} onChange={onLayoutChange} className="hidden lg:inline-flex" />
-    )
     const total = entries.length
     const done = entries.filter(isDone).length
     const flag = weekNote ? FLAG_TONE[weekNote.color] : null
-    const countOf: Record<FitnessPlanKind, number> = {
-        workout: t.workouts,
-        conditioning: t.sessions,
-        mobility: t.mobility,
-        recovery: t.recovery,
-    }
+    const isThisWeek = mondayOf(today) === weekStart
+    const goToday = () => onPick(today)
+
+    // Everything about the week in one line of text, rather than a row of chips.
+    const facts = [
+        rangeLabel,
+        ready && total > 0 && `${done} of ${total} done`,
+        ready && t.workouts > 0 && `${t.workouts} strength`,
+        ready && t.sessions > 0 && `${t.sessions} conditioning`,
+        ready && t.minutes > 0 && `${t.minutes} min cardio`,
+        ready && total === 0 && 'nothing planned yet',
+    ].filter(Boolean)
+
+    const weekFlag =
+        weekNote && flag ? (
+            <button
+                type="button"
+                onClick={editing ? onEditFlag : undefined}
+                aria-label={editing ? 'Edit week flag' : undefined}
+                className={`inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-neutral-900 ring-1 ring-inset ring-neutral-900/[0.06] ${
+                    editing ? 'transition-opacity hover:opacity-80' : 'cursor-default'
+                }`}
+            >
+                <span className={`h-1.5 w-1.5 rounded-full ${flag.dot}`} aria-hidden="true" />
+                <span className="truncate">{weekNote.label || 'Flagged week'}</span>
+            </button>
+        ) : (
+            editing && (
+                <button
+                    type="button"
+                    onClick={onEditFlag}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-neutral-500 outline-1 -outline-offset-1 outline-dashed outline-coral-300 transition-colors hover:text-neutral-900"
+                >
+                    <i className="fa-solid fa-flag text-[10px]" aria-hidden="true" />
+                    Flag week
+                </button>
+            )
+        )
+
+    const showActions = canEdit && !editing
 
     return (
-        <WeekHero
-            title={relativeWeekLabel(weekStart, mondayOf(today))}
-            subtitle={rangeLabel}
-            isThisWeek={mondayOf(today) === weekStart}
-            onStep={onStep}
-            onToday={() => onPick(today)}
-            ring={
-                <ProgressRing
-                    value={ready ? done : 0}
-                    max={ready ? total : 0}
-                    label="done"
-                    completeLabel="Week complete"
-                />
-            }
-        >
-            {/* What the week is made of */}
-            <div className="flex flex-wrap items-center gap-2">
-                {weekNote && flag ? (
-                    <button
-                        type="button"
-                        onClick={editing ? onEditFlag : undefined}
-                        aria-label={editing ? 'Edit week flag' : undefined}
-                        className={`inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-neutral-900 ${
-                            editing ? 'transition-opacity hover:opacity-90' : 'cursor-default'
-                        }`}
-                    >
-                        <span className={`h-2 w-2 rounded-full ${flag.dot}`} aria-hidden="true" />
-                        {weekNote.label || 'Flagged week'}
-                        {editing && (
-                            <i
-                                className="fa-solid fa-pen text-[11px] text-neutral-500"
-                                aria-hidden="true"
-                            />
-                        )}
-                    </button>
-                ) : (
-                    editing && (
-                        <button
-                            type="button"
-                            onClick={onEditFlag}
-                            className="inline-flex items-center gap-1.5 rounded-[10px] border border-dashed border-white/30 px-3 h-8 text-xs font-medium text-white/70 transition-colors hover:border-white/60 hover:text-white"
-                        >
-                            <i className="fa-solid fa-flag text-[11px]" aria-hidden="true" />
-                            Flag week
-                        </button>
-                    )
-                )}
-                {ready && total === 0 && (
-                    <span className="text-sm text-white/60">Nothing planned yet</span>
-                )}
-                {ready &&
-                    kindsIn(entries).map((k) => (
-                        <HeroChip key={k}>
-                            <span
-                                className={`h-2 w-2 rounded-full ${KIND_TONE[k].dot}`}
-                                aria-hidden="true"
-                            />
-                            <span className="tabular-nums">{countOf[k]}</span>
-                            <span className="font-medium text-white/70">{KIND_META[k].label}</span>
-                        </HeroChip>
-                    ))}
-                {ready && t.minutes > 0 && (
-                    <HeroChip>
-                        <i
-                            className="fa-regular fa-clock text-[11px] text-white/60"
-                            aria-hidden="true"
+        <HeroShell tone="soft">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="flex min-w-0 flex-1 basis-56 items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-1">
+                        <HeroIconButton
+                            label="Previous week"
+                            icon="fa-solid fa-chevron-left"
+                            onClick={() => onStep(-1)}
                         />
-                        <span className="tabular-nums">{t.minutes}</span>
-                        <span className="font-medium text-white/70">min cardio</span>
-                    </HeroChip>
-                )}
+                        <HeroIconButton
+                            label="Next week"
+                            icon="fa-solid fa-chevron-right"
+                            onClick={() => onStep(1)}
+                        />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                            <h2 className="truncate text-lg font-semibold tracking-tight">
+                                {relativeWeekLabel(weekStart, mondayOf(today))}
+                            </h2>
+                            {weekFlag}
+                        </div>
+                        <p className="truncate text-[13px] text-neutral-500">{facts.join(' · ')}</p>
+                    </div>
+                </div>
+
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                    {!isThisWeek && (
+                        <HeroButton icon="fa-solid fa-calendar-day" onClick={goToday}>
+                            Today
+                        </HeroButton>
+                    )}
+                    {showActions && (
+                        <>
+                            <HeroButton icon="fa-solid fa-file-export" onClick={onExport}>
+                                Export
+                            </HeroButton>
+                            <HeroButton
+                                primary
+                                icon="fa-solid fa-pen"
+                                onClick={onStartEditing}
+                                disabled={discarding}
+                            >
+                                Edit plan
+                            </HeroButton>
+                        </>
+                    )}
+                </div>
             </div>
 
             {!board && (
@@ -2120,73 +2027,7 @@ function FitnessWeekHero({
                     })}
                 </DayStrip>
             )}
-
-            {/* Actions — editing swaps these for the edit bar below the hero. */}
-            {canEdit && !editing ? (
-                <div className="flex flex-wrap items-center gap-2">
-                    <HeroButton
-                        primary
-                        icon="fa-solid fa-pen"
-                        onClick={onStartEditing}
-                        disabled={discarding}
-                    >
-                        Edit plan
-                    </HeroButton>
-                    <HeroButton icon="fa-solid fa-file-export" onClick={onExport}>
-                        Export
-                    </HeroButton>
-                    <div className="ml-auto flex items-center gap-2">
-                        {toggle}
-                        <HeroJumpPicker value={selected} onPick={onPick} />
-                    </div>
-                </div>
-            ) : (
-                toggle && <div className="hidden justify-end lg:flex">{toggle}</div>
-            )}
-        </WeekHero>
-    )
-}
-
-/** Week board or day feed — a glassy pair of pills on the hero, wide screens only. */
-function LayoutToggle({
-    value,
-    onChange,
-    className = '',
-}: {
-    value: PlannerLayout
-    onChange: (layout: PlannerLayout) => void
-    className?: string
-}) {
-    const options: { value: PlannerLayout; label: string; icon: string }[] = [
-        { value: 'week', label: 'Week', icon: 'fa-solid fa-table-columns' },
-        { value: 'days', label: 'Days', icon: 'fa-solid fa-list' },
-    ]
-    return (
-        <div
-            role="group"
-            aria-label="Layout"
-            className={`items-center gap-0.5 rounded-full bg-white/10 p-0.5 ring-1 ring-inset ring-white/15 ${className}`}
-        >
-            {options.map((o) => {
-                const on = o.value === value
-                return (
-                    <button
-                        key={o.value}
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => onChange(o.value)}
-                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                            on
-                                ? 'bg-white text-brand-700 shadow-sm'
-                                : 'text-white/70 hover:text-white'
-                        }`}
-                    >
-                        <i className={`${o.icon} text-[11px]`} aria-hidden="true" />
-                        {o.label}
-                    </button>
-                )
-            })}
-        </div>
+        </HeroShell>
     )
 }
 
@@ -2409,10 +2250,10 @@ function DayAlertButton({
             onClick={onClick}
             aria-label={label}
             title={label}
-            className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-semibold transition-colors ${cls}`}
+            className={`inline-flex h-7 min-w-7 shrink-0 items-center justify-center gap-1 rounded-lg px-1.5 text-xs font-semibold transition-colors ${cls}`}
         >
-            <i className={`${icon} text-[12px]`} aria-hidden="true" />
-            {count !== undefined && count > 1 && <span className="tabular-nums">{count}</span>}
+            <i className={`${icon} text-[11px]`} aria-hidden="true" />
+            {count !== undefined && count > 1 && <span>{count}</span>}
         </button>
     )
 }
@@ -2499,13 +2340,11 @@ function DayCard({
     const restNote = rest ? restDayNote(calendarEvents, date) : null
     const tone = note ? FLAG_TONE[note.color] : null
 
-    // Minutes across the day: sessions, mobility and recovery carry a duration;
-    // workouts use the same estimate as their detail view.
+    // Minutes across the day: sessions carry a duration; workouts use the same
+    // estimate as their detail view.
     const minutes = entries.reduce((sum, e) => {
         if (e.kind === 'workout') return sum + (e.workout ? estimateWorkoutMinutes(e.workout) : 0)
-        if (e.kind === 'conditioning') return sum + (e.session?.duration ?? 0)
-        if (e.kind === 'mobility') return sum + (e.mobility?.duration ?? 0)
-        return sum + (e.recovery?.duration ?? 0)
+        return sum + (e.session?.duration ?? 0)
     }, 0)
 
     // A slot's items in display (order) sequence.
@@ -2513,14 +2352,9 @@ function DayCard({
         entries.filter((e) => partOf(e) === part).sort((a, b) => a.order - b.order)
 
     // Every slot always shows: editing, each is an add button and a drop target;
-    // viewing, an empty one just reads "Empty" so the day's shape stays clear.
+    // viewing, an empty one reads "Nothing planned" so the day's shape stays clear.
     const parts = FITNESS_PLAN_PARTS
 
-    const todayPill = isToday && (
-        <span className="rounded-full bg-coral-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-coral-600">
-            Today
-        </span>
-    )
     const flagChip =
         note && tone ? (
             <button
@@ -2534,48 +2368,43 @@ function DayCard({
                 <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
                 <span className="truncate">{note.label || 'Flagged'}</span>
             </button>
-        ) : (
-            editable && (
-                <button
-                    type="button"
-                    onClick={onEditFlag}
-                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold text-neutral-300 transition-colors hover:bg-neutral-50 hover:text-neutral-500"
-                >
-                    <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
-                    Flag
-                </button>
-            )
-        )
-    const metaLine = (
-        <p className="mt-0.5 text-xs text-neutral-500">
-            {rest ? (
-                <>
-                    Rest day
-                    {/* The wide feed has no rest-day body, so the note rides here. */}
-                    {restNote && !compact && (
-                        <span className="hidden md:inline">
-                            <span className="mx-1.5 text-neutral-300">·</span>
-                            <span className="text-sky-700">{restNote.text}</span>
-                        </span>
-                    )}
-                </>
-            ) : (
-                <>
-                    <span className="tabular-nums">
-                        {doneCount > 0 ? `${doneCount} of ${total} done` : `${total} planned`}
-                    </span>
-                    {minutes > 0 && (
-                        <>
-                            <span className="mx-1.5 text-neutral-300">·</span>
-                            <span className="tabular-nums">~{minutes} min</span>
-                        </>
-                    )}
-                </>
+        ) : null
+    // What the day holds, with a thin bar filling as sessions are logged.
+    const summary = rest ? (
+        <p className="text-[13px] text-neutral-500">
+            Rest day
+            {/* The wide feed has no rest-day body, so the note rides here. */}
+            {restNote && !compact && (
+                <span className="hidden md:inline">
+                    {' · '}
+                    <span className="text-sky-700">{restNote.text}</span>
+                </span>
             )}
         </p>
+    ) : (
+        <div className="flex flex-col gap-1.5">
+            <p className="text-[13px] text-neutral-500">
+                {total} {total === 1 ? 'session' : 'sessions'}
+                {minutes > 0 && ` · about ${minutes} min`}
+                {doneCount > 0 && (
+                    <span className="text-emerald-700"> · {doneCount} done</span>
+                )}
+            </p>
+            <div className="h-1 overflow-hidden rounded-full bg-neutral-100">
+                <div
+                    className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
+                    style={{ width: `${(doneCount / total) * 100}%` }}
+                />
+            </div>
+        </div>
     )
+    const hasActions =
+        calendarCount > 0 ||
+        clashCount > 0 ||
+        overloadCount > 0 ||
+        (editable && (acceptedClashCount > 0 || acceptedOverloadCount > 0 || !note || total > 0))
     const actions = (
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 flex-wrap items-center gap-1">
             {/* Something on the calendar in one of the day's slots — a heads-up
                 whether or not it clashes with anything planned. */}
             {calendarCount > 0 && (
@@ -2587,6 +2416,8 @@ function DayCard({
                     onClick={onShowEvents}
                 />
             )}
+            {/* Accepted warnings only show while editing, as a quiet mark that keeps
+                them one press from being taken back. */}
             {clashCount > 0 ? (
                 <DayAlertButton
                     tone="amber"
@@ -2596,8 +2427,7 @@ function DayCard({
                     onClick={onShowClashes}
                 />
             ) : (
-                // Every clash on this day has been accepted: no warning, but a
-                // quiet mark that keeps the day one press from taking it back.
+                editable &&
                 acceptedClashCount > 0 && (
                     <DayAlertButton
                         tone="quiet"
@@ -2616,6 +2446,7 @@ function DayCard({
                     onClick={onShowOverloads}
                 />
             ) : (
+                editable &&
                 acceptedOverloadCount > 0 && (
                     <DayAlertButton
                         tone="quiet"
@@ -2625,17 +2456,49 @@ function DayCard({
                     />
                 )
             )}
+            {editable && !note && (
+                <button
+                    type="button"
+                    onClick={onEditFlag}
+                    aria-label={`Flag ${weekday}`}
+                    title="Flag day"
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
+                >
+                    <i className="fa-solid fa-flag text-[12px]" aria-hidden="true" />
+                </button>
+            )}
             {editable && total > 0 && (
                 <button
                     type="button"
                     onClick={onClear}
                     aria-label={`Clear ${weekday}`}
                     title="Clear day"
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
                 >
                     <i className="fa-solid fa-broom text-[12px]" aria-hidden="true" />
                 </button>
             )}
+        </div>
+    )
+
+    // One line: weekday, date, today, flag — then the day's buttons pushed right.
+    const titleRow = (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h3
+                className={`font-semibold tracking-tight text-neutral-900 ${
+                    compact ? 'text-base' : 'text-lg'
+                }`}
+            >
+                {compact ? weekday.slice(0, 3) : weekday}
+            </h3>
+            <span className="text-sm text-neutral-500">
+                {day} {compact ? MONTHS[month].slice(0, 3) : MONTHS[month]}
+            </span>
+            {isToday && <span className="text-sm font-medium text-coral-600">Today</span>}
+            {flagChip}
+            {/* Negative margin so the 28px buttons never make the line taller than
+                the title — with or without them, the row is the same height. */}
+            {hasActions && <div className="-my-1.5 ml-auto">{actions}</div>}
         </div>
     )
 
@@ -2651,43 +2514,22 @@ function DayCard({
                 <span className={`absolute inset-y-0 left-0 w-1 ${tone.bar}`} aria-hidden="true" />
             )}
 
-            {compact ? (
-                <header className="flex flex-col gap-2">
-                    <div className="flex items-start gap-2">
-                        <DayBadge date={date} isToday={isToday} />
-                        <div className="ml-auto flex flex-wrap justify-end">{actions}</div>
-                    </div>
-                    {(todayPill || flagChip) && (
-                        <div className="flex min-w-0 flex-wrap items-center gap-1">
-                            {todayPill}
-                            {flagChip}
-                        </div>
-                    )}
-                    {metaLine}
-                </header>
-            ) : (
-                <header className="flex items-center gap-3">
-                    <DayBadge date={date} isToday={isToday} />
-                    <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <h3 className="text-base font-bold tracking-tight text-neutral-900">
-                                {weekday}
-                            </h3>
-                            {todayPill}
-                            {flagChip}
-                        </div>
-                        {metaLine}
-                    </div>
-                    {actions}
-                </header>
-            )}
+            <header className="flex flex-col gap-2">
+                {titleRow}
+                {summary}
+            </header>
 
-            {rest && !editable && compact ? (
-                // A board column still reads as a day off, and fills its height
-                // so the week's columns line up.
-                <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-2xl bg-neutral-50 px-2 py-8 text-center">
+            {rest && !editable ? (
+                // One rest-day block everywhere it shows: a phone's single day
+                // and a board column (where it fills the height so columns line
+                // up). The wide feed keeps rest days to their header line.
+                <div
+                    className={`flex items-center gap-3 rounded-xl bg-neutral-50 px-3 py-3 ${
+                        compact ? 'flex-1 flex-col justify-center text-center' : 'md:hidden'
+                    }`}
+                >
                     <span
-                        className={`grid h-9 w-9 place-items-center rounded-full ${
+                        className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
                             restNote ? 'bg-sky-50 text-sky-600' : 'bg-emerald-50 text-emerald-500'
                         }`}
                     >
@@ -2696,53 +2538,27 @@ function DayCard({
                             aria-hidden="true"
                         />
                     </span>
-                    <p className="text-xs font-semibold text-neutral-500">Rest</p>
-                    {restNote && (
+                    {restNote ? (
                         <button
                             type="button"
                             onClick={onShowEvents}
-                            className="text-[11px] leading-snug text-sky-700 hover:underline"
+                            className="min-w-0 text-left text-xs leading-snug text-sky-700 hover:underline"
                         >
                             {restNote.text}
                         </button>
-                    )}
-                </div>
-            ) : rest && !editable ? (
-                // Phones get a proper empty state (it's the whole screen there);
-                // the wide feed keeps rest days to their header.
-                <div className="flex flex-col items-center gap-2 rounded-2xl bg-neutral-50 px-4 py-10 text-center md:hidden">
-                    <span
-                        className={`grid h-12 w-12 place-items-center rounded-full ${
-                            restNote ? 'bg-sky-50 text-sky-600' : 'bg-emerald-50 text-emerald-500'
-                        }`}
-                    >
-                        <i className={restNote?.icon ?? 'fa-solid fa-mug-hot'} aria-hidden="true" />
-                    </span>
-                    <p className="text-sm font-semibold text-neutral-700">Rest &amp; recharge</p>
-                    {restNote ? (
-                        <>
-                            <p className="max-w-xs text-sm text-sky-800">{restNote.text}</p>
-                            <button
-                                type="button"
-                                onClick={onShowEvents}
-                                className="mt-1 text-xs font-semibold text-sky-700 hover:underline"
-                            >
-                                See the calendar
-                            </button>
-                        </>
                     ) : (
-                        <p className="text-xs text-neutral-500">Nothing planned for {weekday}.</p>
+                        <p className="text-xs text-neutral-500">Nothing planned. Rest and recharge.</p>
                     )}
                 </div>
             ) : (
                 parts.length > 0 && (
                     <div
                         className={
-                            compact
-                                ? 'flex flex-col gap-3'
-                                : editable
-                                  ? 'grid gap-3 lg:grid-cols-3'
-                                  : 'flex flex-col gap-4'
+                            editable
+                                ? compact
+                                    ? 'flex flex-col gap-3'
+                                    : 'grid gap-3 lg:grid-cols-3'
+                                : 'flex flex-col divide-y divide-neutral-100'
                         }
                     >
                         {parts.map((part) => (
@@ -2861,12 +2677,7 @@ function SlotSection({
           }
         : {}
 
-    const label = (
-        <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-            <i className={`${meta.icon} text-[11px]`} aria-hidden="true" />
-            {meta.label}
-        </span>
-    )
+    const label = <span className="text-[13px] font-medium text-neutral-500">{meta.label}</span>
 
     const rows = entries.map((e) => (
         <PlannedRow
@@ -2885,22 +2696,27 @@ function SlotSection({
     ))
 
     if (!editable) {
+        // A board column stacks the label over its items; wider, the label
+        // gets its own column so the items line up down the day.
         return (
-            <div className="flex flex-col gap-2">
-                {label}
-                <ul
-                    className={
-                        compact
-                            ? 'flex flex-col gap-1.5'
-                            : 'grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4'
-                    }
-                >
-                    {rows}
-                </ul>
-                {entries.length === 0 && (
-                    <p className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
-                        Empty
-                    </p>
+            <div
+                className={
+                    compact
+                        ? 'flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0'
+                        : 'grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-3 first:pt-0 last:pb-0'
+                }
+            >
+                <span className={compact ? '' : 'pt-2'}>{label}</span>
+                {entries.length > 0 ? (
+                    <ul
+                        className={
+                            compact ? 'flex flex-col gap-1.5' : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'
+                        }
+                    >
+                        {rows}
+                    </ul>
+                ) : (
+                    <EmptySlotTile compact={compact} title="Free" detail="Nothing planned" />
                 )}
             </div>
         )
@@ -2930,23 +2746,54 @@ function SlotSection({
                     {drop && drop.refId === null && <DropLine />}
                 </ul>
             ) : (
-                <button
-                    type="button"
-                    onClick={onAdd}
-                    className={`flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed py-3 text-xs font-semibold transition-colors ${
-                        dragActive
-                            ? 'border-coral-300 text-coral-500'
-                            : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-600'
-                    }`}
-                >
-                    <i
-                        className={`fa-solid ${dragActive ? 'fa-arrow-down' : 'fa-plus'} text-[11px]`}
-                        aria-hidden="true"
+                <button type="button" onClick={onAdd} className="group block w-full text-left">
+                    <EmptySlotTile
+                        compact={compact}
+                        active={dragActive}
+                        title={dragActive ? 'Move here' : `Add to ${meta.label.toLowerCase()}`}
+                        detail={dragActive ? 'Drop to move it' : 'Pick a session'}
                     />
-                    {dragActive ? 'Move here' : `Add to ${meta.label.toLowerCase()}`}
                 </button>
             )}
         </div>
+    )
+}
+
+/**
+ * A slot with nothing in it. Built like a planned row (bar gap, name, detail
+ * line) so it stands exactly as tall as one, and outlined rather than bordered
+ * so the dashes add no height.
+ */
+function EmptySlotTile({
+    compact = false,
+    active = false,
+    title,
+    detail,
+}: {
+    compact?: boolean
+    /** A drag is in flight and this slot would take it. */
+    active?: boolean
+    title: string
+    detail: string
+}) {
+    return (
+        <span
+            className={`flex items-center rounded-xl outline-1 -outline-offset-1 outline-dashed transition-colors ${
+                compact ? 'p-2' : 'px-2.5 py-2'
+            } ${
+                active
+                    ? 'bg-coral-50 text-coral-600 outline-coral-300'
+                    : 'text-neutral-400 outline-neutral-200 group-hover:text-neutral-600 group-hover:outline-neutral-300'
+            }`}
+        >
+            <span className="flex min-w-0 items-stretch gap-2.5">
+                <span className="w-1 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1 py-0.5">
+                    <span className="block truncate text-sm font-medium">{title}</span>
+                    <span className="mt-0.5 block truncate text-[13px] opacity-80">{detail}</span>
+                </span>
+            </span>
+        </span>
     )
 }
 
@@ -2956,16 +2803,6 @@ function DropLine() {
 }
 
 /** A small pill naming an item's category, so mixed slots stay legible. */
-function KindChip({ kind }: { kind: FitnessPlanKind }) {
-    return (
-        <span
-            className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${KIND_TONE[kind].chip}`}
-        >
-            {KIND_META[kind].label}
-        </span>
-    )
-}
-
 /** The one-line summary under a planned item's name. */
 function plannedMeta(entry: FitnessPlanEntry): string {
     if (entry.kind === 'workout' && entry.workout) {
@@ -2977,10 +2814,7 @@ function plannedMeta(entry: FitnessPlanEntry): string {
     }
     if (entry.kind === 'conditioning' && entry.session)
         return `${entry.session.category} · ${entry.session.duration} min`
-    const item = entry.kind === 'mobility' ? entry.mobility : entry.recovery
-    return [KIND_META[entry.kind].label, item && item.duration > 0 ? `${item.duration} min` : '']
-        .filter(Boolean)
-        .join(' · ')
+    return KIND_META[entry.kind].label
 }
 
 function PlannedRow({
@@ -3020,26 +2854,17 @@ function PlannedRow({
     const [dragging, setDragging] = useState(false)
 
     const body = (
-        <span className={`flex min-w-0 items-center ${compact ? 'gap-2' : 'gap-3'}`}>
-            <span
-                className={`relative grid shrink-0 place-items-center ${
-                    compact ? 'h-8 w-8 rounded-lg' : 'h-10 w-10 rounded-xl'
-                } ${tone.tile}`}
-            >
-                <i
-                    className={`${KIND_META[entry.kind].icon} ${compact ? 'text-xs' : 'text-sm'}`}
-                    aria-hidden="true"
-                />
-            </span>
-            <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-stretch gap-2.5">
+            <span className={`w-1 shrink-0 rounded-full ${tone.dot}`} aria-hidden="true" />
+            <span className="min-w-0 flex-1 py-0.5">
                 <span
-                    className={`block truncate text-sm font-semibold ${
+                    className={`block truncate text-sm font-medium ${
                         done ? 'text-neutral-500' : 'text-neutral-900'
                     }`}
                 >
                     {name}
                 </span>
-                <span className="mt-0.5 block truncate text-xs tabular-nums text-neutral-500">
+                <span className="mt-0.5 block truncate text-[13px] text-neutral-500">
                     {plannedMeta(entry)}
                 </span>
             </span>
@@ -3069,11 +2894,12 @@ function PlannedRow({
                     : undefined
             }
             data-plan-row={dropId}
-            className={`group relative flex items-center bg-white ring-1 ring-neutral-900/[0.06] transition-all ${
-                compact ? 'gap-1 rounded-xl p-1.5' : 'gap-2 rounded-2xl p-2 pr-2.5'
+            className={`group relative flex items-center rounded-xl transition-colors ${
+                compact ? 'gap-1 p-2' : 'gap-2 px-2.5 py-2'
             } ${
-                onOpen ? ' hover:shadow-lg' : ''
-            } ${draggable ? 'md:cursor-grab md:active:cursor-grabbing' : ''} ${
+                // In an edit lane (grey) the row needs to stand off it in white.
+                draggable ? 'bg-white ring-1 ring-neutral-900/[0.06]' : 'bg-neutral-50'
+            } ${onOpen ? (draggable ? 'hover:ring-neutral-900/[0.12]' : 'hover:bg-neutral-100') : ''} ${draggable ? 'md:cursor-grab md:active:cursor-grabbing' : ''} ${
                 dragging ? 'opacity-40' : ''
             }`}
         >
@@ -3106,7 +2932,7 @@ function PlannedRow({
             )}
             {done && (
                 <span
-                    className={`grid shrink-0 place-items-center rounded-full bg-emerald-500 text-white ${
+                    className={`grid shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-600 ${
                         compact ? 'h-5 w-5' : 'h-6 w-6'
                     }`}
                     aria-label="Done"
@@ -3136,7 +2962,7 @@ const PICKER_PAGE_SIZE = 10
 
 /**
  * The day drawer. It targets one day + slot; inside, a Slot toggle and a Type
- * toggle (Strength / Conditioning / Recovery) choose where an added item lands
+ * toggle (Strength / Conditioning) choose where an added item lands
  * and which library the add list draws from. In view mode it's a read-only
  * summary grouped by slot; in edit mode items can be added and removed here.
  *
@@ -3149,8 +2975,6 @@ function ItemPicker({
     editable,
     workouts,
     sessions,
-    recovery,
-    mobility,
     entries,
     isDone,
     onClose,
@@ -3161,8 +2985,6 @@ function ItemPicker({
     editable: boolean
     workouts: Workout[]
     sessions: ConditioningSession[]
-    recovery: Recovery[]
-    mobility: Mobility[]
     entries: FitnessPlanEntry[]
     /** Whether a planned item has a matching completion log on its day. */
     isDone: (entry: FitnessPlanEntry) => boolean
@@ -3232,39 +3054,8 @@ function ItemPicker({
         return [...base].sort((a, b) => a.name.localeCompare(b.name))
     }, [sessions, query])
 
-    const recoveryResults = useMemo(() => {
-        const q = query.trim().toLowerCase()
-        const base = q
-            ? recovery.filter(
-                  (r) =>
-                      r.name.toLowerCase().includes(q) ||
-                      (r.purpose ?? '').toLowerCase().includes(q)
-              )
-            : recovery
-        return [...base].sort((a, b) => a.name.localeCompare(b.name))
-    }, [recovery, query])
-
-    const mobilityResults = useMemo(() => {
-        const q = query.trim().toLowerCase()
-        const base = q
-            ? mobility.filter(
-                  (m) =>
-                      m.name.toLowerCase().includes(q) ||
-                      (m.purpose ?? '').toLowerCase().includes(q)
-              )
-            : mobility
-        return [...base].sort((a, b) => a.name.localeCompare(b.name))
-    }, [mobility, query])
-
     // How many of the active library matched, and the slice of it on show.
-    const total =
-        kind === 'workout'
-            ? workoutResults.length
-            : kind === 'conditioning'
-              ? sessionResults.length
-              : kind === 'mobility'
-                ? mobilityResults.length
-                : recoveryResults.length
+    const total = kind === 'workout' ? workoutResults.length : sessionResults.length
     const pageCount = Math.max(1, Math.ceil(total / PICKER_PAGE_SIZE))
     // A new search or a shrinking library can leave `page` past the end — pull it back.
     useEffect(() => {
@@ -3440,109 +3231,36 @@ function ItemPicker({
                                     ))}
                                 </ul>
                             )
-                        ) : kind === 'conditioning' ? (
-                            sessionResults.length === 0 ? (
-                                <p className="py-6 text-center text-sm text-neutral-500">
-                                    No sessions found.
-                                </p>
-                            ) : (
-                                <ul className="flex flex-col gap-1.5">
-                                    {sessionResults.slice(from, to).map((s) => (
-                                        <li key={s._id}>
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    view &&
-                                                    onAdd(
-                                                        view.date,
-                                                        'conditioning',
-                                                        s._id,
-                                                        activePart
-                                                    )
-                                                }
-                                                className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-                                            >
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="truncate text-sm font-medium text-neutral-800">
-                                                        {s.name}
-                                                    </p>
-                                                    <p className="text-xs tabular-nums text-neutral-500">
-                                                        {s.duration} min
-                                                    </p>
-                                                </div>
-                                                <CategoryChip category={s.category} />
-                                                <i
-                                                    className="fa-solid fa-plus text-xs text-neutral-500"
-                                                    aria-hidden="true"
-                                                />
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )
-                        ) : kind === 'mobility' ? (
-                            mobilityResults.length === 0 ? (
-                                <p className="py-6 text-center text-sm text-neutral-500">
-                                    No mobility routines found.
-                                </p>
-                            ) : (
-                                <ul className="flex flex-col gap-1.5">
-                                    {mobilityResults.slice(from, to).map((m) => (
-                                        <li key={m._id}>
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    view &&
-                                                    onAdd(view.date, 'mobility', m._id, activePart)
-                                                }
-                                                className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-                                            >
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="truncate text-sm font-medium text-neutral-800">
-                                                        {m.name}
-                                                    </p>
-                                                    <p className="text-xs tabular-nums text-neutral-500">
-                                                        {m.duration} min
-                                                        {m.parts.length > 0
-                                                            ? ` · ${m.parts.length} ${m.parts.length === 1 ? 'part' : 'parts'}`
-                                                            : ''}
-                                                    </p>
-                                                </div>
-                                                <i
-                                                    className="fa-solid fa-plus text-xs text-neutral-500"
-                                                    aria-hidden="true"
-                                                />
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )
-                        ) : recoveryResults.length === 0 ? (
+                        ) : sessionResults.length === 0 ? (
                             <p className="py-6 text-center text-sm text-neutral-500">
-                                No recovery items found.
+                                No sessions found.
                             </p>
                         ) : (
                             <ul className="flex flex-col gap-1.5">
-                                {recoveryResults.slice(from, to).map((r) => (
-                                    <li key={r._id}>
+                                {sessionResults.slice(from, to).map((s) => (
+                                    <li key={s._id}>
                                         <button
                                             type="button"
                                             onClick={() =>
                                                 view &&
-                                                onAdd(view.date, 'recovery', r._id, activePart)
+                                                onAdd(
+                                                    view.date,
+                                                    'conditioning',
+                                                    s._id,
+                                                    activePart
+                                                )
                                             }
                                             className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
                                         >
                                             <div className="min-w-0 flex-1">
                                                 <p className="truncate text-sm font-medium text-neutral-800">
-                                                    {r.name}
+                                                    {s.name}
                                                 </p>
-                                                {r.duration > 0 && (
-                                                    <p className="text-xs tabular-nums text-neutral-500">
-                                                        {r.duration} min
-                                                    </p>
-                                                )}
+                                                <p className="text-xs tabular-nums text-neutral-500">
+                                                    {s.duration} min
+                                                </p>
                                             </div>
+                                            <CategoryChip category={s.category} />
                                             <i
                                                 className="fa-solid fa-plus text-xs text-neutral-500"
                                                 aria-hidden="true"
@@ -3566,8 +3284,7 @@ function ItemPicker({
 /**
  * A read-only look at a planned item, opened by clicking its row in the week
  * view. Renders the full details of whichever library it came from — a
- * workout's exercises, a conditioning session's parts, or a recovery item's
- * notes. All detail data rides along on the populated plan entry; only a
+ * workout's exercises, or a conditioning session's parts. All detail data rides along on the populated plan entry; only a
  * workout's exercise *names* need the exercises library (via `exercisesById`).
  */
 function PlannedDetailDrawer({
@@ -3578,7 +3295,6 @@ function PlannedDetailDrawer({
     onClose,
     onLogged,
     onUnlog,
-    onTickMobility,
     onLogWeights,
 }: {
     entry: FitnessPlanEntry | null
@@ -3592,8 +3308,6 @@ function PlannedDetailDrawer({
     onLogged: (entry: FitnessPlanEntry, logId: string) => void
     /** Delete the completion log behind a ticked item, so it counts as not done. */
     onUnlog: (entry: FitnessPlanEntry, logId: string) => Promise<void>
-    /** Tick a mobility entry off — mobility keeps no logs, so no record is written. */
-    onTickMobility: (entry: FitnessPlanEntry, done: boolean) => Promise<void>
     /** Open the per-set weight logger for a planned workout, dated to its day. */
     onLogWeights: (workout: Workout, date: string) => void
 }) {
@@ -3623,19 +3337,17 @@ function PlannedDetailDrawer({
             if (e) onLogged(e, logId)
         },
     })
+    // Sub-list steps ticked off on this device, whatever the kind.
+    const steps = useStepTicks(stepTicksKey(e))
 
     // Any planned item can be logged straight from the planner — "Mark as done"
     // snapshots the library item into a completed record dated to the planned day,
-    // mirroring the Done buttons in each category's log. Mobility is the
-    // exception: it keeps no records, so marking it done just ticks the entry.
-    // Already-done items show a static "Done" chip instead.
+    // mirroring the Done buttons in each category's log. Already-done items show a static "Done" chip instead.
     const canMarkDone =
         !!e &&
         !done &&
         ((e.kind === 'workout' && !!e.workout) ||
-            (e.kind === 'conditioning' && !!e.session) ||
-            (e.kind === 'mobility' && !!e.mobility) ||
-            (e.kind === 'recovery' && !!e.recovery))
+            (e.kind === 'conditioning' && !!e.session))
 
     async function markDone() {
         if (!e) return
@@ -3652,20 +3364,6 @@ function PlannedDetailDrawer({
                 toast.show(`Logged “${e.session.name}”.`, 'success')
                 onClose()
                 return
-            } else if (e.kind === 'mobility' && e.mobility) {
-                await onTickMobility(e, true)
-                toast.show(`Ticked off “${e.mobility.name}”.`, 'success')
-                onClose()
-                return
-            } else if (e.kind === 'recovery' && e.recovery) {
-                logId = (
-                    await createRecoveryLog({
-                        recovery: e.recovery._id,
-                        date: e.date,
-                        duration: e.recovery.duration,
-                    })
-                )._id
-                toast.show(`Logged “${e.recovery.name}”.`, 'success')
             }
             onLogged(e, logId)
             onClose()
@@ -3699,33 +3397,20 @@ function PlannedDetailDrawer({
             <Drawer
                 open={!!entry}
                 onClose={onClose}
-                size="xl"
+                size="2xl"
                 title={title}
-                badge={e ? shortDayLabel(e.date) : undefined}
                 footer={
-                    <>
+                    <div className="flex w-full flex-wrap items-center justify-end gap-3">
                         <div className="mr-auto flex min-w-0 items-center gap-3">
-                            <Button variant="ghost" onClick={onClose}>
-                                Close
-                            </Button>
                             {isSession && (
                                 <SaveStatus state={logger.saveState} savedAt={logger.savedAt} />
                             )}
                         </div>
-                        {done && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700">
-                                <i className="fa-solid fa-circle-check" aria-hidden="true" />
-                                Done
-                            </span>
-                        )}
                         {done && doneLogId && (
                             <Button
                                 variant="ghost"
                                 icon="fa-solid fa-rotate-left"
-                                // An untick of mobility deletes nothing, so it needs no confirm.
-                                onClick={() =>
-                                    e?.kind === 'mobility' ? undoDone() : setConfirmUndo(true)
-                                }
+                                onClick={() => setConfirmUndo(true)}
                                 disabled={logging}
                             >
                                 Mark as not done
@@ -3733,46 +3418,52 @@ function PlannedDetailDrawer({
                         )}
                         {canMarkDone && (
                             <Button
-                                variant="secondary"
-                                icon="fa-solid fa-check"
+                                variant={e?.kind === 'workout' ? 'secondary' : 'primary'}
+                                icon={
+                                    isSession ? 'fa-solid fa-flag-checkered' : 'fa-solid fa-check'
+                                }
                                 onClick={markDone}
                                 disabled={logging}
                             >
-                                {logging ? 'Logging…' : 'Mark as done'}
+                                {logging ? 'Logging…' : isSession ? 'Finish session' : 'Mark as done'}
                             </Button>
                         )}
                         {e?.kind === 'workout' && e.workout && (
                             <Button
-                                icon="fa-solid fa-dumbbell"
+                                icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
                                 onClick={() => e.workout && onLogWeights(e.workout, e.date)}
                             >
-                                Log workout
+                                {done ? 'Open log' : 'Start workout'}
                             </Button>
                         )}
-                    </>
+                    </div>
                 }
             >
-                {e &&
-                    (e.kind === 'workout' && e.workout ? (
-                        <WorkoutDetail
-                            workout={e.workout}
-                            exercisesById={exercisesById}
-                            packKey={e._id}
-                        />
-                    ) : e.kind === 'conditioning' && e.session ? (
-                        <ConditioningSessionDetail
-                            session={e.session}
-                            counts={logger.taps.counts}
-                            onCount={logger.count}
-                            completedAt={logger.taps.completedAt}
-                            onComplete={logger.complete}
-                            onUndo={logger.undo}
-                        />
-                    ) : e.kind === 'mobility' && e.mobility ? (
-                        <MobilityDetail mobility={e.mobility} />
-                    ) : e.recovery ? (
-                        <RecoveryDetail recovery={e.recovery} />
-                    ) : null)}
+                {e && (
+                    <div className="flex flex-col gap-6">
+                        <PlannedContext entry={e} done={done} />
+                        {e.kind === 'workout' && e.workout ? (
+                            <WorkoutDetail
+                                workout={e.workout}
+                                exercisesById={exercisesById}
+                                packKey={e._id}
+                                stepTicks={steps.ticks}
+                                onToggleStep={steps.toggle}
+                            />
+                        ) : e.kind === 'conditioning' && e.session ? (
+                            <ConditioningSessionDetail
+                                session={e.session}
+                                counts={logger.taps.counts}
+                                onCount={logger.count}
+                                completedAt={logger.taps.completedAt}
+                                onComplete={logger.complete}
+                                onUndo={logger.undo}
+                                stepTicks={steps.ticks}
+                                onToggleStep={steps.toggle}
+                            />
+                        ) : null}
+                    </div>
+                )}
             </Drawer>
 
             <ConfirmModal
@@ -3797,192 +3488,37 @@ function PlannedDetailDrawer({
     )
 }
 
-function DetailChip({ icon, children }: { icon: string; children: ReactNode }) {
-    return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
-            <i className={`${icon} text-neutral-500`} aria-hidden="true" />
-            {children}
-        </span>
-    )
+/**
+ * Where the step ticks of a planned item are kept on the device. A workout's
+ * are keyed by workout and day rather than plan entry, so the strength logger
+ * (which only knows the workout and the day) picks up the same ticks.
+ */
+function stepTicksKey(entry: FitnessPlanEntry | null): string | null {
+    if (!entry) return null
+    if (entry.kind === 'workout' && entry.workout) return workoutStepsKey(entry.workout._id, entry.date)
+    return `entry:${entry._id}`
 }
 
-function DetailSection({ label, children }: { label: string; children: ReactNode }) {
+/** The kind, day and slot a planned item sits in, and whether it's done. */
+function PlannedContext({ entry, done }: { entry: FitnessPlanEntry; done: boolean }) {
+    const tone = KIND_TONE[entry.kind]
     return (
-        <section>
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                {label}
-            </p>
-            {children}
-        </section>
-    )
-}
-
-function WorkoutDetail({
-    workout,
-    exercisesById,
-    packKey,
-}: {
-    workout: Workout
-    exercisesById: Map<string, Exercise>
-    /** Where this session's packing ticks are kept — the plan entry. */
-    packKey: string
-}) {
-    // Pair each workout slot with its resolved library exercise, phase by
-    // phase, dropping any that were since deleted from the library.
-    const phases = mapPhases(workout, (list) =>
-        list
-            .map((item) => ({ item, ex: exercisesById.get(item.exercise) }))
-            .filter((r): r is { item: WorkoutExercise; ex: Exercise } => !!r.ex)
-    )
-    const rows = phases.main
-    const est = estimateWorkoutMinutes(workout)
-
-    return (
-        <div className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center gap-2">
-                <KindChip kind="workout" />
-                <DetailChip icon="fa-solid fa-dumbbell">
-                    {rows.length} {rows.length === 1 ? 'exercise' : 'exercises'}
-                </DetailChip>
-                {rows.length > 0 && <DetailChip icon="fa-regular fa-clock">~{est} min</DetailChip>}
-            </div>
-
-            {workout.description && (
-                <p className="whitespace-pre-wrap text-sm text-neutral-600">
-                    {workout.description}
-                </p>
-            )}
-
-            <BringChecklist items={workout.bring} packKey={packKey} />
-
-            {SESSION_PHASES.map((phase) => {
-                const rows = phases[phase]
-                if (rows.length === 0 && phase !== 'main') return null
-                return (
-                    <section key={phase}>
-                        <PhaseHeading
-                            phase={phase}
-                            meta={phaseSpan(rows.map(({ item }) => item))}
-                            className="mb-3"
-                        />
-                        {rows.length === 0 ? (
-                            <p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500">
-                                No main-session exercises in this workout yet.
-                            </p>
-                        ) : (
-                            <ol className="flex flex-col gap-3">
-                                {rows.map(({ item, ex }, i) => (
-                                    <li key={`${ex._id}-${i}`} className="flex gap-3 text-sm">
-                                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
-                                            {i + 1}
-                                        </span>
-                                        <div className="min-w-0 flex-1 pt-0.5">
-                                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                                <p className="font-semibold text-neutral-900">
-                                                    {ex.name}
-                                                </p>
-                                                {formatSetsReps(item) && (
-                                                    <span className="text-xs font-medium text-coral-600">
-                                                        {formatSetsReps(item)}
-                                                    </span>
-                                                )}
-                                                {hasSlot(item) && (
-                                                    <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-neutral-500">
-                                                        {slotLabel(item)} min
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {ex.description && (
-                                                <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
-                                                    {ex.description}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <VideoButton url={ex.videoUrl} title={ex.name} />
-                                    </li>
-                                ))}
-                            </ol>
-                        )}
-                    </section>
-                )
-            })}
-        </div>
-    )
-}
-
-function MobilityDetail({ mobility }: { mobility: Mobility }) {
-    return (
-        <div className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center gap-3">
-                <KindChip kind="mobility" />
-                {mobility.duration > 0 && (
-                    <span className="text-sm text-neutral-500">{mobility.duration} min</span>
-                )}
-            </div>
-
-            {mobility.purpose && (
-                <DetailSection label="Purpose">
-                    <p className="whitespace-pre-wrap text-sm text-neutral-600">
-                        {mobility.purpose}
-                    </p>
-                </DetailSection>
-            )}
-
-            {mobility.parts.length > 0 && (
-                <DetailSection label="Routine parts">
-                    <ol className="flex flex-col gap-3">
-                        {mobility.parts.map((part, i) => (
-                            <li key={i} className="flex gap-3 text-sm">
-                                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500">
-                                    {i + 1}
-                                </span>
-                                <div className="min-w-0 pt-0.5">
-                                    <p className="font-semibold text-neutral-900">{part.name}</p>
-                                    {part.detail && (
-                                        <p className="mt-0.5 whitespace-pre-wrap text-neutral-600">
-                                            {part.detail}
-                                        </p>
-                                    )}
-                                </div>
-                            </li>
-                        ))}
-                    </ol>
-                </DetailSection>
-            )}
-
-            {mobility.howToUse && (
-                <DetailSection label="How to use">
-                    <p className="whitespace-pre-wrap text-sm text-neutral-600">
-                        {mobility.howToUse}
-                    </p>
-                </DetailSection>
-            )}
-        </div>
-    )
-}
-
-function RecoveryDetail({ recovery }: { recovery: Recovery }) {
-    return (
-        <div className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center gap-3">
-                <KindChip kind="recovery" />
-                {recovery.duration > 0 && (
-                    <span className="text-sm text-neutral-500">{recovery.duration} min</span>
-                )}
-            </div>
-
-            {recovery.purpose && (
-                <DetailSection label="Purpose">
-                    <p className="whitespace-pre-wrap text-sm text-neutral-600">
-                        {recovery.purpose}
-                    </p>
-                </DetailSection>
-            )}
-
-            {recovery.notes && (
-                <DetailSection label="Notes">
-                    <p className="whitespace-pre-wrap text-sm text-neutral-600">{recovery.notes}</p>
-                </DetailSection>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span
+                className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold ${tone.chip}`}
+            >
+                <i className={`${KIND_META[entry.kind].icon} text-[11px]`} aria-hidden="true" />
+                {KIND_META[entry.kind].label}
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-sm text-neutral-500">
+                <i className={`${PART_META[entry.part].icon} text-[11px]`} aria-hidden="true" />
+                {shortDayLabel(entry.date)} · {PART_META[entry.part].label}
+            </span>
+            {done && (
+                <span className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700">
+                    <i className="fa-solid fa-circle-check" aria-hidden="true" />
+                    Done
+                </span>
             )}
         </div>
     )

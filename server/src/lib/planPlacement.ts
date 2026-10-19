@@ -59,8 +59,6 @@ function refFields(kind: FitnessPlanKind, itemId: string) {
     return {
         workout: kind === 'workout' ? itemId : null,
         session: kind === 'conditioning' ? itemId : null,
-        recovery: kind === 'recovery' ? itemId : null,
-        mobility: kind === 'mobility' ? itemId : null,
     }
 }
 

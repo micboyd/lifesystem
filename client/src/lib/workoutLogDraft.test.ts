@@ -69,9 +69,23 @@ describe('readDraft / writeDraft', () => {
         const draft = readDraft('w1', SIG, NOW)
         expect(draft?.notes).toBe('felt heavy')
         expect(draft?.date).toBe('2026-08-25')
-        expect(draft?.exercises[0].sets[0]).toEqual({ weight: '60', reps: '8' })
+        // A filled-in set from before sets were ticked off reads as done.
+        expect(draft?.exercises[0].sets[0]).toEqual({ weight: '60', reps: '8', done: true })
         expect(draft?.exercises[1].sets[0]).toEqual({ weight: '', reps: '' })
         expect(draft?.savedAt).toBe(NOW)
+    })
+
+    it('keeps whether each set was ticked off', () => {
+        const exercises = rows()
+        exercises[0].sets = [
+            { weight: '60', reps: '8', done: true },
+            { weight: '60', reps: '8', done: false },
+        ]
+        save({ exercises })
+        expect(readDraft('w1', SIG, NOW)?.exercises[0].sets).toEqual([
+            { weight: '60', reps: '8', done: true },
+            { weight: '60', reps: '8' },
+        ])
     })
 
     it('keeps swaps and skipped rows', () => {

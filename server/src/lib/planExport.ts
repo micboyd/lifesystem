@@ -18,13 +18,10 @@ import { Types } from 'mongoose'
 import { IPlanItem, ITrainingPlan } from '../models/TrainingPlan'
 import { FitnessPlanKind } from '../models/FitnessPlanEntry'
 import { ISessionPart } from '../models/ConditioningSession'
-import { IMobilityPart } from '../models/Mobility'
 import { IWorkoutExercise } from '../models/Workout'
 import Exercise from '../models/Exercise'
 import Workout from '../models/Workout'
 import ConditioningSession from '../models/ConditioningSession'
-import Mobility from '../models/Mobility'
-import Recovery from '../models/Recovery'
 import { DEFAULT_PART, WEEKDAY_NAMES, weekdayOf, weekdaysBetween } from './planSchedule'
 import { flattenPhases, mapPhases, type Phased } from './phases'
 
@@ -49,17 +46,6 @@ interface SessionLean extends Lean, Phased<ISessionPart> {
     purpose?: string
     howToUse?: string
     helpers?: string[]
-}
-interface MobilityLean extends Lean {
-    duration: number
-    purpose?: string
-    parts: IMobilityPart[]
-    howToUse?: string
-}
-interface RecoveryLean extends Lean {
-    duration: number
-    purpose?: string
-    notes?: string
 }
 
 // ─── Small writers ──────────────────────────────────────────────────────────────
@@ -135,20 +121,14 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
     const itemsOfKind = (kind: FitnessPlanKind) => plan.items.filter((i) => i.kind === kind)
     const workoutItems = itemsOfKind('workout')
     const sessionItems = itemsOfKind('conditioning')
-    const mobilityItems = itemsOfKind('mobility')
-    const recoveryItems = itemsOfKind('recovery')
     const ids = (items: IPlanItem[]) => items.map((i) => i.item)
 
-    const [workoutDocs, sessionDocs, mobilityDocs, recoveryDocs] = await Promise.all([
+    const [workoutDocs, sessionDocs] = await Promise.all([
         Workout.find({ _id: { $in: ids(workoutItems) }, user }).lean<WorkoutLean[]>(),
         ConditioningSession.find({ _id: { $in: ids(sessionItems) }, user }).lean<SessionLean[]>(),
-        Mobility.find({ _id: { $in: ids(mobilityItems) }, user }).lean<MobilityLean[]>(),
-        Recovery.find({ _id: { $in: ids(recoveryItems) }, user }).lean<RecoveryLean[]>(),
     ])
     const workouts = index(workoutDocs)
     const sessions = index(sessionDocs)
-    const mobilities = index(mobilityDocs)
-    const recoveries = index(recoveryDocs)
 
     // A plan links library items rather than owning them, so one can have been
     // deleted since the import. Its name still appears everywhere the plan uses
@@ -209,6 +189,7 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
                             notes: line.notes,
                             startMin: line.startMin,
                             endMin: line.endMin,
+                            steps: line.steps?.length ? line.steps : undefined,
                         })
                     })
                     .filter(Boolean)
@@ -239,6 +220,7 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
                         startAtSec: p.startAtSec,
                         startMin: p.startMin,
                         endMin: p.endMin,
+                        steps: p.steps?.length ? p.steps : undefined,
                     })
                 )
             ),
@@ -289,38 +271,6 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
         )
         .sort((a, b) => String(a.date).localeCompare(String(b.date)))
 
-    // ── Mobility and recovery ──────────────────────────────────────────────────
-    // Both are placed by the weekly template, which is stored verbatim, so these
-    // sections only have to carry the routines themselves.
-    const mobilityLibrary = mobilityItems.map((item) => {
-        const doc = mobilities.get(String(item.item))
-        if (!doc) {
-            missing(item.label, 'mobility')
-            return { name: item.label }
-        }
-        return compact({
-            name: doc.name,
-            duration: duration(doc.duration),
-            purpose: doc.purpose,
-            parts: doc.parts.map((p) => compact({ name: p.name, detail: p.detail })),
-            howToUse: doc.howToUse,
-        })
-    })
-
-    const recoveryLibrary = recoveryItems.map((item) => {
-        const doc = recoveries.get(String(item.item))
-        if (!doc) {
-            missing(item.label, 'recovery')
-            return { name: item.label }
-        }
-        return compact({
-            name: doc.name,
-            duration: duration(doc.duration),
-            purpose: doc.purpose,
-            notes: doc.notes,
-        })
-    })
-
     // ── Dated exceptions ───────────────────────────────────────────────────────
     // `overrides` on the plan is a summary written for the detail view and can't
     // be read back into rules, so the raw rows are what get exported. Plans
@@ -333,8 +283,6 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
     }
 
     const conditioning = compact({ existingRunPlan, post10KSessionLibrary, post10KCalendar })
-    const mobility = compact({ library: mobilityLibrary, weeklyUse: plan.mobilityUse })
-    const recovery = compact({ library: recoveryLibrary, weeklyUse: plan.recoveryUse })
 
     const document = compact({
         planName: plan.name,
@@ -358,16 +306,12 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
                 day: d.day,
                 strength: d.strength,
                 conditioning: d.conditioning,
-                mobility: d.mobility,
-                recovery: d.recovery,
             })
         ),
         exerciseLibrary,
         strengthWorkouts,
         strengthProgression: plan.strengthProgression,
         conditioning: Object.keys(conditioning).length > 0 ? conditioning : undefined,
-        mobility: Object.keys(mobility).length > 0 ? mobility : undefined,
-        recovery: Object.keys(recovery).length > 0 ? recovery : undefined,
         scheduleOverrides: sourceOverrides,
         readinessRules: plan.readinessRules,
     })

@@ -14,13 +14,11 @@ import ConditioningSession, {
     CONDITIONING_CATEGORIES,
     ConditioningCategory,
 } from '../models/ConditioningSession'
-import Mobility from '../models/Mobility'
-import Recovery from '../models/Recovery'
 import WorkoutLog from '../models/WorkoutLog'
 import ConditioningLog from '../models/ConditioningLog'
-import RecoveryLog from '../models/RecoveryLog'
 import { toSessionParts } from '../lib/sessionParts'
 import { missingWindows, readWindow } from '../lib/timeWindow'
+import { readSteps } from '../lib/steps'
 import { readVideoUrl } from '../lib/videoUrl'
 import { readBringList } from '../lib/bringList'
 import { readHelpers } from '../lib/helpers'
@@ -42,12 +40,10 @@ import {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-/** Which slot each kind lands in by default: prep, then train, then wind down. */
+/** Which slot each kind lands in by default. */
 const DEFAULT_PART: Record<FitnessPlanKind, FitnessPlanPart> = {
-    mobility: 'morning',
     workout: 'morning',
     conditioning: 'afternoon',
-    recovery: 'evening',
 }
 
 // ─── Small readers ──────────────────────────────────────────────────────────────
@@ -228,8 +224,7 @@ async function ensureLibrary<T extends { name: string; order: number }>(
  * POST /api/plans/import — turn a pasted plan document into a saved plan.
  *
  * The document describes a whole training block: an exercise and session library,
- * weekday strength workouts, a dated run progression, mobility and recovery
- * routines, plus the prose that frames them (goal, phases, progression rules).
+ * weekday strength workouts, a dated run progression, plus the prose that frames them (goal, phases, progression rules).
  * Importing does three things:
  *
  *  1. adds any library item the plan names that isn't already there — matched by
@@ -272,16 +267,12 @@ export async function importPlan(req: AuthRequest, res: Response) {
 
     const warnings: IPlanWarning[] = []
     const conditioningDoc = obj(doc.conditioning) ?? {}
-    const mobilityDoc = obj(doc.mobility) ?? {}
-    const recoveryDoc = obj(doc.recovery) ?? {}
     const strengthWorkouts = arr(doc.strengthWorkouts)
 
-    // Every strength line and conditioning part has to say when it happens in
-    // the session — they're run to the clock. Checked before anything is written.
+    // Every conditioning part has to say when it happens in the session — runs
+    // are paced to the clock. Strength is a plain list of sets and reps, so its
+    // lines needn't. Checked before anything is written.
     const untimed = [
-        ...strengthWorkouts.flatMap((w) =>
-            missingWindows(readPhased(w, 'exercises'), `Workout "${str(w.name) ?? '?'}"`)
-        ),
         ...[
             ...arr(conditioningDoc.existingRunPlan),
             ...arr(conditioningDoc.post10KSessionLibrary),
@@ -350,6 +341,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
                 rest: str(line.rest),
                 notes: note && phase ? `${note} (${phase})` : (note ?? phase),
                 ...readWindow(line),
+                ...readSteps(line),
             })
         }
         return out
@@ -388,22 +380,6 @@ export async function importPlan(req: AuthRequest, res: Response) {
         [...runSpecs, ...postSpecs],
         ensure
     )
-
-    // ── Mobility and recovery libraries ────────────────────────────────────────
-    const mobilitySpecs = toSpecs(arr(mobilityDoc.library), (m) => ({
-        duration: num(m.duration) ?? 0,
-        purpose: str(m.purpose),
-        parts: toSessionParts(m.parts),
-        howToUse: str(m.howToUse),
-    }))
-    const mobility = await ensureLibrary(Mobility, userId, mobilitySpecs, ensure)
-
-    const recoverySpecs = toSpecs(arr(recoveryDoc.library), (r) => ({
-        duration: num(r.duration) ?? 0,
-        purpose: str(r.purpose),
-        notes: str(r.notes) ?? str(r.howToUse),
-    }))
-    const recovery = await ensureLibrary(Recovery, userId, recoverySpecs, ensure)
 
     // ── Schedule ───────────────────────────────────────────────────────────────
     const schedule = new ScheduleBuilder()
@@ -479,43 +455,16 @@ export async function importPlan(req: AuthRequest, res: Response) {
         )
     }
 
-    // The weekly template fills in mobility and recovery, and covers strength for
-    // plans that only describe their week in the table. Cells are prose ("Sauna
-    // Recovery optional"), so a library name contained in the text counts.
+    // The weekly template covers strength for plans that only describe their
+    // week in the table. Cells are prose, so a library name contained in the
+    // text counts. A row can name the slot its whole day trains in ("slot":
+    // "Morning"), which wins over the default.
     for (const row of arr(doc.weeklyTemplate)) {
         const weekday = weekdayIndex(row.day)
         if (weekday === null) continue
-        const dates = weekdaysBetween(planStart, planEnd, weekday)
-        if (dates.length === 0) continue
-
-        // A cell can name more than one routine ("Pre-Run Dynamic Mobility before
-        // the run; Upper-Body and Shoulder Mobility before lifting"), and the two
-        // columns cross over — Thursday's recovery cell names a mobility routine.
-        // So each cell is read against its own library and then the other one: the
-        // column decides the role and the slot, the library it was found in decides
-        // the kind. That keeps Thursday's stretch linked to the mobility library
-        // while still landing in the evening, where the plan puts it.
-        const cells = [
-            { role: 'mobility', own: 'mobility', other: 'recovery', text: row.mobility },
-            { role: 'recovery', own: 'recovery', other: 'mobility', text: row.recovery },
-        ] as const
-        const libraryOf: Record<'mobility' | 'recovery', Resolved> = { mobility, recovery }
-
-        // A row can name the slot its whole day trains in ("slot": "Morning"),
-        // which wins over each column's default — that's how a plan keeps the
-        // warm-up in the same slot as the session it warms up for. Without one
-        // the columns keep their defaults, so Thursday's stretch still lands in
-        // the evening.
-        for (const date of dates) {
+        for (const date of weekdaysBetween(planStart, planEnd, weekday)) {
             for (const ref of matchAllByName(row.strength, workouts.all)) {
                 schedule.add(date, 'workout', 'strength', ref, rowPart(row, 'workout'), 'recurring')
-            }
-            for (const { role, own, other, text } of cells) {
-                const hits = matchAllByName(text, libraryOf[own].all)
-                const kind = hits.length ? own : other
-                for (const ref of hits.length ? hits : matchAllByName(text, libraryOf[other].all)) {
-                    schedule.add(date, kind, role, ref, rowPart(row, role), 'recurring')
-                }
             }
         }
     }
@@ -534,8 +483,6 @@ export async function importPlan(req: AuthRequest, res: Response) {
         {
             workout: workouts.all,
             conditioning: sessions.all,
-            mobility: mobility.all,
-            recovery: recovery.all,
         },
         toPart
     )
@@ -567,8 +514,6 @@ export async function importPlan(req: AuthRequest, res: Response) {
     pushItems('workout', 'strength', workouts, workoutSpecs)
     pushItems('conditioning', 'run', sessions, runSpecs)
     pushItems('conditioning', 'conditioning', sessions, postSpecs)
-    pushItems('mobility', 'mobility', mobility, mobilitySpecs)
-    pushItems('recovery', 'recovery', recovery, recoverySpecs)
 
     // An override can name a workout the plan's own sections never mention — a
     // one-off match-day session, say. Link those too, so the plan still points at
@@ -641,13 +586,9 @@ export async function importPlan(req: AuthRequest, res: Response) {
                 day: str(d.day) ?? '',
                 strength: str(d.strength),
                 conditioning: str(d.conditioning),
-                mobility: str(d.mobility),
-                recovery: str(d.recovery),
             }))
             .filter((d) => d.day !== ''),
         strengthProgression: obj(doc.strengthProgression) ?? undefined,
-        mobilityUse: obj(mobilityDoc.weeklyUse) ?? undefined,
-        recoveryUse: obj(recoveryDoc.weeklyUse) ?? undefined,
         readinessRules: strList(doc.readinessRules),
         items,
         createdExercises,
@@ -682,20 +623,14 @@ export async function importPlan(req: AuthRequest, res: Response) {
             exercisesCreated: exercises.created.size,
             workoutsCreated: workouts.created.size,
             conditioningCreated: sessions.created.size,
-            mobilityCreated: mobility.created.size,
-            recoveryCreated: recovery.created.size,
             itemsCreated:
                 exercises.created.size +
                 workouts.created.size +
-                sessions.created.size +
-                mobility.created.size +
-                recovery.created.size,
+                sessions.created.size,
             itemsUpdated:
                 exercises.updated.size +
                 workouts.updated.size +
-                sessions.updated.size +
-                mobility.updated.size +
-                recovery.updated.size,
+                sessions.updated.size,
             replacedPlan: !!target,
             staleEntries,
             itemsLinked: items.length,
@@ -786,8 +721,7 @@ export async function updatePlan(req: AuthRequest, res: Response) {
 
 /**
  * The ids of the given planner entries that have been done — a log exists for
- * their library item on their day, or, for mobility (which keeps no logs), the
- * entry itself is ticked. Matches the planner's own tick.
+ * their library item on their day. Matches the planner's own tick.
  */
 async function completedEntryIds(
     userId: string,
@@ -795,28 +729,21 @@ async function completedEntryIds(
         _id: Types.ObjectId
         kind: FitnessPlanKind
         date: string
-        done?: boolean
         [k: string]: unknown
     }[]
 ): Promise<Types.ObjectId[]> {
     if (entries.length === 0) return []
     const dates = [...new Set(entries.map((e) => e.date))]
     const byDate = { user: userId, date: { $in: dates } }
-    const [w, c, r] = await Promise.all([
+    const [w, c] = await Promise.all([
         WorkoutLog.find(byDate).select('workout date').lean(),
         ConditioningLog.find(byDate).select('session date').lean(),
-        RecoveryLog.find(byDate).select('recovery date').lean(),
     ])
     const done = new Set<string>()
     for (const l of w) if (l.workout) done.add(`workout:${l.workout}:${l.date}`)
     for (const l of c) if (l.session) done.add(`conditioning:${l.session}:${l.date}`)
-    for (const l of r) if (l.recovery) done.add(`recovery:${l.recovery}:${l.date}`)
     return entries
-        .filter((e) =>
-            e.kind === 'mobility'
-                ? e.done === true
-                : done.has(`${e.kind}:${e[REF_FIELD[e.kind]]}:${e.date}`)
-        )
+        .filter((e) => done.has(`${e.kind}:${e[REF_FIELD[e.kind]]}:${e.date}`))
         .map((e) => e._id)
 }
 
@@ -844,7 +771,7 @@ async function removePlanLibrary(
     },
     keptEntries: Types.ObjectId[]
 ): Promise<{ removed: Record<FitnessPlanKind | 'exercise', number>; skipped: number }> {
-    const removed = { workout: 0, conditioning: 0, mobility: 0, recovery: 0, exercise: 0 }
+    const removed = { workout: 0, conditioning: 0, exercise: 0 }
     const created = plan.items.filter((i) => i.created)
 
     // Items another plan links to, or that a kept planner entry still uses.
@@ -859,24 +786,23 @@ async function removePlanLibrary(
     for (const o of others) for (const i of o.items) shared.add(String(i.item))
     if (keptEntries.length) {
         const kept = await FitnessPlanEntry.find({ _id: { $in: keptEntries } })
-            .select('workout session mobility recovery')
+            .select('workout session')
             .lean()
         for (const e of kept)
-            for (const id of [e.workout, e.session, e.mobility, e.recovery])
+            for (const id of [e.workout, e.session])
                 if (id) shared.add(String(id))
     }
 
     const byKind: Record<FitnessPlanKind, Types.ObjectId[]> = {
         workout: [],
         conditioning: [],
-        mobility: [],
-        recovery: [],
     }
     const seen = new Set<string>()
     let skipped = 0
     for (const i of created) {
         const id = String(i.item)
-        if (seen.has(id)) continue
+        // Mobility / recovery items from older plans: those libraries are gone.
+        if (!(i.kind in byKind) || seen.has(id)) continue
         seen.add(id)
         if (shared.has(id)) skipped++
         else byKind[i.kind].push(i.item)
@@ -895,8 +821,6 @@ async function removePlanLibrary(
     const models = {
         workout: Workout,
         conditioning: ConditioningSession,
-        mobility: Mobility,
-        recovery: Recovery,
     } as const
     for (const kind of FITNESS_PLAN_KINDS) {
         const ids = byKind[kind]
@@ -919,11 +843,6 @@ async function removePlanLibrary(
         await ConditioningLog.updateMany(
             { user: userId, session: { $in: byKind.conditioning } },
             { $set: { session: null } }
-        )
-    if (byKind.recovery.length)
-        await RecoveryLog.updateMany(
-            { user: userId, recovery: { $in: byKind.recovery } },
-            { $set: { recovery: null } }
         )
 
     // Exercises the plan created that nothing left in the library uses.
@@ -985,7 +904,7 @@ export async function deletePlan(req: AuthRequest, res: Response) {
     let kept: Types.ObjectId[] = []
     if (keepCompleted) {
         const placed = await FitnessPlanEntry.find({ user: req.userId, plan: plan._id })
-            .select('kind date workout session recovery mobility done')
+            .select('kind date workout session')
             .lean()
         kept = await completedEntryIds(req.userId!, placed)
         if (kept.length > 0)
@@ -1022,8 +941,6 @@ function refFields(kind: FitnessPlanKind, item: Types.ObjectId) {
     return {
         workout: kind === 'workout' ? item : null,
         session: kind === 'conditioning' ? item : null,
-        recovery: kind === 'recovery' ? item : null,
-        mobility: kind === 'mobility' ? item : null,
     }
 }
 
@@ -1031,8 +948,6 @@ function refFields(kind: FitnessPlanKind, item: Types.ObjectId) {
 const REF_FIELD: Record<FitnessPlanKind, string> = {
     workout: 'workout',
     conditioning: 'session',
-    recovery: 'recovery',
-    mobility: 'mobility',
 }
 
 /**

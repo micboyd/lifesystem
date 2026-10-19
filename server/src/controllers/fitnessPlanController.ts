@@ -15,8 +15,6 @@ import FitnessPlanNote, {
 } from '../models/FitnessPlanNote'
 import Workout from '../models/Workout'
 import ConditioningSession from '../models/ConditioningSession'
-import Recovery from '../models/Recovery'
-import Mobility from '../models/Mobility'
 import TrainingPlan from '../models/TrainingPlan'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -62,13 +60,9 @@ function isResolved(e: {
     kind: FitnessPlanKind
     workout: unknown
     session: unknown
-    recovery: unknown
-    mobility: unknown
 }): boolean {
     if (e.kind === 'workout') return !!e.workout
-    if (e.kind === 'conditioning') return !!e.session
-    if (e.kind === 'mobility') return !!e.mobility
-    return !!e.recovery
+    return !!e.session
 }
 
 /**
@@ -86,17 +80,17 @@ export async function listEntries(req: AuthRequest, res: Response) {
     const entries = await FitnessPlanEntry.find({
         user: req.userId,
         date: { $gte: start, $lte: end },
+        // Older mobility / recovery entries may linger; those kinds are gone.
+        kind: { $in: FITNESS_PLAN_KINDS },
     })
         .sort({ date: 1, order: 1, createdAt: 1 })
         .populate('workout')
         .populate('session')
-        .populate('recovery')
-        .populate('mobility')
 
     res.json({ message: 'OK', data: entries.filter(isResolved) })
 }
 
-/** POST /api/fitness-plan — place a workout, session or recovery item onto a day. */
+/** POST /api/fitness-plan — place a workout or conditioning session onto a day. */
 export async function createEntry(req: AuthRequest, res: Response) {
     const { date, kind, item: itemId } = req.body
     if (!isDate(date) || !isKind(kind) || typeof itemId !== 'string') {
@@ -112,22 +106,10 @@ export async function createEntry(req: AuthRequest, res: Response) {
             res.status(404).json({ message: 'Workout not found' })
             return
         }
-    } else if (kind === 'conditioning') {
+    } else {
         const session = await ConditioningSession.findOne({ _id: itemId, user: req.userId })
         if (!session) {
             res.status(404).json({ message: 'Session not found' })
-            return
-        }
-    } else if (kind === 'mobility') {
-        const mobility = await Mobility.findOne({ _id: itemId, user: req.userId })
-        if (!mobility) {
-            res.status(404).json({ message: 'Mobility routine not found' })
-            return
-        }
-    } else {
-        const recovery = await Recovery.findOne({ _id: itemId, user: req.userId })
-        if (!recovery) {
-            res.status(404).json({ message: 'Recovery item not found' })
             return
         }
     }
@@ -144,14 +126,10 @@ export async function createEntry(req: AuthRequest, res: Response) {
         kind,
         workout: kind === 'workout' ? itemId : null,
         session: kind === 'conditioning' ? itemId : null,
-        recovery: kind === 'recovery' ? itemId : null,
-        mobility: kind === 'mobility' ? itemId : null,
         order,
     })
     await entry.populate('workout')
     await entry.populate('session')
-    await entry.populate('recovery')
-    await entry.populate('mobility')
     res.status(201).json({ message: 'Created', data: entry })
 }
 
@@ -159,22 +137,16 @@ export async function createEntry(req: AuthRequest, res: Response) {
  * PATCH /api/fitness-plan/:id — move an entry to a different slot of its day,
  * and/or accept a warning raised against it. A move appends the entry to the end
  * of the target slot; `ignoreClash` silences the calendar-clash warning for this
- * entry, `ignoreOverload` the doubled-up-slot one. `done` ticks a mobility
- * entry off — mobility keeps no logs, so its tick lives here.
- * Body: { part?, ignoreClash?, ignoreOverload?, done? } — at least one, any on its own.
+ * entry, `ignoreOverload` the doubled-up-slot one.
+ * Body: { part?, ignoreClash?, ignoreOverload? } — at least one, any on its own.
  */
 export async function updateEntry(req: AuthRequest, res: Response) {
-    const { part, ignoreClash, ignoreOverload, done } = req.body
+    const { part, ignoreClash, ignoreOverload } = req.body
     const moving = part !== undefined
     const overriding = ignoreClash !== undefined
     const overloading = ignoreOverload !== undefined
-    const ticking = done !== undefined
-    if (!moving && !overriding && !overloading && !ticking) {
-        res.status(400).json({ message: 'part, ignoreClash, ignoreOverload or done is required' })
-        return
-    }
-    if (ticking && typeof done !== 'boolean') {
-        res.status(400).json({ message: 'done must be true or false' })
+    if (!moving && !overriding && !overloading) {
+        res.status(400).json({ message: 'part, ignoreClash or ignoreOverload is required' })
         return
     }
     if (moving && !isPart(part)) {
@@ -207,21 +179,11 @@ export async function updateEntry(req: AuthRequest, res: Response) {
     }
     if (overriding) entry.ignoreClash = ignoreClash
     if (overloading) entry.ignoreOverload = ignoreOverload
-    if (ticking) {
-        // Every other kind is done when its log exists; only mobility ticks here.
-        if (entry.kind !== 'mobility') {
-            res.status(400).json({ message: 'Only mobility entries are ticked directly' })
-            return
-        }
-        entry.done = done
-    }
 
     if (entry.isModified()) await entry.save()
 
     await entry.populate('workout')
     await entry.populate('session')
-    await entry.populate('recovery')
-    await entry.populate('mobility')
     res.json({ message: 'Updated', data: entry })
 }
 
@@ -325,8 +287,6 @@ export async function copyWeek(req: AuthRequest, res: Response) {
         kind: e.kind,
         workout: e.workout,
         session: e.session,
-        recovery: e.recovery,
-        mobility: e.mobility,
         order: e.order,
     }))
 
@@ -392,8 +352,6 @@ interface RestoredEntry {
     ignoreClash: boolean
     /** Whether its overloaded slot had been accepted. */
     ignoreOverload: boolean
-    /** Whether it had been ticked off (mobility only). */
-    done: boolean
 }
 
 /**
@@ -434,17 +392,14 @@ export async function restoreWeek(req: AuthRequest, res: Response) {
             order: typeof r.order === 'number' ? r.order : i,
             ignoreClash: r.ignoreClash === true,
             ignoreOverload: r.ignoreOverload === true,
-            done: r.kind === 'mobility' && r.done === true,
         })
     })
 
     const idsOf = (kind: FitnessPlanKind) =>
         wanted.filter((e) => e.kind === kind).map((e) => e.item)
-    const [workouts, sessions, mobility, recovery, plans] = await Promise.all([
+    const [workouts, sessions, plans] = await Promise.all([
         ownedIds(Workout, userId, idsOf('workout')),
         ownedIds(ConditioningSession, userId, idsOf('conditioning')),
-        ownedIds(Mobility, userId, idsOf('mobility')),
-        ownedIds(Recovery, userId, idsOf('recovery')),
         ownedIds(
             TrainingPlan,
             userId,
@@ -454,8 +409,6 @@ export async function restoreWeek(req: AuthRequest, res: Response) {
     const owned: Record<FitnessPlanKind, Set<string>> = {
         workout: workouts,
         conditioning: sessions,
-        mobility,
-        recovery,
     }
 
     const docs = wanted
@@ -467,15 +420,12 @@ export async function restoreWeek(req: AuthRequest, res: Response) {
             kind: e.kind,
             workout: e.kind === 'workout' ? e.item : null,
             session: e.kind === 'conditioning' ? e.item : null,
-            recovery: e.kind === 'recovery' ? e.item : null,
-            mobility: e.kind === 'mobility' ? e.item : null,
             // Keeping the stamp matters: it's what lets a plan be un-applied later
             // without disturbing anything placed by hand.
             plan: e.plan && plans.has(e.plan) ? e.plan : null,
             order: e.order,
             ignoreClash: e.ignoreClash,
             ignoreOverload: e.ignoreOverload,
-            done: e.done,
         }))
 
     const noteDocs = rows(req.body.notes)

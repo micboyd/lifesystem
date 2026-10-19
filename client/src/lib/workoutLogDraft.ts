@@ -17,6 +17,8 @@ import { SESSION_PHASES, type SessionPhase } from '../types'
 export interface DraftSet {
     weight: string
     reps: string
+    /** Ticked off as done. Only done sets go into the log. */
+    done?: boolean
 }
 
 /** One exercise row of the draft, mirroring the drawer's editing state. */
@@ -30,7 +32,7 @@ export interface DraftExercise {
     sets: DraftSet[]
     /** Skipped in this session — kept in place so indices stay aligned. */
     removed?: boolean
-    /** When its Completed button was pressed (ms since epoch). */
+    /** When its Completed button was pressed (ms since epoch) — older drafts only. */
     completedAt?: number
 }
 
@@ -77,9 +79,11 @@ function readSets(raw: unknown): DraftSet[] | null {
     const sets: DraftSet[] = []
     for (const s of raw) {
         if (!s || typeof s !== 'object') return null
-        const { weight, reps } = s as Record<string, unknown>
+        const { weight, reps, done } = s as Record<string, unknown>
         if (typeof weight !== 'string' || typeof reps !== 'string') return null
-        sets.push({ weight, reps })
+        // Drafts from before sets were ticked off count a filled-in set as done.
+        const isDone = typeof done === 'boolean' ? done : weight.trim() !== '' || reps.trim() !== ''
+        sets.push({ weight, reps, ...(isDone ? { done: true } : {}) })
     }
     return sets
 }

@@ -163,8 +163,7 @@ const DEMANDING_CONDITIONING = new Set(['HIIT', 'Endurance'])
  * source of truth about the same week, and the two would drift within a month.
  * It reads the planner: two hard sessions in a day, or one demanding
  * conditioning session, is a hard day; a single ordinary session is a training
- * day; anything that leaves only mobility or recovery, or nothing at all, is
- * rest.
+ * day. A rest day is set by override.
  *
  * A date with no fitness data at all returns null rather than 'rest' — the
  * distinction between "nothing planned" and "no planner" is exactly the

@@ -15,10 +15,7 @@ import Pagination from '../components/Pagination'
 import LineIcon from '../components/LineIcon'
 import StrengthLibraries from '../components/StrengthLibraries'
 import ConditioningSessionsLog from '../components/ConditioningSessionsLog'
-import RecoveryLibrary from '../components/RecoveryLibrary'
-import RecoveryRecordsLog from '../components/RecoveryRecordsLog'
-import MobilityLibrary from '../components/MobilityLibrary'
-import FitnessWeeklyPlanner, { type PlannerLayout } from '../components/FitnessWeeklyPlanner'
+import FitnessWeeklyPlanner from '../components/FitnessWeeklyPlanner'
 import { LARGE_QUERY, useMediaQuery } from '../components/planner/WeekPlannerUI'
 import PlanLibrary from '../components/PlanLibrary'
 import BodyMetrics from '../components/BodyMetrics'
@@ -27,6 +24,7 @@ import FitnessStats from '../components/stats/FitnessStats'
 import ConditioningSessionDetail from '../components/ConditioningSessionDetail'
 import JsonImportPanel from '../components/JsonImportPanel'
 import { SlotInputs } from '../components/SessionPace'
+import { StepsInput, cleanSteps } from '../components/session/SessionUI'
 import {
     listSessions,
     createSession,
@@ -54,7 +52,7 @@ import { allInPhases, emptyPhases, mapPhases } from '../lib/phases'
 const SESSION_TEMPLATE = `[
   {
     "name": "Treadmill Run-Walk Intervals",   // required
-    "duration": 33,                            // minutes
+    "duration": 36,                            // minutes
     "category": "Endurance",                   // HIIT | Cardio | Endurance | Mobility | Recovery
     "purpose": "Rebuild tolerance to running impact through controlled run-walk intervals.",
     // Three phases, in order: warmUp, main, coolDown.
@@ -65,9 +63,16 @@ const SESSION_TEMPLATE = `[
     // should be finished. Decimals are fine (1.5 = 1:30).
     "warmUp": [
       {
-        "name": "Walk",
-        "detail": "0.5% incline. Walk 3 min @ 4.2 km/h, then 4 min @ 5.2 km/h.",
+        // A part can be a block of drills: "steps" is a sub-list you tick off one by one.
+        "name": "Mobility drills",
         "startMin": 0,
+        "endMin": 3,
+        "steps": ["Leg swings ×10 each side", "Walking lunges ×10", "Ankle circles ×10 each way"]
+      },
+      {
+        "name": "Walk",
+        "detail": "0.5% incline. Walk 2 min @ 4.2 km/h, then 2 min @ 5.2 km/h.",
+        "startMin": 3,
         "endMin": 7
       }
     ],
@@ -94,6 +99,12 @@ const SESSION_TEMPLATE = `[
         "detail": "Walk 2 min @ 5.0 km/h, then 3 min @ 4.0 km/h.",
         "startMin": 28,
         "endMin": 33
+      },
+      {
+        "name": "Stretch",
+        "startMin": 33,
+        "endMin": 36,
+        "steps": ["Calf stretch 30s each side", "Hamstring stretch 30s each side", "Quad stretch 30s each side"]
       }
     ],
     "howToUse": "Leave at least one non-running day before the next run.",
@@ -111,33 +122,17 @@ const TABS = [
     'Plans',
     'Stats',
     'Body',
-    'Mobility',
-    'Recovery',
 ] as const
 type Tab = (typeof TABS)[number]
 
-const LAYOUT_KEY = 'fitness.planner.layout'
-
-/** The planner's wide-screen layout, as last chosen — the full-width week by default. */
-function readPlannerLayout(): PlannerLayout {
-    try {
-        return localStorage.getItem(LAYOUT_KEY) === 'days' ? 'days' : 'week'
-    } catch {
-        return 'week'
-    }
-}
-
 const SUBTITLE: Record<Tab, string> = {
     Planner:
-        'Plan your training — drop strength, conditioning, mobility and recovery into each day.',
+        'Plan your training — drop strength and conditioning into each day.',
     Plans: 'Whole training blocks — import a plan, then apply it to fill the planner day by day.',
     Stats: 'What the logs already know — progression per exercise, how often you train, records, and where the volume goes.',
     Body: 'Weigh in and watch the trend, not the scale — the smoothed line is what tracks fat.',
     Strength: 'Track your training programmes, sessions and progress.',
     Conditioning: 'Track your training programmes, sessions and progress.',
-    Mobility: 'Log completed routines and build a library of mobility flows, circuits and drills.',
-    Recovery:
-        'Log completed recovery and build a library — stretching, sauna, foam rolling and more.',
 }
 
 export default function Fitness() {
@@ -147,20 +142,10 @@ export default function Fitness() {
     // the plan actually starts rather than on this one. Cleared as soon as the
     // user picks a tab themselves, so the planner goes back to opening on today.
     const [plannerStart, setPlannerStart] = useState<string | null>(null)
-    const [layout, setLayout] = useState<PlannerLayout>(readPlannerLayout)
     const isLarge = useMediaQuery(LARGE_QUERY)
     // The week board spans the screen below the tabs; the header and tabs, and
     // every other tab, sit in the usual column.
-    const fluid = tab === 'Planner' && layout === 'week' && isLarge
-
-    function changeLayout(next: PlannerLayout) {
-        setLayout(next)
-        try {
-            localStorage.setItem(LAYOUT_KEY, next)
-        } catch {
-            // Just won't be remembered.
-        }
-    }
+    const fluid = tab === 'Planner' && isLarge
 
     return (
         <main className="py-10">
@@ -200,8 +185,6 @@ export default function Fitness() {
                     <FitnessWeeklyPlanner
                         key={plannerStart ?? 'today'}
                         startOn={plannerStart ?? undefined}
-                        layout={layout}
-                        onLayoutChange={changeLayout}
                     />
                 ) : tab === 'Plans' ? (
                     <PlanLibrary
@@ -216,12 +199,8 @@ export default function Fitness() {
                     <BodyMetrics />
                 ) : tab === 'Strength' ? (
                     <StrengthLibraries />
-                ) : tab === 'Conditioning' ? (
-                    <ConditioningSection />
-                ) : tab === 'Mobility' ? (
-                    <MobilityLibrary />
                 ) : (
-                    <RecoverySection />
+                    <ConditioningSection />
                 )}
             </Container>
 
@@ -249,29 +228,6 @@ function ConditioningSection() {
             />
 
             {sub === 'Sessions' ? <ConditioningSessionsLog /> : <ConditioningLibrary />}
-        </div>
-    )
-}
-
-const RECORDS_SUB_TABS = ['Library', 'Records'] as const
-type RecordsSubTab = (typeof RECORDS_SUB_TABS)[number]
-
-// ─── Recovery section ───────────────────────────────────────────────────────────
-
-/** Recovery splits into logged Records and the reusable item Library. */
-function RecoverySection() {
-    const [sub, setSub] = useState<RecordsSubTab>('Library')
-
-    return (
-        <div className="flex flex-col gap-6">
-            <Tabs
-                tabs={[...RECORDS_SUB_TABS]}
-                value={sub}
-                onChange={(t) => setSub(t as RecordsSubTab)}
-                className="self-start"
-            />
-
-            {sub === 'Records' ? <RecoveryRecordsLog /> : <RecoveryLibrary />}
         </div>
     )
 }
@@ -419,7 +375,9 @@ function ConditioningLibrary() {
                             <span className="font-semibold text-neutral-700">endMin</span>, minutes
                             from the start (e.g. 15 and 30), running in order. Your Completed
                             press on each part is timed against it, so you can see if you&apos;re
-                            on time.
+                            on time. An optional{' '}
+                            <span className="font-semibold text-neutral-700">steps</span> list
+                            (one string per step) gives a part a sub-list to tick off.
                             Add <span className="font-semibold text-neutral-700">rounds</span> (a
                             number) to a part to get a tap-to-count counter, plus an optional{' '}
                             <span className="font-semibold text-neutral-700">roundLabel</span>,{' '}
@@ -743,6 +701,7 @@ function SessionFormDrawer({
                             startAtSec: rounds ? p.startAtSec : undefined,
                             startMin: p.startMin,
                             endMin: p.endMin,
+                            steps: cleanSteps(p.steps),
                         }
                     })
                     .filter((p) => p.name !== '')
@@ -929,6 +888,12 @@ function PartsEditor({
                                 placeholder="Details (sets, reps, distance, pace…)"
                                 value={r.detail ?? ''}
                                 onChange={(e) => update(r.key, { detail: e.target.value })}
+                            />
+
+                            <StepsInput
+                                steps={r.steps}
+                                label={r.name || `part ${i + 1}`}
+                                onChange={(steps) => update(r.key, { steps })}
                             />
 
                             <div className="pl-8">

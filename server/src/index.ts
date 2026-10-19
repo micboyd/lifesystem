@@ -26,13 +26,10 @@ import habitRoutes from './routes/habitRoutes'
 import lifePlanRoutes from './routes/lifePlanRoutes'
 import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
-import mobilityRoutes from './routes/mobilityRoutes'
 import monthNoteRoutes from './routes/monthNoteRoutes'
 import noteRoutes from './routes/noteRoutes'
 import nutritionPhaseRoutes from './routes/nutritionPhaseRoutes'
 import path from 'path'
-import recoveryRoutes from './routes/recoveryRoutes'
-import recoveryLogRoutes from './routes/recoveryLogRoutes'
 import reminderRoutes from './routes/reminderRoutes'
 import savingsTargetRoutes from './routes/savingsTargetRoutes'
 import taskRoutes from './routes/taskRoutes'
@@ -98,9 +95,6 @@ app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)
 app.use('/api/plans', trainingPlanRoutes)
-app.use('/api/recovery', recoveryRoutes)
-app.use('/api/recovery-logs', recoveryLogRoutes)
-app.use('/api/mobility', mobilityRoutes)
 app.use('/api/notes', noteRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
 app.use('/api/life-plans', lifePlanRoutes)

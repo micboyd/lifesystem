@@ -1,5 +1,3 @@
-import { Card } from './Card'
-
 /** How a figure should read: plain, good news, worth watching, or bad news. */
 export type StatTone = 'neutral' | 'good' | 'warn' | 'bad'
 
@@ -32,22 +30,24 @@ export default function StatTile({
     tone?: StatTone
 }) {
     return (
-        <Card hover={false} className="flex flex-col gap-1.5">
-            <p className="text-[13px] text-neutral-600">{label}</p>
-            <p className="text-[28px] font-medium leading-[34px] tracking-[-0.03em] tabular-nums text-neutral-900">
+        <div className="flex min-w-0 flex-col gap-1 rounded-[20px] bg-white p-4 ring-1 ring-neutral-900/[0.06]">
+            <p className="truncate text-[13px] text-neutral-500">{label}</p>
+            <p className="nums truncate text-2xl font-semibold tracking-tight text-neutral-900">
                 {value}
             </p>
             {sub && (
-                <p className="text-xs text-neutral-500">
+                <p className="text-[13px] leading-snug text-neutral-500">
                     {tone === 'neutral' ? (
                         sub
                     ) : (
-                        <span className={`rounded-full px-2 py-0.5 font-medium ${TONE_PILL[tone]}`}>
+                        <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${TONE_PILL[tone]}`}
+                        >
                             {sub}
                         </span>
                     )}
                 </p>
             )}
-        </Card>
+        </div>
     )
 }
