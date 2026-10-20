@@ -72,6 +72,22 @@ function arr(raw: unknown): Record<string, unknown>[] {
     )
 }
 
+/**
+ * A phase's lines as objects. A bare string is a line with just a name
+ * ("Plank"), which the workout importer accepts too.
+ */
+function lineList(raw: unknown): Record<string, unknown>[] {
+    if (!Array.isArray(raw)) return []
+    return arr(raw.map((l) => (typeof l === 'string' ? { name: l } : l)))
+}
+
+/**
+ * Sections and columns from before mobility and recovery were folded into
+ * conditioning. The importer no longer reads them, so it says so rather than
+ * dropping them without a word.
+ */
+const RETIRED_KEYS = ['mobility', 'recovery', 'mobilityUse', 'recoveryUse'] as const
+
 function strList(raw: unknown): string[] {
     if (!Array.isArray(raw)) return []
     return raw.map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean)
@@ -283,10 +299,30 @@ export async function importPlan(req: AuthRequest, res: Response) {
         return
     }
 
+    const retired = [
+        ...RETIRED_KEYS.filter((k) => doc[k] !== undefined),
+        ...(arr(doc.weeklyTemplate).some((d) => d.mobility || d.recovery)
+            ? ['weeklyTemplate mobility/recovery cells']
+            : []),
+    ]
+    if (retired.length) {
+        warnings.push({
+            source: 'import',
+            message: `Ignored ${retired.join(', ')}: mobility and recovery are now conditioning sessions (category "Mobility" or "Recovery").`,
+        })
+    }
+
     // ── Exercises: the named library plus anything a workout references ─────────
-    const exerciseSpecs = toSpecs(arr(doc.exerciseLibrary), (e) => ({
-        description: str(e.description) ?? '',
-    }))
+    // Only fields the document actually gives are written, so refreshing an
+    // existing exercise never blanks what was set by hand.
+    const exerciseSpecs = toSpecs(arr(doc.exerciseLibrary), (e) => {
+        const fields: Record<string, unknown> = {}
+        for (const key of ['description', 'muscleGroup', 'equipment'] as const) {
+            const value = str(e[key])
+            if (value !== undefined) fields[key] = value
+        }
+        return fields
+    })
     // Demo videos, by exercise name: from the exercise library, or straight on a
     // workout line. The first link seen for a name wins.
     const videos = new Map<string, string>()
@@ -298,9 +334,9 @@ export async function importPlan(req: AuthRequest, res: Response) {
     for (const w of strengthWorkouts) {
         const phased = readPhased(w, 'exercises')
         for (const phase of SESSION_PHASES) {
-            for (const line of arr(phased[phase])) {
+            for (const line of lineList(phased[phase])) {
                 const lineName = str(line.name)
-                if (lineName) exerciseSpecs.push({ name: lineName, fields: { description: '' } })
+                if (lineName) exerciseSpecs.push({ name: lineName, fields: {} })
                 noteVideo(lineName, line)
             }
         }
@@ -320,7 +356,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
     function workoutLines(raw: unknown[]) {
         const out: Record<string, unknown>[] = []
         const used = new Set<string>()
-        for (const line of arr(raw)) {
+        for (const line of lineList(raw)) {
             const lineName = str(line.name)
             if (!lineName) continue
             const key = nameKey(lineName)
@@ -348,7 +384,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
     }
 
     const workoutSpecs = toSpecs(strengthWorkouts, (w) => ({
-        description: str(w.purpose) ?? '',
+        description: str(w.purpose) ?? str(w.description) ?? '',
         duration: num(w.duration) ?? 0,
         bring: readBringList(w),
         ...mapPhases(readPhased(w, 'exercises'), workoutLines),

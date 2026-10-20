@@ -1,9 +1,9 @@
 import { Types } from 'mongoose'
 import { IMacros } from '../models/Meal'
-import PlateFood from '../models/PlateFood'
+import PlateFood, { IIngredient, IPlateFood } from '../models/PlateFood'
 import BoxCook, { IBoxCook } from '../models/BoxCook'
 import MealPlanEntry, { IPlateLine } from '../models/MealPlanEntry'
-import { plateName, plateTotal, ZERO } from './plates'
+import { per100FromCook, plateName, plateTotal, rawTotal, ZERO } from './plates'
 
 /**
  * Turning what the client sends for a plate — food + grams (+ a batch, when
@@ -79,4 +79,44 @@ export async function repricePlanned(
         Object.assign(e, plateFields(lines))
         await e.save()
     }
+}
+
+/** Move a box's still-planned plates onto whichever batch now counts. */
+export async function followCurrent(userId: string, foodId: Types.ObjectId | string) {
+    const food = await PlateFood.findOne({ _id: foodId, user: userId })
+    if (!food) return
+    const cook = await currentCook(userId, food._id)
+    await repricePlanned(userId, food._id, {
+        name: food.name,
+        per100: cook?.per100 ?? { ...ZERO },
+        batch: cook?._id ?? null,
+    })
+}
+
+/**
+ * Log a cook of a box: the raw ingredients and the cooked weight give its
+ * macros per 100 g. `finishOpen` marks the box's earlier batches as finished.
+ * Plates still planned move onto whichever batch now counts.
+ */
+export async function logCook(
+    userId: string,
+    food: IPlateFood,
+    cook: { date: string; ingredients: IIngredient[]; cookedGrams: number; finishOpen?: boolean }
+): Promise<IBoxCook> {
+    if (cook.finishOpen) {
+        await BoxCook.updateMany({ user: userId, food: food._id, finished: false }, { finished: true })
+    }
+    const raw = rawTotal(cook.ingredients)
+    const created = await BoxCook.create({
+        user: userId,
+        food: food._id,
+        name: food.name,
+        date: cook.date,
+        ingredients: cook.ingredients,
+        raw,
+        cookedGrams: cook.cookedGrams,
+        per100: per100FromCook(raw, cook.cookedGrams),
+    })
+    await followCurrent(userId, food._id)
+    return created
 }

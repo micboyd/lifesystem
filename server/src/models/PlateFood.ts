@@ -33,6 +33,8 @@ export interface IPlateFood extends Document {
     per100?: IMacros
     notes?: string
     order: number
+    /** Set on boxes added by a JSON import, so the last import can be undone. */
+    importBatch?: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -46,10 +48,12 @@ const plateFoodSchema = new Schema<IPlateFood>(
         per100: { type: macrosSchema },
         notes: { type: String, trim: true },
         order: { type: Number, default: 0 },
+        importBatch: { type: String, default: null },
     },
     { timestamps: true }
 )
 
 plateFoodSchema.index({ user: 1, order: 1 })
+plateFoodSchema.index({ user: 1, importBatch: 1 })
 
 export default model<IPlateFood>('PlateFood', plateFoodSchema)

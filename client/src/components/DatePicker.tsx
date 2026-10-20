@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import {
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+    type MouseEvent as ReactMouseEvent,
+} from 'react'
 import { createPortal } from 'react-dom'
 
 export interface DateRange {
@@ -206,24 +213,30 @@ export default function DatePicker({
         const rect = trigger.getBoundingClientRect()
         const gap = 8
         const margin = 8
-        const estHeight = menuRef.current?.offsetHeight ?? 360
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        const width = Math.min(menuWidth, vw - margin * 2)
+        const height = Math.min(menuRef.current?.offsetHeight ?? 360, vh - margin * 2)
 
         let left = rect.left
-        if (left + menuWidth > window.innerWidth - margin) {
-            left = window.innerWidth - menuWidth - margin // keep the right edge on-screen
-        }
+        if (left + width > vw - margin) left = vw - width - margin // keep the right edge on-screen
         if (left < margin) left = margin
 
-        // Drop below the trigger; flip above when there isn't room and there is above.
+        // Drop below the trigger; flip above when there isn't room and there is
+        // above. When neither side fits, take the roomier one and clamp it into
+        // the viewport — overlapping the trigger beats running off the screen.
+        const below = vh - rect.bottom - gap - margin
+        const above = rect.top - gap - margin
         let top = rect.bottom + gap
-        if (top + estHeight > window.innerHeight - margin && rect.top - gap - estHeight > margin) {
-            top = rect.top - gap - estHeight
-        }
+        if (height > below && (height <= above || above > below)) top = rect.top - gap - height
+        top = Math.max(margin, Math.min(top, vh - height - margin))
         setMenuPos({ top, left })
     }
 
     // Keep the dropdown pinned to the trigger while open, even as ancestors scroll.
-    useEffect(() => {
+    // A layout effect, so the first placement uses the menu's measured height
+    // rather than the estimate, before anything paints.
+    useLayoutEffect(() => {
         if (!open) return
         positionMenu()
         const handler = () => positionMenu()
@@ -578,7 +591,7 @@ export default function DatePicker({
                     aria-hidden="true"
                 />
                 <span
-                    className={`flex-1 text-left whitespace-nowrap ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-500'}`}
+                    className={`min-w-0 flex-1 truncate text-left ${hasValue ? 'font-semibold text-neutral-900' : 'font-normal text-neutral-500'}`}
                 >
                     {hasValue ? (displayLabel ?? triggerLabel) : placeholder}
                 </span>
@@ -607,7 +620,7 @@ export default function DatePicker({
                 <div
                     ref={menuRef}
                     style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-                    className={`z-[100] max-w-[calc(100vw-1rem)] rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-4 shadow-xl ${isRange ? 'w-80' : 'w-72'}`}
+                    className={`z-[100] max-h-[calc(100dvh-1rem)] max-w-[calc(100vw-1rem)] overflow-y-auto rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-4 shadow-xl ${isRange ? 'w-80' : 'w-72'}`}
                 >
                     {/* Header nav */}
                     <div className="mb-3 flex items-center justify-between gap-2">

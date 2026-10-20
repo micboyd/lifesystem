@@ -11,6 +11,7 @@ import ConfirmModal from '../ConfirmModal'
 import Checkbox from '../Checkbox'
 import DatePicker from '../DatePicker'
 import LibraryToolbar from '../LibraryToolbar'
+import JsonImportPanel from '../JsonImportPanel'
 import { StatStrip, NoteBlock } from '../session/SessionUI'
 import { FIELD_LABEL } from '../fieldStyles'
 import { MacroBar, MacroLegend, caloriesFromMacros } from './mealUi'
@@ -20,19 +21,19 @@ import { todayKey } from '../../lib/calendar'
 import {
     cookBox,
     createPlateFood,
-    deleteCook,
     deletePlateFood,
-    setCookFinished,
+    importTrays,
     updatePlateFood,
 } from '../../services/plateFoods'
-import type { BoxCook, Ingredient, Macros, PlateFood, PlateFoodInput, PlateFoodKind } from '../../types'
+import type { Ingredient, Macros, PlateFood, PlateFoodInput, PlateFoodKind } from '../../types'
 
 /**
  * Boxes and plain foods — what gets weighed onto a plate.
  *
  * A box is something cooked in a batch (a tray of chicken and veg): its raw
- * ingredients live here, "Cooked a box" logs a batch with its cooked weight,
- * and that gives the macros per 100 g every plate draws on. A plain food —
+ * ingredients (the recipe) live here. Each cook of it — a batch with its cooked
+ * weight and so its macros per 100 g — lives in the Pantry, and plates draw
+ * only from those. A plain food —
  * cooked rice — just has fixed macros per 100 g.
  */
 
@@ -46,7 +47,7 @@ export function shortDate(date: string): string {
 }
 
 /** "172 kcal · 27.5 g protein per 100 g". */
-function per100Line(m: Macros): string {
+export function per100Line(m: Macros): string {
     return `${kcal(m.calories)} kcal · ${fmt(m.protein)} g protein per 100 g`
 }
 
@@ -59,6 +60,7 @@ type Drawered =
 export default function BoxLibrary({ foods, onChanged }: { foods: PlateFood[]; onChanged: () => Promise<void> }) {
     const [drawer, setDrawer] = useState<Drawered>(null)
     const [deleting, setDeleting] = useState<PlateFood | null>(null)
+    const [importing, setImporting] = useState(false)
     const [search, setSearch] = useState('')
 
     const filtered = useMemo(() => {
@@ -78,6 +80,27 @@ export default function BoxLibrary({ foods, onChanged }: { foods: PlateFood[]; o
         await onChanged()
     }
 
+    if (importing) {
+        return (
+            <JsonImportPanel
+                heading="Import trays"
+                description="Paste one or many trays — what goes in raw, with each packet's macros per 100 g. Add the cooked weight and the tray is ready to plate straight away."
+                template={TRAY_TEMPLATE}
+                notes={<TrayImportNotes />}
+                itemNoun="tray"
+                onBack={() => setImporting(false)}
+                doImport={importTrays}
+                resource="plate-foods"
+                existingItems={foods.filter((f) => f.kind === 'box')}
+                onLibraryChanged={() => void onChanged()}
+                onImported={async () => {
+                    await onChanged()
+                    setImporting(false)
+                }}
+            />
+        )
+    }
+
     return (
         <>
             <LibraryToolbar
@@ -86,16 +109,28 @@ export default function BoxLibrary({ foods, onChanged }: { foods: PlateFood[]; o
                 placeholder="Search boxes and foods…"
                 count={foods.length ? filtered.length : undefined}
                 noun="food"
+                onImport={() => setImporting(true)}
                 newLabel="New box"
                 onNew={() => setDrawer({ mode: 'form', kind: 'box' })}
                 menu={
-                    <Button
-                        variant="secondary"
-                        icon="fa-solid fa-plus"
-                        onClick={() => setDrawer({ mode: 'form', kind: 'plain' })}
-                    >
-                        Food
-                    </Button>
+                    <DropdownMenu
+                        align="right"
+                        trigger={
+                            <span
+                                aria-label="More library actions"
+                                className="grid h-11 w-10 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                            >
+                                <LineIcon name="more" className="h-4 w-4" />
+                            </span>
+                        }
+                        items={[
+                            {
+                                label: 'New food (fixed per 100 g)',
+                                icon: 'fa-solid fa-plus',
+                                onClick: () => setDrawer({ mode: 'form', kind: 'plain' }),
+                            },
+                        ]}
+                    />
                 }
             />
 
@@ -120,7 +155,7 @@ export default function BoxLibrary({ foods, onChanged }: { foods: PlateFood[]; o
                 ) : (
                     <>
                         {boxes.length > 0 && (
-                            <Section title="Boxes" hint="Cooked in a batch — log each cook with its cooked weight.">
+                            <Section title="Boxes" hint="Recipes you batch-cook. Each cook goes into the Pantry, ready to plate.">
                                 {boxes.map((f) => (
                                     <BoxCard
                                         key={f._id}
@@ -155,7 +190,6 @@ export default function BoxLibrary({ foods, onChanged }: { foods: PlateFood[]; o
                 onCook={(f) => setDrawer({ mode: 'cook', food: f })}
                 onEdit={(f) => setDrawer({ mode: 'form', kind: 'box', food: f })}
                 onDelete={setDeleting}
-                onChanged={onChanged}
             />
 
             <FoodFormDrawer
@@ -206,20 +240,15 @@ function Section({ title, hint, children }: { title: string; hint: string; child
 
 // ─── Cards ──────────────────────────────────────────────────────────────────────
 
-/** Where a box stands: the batch plates draw from, and how much of it is left. */
-function batchLine(food: PlateFood): { text: string; tone: 'live' | 'idle' } {
-    const open = food.open[0]
-    if (open) {
-        return {
-            text: `Cooked ${shortDate(open.date)} · ~${gramsLeft(open.cookedGrams, open.eatenGrams)} g left`,
-            tone: 'live',
-        }
-    }
-    if (food.last) return { text: `Last cooked ${shortDate(food.last.date)} · finished`, tone: 'idle' }
-    return { text: 'Not cooked yet', tone: 'idle' }
+/** Whether a box has cooked batches in the pantry, and roughly how much. */
+function pantryLine(food: PlateFood): { text: string; live: boolean } {
+    if (food.open.length === 0) return { text: 'Not in the pantry', live: false }
+    const left = food.open.reduce((sum, c) => sum + gramsLeft(c.cookedGrams, c.eatenGrams), 0)
+    const batches = food.open.length > 1 ? ` · ${food.open.length} batches` : ''
+    return { text: `In the pantry · ~${fmt(left)} g left${batches}`, live: true }
 }
 
-function CardMenu({ items }: { items: { label: string; icon: string; danger?: boolean; onClick: () => void }[] }) {
+export function CardMenu({ items }: { items: { label: string; icon: string; danger?: boolean; onClick: () => void }[] }) {
     return (
         <DropdownMenu
             align="right"
@@ -250,8 +279,8 @@ function BoxCard({
     onEdit: () => void
     onDelete: () => void
 }) {
-    const current = food.open[0] ?? food.last
-    const status = batchLine(food)
+    const status = pantryLine(food)
+    const raw = rawTotal(food.ingredients)
     return (
         <Card as="div" className="relative flex flex-col gap-4">
             <button
@@ -268,12 +297,11 @@ function BoxCard({
                     <p className="truncate font-semibold text-neutral-900">{food.name}</p>
                     <p
                         className={`mt-0.5 flex items-center gap-1.5 text-xs ${
-                            status.tone === 'live' ? 'text-emerald-700' : 'text-neutral-500'
+                            status.live ? 'text-emerald-700' : 'text-neutral-500'
                         }`}
                     >
-                        {status.tone === 'live' && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+                        {status.live && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
                         {status.text}
-                        {food.open.length > 1 && ` · +${food.open.length - 1} open`}
                     </p>
                 </div>
                 <CardMenu
@@ -284,17 +312,21 @@ function BoxCard({
                 />
             </div>
 
-            {current && (
-                <p className="text-sm tabular-nums text-neutral-600">
-                    <span className="font-semibold text-neutral-900">{kcal(current.per100.calories)} kcal</span> ·{' '}
-                    {fmt(current.per100.protein)} P · {fmt(current.per100.carbs)} C · {fmt(current.per100.fat)} F
-                    <span className="text-neutral-400"> per 100 g</span>
-                </p>
-            )}
+            <p className="text-sm tabular-nums text-neutral-600">
+                {food.ingredients.length} ingredient{food.ingredients.length === 1 ? '' : 's'} ·{' '}
+                <span className="font-semibold text-neutral-900">{kcal(raw.calories)} kcal</span> ·{' '}
+                {fmt(raw.protein)} g protein
+                <span className="text-neutral-400"> per batch</span>
+            </p>
 
             <div className="relative z-20 mt-auto">
-                <Button icon="fa-solid fa-fire-burner" onClick={onCook} className="w-full justify-center">
-                    Cooked a box
+                <Button
+                    variant="secondary"
+                    icon="fa-solid fa-fire-burner"
+                    onClick={onCook}
+                    className="w-full justify-center"
+                >
+                    Cooked it
                 </Button>
             </div>
         </Card>
@@ -339,29 +371,16 @@ function BoxViewDrawer({
     onCook,
     onEdit,
     onDelete,
-    onChanged,
 }: {
     food: PlateFood | null
     onClose: () => void
     onCook: (f: PlateFood) => void
     onEdit: (f: PlateFood) => void
     onDelete: (f: PlateFood) => void
-    onChanged: () => Promise<void>
 }) {
     // Keep the last box on screen while the drawer animates closed.
     const [view, setView] = useState<PlateFood | null>(food)
     if (food && food !== view) setView(food)
-    const [busy, setBusy] = useState(false)
-
-    async function run(fn: () => Promise<void>) {
-        setBusy(true)
-        try {
-            await fn()
-            await onChanged()
-        } finally {
-            setBusy(false)
-        }
-    }
 
     const f = view
     const raw = f ? rawTotal(f.ingredients) : null
@@ -373,15 +392,21 @@ function BoxViewDrawer({
             title={f?.name ?? 'Box'}
             footer={
                 f && (
-                    <div className="flex w-full flex-wrap items-center justify-end gap-3">
-                        <Button variant="ghost" icon="fa-solid fa-trash-can" className="mr-auto" onClick={() => onDelete(f)}>
-                            Delete
+                    <div className="flex w-full items-center gap-2 sm:gap-3">
+                        <Button
+                            variant="ghost"
+                            icon="fa-solid fa-trash-can"
+                            aria-label="Delete box"
+                            className="mr-auto px-3 sm:px-[18px]"
+                            onClick={() => onDelete(f)}
+                        >
+                            <span className="hidden sm:inline">Delete</span>
                         </Button>
                         <Button variant="secondary" icon="fa-solid fa-pen" onClick={() => onEdit(f)}>
                             Edit
                         </Button>
                         <Button icon="fa-solid fa-fire-burner" onClick={() => onCook(f)}>
-                            Cooked a box
+                            Cooked it
                         </Button>
                     </div>
                 )
@@ -389,33 +414,19 @@ function BoxViewDrawer({
         >
             {f && raw && (
                 <div className="flex flex-col gap-7">
-                    <section className="flex flex-col gap-3">
-                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Open batches</p>
-                        {f.open.length === 0 ? (
-                            <p className="rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-500">
-                                {f.last
-                                    ? `Nothing open — last cooked ${shortDate(f.last.date)}. Plates use that batch until you cook again.`
-                                    : 'Not cooked yet. Log a cook to start using it on plates.'}
-                            </p>
-                        ) : (
-                            <ul className="flex flex-col gap-2">
-                                {f.open.map((c, i) => (
-                                    <BatchRow
-                                        key={c._id}
-                                        cook={c}
-                                        current={i === 0}
-                                        busy={busy}
-                                        onFinish={() => run(() => setCookFinished(c._id, true))}
-                                        onDelete={() => run(() => deleteCook(c._id))}
-                                    />
-                                ))}
-                            </ul>
-                        )}
-                    </section>
+                    <p
+                        className={`flex items-center gap-2 rounded-2xl px-4 py-3 text-sm ${
+                            pantryLine(f).live ? 'bg-emerald-50 text-emerald-800' : 'bg-neutral-50 text-neutral-500'
+                        }`}
+                    >
+                        <i className="fa-solid fa-box-open text-xs" aria-hidden="true" />
+                        {pantryLine(f).text}
+                        {pantryLine(f).live && <span className="text-emerald-700/70">— see the Pantry tab</span>}
+                    </p>
 
                     <section className="flex flex-col gap-3">
                         <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                            Raw ingredients · one batch
+                            Recipe · raw ingredients for one batch
                         </p>
                         <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
                             {f.ingredients.map((i, n) => (
@@ -443,62 +454,6 @@ function BoxViewDrawer({
                 </div>
             )}
         </Drawer>
-    )
-}
-
-function BatchRow({
-    cook,
-    current,
-    busy,
-    onFinish,
-    onDelete,
-}: {
-    cook: BoxCook
-    current: boolean
-    busy: boolean
-    onFinish: () => void
-    onDelete: () => void
-}) {
-    const left = gramsLeft(cook.cookedGrams, cook.eatenGrams)
-    const pct = cook.cookedGrams > 0 ? Math.min(100, (left / cook.cookedGrams) * 100) : 0
-    return (
-        <li className="flex flex-col gap-2.5 rounded-2xl bg-neutral-50 px-4 py-3">
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <p className="text-sm font-semibold text-neutral-900">
-                        Cooked {shortDate(cook.date)}
-                        {current && (
-                            <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                                In use
-                            </span>
-                        )}
-                    </p>
-                    <p className="mt-0.5 text-xs tabular-nums text-neutral-500">{per100Line(cook.per100)}</p>
-                </div>
-                <CardMenu
-                    items={[
-                        { label: 'Finished', icon: 'fa-solid fa-check', onClick: onFinish },
-                        { label: 'Delete cook', icon: 'fa-solid fa-trash-can', danger: true, onClick: onDelete },
-                    ]}
-                />
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-neutral-200">
-                <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
-            </div>
-            <div className="flex items-center justify-between text-xs tabular-nums text-neutral-500">
-                <span>
-                    ~{left} g left of {fmt(cook.cookedGrams)} g
-                </span>
-                <button
-                    type="button"
-                    disabled={busy}
-                    onClick={onFinish}
-                    className="font-semibold text-neutral-700 transition-colors hover:text-neutral-900 disabled:opacity-60"
-                >
-                    Mark finished
-                </button>
-            </div>
-        </li>
     )
 }
 
@@ -652,7 +607,7 @@ function FoodFormDrawer({
                                             onChange={(e) => patchRow(i, { name: e.target.value })}
                                         />
                                     </div>
-                                    <div className="w-24 shrink-0">
+                                    <div className="w-20 shrink-0 sm:w-24">
                                         <NumberField label="Grams" value={r.grams} onChange={(v) => patchRow(i, { grams: v })} />
                                     </div>
                                     {rows.length > 1 && (
@@ -729,7 +684,7 @@ function NumberField({ label, value, onChange }: { label: string; value: string;
     )
 }
 
-function TotalPanel({ label, macros }: { label: string; macros: Macros }) {
+export function TotalPanel({ label, macros }: { label: string; macros: Macros }) {
     return (
         <div className="flex flex-col gap-2 rounded-2xl border border-neutral-200 px-4 py-3">
             <div className="flex items-baseline justify-between gap-3">
@@ -749,7 +704,7 @@ function TotalPanel({ label, macros }: { label: string; macros: Macros }) {
  * were different today), then the cooked weight turns the raw total into
  * macros per 100 g. Earlier batches can be marked finished in the same go.
  */
-function CookDrawer({
+export function CookDrawer({
     food,
     onClose,
     onSaved,
@@ -764,6 +719,8 @@ function CookDrawer({
     const [grams, setGrams] = useState<string[]>([])
     const [cooked, setCooked] = useState('')
     const [finishOpen, setFinishOpen] = useState(true)
+    // The raw grams are usually the same as last time, so they start folded away.
+    const [showRaw, setShowRaw] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
 
@@ -776,6 +733,7 @@ function CookDrawer({
         setGrams(food.ingredients.map((i) => str(i.grams)))
         setCooked('')
         setFinishOpen(true)
+        setShowRaw(false)
         setSaving(false)
         setError('')
     }
@@ -822,67 +780,86 @@ function CookDrawer({
             }
         >
             {f && (
-                <div className="flex flex-col gap-7">
-                    <section className="flex flex-col gap-3">
-                        <div>
-                            <p className={FIELD_LABEL}>1 · What went in (raw)</p>
-                            <p className="mt-0.5 text-xs text-neutral-500">Change anything that was different today.</p>
-                        </div>
-                        <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
-                            {f.ingredients.map((i, n) => (
-                                <li key={n} className="flex items-center gap-3 px-4 py-2">
-                                    <span className="min-w-0 flex-1 truncate text-sm text-neutral-800">{i.name}</span>
-                                    <div className="flex w-28 shrink-0 items-center gap-1.5">
-                                        <Input
-                                            aria-label={`${i.name} grams`}
-                                            type="number"
-                                            min={0}
-                                            step="any"
-                                            inputMode="decimal"
-                                            value={grams[n] ?? ''}
-                                            onChange={(e) =>
-                                                setGrams((prev) => prev.map((g, j) => (j === n ? e.target.value : g)))
-                                            }
-                                            className="text-right tabular-nums"
-                                        />
-                                        <span className="text-sm text-neutral-500">g</span>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                        <p className="px-1 text-xs tabular-nums text-neutral-500">
-                            Raw total: <span className="font-semibold text-neutral-800">{kcal(raw.calories)} kcal</span> ·{' '}
-                            {fmt(raw.protein)} P · {fmt(raw.carbs)} C · {fmt(raw.fat)} F
-                        </p>
-                    </section>
-
-                    <section className="flex flex-col gap-3">
-                        <p className={FIELD_LABEL}>2 · Cooked weight</p>
+                <div className="flex flex-col gap-6">
+                    <section className="flex flex-col gap-2">
+                        <p className={FIELD_LABEL}>Cooked weight</p>
                         <div className="flex items-center gap-2">
-                            <Input
-                                aria-label="Cooked weight in grams"
-                                type="number"
-                                min={0}
-                                step="any"
-                                inputMode="decimal"
-                                placeholder="Weigh everything once cooked"
-                                value={cooked}
-                                error={error || undefined}
-                                onChange={(e) => setCooked(e.target.value)}
-                                className="text-lg font-semibold tabular-nums"
-                            />
-                            <span className="text-sm text-neutral-500">g</span>
+                            <div className="min-w-0 flex-1">
+                                <Input
+                                    aria-label="Cooked weight in grams"
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    inputMode="decimal"
+                                    enterKeyHint="done"
+                                    autoFocus
+                                    placeholder="Weigh it all once cooked"
+                                    value={cooked}
+                                    error={error || undefined}
+                                    onChange={(e) => setCooked(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                                    }}
+                                    className="h-14 text-xl font-semibold tabular-nums"
+                                />
+                            </div>
+                            <span className="text-base font-medium text-neutral-500">g</span>
                         </div>
                     </section>
 
                     <TotalPanel label="Per 100 g cooked" macros={per100} />
 
-                    <section className="flex flex-col gap-3">
+                    <section className="flex flex-col gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setShowRaw((v) => !v)}
+                            aria-expanded={showRaw}
+                            className="-mx-1 flex min-h-11 items-center gap-3 rounded-xl px-1 text-left"
+                        >
+                            <span className="min-w-0 flex-1">
+                                <span className={`block ${FIELD_LABEL}`}>What went in (raw)</span>
+                                <span className="mt-0.5 block truncate text-xs tabular-nums text-neutral-500">
+                                    {f.ingredients.length} ingredient{f.ingredients.length === 1 ? '' : 's'} ·{' '}
+                                    {kcal(raw.calories)} kcal · {fmt(raw.protein)} g protein
+                                </span>
+                            </span>
+                            <span className="shrink-0 text-[13px] font-semibold text-coral-600">
+                                {showRaw ? 'Done' : 'Change grams'}
+                            </span>
+                        </button>
+                        {showRaw && (
+                            <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                                {f.ingredients.map((i, n) => (
+                                    <li key={n} className="flex items-center gap-3 py-2 pl-3 pr-2 sm:pl-4">
+                                        <span className="min-w-0 flex-1 truncate text-sm text-neutral-800">{i.name}</span>
+                                        <div className="flex w-28 shrink-0 items-center gap-1.5">
+                                            <Input
+                                                aria-label={`${i.name} grams`}
+                                                type="number"
+                                                min={0}
+                                                step="any"
+                                                inputMode="decimal"
+                                                enterKeyHint="done"
+                                                value={grams[n] ?? ''}
+                                                onChange={(e) =>
+                                                    setGrams((prev) => prev.map((g, j) => (j === n ? e.target.value : g)))
+                                                }
+                                                className="text-right tabular-nums"
+                                            />
+                                            <span className="text-sm text-neutral-500">g</span>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </section>
+
+                    <section className="flex flex-col gap-2">
                         <p className={FIELD_LABEL}>Date cooked</p>
                         <DatePicker
                             value={date}
                             maxDate={todayKey()}
-                            onChange={(v) => setDate(typeof v === 'string' ? v : todayKey())}
+                            onChange={(v) => setDate(typeof v === 'string' && v ? v : todayKey())}
                         />
                     </section>
 
@@ -891,7 +868,7 @@ function CookDrawer({
                             <Checkbox
                                 checked={finishOpen}
                                 onChange={setFinishOpen}
-                                label={`Finished the last ${f.name.toLowerCase()} (cooked ${shortDate(f.open[0].date)})`}
+                                label={`Finished the last one (cooked ${shortDate(f.open[0].date)})`}
                             />
                             {!finishOpen && (
                                 <p className="mt-1.5 pl-7 text-xs text-neutral-500">
@@ -903,5 +880,58 @@ function CookDrawer({
                 </div>
             )}
         </Drawer>
+    )
+}
+
+// ─── Import ─────────────────────────────────────────────────────────────────────
+
+/** The tray import format, annotated. Comments are ignored on import. */
+const TRAY_TEMPLATE = `[
+  // One object per tray. "name" and "ingredients" are required.
+  {
+    "name": "Chicken & veg tray",
+    "notes": "200°C for 35 min",                      // optional
+    "ingredients": [
+      // grams = how much goes in raw. per100 = the packet's macros per 100 g.
+      { "name": "Chicken breast", "grams": 1000, "per100": { "calories": 106, "protein": 24, "carbs": 0, "fat": 1.1 } },
+      { "name": "Peppers", "grams": 400, "per100": { "calories": 26, "protein": 1, "carbs": 4.6, "fat": 0.3 } },
+      { "name": "Red onion", "grams": 200, "per100": { "calories": 37, "protein": 1.1, "carbs": 7.9, "fat": 0.2 } },
+      { "name": "Olive oil", "grams": 20, "per100": { "calories": 828, "protein": 0, "carbs": 0, "fat": 92 } }
+    ],
+    // Optional: weighed it after cooking? Add the cooked weight and it's logged
+    // as a cook, ready to plate. "cookedOn" defaults to today.
+    "cookedGrams": 1250,
+    "cookedOn": "2026-10-19"
+  },
+  {
+    "name": "Beef mince chilli",
+    "ingredients": [
+      { "name": "5% beef mince", "grams": 1000, "per100": { "calories": 124, "protein": 21, "carbs": 0, "fat": 4.5 } },
+      { "name": "Chopped tomatoes", "grams": 800, "per100": { "calories": 21, "protein": 1.2, "carbs": 3, "fat": 0.2 } },
+      { "name": "Kidney beans", "grams": 240, "per100": { "calories": 98, "protein": 6.9, "carbs": 13, "fat": 0.6 } }
+    ]
+  }
+]
+`
+
+function TrayImportNotes() {
+    const f = (s: string) => <span className="font-semibold text-neutral-700">{s}</span>
+    return (
+        <>
+            <p>
+                {f('name')} and {f('ingredients')} are required; {f('notes')} is optional.
+            </p>
+            <p>
+                Each ingredient has a {f('name')}, the {f('grams')} that go in raw, and {f('per100')}: the
+                packet&apos;s {f('calories')}, {f('protein')}, {f('carbs')} and {f('fat')} per 100 g. Missing ones
+                count as 0.
+            </p>
+            <p>
+                {f('cookedGrams')} is optional — the tray&apos;s weight once cooked. With it, the cook is logged
+                (on {f('cookedOn')}, or today) and the tray is ready to plate. Without it, log the cook from the
+                tray&apos;s card when you make it.
+            </p>
+            <p>A tray with the same name as a box already in your library lets you choose to update it or keep both.</p>
+        </>
     )
 }

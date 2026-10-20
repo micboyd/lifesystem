@@ -2,9 +2,9 @@ import { useState } from 'react'
 import Button from '../Button'
 import { MacroBar, MacroLegend } from './mealUi'
 import { fmt, kcal } from './format'
-import { lineMacros, plateTotal, ZERO } from '../../lib/plates'
+import { gramsLeft, lineMacros, plateTotal, ZERO } from '../../lib/plates'
 import { shortDate } from './BoxLibrary'
-import type { Macros, MealPlanEntry, PlateFood, PlateLine, PlateLineInput } from '../../types'
+import type { BoxCook, Macros, MealPlanEntry, PlateFood, PlateLine, PlateLineInput } from '../../types'
 
 /**
  * Plates: a meal weighed out from boxes and plain foods. The builder puts one
@@ -12,17 +12,16 @@ import type { Macros, MealPlanEntry, PlateFood, PlateLine, PlateLineInput } from
  * table. Both preview the numbers the server will store.
  */
 
-/** "Chicken box 200 g · Rice 300 g" for a plate, the meal's name otherwise. */
+/** "Chicken box + Rice" for a plate, the meal's name otherwise. Grams go on the meta line. */
 export function plateTitle(entry: MealPlanEntry): string {
     if (!entry.plate?.length) return entry.name
-    return entry.plate.map((l) => `${l.name} ${fmt(l.grams)} g`).join(' · ')
+    return entry.plate.map((l) => l.name).join(' + ')
 }
 
-/** The figures a food counts at on a plate — a box's chosen (or newest) batch. */
-function per100Of(food: PlateFood, batch?: string): Macros {
-    if (food.kind === 'plain') return food.per100 ?? ZERO
-    const cook = food.open.find((c) => c._id === batch) ?? food.open[0] ?? food.last
-    return cook?.per100 ?? ZERO
+/** A plate's total weight, "510 g" — or null for a saved meal. */
+export function plateGrams(entry: MealPlanEntry): string | null {
+    if (!entry.plate?.length) return null
+    return `${fmt(entry.plate.reduce((sum, l) => sum + l.grams, 0))} g`
 }
 
 const num = (v: string) => Math.max(0, Number(v) || 0)
@@ -43,7 +42,42 @@ function PlateTotal({ macros }: { macros: Macros }) {
     )
 }
 
-type Draft = { food: string; grams: string; batch?: string }
+/**
+ * Something that can go on a new plate: a cooked batch still in the pantry, or
+ * a plain food. A box that's never been cooked — or whose batches are all
+ * finished — isn't offered: there's nothing in the fridge to weigh out.
+ */
+type Source = {
+    key: string
+    food: PlateFood
+    cook: BoxCook | null
+    label: string
+    per100: Macros
+    left: number | null
+}
+
+function sourcesFrom(foods: PlateFood[]): { batches: Source[]; plain: Source[] } {
+    const byOrder = [...foods].sort((a, b) => a.order - b.order)
+    const batches = byOrder
+        .filter((f) => f.kind === 'box')
+        .flatMap((f) =>
+            f.open.map((c) => ({
+                key: c._id,
+                food: f,
+                cook: c,
+                // Two open batches of one box are told apart by when they were cooked.
+                label: f.open.length > 1 ? `${f.name} · ${shortDate(c.date)}` : f.name,
+                per100: c.per100,
+                left: gramsLeft(c.cookedGrams, c.eatenGrams),
+            }))
+        )
+    const plain = byOrder
+        .filter((f) => f.kind === 'plain')
+        .map((f) => ({ key: f._id, food: f, cook: null, label: f.name, per100: f.per100 ?? ZERO, left: null }))
+    return { batches, plain }
+}
+
+type Draft = { key: string; grams: string }
 
 export function PlateBuilder({
     foods,
@@ -57,18 +91,18 @@ export function PlateBuilder({
     onAdd: (plate: PlateLineInput[]) => Promise<void>
 }) {
     const [lines, setLines] = useState<Draft[]>([])
-    const byId = new Map(foods.map((f) => [f._id, f]))
-    const ordered = [...foods].sort((a, b) => (a.kind === b.kind ? a.order - b.order : a.kind === 'box' ? -1 : 1))
+    const { batches, plain } = sourcesFrom(foods)
+    const byKey = new Map([...batches, ...plain].map((src) => [src.key, src]))
 
     const resolved = lines.flatMap((l) => {
-        const food = byId.get(l.food)
-        return food ? [{ ...l, food, per100: per100Of(food, l.batch), g: num(l.grams) }] : []
+        const src = byKey.get(l.key)
+        return src ? [{ ...l, src, g: num(l.grams) }] : []
     })
-    const total = plateTotal(resolved.map((l) => ({ grams: l.g, per100: l.per100 })))
+    const total = plateTotal(resolved.map((l) => ({ grams: l.g, per100: l.src.per100 })))
     const ready = resolved.some((l) => l.g > 0)
 
-    function patch(i: number, p: Partial<Draft>) {
-        setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...p } : l)))
+    function patch(i: number, grams: string) {
+        setLines((prev) => prev.map((l, j) => (j === i ? { ...l, grams } : l)))
     }
 
     async function submit() {
@@ -76,111 +110,104 @@ export function PlateBuilder({
         await onAdd(
             resolved
                 .filter((l) => l.g > 0)
-                .map((l) => ({ food: l.food._id, grams: l.g, ...(l.batch ? { batch: l.batch } : {}) }))
+                .map((l) => ({ food: l.src.food._id, grams: l.g, ...(l.src.cook ? { batch: l.src.cook._id } : {}) }))
         )
         setLines([])
     }
 
-    if (foods.length === 0) {
+    if (batches.length === 0 && plain.length === 0) {
         return (
             <p className="rounded-2xl bg-neutral-50 px-4 py-4 text-center text-sm text-neutral-500">
-                Nothing to weigh yet — add your boxes and foods in Library → Boxes &amp; foods.
+                Nothing cooked yet — log a cook in the Pantry tab, and it shows up here ready to weigh out.
             </p>
+        )
+    }
+
+    const chip = (src: Source) => {
+        const on = lines.some((l) => l.key === src.key)
+        return (
+            <button
+                key={src.key}
+                type="button"
+                disabled={on}
+                onClick={() => setLines((prev) => [...prev, { key: src.key, grams: '' }])}
+                className={`inline-flex min-h-10 max-w-full items-center gap-1.5 rounded-full px-3.5 py-1.5 text-left text-[13px] font-medium transition-colors ${
+                    on
+                        ? 'bg-neutral-900 text-white'
+                        : 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-200 hover:bg-neutral-50'
+                }`}
+            >
+                <i
+                    className={`fa-solid ${on ? 'fa-check' : src.cook ? 'fa-box' : 'fa-plus'} shrink-0 text-[11px]`}
+                    aria-hidden="true"
+                />
+                <span className="truncate">{src.label}</span>
+                {src.left != null && (
+                    <span className={`shrink-0 tabular-nums ${on ? 'text-white/70' : 'text-neutral-400'}`}>
+                        ~{fmt(src.left)} g
+                    </span>
+                )}
+            </button>
         )
     }
 
     return (
         <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
-                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Add to the plate</p>
-                <div className="flex flex-wrap gap-2">
-                    {ordered.map((f) => {
-                        const on = lines.some((l) => l.food === f._id)
-                        return (
-                            <button
-                                key={f._id}
-                                type="button"
-                                disabled={on}
-                                onClick={() => setLines((prev) => [...prev, { food: f._id, grams: '' }])}
-                                className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${
-                                    on
-                                        ? 'bg-neutral-900 text-white'
-                                        : 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-200 hover:bg-neutral-50'
-                                }`}
-                            >
-                                <i
-                                    className={`fa-solid ${on ? 'fa-check' : f.kind === 'box' ? 'fa-box' : 'fa-plus'} text-[11px]`}
-                                    aria-hidden="true"
-                                />
-                                {f.name}
-                            </button>
-                        )
-                    })}
-                </div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">From the pantry</p>
+                {batches.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">{batches.map(chip)}</div>
+                ) : (
+                    <p className="text-xs text-neutral-500">Nothing cooked — log a cook in the Pantry tab.</p>
+                )}
             </div>
+
+            {plain.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Sides</p>
+                    <div className="flex flex-wrap gap-2">{plain.map(chip)}</div>
+                </div>
+            )}
 
             {resolved.length > 0 && (
                 <ul className="flex flex-col gap-2">
                     {resolved.map((l, i) => {
-                        const f = l.food
-                        const uncooked = f.kind === 'box' && !f.open.length && !f.last
-                        const m = lineMacros(l.g, l.per100)
+                        const m = lineMacros(l.g, l.src.per100)
+                        const over = l.src.left != null && l.g > l.src.left
                         return (
-                            <li key={f._id} className="flex flex-col gap-2 rounded-2xl border border-neutral-200 p-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-semibold text-neutral-900">{f.name}</p>
-                                        <p
-                                            className={`text-xs tabular-nums ${uncooked ? 'text-amber-700' : 'text-neutral-500'}`}
-                                        >
-                                            {uncooked
-                                                ? 'Not cooked yet — counts as 0 until you log a cook'
-                                                : `${kcal(m.calories)} kcal · ${fmt(Math.round(m.protein))} g protein`}
-                                        </p>
-                                    </div>
-                                    <input
-                                        type="number"
-                                        inputMode="decimal"
-                                        min={0}
-                                        step="any"
-                                        placeholder="0"
-                                        aria-label={`${f.name} grams`}
-                                        autoFocus={i === resolved.length - 1}
-                                        value={l.grams}
-                                        onChange={(e) => patch(i, { grams: e.target.value })}
-                                        className={gramsInputCls}
-                                    />
-                                    <span className="text-sm text-neutral-500">g</span>
-                                    <button
-                                        type="button"
-                                        aria-label={`Take ${f.name} off the plate`}
-                                        onClick={() => setLines((prev) => prev.filter((_, j) => j !== i))}
-                                        className="grid h-9 w-7 shrink-0 place-items-center rounded-lg text-neutral-300 transition-colors hover:text-neutral-600"
-                                    >
-                                        <i className="fa-solid fa-xmark" aria-hidden="true" />
-                                    </button>
+                            <li key={l.key} className="flex items-center gap-3 rounded-2xl border border-neutral-200 py-2.5 pl-3 pr-2">
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-semibold text-neutral-900">{l.src.label}</p>
+                                    <p className={`text-xs tabular-nums ${over ? 'text-amber-700' : 'text-neutral-500'}`}>
+                                        {kcal(m.calories)} kcal · {fmt(Math.round(m.protein))} g protein
+                                        {over && ` · only ~${fmt(l.src.left!)} g left`}
+                                    </p>
                                 </div>
-                                {f.kind === 'box' && f.open.length > 1 && (
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {f.open.map((c, n) => {
-                                            const on = (l.batch ?? f.open[0]._id) === c._id
-                                            return (
-                                                <button
-                                                    key={c._id}
-                                                    type="button"
-                                                    onClick={() => patch(i, { batch: n === 0 ? undefined : c._id })}
-                                                    className={`h-8 rounded-full px-3 text-xs font-semibold transition-colors ${
-                                                        on
-                                                            ? 'bg-neutral-900 text-white'
-                                                            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                                                    }`}
-                                                >
-                                                    {shortDate(c.date)}’s batch
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
-                                )}
+                                <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    min={0}
+                                    step="any"
+                                    placeholder="0"
+                                    aria-label={`${l.src.label} grams`}
+                                    autoFocus={i === resolved.length - 1}
+                                    enterKeyHint="done"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                                    }}
+                                    value={l.grams}
+                                    onChange={(e) => patch(i, e.target.value)}
+                                    className={gramsInputCls}
+                                />
+                                <span className="text-sm text-neutral-500">g</span>
+                                <button
+                                    type="button"
+                                    aria-label={`Take ${l.src.label} off the plate`}
+                                    onClick={() => setLines((prev) => prev.filter((_, j) => j !== i))}
+                                    className="grid h-11 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:text-neutral-700"
+                                >
+                                    <i className="fa-solid fa-xmark" aria-hidden="true" />
+                                </button>
                             </li>
                         )
                     })}
@@ -223,7 +250,7 @@ export function PlateLinesEditor({ lines, onChange }: { lines: PlateLine[]; onCh
                     const m = lineMacros(num(grams[i] ?? ''), l.per100)
                     const uncooked = !l.batch && l.per100.calories === 0
                     return (
-                        <li key={i} className="flex items-center gap-3 px-4 py-2.5">
+                        <li key={i} className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
                             <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-semibold text-neutral-900">{l.name}</p>
                                 <p className={`text-xs tabular-nums ${uncooked ? 'text-amber-700' : 'text-neutral-500'}`}>
@@ -238,6 +265,7 @@ export function PlateLinesEditor({ lines, onChange }: { lines: PlateLine[]; onCh
                                 min={0}
                                 step="any"
                                 aria-label={`${l.name} grams`}
+                                enterKeyHint="done"
                                 value={grams[i] ?? ''}
                                 onChange={(e) => setGrams((prev) => prev.map((g, j) => (j === i ? e.target.value : g)))}
                                 onBlur={commit}

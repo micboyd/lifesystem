@@ -113,10 +113,17 @@ const TEMPLATE = `{
   // ── Strength ─────────────────────────────────────────────────────────────
   // Optional. Movements with a description. Any exercise a workout names that
   // isn't here or already in your library is created with no description.
+  // With "Update items that already exist" ticked, only the fields written
+  // here are refreshed — anything left out keeps what the library has.
   "exerciseLibrary": [
     {
       "name": "Barbell bench press",
       "description": "Horizontal press for chest and triceps.",
+      // Optional. What lets the swap picker offer a like-for-like alternative
+      // when the kit is taken: same muscle group, different equipment. Free
+      // text; left out, both are guessed from the name.
+      "muscleGroup": "Chest",
+      "equipment": "Barbell",
       // Optional demo video. A YouTube link (watch, youtu.be or Shorts) plays in
       // the app — a play button beside the exercise in the workout overview and
       // on its card while you log. "youtubeLink" works as the key too. It fills
@@ -133,7 +140,7 @@ const TEMPLATE = `{
       "name": "Upper A",
       "slot": "Morning",               // optional; strength defaults to Morning
       "duration": 60,                  // minutes
-      "purpose": "Build pressing and pulling strength.",
+      "purpose": "Build pressing and pulling strength.", // "description" works too
       // Optional. Kit to pack from home - shown as a checklist to tick off in the
       // workout overview before you leave. "whatToBring" or "kit" work too, and
       // one comma-separated string is fine.
@@ -175,6 +182,8 @@ const TEMPLATE = `{
         }
       ],
       "coolDown": [
+        // A bare name is a line with nothing prescribed.
+        "Dead hang",
         {
           "name": "Stretch",
           "steps": ["Couch stretch 60s each side", "Doorway pec stretch 30s each side"]
@@ -201,6 +210,7 @@ const TEMPLATE = `{
         "slot": "Morning",             // optional; conditioning defaults to Afternoon
         "duration": 36,
         "category": "Endurance",       // HIIT | Cardio | Endurance | Mobility | Recovery
+                                       // (mobility and recovery routines are conditioning sessions too)
         "purpose": "Aerobic base.",
         "notes": "Easy if the knee is sore.", // shown on that day in the plan's calendar
         "howToUse": "Leave a non-running day before the next run.",

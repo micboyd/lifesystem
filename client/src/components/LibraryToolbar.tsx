@@ -58,8 +58,10 @@ export default function LibraryToolbar({
                             icon="fa-solid fa-file-import"
                             onClick={onImport}
                             disabled={importDisabled}
+                            aria-label="Import"
+                            className="px-3.5 sm:px-[18px]"
                         >
-                            Import
+                            <span className="hidden sm:inline">Import</span>
                         </Button>
                     )}
                     <Button icon="fa-solid fa-plus" onClick={onNew}>

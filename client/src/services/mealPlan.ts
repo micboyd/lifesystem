@@ -12,9 +12,11 @@ export async function addPlanEntry(
     date: string,
     slot: MealType,
     meal: string,
-    extra = false
+    extra = false,
+    /** Quick log: in its slot, already ticked. */
+    eaten = false
 ): Promise<MealPlanEntry> {
-    const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', { date, slot, meal, extra })
+    const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', { date, slot, meal, extra, eaten })
     return res.data.data
 }
 
@@ -23,9 +25,10 @@ export async function addPlatePlanEntry(
     date: string,
     slot: MealType,
     plate: PlateLineInput[],
-    extra = false
+    extra = false,
+    eaten = false
 ): Promise<MealPlanEntry> {
-    const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', { date, slot, plate, extra })
+    const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', { date, slot, plate, extra, eaten })
     return res.data.data
 }
 

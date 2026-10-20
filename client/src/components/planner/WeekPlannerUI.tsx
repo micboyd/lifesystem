@@ -1,8 +1,11 @@
 import {
     createContext,
     useContext,
+    useEffect,
     useRef,
+    useState,
     useSyncExternalStore,
+    type CSSProperties,
     type ReactNode,
     type TouchEvent,
 } from 'react'
@@ -61,29 +64,99 @@ export function relativeWeekLabel(weekStart: string, todayMonday: string): strin
     return diff > 0 ? `In ${diff} weeks` : `${-diff} weeks ago`
 }
 
+/** How long a day takes to slide across on a phone — matches `.day-slide-*` in index.css. */
+const SLIDE_MS = 300
+
+/** How far (px) a finger has to drag a day before letting go moves to the next one. */
+const SWIPE_COMMIT = 60
+
+const reducedMotion = () =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
 /**
- * Swipe left/right to move a day on a phone. Returns touch handlers for the
- * day area; wide screens ignore them (every day is already on show there).
+ * A phone's one-day-at-a-time view as a carousel. The day follows the finger
+ * while dragged; let go far enough and it carries on off-screen while the next
+ * one slides in behind it — the same slide plays when a day is picked from the
+ * strip, in the direction of travel. Wide screens show every day, so they get
+ * none of it.
+ *
+ * Spread `sliderProps` on the element holding the day cards and give each card
+ * `dayClass(date)` for its visibility.
  */
-export function useDaySwipe(onSwipe: (dir: -1 | 1) => void) {
-    const touch = useRef<{ x: number; y: number } | null>(null)
-    return {
+export function useDaySlider(selected: string, onSwipe: (dir: -1 | 1) => void) {
+    const el = useRef<HTMLDivElement>(null)
+    const touch = useRef<{ x: number; y: number; axis: 'x' | 'y' | null } | null>(null)
+    // Where the finger left the day, so the slide-out picks up from there.
+    const releasedAt = useRef(0)
+
+    // The day leaving, and which way — `dir` 1 means moving forward in time.
+    const [slide, setSlide] = useState<{ from: string; dir: 1 | -1; fromX: number } | null>(null)
+    const [shown, setShown] = useState(selected)
+    if (shown !== selected) {
+        setShown(selected)
+        setSlide(
+            isWide() || reducedMotion()
+                ? null
+                : { from: shown, dir: selected > shown ? 1 : -1, fromX: releasedAt.current }
+        )
+        releasedAt.current = 0
+    }
+    useEffect(() => {
+        if (!slide) return
+        const t = setTimeout(() => setSlide(null), SLIDE_MS)
+        return () => clearTimeout(t)
+    }, [slide])
+
+    const setDrag = (px: number) => el.current?.style.setProperty('--day-dx', `${px}px`)
+
+    const sliderProps = {
+        ref: el,
+        style: { '--day-from': `${slide?.fromX ?? 0}px` } as CSSProperties,
         onTouchStart: (e: TouchEvent) => {
             const p = e.touches[0]
-            touch.current = { x: p.clientX, y: p.clientY }
+            touch.current = { x: p.clientX, y: p.clientY, axis: null }
+        },
+        onTouchMove: (e: TouchEvent) => {
+            const t = touch.current
+            if (!t || isWide()) return
+            const p = e.touches[0]
+            const dx = p.clientX - t.x
+            const dy = p.clientY - t.y
+            // Lock to an axis once the finger has clearly picked one, so a
+            // scroll down the day never wobbles it sideways.
+            if (!t.axis && Math.max(Math.abs(dx), Math.abs(dy)) > 8) {
+                t.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+                if (t.axis === 'x') el.current?.setAttribute('data-dragging', '')
+            }
+            if (t.axis === 'x') setDrag(dx)
         },
         onTouchEnd: (e: TouchEvent) => {
-            const start = touch.current
+            const t = touch.current
             touch.current = null
-            if (!start || isWide()) return
-            const p = e.changedTouches[0]
-            const dx = p.clientX - start.x
-            const dy = p.clientY - start.y
-            // A deliberate, mostly-horizontal flick — not a scroll that drifted.
-            if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return
+            el.current?.removeAttribute('data-dragging')
+            setDrag(0)
+            if (!t || t.axis !== 'x' || isWide()) return
+            const dx = e.changedTouches[0].clientX - t.x
+            // Not far enough — the day springs back to centre.
+            if (Math.abs(dx) < SWIPE_COMMIT) return
+            releasedAt.current = dx
             onSwipe(dx < 0 ? 1 : -1)
         },
     }
+
+    /** A day card's classes: the focused day (sliding in, if it just arrived), the one sliding out, or hidden. */
+    function dayClass(date: string): string {
+        if (date === selected) {
+            if (!slide) return 'flex day-slide-current'
+            return `flex day-slide-in-${slide.dir === 1 ? 'next' : 'prev'}`
+        }
+        if (slide && date === slide.from) {
+            return `flex day-slide-out-${slide.dir === 1 ? 'next' : 'prev'}`
+        }
+        return 'hidden md:flex'
+    }
+
+    return { sliderProps, dayClass }
 }
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────

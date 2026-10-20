@@ -2,10 +2,12 @@ import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import { IMacros } from '../models/Meal'
-import PlateFood, { IIngredient, PLATE_FOOD_KINDS, PlateFoodKind } from '../models/PlateFood'
+import PlateFood, { IIngredient, IPlateFood, PLATE_FOOD_KINDS, PlateFoodKind } from '../models/PlateFood'
 import BoxCook from '../models/BoxCook'
 import MealPlanEntry from '../models/MealPlanEntry'
-import { plateFields, repricePlanned } from '../lib/plateLines'
+import { logCook, plateFields, repricePlanned } from '../lib/plateLines'
+import { newBatchId, makeLastImportHandler, summarise } from '../lib/importBatch'
+import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
 import { round } from '../lib/plates'
 
 function toNumber(raw: unknown): number {
@@ -114,32 +116,33 @@ export async function updatePlateFood(req: AuthRequest, res: Response) {
     if (food.kind === 'plain') {
         await repricePlanned(req.userId!, food._id, { name: food.name, per100: food.per100! })
     } else {
-        const lines = await MealPlanEntry.find({ user: req.userId, status: 'planned', 'plate.food': food._id })
-        for (const e of lines) {
-            const plate = (e.plate ?? []).map((l) =>
-                String(l.food) === String(food._id)
-                    ? { food: l.food, name: food.name, grams: l.grams, batch: l.batch, per100: l.per100 }
-                    : l
-            )
-            Object.assign(e, plateFields(plate))
-            await e.save()
-        }
+        await renamePlannedBox(req.userId!, food)
     }
     res.json({ message: 'OK', data: food })
 }
 
-/**
- * DELETE /api/plate-foods/:id — the food, its cooks, and its lines on plates
- * still planned (a plate left empty goes too). Eaten plates keep their copy.
- */
-export async function deletePlateFood(req: AuthRequest, res: Response) {
-    const food = await PlateFood.findOneAndDelete({ _id: req.params.id, user: req.userId })
-    if (!food) {
-        res.status(404).json({ message: 'Food not found' })
-        return
+/** A box's planned plate lines take its current name; their figures stay. */
+async function renamePlannedBox(userId: string, food: IPlateFood) {
+    const lines = await MealPlanEntry.find({ user: userId, status: 'planned', 'plate.food': food._id })
+    for (const e of lines) {
+        const plate = (e.plate ?? []).map((l) =>
+            String(l.food) === String(food._id)
+                ? { food: l.food, name: food.name, grams: l.grams, batch: l.batch, per100: l.per100 }
+                : l
+        )
+        Object.assign(e, plateFields(plate))
+        await e.save()
     }
-    await BoxCook.deleteMany({ user: req.userId, food: food._id })
-    const planned = await MealPlanEntry.find({ user: req.userId, status: 'planned', 'plate.food': food._id })
+}
+
+/**
+ * Remove a food: its cooks, and its lines on plates still planned (a plate
+ * left empty goes too). Eaten plates keep their copy.
+ */
+async function removeFood(userId: string, food: IPlateFood) {
+    await food.deleteOne()
+    await BoxCook.deleteMany({ user: userId, food: food._id })
+    const planned = await MealPlanEntry.find({ user: userId, status: 'planned', 'plate.food': food._id })
     for (const e of planned) {
         const plate = (e.plate ?? []).filter((l) => String(l.food) !== String(food._id))
         if (plate.length === 0) {
@@ -149,5 +152,183 @@ export async function deletePlateFood(req: AuthRequest, res: Response) {
         Object.assign(e, plateFields(plate))
         await e.save()
     }
+}
+
+/** DELETE /api/plate-foods/:id */
+export async function deletePlateFood(req: AuthRequest, res: Response) {
+    const food = await PlateFood.findOne({ _id: req.params.id, user: req.userId })
+    if (!food) {
+        res.status(404).json({ message: 'Food not found' })
+        return
+    }
+    await removeFood(req.userId!, food)
     res.json({ message: 'Deleted' })
+}
+
+// ─── Import ─────────────────────────────────────────────────────────────────────
+
+const isAmount = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0
+const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
+
+/** Today in the UK, as "YYYY-MM-DD" — the fallback date for an imported cook. */
+function londonToday(): string {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+}
+
+/** Every problem with one macros object, as messages prefixed with `where`. */
+function macroErrors(raw: unknown, where: string): string[] {
+    if (raw === undefined) return []
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [`${where} must be an object`]
+    const m = raw as Record<string, unknown>
+    return ['calories', 'protein', 'carbs', 'fat']
+        .filter((k) => m[k] !== undefined && !isAmount(m[k]))
+        .map((k) => `${where}.${k} must be a number of 0 or more`)
+}
+
+interface TrayFields {
+    name: string
+    notes?: string
+    ingredients: IIngredient[]
+    cook: { date: string; cookedGrams: number } | null
+}
+
+/** One tray from the paste, checked — or the list of what's wrong with it. */
+function readTray(raw: unknown, index: number): TrayFields | string[] {
+    const label = `Tray ${index + 1}`
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [`${label}: must be an object`]
+    const t = raw as Record<string, unknown>
+    const name = typeof t.name === 'string' ? t.name.trim() : ''
+    if (!name) return [`${label}: "name" is required`]
+    const named = `"${name}"`
+
+    const errors: string[] = []
+    if (!Array.isArray(t.ingredients) || t.ingredients.length === 0) {
+        errors.push(`${named}: needs an "ingredients" list`)
+    } else {
+        t.ingredients.forEach((rawIng, j) => {
+            const where = `${named} ingredient ${j + 1}`
+            if (!rawIng || typeof rawIng !== 'object' || Array.isArray(rawIng)) {
+                errors.push(`${where}: must be an object`)
+                return
+            }
+            const ing = rawIng as Record<string, unknown>
+            if (typeof ing.name !== 'string' || !ing.name.trim()) errors.push(`${where}: "name" is required`)
+            if (ing.grams !== undefined && !isAmount(ing.grams))
+                errors.push(`${where}: grams must be a number of 0 or more`)
+            // Macros on a tray are always per 100 g raw — say so rather than guess.
+            if (ing.per100 === undefined && ing.macros !== undefined)
+                errors.push(`${where}: use "per100" (the packet's macros per 100 g), not "macros"`)
+            errors.push(...macroErrors(ing.per100, `${where} per100`))
+        })
+    }
+    if (t.cookedGrams !== undefined && !(isAmount(t.cookedGrams) && (t.cookedGrams as number) > 0))
+        errors.push(`${named}: cookedGrams must be a number above 0`)
+    if (t.cookedOn !== undefined && !isDate(t.cookedOn))
+        errors.push(`${named}: cookedOn must be a date like "2026-10-19"`)
+    if (errors.length) return errors
+
+    return {
+        name,
+        notes: typeof t.notes === 'string' ? t.notes.trim() || undefined : undefined,
+        ingredients: toIngredients(t.ingredients),
+        cook:
+            t.cookedGrams !== undefined
+                ? { date: isDate(t.cookedOn) ? t.cookedOn : londonToday(), cookedGrams: t.cookedGrams as number }
+                : null,
+    }
+}
+
+/**
+ * POST /api/plate-foods/import — one or many trays (boxes): a bare array,
+ * `{ trays: [...] }`, or what the import panel sends: `{ items, overwrite }`.
+ * Each tray is its raw ingredients with their packet macros per 100 g; give a
+ * `cookedGrams` too and that cook is logged, so the tray can go straight onto
+ * a plate. All-or-nothing: if any tray is malformed nothing is imported and
+ * every problem is listed. Name clashes the user chose to overwrite have their
+ * ingredients replaced in place; the rest are added as one undoable batch.
+ */
+export async function importTrays(req: AuthRequest, res: Response) {
+    const body = req.body as unknown
+    const list =
+        extractList(body, 'trays') ??
+        (body && typeof body === 'object' && Array.isArray((body as { boxes?: unknown }).boxes)
+            ? (body as { boxes: unknown[] }).boxes
+            : null)
+    if (!list) {
+        res.status(400).json({ message: 'Expected a JSON array of trays, or an object with a "trays" array.' })
+        return
+    }
+    if (list.length === 0) {
+        res.status(400).json({ message: 'No trays found to import.' })
+        return
+    }
+
+    const errors: string[] = []
+    const trays: TrayFields[] = []
+    list.forEach((raw, i) => {
+        const tray = readTray(raw, i)
+        if (Array.isArray(tray)) errors.push(...tray)
+        else trays.push(tray)
+    })
+    if (errors.length) {
+        res.status(400).json({ message: `Import failed. ${errors.join('; ')}` })
+        return
+    }
+
+    const overwrite = extractOverwrite(body)
+    const last = await PlateFood.findOne({ user: req.userId }).sort({ order: -1 })
+    let order = (last?.order ?? -1) + 1
+    const importBatch = newBatchId()
+    const created: IPlateFood[] = []
+    let updated = 0
+    let cooked = 0
+    for (const tray of trays) {
+        const targetId = overwrite.get(nameKey(tray.name))
+        let food = targetId ? await PlateFood.findOne({ _id: targetId, user: req.userId, kind: 'box' }) : null
+        if (food) {
+            Object.assign(food, { name: tray.name, notes: tray.notes, ingredients: tray.ingredients })
+            await food.save()
+            await renamePlannedBox(req.userId!, food)
+            updated++
+        } else {
+            food = await PlateFood.create({
+                user: req.userId,
+                kind: 'box',
+                name: tray.name,
+                notes: tray.notes,
+                ingredients: tray.ingredients,
+                order: order++,
+                importBatch,
+            })
+            created.push(food)
+        }
+        if (tray.cook) {
+            await logCook(req.userId!, food, { ...tray.cook, ingredients: tray.ingredients })
+            cooked++
+        }
+    }
+    res.status(201).json({
+        message: `Imported ${created.length} tray(s), updated ${updated}, cooked ${cooked}`,
+        data: created,
+        updated,
+        cooked,
+    })
+}
+
+/** GET /api/plate-foods/import/last — the most recent import batch, or null. */
+export const lastImport = makeLastImportHandler(PlateFood)
+
+/**
+ * DELETE /api/plate-foods/import/last — removes the trays the last import
+ * added, like deleting them one by one (their cooks and planned plates go).
+ */
+export async function undoImport(req: AuthRequest, res: Response) {
+    const summary = await summarise(PlateFood, req.userId)
+    if (!summary) {
+        res.status(404).json({ message: 'No import to undo.' })
+        return
+    }
+    const foods = await PlateFood.find({ user: req.userId, importBatch: summary.batch })
+    for (const food of foods) await removeFood(req.userId!, food)
+    res.json({ message: `Reverted ${summary.count} tray(s).`, data: summary })
 }

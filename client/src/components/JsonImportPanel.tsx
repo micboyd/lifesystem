@@ -30,6 +30,7 @@ const RESOURCE_KEYS: Record<ImportResource, string[]> = {
     exercises: ['exercises'],
     workouts: ['workouts'],
     meals: ['meals'],
+    'plate-foods': ['trays', 'boxes'],
 }
 
 /** Find the array of items in the parsed JSON — a bare array or a known key. */

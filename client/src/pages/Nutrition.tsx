@@ -7,6 +7,7 @@ import NutritionPlanner from '../components/nutrition/NutritionPlanner'
 import { LARGE_QUERY, useMediaQuery } from '../components/planner/WeekPlannerUI'
 import MealLibrary from '../components/nutrition/MealLibrary'
 import BoxLibrary from '../components/nutrition/BoxLibrary'
+import Pantry from '../components/nutrition/Pantry'
 import NutritionStats from '../components/nutrition/NutritionStats'
 import PhasesTab from '../components/nutrition/PhasesTab'
 import { useAuth } from '../context/AuthContext'
@@ -14,7 +15,7 @@ import { listMeals } from '../services/meals'
 import { listPlateFoods } from '../services/plateFoods'
 import type { Meal, PlateFood } from '../types'
 
-const TABS = ['Planner', 'Library', 'Stats', 'Phases'] as const
+const TABS = ['Planner', 'Pantry', 'Library', 'Stats', 'Phases'] as const
 type Tab = (typeof TABS)[number]
 
 const LIBRARY_TABS = ['Meals', 'Boxes & foods'] as const
@@ -22,7 +23,8 @@ type LibraryTab = (typeof LIBRARY_TABS)[number]
 
 const SUBTITLE: Record<Tab, string> = {
     Planner: 'Plan your meals — drop them into each day, then tick them off as you eat.',
-    Library: 'Your meals, plus the boxes you batch-cook and foods you weigh out.',
+    Pantry: 'What’s cooked and in the fridge — how much is left, and how much is planned.',
+    Library: 'Your meals, the boxes you batch-cook, and foods you weigh out.',
     Stats: 'Calories in and out over a week, a month or a phase.',
     Phases: 'Dated cuts, bulks and maintenance stretches, with their targets.',
 }
@@ -73,12 +75,14 @@ export default function Nutrition() {
             </Container>
 
             <Container fluid={fluid} className="mt-6">
-                {loading && (tab === 'Planner' || tab === 'Library') ? (
+                {loading && (tab === 'Planner' || tab === 'Pantry' || tab === 'Library') ? (
                     <div className="grid place-items-center py-16">
                         <Spinner />
                     </div>
                 ) : tab === 'Planner' ? (
                     <NutritionPlanner meals={meals} foods={foods} settingsGoals={user?.settings?.macroGoals} />
+                ) : tab === 'Pantry' ? (
+                    <Pantry foods={foods} onChanged={reloadFoods} />
                 ) : tab === 'Library' ? (
                     <div className="flex flex-col gap-6">
                         <Tabs

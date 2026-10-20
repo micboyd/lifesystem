@@ -24,17 +24,18 @@ export async function listEntries(req: AuthRequest, res: Response) {
 }
 
 /**
- * POST /api/meal-plan { date, slot, meal | plate, extra? } — puts a library
- * meal, or a plate of weighed foods (`[{ food, grams, batch? }]`), on a day.
- * A planned meal waits to be ticked; an extra ("Log more") is eaten.
+ * POST /api/meal-plan { date, slot, meal | plate, extra?, eaten? } — puts a
+ * library meal, or a plate of weighed foods (`[{ food, grams, batch? }]`), on
+ * a day. A planned meal waits to be ticked; an extra ("Log more") is eaten.
+ * `eaten` is "Quick log": it lands in its slot already ticked.
  */
 export async function createEntry(req: AuthRequest, res: Response) {
-    const { date, slot, meal: mealId, plate, extra } = req.body ?? {}
+    const { date, slot, meal: mealId, plate, extra, eaten } = req.body ?? {}
     if (!isDate(date) || !isSlot(slot)) {
         res.status(400).json({ message: 'date and slot are required' })
         return
     }
-    const status = extra === true ? 'eaten' : 'planned'
+    const status = extra === true || eaten === true ? 'eaten' : 'planned'
     if (plate !== undefined) {
         const lines = await resolvePlate(req.userId!, plate)
         if (typeof lines === 'string') {
@@ -67,7 +68,7 @@ export async function createEntry(req: AuthRequest, res: Response) {
         meal: meal._id,
         name: meal.name,
         macros: meal.macros,
-        status: extra === true ? 'eaten' : 'planned',
+        status,
         extra: extra === true,
         order: (last?.order ?? -1) + 1,
     })

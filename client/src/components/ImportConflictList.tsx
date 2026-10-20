@@ -46,12 +46,12 @@ export default function ImportConflictList({
 
     return (
         <Card as="section" hover={false}>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h3 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                         Name clashes
                     </h3>
-                    <p className="mt-1 text-sm text-neutral-600">
+                    <p className="mt-1 text-xs text-neutral-500">
                         <span className="font-semibold">{conflicts.length}</span> of these already
                         exist in your library. Overwriting updates the existing {noun} in place, so it
                         stays linked everywhere it’s used in the planner.
@@ -81,7 +81,7 @@ export default function ImportConflictList({
                     return (
                         <li
                             key={c.existingId + c.name}
-                            className="flex flex-wrap items-center justify-between gap-3 py-2.5"
+                            className="flex flex-wrap items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
                         >
                             <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800">
                                 {c.name}
@@ -115,7 +115,7 @@ export default function ImportConflictList({
                 })}
             </ul>
 
-            <p className="mt-3 text-xs text-neutral-500">
+            <p className="mt-4 border-t border-neutral-100 pt-3 text-xs text-neutral-500">
                 {overwriteCount} will overwrite · {conflicts.length - overwriteCount} will be added as
                 new
             </p>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { parseJsonc } from '../lib/jsonc'
 import { Card } from './Card'
 import Button from './Button'
@@ -77,6 +77,22 @@ const WORKOUT_TEMPLATE = `[
   }
 ]
 `
+
+/** The field reference shown beside the template — one row per key. */
+const FIELDS: { key: string; text: string }[] = [
+    { key: 'name', text: 'Required, on the workout and on each line.' },
+    { key: 'description', text: 'A one-line summary of the workout.' },
+    { key: 'showInPlanner', text: 'Pins the workout to the top of the planner.' },
+    { key: 'bring', text: 'Kit to pack from home — a list or a comma-separated string.' },
+    {
+        key: 'warmUp · main · coolDown',
+        text: 'The three phases, each a list of lines. Only main counts toward progress; a flat "exercises" list goes into main.',
+    },
+    { key: 'sets · reps · rest', text: 'Volume for a line. Reps and rest are free text, e.g. "8-12".' },
+    { key: 'notes', text: 'A coaching cue on the line.' },
+    { key: 'steps', text: 'A sub-list to tick off — handy for a warm-up or cool-down block.' },
+    { key: 'videoUrl', text: 'A YouTube demo, saved on the exercise. "youtubeLink" works too.' },
+]
 
 /** Pull a human-readable message out of an unknown thrown error. */
 function errorMessage(err: unknown): string {
@@ -288,7 +304,7 @@ export default function WorkoutImportPanel({
                 <p className="mt-1 text-sm text-neutral-500">
                     {preview
                         ? 'Review how each exercise links to your library, then import. Names that already exist are matched so you never create duplicates.'
-                        : 'Copy the template, fill it in with your own workouts, then paste the JSON below. Exercises are linked to your library by name.'}
+                        : 'Paste workouts as JSON, check how each exercise links to your library, then import.'}
                 </p>
             </div>
 
@@ -327,81 +343,18 @@ export default function WorkoutImportPanel({
                     />
                 </>
             ) : (
-                <>
-                    {/* Template */}
-                    <Card as="section" hover={false}>
-                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                            <h3 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                Template
-                            </h3>
-                            <Button
-                                size="sm"
-                                variant="secondary"
-                                icon={copied ? 'fa-solid fa-check' : 'fa-regular fa-copy'}
-                                onClick={copyTemplate}
-                            >
-                                {copied ? 'Copied' : 'Copy template'}
-                            </Button>
-                        </div>
-                        <pre className="max-h-96 overflow-auto rounded-xl bg-neutral-900 p-4 text-xs leading-relaxed text-neutral-100">
-                            <code>{WORKOUT_TEMPLATE}</code>
-                        </pre>
-                        <div className="mt-4 flex flex-col gap-1.5 text-xs text-neutral-500">
-                            <p>
-                                <span className="font-semibold text-neutral-700">name</span> is
-                                required.{' '}
-                                <span className="font-semibold text-neutral-700">description</span>,{' '}
-                                <span className="font-semibold text-neutral-700">
-                                    showInPlanner
-                                </span>{' '}
-                                and <span className="font-semibold text-neutral-700">bring</span>{' '}
-                                are optional.{' '}
-                                <span className="font-semibold text-neutral-700">bring</span> is
-                                the kit to pack from home (e.g. a lifting belt, a neck harness) —
-                                a list, or one comma-separated string — shown as a checklist in the
-                                workout overview.
-                            </p>
-                            <p>
-                                A line can carry a{' '}
-                                <span className="font-semibold text-neutral-700">videoUrl</span>{' '}
-                                (or <span className="font-semibold text-neutral-700">youtubeLink</span>
-                                ): a YouTube demo of the exercise, saved on it and played in the app
-                                from a button beside it.
-                            </p>
-                            <p>
-                                <span className="font-semibold text-neutral-700">warmUp</span>,{' '}
-                                <span className="font-semibold text-neutral-700">main</span> and{' '}
-                                <span className="font-semibold text-neutral-700">coolDown</span> are
-                                each a list of{' '}
-                                <span className="font-semibold text-neutral-700">
-                                    {'{ name, sets, reps }'}
-                                </span>{' '}
-                                objects.
-                                Sets and reps prescribe volume (
-                                <span className="font-semibold text-neutral-700">reps</span> is
-                                free-form, e.g. &quot;8-12&quot;). Only main-session sets count
-                                toward progress. Add{' '}
-                                <span className="font-semibold text-neutral-700">steps</span> (a
-                                list of short strings) to give a line a sub-list to tick off —
-                                handy for a warm-up or cool-down block. A flat{' '}
-                                <span className="font-semibold text-neutral-700">exercises</span>{' '}
-                                list still works and goes into main. On the next step you&apos;ll
-                                confirm how each name links to your library — matched to an existing
-                                exercise, or created fresh.
-                            </p>
-                        </div>
-                    </Card>
-
+                <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
                     {/* Paste + preview */}
                     <Card as="section" hover={false}>
-                        <h3 className="mb-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                            Paste JSON
-                        </h3>
+                        <SectionHeader
+                            title="Paste JSON"
+                            hint="Comments are fine — the template pastes straight back in."
+                        />
                         <textarea
                             value={text}
                             onChange={(e) => setText(e.target.value)}
                             spellCheck={false}
-                            rows={12}
+                            rows={16}
                             placeholder="Paste your JSON here…"
                             className="w-full resize-y rounded-xl border border-neutral-200 bg-white p-4 font-mono text-xs leading-relaxed text-neutral-800 outline-none placeholder:text-neutral-500 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus-visible:outline-none"
                         />
@@ -422,7 +375,51 @@ export default function WorkoutImportPanel({
                             </Button>
                         </div>
                     </Card>
-                </>
+
+                    <div className="flex flex-col gap-6">
+                        {/* Template */}
+                        <Card as="section" hover={false}>
+                            <SectionHeader
+                                title="Template"
+                                hint="Copy it, swap in your own workouts, paste it back."
+                                action={
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        icon={copied ? 'fa-solid fa-check' : 'fa-regular fa-copy'}
+                                        onClick={copyTemplate}
+                                    >
+                                        {copied ? 'Copied' : 'Copy'}
+                                    </Button>
+                                }
+                            />
+                            <pre className="max-h-80 overflow-auto rounded-xl bg-neutral-900 p-4 text-xs leading-relaxed text-neutral-100">
+                                <code>{WORKOUT_TEMPLATE}</code>
+                            </pre>
+                        </Card>
+
+                        {/* Field reference */}
+                        <Card as="section" hover={false}>
+                            <SectionHeader
+                                title="Fields"
+                                hint="Only name is required. Exercise names are linked to your library on the next step."
+                            />
+                            <dl className="flex flex-col divide-y divide-neutral-100">
+                                {FIELDS.map((f) => (
+                                    <div
+                                        key={f.key}
+                                        className="grid grid-cols-[7.5rem_1fr] gap-3 py-2.5 text-xs first:pt-0 last:pb-0"
+                                    >
+                                        <dt className="font-mono font-semibold text-neutral-800">
+                                            {f.key}
+                                        </dt>
+                                        <dd className="text-neutral-500">{f.text}</dd>
+                                    </div>
+                                ))}
+                            </dl>
+                        </Card>
+                    </div>
+                </div>
             )}
         </div>
     )
@@ -450,33 +447,27 @@ function ReconcileStage({
         <div className="flex flex-col gap-6">
             {/* Summary */}
             <Card as="section" hover={false}>
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                     <Stat label="Workouts" value={workoutCount} />
-                    <div className="hidden h-8 w-px bg-neutral-200 sm:block" />
                     <Stat label="Exercises" value={preview.exercises.length} />
-                    <div className="hidden h-8 w-px bg-neutral-200 sm:block" />
                     <Stat label="Will link" value={counts.linked} />
-                    <div className="hidden h-8 w-px bg-neutral-200 sm:block" />
                     <Stat label="Will create" value={counts.created} />
                 </div>
             </Card>
 
             {/* Exercise reconciliation */}
             <Card as="section" hover={false}>
-                <h3 className="mb-1 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                    Exercises
-                </h3>
-                <p className="mb-4 text-xs text-neutral-500">
-                    Each distinct exercise name from your paste. Link it to an existing exercise, or
-                    create a new one.
-                </p>
+                <SectionHeader
+                    title="Exercises"
+                    hint="Each distinct name from your paste. Link it to an existing exercise, or create a new one."
+                />
                 <ul className="flex flex-col divide-y divide-neutral-100">
                     {preview.exercises.map((ex) => {
                         const chip = STATUS_CHIP[ex.status]
                         return (
                             <li
                                 key={ex.key}
-                                className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                                className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                             >
                                 <div className="min-w-0 sm:flex-1">
                                     <div className="flex items-center gap-2">
@@ -490,7 +481,7 @@ function ReconcileStage({
                                         </span>
                                     </div>
                                     {ex.status === 'ambiguous' && (
-                                        <p className="mt-0.5 text-xs text-amber-600">
+                                        <p className="mt-1 text-xs text-amber-600">
                                             No exact match — check the suggestion below.
                                         </p>
                                     )}
@@ -521,13 +512,36 @@ function ReconcileStage({
     )
 }
 
+/** Eyebrow title with an optional hint underneath and an action on the right. */
+function SectionHeader({
+    title,
+    hint,
+    action,
+}: {
+    title: string
+    hint?: string
+    action?: ReactNode
+}) {
+    return (
+        <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+                <h3 className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                    {title}
+                </h3>
+                {hint && <p className="mt-1 text-xs text-neutral-500">{hint}</p>}
+            </div>
+            {action && <div className="shrink-0">{action}</div>}
+        </div>
+    )
+}
+
 function Stat({ label, value }: { label: string; value: number }) {
     return (
         <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                 {label}
             </p>
-            <p className="text-lg font-bold tabular-nums text-neutral-900">{value}</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-neutral-900">{value}</p>
         </div>
     )
 }

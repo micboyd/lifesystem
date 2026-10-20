@@ -382,6 +382,8 @@ export interface BoxCook {
     finished: boolean
     /** Grams eaten from it so far (open batches only). */
     eatenGrams?: number
+    /** Grams on plates still planned (pantry list only). */
+    plannedGrams?: number
     createdAt: string
 }
 

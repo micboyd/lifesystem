@@ -207,3 +207,84 @@ button {
 .scrollbar-none::-webkit-scrollbar {
     display: none;
 }
+
+/* A phone's single day slides like a carousel (useDaySlider): the focused card
+   follows the finger via --day-dx, the leaving card carries on from where it
+   was let go (--day-from) and the arriving one slides in alongside it. The
+   slider's inline padding gives the cards' rings room inside the clip. */
+@media (max-width: 767px) {
+    .day-slider {
+        position: relative;
+        overflow-x: clip;
+        touch-action: pan-y pinch-zoom;
+        margin-inline: -0.375rem;
+        padding-inline: 0.375rem;
+    }
+
+    .day-slide-current {
+        transform: translateX(var(--day-dx, 0px));
+        transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .day-slider[data-dragging] .day-slide-current {
+        transition: none;
+    }
+
+    .day-slide-out-next,
+    .day-slide-out-prev {
+        position: absolute;
+        top: 0;
+        left: 0.375rem;
+        right: 0.375rem;
+        pointer-events: none;
+        animation: 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    .day-slide-out-next {
+        animation-name: day-out-next;
+    }
+    .day-slide-out-prev {
+        animation-name: day-out-prev;
+    }
+    .day-slide-in-next {
+        animation: day-in-next 300ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .day-slide-in-prev {
+        animation: day-in-prev 300ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+}
+
+@keyframes day-out-next {
+    from {
+        transform: translateX(var(--day-from, 0px));
+    }
+    to {
+        transform: translateX(calc(-100% - 1rem));
+        opacity: 0.4;
+    }
+}
+@keyframes day-out-prev {
+    from {
+        transform: translateX(var(--day-from, 0px));
+    }
+    to {
+        transform: translateX(calc(100% + 1rem));
+        opacity: 0.4;
+    }
+}
+@keyframes day-in-next {
+    from {
+        transform: translateX(calc(100% + 1rem + var(--day-from, 0px)));
+    }
+    to {
+        transform: none;
+    }
+}
+@keyframes day-in-prev {
+    from {
+        transform: translateX(calc(-100% - 1rem + var(--day-from, 0px)));
+    }
+    to {
+        transform: none;
+    }
+}

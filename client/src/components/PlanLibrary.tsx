@@ -1559,30 +1559,41 @@ function ApplyPlanForm({
                     alone.
                 </p>
 
-                <div className="flex gap-3">
-                    <div className="flex flex-1 flex-col gap-1.5">
-                        <label className="text-[13px] font-medium text-neutral-700">
-                            From
-                        </label>
-                        <DatePicker
-                            value={start}
-                            minDate={plan.planStart}
-                            maxDate={end || plan.planEnd}
-                            onChange={(v) =>
-                                setStart(typeof v === 'string' && v ? v : plan.planStart)
-                            }
-                        />
+                <div className="flex flex-col gap-2">
+                    <div className="flex items-baseline justify-between gap-3">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                            Dates
+                        </p>
+                        <p className="text-[11px] text-neutral-500">
+                            Plan runs {formatDateShort(plan.planStart)} –{' '}
+                            {formatDateShort(plan.planEnd)}
+                        </p>
                     </div>
-                    <div className="flex flex-1 flex-col gap-1.5">
-                        <label className="text-[13px] font-medium text-neutral-700">
-                            To
-                        </label>
-                        <DatePicker
-                            value={end}
-                            minDate={start || plan.planStart}
-                            maxDate={plan.planEnd}
-                            onChange={(v) => setEnd(typeof v === 'string' && v ? v : plan.planEnd)}
-                        />
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                            <label className="text-[13px] font-medium text-neutral-700">
+                                From
+                            </label>
+                            <DatePicker
+                                value={start}
+                                minDate={plan.planStart}
+                                maxDate={end || plan.planEnd}
+                                onChange={(v) =>
+                                    setStart(typeof v === 'string' && v ? v : plan.planStart)
+                                }
+                            />
+                        </div>
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                            <label className="text-[13px] font-medium text-neutral-700">
+                                To
+                            </label>
+                            <DatePicker
+                                value={end}
+                                minDate={start || plan.planStart}
+                                maxDate={plan.planEnd}
+                                onChange={(v) => setEnd(typeof v === 'string' && v ? v : plan.planEnd)}
+                            />
+                        </div>
                     </div>
                 </div>
 

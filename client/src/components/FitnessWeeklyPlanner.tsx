@@ -83,7 +83,7 @@ import {
     isWide,
     scrollToDay,
     relativeWeekLabel,
-    useDaySwipe,
+    useDaySlider,
     useMediaQuery,
     LARGE_QUERY,
 } from './planner/WeekPlannerUI'
@@ -2111,7 +2111,7 @@ function WeekView({
 
     // Swipe left/right on a phone to move a day — crossing Sunday or Monday
     // carries on into the next or previous week.
-    const swipeProps = useDaySwipe((dir) => onSelect(addDays(selected, dir)))
+    const { sliderProps, dayClass } = useDaySlider(selected, (dir) => onSelect(addDays(selected, dir)))
 
     // A slot's items (any day) in display (order) sequence.
     const slotItems = (date: string, part: FitnessPlanPart) =>
@@ -2153,11 +2153,11 @@ function WeekView({
 
     return (
         <div
-            {...(board ? {} : swipeProps)}
+            {...(board ? {} : sliderProps)}
             className={
                 board
                     ? 'grid grid-cols-7 items-stretch gap-2 xl:gap-3'
-                    : 'flex flex-col gap-3 md:gap-4'
+                    : 'day-slider flex flex-col gap-3 md:gap-4'
             }
         >
             {days.map((date) => (
@@ -2166,7 +2166,7 @@ function WeekView({
                     date={date}
                     compact={board}
                     // Only the focused day on a phone; every day from md up.
-                    className={board || date === selected ? 'flex' : 'hidden md:flex'}
+                    className={board ? 'flex' : dayClass(date)}
                     isToday={date === today}
                     editable={editing}
                     entries={entries.filter((e) => e.date === date)}

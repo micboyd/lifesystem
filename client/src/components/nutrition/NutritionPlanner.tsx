@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import Spinner from '../Spinner'
 import Button from '../Button'
 import Input from '../Input'
@@ -22,7 +22,7 @@ import {
     isWide,
     scrollToDay,
     relativeWeekLabel,
-    useDaySwipe,
+    useDaySlider,
     useMediaQuery,
     LARGE_QUERY,
 } from '../planner/WeekPlannerUI'
@@ -45,7 +45,7 @@ import { addDays, formatWeekRange, parseDateKey, todayKey, WEEKDAYS_LONG, MONTHS
 import { sumEatenMacros, sumMacros, targetsFor } from '../../lib/nutrition'
 import { MEAL_TYPES } from '../../types'
 import { plateTotal } from '../../lib/plates'
-import { PlateBuilder, PlateLinesEditor, plateTitle } from './PlateUI'
+import { PlateBuilder, PlateLinesEditor, plateGrams, plateTitle } from './PlateUI'
 import type {
     DailyEnergy,
     MacroGoals,
@@ -101,12 +101,15 @@ const isEaten = (e: MealPlanEntry) => e.status === 'eaten'
 
 /** The one-line summary under a planned meal's name. */
 function plannedMeta(entry: MealPlanEntry): string {
-    return `${kcal(entry.macros.calories)} kcal · ${fmt(Math.round(entry.macros.protein))} g protein`
+    const grams = plateGrams(entry)
+    return `${kcal(entry.macros.calories)} kcal · ${fmt(Math.round(entry.macros.protein))} g protein${grams ? ` · ${grams}` : ''}`
 }
 
 // ─── Planner ────────────────────────────────────────────────────────────────────
 
-type PickerTarget = { date: string; slot: MealType; extra: boolean }
+/** `eaten` is Quick log: added to its slot already ticked, with no need to plan first. */
+type PickerTarget = { date: string; slot: MealType; extra: boolean; eaten?: boolean }
+
 
 export default function NutritionPlanner({
     meals,
@@ -180,18 +183,24 @@ export default function NutritionPlanner({
         setEditing(false)
     }
 
-    async function handleAdd(date: string, slot: MealType, mealId: string, extra: boolean) {
+    async function handleAdd(date: string, slot: MealType, mealId: string, extra: boolean, eaten = false) {
         try {
-            const entry = await addPlanEntry(date, slot, mealId, extra)
+            const entry = await addPlanEntry(date, slot, mealId, extra, eaten)
             setEntries((prev) => [...prev, entry])
         } catch {
             toast.show('Could not add that meal — please try again.', 'danger')
         }
     }
 
-    async function handleAddPlate(date: string, slot: MealType, plate: PlateLineInput[], extra: boolean) {
+    async function handleAddPlate(
+        date: string,
+        slot: MealType,
+        plate: PlateLineInput[],
+        extra: boolean,
+        eaten = false
+    ) {
         try {
-            const entry = await addPlatePlanEntry(date, slot, plate, extra)
+            const entry = await addPlatePlanEntry(date, slot, plate, extra, eaten)
             setEntries((prev) => [...prev, entry])
         } catch {
             toast.show('Could not add that plate — please try again.', 'danger')
@@ -310,7 +319,8 @@ export default function NutritionPlanner({
         return { count, where: formatWeekRange(range.start, range.end), scope: 'week' as const }
     }, [clearTarget, entries, range.start, range.end])
 
-    const libraryEmpty = meals.length === 0
+    // Boxes and foods plan just as well as saved meals — plates are weighed from them.
+    const libraryEmpty = meals.length === 0 && foods.length === 0
     const weekHasClearable = entries.some(clearable)
 
     // Picking a day focuses it; on wide screens it also scrolls there.
@@ -374,7 +384,7 @@ export default function NutritionPlanner({
                 <EmptyState
                     icon="fa-solid fa-calendar-week"
                     title="Nothing to plan with yet"
-                    description="Add some meals to your library first, then drop them into the plan."
+                    description="Add a meal or a box to your library first, then drop it into the plan."
                 />
             ) : (
                 <WeekView
@@ -388,7 +398,7 @@ export default function NutritionPlanner({
                     outFor={(date) => energy.find((e) => e.date === date)?.caloriesOut ?? null}
                     onSelect={setAnchor}
                     onAdd={(date, slot) => setPicker({ date, slot, extra: false })}
-                    onLogMore={(date) => setPicker({ date, slot: 'snack', extra: true })}
+                    onQuickLog={(date, slot) => setPicker({ date, slot, extra: false, eaten: true })}
                     onOpen={setDetail}
                     onToggle={handleToggle}
                     onRemove={handleRemove}
@@ -681,7 +691,7 @@ function NutritionWeekHero({
                 <div className="flex shrink-0 items-center gap-3 sm:ml-auto sm:gap-2">
                     <div className="sm:hidden">{arrows}</div>
                     {!isThisWeek && (
-                        <HeroButton icon="fa-solid fa-calendar-day" onClick={() => onPick(today)}>
+                        <HeroButton icon="fa-solid fa-calendar-day" onClick={() => onPick(today)} iconOnlyOnPhone>
                             Today
                         </HeroButton>
                     )}
@@ -731,7 +741,7 @@ function WeekView({
     outFor,
     onSelect,
     onAdd,
-    onLogMore,
+    onQuickLog,
     onOpen,
     onToggle,
     onRemove,
@@ -751,7 +761,8 @@ function WeekView({
     outFor: (date: string) => number | null
     onSelect: (date: string) => void
     onAdd: (date: string, slot: MealType) => void
-    onLogMore: (date: string) => void
+    /** Log what was eaten into a slot, planned or not. */
+    onQuickLog: (date: string, slot: MealType) => void
     onOpen: (entry: MealPlanEntry) => void
     onToggle: (entry: MealPlanEntry) => void
     onRemove: (id: string) => void
@@ -772,7 +783,7 @@ function WeekView({
         after: boolean
     } | null>(null)
 
-    const swipeProps = useDaySwipe((dir) => onSelect(addDays(selected, dir)))
+    const { sliderProps, dayClass } = useDaySlider(selected, (dir) => onSelect(addDays(selected, dir)))
 
     const slotItems = (date: string, slot: MealType) =>
         entries.filter((e) => e.date === date && e.slot === slot && !e.extra).sort((a, b) => a.order - b.order)
@@ -803,15 +814,15 @@ function WeekView({
 
     return (
         <div
-            {...(board ? {} : swipeProps)}
-            className={board ? 'grid grid-cols-7 items-stretch gap-2 xl:gap-3' : 'flex flex-col gap-3 md:gap-4'}
+            {...(board ? {} : sliderProps)}
+            className={board ? 'grid grid-cols-7 items-stretch gap-2 xl:gap-3' : 'day-slider flex flex-col gap-3 md:gap-4'}
         >
             {days.map((date) => (
                 <DayCard
                     key={date}
                     date={date}
                     compact={board}
-                    className={board || date === selected ? 'flex' : 'hidden md:flex'}
+                    className={board ? 'flex' : dayClass(date)}
                     isToday={date === today}
                     // Calories out only make sense once the day has happened.
                     hasHappened={date <= today}
@@ -820,7 +831,7 @@ function WeekView({
                     goals={goalsFor(date)}
                     out={outFor(date)}
                     onAdd={(slot) => onAdd(date, slot)}
-                    onLogMore={() => onLogMore(date)}
+                    onQuickLog={(slot) => onQuickLog(date, slot)}
                     onOpen={onOpen}
                     onToggle={onToggle}
                     onRemove={onRemove}
@@ -865,7 +876,7 @@ function DayCard({
     goals,
     out,
     onAdd,
-    onLogMore,
+    onQuickLog,
     onOpen,
     onToggle,
     onRemove,
@@ -891,7 +902,7 @@ function DayCard({
     goals: MacroGoals | null
     out: number | null
     onAdd: (slot: MealType) => void
-    onLogMore: () => void
+    onQuickLog: (slot: MealType) => void
     onOpen: (entry: MealPlanEntry) => void
     onToggle: (entry: MealPlanEntry) => void
     onRemove: (id: string) => void
@@ -912,7 +923,6 @@ function DayCard({
     const extras = entries.filter((e) => e.extra).sort((a, b) => a.order - b.order)
     const total = planned.length
     const eatenCount = planned.filter(isEaten).length
-    const empty = entries.length === 0
     const plannedKcal = sumMacros(planned).calories
 
     const slotItems = (slot: MealType) => planned.filter((e) => e.slot === slot).sort((a, b) => a.order - b.order)
@@ -941,33 +951,16 @@ function DayCard({
         )
 
     const canClear = editable && planned.some(clearable)
-    const canLogMore = !editable && hasHappened
-    const actions = (canClear || canLogMore) && (
-        <div className="-my-1.5 ml-auto flex shrink-0 items-center gap-1">
-            {canLogMore && (
-                <button
-                    type="button"
-                    onClick={onLogMore}
-                    aria-label={`Log something else on ${weekday}`}
-                    title="Log more"
-                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg px-1.5 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                >
-                    <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
-                    {!compact && <span>Log more</span>}
-                </button>
-            )}
-            {canClear && (
-                <button
-                    type="button"
-                    onClick={onClear}
-                    aria-label={`Clear ${weekday}`}
-                    title="Clear day"
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                >
-                    <i className="fa-solid fa-broom text-[12px]" aria-hidden="true" />
-                </button>
-            )}
-        </div>
+    const actions = canClear && (
+        <button
+            type="button"
+            onClick={onClear}
+            aria-label={`Clear ${weekday}`}
+            title="Clear day"
+            className="-my-1.5 ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
+        >
+            <i className="fa-solid fa-broom text-[12px]" aria-hidden="true" />
+        </button>
     )
 
     const titleRow = (
@@ -990,18 +983,7 @@ function DayCard({
                 {summary}
             </header>
 
-            {empty && !editable ? (
-                <div
-                    className={`flex items-center gap-3 rounded-xl bg-neutral-50 px-3 py-3 ${
-                        compact ? 'flex-1 flex-col justify-center text-center' : ''
-                    }`}
-                >
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-500">
-                        <i className="fa-solid fa-utensils text-sm" aria-hidden="true" />
-                    </span>
-                    <p className="text-xs text-neutral-500">No meals planned for this day.</p>
-                </div>
-            ) : (
+            {
                 <div
                     className={
                         editable
@@ -1019,6 +1001,7 @@ function DayCard({
                             editable={editable}
                             entries={slotItems(slot)}
                             onAdd={() => onAdd(slot)}
+                            onQuickLog={() => onQuickLog(slot)}
                             onOpen={onOpen}
                             onToggle={onToggle}
                             onRemove={onRemove}
@@ -1042,7 +1025,7 @@ function DayCard({
                         />
                     )}
                 </div>
-            )}
+            }
 
             {hasHappened && !editable && (
                 <DayEnergy
@@ -1069,6 +1052,7 @@ function SlotSection({
     editable,
     entries,
     onAdd,
+    onQuickLog,
     onOpen,
     onToggle,
     onRemove,
@@ -1086,6 +1070,7 @@ function SlotSection({
     editable: boolean
     entries: MealPlanEntry[]
     onAdd: () => void
+    onQuickLog: () => void
     onOpen: (entry: MealPlanEntry) => void
     onToggle: (entry: MealPlanEntry) => void
     onRemove: (id: string) => void
@@ -1153,21 +1138,52 @@ function SlotSection({
     ))
 
     if (!editable) {
+        const logButton = (
+            <button
+                type="button"
+                onClick={onQuickLog}
+                aria-label={`Quick log ${meta.label.toLowerCase()}`}
+                title="Quick log"
+                className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full font-semibold text-neutral-600 ring-1 ring-inset ring-neutral-200 transition-colors hover:bg-neutral-900 hover:text-white hover:ring-neutral-900 ${
+                    compact ? 'h-6 w-6 text-[10px]' : 'h-9 px-3 text-xs sm:h-8'
+                }`}
+            >
+                <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
+                {!compact && <span>Log</span>}
+            </button>
+        )
         return (
             <div
                 className={
                     compact
                         ? 'flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0'
-                        : 'grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-3 first:pt-0 last:pb-0'
+                        : // Phones: the slot's name over its meals, so rows get the full width.
+                          'flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-start sm:gap-3'
                 }
             >
-                <span className={compact ? '' : 'pt-2'}>{label}</span>
+                <div
+                    className={`flex items-center justify-between gap-2 ${
+                        compact ? '' : 'sm:flex-col sm:items-start sm:pt-1.5'
+                    }`}
+                >
+                    <span className="flex items-center gap-2">
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${meta.solid}`} aria-hidden="true" />
+                        {label}
+                    </span>
+                    {logButton}
+                </div>
                 {entries.length > 0 ? (
                     <ul className={compact ? 'flex flex-col gap-1.5' : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'}>
                         {rows}
                     </ul>
                 ) : (
-                    <EmptySlotTile compact={compact} title="Free" detail="Nothing planned" />
+                    <button type="button" onClick={onQuickLog} className="group block w-full text-left">
+                        <EmptySlotTile
+                            compact={compact}
+                            title="Nothing yet"
+                            detail={compact ? 'Tap to log' : 'Tap to log what you ate'}
+                        />
+                    </button>
                 )}
             </div>
         )
@@ -1249,10 +1265,13 @@ function ExtrasSection({
             className={
                 compact
                     ? 'flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0'
-                    : 'grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-3 first:pt-0 last:pb-0'
+                    : 'flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-start sm:gap-3'
             }
         >
-            <span className={compact ? '' : 'pt-2'}>{label}</span>
+            <span className={`flex items-center gap-2 ${compact ? '' : 'sm:pt-1.5'}`}>
+                <span className="h-2 w-2 shrink-0 rounded-full bg-neutral-300" aria-hidden="true" />
+                {label}
+            </span>
             <ul className={compact ? 'flex flex-col gap-1.5' : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'}>{rows}</ul>
         </div>
     )
@@ -1335,7 +1354,9 @@ function PlannedRow({
             />
             <span className="min-w-0 flex-1 py-0.5">
                 <span
-                    className={`block truncate text-sm font-medium ${done && !entry.extra ? 'text-neutral-500' : 'text-neutral-900'}`}
+                    className={`block truncate font-medium ${compact ? 'text-sm' : 'text-[15px] sm:text-sm'} ${
+                        done && !entry.extra ? 'text-neutral-500' : 'text-neutral-900'
+                    }`}
                 >
                     {plateTitle(entry)}
                 </span>
@@ -1344,7 +1365,7 @@ function PlannedRow({
         </span>
     )
 
-    const tickSize = compact ? 'h-6 w-6' : 'h-8 w-8'
+    const tickSize = compact ? 'h-6 w-6' : 'h-10 w-10 sm:h-8 sm:w-8'
 
     return (
         <li
@@ -1369,7 +1390,7 @@ function PlannedRow({
             }
             data-plan-row={dropId}
             className={`group relative flex items-center rounded-xl transition-colors ${
-                compact ? 'gap-1 p-2' : 'gap-2 px-2.5 py-2'
+                compact ? 'gap-1 p-2' : 'min-h-14 gap-2 px-3 py-2 sm:min-h-0 sm:px-2.5'
             } ${lane ? 'bg-white ring-1 ring-neutral-900/[0.06]' : 'bg-neutral-50'} ${
                 onOpen ? (lane ? 'hover:ring-neutral-900/[0.12]' : 'hover:bg-neutral-100') : ''
             } ${draggable ? 'md:cursor-grab md:active:cursor-grabbing' : ''} ${dragging ? 'opacity-40' : ''}`}
@@ -1464,34 +1485,87 @@ function DayEnergy({
     out: number | null
     onSaveOut: (value: number | null) => Promise<void>
 }) {
-    const macro = (label: string, value: number, goal?: number) =>
-        `${label} ${fmt(Math.round(value))}${goal ? `/${fmt(goal)}` : ''} g`
+    const net = out === null ? null : eaten.calories - out
+    const macros = [
+        { label: 'Protein', value: eaten.protein, goal: goals?.protein, bar: 'bg-brand-600' },
+        { label: 'Carbs', value: eaten.carbs, goal: goals?.carbs, bar: 'bg-marigold' },
+        { label: 'Fat', value: eaten.fat, goal: goals?.fat, bar: 'bg-coral-300' },
+    ]
+    // On a narrow board column only protein fits beside the calories.
+    const shown = compact ? macros.slice(0, 1) : macros
+
     return (
-        <div className={`flex flex-col gap-2 rounded-xl bg-neutral-50 ${compact ? 'p-2' : 'px-3 py-2.5'}`}>
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                <p className="text-[13px] text-neutral-500">
-                    <span className="font-semibold tabular-nums text-neutral-900">{kcal(eaten.calories)}</span> in
-                    {goals?.calories ? <span className="tabular-nums"> of {kcal(goals.calories)}</span> : null}
-                </p>
-                <p className="truncate text-[11px] tabular-nums text-neutral-500">
-                    {[
-                        macro('P', eaten.protein, goals?.protein),
-                        !compact && macro('C', eaten.carbs, goals?.carbs),
-                        !compact && macro('F', eaten.fat, goals?.fat),
-                    ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                </p>
+        <div className={`flex flex-col rounded-2xl bg-neutral-50 ${compact ? 'gap-2.5 p-2.5' : 'gap-3 p-3.5 sm:p-4'}`}>
+            <div className="flex flex-col gap-1.5">
+                <EnergyRow label="Eaten">
+                    {kcal(eaten.calories)}
+                    {goals?.calories ? <span className="font-normal text-neutral-500"> / {kcal(goals.calories)}</span> : null}
+                    <Unit>kcal</Unit>
+                </EnergyRow>
+                {goals?.calories ? <Meter value={eaten.calories} goal={goals.calories} bar="bg-neutral-900" /> : null}
             </div>
-            <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 ${compact ? 'flex-col items-start' : ''}`}>
-                <OutField out={out} onSave={onSaveOut} />
-                <NetLine eaten={eaten.calories} out={out} />
+
+            <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'grid-cols-3'}`}>
+                {shown.map((m) => (
+                    <div key={m.label} className="flex min-w-0 flex-col gap-1">
+                        <span className="text-[13px] text-neutral-500">{m.label}</span>
+                        <span className="truncate text-sm font-semibold tabular-nums text-neutral-900">
+                            {fmt(Math.round(m.value))}
+                            {m.goal ? <span className="font-normal text-neutral-500"> / {fmt(m.goal)}</span> : null}
+                            <Unit>g</Unit>
+                        </span>
+                        {m.goal ? <Meter value={m.value} goal={m.goal} bar={m.bar} /> : null}
+                    </div>
+                ))}
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-neutral-200/70 pt-3">
+                <EnergyRow label="Burned">
+                    <OutField out={out} onSave={onSaveOut} />
+                    <Unit>kcal</Unit>
+                </EnergyRow>
+                {/* Only once burned is in — there's no balance without it. */}
+                {net !== null && (
+                    <EnergyRow label="Balance">
+                        <span className={net < 0 ? 'text-emerald-700' : net > 0 ? 'text-amber-700' : ''}>
+                            {signedKcal(net)}
+                        </span>
+                        <Unit>kcal {net < 0 ? 'deficit' : net > 0 ? 'surplus' : 'even'}</Unit>
+                    </EnergyRow>
+                )}
             </div>
         </div>
     )
 }
 
-/** "Out" — typed in, saved on blur or Enter, cleared by emptying it. */
+/** One line of the day's balance: what it is on the left, the figure on the right. */
+function EnergyRow({ label, children }: { label: string; children: ReactNode }) {
+    return (
+        <div className="flex min-h-8 items-center justify-between gap-3">
+            <span className="text-[13px] text-neutral-500">{label}</span>
+            {/* Plain inline text, not flex — flex would swallow the spaces in "0 / 2,850". */}
+            <span className="min-w-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums text-neutral-900">
+                {children}
+            </span>
+        </div>
+    )
+}
+
+function Unit({ children }: { children: ReactNode }) {
+    return <span className="ml-1 whitespace-nowrap font-normal text-neutral-500">{children}</span>
+}
+
+/** A thin bar filling toward a target — never past full. */
+function Meter({ value, goal, bar }: { value: number; goal: number; bar: string }) {
+    const pct = goal > 0 ? Math.min(100, (value / goal) * 100) : 0
+    return (
+        <div className="h-1 overflow-hidden rounded-full bg-neutral-200/80">
+            <div className={`h-full rounded-full transition-[width] duration-500 ${bar}`} style={{ width: `${pct}%` }} />
+        </div>
+    )
+}
+
+/** Calories out, typed straight into the figure — saved on blur or Enter, cleared by emptying it. */
 function OutField({ out, onSave }: { out: number | null; onSave: (value: number | null) => Promise<void> }) {
     const [value, setValue] = useState(out === null ? '' : String(out))
     const [saving, setSaving] = useState(false)
@@ -1515,35 +1589,21 @@ function OutField({ out, onSave }: { out: number | null; onSave: (value: number 
     }
 
     return (
-        <label className="flex items-center gap-2 text-[13px] text-neutral-500">
-            Out
-            <input
-                type="text"
-                inputMode="numeric"
-                placeholder="—"
-                value={value}
-                disabled={saving}
-                onChange={(e) => setValue(e.target.value)}
-                onBlur={() => void commit()}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                }}
-                className="h-8 w-20 rounded-[10px] border border-neutral-200 bg-white px-2.5 text-right text-sm font-semibold tabular-nums text-neutral-900 outline-none placeholder:text-neutral-300 hover:border-neutral-300 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100"
-            />
-            kcal
-        </label>
-    )
-}
-
-function NetLine({ eaten, out }: { eaten: number; out: number | null }) {
-    if (out === null) return <p className="text-[13px] text-neutral-400">Add calories out for the balance</p>
-    const net = eaten - out
-    const tone = net < 0 ? 'text-emerald-700' : net > 0 ? 'text-amber-700' : 'text-neutral-900'
-    return (
-        <p className="text-[13px] tabular-nums">
-            <span className={`font-semibold ${tone}`}>{signedKcal(net)} kcal</span>
-            <span className="ml-1 text-neutral-500">{net < 0 ? 'deficit' : net > 0 ? 'surplus' : 'even'}</span>
-        </p>
+        <input
+            type="text"
+            inputMode="numeric"
+            enterKeyHint="done"
+            aria-label="Calories out"
+            placeholder="0"
+            value={value}
+            disabled={saving}
+            onChange={(e) => setValue(e.target.value)}
+            onBlur={() => void commit()}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+            }}
+            className="h-8 w-20 rounded-lg bg-white px-2 align-middle text-right text-sm font-semibold tabular-nums text-neutral-900 outline-none ring-1 ring-inset ring-neutral-200 transition-shadow placeholder:font-normal placeholder:text-neutral-400 hover:ring-neutral-300 focus:ring-2 focus:ring-neutral-900"
+        />
     )
 }
 
@@ -1573,8 +1633,8 @@ function MealPickerDrawer({
     foods: PlateFood[]
     entries: MealPlanEntry[]
     onClose: () => void
-    onAdd: (date: string, slot: MealType, mealId: string, extra: boolean) => Promise<void>
-    onAddPlate: (date: string, slot: MealType, plate: PlateLineInput[], extra: boolean) => Promise<void>
+    onAdd: (date: string, slot: MealType, mealId: string, extra: boolean, eaten: boolean) => Promise<void>
+    onAddPlate: (date: string, slot: MealType, plate: PlateLineInput[], extra: boolean, eaten: boolean) => Promise<void>
     onRemove: (id: string) => void
 }) {
     // A saved meal, or a plate weighed out from boxes and foods.
@@ -1591,8 +1651,11 @@ function MealPickerDrawer({
             setQuery('')
             setActiveSlot(target.slot)
             setPage(1)
-            // Lunch and dinner are usually plated from the boxes.
-            setMode(foods.length > 0 && (target.slot === 'lunch' || target.slot === 'dinner') ? 'plate' : 'meal')
+            // Lunch and dinner are usually plated from the pantry — and with no
+            // saved meals, plating is the only way to fill any slot.
+            const plated = meals.length === 0 || target.slot === 'lunch' || target.slot === 'dinner'
+            const plateable = foods.some((f) => f.kind === 'plain' || f.open.length > 0)
+            setMode(plateable && plated ? 'plate' : 'meal')
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [target])
@@ -1602,7 +1665,8 @@ function MealPickerDrawer({
     }, [activeSlot, query])
 
     const extra = view?.extra ?? false
-    const title = extra ? 'Log more' : 'Add to day'
+    const eaten = view?.eaten ?? false
+    const title = extra ? 'Log more' : eaten ? 'Quick log' : 'Add to day'
 
     const results = useMemo(() => {
         const q = query.trim().toLowerCase()
@@ -1629,7 +1693,7 @@ function MealPickerDrawer({
         if (!view || busy) return
         setBusy(true)
         try {
-            await onAdd(view.date, activeSlot, meal._id, extra)
+            await onAdd(view.date, activeSlot, meal._id, extra, eaten)
         } finally {
             setBusy(false)
         }
@@ -1720,12 +1784,12 @@ function MealPickerDrawer({
                     <PlateBuilder
                         foods={foods}
                         busy={busy}
-                        actionLabel={extra ? 'Log plate' : 'Add plate'}
+                        actionLabel={extra || eaten ? 'Log plate' : 'Add plate'}
                         onAdd={async (plate) => {
                             if (!view) return
                             setBusy(true)
                             try {
-                                await onAddPlate(view.date, activeSlot, plate, extra)
+                                await onAddPlate(view.date, activeSlot, plate, extra, eaten)
                             } finally {
                                 setBusy(false)
                             }
