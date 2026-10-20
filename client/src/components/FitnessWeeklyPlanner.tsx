@@ -13,6 +13,7 @@ import ConditioningSessionDetail from './ConditioningSessionDetail'
 import { SaveStatus } from './SessionPace'
 import { useStepTicks, workoutStepsKey } from './session/SessionUI'
 import WorkoutDetail from './session/WorkoutDetail'
+import { WorkoutLogSummary } from './WorkoutsLog'
 import { useConditioningLog } from './useConditioningLog'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
@@ -47,6 +48,7 @@ import {
 } from '../services/fitnessPlan'
 import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS, FITNESS_FLAG_COLORS } from '../types'
 import type {
+    WorkoutLog,
     Workout,
     Exercise,
     ConditioningSession,
@@ -3350,6 +3352,30 @@ function PlannedDetailDrawer({
     // Sub-list steps ticked off on this device, whatever the kind.
     const steps = useStepTicks(stepTicksKey(e))
 
+    // A done workout reads as its log — the same read-out the Workouts log opens —
+    // rather than the plan. Fetched fresh on each open so edits made in the
+    // logger show; marking it not done drops back to the plan view.
+    // `done` drops to false as the drawer closes, so the log id is retained
+    // while it slides shut, like the entry is.
+    const [logId, setLogId] = useState<string | null>(null)
+    const nextLogId = entry ? (entry.kind === 'workout' && done ? doneLogId : null) : logId
+    if (nextLogId !== logId) setLogId(nextLogId)
+    const [doneLog, setDoneLog] = useState<WorkoutLog | null>(null)
+    useEffect(() => {
+        if (!entry || !logId) return
+        let live = true
+        listWorkoutLogs()
+            .then((logs) => {
+                if (live) setDoneLog(logs.find((l) => l._id === logId) ?? null)
+            })
+            .catch(() => {})
+        return () => {
+            live = false
+        }
+    }, [entry, logId])
+    const showLog = !!logId && doneLog?._id === logId
+    const loadingLog = !!logId && !showLog
+
     // Any planned item can be logged straight from the planner — "Mark as done"
     // snapshots the library item into a completed record dated to the planned day,
     // mirroring the Done buttons in each category's log. Already-done items show a static "Done" chip instead.
@@ -3393,7 +3419,8 @@ function PlannedDetailDrawer({
             await onUnlog(e, doneLogId)
             if (e.kind === 'conditioning') logger.forget()
             toast.show(`“${planItemName(e) ?? 'Item'}” is no longer marked done.`, 'success')
-            onClose()
+            // A workout stays open on its plan view, ready to start again.
+            if (e.kind !== 'workout') onClose()
         } catch {
             toast.show('Could not undo that — please try again.', 'danger')
         } finally {
@@ -3455,7 +3482,13 @@ function PlannedDetailDrawer({
                 {e && (
                     <div className="flex flex-col gap-6">
                         <PlannedContext entry={e} done={done} />
-                        {e.kind === 'workout' && e.workout ? (
+                        {showLog ? (
+                            <WorkoutLogSummary log={doneLog!} />
+                        ) : loadingLog ? (
+                            <div className="grid place-items-center py-16">
+                                <Spinner />
+                            </div>
+                        ) : e.kind === 'workout' && e.workout ? (
                             <WorkoutDetail
                                 workout={e.workout}
                                 exercisesById={exercisesById}

@@ -1333,7 +1333,7 @@ function WrapUp({
                 items={[
                     { label: 'Exercises', value: `${exercisesDone}/${active.length}` },
                     { label: 'Sets', value: setsDone },
-                    { label: 'Volume', value: `${volume.toLocaleString()} kg` },
+                    { label: 'Volume', value: volume.toLocaleString(), unit: 'kg' },
                 ]}
             />
 
@@ -1347,22 +1347,21 @@ function WrapUp({
                         name: ex.name,
                         phase: ex.phase,
                         progress: p,
+                        sets: isWarmUp(ex) ? undefined : sets,
                         detail: isWarmUp(ex)
                             ? p === 'all'
                                 ? 'Done'
                                 : 'Not done yet'
-                            : sets.length
-                              ? sets.join(' · ')
-                              : 'Nothing ticked yet',
+                            : 'Nothing ticked yet',
                         onClick: () => onGo(i),
                     }
                 })}
             />
 
             {skipped.length > 0 && (
-                <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 px-4 py-3">
+                <div className="flex flex-col gap-1 rounded-2xl bg-neutral-50 px-4 py-3">
                     <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
-                        Skipped today · left out of the log
+                        Skipped · not logged
                     </p>
                     {skipped.map(({ ex, i }) => (
                         <div key={i} className="flex items-center justify-between gap-2">

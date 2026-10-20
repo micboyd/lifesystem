@@ -426,6 +426,84 @@ function LogRow({
 // ─── Log read-out ───────────────────────────────────────────────────────────────
 
 /**
+ * The body of a logged workout's read-out — totals, pace, each exercise with the
+ * sets done, notes. Shared by the log's drawer and the planner's drawer for a
+ * planned workout that's been done.
+ */
+export function WorkoutLogSummary({ log: l }: { log: WorkoutLog }) {
+    const rows: SummaryRow[] = l.exercises.map((ex, i) => {
+        const sets = (ex.loggedSets ?? []).map(formatSet).filter(Boolean)
+        const main = isMainWork(ex)
+        return {
+            key: i,
+            name: ex.name,
+            phase: phaseOf(ex),
+            // In the log means it was done; a main lift with no sets was a quick "Done".
+            progress: sets.length || !main ? 'all' : 'none',
+            sets,
+            detail: main
+                  ? formatSetsReps(ex) || 'No sets recorded'
+                  : 'Done',
+            note: ex.substitutedFor ? `Swapped in for ${ex.substitutedFor}` : undefined,
+        }
+    })
+    const mainRows = l.exercises.filter(isMainWork)
+    const setCount = mainRows.reduce((n, e) => n + (e.loggedSets?.length ?? 0), 0)
+    const withSets = mainRows.filter((e) => e.loggedSets?.length).length
+    const times = l.exercises.map((e) => (e.completedAt ? Date.parse(e.completedAt) : null))
+    const pace = paceOf(l.exercises, times)
+
+    return (
+        <div className="flex flex-col gap-7">
+            <header>
+                <h3 className="text-2xl font-semibold tracking-[-0.02em] text-neutral-900">
+                    {formatLogDate(l.date, todayISO())}
+                </h3>
+                <p className="mt-1 text-sm text-neutral-500">
+                    {l.exercises.length}{' '}
+                    {l.exercises.length === 1 ? 'exercise' : 'exercises'}
+                    {l.durationMin ? ` · ${l.durationMin} min` : ''}
+                </p>
+            </header>
+
+            <SummaryStats
+                items={[
+                    {
+                        label: 'Exercises',
+                        value: mainRows.length ? `${withSets}/${mainRows.length}` : 0,
+                    },
+                    { label: 'Sets', value: setCount },
+                    { label: 'Volume', value: logVolume(l).toLocaleString(), unit: 'kg' },
+                ]}
+            />
+
+            {pace?.drift != null && (
+                <p className="-mt-3 text-xs text-neutral-500">
+                    Pace:{' '}
+                    <span
+                        className={`rounded-full px-2 py-0.5 font-semibold ${DELTA_TONE[driftTone(pace.drift)]}`}
+                    >
+                        {driftLabel(pace.drift)}
+                    </span>{' '}
+                    by the last completed exercise
+                </p>
+            )}
+
+            <SummaryExerciseList rows={rows} />
+
+            {l.notes && (
+                <div className="flex flex-col gap-1.5">
+                    <p className="text-[13px] font-medium text-neutral-700">Notes</p>
+                    <p className="whitespace-pre-wrap rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+                        {l.notes}
+                    </p>
+                </div>
+            )}
+        </div>
+    )
+}
+
+/**
  * A logged workout laid out like the logger's wrap-up — totals, then each
  * exercise with the sets done — so a past session reads the same as one just
  * finished.
@@ -446,30 +524,6 @@ function LogSummaryDrawer({
     if (log && log !== view) setView(log)
 
     const l = view
-    const rows: SummaryRow[] = (l?.exercises ?? []).map((ex, i) => {
-        const sets = (ex.loggedSets ?? []).map(formatSet).filter(Boolean)
-        const main = isMainWork(ex)
-        return {
-            key: i,
-            name: ex.name,
-            phase: phaseOf(ex),
-            // In the log means it was done; a main lift with no sets was a quick "Done".
-            progress: sets.length || !main ? 'all' : 'none',
-            detail: sets.length
-                ? sets.join(' · ')
-                : main
-                  ? formatSetsReps(ex) || 'No sets recorded'
-                  : 'Done',
-            note: ex.substitutedFor ? `Swapped in for ${ex.substitutedFor}` : undefined,
-        }
-    })
-    const mainRows = (l?.exercises ?? []).filter(isMainWork)
-    const setCount = mainRows.reduce((n, e) => n + (e.loggedSets?.length ?? 0), 0)
-    const withSets = mainRows.filter((e) => e.loggedSets?.length).length
-    const times = l
-        ? l.exercises.map((e) => (e.completedAt ? Date.parse(e.completedAt) : null))
-        : []
-    const pace = l ? paceOf(l.exercises, times) : null
 
     return (
         <Drawer
@@ -500,54 +554,7 @@ function LogSummaryDrawer({
                 )
             }
         >
-            {l && (
-                <div className="flex flex-col gap-7">
-                    <header>
-                        <h3 className="text-2xl font-semibold tracking-[-0.02em] text-neutral-900">
-                            {formatLogDate(l.date, todayISO())}
-                        </h3>
-                        <p className="mt-1 text-sm text-neutral-500">
-                            {l.exercises.length}{' '}
-                            {l.exercises.length === 1 ? 'exercise' : 'exercises'}
-                            {l.durationMin ? ` · ${l.durationMin} min` : ''}
-                        </p>
-                    </header>
-
-                    <SummaryStats
-                        items={[
-                            {
-                                label: 'Exercises',
-                                value: mainRows.length ? `${withSets}/${mainRows.length}` : 0,
-                            },
-                            { label: 'Sets', value: setCount },
-                            { label: 'Volume', value: `${logVolume(l).toLocaleString()} kg` },
-                        ]}
-                    />
-
-                    {pace?.drift != null && (
-                        <p className="-mt-3 text-xs text-neutral-500">
-                            Pace:{' '}
-                            <span
-                                className={`rounded-full px-2 py-0.5 font-semibold ${DELTA_TONE[driftTone(pace.drift)]}`}
-                            >
-                                {driftLabel(pace.drift)}
-                            </span>{' '}
-                            by the last completed exercise
-                        </p>
-                    )}
-
-                    <SummaryExerciseList rows={rows} />
-
-                    {l.notes && (
-                        <div className="flex flex-col gap-1.5">
-                            <p className="text-[13px] font-medium text-neutral-700">Notes</p>
-                            <p className="whitespace-pre-wrap rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
-                                {l.notes}
-                            </p>
-                        </div>
-                    )}
-                </div>
-            )}
+            {l && <WorkoutLogSummary log={l} />}
         </Drawer>
     )
 }

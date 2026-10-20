@@ -1,4 +1,4 @@
-import { PhaseChip } from '../PhaseHeading'
+import { PhaseLabel } from '../PhaseHeading'
 import type { LoggedSet, SessionPhase, WorkoutLog } from '../../types'
 
 /**
@@ -12,30 +12,39 @@ export type SummaryProgress = 'none' | 'some' | 'all'
 export interface SummaryRow {
     key: string | number
     name: string
-    /** Shown as a chip when it isn't main work. */
+    /** Rows are grouped under phase labels when any of them isn't main work. */
     phase?: SessionPhase
     progress: SummaryProgress
-    /** The second line — the sets as done, or a word on why there are none. */
+    /** The sets as done, one pill each — e.g. "60 kg × 8". */
+    sets?: string[]
+    /** Shown instead of the pills when there are none — e.g. "Done", "Nothing ticked yet". */
     detail: string
-    /** A small grey note under the name, e.g. "for Bench press". */
+    /** A small grey note under the name, e.g. "Swapped in for Bench press". */
     note?: string
     /** Makes the row a button (the wrap-up jumps back to the exercise). */
     onClick?: () => void
 }
 
-export function SummaryStats({ items }: { items: { label: string; value: string | number }[] }) {
+/** The session's totals as one compact strip, a column per figure. */
+export function SummaryStats({
+    items,
+}: {
+    items: { label: string; value: string | number; unit?: string }[]
+}) {
     return (
-        <dl className="grid grid-cols-3 gap-2">
+        <dl className="grid grid-flow-col auto-cols-fr divide-x divide-neutral-200 rounded-2xl bg-neutral-50 py-3">
             {items.map((s) => (
-                <div
-                    key={s.label}
-                    className="flex min-w-0 flex-col gap-1 rounded-2xl bg-neutral-50 px-3.5 py-3"
-                >
-                    <dt className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                <div key={s.label} className="flex min-w-0 flex-col items-center gap-0.5 px-2">
+                    <dt className="order-last text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
                         {s.label}
                     </dt>
-                    <dd className="truncate text-base font-semibold tabular-nums text-neutral-900">
+                    <dd className="truncate text-lg font-semibold tabular-nums text-neutral-900">
                         {s.value}
+                        {s.unit && (
+                            <span className="ml-0.5 text-xs font-medium text-neutral-500">
+                                {s.unit}
+                            </span>
+                        )}
                     </dd>
                 </div>
             ))}
@@ -43,15 +52,41 @@ export function SummaryStats({ items }: { items: { label: string; value: string 
     )
 }
 
+const PHASE_ORDER: SessionPhase[] = ['warmUp', 'main', 'coolDown']
+
+/**
+ * One row per exercise: a progress tick, the name, then each set as a pill so
+ * a long session wraps neatly on a phone. Grouped by phase when the session
+ * has a warm-up or cool-down.
+ */
 export function SummaryExerciseList({ rows }: { rows: SummaryRow[] }) {
     if (rows.length === 0) return null
+    const grouped = rows.some((r) => (r.phase ?? 'main') !== 'main')
+    if (!grouped) return <RowList rows={rows} />
     return (
-        <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+        <div className="flex flex-col gap-5">
+            {PHASE_ORDER.map((phase) => {
+                const group = rows.filter((r) => (r.phase ?? 'main') === phase)
+                if (group.length === 0) return null
+                return (
+                    <section key={phase} className="flex flex-col gap-2">
+                        <PhaseLabel phase={phase} meta={group.length} />
+                        <RowList rows={group} />
+                    </section>
+                )
+            })}
+        </div>
+    )
+}
+
+function RowList({ rows }: { rows: SummaryRow[] }) {
+    return (
+        <ul className="divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200">
             {rows.map((r) => {
                 const body = (
                     <>
                         <span
-                            className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] ${
+                            className={`mt-px grid h-5 w-5 shrink-0 place-items-center rounded-full text-[9px] ${
                                 r.progress === 'all'
                                     ? 'bg-emerald-600 text-white'
                                     : r.progress === 'some'
@@ -64,21 +99,27 @@ export function SummaryExerciseList({ rows }: { rows: SummaryRow[] }) {
                                 aria-hidden="true"
                             />
                         </span>
-                        <span className="min-w-0 flex-1">
-                            <span className="flex min-w-0 items-center gap-2">
-                                <span className="truncate text-sm font-semibold text-neutral-900">
-                                    {r.name}
-                                </span>
-                                {r.phase && r.phase !== 'main' && <PhaseChip phase={r.phase} />}
+                        <span className="flex min-w-0 flex-1 flex-col gap-1">
+                            <span className="text-sm font-semibold leading-snug text-neutral-900">
+                                {r.name}
                             </span>
                             {r.note && (
-                                <span className="block truncate text-[11px] text-neutral-400">
-                                    {r.note}
-                                </span>
+                                <span className="text-[11px] text-neutral-400">{r.note}</span>
                             )}
-                            <span className="block text-xs tabular-nums text-neutral-500">
-                                {r.detail}
-                            </span>
+                            {r.sets?.length ? (
+                                <span className="mt-0.5 flex flex-wrap gap-1.5">
+                                    {r.sets.map((s, i) => (
+                                        <span
+                                            key={i}
+                                            className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-neutral-700"
+                                        >
+                                            {s}
+                                        </span>
+                                    ))}
+                                </span>
+                            ) : (
+                                <span className="text-xs text-neutral-500">{r.detail}</span>
+                            )}
                         </span>
                     </>
                 )
@@ -88,16 +129,16 @@ export function SummaryExerciseList({ rows }: { rows: SummaryRow[] }) {
                             <button
                                 type="button"
                                 onClick={r.onClick}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors first:rounded-t-2xl hover:bg-neutral-50"
+                                className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-50"
                             >
                                 {body}
                                 <i
-                                    className="fa-solid fa-chevron-right text-[11px] text-neutral-300"
+                                    className="fa-solid fa-chevron-right self-center text-[11px] text-neutral-300"
                                     aria-hidden="true"
                                 />
                             </button>
                         ) : (
-                            <div className="flex w-full items-center gap-3 px-4 py-3">{body}</div>
+                            <div className="flex w-full items-start gap-3 px-4 py-3">{body}</div>
                         )}
                     </li>
                 )

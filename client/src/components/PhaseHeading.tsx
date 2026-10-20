@@ -6,21 +6,24 @@ import { SESSION_PHASE_LABELS, type SessionPhase } from '../types'
  * icon of its own, so warm-up, main session and cool-down read apart at a
  * glance — on the gym floor as much as in the builder.
  */
-const PHASE_META: Record<SessionPhase, { icon: string; tile: string; chip: string }> = {
+const PHASE_META: Record<SessionPhase, { icon: string; tile: string; chip: string; fg: string }> = {
     warmUp: {
         icon: 'fa-solid fa-fire-flame-curved',
         tile: 'bg-amber-100 text-amber-700',
         chip: 'bg-amber-50 text-amber-700 ring-amber-600/20',
+        fg: 'text-amber-600',
     },
     main: {
         icon: 'fa-solid fa-bolt',
         tile: 'bg-coral-100 text-coral-700',
         chip: 'bg-coral-50 text-coral-700 ring-coral-600/20',
+        fg: 'text-coral-600',
     },
     coolDown: {
         icon: 'fa-solid fa-snowflake',
         tile: 'bg-sky-100 text-sky-700',
         chip: 'bg-sky-50 text-sky-700 ring-sky-600/20',
+        fg: 'text-sky-600',
     },
 }
 
@@ -84,5 +87,17 @@ export function PhaseChip({ phase }: { phase: SessionPhase }) {
             <i className={`${m.icon} text-[9px]`} aria-hidden="true" />
             {SESSION_PHASE_LABELS[phase]}
         </span>
+    )
+}
+
+/** A phase as a quiet small-caps label — for grouping a compact list by phase. */
+export function PhaseLabel({ phase, meta }: { phase: SessionPhase; meta?: ReactNode }) {
+    const m = PHASE_META[phase]
+    return (
+        <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+            <i className={`${m.icon} text-[10px] ${m.fg}`} aria-hidden="true" />
+            {SESSION_PHASE_LABELS[phase]}
+            {meta != null && <span className="text-neutral-400">· {meta}</span>}
+        </p>
     )
 }
