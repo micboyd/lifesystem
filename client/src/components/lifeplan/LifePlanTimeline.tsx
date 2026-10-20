@@ -1,4 +1,3 @@
-import { CALENDAR_COLOR_CLASSES, LIFE_PILLAR_ICONS } from '../../types'
 import type { LifePillar } from '../../types'
 import { formatMonthKey, MONTHS, monthKey } from '../../lib/calendar'
 import {
@@ -13,6 +12,7 @@ import { RESERVE_ICONS, RESERVE_LABELS, type MonthLoad } from '../../lib/lifeLoa
 import { LEVEL_BAR, LEVEL_TEXT, LEVEL_TINT } from './loadStyles'
 import { summarise } from './ReserveMeter'
 import EmptyState from '../EmptyState'
+import { OVERLINE, PANEL, PillarTile, ToneTile, colorClasses } from './ui'
 
 /**
  * The month grid: pillars as lanes, commitments as bars, deadlines as diamonds,
@@ -25,11 +25,11 @@ import EmptyState from '../EmptyState'
 
 /** Column width at which twelve months still stay readable. */
 const MONTH_WIDTH = 88
-const LABEL_WIDTH = 148
+const LABEL_WIDTH = 164
 /** Height of a single packed row, so lanes read as bands rather than hairlines. */
-const ROW_HEIGHT = 64
+const ROW_HEIGHT = 56
 /** Height of the load row — one line, sitting with the season band. */
-const LOAD_HEIGHT = 26
+const LOAD_HEIGHT = 34
 /**
  * The narrowest a bar can be and still show a word or two of its label inside.
  * A block of a few days is a fifth of this, so it is widened to reach it — see
@@ -81,7 +81,7 @@ function LaneBar({
     const placement = placeOnGrid(drawn, months)
     if (!placement) return null
     const { startIndex, span, left, right } = placement
-    const colors = CALENDAR_COLOR_CLASSES[item.color]
+    const colors = colorClasses(item.color)
     const style = { gridColumn: `${startIndex + 2} / span ${span}`, gridRow: row }
 
     if (item.shape === 'marker') {
@@ -97,10 +97,10 @@ function LaneBar({
                     className="group absolute top-1/2 flex max-w-[160px] -translate-y-1/2 -translate-x-[7px] items-center gap-1.5"
                 >
                     <span
-                        className={`h-3 w-3 shrink-0 rotate-45 rounded-[2px] ${colors.dot}`}
+                        className={`h-3 w-3 shrink-0 rotate-45 rounded-[3px] ring-2 ring-white ${colors.dot}`}
                         aria-hidden="true"
                     />
-                    <span className="min-w-0 truncate text-xs font-semibold text-neutral-600 group-hover:text-neutral-900">
+                    <span className="min-w-0 truncate text-xs font-medium text-neutral-700 group-hover:text-neutral-950">
                         {item.label}
                     </span>
                 </button>
@@ -116,14 +116,14 @@ function LaneBar({
                 title={item.detail ? `${item.label} — ${item.detail}` : item.label}
                 style={{ left: `calc(${left}% + 2px)`, right: `calc(${right}% + 2px)` }}
                 className={[
-                    'absolute inset-y-1.5 flex items-center gap-1.5 truncate px-2.5 text-left text-xs font-semibold transition-colors',
+                    'absolute inset-y-2 flex items-center gap-1.5 truncate px-2.5 text-left text-xs font-medium ring-1 ring-inset ring-neutral-900/[0.04] transition-colors',
                     colors.bg,
                     colors.hover,
                     colors.text,
                     // An open end signals the commitment carries on past the window
                     // rather than stopping neatly at its edge.
-                    item.clippedStart ? 'rounded-l-none' : 'rounded-l-full',
-                    item.clippedEnd ? 'rounded-r-none' : 'rounded-r-full',
+                    item.clippedStart ? 'rounded-l-none' : 'rounded-l-lg',
+                    item.clippedEnd ? 'rounded-r-none' : 'rounded-r-lg',
                 ].join(' ')}
             >
                 {item.clippedStart && <i className="fa-solid fa-caret-left text-[11px] opacity-60" aria-hidden="true" />}
@@ -160,7 +160,7 @@ function LoadCell({ load }: { load: MonthLoad }) {
     if (level === 'quiet' || level === 'steady') {
         return (
             <div className="flex h-full items-center px-1.5" title={title}>
-                <div className={`h-1 w-full rounded-full ${LEVEL_BAR[level]} opacity-70`} />
+                <div className={`h-1 w-full rounded-full ${LEVEL_BAR[level]} opacity-60`} />
             </div>
         )
     }
@@ -168,7 +168,7 @@ function LoadCell({ load }: { load: MonthLoad }) {
     return (
         <div className="flex h-full items-center px-1" title={title}>
             <div
-                className={`flex h-[18px] w-full items-center justify-center gap-1 rounded-md ${
+                className={`flex h-6 w-full items-center justify-center gap-1 rounded-lg ${
                     level === 'overloaded' ? 'bg-coral-500 text-white' : `${LEVEL_TINT.busy} ${LEVEL_TEXT.busy}`
                 }`}
             >
@@ -176,7 +176,7 @@ function LoadCell({ load }: { load: MonthLoad }) {
                     className={`fa-solid ${RESERVE_ICONS[peak]} text-[9px]`}
                     aria-hidden="true"
                 />
-                <span className="text-[11px] font-medium uppercase tracking-[0.06em]">
+                <span className="text-[11px] font-medium">
                     {RESERVE_LABELS[peak]}
                 </span>
             </div>
@@ -240,7 +240,7 @@ export default function LifePlanTimeline({
     }
 
     return (
-        <div className="overflow-x-auto rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white pb-6">
+        <div className={`overflow-x-auto pb-4 ${PANEL}`}>
             <div className="grid items-stretch" style={gridStyle}>
                 {/* Month column guides, drawn behind everything as full-height cells. */}
                 {months.map((month, i) => (
@@ -249,8 +249,8 @@ export default function LifePlanTimeline({
                         aria-hidden="true"
                         style={{ gridColumn: i + 2, gridRow: `1 / span ${totalRows}` }}
                         className={[
-                            'border-l border-black/[0.04]',
-                            month === today ? 'bg-coral-50/40' : isJanuary(month) ? 'bg-neutral-50/60' : '',
+                            isJanuary(month) && i > 0 ? 'border-l border-neutral-200' : 'border-l border-neutral-100',
+                            month === today ? 'bg-coral-50/50' : '',
                         ].join(' ')}
                     />
                 ))}
@@ -258,25 +258,29 @@ export default function LifePlanTimeline({
                 {/* Month headers */}
                 <div
                     style={{ gridColumn: 1, gridRow: headerRow }}
-                    className="sticky left-0 z-20 bg-white px-4 py-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600"
+                    className={`sticky left-0 z-20 flex items-end bg-white px-5 pb-2 pt-4 ${OVERLINE}`}
                 >
-                    Month
+                    {months[0].slice(0, 4)}
+                    {months[months.length - 1].slice(0, 4) !== months[0].slice(0, 4) &&
+                        `–${months[months.length - 1].slice(2, 4)}`}
                 </div>
                 {months.map((month, i) => (
                     <div
                         key={`head-${month}`}
                         style={{ gridColumn: i + 2, gridRow: headerRow }}
-                        className="px-1 py-2 text-center"
+                        className="flex flex-col items-center justify-end px-1 pb-2 pt-4"
                     >
-                        <p
-                            className={`text-[11px] font-bold ${month === today ? 'text-coral-600' : 'text-neutral-700'}`}
-                        >
-                            {shortMonth(month)}
-                        </p>
-                        {(isJanuary(month) || i === 0) && (
-                            <p className="text-[9px] font-semibold text-neutral-500">
-                                {month.slice(0, 4)}
-                            </p>
+                        {month === today ? (
+                            <span className="inline-flex h-6 items-center rounded-full bg-coral-500 px-2.5 text-xs font-medium text-white">
+                                {shortMonth(month)}
+                            </span>
+                        ) : (
+                            <span className="inline-flex h-6 items-center text-xs font-medium text-neutral-600">
+                                {shortMonth(month)}
+                                {isJanuary(month) && i > 0 && (
+                                    <span className="ml-1 text-neutral-400">{month.slice(2, 4)}</span>
+                                )}
+                            </span>
                         )}
                     </div>
                 ))}
@@ -284,14 +288,14 @@ export default function LifePlanTimeline({
                 {/* Season bands — one tinted strip naming the chapter each month sits in. */}
                 <div
                     style={{ gridColumn: 1, gridRow: bandRow }}
-                    className="sticky left-0 z-20 flex items-center bg-white px-4 py-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600"
+                    className={`sticky left-0 z-20 flex items-center border-t border-neutral-100 bg-white px-5 py-2 ${OVERLINE}`}
                 >
                     Season
                 </div>
                 {bands.length === 0 && (
                     <div
                         style={{ gridColumn: `2 / span ${months.length}`, gridRow: bandRow }}
-                        className="px-2 py-1.5 text-[11px] text-neutral-500"
+                        className="flex items-center border-t border-neutral-100 px-2 py-2 text-[13px] text-neutral-400"
                     >
                         No seasons yet
                     </div>
@@ -300,7 +304,7 @@ export default function LifePlanTimeline({
                     const startIdx = months.indexOf(band.startMonth)
                     const endIdx = months.indexOf(band.endMonth)
                     if (startIdx < 0 || endIdx < 0) return null
-                    const colors = CALENDAR_COLOR_CLASSES[band.season.color]
+                    const colors = colorClasses(band.season.color)
                     return (
                         <div
                             key={band.season._id}
@@ -308,15 +312,16 @@ export default function LifePlanTimeline({
                                 gridColumn: `${startIdx + 2} / span ${endIdx - startIdx + 1}`,
                                 gridRow: bandRow,
                             }}
-                            className="flex items-center px-1 py-2"
+                            className="flex items-center border-t border-neutral-100 px-1 py-2"
                         >
                             <button
                                 type="button"
                                 onClick={() => onSelectSeason?.(band.season._id)}
                                 title={band.season.focus ?? band.season.name}
-                                className={`w-full truncate rounded-lg px-2.5 py-2 text-left text-xs font-bold ${colors.light} ${colors.text} ring-1 ring-inset ring-neutral-900/[0.04] transition-colors hover:brightness-95`}
+                                className={`flex w-full min-w-0 items-center gap-2 rounded-[10px] px-2.5 py-2 text-left text-[13px] font-semibold ${colors.light} ${colors.text} ring-1 ring-inset ring-neutral-900/[0.04] transition-colors hover:brightness-95`}
                             >
-                                {band.season.name}
+                                <span className={`h-2 w-2 shrink-0 rounded-full ${colors.dot}`} aria-hidden="true" />
+                                <span className="min-w-0 truncate">{band.season.name}</span>
                             </button>
                         </div>
                     )
@@ -325,7 +330,7 @@ export default function LifePlanTimeline({
                 {/* Load: one cell a month, naming the reserve under most strain. */}
                 <div
                     style={{ gridColumn: 1, gridRow: loadRow }}
-                    className="sticky left-0 z-20 flex items-center bg-white px-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600"
+                    className={`sticky left-0 z-20 flex items-center bg-white px-5 ${OVERLINE}`}
                 >
                     Load
                 </div>
@@ -350,15 +355,15 @@ export default function LifePlanTimeline({
                     <>
                         <div
                             style={{ gridColumn: 1, gridRow: goalRow }}
-                            className="sticky left-0 z-20 flex items-center gap-2 border-t border-black/[0.06] bg-white px-4 py-2"
+                            className="sticky left-0 z-20 flex items-center gap-2.5 border-t border-neutral-100 bg-white px-5 py-2"
                         >
-                            <i className="fa-solid fa-bullseye w-4 text-center text-xs text-neutral-300" aria-hidden="true" />
-                            <span className="text-sm font-bold text-neutral-700">Goals</span>
+                            <ToneTile icon="fa-bullseye" tone="navy" />
+                            <span className="text-[13px] font-medium text-neutral-900">Goals</span>
                         </div>
                         <div
                             aria-hidden="true"
                             style={{ gridColumn: `2 / span ${months.length}`, gridRow: goalRow }}
-                            className="border-t border-black/[0.06]"
+                            className="border-t border-neutral-100"
                         />
                         {goals.map((goal) => (
                             <LaneBar
@@ -409,13 +414,10 @@ function PillarLane({
         <>
             <div
                 style={{ gridColumn: 1, gridRow: `${startRow} / span ${rowCount}` }}
-                className="sticky left-0 z-20 flex items-center gap-2 border-t border-black/[0.06] bg-white px-4 py-2"
+                className="sticky left-0 z-20 flex items-center gap-2.5 border-t border-neutral-100 bg-white px-5 py-2"
             >
-                <i
-                    className={`fa-solid ${LIFE_PILLAR_ICONS[pillar]} w-4 shrink-0 text-center text-xs text-neutral-300`}
-                    aria-hidden="true"
-                />
-                <span className="min-w-0 truncate text-sm font-bold text-neutral-700">
+                <PillarTile pillar={pillar} size="md" />
+                <span className="min-w-0 truncate text-[13px] font-medium text-neutral-900">
                     {TIMELINE_LANE_LABELS[pillar]}
                 </span>
             </div>
@@ -423,14 +425,14 @@ function PillarLane({
             <div
                 aria-hidden="true"
                 style={{ gridColumn: `2 / span ${months.length}`, gridRow: startRow }}
-                className="border-t border-black/[0.06]"
+                className="border-t border-neutral-100"
             />
             {rows.length === 0 ? (
                 <div
                     style={{ gridColumn: `2 / span ${months.length}`, gridRow: startRow }}
-                    className="flex items-center px-2 text-[11px] text-neutral-300"
+                    className="flex items-center px-3 text-[13px] text-neutral-400"
                 >
-                    —
+                    Nothing planned
                 </div>
             ) : (
                 rows.flatMap((row, i) =>

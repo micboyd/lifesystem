@@ -1087,6 +1087,10 @@ export interface DaysUntilItem {
     /** Font Awesome class string, e.g. "fa-solid fa-plane-departure". */
     icon: string
     color: DaysUntilColor
+    /** Id of the calendar reminder this countdown was made from, if any. */
+    reminder?: string
+    /** Follows a repeating reminder: rolls on to its next occurrence once each passes. */
+    followNext?: boolean
     createdAt: string
     updatedAt: string
 }

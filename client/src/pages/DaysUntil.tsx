@@ -10,6 +10,7 @@ import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import DatePicker, { type DatePickerValue } from '../components/DatePicker'
 import DropdownMenu from '../components/DropdownMenu'
+import Switch from '../components/Switch'
 import {
     DAYS_UNTIL_COLORS,
     DAYS_UNTIL_COLOR_CLASSES,
@@ -74,10 +75,21 @@ interface EditorState {
     icon: string
     color: DaysUntilColor
     targetDate: string
+    /** Made from a repeating reminder, so it can roll on to the next occurrence. */
+    canFollow: boolean
+    followNext: boolean
 }
 
 function blankEditor(today: string): EditorState {
-    return { id: null, label: '', icon: 'fa-solid fa-hourglass-end', color: 'sky', targetDate: today }
+    return {
+        id: null,
+        label: '',
+        icon: 'fa-solid fa-hourglass-end',
+        color: 'sky',
+        targetDate: today,
+        canFollow: false,
+        followNext: false,
+    }
 }
 
 export default function DaysUntil() {
@@ -115,7 +127,15 @@ export default function DaysUntil() {
     function openEdit(item: DaysUntilItem) {
         setError(null)
         setPickingEvent(false)
-        setEditor({ id: item._id, label: item.label, icon: item.icon, color: item.color, targetDate: item.targetDate })
+        setEditor({
+            id: item._id,
+            label: item.label,
+            icon: item.icon,
+            color: item.color,
+            targetDate: item.targetDate,
+            canFollow: !!item.reminder && !!item.followNext,
+            followNext: !!item.followNext,
+        })
     }
 
     function openEventPicker() {
@@ -154,6 +174,7 @@ export default function DaysUntil() {
             icon: editor.icon || 'fa-solid fa-hourglass-end',
             color: editor.color,
             targetDate: editor.targetDate,
+            ...(editor.canFollow ? { followNext: editor.followNext } : {}),
         }
         setSaving(true)
         setError(null)
@@ -244,8 +265,15 @@ export default function DaysUntil() {
                                             <p className="truncate font-bold tracking-tight text-neutral-900">
                                                 {item.label}
                                             </p>
-                                            <p className="text-xs text-neutral-500">
+                                            <p className="flex items-center gap-1.5 text-xs text-neutral-500">
                                                 {formatTargetDate(item.targetDate)}
+                                                {item.followNext && (
+                                                    <i
+                                                        className="fa-solid fa-repeat text-[10px] text-neutral-400"
+                                                        title="Rolls on to the next one"
+                                                        aria-label="Repeats"
+                                                    />
+                                                )}
                                             </p>
                                         </div>
                                         <DropdownMenu
@@ -453,6 +481,23 @@ export default function DaysUntil() {
                             </div>
                         </div>
 
+                        {editor.canFollow && (
+                            <div className="flex flex-col gap-2">
+                                <Switch
+                                    checked={editor.followNext}
+                                    onChange={(followNext) => setEditor((s) => (s ? { ...s, followNext } : s))}
+                                    label="Count down to the next one"
+                                />
+                                <p className="text-sm text-neutral-500">
+                                    {editor.followNext
+                                        ? `Follows the repeating reminder — next on ${formatTargetDate(editor.targetDate)}, then rolls on to the one after.`
+                                        : 'Turn on to roll on to the next reminder each time this one passes.'}
+                                </p>
+                            </div>
+                        )}
+
+                        {!(editor.canFollow && editor.followNext) && (
+                        <>
                         <div className="flex flex-col gap-2">
                             <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
                                 From today
@@ -536,6 +581,8 @@ export default function DaysUntil() {
                                 })()}
                             </p>
                         </div>
+                        </>
+                        )}
                     </form>
                 )}
             </Drawer>

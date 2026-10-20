@@ -23,6 +23,9 @@ import BodyMetrics from '../components/BodyMetrics'
 import FitnessExportCenter from '../components/FitnessExportCenter'
 import FitnessStats from '../components/stats/FitnessStats'
 import ConditioningSessionDetail from '../components/ConditioningSessionDetail'
+import ConditioningLogDrawer, { type ConditioningLogTarget } from '../components/ConditioningLogDrawer'
+import { listLogs as listConditioningLogs } from '../services/conditioningLogs'
+import { todayKey } from '../lib/calendar'
 import JsonImportPanel from '../components/JsonImportPanel'
 import { SlotInputs } from '../components/SessionPace'
 import { StepsInput, cleanSteps } from '../components/session/SessionUI'
@@ -292,6 +295,25 @@ function ConditioningLibrary() {
         setSessions(await listSessions())
     }
 
+    // Log a session today. If it's already been logged today, pick that log back
+    // up rather than adding a second one — the same rule the planner ticks by.
+    const [logTarget, setLogTarget] = useState<ConditioningLogTarget | null>(null)
+    async function startSession(session: ConditioningSession) {
+        const date = todayKey()
+        const existing = await listConditioningLogs()
+            .then((logs) => logs.find((l) => l.session === session._id && l.date === date))
+            .catch(() => undefined)
+        setDrawer(null)
+        setLogTarget({
+            session,
+            date,
+            tapsKey: `session:${session._id}:${date}`,
+            stepsKey: `session:${session._id}:${date}`,
+            existingLogId: existing?._id ?? null,
+            notes: existing?.notes,
+        })
+    }
+
     async function handleAdd(fields: ConditioningInput) {
         const session = await createSession(fields)
         setSessions((prev) => [...prev, session])
@@ -455,7 +477,10 @@ function ConditioningLibrary() {
                 onClose={() => setDrawer(null)}
                 onEdit={(session) => setDrawer({ mode: 'edit', session })}
                 onDelete={handleDelete}
+                onStart={startSession}
             />
+
+            <ConditioningLogDrawer target={logTarget} onClose={() => setLogTarget(null)} />
 
             <SessionFormDrawer
                 form={drawer?.mode === 'create' || drawer?.mode === 'edit' ? drawer : null}
@@ -543,23 +568,21 @@ function SessionViewDrawer({
     onClose,
     onEdit,
     onDelete,
+    onStart,
 }: {
     session: ConditioningSession | null
     onClose: () => void
     onEdit: (session: ConditioningSession) => void
     onDelete: (id: string) => void
+    /** Open the session logger on this session, dated today. */
+    onStart: (session: ConditioningSession) => Promise<void>
 }) {
     // Retain the last session while the drawer animates closed.
     const [view, setView] = useState<ConditioningSession | null>(session)
     useEffect(() => {
         if (session) setView(session)
     }, [session])
-
-    // Completed-round tallies keyed by part index. Reset each time a session opens.
-    const [counts, setCounts] = useState<Record<number, number>>({})
-    useEffect(() => {
-        if (session) setCounts({})
-    }, [session])
+    const [starting, setStarting] = useState(false)
 
     const s = view
     return (
@@ -570,28 +593,38 @@ function SessionViewDrawer({
             title={s?.name ?? 'Session'}
             footer={
                 s && (
-                    <>
+                    <div className="flex w-full items-center gap-2">
                         <Button
                             variant="ghost"
                             icon="fa-solid fa-trash-can"
                             onClick={() => onDelete(s._id)}
+                            aria-label="Delete"
+                            className="mr-auto"
                         >
-                            Delete
+                            <span className="hidden sm:inline">Delete</span>
                         </Button>
-                        <Button icon="fa-solid fa-pen" onClick={() => onEdit(s)}>
+                        <Button variant="secondary" icon="fa-solid fa-pen" onClick={() => onEdit(s)}>
                             Edit
                         </Button>
-                    </>
+                        <Button
+                            icon="fa-solid fa-play"
+                            disabled={starting}
+                            onClick={async () => {
+                                setStarting(true)
+                                try {
+                                    await onStart(s)
+                                } finally {
+                                    setStarting(false)
+                                }
+                            }}
+                        >
+                            Start session
+                        </Button>
+                    </div>
                 )
             }
         >
-            {s && (
-                <ConditioningSessionDetail
-                    session={s}
-                    counts={counts}
-                    onCount={(i, next) => setCounts((c) => ({ ...c, [i]: next }))}
-                />
-            )}
+            {s && <ConditioningSessionDetail session={s} overview />}
         </Drawer>
     )
 }

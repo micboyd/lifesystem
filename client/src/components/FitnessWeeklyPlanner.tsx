@@ -10,11 +10,10 @@ import Checkbox from './Checkbox'
 import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
 import ConditioningSessionDetail from './ConditioningSessionDetail'
-import { SaveStatus } from './SessionPace'
 import { useStepTicks, workoutStepsKey } from './session/SessionUI'
 import WorkoutDetail from './session/WorkoutDetail'
 import { WorkoutLogSummary } from './WorkoutsLog'
-import { useConditioningLog } from './useConditioningLog'
+import { conditioningPayload } from './useConditioningLog'
 import { listWorkouts } from '../services/workouts'
 import { listSessions } from '../services/conditioning'
 import { listExercises } from '../services/exercises'
@@ -28,8 +27,13 @@ import WorkoutLogWeightsDrawer from './WorkoutLogWeightsDrawer'
 import PlannerExportDrawer from './PlannerExportDrawer'
 import {
     listLogs as listConditioningLogs,
+    createLog as createConditioningLog,
     deleteLog as deleteConditioningLog,
 } from '../services/conditioningLogs'
+import ConditioningLogDrawer, { type ConditioningLogTarget } from './ConditioningLogDrawer'
+import { ConditioningLogSummary } from './ConditioningSessionsLog'
+import { clearTaps, EMPTY_TAPS } from '../lib/sessionPace'
+import { clearDraft } from '../lib/workoutLogDraft'
 import { useToast } from '../context/ToastContext'
 import { listEvents } from '../services/events'
 import {
@@ -49,6 +53,7 @@ import {
 import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS, FITNESS_FLAG_COLORS } from '../types'
 import type {
     WorkoutLog,
+    ConditioningLog,
     Workout,
     Exercise,
     ConditioningSession,
@@ -496,6 +501,8 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     // A planned strength workout being logged with per-set weights, and the day
     // it's dated to (opened from the detail drawer).
     const [logTarget, setLogTarget] = useState<{ workout: Workout; date: string } | null>(null)
+    // A planned conditioning session open in the session logger.
+    const [sessionTarget, setSessionTarget] = useState<ConditioningLogTarget | null>(null)
     // The planner opens read-only; Edit reveals the add/remove controls.
     const [editing, setEditing] = useState(false)
     // The planner export drawer — writes the weeks out as JSON, as they stand.
@@ -1071,6 +1078,30 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 onLogWeights={(workout, date) => {
                     setDetail(null)
                     setLogTarget({ workout, date })
+                }}
+                onStartSession={(entry, logId, notes) => {
+                    if (!entry.session) return
+                    setDetail(null)
+                    setSessionTarget({
+                        session: entry.session,
+                        date: entry.date,
+                        tapsKey: entry._id,
+                        stepsKey: stepTicksKey(entry)!,
+                        existingLogId: logId,
+                        notes,
+                    })
+                }}
+            />
+
+            <ConditioningLogDrawer
+                target={sessionTarget}
+                onClose={() => setSessionTarget(null)}
+                onLogged={(logId, date) => {
+                    if (!sessionTarget) return
+                    const id = sessionTarget.session._id
+                    // Re-dated in the wrap-up: the tick moves with it.
+                    if (date !== sessionTarget.date) clearDoneKey('conditioning', id, sessionTarget.date)
+                    markDoneKey('conditioning', id, date, logId)
                 }}
             />
 
@@ -3308,6 +3339,7 @@ function PlannedDetailDrawer({
     onLogged,
     onUnlog,
     onLogWeights,
+    onStartSession,
 }: {
     entry: FitnessPlanEntry | null
     exercisesById: Map<string, Exercise>
@@ -3322,6 +3354,9 @@ function PlannedDetailDrawer({
     onUnlog: (entry: FitnessPlanEntry, logId: string) => Promise<void>
     /** Open the per-set weight logger for a planned workout, dated to its day. */
     onLogWeights: (workout: Workout, date: string) => void
+    /** Open the session logger for a planned conditioning session — fresh, or
+     *  picking its log back up. */
+    onStartSession: (entry: FitnessPlanEntry, logId: string | null, notes?: string) => void
 }) {
     // Retain the last entry while the drawer animates closed.
     const [view, setView] = useState<FitnessPlanEntry | null>(entry)
@@ -3336,49 +3371,52 @@ function PlannedDetailDrawer({
 
     const e = view
     const title = e ? (planItemName(e) ?? KIND_META[e.kind].label) : 'Details'
-    // A planned conditioning session is logged right here in the gym: each part's
-    // Completed press and round count autosaves to its log (the first save
-    // creates it, ticking the session off), with a device copy meanwhile.
     const isSession = !!e && e.kind === 'conditioning' && !!e.session
-    const logger = useConditioningLog({
-        entryId: isSession ? e!._id : null,
-        session: isSession ? e!.session! : null,
-        date: e?.date ?? '',
-        existingLogId: isSession ? doneLogId : null,
-        onCreated: (logId) => {
-            if (e) onLogged(e, logId)
-        },
-    })
     // Sub-list steps ticked off on this device, whatever the kind.
     const steps = useStepTicks(stepTicksKey(e))
 
-    // A done workout reads as its log — the same read-out the Workouts log opens —
+    // A done item reads as its log — the same read-out its category's log opens —
     // rather than the plan. Fetched fresh on each open so edits made in the
     // logger show; marking it not done drops back to the plan view.
     // `done` drops to false as the drawer closes, so the log id is retained
     // while it slides shut, like the entry is.
     const [logId, setLogId] = useState<string | null>(null)
-    const nextLogId = entry ? (entry.kind === 'workout' && done ? doneLogId : null) : logId
+    const nextLogId = entry ? (done ? doneLogId : null) : logId
     if (nextLogId !== logId) setLogId(nextLogId)
-    const [doneLog, setDoneLog] = useState<WorkoutLog | null>(null)
+    const logKind = e?.kind
+    const [doneLog, setDoneLog] = useState<
+        | { kind: 'workout'; log: WorkoutLog }
+        | { kind: 'conditioning'; log: ConditioningLog }
+        | null
+    >(null)
     useEffect(() => {
         if (!entry || !logId) return
         let live = true
-        listWorkoutLogs()
-            .then((logs) => {
-                if (live) setDoneLog(logs.find((l) => l._id === logId) ?? null)
-            })
-            .catch(() => {})
+        const load =
+            logKind === 'workout'
+                ? listWorkoutLogs().then((logs) => {
+                      const log = logs.find((l) => l._id === logId)
+                      return log ? { kind: 'workout' as const, log } : null
+                  })
+                : logKind === 'conditioning'
+                  ? listConditioningLogs().then((logs) => {
+                        const log = logs.find((l) => l._id === logId)
+                        return log ? { kind: 'conditioning' as const, log } : null
+                    })
+                  : Promise.resolve(null)
+        load.then((found) => {
+            if (live) setDoneLog(found)
+        }).catch(() => {})
         return () => {
             live = false
         }
-    }, [entry, logId])
-    const showLog = !!logId && doneLog?._id === logId
+    }, [entry, logId, logKind])
+    const showLog = !!logId && doneLog?.log._id === logId
     const loadingLog = !!logId && !showLog
 
     // Any planned item can be logged straight from the planner — "Mark as done"
     // snapshots the library item into a completed record dated to the planned day,
-    // mirroring the Done buttons in each category's log. Already-done items show a static "Done" chip instead.
+    // mirroring the Done buttons in each category's log.
     const canMarkDone =
         !!e &&
         !done &&
@@ -3393,12 +3431,12 @@ function PlannedDetailDrawer({
                 logId = (await createWorkoutLog({ workout: e.workout._id, date: e.date }))._id
                 toast.show(`Logged “${e.workout.name}”.`, 'success')
             } else if (e.kind === 'conditioning' && e.session) {
-                // The same save the autosave does — it creates the log and
-                // ticks the entry off through onCreated.
-                if (!(await logger.saveNow())) throw new Error('save failed')
+                logId = (
+                    await createConditioningLog(
+                        conditioningPayload(e.session, e.date, EMPTY_TAPS)
+                    )
+                )._id
                 toast.show(`Logged “${e.session.name}”.`, 'success')
-                onClose()
-                return
             }
             onLogged(e, logId)
             onClose()
@@ -3411,16 +3449,19 @@ function PlannedDetailDrawer({
 
     // The other direction: a tick put on by mistake — an item marked done that
     // wasn't, or a future day tapped early — is undone by deleting the log it
-    // wrote, which is what the tick is read from in the first place.
+    // wrote, which is what the tick is read from in the first place. The drawer
+    // stays open on the plan view, ready to start again.
     async function undoDone() {
         if (!e || !doneLogId) return
         setLogging(true)
         try {
             await onUnlog(e, doneLogId)
-            if (e.kind === 'conditioning') logger.forget()
+            // Start over: nothing from the undone session stays ticked on this
+            // device — sub-list steps, a strength draft, conditioning presses.
+            steps.reset()
+            if (e.kind === 'workout' && e.workout) clearDraft(e.workout._id)
+            if (e.kind === 'conditioning') clearTaps(e._id)
             toast.show(`“${planItemName(e) ?? 'Item'}” is no longer marked done.`, 'success')
-            // A workout stays open on its plan view, ready to start again.
-            if (e.kind !== 'workout') onClose()
         } catch {
             toast.show('Could not undo that — please try again.', 'danger')
         } finally {
@@ -3437,35 +3478,25 @@ function PlannedDetailDrawer({
                 title={title}
                 footer={
                     <div className="flex w-full flex-wrap items-center justify-end gap-3">
-                        <div className="mr-auto flex min-w-0 items-center gap-3">
-                            {isSession && (
-                                <SaveStatus state={logger.saveState} savedAt={logger.savedAt} />
-                            )}
-                        </div>
                         {done && doneLogId && (
                             <Button
                                 variant="ghost"
                                 icon="fa-solid fa-rotate-left"
                                 onClick={() => setConfirmUndo(true)}
                                 disabled={logging}
+                                className="mr-auto"
                             >
                                 Mark as not done
                             </Button>
                         )}
                         {canMarkDone && (
                             <Button
-                                variant={e?.kind === 'workout' ? 'secondary' : 'primary'}
-                                icon={
-                                    isSession ? 'fa-solid fa-flag-checkered' : 'fa-solid fa-check'
-                                }
+                                variant="secondary"
+                                icon="fa-solid fa-check"
                                 onClick={markDone}
                                 disabled={logging}
                             >
-                                {logging
-                                    ? 'Logging…'
-                                    : isSession
-                                      ? 'Finish session'
-                                      : 'Mark as done'}
+                                {logging ? 'Logging…' : 'Mark as done'}
                             </Button>
                         )}
                         {e?.kind === 'workout' && e.workout && (
@@ -3476,14 +3507,37 @@ function PlannedDetailDrawer({
                                 {done ? 'Open log' : 'Start workout'}
                             </Button>
                         )}
+                        {isSession && e && (
+                            <Button
+                                icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
+                                onClick={() =>
+                                    onStartSession(
+                                        e,
+                                        done ? doneLogId : null,
+                                        doneLog?.kind === 'conditioning'
+                                            ? doneLog.log.notes
+                                            : undefined
+                                    )
+                                }
+                            >
+                                {done ? 'Open log' : 'Start session'}
+                            </Button>
+                        )}
                     </div>
                 }
             >
                 {e && (
                     <div className="flex flex-col gap-6">
                         <PlannedContext entry={e} done={done} />
-                        {showLog ? (
-                            <WorkoutLogSummary log={doneLog!} />
+                        {showLog && doneLog ? (
+                            doneLog.kind === 'workout' ? (
+                                <WorkoutLogSummary log={doneLog.log} />
+                            ) : (
+                                <ConditioningLogSummary
+                                    log={doneLog.log}
+                                    session={e.session ?? null}
+                                />
+                            )
                         ) : loadingLog ? (
                             <div className="grid place-items-center py-16">
                                 <Spinner />
@@ -3497,16 +3551,7 @@ function PlannedDetailDrawer({
                                 onToggleStep={steps.toggle}
                             />
                         ) : e.kind === 'conditioning' && e.session ? (
-                            <ConditioningSessionDetail
-                                session={e.session}
-                                counts={logger.taps.counts}
-                                onCount={logger.count}
-                                completedAt={logger.taps.completedAt}
-                                onComplete={logger.complete}
-                                onUndo={logger.undo}
-                                stepTicks={steps.ticks}
-                                onToggleStep={steps.toggle}
-                            />
+                            <ConditioningSessionDetail session={e.session} overview />
                         ) : null}
                     </div>
                 )}

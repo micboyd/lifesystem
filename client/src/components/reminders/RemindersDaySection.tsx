@@ -4,10 +4,12 @@ import RecurrencePicker from '../calendar/RecurrencePicker'
 import DeleteRecurringEventDialog, {
     type DeleteScope,
 } from '../calendar/DeleteRecurringEventDialog'
+import DropdownMenu, { type MenuEntry } from '../DropdownMenu'
 import { listReminders, createReminder, deleteReminder } from '../../services/reminders'
+import { listDaysUntil, createDaysUntil, deleteDaysUntil } from '../../services/daysUntil'
 import { useInvalidate } from '../../context/DataSyncContext'
 import { todayKey, parseDateKey } from '../../lib/calendar'
-import type { Reminder, RecurrenceFrequency } from '../../types'
+import type { Reminder, RecurrenceFrequency, DaysUntilItem } from '../../types'
 
 interface Props {
     date: string
@@ -60,6 +62,76 @@ export default function RemindersDaySection({
 
     // Recurring reminder awaiting a this-one / whole-series delete choice.
     const [scopeReminder, setScopeReminder] = useState<Reminder | null>(null)
+
+    // Countdowns made from reminders, so each row can show whether it's counting.
+    const [countdowns, setCountdowns] = useState<DaysUntilItem[]>([])
+    useEffect(() => {
+        listDaysUntil()
+            .then((list) => setCountdowns(list.filter((c) => c.reminder)))
+            .catch(() => setCountdowns([]))
+    }, [])
+
+    /** The countdown for this reminder — for a one-off, only one on this exact date. */
+    function countdownFor(reminder: Reminder): DaysUntilItem | undefined {
+        return countdowns.find(
+            (c) => c.reminder === reminder._id && (c.followNext || c.targetDate === reminder.date)
+        )
+    }
+
+    async function addCountdown(reminder: Reminder, followNext: boolean) {
+        const created = await createDaysUntil({
+            label: reminder.text,
+            targetDate: reminder.date,
+            icon: 'fa-solid fa-hourglass-end',
+            color: 'amber',
+            reminder: reminder._id,
+            followNext,
+        })
+        setCountdowns((prev) => [...prev, created])
+    }
+
+    async function removeCountdown(countdown: DaysUntilItem) {
+        setCountdowns((prev) => prev.filter((c) => c._id !== countdown._id))
+        try {
+            await deleteDaysUntil(countdown._id)
+        } catch {
+            setCountdowns((prev) => [...prev, countdown])
+        }
+    }
+
+    function countdownMenu(reminder: Reminder, countdown: DaysUntilItem | undefined): MenuEntry[] {
+        if (countdown)
+            return [
+                { label: 'View countdowns', icon: 'fa-solid fa-hourglass-half', href: '/days-until' },
+                'divider',
+                {
+                    label: 'Remove countdown',
+                    icon: 'fa-solid fa-xmark',
+                    danger: true,
+                    onClick: () => removeCountdown(countdown),
+                },
+            ]
+        if (reminder.recurrence)
+            return [
+                {
+                    label: 'Count down to the next one',
+                    icon: 'fa-solid fa-repeat',
+                    onClick: () => addCountdown(reminder, true),
+                },
+                {
+                    label: 'Count down to this date',
+                    icon: 'fa-solid fa-calendar-day',
+                    onClick: () => addCountdown(reminder, false),
+                },
+            ]
+        return [
+            {
+                label: 'Add to countdowns',
+                icon: 'fa-solid fa-hourglass-end',
+                onClick: () => addCountdown(reminder, false),
+            },
+        ]
+    }
 
     useEffect(() => {
         let active = true
@@ -142,7 +214,9 @@ export default function RemindersDaySection({
             )}
 
             {/* Reminder rows */}
-            {reminders.map((reminder) => (
+            {reminders.map((reminder) => {
+                const countdown = countdownFor(reminder)
+                return (
                 <div
                     key={reminder._id}
                     className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-neutral-50"
@@ -161,6 +235,31 @@ export default function RemindersDaySection({
                             aria-hidden="true"
                         />
                     )}
+                    <DropdownMenu
+                        align="right"
+                        size="medium"
+                        items={countdownMenu(reminder, countdown)}
+                        trigger={
+                            <button
+                                type="button"
+                                aria-label={countdown ? 'Countdown options' : 'Add to countdowns'}
+                                title={
+                                    countdown
+                                        ? countdown.followNext
+                                            ? 'Counting down to the next one'
+                                            : 'Counting down'
+                                        : 'Add to countdowns'
+                                }
+                                className={`grid h-6 w-6 shrink-0 place-items-center rounded-full transition-all hover:bg-neutral-200 ${
+                                    countdown
+                                        ? 'text-amber-500'
+                                        : 'text-neutral-300 hover:text-neutral-600 sm:opacity-0 sm:group-hover:opacity-100'
+                                }`}
+                            >
+                                <i className="fa-solid fa-hourglass-half text-[11px]" aria-hidden="true" />
+                            </button>
+                        }
+                    />
                     <button
                         type="button"
                         onClick={() => handleDelete(reminder)}
@@ -170,7 +269,8 @@ export default function RemindersDaySection({
                         <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
                     </button>
                 </div>
-            ))}
+                )
+            })}
 
             {reminders.length === 0 && (
                 <p className="px-3 py-2 text-sm text-neutral-500">Nothing to be mindful of yet.</p>

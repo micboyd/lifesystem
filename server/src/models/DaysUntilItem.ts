@@ -13,6 +13,10 @@ export interface IDaysUntilItem extends Document {
     /** Font Awesome class string, e.g. "fa-solid fa-plane-departure". */
     icon: string
     color: DaysUntilColor
+    /** Calendar reminder this countdown was made from, if any. */
+    reminder?: Types.ObjectId
+    /** When the linked reminder repeats: roll on to its next occurrence once each one passes. */
+    followNext?: boolean
     createdAt: Date
     updatedAt: Date
 }
@@ -24,6 +28,8 @@ const daysUntilSchema = new Schema<IDaysUntilItem>(
         targetDate: { type: String, required: true, match: ISO_DATE_PATTERN },
         icon: { type: String, default: 'fa-solid fa-hourglass-end', trim: true },
         color: { type: String, enum: DAYS_UNTIL_COLORS, default: 'sky' },
+        reminder: { type: Schema.Types.ObjectId, ref: 'Reminder' },
+        followNext: { type: Boolean, default: false },
     },
     { timestamps: true }
 )

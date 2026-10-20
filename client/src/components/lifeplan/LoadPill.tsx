@@ -21,15 +21,15 @@ export default function LoadPill({
 
     return (
         <span
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.06em] ${
+            className={`inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium ${
                 level ? LEVEL_PILL[level] : UNKNOWN_PILL
             }`}
         >
             {level === 'overloaded' && (
-                <i className="fa-solid fa-triangle-exclamation text-[9px]" aria-hidden="true" />
+                <i className="fa-solid fa-triangle-exclamation text-[10px]" aria-hidden="true" />
             )}
             {text}
-            {detail && <span className="opacity-70">{detail}</span>}
+            {detail && <span className="opacity-70">· {detail}</span>}
         </span>
     )
 }

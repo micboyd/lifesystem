@@ -7,6 +7,8 @@ import Spinner from '../components/Spinner'
 import Alert from '../components/Alert'
 import EmptyState from '../components/EmptyState'
 import ConfirmModal from '../components/ConfirmModal'
+import DropdownMenu from '../components/DropdownMenu'
+import { MoreButton, OVERLINE, PANEL, colorClasses } from '../components/lifeplan/ui'
 import LifePlanTimeline from '../components/lifeplan/LifePlanTimeline'
 import TimelineMonthList from '../components/lifeplan/TimelineMonthList'
 import LaneItemDrawer from '../components/lifeplan/LaneItemDrawer'
@@ -19,7 +21,7 @@ import LoadPill from '../components/lifeplan/LoadPill'
 import MonthLoadDrawer from '../components/lifeplan/MonthLoadDrawer'
 import ReserveMeter from '../components/lifeplan/ReserveMeter'
 import {
-    LIFE_PILLAR_LABELS,
+    LIFE_PILLARS,
     type Goal,
     type LifePlan as LifePlanType,
     type LifePlanInput,
@@ -32,7 +34,7 @@ import {
     type TrainingPlan,
 } from '../types'
 import { formatMonthKey, formatMonthRange, monthKey, todayKey } from '../lib/calendar'
-import { activePlan, buildTimeline, seasonForMonth, seasonProgress, type LaneItem } from '../lib/lifeTimeline'
+import { activePlan, buildTimeline, monthRange, seasonForMonth, seasonProgress, type LaneItem } from '../lib/lifeTimeline'
 import { RESERVE_LABELS, computeMonthLoads } from '../lib/lifeLoad'
 import { useLoadCapacities } from '../components/lifeplan/useLoadCapacities'
 import { buildScorecard, monthEndDate, monthStartDate, type SeasonScorecard } from '../lib/seasonReview'
@@ -108,7 +110,8 @@ export default function LifePlan() {
     const [seasonSaving, setSeasonSaving] = useState(false)
     const [seasonError, setSeasonError] = useState<string | null>(null)
     const [deletingSeason, setDeletingSeason] = useState<Season | null>(null)
-
+    /** Months a new season opens on, when it's started from a gap. */
+    const [seasonPreset, setSeasonPreset] = useState<{ startMonth: string; endMonth: string } | null>(null)
 
     // Timeline drawer
     const [selectedItem, setSelectedItem] = useState<LaneItem | null>(null)
@@ -133,8 +136,19 @@ export default function LifePlan() {
         Promise.all([lifePlans.listLifePlans(), listPlans(), phaseService.listNutritionPhases(), listSavingsTargets(), listGoals()])
             .then(([loadedPlans, trainingPlans, nutritionPhases, savingsTargets, goals]) => {
                 if (cancelled) return
-                setPlans(loadedPlans)
-                setPlanId((current) => current ?? activePlan(loadedPlans, thisMonth)?._id ?? null)
+                // Pillars outlive the modules behind them (Work went in 2026-10), so
+                // anything the app no longer knows is dropped rather than drawn as
+                // an empty, unlabelled lane.
+                const known = loadedPlans.map((p) => ({
+                    ...p,
+                    pillars: p.pillars.filter((pillar) => LIFE_PILLARS.includes(pillar)),
+                    seasons: p.seasons.map((s) => ({
+                        ...s,
+                        intent: s.intent.filter((i) => LIFE_PILLARS.includes(i.pillar)),
+                    })),
+                }))
+                setPlans(known)
+                setPlanId((current) => current ?? activePlan(known, thisMonth)?._id ?? null)
                 setRecords((r) => ({ ...r, trainingPlans, nutritionPhases, savingsTargets, goals }))
             })
             .catch((err) => {
@@ -382,20 +396,42 @@ export default function LifePlan() {
         )
     }
 
+    const planMonths = plan ? monthRange(plan.start, plan.end) : []
+    const planMonthIndex = planMonths.indexOf(thisMonth)
+    const nextSeason = plan?.seasons
+        .filter((s) => s.startMonth > thisMonth)
+        .sort((a, b) => a.startMonth.localeCompare(b.startMonth))[0]
+
+    function openNewSeason(preset?: { startMonth: string; endMonth: string }) {
+        setEditingSeason(null)
+        setSeasonPreset(preset ?? null)
+        setSeasonError(null)
+        setSeasonFormOpen(true)
+    }
+
+    function openEditSeason(season: Season) {
+        setEditingSeason(season)
+        setSeasonPreset(null)
+        setSeasonError(null)
+        setSeasonFormOpen(true)
+    }
+
     return (
         <main className="py-8 sm:py-10">
             <Container>
-                <header className="flex flex-wrap items-end justify-between gap-4">
+                <header className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0">
-                        <h1 className="text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
+                        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
                             Life plan
                         </h1>
                         <p className="mt-1 text-sm text-neutral-500">
-                            The long view — what each stretch of time is for, and what it&apos;s carrying.
+                            {plan
+                                ? `${plan.name} · ${formatMonthRange(plan.start, plan.end)}`
+                                : 'The long view — what each stretch of time is for, and what it\u2019s carrying.'}
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        {plans.length > 0 && (
+                        {plans.length > 1 && (
                             <Select
                                 className="min-w-[10rem]"
                                 options={plans.map((p) => ({
@@ -407,42 +443,64 @@ export default function LifePlan() {
                             />
                         )}
                         {plan && (
-                            <>
-                                <button
-                                    type="button"
+                            <DropdownMenu
+                                align="right"
+                                trigger={<MoreButton label="Plan options" />}
+                                items={[
+                                    {
+                                        label: 'Edit plan',
+                                        icon: 'fa-solid fa-pen',
+                                        onClick: () => {
+                                            setEditingPlan(plan)
+                                            setPlanError(null)
+                                            setPlanFormOpen(true)
+                                        },
+                                    },
+                                    {
+                                        label: 'New plan',
+                                        icon: 'fa-solid fa-plus',
+                                        onClick: () => {
+                                            setEditingPlan(null)
+                                            setPlanError(null)
+                                            setPlanFormOpen(true)
+                                        },
+                                    },
+                                    'divider',
+                                    {
+                                        label: 'Delete plan',
+                                        icon: 'fa-solid fa-trash',
+                                        danger: true,
+                                        onClick: () => setDeletingPlan(plan),
+                                    },
+                                ]}
+                            />
+                        )}
+                        {plan ? (
+                            <Button icon="fa-solid fa-plus" onClick={() => openNewSeason()}>
+                                New season
+                            </Button>
+                        ) : (
+                            plans.length > 0 && (
+                                <Button
+                                    icon="fa-solid fa-plus"
                                     onClick={() => {
-                                        setEditingPlan(plan)
+                                        setEditingPlan(null)
                                         setPlanError(null)
                                         setPlanFormOpen(true)
                                     }}
-                                    aria-label="Edit plan"
-                                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                                 >
-                                    <i className="fa-solid fa-pen text-sm" aria-hidden="true" />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setDeletingPlan(plan)}
-                                    aria-label="Delete plan"
-                                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-600"
-                                >
-                                    <i className="fa-solid fa-trash text-sm" aria-hidden="true" />
-                                </button>
-                            </>
+                                    New plan
+                                </Button>
+                            )
                         )}
-                        <Button
-                            icon="fa-solid fa-plus"
-                            size="sm"
-                            onClick={() => {
-                                setEditingPlan(null)
-                                setPlanError(null)
-                                setPlanFormOpen(true)
-                            }}
-                        >
-                            New plan
-                        </Button>
                     </div>
                 </header>
+
+                {plan?.vision && (
+                    <p className="mt-4 flex max-w-3xl gap-3 border-l-2 border-neutral-200 pl-4 text-[15px] leading-relaxed text-neutral-600">
+                        {plan.vision}
+                    </p>
+                )}
 
                 {error && (
                     <Alert variant="danger" className="mt-6">
@@ -459,6 +517,7 @@ export default function LifePlan() {
                         description="Start with a horizon — usually a year — then break it into seasons."
                         action={
                             <Button
+                                icon="fa-solid fa-plus"
                                 onClick={() => {
                                     setEditingPlan(null)
                                     setPlanFormOpen(true)
@@ -473,69 +532,144 @@ export default function LifePlan() {
                 <>
                     <Container>
                         {/* Where you are right now, so the long view still opens on today. */}
-                        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white px-5 py-4">
-                            <div className="min-w-0 flex-1">
-                                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                    {formatMonthKey(thisMonth)}
-                                </p>
+                        <div className="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-[1.3fr_1.2fr_1fr]">
+                            <div className={`${PANEL} flex min-w-0 flex-col p-5`}>
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className={OVERLINE}>Now · {formatMonthKey(thisMonth)}</p>
+                                    {currentSeason && (
+                                        <span
+                                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${colorClasses(currentSeason.color).dot}`}
+                                            aria-hidden="true"
+                                        />
+                                    )}
+                                </div>
                                 {currentSeason ? (
-                                    <p className="truncate text-sm font-bold text-neutral-950">
-                                        {currentSeason.name}
-                                        <span className="ml-2 font-semibold text-neutral-500">
-                                            month {seasonProgress(currentSeason, thisMonth).monthIndex} of{' '}
-                                            {seasonProgress(currentSeason, thisMonth).monthCount}
-                                        </span>
-                                    </p>
+                                    (() => {
+                                        const { monthIndex, monthCount } = seasonProgress(currentSeason, thisMonth)
+                                        return (
+                                            <button
+                                                type="button"
+                                                onClick={() => openEditSeason(currentSeason)}
+                                                className="mt-2 flex flex-1 flex-col text-left"
+                                            >
+                                                <p className="truncate text-xl font-semibold tracking-[-0.015em] text-neutral-950">
+                                                    {currentSeason.name}
+                                                </p>
+                                                {currentSeason.focus && (
+                                                    <p className="mt-0.5 line-clamp-2 text-[13px] text-neutral-500">
+                                                        {currentSeason.focus}
+                                                    </p>
+                                                )}
+                                                <div className="mt-auto pt-4">
+                                                    <div className="flex items-center justify-between text-[13px] text-neutral-500">
+                                                        <span>
+                                                            Month {monthIndex} of {monthCount}
+                                                        </span>
+                                                        <span className="tabular-nums">
+                                                            {formatMonthRange(currentSeason.startMonth, currentSeason.endMonth)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-2 flex gap-1">
+                                                        {Array.from({ length: monthCount }, (_, i) => (
+                                                            <span
+                                                                key={i}
+                                                                className={`h-1.5 flex-1 rounded-full ${
+                                                                    i < monthIndex
+                                                                        ? colorClasses(currentSeason.color).dot
+                                                                        : 'bg-neutral-200'
+                                                                }`}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        )
+                                    })()
                                 ) : (
-                                    <p className="text-sm font-bold text-neutral-500">
-                                        No season covers this month
-                                    </p>
-                                )}
-                                {currentSeason?.focus && (
-                                    <p className="mt-0.5 truncate text-xs text-neutral-500">
-                                        {currentSeason.focus}
-                                    </p>
+                                    <div className="mt-2 flex flex-1 flex-col">
+                                        <p className="text-xl font-semibold tracking-[-0.015em] text-neutral-400">
+                                            No season this month
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => openNewSeason({ startMonth: thisMonth, endMonth: thisMonth })}
+                                            className="mt-auto inline-flex items-center gap-1.5 pt-4 text-left text-sm font-medium text-neutral-900 hover:text-neutral-600"
+                                        >
+                                            <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                                            Start one here
+                                        </button>
+                                    </div>
                                 )}
                             </div>
-                            {currentLoad && (
+
+                            {currentLoad ? (
                                 <button
                                     type="button"
                                     onClick={() => setSelectedMonth(currentLoad.month)}
-                                    className="w-full shrink-0 text-left sm:w-56"
+                                    className={`${PANEL} flex min-w-0 flex-col p-5 text-left transition-shadow hover:shadow-sm`}
                                 >
-                                    <div className="flex justify-end">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className={OVERLINE}>This month&apos;s load</p>
                                         <LoadPill
                                             level={currentLoad.level}
-                                            detail={
-                                                currentLoad.peak
-                                                    ? RESERVE_LABELS[currentLoad.peak]
-                                                    : undefined
-                                            }
+                                            detail={currentLoad.peak ? RESERVE_LABELS[currentLoad.peak] : undefined}
                                         />
                                     </div>
-                                    <div className="mt-2.5">
+                                    <div className="mt-4 w-full">
                                         <ReserveMeter load={currentLoad} />
                                     </div>
                                 </button>
+                            ) : (
+                                <div className={`${PANEL} p-5`}>
+                                    <p className={OVERLINE}>This month&apos;s load</p>
+                                    <p className="mt-2 text-sm text-neutral-500">Outside this plan&apos;s window.</p>
+                                </div>
                             )}
-                        </div>
 
-                        {plan.vision && (
-                            <p className="mt-4 rounded-2xl bg-neutral-50 px-5 py-4 text-sm text-neutral-600">
-                                {plan.vision}
-                            </p>
-                        )}
+                            <div className={`${PANEL} flex min-w-0 flex-col p-5 md:col-span-2 lg:col-span-1`}>
+                                <p className={OVERLINE}>The plan</p>
+                                <p className="mt-2 text-[28px] font-medium leading-none tracking-[-0.03em] tabular-nums text-neutral-950">
+                                    {planMonthIndex >= 0 ? planMonthIndex + 1 : '—'}
+                                    <span className="text-base font-normal tracking-normal text-neutral-400">
+                                        {' '}
+                                        / {planMonths.length} months
+                                    </span>
+                                </p>
+                                <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-neutral-200">
+                                    <span
+                                        className="block h-full rounded-full bg-neutral-900"
+                                        style={{
+                                            width: `${planMonths.length ? (Math.max(0, planMonthIndex + 1) / planMonths.length) * 100 : 0}%`,
+                                        }}
+                                    />
+                                </div>
+                                <div className="mt-auto space-y-1 pt-4 text-[13px] text-neutral-500">
+                                    <p className="flex justify-between gap-3">
+                                        <span>Seasons</span>
+                                        <span className="tabular-nums text-neutral-900">{plan.seasons.length}</span>
+                                    </p>
+                                    <p className="flex justify-between gap-3">
+                                        <span>Up next</span>
+                                        <span className="min-w-0 truncate text-neutral-900">
+                                            {nextSeason
+                                                ? `${nextSeason.name} · ${formatMonthKey(nextSeason.startMonth).slice(0, 3)}`
+                                                : '—'}
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
 
                         <Tabs
                             tabs={[...TABS]}
                             value={tab}
                             onChange={(t) => setTab(t as Tab)}
-                            className="mt-6"
+                            className="mt-8"
                         />
                     </Container>
 
                     {tab === 'Timeline' ? (
-                        <Container fluid className="mt-6">
+                        <Container fluid className="mt-6 max-w-[1600px]">
                             {timeline && (
                                 <>
                                     {/* The grid needs width to be readable at all — hence the
@@ -549,10 +683,7 @@ export default function LifePlan() {
                                             onSelectMonth={setSelectedMonth}
                                             onSelectSeason={(id) => {
                                                 const season = plan.seasons.find((s) => s._id === id)
-                                                if (!season) return
-                                                setEditingSeason(season)
-                                                setSeasonError(null)
-                                                setSeasonFormOpen(true)
+                                                if (season) openEditSeason(season)
                                             }}
                                         />
                                     </div>
@@ -564,13 +695,9 @@ export default function LifePlan() {
                                             onSelectMonth={setSelectedMonth}
                                         />
                                     </div>
-                                    <p className="mt-4 text-xs text-neutral-500">
-                                        Bars and diamonds are read-only here — tap one to open it in the
-                                        module that owns it. Lanes shown:{' '}
-                                        {plan.pillars.map((p) => LIFE_PILLAR_LABELS[p]).join(', ')}.
-                                        The Load row names the reserve each month is
-                                        leaning on hardest — tap it for the full breakdown, or
-                                        the Pressure tab for the whole window.
+                                    <p className="mx-auto mt-4 max-w-3xl text-center text-[13px] text-neutral-500">
+                                        Everything here is owned by its own module — tap a bar to open it there.
+                                        Tap a load cell for that month&apos;s breakdown.
                                     </p>
                                 </>
                             )}
@@ -581,16 +708,8 @@ export default function LifePlan() {
                                 <SeasonsTab
                                     plan={plan}
                                     loads={loads}
-                                    onNew={() => {
-                                        setEditingSeason(null)
-                                        setSeasonError(null)
-                                        setSeasonFormOpen(true)
-                                    }}
-                                    onEdit={(season) => {
-                                        setEditingSeason(season)
-                                        setSeasonError(null)
-                                        setSeasonFormOpen(true)
-                                    }}
+                                    onNew={openNewSeason}
+                                    onEdit={openEditSeason}
                                     onDelete={setDeletingSeason}
                                 />
                             )}
@@ -650,6 +769,7 @@ export default function LifePlan() {
                     open={seasonFormOpen}
                     plan={plan}
                     season={editingSeason}
+                    preset={seasonPreset}
                     records={records}
                     saving={seasonSaving}
                     error={seasonError}

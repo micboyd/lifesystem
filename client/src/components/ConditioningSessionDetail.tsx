@@ -1,5 +1,6 @@
-import RoundCounter from './RoundCounter'
-import { phaseSpan } from './PhaseHeading'
+import { useEffect, useRef } from 'react'
+import RoundCounter, { clock, roundWindows } from './RoundCounter'
+import PhaseHeading, { phaseSpan } from './PhaseHeading'
 import {
     ItemDetail,
     LeadText,
@@ -12,7 +13,7 @@ import {
 } from './session/SessionUI'
 import { CompleteButton, PaceBanner, SlotChip } from './SessionPace'
 import { SESSION_PHASES } from '../types'
-import type { ConditioningSession, ConditioningCategory } from '../types'
+import type { ConditioningSession, ConditioningCategory, SessionPart } from '../types'
 import { flattenPhases } from '../lib/phases'
 import { paceOf } from '../lib/sessionPace'
 
@@ -47,13 +48,15 @@ function CategoryChip({ category }: { category: ConditioningCategory }) {
  * (when each part's Completed button was pressed, ms) and `stepTicks` (which of
  * a part's steps are ticked). With `onComplete` the session is being logged —
  * each part gets a Completed button and a pace banner sits on top; in
- * `readOnly` mode it's a recap of what was logged.
+ * `readOnly` mode it's a recap of what was logged. `overview` is the plan
+ * before it's started: a plain list to read, with nothing to tap.
  */
 export default function ConditioningSessionDetail({
     session,
     counts = {},
     onCount,
     readOnly = false,
+    overview = false,
     completedAt,
     onComplete,
     onUndo,
@@ -64,6 +67,8 @@ export default function ConditioningSessionDetail({
     counts?: Record<number, number>
     onCount?: (index: number, next: number) => void
     readOnly?: boolean
+    /** The session as a plan to read — no progress, counters or tick boxes. */
+    overview?: boolean
     completedAt?: Record<number, number>
     onComplete?: (index: number) => void
     onUndo?: (index: number) => void
@@ -77,6 +82,17 @@ export default function ConditioningSessionDetail({
     const pace = paceOf(slots, times)
     // The part to do next: the first not yet completed.
     const nextIndex = logging ? times.findIndex((t) => t === null) : -1
+
+    // As each part is completed, bring the next one up so the session flows
+    // down the page. Only on moving forward — an undo stays where it is.
+    const items = useRef<Record<number, HTMLLIElement | null>>({})
+    const lastNext = useRef(nextIndex)
+    useEffect(() => {
+        const prev = lastNext.current
+        lastNext.current = nextIndex
+        if (!logging || nextIndex <= prev) return
+        items.current[nextIndex]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, [logging, nextIndex])
 
     function stateOf(i: number): ItemState {
         if (times[i] !== null) return 'done'
@@ -137,6 +153,25 @@ export default function ConditioningSessionDetail({
             {SESSION_PHASES.map((phase) => {
                 const rows = indexed.filter((r) => r.phase === phase)
                 if (rows.length === 0) return null
+                if (overview)
+                    return (
+                        <section key={phase} className="flex flex-col gap-3">
+                            <PhaseHeading
+                                phase={phase}
+                                meta={phaseSpan(rows.map(({ item }) => item))}
+                            />
+                            <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                                {rows.map(({ item, index }, n) => (
+                                    <OverviewPart
+                                        key={index}
+                                        part={item}
+                                        number={n + 1}
+                                        slot={slots[index]}
+                                    />
+                                ))}
+                            </ul>
+                        </section>
+                    )
                 return (
                     <PhaseTimeline
                         key={phase}
@@ -146,6 +181,9 @@ export default function ConditioningSessionDetail({
                         {rows.map(({ item: part, index: i }, n) => (
                             <TimelineItem
                                 key={i}
+                                itemRef={(el) => {
+                                    items.current[i] = el
+                                }}
                                 number={n + 1}
                                 state={stateOf(i)}
                                 last={n === rows.length - 1}
@@ -201,5 +239,88 @@ export default function ConditioningSessionDetail({
                 </NoteBlock>
             )}
         </div>
+    )
+}
+
+/**
+ * One part of a session in the overview: its number, name, slot and detail,
+ * then any reps and steps as plain numbered lists — read, not ticked.
+ */
+function OverviewPart({
+    part,
+    number,
+    slot,
+}: {
+    part: SessionPart
+    number: number
+    slot: { startMin?: number; endMin?: number }
+}) {
+    const reps = part.rounds ?? 0
+    const one = (part.roundLabel?.trim() || 'round').toLowerCase()
+    const many = one.endsWith('s') ? one : `${one}s`
+    const windows = part.roundSeconds?.length
+        ? roundWindows(
+              reps,
+              part.roundSeconds,
+              part.startAtSec ?? (part.startMin !== undefined ? part.startMin * 60 : 0)
+          )
+        : []
+    const listReps = reps > 0 && (!!part.roundDetails?.length || windows.length > 0)
+
+    return (
+        <li className="flex flex-col gap-2.5 px-4 py-3.5">
+            <div className="flex items-start gap-3">
+                <span className="w-4 shrink-0 pt-px text-right text-xs font-semibold tabular-nums text-neutral-400">
+                    {number}
+                </span>
+                <div className="min-w-0 flex-1">
+                    <p className="font-semibold leading-snug text-neutral-900">{part.name}</p>
+                    {reps > 0 && !listReps && (
+                        <p className="mt-0.5 text-xs text-neutral-500">
+                            {reps} {reps === 1 ? one : many}
+                        </p>
+                    )}
+                </div>
+                <SlotChip slot={slot} />
+            </div>
+            {(part.detail || listReps || !!part.steps?.length) && (
+                <div className="flex flex-col gap-2.5 pl-7">
+                    {part.detail && (
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-600">
+                            {part.detail}
+                        </p>
+                    )}
+                    {listReps && (
+                        <div className="flex flex-col gap-2">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                                {reps} {reps === 1 ? one : many}
+                            </p>
+                            <ol className="flex flex-col gap-1.5">
+                                {Array.from({ length: reps }, (_, i) => (
+                                    <li
+                                        key={i}
+                                        className="flex items-center gap-3 rounded-xl bg-neutral-50 px-3 py-2.5 text-sm text-neutral-700"
+                                    >
+                                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-[11px] font-semibold tabular-nums text-neutral-500 ring-1 ring-inset ring-neutral-200">
+                                            {i + 1}
+                                        </span>
+                                        <span className="min-w-0 flex-1 leading-snug">
+                                            {part.roundDetails?.[i] ??
+                                                `${part.roundLabel?.trim() || 'Round'} ${i + 1}`}
+                                        </span>
+                                        {windows[i] && (
+                                            <span className="shrink-0 text-xs tabular-nums text-neutral-500">
+                                                {clock(windows[i][0])}–{clock(windows[i][1])}
+                                            </span>
+                                        )}
+                                    </li>
+                                ))}
+                            </ol>
+                        </div>
+                    )}
+                    <StepChecklist steps={part.steps} />
+                </div>
+            )}
+        </li>
     )
 }

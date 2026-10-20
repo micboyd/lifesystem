@@ -3,13 +3,11 @@ import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
 import Select from '../Select'
-import Checkbox from '../Checkbox'
 import Alert from '../Alert'
 import {
     CALENDAR_COLORS,
     CALENDAR_COLOR_CLASSES,
     EMPTY_SEASON_LINKS,
-    LIFE_PILLAR_ICONS,
     LIFE_PILLAR_LABELS,
     type CalendarColor,
     type Goal,
@@ -25,6 +23,9 @@ import {
 } from '../../types'
 import { formatMonthKey } from '../../lib/calendar'
 import { monthRange } from '../../lib/lifeTimeline'
+import { FIELD_BASE, FIELD_IDLE, FIELD_LABEL } from '../fieldStyles'
+import { ChipToggle } from '../goals/ui'
+import { PillarTile } from './ui'
 
 /**
  * Writing a season: its months, what it's for, and what it pulls in.
@@ -77,6 +78,7 @@ export default function SeasonForm({
     open,
     plan,
     season,
+    preset,
     records,
     saving,
     error,
@@ -87,6 +89,8 @@ export default function SeasonForm({
     plan: LifePlan
     /** The season being edited, or null to create a new one. */
     season: Season | null
+    /** Months a new season starts on — set when it's begun from a gap. */
+    preset?: { startMonth: string; endMonth: string } | null
     records: SeasonFormRecords
     saving: boolean
     error: string | null
@@ -116,10 +120,10 @@ export default function SeasonForm({
                 >
             )
         } else {
-            setForm(blankSeason(plan))
+            setForm({ ...blankSeason(plan), ...(preset ?? {}) })
             setIntentText({})
         }
-    }, [open, season, plan])
+    }, [open, season, plan, preset])
 
     const months = monthRange(plan.start, plan.end)
     const monthOptions = months.map((m) => ({ value: m, label: formatMonthKey(m) }))
@@ -258,10 +262,8 @@ export default function SeasonForm({
                 />
 
                 <div>
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        Colour
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <p className={FIELD_LABEL}>Colour</p>
+                    <div className="mt-2 flex flex-wrap gap-2.5">
                         {CALENDAR_COLORS.map((color) => (
                             <button
                                 key={color}
@@ -270,75 +272,86 @@ export default function SeasonForm({
                                 aria-label={color}
                                 aria-pressed={form.color === color}
                                 className={[
-                                    'h-8 w-8 rounded-full transition-transform',
+                                    'grid h-8 w-8 place-items-center rounded-full transition-transform',
                                     CALENDAR_COLOR_CLASSES[color].dot,
                                     form.color === color
                                         ? 'ring-2 ring-neutral-900 ring-offset-2'
                                         : 'hover:scale-110',
                                 ].join(' ')}
-                            />
+                            >
+                                {form.color === color && (
+                                    <i className="fa-solid fa-check text-[11px] text-white" aria-hidden="true" />
+                                )}
+                            </button>
                         ))}
                     </div>
                 </div>
 
                 {/* Intent: one line per pillar the plan tracks. This is the part of a
                     season nothing else in the app records. */}
-                <div className="space-y-3">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        Intent
+                <div className="border-t border-neutral-100 pt-6">
+                    <p className="text-base font-semibold tracking-[-0.01em] text-neutral-900">Intent</p>
+                    <p className="mt-0.5 text-[13px] text-neutral-500">
+                        What this stretch is for, pillar by pillar. Leave a line empty to skip it.
                     </p>
-                    {plan.pillars.map((pillar) => (
-                        <div key={pillar} className="flex items-center gap-3">
-                            <i
-                                className={`fa-solid ${LIFE_PILLAR_ICONS[pillar]} w-4 shrink-0 text-center text-xs text-neutral-300`}
-                                aria-hidden="true"
-                            />
-                            <input
-                                value={intentText[pillar] ?? ''}
-                                onChange={(e) =>
-                                    setIntentText((t) => ({ ...t, [pillar]: e.target.value }))
-                                }
-                                placeholder={LIFE_PILLAR_LABELS[pillar]}
-                                className="w-full rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white px-3 h-10 text-sm transition-colors placeholder:text-neutral-500 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 focus:bg-white outline-none focus:ring-2 focus:ring-neutral-200 focus-visible:outline-none"
-                            />
-                        </div>
-                    ))}
+                    <div className="mt-4 space-y-3">
+                        {plan.pillars.map((pillar) => (
+                            <label key={pillar} className="flex items-center gap-3">
+                                <PillarTile pillar={pillar} size="md" />
+                                <input
+                                    value={intentText[pillar] ?? ''}
+                                    onChange={(e) =>
+                                        setIntentText((t) => ({ ...t, [pillar]: e.target.value }))
+                                    }
+                                    placeholder={LIFE_PILLAR_LABELS[pillar]}
+                                    aria-label={`${LIFE_PILLAR_LABELS[pillar]} intent`}
+                                    className={`${FIELD_BASE} ${FIELD_IDLE} h-11 px-3.5`}
+                                />
+                            </label>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Links: what this season pulls in from the rest of the app. */}
-                <div className="space-y-4">
-                    <div>
-                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                            What&apos;s in it
-                        </p>
-                        <p className="mt-1 text-xs text-neutral-500">
-                            These stay owned by their own modules — linking them only tells the
-                            season they belong to it.
-                        </p>
-                    </div>
-                    {groups.map((group) =>
-                        group.options.length === 0 ? null : (
-                            <div key={group.key}>
-                                <p className="text-xs font-bold text-neutral-700">{group.label}</p>
-                                <div className="mt-1.5 space-y-1.5">
-                                    {group.options.map((option) => (
-                                        <div key={option.id} className="flex items-baseline gap-2">
-                                            <Checkbox
-                                                checked={form.links[group.key].includes(option.id)}
-                                                onChange={() => toggleLink(group.key, option.id)}
-                                                label={option.label}
-                                            />
-                                            {option.hint && (
-                                                <span className="text-[11px] text-neutral-500">
-                                                    {option.hint}
-                                                </span>
-                                            )}
-                                        </div>
-                                    ))}
+                <div className="border-t border-neutral-100 pt-6">
+                    <p className="text-base font-semibold tracking-[-0.01em] text-neutral-900">What&apos;s in it</p>
+                    <p className="mt-0.5 text-[13px] text-neutral-500">
+                        These stay owned by their own modules — linking them only tells the season
+                        they belong to it.
+                    </p>
+                    <div className="mt-4 space-y-5">
+                        {groups.map((group) =>
+                            group.options.length === 0 ? null : (
+                                <div key={group.key}>
+                                    <div className="flex items-center gap-2">
+                                        <PillarTile pillar={group.pillar} size="xs" />
+                                        <p className={FIELD_LABEL}>{group.label}</p>
+                                        <span className="text-xs tabular-nums text-neutral-400">
+                                            {form.links[group.key].length > 0 &&
+                                                `${form.links[group.key].length} linked`}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        {group.options.map((option) => (
+                                            <span key={option.id} title={option.hint}>
+                                                <ChipToggle
+                                                    on={form.links[group.key].includes(option.id)}
+                                                    onClick={() => toggleLink(group.key, option.id)}
+                                                    icon={
+                                                        form.links[group.key].includes(option.id)
+                                                            ? 'fa-solid fa-check'
+                                                            : 'fa-solid fa-plus'
+                                                    }
+                                                >
+                                                    {option.label}
+                                                </ChipToggle>
+                                            </span>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )
-                    )}
+                            )
+                        )}
+                    </div>
                 </div>
             </div>
         </Drawer>

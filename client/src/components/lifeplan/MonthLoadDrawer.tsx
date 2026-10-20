@@ -2,7 +2,6 @@ import Drawer from '../Drawer'
 import {
     RESERVES,
     RESERVE_DESCRIPTIONS,
-    RESERVE_ICONS,
     RESERVE_LABELS,
     RESERVE_UNITS,
     type MonthLoad,
@@ -14,6 +13,7 @@ import type { LifePlan } from '../../types'
 import { LEVEL_BAR, LEVEL_TEXT, formatDemand } from './loadStyles'
 import LoadPill from './LoadPill'
 import { summarise } from './ReserveMeter'
+import { ReserveTile } from './ui'
 
 /**
  * One month, read as a budget statement.
@@ -34,17 +34,14 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
     const scale = Math.max(demand, capacity ?? 0) || 1
 
     return (
-        <section className="rounded-2xl ring-1 ring-neutral-900/[0.06] bg-white p-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="flex items-center gap-2 text-sm font-bold text-neutral-900">
-                    <i
-                        className={`fa-solid ${RESERVE_ICONS[reserve]} w-4 text-center text-xs text-neutral-300`}
-                        aria-hidden="true"
-                    />
+        <section className="py-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2.5 text-[15px] font-semibold text-neutral-900">
+                    <ReserveTile reserve={reserve} size="sm" />
                     {RESERVE_LABELS[reserve]}
                 </h3>
-                <p className="text-xs font-semibold tabular-nums text-neutral-500">
-                    <span className={over ? 'text-coral-600' : 'text-neutral-900'}>
+                <p className="text-[13px] tabular-nums text-neutral-500">
+                    <span className={`font-medium ${over ? 'text-coral-600' : 'text-neutral-900'}`}>
                         {formatDemand(reserve, demand)}
                     </span>
                     {capacity !== null && ` of ${formatDemand(reserve, capacity)} `}
@@ -53,7 +50,7 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
             </div>
 
             {/* The stack: one segment per contributor, in the level's colour. */}
-            <div className="relative mt-3 flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-neutral-100">
+            <div className="relative mt-3 flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-neutral-200">
                 {contributions.map((c) => (
                     <div
                         key={c.contributor.id}
@@ -72,7 +69,7 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
             </div>
 
             {over && (
-                <p className="mt-2 text-xs font-bold text-coral-600">
+                <p className="mt-2 text-[13px] font-medium text-coral-600">
                     Over by {formatDemand(reserve, demand - capacity!)} {RESERVE_UNITS[reserve]}
                 </p>
             )}
@@ -82,14 +79,14 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
                 different fact from "this month contains more". */}
             {adjustments.length > 0 && baseCapacity !== null && (
                 <div className="mt-3 rounded-xl bg-neutral-50 p-3">
-                    <p className="text-[11px] font-bold text-neutral-600">
+                    <p className="text-xs font-medium text-neutral-700">
                         Ceiling {formatDemand(reserve, baseCapacity)} →{' '}
                         {formatDemand(reserve, capacity!)} {RESERVE_UNITS[reserve]}
                     </p>
                     <ul className="mt-1.5 space-y-1">
                         {adjustments.map((a) => (
-                            <li key={a.contributorId} className="text-[11px] text-neutral-500">
-                                <span className="font-semibold text-neutral-700">{a.label}</span> —{' '}
+                            <li key={a.contributorId} className="text-xs text-neutral-500">
+                                <span className="font-medium text-neutral-700">{a.label}</span> —{' '}
                                 {a.detail} ({Math.round((1 - a.factor) * 100)}%)
                             </li>
                         ))}
@@ -97,41 +94,41 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
                 </div>
             )}
             {capacity === null && demand > 0 && (
-                <p className="mt-2 text-xs text-neutral-500">
+                <p className="mt-2 text-[13px] text-neutral-500">
                     No capacity to measure this against yet.
                 </p>
             )}
 
             {contributions.length === 0 ? (
-                <p className="mt-3 text-xs text-neutral-500">{RESERVE_DESCRIPTIONS[reserve]}</p>
+                <p className="mt-3 text-[13px] text-neutral-500">{RESERVE_DESCRIPTIONS[reserve]}</p>
             ) : (
-                <ul className="mt-3 space-y-1.5">
+                <ul className="mt-3 divide-y divide-neutral-100">
                     {contributions.map(({ contributor, amount }) => (
                         <li
                             key={contributor.id}
-                            className="flex items-baseline justify-between gap-3 text-xs"
+                            className="flex items-baseline justify-between gap-3 py-2 text-[13px]"
                         >
                             <span className="flex min-w-0 items-center gap-1.5">
                                 <span className="min-w-0">
-                                    <span className="block truncate font-semibold text-neutral-700">
+                                    <span className="block truncate text-neutral-900">
                                         {contributor.label}
                                     </span>
                                     {reserve === 'focus' && contributor.focusNote && (
-                                        <span className="block truncate text-[11px] text-neutral-500">
+                                        <span className="block truncate text-xs text-neutral-500">
                                             {contributor.focusNote}
                                         </span>
                                     )}
                                 </span>
                                 {contributor.basis === 'assumed' && (
                                     <span
-                                        className="shrink-0 rounded px-1 py-px text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600 ring-1 ring-inset ring-neutral-200"
+                                        className="shrink-0 rounded-full bg-neutral-100 px-1.5 py-px text-[10px] font-medium uppercase tracking-[0.06em] text-neutral-600"
                                         title="Stood in for — this record carries no figure to read"
                                     >
                                         est
                                     </span>
                                 )}
                             </span>
-                            <span className="shrink-0 font-semibold tabular-nums text-neutral-500">
+                            <span className="shrink-0 tabular-nums text-neutral-600">
                                 {formatDemand(reserve, amount)}
                             </span>
                         </li>
@@ -140,7 +137,7 @@ function ReserveSection({ load }: { load: ReserveLoad }) {
             )}
 
             {ratio !== null && (
-                <p className={`mt-3 text-[11px] font-semibold ${LEVEL_TEXT[level!]}`}>
+                <p className={`mt-2 text-xs font-medium ${LEVEL_TEXT[level!]}`}>
                     {Math.round(ratio * 100)}% of capacity
                     {load.capacityBasis === 'default' && (
                         <span className="font-normal text-neutral-500">
@@ -180,27 +177,30 @@ export default function MonthLoadDrawer({
             size="md"
         >
             {load && (
-                <div className="space-y-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <LoadPill level={load.level} />
-                        <p className="text-xs text-neutral-500">{summarise(load)}</p>
+                <div>
+                    <div className="rounded-2xl bg-neutral-50 p-4">
+                        <LoadPill
+                            level={load.level}
+                            detail={load.peak ? RESERVE_LABELS[load.peak] : undefined}
+                        />
+                        <p className="mt-2 text-[13px] text-neutral-600">{summarise(load)}</p>
                     </div>
 
                     {load.conflicts.length > 0 && (
-                        <div className="space-y-2">
+                        <div className="mt-3 space-y-2">
                             {load.conflicts.map((conflict, i) => (
                                 <div
                                     key={`${conflict.kind}-${i}`}
-                                    className="rounded-2xl border border-coral-200 bg-coral-50 p-4"
+                                    className="rounded-2xl bg-coral-50 p-4"
                                 >
-                                    <h3 className="flex items-center gap-2 text-sm font-bold text-coral-700">
+                                    <h3 className="flex items-center gap-2 text-sm font-semibold text-coral-700">
                                         <i
                                             className="fa-solid fa-circle-exclamation text-xs"
                                             aria-hidden="true"
                                         />
                                         {conflict.title}
                                     </h3>
-                                    <p className="mt-1 text-xs text-coral-700/80">
+                                    <p className="mt-1 text-[13px] text-coral-700/80">
                                         {conflict.detail}
                                     </p>
                                 </div>
@@ -208,9 +208,11 @@ export default function MonthLoadDrawer({
                         </div>
                     )}
 
-                    {RESERVES.map((reserve) => (
-                        <ReserveSection key={reserve} load={load.reserves[reserve]} />
-                    ))}
+                    <div className="divide-y divide-neutral-100">
+                        {RESERVES.map((reserve) => (
+                            <ReserveSection key={reserve} load={load.reserves[reserve]} />
+                        ))}
+                    </div>
                 </div>
             )}
         </Drawer>

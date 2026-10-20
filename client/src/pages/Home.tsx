@@ -10,6 +10,7 @@ import FitnessWidget from '../components/dashboard/FitnessWidget'
 import NutritionWidget, { useNutritionToday } from '../components/dashboard/NutritionWidget'
 import WeatherWidget from '../components/dashboard/WeatherWidget'
 import CountdownsWidget from '../components/dashboard/CountdownsWidget'
+import BirthdaysWidget from '../components/dashboard/BirthdaysWidget'
 import { useBudgetToday } from '../components/dashboard/useBudgetToday'
 import { todayKey } from '../lib/calendar'
 
@@ -50,6 +51,7 @@ export default function Home() {
                     <FitnessWidget date={date} />
                     <TodayWidget date={date} events={day.events} loading={day.loading} />
                     <HabitsWidget date={date} />
+                    <CountdownsWidget />
                 </div>
 
                 {/* Glance at */}
@@ -59,7 +61,7 @@ export default function Home() {
                         <WeatherWidget />
                     </div>
                     <div className="border-t border-neutral-200 pt-12">
-                        <CountdownsWidget />
+                        <BirthdaysWidget date={date} />
                     </div>
                 </div>
             </div>

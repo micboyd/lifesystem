@@ -374,7 +374,22 @@ export function useStepTicks(key: string | null) {
         [key]
     )
 
-    return { ticks, toggle }
+    /** Untick everything — the session was marked not done, so it starts over. */
+    const reset = useCallback(() => {
+        if (key) clearTicks(key)
+        setTicks({})
+    }, [key])
+
+    return { ticks, toggle, reset }
+}
+
+/** Forget the step ticks kept under `key`. */
+export function clearTicks(key: string): void {
+    try {
+        localStorage.removeItem(TICKS_PREFIX + key)
+    } catch {
+        /* best-effort */
+    }
 }
 
 /** The tick key for a workout on a day — shared by the planner drawer and the logger. */

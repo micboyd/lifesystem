@@ -3,17 +3,19 @@ import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
 import Textarea from '../Textarea'
-import Checkbox from '../Checkbox'
 import Alert from '../Alert'
 import DatePicker, { type DatePickerValue } from '../DatePicker'
 import {
     LIFE_PILLARS,
+    LIFE_PILLAR_ICONS,
     LIFE_PILLAR_LABELS,
     type LifePillar,
     type LifePlan,
     type LifePlanInput,
 } from '../../types'
 import { monthKey } from '../../lib/calendar'
+import { FIELD_HINT, FIELD_LABEL } from '../fieldStyles'
+import { ChipToggle } from '../goals/ui'
 
 /**
  * Creating or editing a plan horizon.
@@ -118,7 +120,7 @@ export default function PlanForm({
 
                 <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                        <p className={`mb-1.5 ${FIELD_LABEL}`}>
                             From
                         </p>
                         <DatePicker
@@ -130,7 +132,7 @@ export default function PlanForm({
                         />
                     </div>
                     <div>
-                        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                        <p className={`mb-1.5 ${FIELD_LABEL}`}>
                             To
                         </p>
                         <DatePicker
@@ -157,17 +159,20 @@ export default function PlanForm({
                 />
 
                 <div>
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        Lanes
+                    <p className={FIELD_LABEL}>Lanes</p>
+                    <p className={`mt-0.5 ${FIELD_HINT}`}>
+                        The pillars this plan tracks — each gets a row on the timeline.
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+                    <div className="mt-2.5 flex flex-wrap gap-2">
                         {LIFE_PILLARS.map((pillar) => (
-                            <Checkbox
+                            <ChipToggle
                                 key={pillar}
-                                checked={pillars.includes(pillar)}
-                                onChange={() => togglePillar(pillar)}
-                                label={LIFE_PILLAR_LABELS[pillar]}
-                            />
+                                on={pillars.includes(pillar)}
+                                onClick={() => togglePillar(pillar)}
+                                icon={`fa-solid ${LIFE_PILLAR_ICONS[pillar]}`}
+                            >
+                                {LIFE_PILLAR_LABELS[pillar]}
+                            </ChipToggle>
                         ))}
                     </div>
                 </div>

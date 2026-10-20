@@ -1,17 +1,20 @@
-import { CALENDAR_COLOR_CLASSES, LIFE_PILLAR_ICONS, LIFE_PILLAR_LABELS } from '../../types'
+import { LIFE_PILLAR_LABELS } from '../../types'
 import type { LifePlan, Season, SeasonLinks } from '../../types'
 import { formatMonthKey, formatMonthRange, monthKey } from '../../lib/calendar'
 import { monthRange, seasonProgress } from '../../lib/lifeTimeline'
 import {
     LEVEL_THRESHOLDS,
     RESERVES,
-    RESERVE_ICONS,
     RESERVE_LABELS,
+    levelForRatio,
     reserveShape,
     type MonthLoad,
 } from '../../lib/lifeLoad'
 import Button from '../Button'
 import EmptyState from '../EmptyState'
+import DropdownMenu from '../DropdownMenu'
+import { LEVEL_BAR, LEVEL_TEXT } from './loadStyles'
+import { MoreButton, OVERLINE, PANEL, PillarTile, ReserveTile, StatusChip, TabHeading, colorClasses } from './ui'
 
 /**
  * The plan's chapters, in order — the one surface in the module that writes
@@ -80,47 +83,59 @@ function SeasonShape({ season, loads }: { season: Season; loads: MonthLoad[] }) 
     const heavy = RESERVES.filter((r) => (shape[r] ?? 0) >= LEVEL_THRESHOLDS.busy)
 
     return (
-        <div className="mt-4 border-t border-neutral-100 pt-4">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="mt-5">
+            <p className={OVERLINE}>Peak load</p>
+            <div className="mt-2.5 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-4">
                 {RESERVES.map((reserve) => {
                     const peak = shape[reserve]
+                    const level = peak === null ? null : levelForRatio(peak)
                     return (
-                        <span
+                        <div
                             key={reserve}
-                            className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-500"
+                            className="min-w-0"
                             title={`${RESERVE_LABELS[reserve]} at its heaviest month of the season`}
                         >
-                            <i
-                                className={`fa-solid ${RESERVE_ICONS[reserve]} w-3.5 text-center text-[11px] text-neutral-300`}
-                                aria-hidden="true"
-                            />
-                            {RESERVE_LABELS[reserve]}
-                            <span
-                                className={
-                                    peak === null
-                                        ? 'text-neutral-300'
-                                        : peak >= 1
-                                          ? 'text-coral-600'
-                                          : peak >= LEVEL_THRESHOLDS.busy
-                                            ? 'text-amber-700'
-                                            : 'text-neutral-500'
-                                }
-                            >
-                                {peak === null ? '—' : `${Math.round(peak * 100)}%`}
-                            </span>
-                        </span>
+                            <div className="flex items-center gap-2">
+                                <ReserveTile reserve={reserve} size="xs" />
+                                <span className="min-w-0 flex-1 truncate text-[13px] text-neutral-600">
+                                    {RESERVE_LABELS[reserve]}
+                                </span>
+                                <span
+                                    className={`text-[13px] font-medium tabular-nums ${
+                                        level ? LEVEL_TEXT[level] : 'text-neutral-400'
+                                    }`}
+                                >
+                                    {peak === null ? '—' : `${Math.round(peak * 100)}%`}
+                                </span>
+                            </div>
+                            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-neutral-200">
+                                {level && (
+                                    <span
+                                        className={`block h-full rounded-full ${LEVEL_BAR[level]}`}
+                                        style={{ width: `${Math.min(1, peak!) * 100}%` }}
+                                    />
+                                )}
+                            </div>
+                        </div>
                     )
                 })}
             </div>
             {heavy.length >= 3 && (
-                <p className="mt-2 text-[11px] font-semibold text-amber-700">
-                    Heavy on {heavy.map((r) => RESERVE_LABELS[r].toLowerCase()).join(', ')} at once.
-                    A season usually only survives one.
+                <p className="mt-3 flex items-start gap-2 rounded-xl bg-warning-bg px-3 py-2 text-[13px] text-amber-700">
+                    <i className="fa-solid fa-triangle-exclamation mt-0.5 text-xs" aria-hidden="true" />
+                    <span>
+                        Heavy on {heavy.map((r) => RESERVE_LABELS[r].toLowerCase()).join(', ')} at once.
+                        A season usually only survives one.
+                    </span>
                 </p>
             )}
         </div>
     )
 }
+
+type RailEntry =
+    | { kind: 'season'; season: Season; start: string }
+    | { kind: 'gap'; startMonth: string; endMonth: string; start: string }
 
 export default function SeasonsTab({
     plan,
@@ -131,7 +146,8 @@ export default function SeasonsTab({
 }: {
     plan: LifePlan
     loads: MonthLoad[]
-    onNew: () => void
+    /** Start a new season, optionally on a given run of months. */
+    onNew: (preset?: { startMonth: string; endMonth: string }) => void
     onEdit: (season: Season) => void
     onDelete: (season: Season) => void
 }) {
@@ -139,144 +155,201 @@ export default function SeasonsTab({
     const thisMonth = monthKey(now.getFullYear(), now.getMonth())
     const gaps = findGaps(plan)
 
+    // Seasons and the gaps between them, in calendar order, so an unclaimed run
+    // sits exactly where it falls rather than in a list of its own.
+    const rail: RailEntry[] = [
+        ...plan.seasons.map((season) => ({ kind: 'season' as const, season, start: season.startMonth })),
+        ...gaps.map((gap) => ({ kind: 'gap' as const, ...gap, start: gap.startMonth })),
+    ].sort((a, b) => a.start.localeCompare(b.start))
+
     return (
         <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h2 className="text-lg font-bold tracking-tight text-neutral-950">Seasons</h2>
-                    <p className="text-sm text-neutral-500">
-                        {plan.seasons.length === 0
-                            ? 'Break the plan into chapters.'
-                            : `${plan.seasons.length} chapter${plan.seasons.length === 1 ? '' : 's'} across ${formatMonthRange(plan.start, plan.end)}.`}
-                    </p>
-                </div>
-                <Button icon="fa-solid fa-plus" onClick={onNew} size="sm">
-                    New season
-                </Button>
-            </div>
+            <TabHeading
+                title="Seasons"
+                meta={
+                    plan.seasons.length === 0
+                        ? 'Break the plan into chapters.'
+                        : `${plan.seasons.length} chapter${plan.seasons.length === 1 ? '' : 's'} across ${formatMonthRange(plan.start, plan.end)}${
+                              gaps.length > 0
+                                  ? ` · ${gaps.reduce((n, g) => n + monthRange(g.startMonth, g.endMonth).length, 0)} months unclaimed`
+                                  : ''
+                          }`
+                }
+                action={
+                    <Button icon="fa-solid fa-plus" variant="secondary" onClick={() => onNew()}>
+                        New season
+                    </Button>
+                }
+            />
 
             {plan.seasons.length === 0 ? (
                 <EmptyState
                     icon="fa-layer-group"
                     title="No seasons yet"
                     description="A season is a run of months with a focus — what this stretch of time is for."
-                    action={<Button onClick={onNew}>Add the first season</Button>}
+                    action={
+                        <Button icon="fa-solid fa-plus" onClick={() => onNew()}>
+                            Add the first season
+                        </Button>
+                    }
                 />
             ) : (
-                <div className="space-y-3">
-                    {plan.seasons.map((season) => {
-                        const colors = CALENDAR_COLOR_CLASSES[season.color]
-                        const isNow =
-                            season.startMonth <= thisMonth && season.endMonth >= thisMonth
-                        const { monthIndex, monthCount } = seasonProgress(season, thisMonth)
-                        const links = linkSummary(season.links)
-
-                        return (
-                            <div
-                                key={season._id}
-                                className={[
-                                    'rounded-2xl border bg-white p-5',
-                                    isNow ? 'border-coral-200 ring-1 ring-coral-100' : 'border-black/[0.06]',
-                                ].join(' ')}
-                            >
-                                <div className="flex flex-wrap items-start justify-between gap-3">
+                <ol className="relative">
+                    {/* The rail itself, behind every node. */}
+                    <span
+                        aria-hidden="true"
+                        className="absolute bottom-4 left-[11px] top-4 w-px bg-neutral-200 sm:left-[15px]"
+                    />
+                    {rail.map((entry) =>
+                        entry.kind === 'gap' ? (
+                            <li key={`gap-${entry.startMonth}`} className="relative flex gap-4 pb-4 sm:gap-5">
+                                <span className="relative z-10 mt-4 grid h-6 w-6 shrink-0 place-items-center sm:h-8 sm:w-8">
+                                    <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-neutral-300 bg-neutral-50" />
+                                </span>
+                                <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 rounded-[20px] border border-dashed border-neutral-300 px-5 py-3.5">
                                     <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span
-                                                className={`h-2.5 w-2.5 shrink-0 rounded-full ${colors.dot}`}
-                                                aria-hidden="true"
-                                            />
-                                            <h3 className="truncate text-base font-medium text-neutral-950">
-                                                {season.name}
-                                            </h3>
-                                            {isNow && (
-                                                <span className="rounded-full bg-coral-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-coral-700">
-                                                    Month {monthIndex} of {monthCount}
-                                                </span>
-                                            )}
-                                            {season.review && (
-                                                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                                    Reviewed
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="mt-1 text-[11px] font-medium text-neutral-500">
-                                            {formatMonthRange(season.startMonth, season.endMonth)}
+                                        <p className="text-[15px] text-neutral-500">Unclaimed</p>
+                                        <p className="text-[13px] text-neutral-400">
+                                            {entry.startMonth === entry.endMonth
+                                                ? formatMonthKey(entry.startMonth)
+                                                : formatMonthRange(entry.startMonth, entry.endMonth)}
                                         </p>
-                                        {season.focus && (
-                                            <p className="mt-2 text-sm text-neutral-600">{season.focus}</p>
-                                        )}
                                     </div>
-                                    <div className="flex shrink-0 gap-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => onEdit(season)}
-                                            aria-label={`Edit ${season.name}`}
-                                            className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                                        >
-                                            <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => onDelete(season)}
-                                            aria-label={`Delete ${season.name}`}
-                                            className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-600"
-                                        >
-                                            <i className="fa-solid fa-trash text-[11px]" aria-hidden="true" />
-                                        </button>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => onNew({ startMonth: entry.startMonth, endMonth: entry.endMonth })}
+                                        className="inline-flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-950"
+                                    >
+                                        <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                                        Add season here
+                                    </button>
                                 </div>
-
-                                <SeasonShape season={season} loads={loads} />
-
-                                {season.intent.length > 0 && (
-                                    <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4">
-                                        {season.intent.map((intent) => (
-                                            <div key={intent.pillar} className="flex gap-2.5">
-                                                <i
-                                                    className={`fa-solid ${LIFE_PILLAR_ICONS[intent.pillar]} mt-0.5 w-4 shrink-0 text-center text-[11px] text-neutral-300`}
-                                                    aria-hidden="true"
-                                                    title={LIFE_PILLAR_LABELS[intent.pillar]}
-                                                />
-                                                <p className="min-w-0 text-sm text-neutral-700">
-                                                    <span className="font-medium text-neutral-500">
-                                                        {LIFE_PILLAR_LABELS[intent.pillar]}
-                                                    </span>{' '}
-                                                    — {intent.text}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {links.length > 0 && (
-                                    <p className="mt-3 text-xs text-neutral-500">{links.join(' · ')}</p>
-                                )}
-                            </div>
+                            </li>
+                        ) : (
+                            <SeasonCard
+                                key={entry.season._id}
+                                season={entry.season}
+                                loads={loads}
+                                thisMonth={thisMonth}
+                                onEdit={() => onEdit(entry.season)}
+                                onDelete={() => onDelete(entry.season)}
+                            />
                         )
-                    })}
-                </div>
+                    )}
+                </ol>
             )}
+        </div>
+    )
+}
 
-            {gaps.length > 0 && plan.seasons.length > 0 && (
-                <div className="rounded-2xl border border-dashed border-neutral-200 p-4">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        Unclaimed months
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {gaps.map((gap) => (
+function SeasonCard({
+    season,
+    loads,
+    thisMonth,
+    onEdit,
+    onDelete,
+}: {
+    season: Season
+    loads: MonthLoad[]
+    thisMonth: string
+    onEdit: () => void
+    onDelete: () => void
+}) {
+    const colors = colorClasses(season.color)
+    const isNow = season.startMonth <= thisMonth && season.endMonth >= thisMonth
+    const isPast = season.endMonth < thisMonth
+    const { monthIndex, monthCount } = seasonProgress(season, thisMonth)
+    const links = linkSummary(season.links)
+
+    return (
+        <li className="relative flex gap-4 pb-4 sm:gap-5">
+            <span className="relative z-10 mt-5 grid h-6 w-6 shrink-0 place-items-center sm:h-8 sm:w-8">
+                <span
+                    className={`rounded-full ring-4 ring-white ${colors.dot} ${isNow ? 'h-4 w-4' : 'h-3 w-3'} ${isPast ? 'opacity-50' : ''}`}
+                />
+            </span>
+            <article
+                className={`min-w-0 flex-1 p-5 sm:p-6 ${PANEL} ${isNow ? '!ring-2 !ring-coral-200' : ''}`}
+            >
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="min-w-0 truncate text-lg font-semibold tracking-[-0.015em] text-neutral-950">
+                                {season.name}
+                            </h3>
+                            {isNow && (
+                                <StatusChip tone="coral">
+                                    Month {monthIndex} of {monthCount}
+                                </StatusChip>
+                            )}
+                            {season.review && (
+                                <StatusChip tone="green">
+                                    <i className="fa-solid fa-check text-[10px]" aria-hidden="true" />
+                                    Reviewed
+                                </StatusChip>
+                            )}
+                        </div>
+                        <p className="mt-0.5 text-[13px] text-neutral-500">
+                            {formatMonthRange(season.startMonth, season.endMonth)} · {monthCount} month
+                            {monthCount === 1 ? '' : 's'}
+                        </p>
+                    </div>
+                    <DropdownMenu
+                        align="right"
+                        trigger={<MoreButton label={`${season.name} options`} />}
+                        items={[
+                            { label: 'Edit season', icon: 'fa-solid fa-pen', onClick: onEdit },
+                            'divider',
+                            { label: 'Delete season', icon: 'fa-solid fa-trash', danger: true, onClick: onDelete },
+                        ]}
+                    />
+                </div>
+
+                {season.focus && (
+                    <p className="mt-3 text-[15px] leading-relaxed text-neutral-700">{season.focus}</p>
+                )}
+
+                {isNow && (
+                    <div className="mt-4 flex gap-1" aria-label={`Month ${monthIndex} of ${monthCount}`}>
+                        {Array.from({ length: monthCount }, (_, i) => (
                             <span
-                                key={gap.startMonth}
-                                className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-500"
+                                key={i}
+                                className={`h-1.5 flex-1 rounded-full ${i < monthIndex ? colors.dot : 'bg-neutral-200'}`}
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {season.intent.length > 0 && (
+                    <ul className="mt-5 divide-y divide-neutral-100 border-y border-neutral-100">
+                        {season.intent.map((intent) => (
+                            <li key={intent.pillar} className="flex items-start gap-3 py-2.5">
+                                <PillarTile pillar={intent.pillar} size="sm" />
+                                <div className="min-w-0 pt-0.5">
+                                    <p className="text-[13px] text-neutral-500">{LIFE_PILLAR_LABELS[intent.pillar]}</p>
+                                    <p className="text-[15px] text-neutral-900">{intent.text}</p>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+
+                <SeasonShape season={season} loads={loads} />
+
+                {links.length > 0 && (
+                    <div className="mt-5 flex flex-wrap gap-1.5">
+                        {links.map((link) => (
+                            <span
+                                key={link}
+                                className="inline-flex h-7 items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 text-xs font-medium text-neutral-600"
                             >
-                                {gap.startMonth === gap.endMonth
-                                    ? formatMonthKey(gap.startMonth)
-                                    : formatMonthRange(gap.startMonth, gap.endMonth)}
+                                <i className="fa-solid fa-link text-[10px] text-neutral-400" aria-hidden="true" />
+                                {link}
                             </span>
                         ))}
                     </div>
-                </div>
-            )}
-        </div>
+                )}
+            </article>
+        </li>
     )
 }

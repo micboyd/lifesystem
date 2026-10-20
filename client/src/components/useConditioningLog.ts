@@ -16,7 +16,8 @@ const AUTOSAVE_MS = 1200
 export function conditioningPayload(
     session: ConditioningSession,
     date: string,
-    taps: SessionTaps
+    taps: SessionTaps,
+    notes?: string
 ): ConditioningLogInput {
     const parts = allInPhases(session)
     const rounds: RoundProgress[] = parts
@@ -58,6 +59,9 @@ export function conditioningPayload(
         duration,
         rounds: rounds.length > 0 ? rounds : undefined,
         checkpoints,
+        // Left out until the wrap-up's notes are touched, so a save from the
+        // session itself never blanks notes already on the log.
+        ...(notes !== undefined ? { notes } : {}),
     }
 }
 
@@ -73,14 +77,17 @@ export function useConditioningLog({
     session,
     date,
     existingLogId,
+    notes,
     onCreated,
 }: {
-    /** The plan entry being logged, or null when none is open. */
+    /** Where this session's presses are kept on the device, or null when none is open. */
     entryId: string | null
     session: ConditioningSession | null
     date: string
     /** The log already written for this entry, if any. */
     existingLogId: string | null
+    /** The wrap-up's notes, once edited. */
+    notes?: string
     onCreated: (logId: string) => void
 }) {
     const [taps, setTaps] = useState<SessionTaps>(() =>
@@ -140,7 +147,7 @@ export function useConditioningLog({
         saving.current = true
         setSaveState('saving')
         try {
-            const fields = conditioningPayload(session, date, taps)
+            const fields = conditioningPayload(session, date, taps, notes)
             if (logId) {
                 await updateLog(logId, fields)
             } else {
@@ -161,7 +168,7 @@ export function useConditioningLog({
                 setPending((n) => n + 1)
             }
         }
-    }, [session, date, taps, logId])
+    }, [session, date, taps, notes, logId])
 
     // Autosave a beat after the last change.
     useEffect(() => {
@@ -184,8 +191,10 @@ export function useConditioningLog({
                 return { ...p, completedAt }
             }),
         count: (i: number, n: number) => change((p) => ({ ...p, counts: { ...p.counts, [i]: n } })),
-        /** Save now, e.g. from "Mark as done". */
+        /** Save now, e.g. from Finish. */
         saveNow: save,
+        /** Something outside the taps changed (notes, the date) — autosave it. */
+        touch: () => change((p) => p),
         /** Forget this device's presses — the log they were saved to is gone. */
         forget: () => {
             if (entryId) clearTaps(entryId)

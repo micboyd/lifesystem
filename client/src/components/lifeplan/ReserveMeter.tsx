@@ -1,12 +1,12 @@
 import {
     RESERVES,
-    RESERVE_ICONS,
     RESERVE_LABELS,
     type MonthLoad,
     type Reserve,
     type ReserveLoad,
 } from '../../lib/lifeLoad'
 import { LEVEL_BAR, UNKNOWN_BAR, formatAgainstCapacity, formatDemand } from './loadStyles'
+import { ReserveTile } from './ui'
 
 /**
  * A month's load as four gauges rather than one number.
@@ -29,7 +29,7 @@ function Bar({ load, height = 'h-1.5' }: { load: ReserveLoad; height?: string })
     const over = known && load.ratio! > 1
 
     return (
-        <div className={`relative flex-1 rounded-full bg-neutral-100 ${height}`}>
+        <div className={`relative flex-1 rounded-full bg-neutral-200 ${height}`}>
             {known ? (
                 <div
                     className={`h-full rounded-full ${LEVEL_BAR[load.level!]}`}
@@ -95,23 +95,20 @@ export default function ReserveMeter({
     compact?: boolean
 }) {
     return (
-        <div className={compact ? 'flex flex-wrap gap-x-4 gap-y-2' : 'space-y-2.5'}>
+        <div className={compact ? 'flex flex-wrap gap-x-4 gap-y-2' : 'space-y-3'}>
             {RESERVES.map((reserve) => {
                 const r = load.reserves[reserve]
                 const body = (
                     <>
-                        <i
-                            className={`fa-solid ${RESERVE_ICONS[reserve]} w-3.5 shrink-0 text-center text-[11px] text-neutral-300`}
-                            aria-hidden="true"
-                        />
+                        <ReserveTile reserve={reserve} size="xs" />
                         {!compact && (
-                            <span className="w-12 shrink-0 text-[11px] font-bold text-neutral-500">
+                            <span className="w-14 shrink-0 text-[13px] text-neutral-600">
                                 {RESERVE_LABELS[reserve]}
                             </span>
                         )}
                         <Bar load={r} />
                         <span
-                            className={`shrink-0 text-right text-[11px] font-semibold tabular-nums ${
+                            className={`w-10 shrink-0 text-right text-xs font-medium tabular-nums ${
                                 r.level === 'overloaded' ? 'text-coral-600' : 'text-neutral-500'
                             }`}
                         >

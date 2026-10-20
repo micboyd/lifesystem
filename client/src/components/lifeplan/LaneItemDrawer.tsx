@@ -41,9 +41,9 @@ const SOURCE_LINK_LABELS: Record<LaneSource, string> = {
 /** A labelled row of detail. */
 function Row({ label, value }: { label: string; value: string }) {
     return (
-        <div className="flex items-baseline justify-between gap-4 py-1.5">
-            <span className="text-xs font-semibold text-neutral-500">{label}</span>
-            <span className="text-right text-sm font-semibold tabular-nums text-neutral-900">
+        <div className="flex items-baseline justify-between gap-4 py-3">
+            <span className="shrink-0 text-[13px] text-neutral-500">{label}</span>
+            <span className="text-right text-[15px] tabular-nums text-neutral-900">
                 {value}
             </span>
         </div>
@@ -90,7 +90,7 @@ export default function LaneItemDrawer({
         >
             {item && (
                 <div className="space-y-5">
-                    <div className="divide-y divide-neutral-100">
+                    <div className="divide-y divide-neutral-100 border-y border-neutral-100">
                         <Row
                             label="On the timeline"
                             value={formatMonthRange(item.startMonth, item.endMonth)}
@@ -99,7 +99,7 @@ export default function LaneItemDrawer({
                     </div>
 
                     {(item.clippedStart || item.clippedEnd) && (
-                        <p className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+                        <p className="rounded-xl bg-neutral-50 px-3.5 py-2.5 text-[13px] text-neutral-500">
                             This runs past the plan&apos;s window, so the bar is cut at the{' '}
                             {item.clippedStart && item.clippedEnd
                                 ? 'start and end'
@@ -126,7 +126,7 @@ function TrainingPlanDetail({ item, records }: { item: LaneItem; records: LaneIt
     if (!plan) return null
     return (
         <>
-            <div className="divide-y divide-neutral-100">
+            <div className="divide-y divide-neutral-100 border-y border-neutral-100">
                 <Row label="Runs" value={`${formatDateLong(plan.planStart)} → ${formatDateLong(plan.planEnd)}`} />
                 {plan.appliedAt && <Row label="Applied" value={`${plan.appliedEntries} entries on the planner`} />}
             </div>
@@ -139,13 +139,13 @@ function TrainingPlanDetail({ item, records }: { item: LaneItem; records: LaneIt
                         can't be placed on the grid — they're listed as written. */}
                     <ul className="mt-2 space-y-2">
                         {plan.phases.map((phase, i) => (
-                            <li key={`${phase.name}-${i}`} className="rounded-xl bg-neutral-50 px-3 py-2">
-                                <p className="text-sm font-bold text-neutral-900">{phase.name}</p>
+                            <li key={`${phase.name}-${i}`} className="rounded-xl bg-neutral-50 px-3.5 py-3">
+                                <p className="text-[15px] font-medium text-neutral-900">{phase.name}</p>
                                 {phase.dates && (
-                                    <p className="text-xs text-neutral-500">{phase.dates}</p>
+                                    <p className="text-[13px] text-neutral-500">{phase.dates}</p>
                                 )}
                                 {phase.focus && (
-                                    <p className="mt-1 text-xs text-neutral-600">{phase.focus}</p>
+                                    <p className="mt-1 text-[13px] text-neutral-600">{phase.focus}</p>
                                 )}
                             </li>
                         ))}
@@ -171,7 +171,7 @@ function PhaseDetail({ item, records }: { item: LaneItem; records: LaneItemRecor
                     </Badge>
                 )}
             </div>
-            <div className="divide-y divide-neutral-100">
+            <div className="divide-y divide-neutral-100 border-y border-neutral-100">
                 <Row label="Runs" value={`${formatDateLong(phase.startDate)} → ${formatDateLong(phase.endDate)}`} />
                 {calories ? <Row label="Calories" value={`${calories} kcal`} /> : null}
                 {protein ? <Row label="Protein" value={`${protein} g`} /> : null}
@@ -193,7 +193,7 @@ function SavingsDetail({ item, records }: { item: LaneItem; records: LaneItemRec
                     {target.onTrack ? 'On track' : 'Behind'}
                 </Badge>
             </div>
-            <div className="divide-y divide-neutral-100">
+            <div className="divide-y divide-neutral-100 border-y border-neutral-100">
                 <Row label="Target" value={`£${target.targetAmount.toLocaleString()}`} />
                 <Row label="Per month" value={`£${Math.round(target.requiredMonthly).toLocaleString()}`} />
                 <Row label="Window" value={formatMonthRange(target.startMonth, target.targetMonth)} />
@@ -215,7 +215,7 @@ function GoalDetail({ item, records }: { item: LaneItem; records: LaneItemRecord
     const done = goal.milestones.filter((m) => m.completed).length
     return (
         <>
-            <div className="divide-y divide-neutral-100">
+            <div className="divide-y divide-neutral-100 border-y border-neutral-100">
                 {goal.targetDate && <Row label="Target date" value={formatDateLong(goal.targetDate)} />}
                 {goal.milestones.length > 0 && (
                     <Row label="Milestones" value={`${done} of ${goal.milestones.length} done`} />

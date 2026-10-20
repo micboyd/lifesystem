@@ -1,15 +1,19 @@
 import api from './api'
 import type { ApiResponse, DaysUntilItem, DaysUntilColor } from '../types'
+import { todayKey } from '../lib/calendar'
 
 export interface DaysUntilPayload {
     label: string
     targetDate: string
     icon: string
     color: DaysUntilColor
+    /** Reminder the countdown is made from (create only). */
+    reminder?: string
+    followNext?: boolean
 }
 
 export async function listDaysUntil(): Promise<DaysUntilItem[]> {
-    const res = await api.get<ApiResponse<DaysUntilItem[]>>('/days-until')
+    const res = await api.get<ApiResponse<DaysUntilItem[]>>('/days-until', { params: { today: todayKey() } })
     return res.data.data
 }
 

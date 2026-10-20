@@ -8,10 +8,26 @@
  * info underneath; otherwise a compact row of progress dots is shown.
  */
 /** Seconds → "M:SS" clock label. */
-function clock(sec: number): string {
+export function clock(sec: number): string {
     const m = Math.floor(sec / 60)
     const s = Math.round(sec % 60)
     return `${m}:${String(s).padStart(2, '0')}`
+}
+
+/** Each rep's clock window [start, end] in seconds, from the per-rep durations. */
+export function roundWindows(
+    target: number,
+    seconds: number[],
+    startAtSec = 0
+): [number, number][] {
+    const windows: [number, number][] = []
+    let t = startAtSec
+    for (let i = 0; i < target; i++) {
+        const dur = seconds[i] ?? 0
+        windows.push([t, t + dur])
+        t += dur
+    }
+    return windows
 }
 
 export default function RoundCounter({
@@ -43,16 +59,7 @@ export default function RoundCounter({
     const hasDetails = !!details && details.length > 0
     const hasTimes = !!seconds && seconds.length > 0
 
-    // Cumulative clock window [start, end] for each rep, from the durations.
-    const windows: [number, number][] = []
-    if (hasTimes) {
-        let t = startAtSec
-        for (let i = 0; i < target; i++) {
-            const dur = seconds![i] ?? 0
-            windows.push([t, t + dur])
-            t += dur
-        }
-    }
+    const windows = hasTimes ? roundWindows(target, seconds!, startAtSec) : []
 
     return (
         <div className="rounded-xl bg-neutral-50 p-3">

@@ -12,7 +12,7 @@ import DatePicker from './DatePicker'
 import Pagination from './Pagination'
 import LineIcon from './LineIcon'
 import LogFilterBar, { useLogFilters } from './LogFilterBar'
-import ConditioningSessionDetail from './ConditioningSessionDetail'
+import { ConditioningSummary } from './ConditioningLogDrawer'
 import { todayKey } from '../lib/calendar'
 import { formatLogDate, weekStartMonday } from '../lib/logFilters'
 import { listSessions } from '../services/conditioning'
@@ -436,6 +436,87 @@ function RoundChips({
 // ─── Log view drawer ────────────────────────────────────────────────────────────
 
 /**
+ * The body of a logged session's recap — the day, minutes, effort and notes,
+ * then the library session it came from with what was ticked off. Shared by
+ * the Sessions log and the planner's drawer for a done session.
+ */
+export function ConditioningLogSummary({
+    log,
+    session: source,
+}: {
+    log: ConditioningLog
+    /** The library session behind the log, or null once it's been deleted. */
+    session: ConditioningSession | null
+}) {
+    // Map the snapshotted tallies back onto the session's parts by name, so the
+    // recap shows which reps were ticked off against each part.
+    const counts = useMemo(() => {
+        const out: Record<number, number> = {}
+        if (!source || !log.rounds) return out
+        allInPhases(source).forEach((part, i) => {
+            const hit = log.rounds!.find((r) => r.name === part.name)
+            if (hit) out[i] = hit.done
+        })
+        return out
+    }, [source, log])
+
+    const completedAt = source ? checkpointTimes(source, log.checkpoints) : undefined
+    const parts = source ? allInPhases(source).length : 0
+
+    return (
+        <div className="flex flex-col gap-7">
+            <header>
+                <h3 className="text-2xl font-semibold tracking-[-0.02em] text-neutral-900">
+                    {formatLogDate(log.date, todayISO())}
+                </h3>
+                <p className="mt-1 text-sm text-neutral-500">
+                    {source ? `${parts} ${parts === 1 ? 'part' : 'parts'} · ` : ''}
+                    {log.duration} min
+                    {log.rpe != null ? ` · RPE ${log.rpe}` : ''}
+                </p>
+            </header>
+
+            {source ? (
+                <ConditioningSummary
+                    session={source}
+                    completedAt={completedAt ?? {}}
+                    counts={counts}
+                    duration={log.duration}
+                    allDone={!completedAt || Object.keys(completedAt).length === 0}
+                />
+            ) : (
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <CategoryChip category={log.category} />
+                    </div>
+                    {log.rounds && log.rounds.length > 0 && (
+                        <section>
+                            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                                Rounds completed
+                            </p>
+                            <RoundChips rounds={log.rounds} />
+                        </section>
+                    )}
+                    <p className="text-sm text-neutral-500">
+                        This session is no longer in your Session Library, so its parts,
+                        reps and pacing can&apos;t be shown.
+                    </p>
+                </div>
+            )}
+
+            {log.notes && (
+                <div className="flex flex-col gap-1.5">
+                    <p className="text-[13px] font-medium text-neutral-700">Notes</p>
+                    <p className="whitespace-pre-wrap rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+                        {log.notes}
+                    </p>
+                </div>
+            )}
+        </div>
+    )
+}
+
+/**
  * Read-only recap of one logged session: what was actually recorded (date,
  * minutes, effort, notes) followed by the library session it came from — warm-up,
  * parts, reps and cool-down — with the round counters showing what was ticked off.
@@ -465,18 +546,6 @@ function LogViewDrawer({
         [view, sessions]
     )
 
-    // Map the snapshotted tallies back onto the session's parts by name, so the
-    // recap shows which reps were ticked off against each part.
-    const counts = useMemo(() => {
-        const out: Record<number, number> = {}
-        if (!source || !view?.rounds) return out
-        allInPhases(source).forEach((part, i) => {
-            const hit = view.rounds!.find((r) => r.name === part.name)
-            if (hit) out[i] = hit.done
-        })
-        return out
-    }, [source, view])
-
     return (
         <Drawer
             open={!!log}
@@ -500,59 +569,7 @@ function LogViewDrawer({
                 )
             }
         >
-            {view && (
-                <div className="flex flex-col gap-6">
-                    <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 p-4">
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-600">
-                            <span className="font-semibold text-neutral-900">
-                                {formatLogDate(view.date, todayISO())}
-                            </span>
-                            <span>
-                                <i className="fa-regular fa-clock mr-1.5" aria-hidden="true" />
-                                {view.duration} min
-                            </span>
-                            {view.rpe != null && (
-                                <span>
-                                    <i className="fa-solid fa-gauge-high mr-1.5" aria-hidden="true" />
-                                    RPE {view.rpe}
-                                </span>
-                            )}
-                        </div>
-                        {view.notes && (
-                            <p className="whitespace-pre-wrap text-sm text-neutral-500">
-                                {view.notes}
-                            </p>
-                        )}
-                    </div>
-
-                    {source ? (
-                        <ConditioningSessionDetail
-                            session={source}
-                            counts={counts}
-                            completedAt={checkpointTimes(source, view.checkpoints)}
-                            readOnly
-                        />
-                    ) : (
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-wrap items-center gap-3">
-                                <CategoryChip category={view.category} />
-                            </div>
-                            {view.rounds && view.rounds.length > 0 && (
-                                <section>
-                                    <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Rounds completed
-                                    </p>
-                                    <RoundChips rounds={view.rounds} />
-                                </section>
-                            )}
-                            <p className="text-sm text-neutral-500">
-                                This session is no longer in your Session Library, so its parts,
-                                reps and pacing can&apos;t be shown.
-                            </p>
-                        </div>
-                    )}
-                </div>
-            )}
+            {view && <ConditioningLogSummary log={view} session={source} />}
         </Drawer>
     )
 }
