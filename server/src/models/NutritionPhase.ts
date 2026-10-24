@@ -195,6 +195,8 @@ export interface INutritionPhase extends Document {
     adjustments?: IPhaseAdjustment[]
     strategy?: ITargetStrategy
     notes?: string
+    /** Set when the phase came in through a bulk import, so the batch can be undone. */
+    importBatch?: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -298,10 +300,12 @@ const nutritionPhaseSchema = new Schema<INutritionPhase>(
         adjustments: { type: [adjustmentSchema], default: undefined },
         strategy: { type: strategySchema, default: undefined },
         notes: { type: String, trim: true },
+        importBatch: { type: String, default: null },
     },
     { timestamps: true }
 )
 
 nutritionPhaseSchema.index({ user: 1, startDate: 1 })
+nutritionPhaseSchema.index({ user: 1, importBatch: 1 })
 
 export default model<INutritionPhase>('NutritionPhase', nutritionPhaseSchema)

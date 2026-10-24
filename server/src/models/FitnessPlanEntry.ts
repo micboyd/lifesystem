@@ -44,6 +44,13 @@ export interface IFitnessPlanEntry extends Document {
      * slot, so a session moved in later brings the warning back with it.
      */
     ignoreOverload: boolean
+    /**
+     * When true the session was deliberately skipped — it stays on the plan,
+     * marked with a no-entry sign, rather than being deleted or left looking
+     * missed. `skipReason` is the optional note on why.
+     */
+    skipped: boolean
+    skipReason: string
     createdAt: Date
     updatedAt: Date
 }
@@ -60,6 +67,8 @@ const fitnessPlanEntrySchema = new Schema<IFitnessPlanEntry>(
         order: { type: Number, default: 0 },
         ignoreClash: { type: Boolean, default: false },
         ignoreOverload: { type: Boolean, default: false },
+        skipped: { type: Boolean, default: false },
+        skipReason: { type: String, default: '', trim: true, maxlength: 280 },
     },
     { timestamps: true }
 )

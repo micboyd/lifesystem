@@ -3,7 +3,6 @@ import {
     useMemo,
     useRef,
     useState,
-    type DragEvent,
     type MouseEvent,
     type PointerEvent,
 } from 'react'
@@ -24,7 +23,6 @@ import {
     deleteTimebox,
     type TimeboxInput,
 } from '../services/timeboxes'
-import { listTasks } from '../services/tasks'
 import { todayKey, formatDateLong } from '../lib/calendar'
 import {
     timeToMinutes,
@@ -34,10 +32,9 @@ import {
     DEFAULT_BED,
 } from '../lib/time'
 import { TIMEBOX_CATEGORY_COLORS, TIMEBOX_DEFAULT_COLORS } from '../types'
-import type { Task, Timebox } from '../types'
+import type { Timebox } from '../types'
 
 const PX_PER_MIN = 2.5 // 150px per hour
-const DEFAULT_TASK_DURATION = 60 // minutes, when a dragged task has no estimate
 
 export default function Timebox() {
     const { user } = useAuth()
@@ -63,10 +60,6 @@ export default function Timebox() {
     const [importing, setImporting] = useState(false)
     const [importResult, setImportResult] = useState<{ added: number; skipped: number } | null>(null)
 
-    // Tasks that can be dragged onto the timeline
-    const [tasks, setTasks] = useState<Task[]>([])
-    const dragTaskRef = useRef<Task | null>(null)
-    const [dragPreview, setDragPreview] = useState<{ top: number; height: number } | null>(null)
 
     // Existing blocks being dragged to a new time
     const [blockDrag, setBlockDrag] = useState<{
@@ -131,16 +124,6 @@ export default function Timebox() {
         }
     }, [date])
 
-    useEffect(() => {
-        let active = true
-        listTasks(date, date)
-            .then((list) => active && setTasks(list))
-            .catch(() => active && setTasks([]))
-        return () => {
-            active = false
-        }
-    }, [date])
-
     const hourLines = useMemo(() => {
         const lines: number[] = []
         for (let m = Math.ceil(wakeMin / 60) * 60; m <= bedMin; m += 60) lines.push(m)
@@ -172,58 +155,6 @@ export default function Timebox() {
         const rect = e.currentTarget.getBoundingClientRect()
         const y = e.clientY - rect.top
         openNew(wakeMin + y / PX_PER_MIN)
-    }
-
-    // ── Drag tasks onto the timeline ─────────────────────────────────────────
-    /** Snapped, clamped drop slot for the task currently being dragged. */
-    function dropSlot(e: DragEvent<HTMLDivElement>, task: Task) {
-        const rect = e.currentTarget.getBoundingClientRect()
-        const dur = Math.min(task.duration ?? DEFAULT_TASK_DURATION, bedMin - wakeMin)
-        const raw = wakeMin + (e.clientY - rect.top) / PX_PER_MIN
-        const start = Math.max(wakeMin, Math.min(bedMin - dur, Math.round(raw / 15) * 15))
-        return { start, dur }
-    }
-
-    function handleDragOver(e: DragEvent<HTMLDivElement>) {
-        const task = dragTaskRef.current
-        if (!task) return
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'copy'
-        const { start, dur } = dropSlot(e, task)
-        setDragPreview({ top: (start - wakeMin) * PX_PER_MIN, height: dur * PX_PER_MIN })
-    }
-
-    function handleDragLeave(e: DragEvent<HTMLDivElement>) {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragPreview(null)
-    }
-
-    async function handleDrop(e: DragEvent<HTMLDivElement>) {
-        const task = dragTaskRef.current
-        dragTaskRef.current = null
-        setDragPreview(null)
-        if (!task) return
-        e.preventDefault()
-        const { start, dur } = dropSlot(e, task)
-        const input: TimeboxInput = {
-            title: task.title,
-            startTime: minutesToTime(start),
-            endTime: minutesToTime(start + dur),
-        }
-        setSaving(true)
-        try {
-            await createTimebox(date, input)
-            await reload()
-        } catch (err: unknown) {
-            if ((err as { response?: { status?: number } })?.response?.status === 409) {
-                // Slot taken — open the editor so a free time can be picked
-                setDefaults({ ...input })
-                setEditing(null)
-                setConflict(true)
-                setEditorOpen(true)
-            }
-        } finally {
-            setSaving(false)
-        }
     }
 
     // ── Drag existing blocks to a new time ───────────────────────────────────
@@ -478,9 +409,6 @@ export default function Timebox() {
                             {/* Timeline — the white "timebox" surface */}
                             <div
                                 onClick={handleBackgroundClick}
-                                onDragOver={handleDragOver}
-                                onDragLeave={handleDragLeave}
-                                onDrop={handleDrop}
                                 className="relative flex-1 cursor-copy overflow-hidden bg-white ring-1 ring-neutral-900/[0.03] shadow-sm"
                                 style={{ height: totalHeight }}
                             >
@@ -515,14 +443,6 @@ export default function Timebox() {
                                         style={{ top: (m - wakeMin) * PX_PER_MIN }}
                                     />
                                 ))}
-
-                                {/* Drop preview */}
-                                {dragPreview && (
-                                    <div
-                                        className="pointer-events-none absolute left-2 right-2 z-20 rounded-lg border-2 border-dashed border-neutral-400 bg-neutral-200/60"
-                                        style={dragPreview}
-                                    />
-                                )}
 
                                 {/* Now indicator */}
                                 {showNow && (
@@ -623,54 +543,6 @@ export default function Timebox() {
                             </p>
                         )}
                     </div>
-
-                    {/* Task panel */}
-                    <aside className="lg:w-64 lg:shrink-0">
-                        <div className="rounded-3xl bg-white p-4 ring-1 ring-neutral-900/[0.06] shadow-sm lg:sticky lg:top-6">
-                            <h2 className="text-sm font-bold text-neutral-800">Tasks</h2>
-                            <p className="mt-0.5 text-xs text-neutral-500">
-                                Drag a task onto the timeline to schedule it.
-                            </p>
-                            <div className="mt-3 flex flex-col gap-1.5">
-                                {tasks.filter((t) => !t.completed).length === 0 && (
-                                    <p className="py-2 text-center text-xs text-neutral-300">
-                                        No open tasks for this day
-                                    </p>
-                                )}
-                                {tasks
-                                    .filter((t) => !t.completed)
-                                    .map((task) => (
-                                        <div
-                                            key={task._id}
-                                            draggable
-                                            onDragStart={(e) => {
-                                                dragTaskRef.current = task
-                                                e.dataTransfer.effectAllowed = 'copy'
-                                                e.dataTransfer.setData('text/plain', task.title)
-                                            }}
-                                            onDragEnd={() => {
-                                                dragTaskRef.current = null
-                                                setDragPreview(null)
-                                            }}
-                                            className="flex cursor-grab items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 transition-colors hover:border-neutral-300 hover:bg-neutral-50 active:cursor-grabbing"
-                                        >
-                                            <i
-                                                className="fa-solid fa-grip-vertical text-xs text-neutral-300"
-                                                aria-hidden="true"
-                                            />
-                                            <span className="flex-1 truncate text-xs font-semibold text-neutral-700">
-                                                {task.title}
-                                            </span>
-                                            <span className="shrink-0 text-[11px] font-semibold text-neutral-500">
-                                                {formatDuration(
-                                                    task.duration ?? DEFAULT_TASK_DURATION
-                                                )}
-                                            </span>
-                                        </div>
-                                    ))}
-                            </div>
-                        </div>
-                    </aside>
                 </div>
             )}
 

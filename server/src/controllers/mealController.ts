@@ -1,7 +1,7 @@
 import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
-import Meal, { MEAL_TYPES, MealType, IMacros } from '../models/Meal'
+import Meal, { MEAL_TYPES, MealType, IMacros, IMealIngredient } from '../models/Meal'
 import MealPlanEntry from '../models/MealPlanEntry'
 import { newBatchId, makeLastImportHandler, summarise } from '../lib/importBatch'
 import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
@@ -26,10 +26,20 @@ function toTypes(raw: unknown): MealType[] {
     return [...new Set(raw.filter((t): t is MealType => MEAL_TYPES.includes(t as MealType)))]
 }
 
+/** Named ingredients with their grams and/or items; blank names are dropped. */
+function toIngredients(raw: unknown): IMealIngredient[] {
+    if (!Array.isArray(raw)) return []
+    return raw.flatMap((r) => {
+        const i = (r && typeof r === 'object' ? r : {}) as Record<string, unknown>
+        const name = typeof i.name === 'string' ? i.name.trim() : ''
+        return name ? [{ name, grams: toNumber(i.grams), items: toNumber(i.items) || undefined }] : []
+    })
+}
+
 /** A meal from a request body, or an error message. */
 function readMeal(
     body: unknown
-): { name: string; types: MealType[]; macros: IMacros; notes?: string } | string {
+): { name: string; types: MealType[]; macros: IMacros; ingredients: IMealIngredient[]; notes?: string } | string {
     const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>
     const name = typeof b.name === 'string' ? b.name.trim() : ''
     if (!name) return 'A meal needs a name'
@@ -37,6 +47,7 @@ function readMeal(
         name,
         types: toTypes(b.types),
         macros: toMacros(b.macros),
+        ingredients: toIngredients(b.ingredients),
         notes: typeof b.notes === 'string' ? b.notes.trim() || undefined : undefined,
     }
 }
@@ -144,6 +155,23 @@ export async function importMeals(req: AuthRequest, res: Response) {
                     if (v !== undefined && !isAmount(v))
                         errors.push(`${named}: macros.${k} must be a number of 0 or more`)
                 }
+        }
+        if (item.ingredients !== undefined) {
+            if (!Array.isArray(item.ingredients)) errors.push(`${named}: ingredients must be a list`)
+            else
+                item.ingredients.forEach((ing, n) => {
+                    const at = `${named}: ingredient ${n + 1}`
+                    if (!ing || typeof ing !== 'object' || Array.isArray(ing)) {
+                        errors.push(`${at} must be an object like { "name": "Rice", "grams": 75 } or { "name": "Eggs", "items": 2 }`)
+                        return
+                    }
+                    const i = ing as Record<string, unknown>
+                    if (typeof i.name !== 'string' || !i.name.trim()) errors.push(`${at} needs a "name"`)
+                    for (const k of ['grams', 'items'])
+                        if (i[k] !== undefined && !isAmount(i[k])) errors.push(`${at}: "${k}" must be a number of 0 or more`)
+                    if (toNumber(i.grams) === 0 && toNumber(i.items) === 0)
+                        errors.push(`${at} needs "grams" or "items" above 0`)
+                })
         }
         const fields = readMeal(raw)
         if (typeof fields === 'string') {

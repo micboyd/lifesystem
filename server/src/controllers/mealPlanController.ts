@@ -3,6 +3,7 @@ import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import MealPlanEntry, { ENTRY_STATUSES, EntryStatus } from '../models/MealPlanEntry'
 import Meal, { MEAL_TYPES, MealType } from '../models/Meal'
+import PlateFood from '../models/PlateFood'
 import { plateFields, resolvePlate } from '../lib/plateLines'
 
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
@@ -52,6 +53,13 @@ export async function createEntry(req: AuthRequest, res: Response) {
             extra: extra === true,
             order: (last?.order ?? -1) + 1,
         })
+        // Weighing out a box that was planned as a note fills that note's place.
+        await MealPlanEntry.deleteMany({
+            user: req.userId,
+            date,
+            slot,
+            box: { $in: lines.map((l) => l.food) },
+        })
         res.status(201).json({ message: 'Created', data: entry })
         return
     }
@@ -76,6 +84,48 @@ export async function createEntry(req: AuthRequest, res: Response) {
 }
 
 /**
+ * POST /api/meal-plan/box { box, slot, dates } — "eating from this box" on
+ * each of those days: a light note with no grams and no macros, so it plans
+ * ahead without moving any numbers. A day already holding that box's note
+ * in the slot is left as it is.
+ */
+export async function createBoxNotes(req: AuthRequest, res: Response) {
+    const { box: boxId, slot, dates } = req.body ?? {}
+    if (!isSlot(slot) || !Array.isArray(dates) || dates.length === 0 || dates.length > 31 || !dates.every(isDate)) {
+        res.status(400).json({ message: 'slot and dates (YYYY-MM-DD) are required' })
+        return
+    }
+    if (typeof boxId !== 'string' || !Types.ObjectId.isValid(boxId)) {
+        res.status(400).json({ message: 'box is required' })
+        return
+    }
+    const box = await PlateFood.findOne({ _id: boxId, user: req.userId, kind: 'box' })
+    if (!box) {
+        res.status(404).json({ message: 'Box not found' })
+        return
+    }
+    const days = [...new Set(dates as string[])]
+    const existing = await MealPlanEntry.find({ user: req.userId, date: { $in: days }, slot })
+    const taken = new Set(existing.filter((e) => String(e.box) === String(box._id)).map((e) => e.date))
+    const nextOrder = new Map<string, number>()
+    for (const e of existing) nextOrder.set(e.date, Math.max(nextOrder.get(e.date) ?? 0, e.order + 1))
+    const docs = days
+        .filter((d) => !taken.has(d))
+        .map((date) => ({
+            user: req.userId,
+            date,
+            slot,
+            box: box._id,
+            name: box.name,
+            status: 'planned',
+            extra: false,
+            order: nextOrder.get(date) ?? 0,
+        }))
+    const created = docs.length > 0 ? await MealPlanEntry.insertMany(docs) : []
+    res.status(201).json({ message: 'Created', data: created })
+}
+
+/**
  * PATCH /api/meal-plan/:id { status?, plate? } — the tick, and a plate's
  * grams (or batch) changed at the table. Each line keeps the batch figures it
  * was given, so an eaten plate never moves when a box is cooked again.
@@ -93,6 +143,10 @@ export async function updateEntry(req: AuthRequest, res: Response) {
     const entry = await MealPlanEntry.findOne({ _id: req.params.id, user: req.userId })
     if (!entry) {
         res.status(404).json({ message: 'Entry not found' })
+        return
+    }
+    if (entry.box && status === 'eaten') {
+        res.status(400).json({ message: 'A box note is weighed out, not ticked' })
         return
     }
     if (plate !== undefined) {
@@ -199,6 +253,7 @@ export async function copyWeek(req: AuthRequest, res: Response) {
             slot: e.slot,
             meal: e.meal,
             ...(e.plate?.length ? { plate: e.plate } : {}),
+            ...(e.box ? { box: e.box } : {}),
             name: e.name,
             macros: e.macros,
             status: 'planned',

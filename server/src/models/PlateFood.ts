@@ -4,10 +4,15 @@ import { IMacros, macrosSchema } from './Meal'
 export const PLATE_FOOD_KINDS = ['box', 'plain'] as const
 export type PlateFoodKind = (typeof PLATE_FOOD_KINDS)[number]
 
-/** A raw ingredient: how much goes in, and its packet macros per 100 g. */
+/**
+ * A raw ingredient: how much goes in, and its packet macros per 100 g.
+ * `items` is how many of it, for things bought by count (5 eggs) — the
+ * shopping list buys that instead of the grams.
+ */
 export interface IIngredient {
     name: string
     grams: number
+    items?: number
     per100: IMacros
 }
 
@@ -15,6 +20,7 @@ export const ingredientSchema = new Schema<IIngredient>(
     {
         name: { type: String, required: true, trim: true },
         grams: { type: Number, default: 0, min: 0 },
+        items: { type: Number, min: 0 },
         per100: { type: macrosSchema, default: () => ({}) },
     },
     { _id: false }

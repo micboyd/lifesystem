@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, Outlet, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Outlet, Navigate, useLocation, useParams } from 'react-router-dom'
 import { documentTitleForPath } from './lib/pageTitle'
 import Sidebar from './components/Sidebar'
 import ProtectedRoute from './components/ProtectedRoute'
 import QuickLog from './components/QuickLog'
 import Home from './pages/Home'
 import Calendar from './pages/Calendar'
-import Day from './pages/Day'
+import Lists from './pages/Lists'
 import Timebox from './pages/Timebox'
 import Fitness from './pages/Fitness'
 import Nutrition from './pages/Nutrition'
 import FinanceLayout from './pages/FinanceLayout'
 import Finances from './pages/Finances'
+import Statement from './pages/Statement'
 import Budgets from './pages/Budgets'
 import BudgetCalendar from './pages/BudgetCalendar'
 import SavingsForecast from './pages/SavingsForecast'
@@ -22,6 +23,7 @@ import DaysSince from './pages/DaysSince'
 import DaysUntil from './pages/DaysUntil'
 import Goals from './pages/Goals'
 import LifePlan from './pages/LifePlan'
+import Timeline from './pages/Timeline'
 import Notes from './pages/Notes'
 import Weather from './pages/Weather'
 import Login from './pages/Login'
@@ -78,7 +80,7 @@ export default function App() {
             >
                 <Route path="/" element={<Home />} />
                 <Route path="/calendar" element={<Calendar />} />
-                <Route path="/day/:date" element={<Day />} />
+                <Route path="/day/:date" element={<DayRedirect />} />
                 <Route path="/timebox" element={<Timebox />} />
                 <Route path="/habits" element={<Navigate to="/goals" replace />} />
                 <Route path="/fitness" element={<Fitness />} />
@@ -86,6 +88,7 @@ export default function App() {
                 <Route path="/finances/breakdown/:rowId" element={<FinanceBreakdown />} />
                 <Route path="/finances" element={<FinanceLayout />}>
                     <Route index element={<Finances />} />
+                    <Route path="statement" element={<Statement />} />
                     <Route path="budgets" element={<Budgets />} />
                     <Route path="daily-log" element={<BudgetCalendar />} />
                     <Route path="forecast" element={<SavingsForecast />} />
@@ -98,11 +101,20 @@ export default function App() {
                 <Route path="/weather" element={<Weather />} />
                 <Route path="/goals" element={<Goals />} />
                 <Route path="/life-plan" element={<LifePlan />} />
+                <Route path="/timeline" element={<Timeline />} />
                 <Route path="/notes" element={<Notes />} />
+                <Route path="/lists" element={<Lists />} />
+                <Route path="/lists/:id" element={<Lists />} />
                 <Route path="/styleguide" element={<StyleGuide />} />
 
                 <Route path="*" element={<NotFound />} />
             </Route>
         </Routes>
     )
+}
+
+/** The old per-day page is gone; its links land on that day's week in the calendar. */
+function DayRedirect() {
+    const { date } = useParams<{ date: string }>()
+    return <Navigate to={date ? `/calendar?date=${date}` : '/calendar'} replace />
 }

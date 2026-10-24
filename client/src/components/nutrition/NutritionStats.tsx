@@ -12,6 +12,7 @@ import { listDailyEnergy } from '../../services/dailyEnergy'
 import { listNutritionPhases } from '../../services/nutritionPhases'
 import { addDays, addMonths, formatMonthYear, formatWeekRange, parseDateKey, todayKey, MONTHS } from '../../lib/calendar'
 import { sumEatenMacros, targetsFor } from '../../lib/nutrition'
+import { totalOut } from '../../lib/energy'
 import type { DailyEnergy, MacroGoals, Macros, MealPlanEntry, NutritionPhase } from '../../types'
 
 type Range = 'week' | 'month' | 'phase'
@@ -51,7 +52,14 @@ const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.le
  * for every day, average macros against their targets, and the days listed.
  * Averages only count days you logged; the balance only days with both in and out.
  */
-export default function NutritionStats({ settingsGoals }: { settingsGoals?: MacroGoals }) {
+export default function NutritionStats({
+    settingsGoals,
+    bmrFor,
+}: {
+    settingsGoals?: MacroGoals
+    /** Each day's worked-out BMR (lib/bmr.ts), or null until it can be. */
+    bmrFor: (date: string) => number | null
+}) {
     const today = todayKey()
     const [range, setRange] = useState<Range>('week')
     const [anchor, setAnchor] = useState(today)
@@ -107,12 +115,12 @@ export default function NutritionStats({ settingsGoals }: { settingsGoals?: Macr
             out.push({
                 date: d,
                 eaten: eatenList.length ? sumEatenMacros(eatenList) : null,
-                out: energy.find((x) => x.date === d)?.caloriesOut ?? null,
+                out: totalOut(energy.find((x) => x.date === d)?.caloriesOut ?? null, bmrFor(d)),
                 goals: targetsFor(d, phases, settingsGoals).goals,
             })
         }
         return out
-    }, [start, last, entries, energy, phases, settingsGoals])
+    }, [start, last, entries, energy, phases, settingsGoals, bmrFor])
 
     const logged = days.filter((d) => d.eaten)
     const withOut = days.filter((d) => d.out !== null)

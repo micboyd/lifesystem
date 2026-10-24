@@ -33,6 +33,13 @@ export default function Home() {
                 <DashboardDateNav date={date} onChange={setDate} />
             </div>
 
+            {/* Evenings only: tonight's prep for tomorrow, across the whole page. */}
+            {showTomorrow && (
+                <div className="mt-8 sm:mt-10">
+                    <TomorrowWidget date={date} />
+                </div>
+            )}
+
             <div className="mt-10 sm:mt-12">
                 <AtAGlance
                     date={date}
@@ -46,8 +53,6 @@ export default function Home() {
             <div className="mt-12 grid gap-x-16 gap-y-12 sm:mt-16 lg:grid-cols-12">
                 {/* Act on */}
                 <div className="flex min-w-0 flex-col gap-12 lg:col-span-7">
-                    {/* Evenings only: tonight's prep for tomorrow comes first. */}
-                    {showTomorrow && <TomorrowWidget date={date} />}
                     <FitnessWidget date={date} />
                     <TodayWidget date={date} events={day.events} loading={day.loading} />
                     <HabitsWidget date={date} />

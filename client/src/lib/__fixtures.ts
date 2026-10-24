@@ -34,6 +34,11 @@ export function weeklyRow(recurringAmount: number, over: Partial<FinanceRow> = {
     return row({ budgeted: true, budgetType: 'weekly', recurringAmount, ...over })
 }
 
+/** A true weekly budget: £`weeklyAmount` per Mon–Sun week, carrying from `carryFrom`. */
+export function weekBudgetRow(weeklyAmount: number, over: Partial<FinanceRow> = {}): FinanceRow {
+    return row({ budgeted: true, budgetType: 'weekly', weeklyAmount, ...over })
+}
+
 export function entry(over: Partial<FinanceEntry> = {}): FinanceEntry {
     return { _id: 'e1', row: 'r1', month: '2026-08', amount: 0, ...over }
 }

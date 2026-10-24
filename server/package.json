@@ -15,6 +15,7 @@
         "retire:study": "tsx src/scripts/retireStudyModules.ts",
         "retire:mobility": "tsx src/scripts/retireMobilityRecovery.ts",
         "nutrition:simplify": "tsx src/scripts/simplifyNutrition.ts",
+        "budgets:weekly": "tsx src/scripts/weeklyBudgets.ts",
         "build": "tsc",
         "start": "node dist/index.js",
         "lint": "eslint .",

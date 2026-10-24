@@ -24,10 +24,12 @@ import financeRoutes from './routes/financeRoutes'
 import fitnessPlanRoutes from './routes/fitnessPlanRoutes'
 import habitRoutes from './routes/habitRoutes'
 import lifePlanRoutes from './routes/lifePlanRoutes'
+import listRoutes from './routes/listRoutes'
 import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
 import plateFoodRoutes from './routes/plateFoodRoutes'
 import boxCookRoutes from './routes/boxCookRoutes'
+import shoppingRoutes from './routes/shoppingRoutes'
 import monthNoteRoutes from './routes/monthNoteRoutes'
 import noteRoutes from './routes/noteRoutes'
 import nutritionPhaseRoutes from './routes/nutritionPhaseRoutes'
@@ -97,9 +99,11 @@ app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)
 app.use('/api/plate-foods', plateFoodRoutes)
 app.use('/api/box-cooks', boxCookRoutes)
+app.use('/api/shopping', shoppingRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)
 app.use('/api/plans', trainingPlanRoutes)
 app.use('/api/notes', noteRoutes)
+app.use('/api/lists', listRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
 app.use('/api/life-plans', lifePlanRoutes)
 app.use('/api/nutrition-phases', nutritionPhaseRoutes)

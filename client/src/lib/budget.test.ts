@@ -14,8 +14,12 @@ import {
     computeBudgetDay,
     computeBudgetWeek,
     computeExclusionPot,
+    computeWeeklyBudget,
+    weeklyAmountForWeek,
+    monthlyFromWeekly,
+    weeklyFromMonthly,
 } from './budget'
-import { dailyRow, entry, spend, topUp, exclusionBudget } from './__fixtures'
+import { dailyRow, entry, spend, topUp, exclusionBudget, weekBudgetRow } from './__fixtures'
 
 describe('date helpers', () => {
     it('slices month and day out of a date key', () => {
@@ -213,5 +217,129 @@ describe('computeExclusionPot', () => {
 
     it('reports a zero guide rate when the pot has no days', () => {
         expect(computeExclusionPot(exclusionBudget({ amount: 100 }), []).guideRate).toBe(0)
+    })
+})
+
+describe('weekly conversions', () => {
+    it('derives the average month from a weekly amount', () => {
+        expect(monthlyFromWeekly(120)).toBe(520)
+    })
+
+    it('converts a monthly amount to the nearest whole £ per week', () => {
+        expect(weeklyFromMonthly(520)).toBe(120)
+        expect(weeklyFromMonthly(310)).toBe(72) // 71.54 → 72
+    })
+
+    it('uses past weekly amounts for weeks before the change', () => {
+        const r = weekBudgetRow(100, { pastWeeklyAmounts: [{ beforeWeek: '2026-10-19', amount: 80 }] })
+        expect(weeklyAmountForWeek(r, '2026-10-12')).toBe(80)
+        expect(weeklyAmountForWeek(r, '2026-10-19')).toBe(100)
+    })
+})
+
+describe('computeWeeklyBudget', () => {
+    // Week of Wed 2026-10-21 runs Mon 19 → Sun 25.
+    const TODAY = '2026-10-21'
+
+    it('gives a full Mon–Sun week with no carry when there is no anchor', () => {
+        const w = computeWeeklyBudget(weekBudgetRow(140), [spend('2026-10-12', 999)], [], TODAY, TODAY)
+        expect(w.weekStart).toBe('2026-10-19')
+        expect(w.weekEnd).toBe('2026-10-25')
+        expect(w.allowance).toBe(140)
+        expect(w.carry).toBe(0)
+        expect(w.remaining).toBe(140)
+    })
+
+    it('runs across a month boundary without clamping', () => {
+        // Thu 2026-10-01 sits in Mon 28 Sep → Sun 04 Oct.
+        const w = computeWeeklyBudget(weekBudgetRow(70), [spend('2026-09-29', 10), spend('2026-10-03', 5)], [], '2026-10-01', '2026-10-10')
+        expect(w.weekStart).toBe('2026-09-28')
+        expect(w.weekEnd).toBe('2026-10-04')
+        expect(w.spent).toBe(15)
+        expect(w.remaining).toBe(55)
+        expect(w.daysLeft).toBe(0)
+    })
+
+    it('rolls under- and overspend forward from carryFrom, across months', () => {
+        const r = weekBudgetRow(100, { carryFrom: '2026-09-28' })
+        const spends = [
+            spend('2026-09-30', 70), // wk 28 Sep: +30
+            spend('2026-10-06', 150), // wk 05 Oct: −50
+            spend('2026-10-14', 60), // wk 12 Oct: +40
+        ]
+        const w = computeWeeklyBudget(r, spends, [], TODAY, TODAY)
+        expect(w.carry).toBe(20)
+        expect(w.available).toBe(120)
+    })
+
+    it('ignores spend before the carry anchor', () => {
+        const r = weekBudgetRow(100, { carryFrom: '2026-10-12' })
+        const w = computeWeeklyBudget(r, [spend('2026-10-06', 500), spend('2026-10-13', 30)], [], TODAY, TODAY)
+        expect(w.carry).toBe(70)
+    })
+
+    it('normalises a mid-week anchor to its Monday', () => {
+        const r = weekBudgetRow(100, { carryFrom: '2026-10-15' })
+        const w = computeWeeklyBudget(r, [], [], TODAY, TODAY)
+        expect(w.carry).toBe(100) // whole week of 12 Oct counts
+    })
+
+    it('takes 1/7 off for each day off and ignores spend on it', () => {
+        const excluded = new Set(['2026-10-24', '2026-10-25'])
+        const w = computeWeeklyBudget(weekBudgetRow(70), [spend('2026-10-24', 40)], [], TODAY, '2026-10-26', excluded)
+        expect(w.allowance).toBe(50)
+        expect(w.spent).toBe(0)
+    })
+
+    it('applies past weekly amounts to carry', () => {
+        const r = weekBudgetRow(100, { carryFrom: '2026-10-12', pastWeeklyAmounts: [{ beforeWeek: '2026-10-19', amount: 50 }] })
+        const w = computeWeeklyBudget(r, [], [], TODAY, TODAY)
+        expect(w.carry).toBe(50)
+        expect(w.allowance).toBe(100)
+    })
+
+    it('counts top-ups and withdrawals forward-only, never refills', () => {
+        const r = weekBudgetRow(100, { carryFrom: '2026-10-12' })
+        const topUps = [
+            topUp('2026-10-14', 20), // closed week: into carry
+            topUp('2026-10-15', 5, 'withdrawal'),
+            topUp('2026-10-20', 10), // this week, already happened
+            topUp('2026-10-23', 99), // this week, not yet
+            topUp('2026-10-20', 500, 'refill'),
+        ]
+        const w = computeWeeklyBudget(r, [], topUps, TODAY, TODAY)
+        expect(w.carry).toBe(115)
+        expect(w.adjustments).toBe(10)
+        expect(w.available).toBe(225)
+    })
+
+    it('spreads the pot as it stood this morning over the days left', () => {
+        // Wed: Mon spent 30 → 110 left this morning over Wed–Sun (5 days) = 22/day.
+        const spends = [spend('2026-10-19', 30), spend('2026-10-21', 12)]
+        const w = computeWeeklyBudget(weekBudgetRow(140), spends, [], TODAY, TODAY)
+        expect(w.daysLeft).toBe(5)
+        expect(w.spentToday).toBe(12)
+        expect(w.remaining).toBe(98)
+        expect(w.dailyGuide).toBe(22)
+        expect(w.todayLeft).toBe(10)
+    })
+
+    it('goes negative on the guide when the week is overspent', () => {
+        const w = computeWeeklyBudget(weekBudgetRow(70), [spend('2026-10-19', 120)], [], TODAY, TODAY)
+        expect(w.dailyGuide).toBe(-10)
+    })
+
+    it('counts planned spend in a future week, guided over all its days', () => {
+        const w = computeWeeklyBudget(weekBudgetRow(70), [spend('2026-10-28', 14)], [], '2026-10-28', TODAY)
+        expect(w.spent).toBe(14)
+        expect(w.daysLeft).toBe(7)
+        expect(w.spentToday).toBe(0)
+        expect(w.dailyGuide).toBe(8)
+    })
+
+    it('has no guide for a past week', () => {
+        const w = computeWeeklyBudget(weekBudgetRow(70), [], [], '2026-10-14', TODAY)
+        expect(w.daysLeft).toBe(0)
+        expect(w.dailyGuide).toBe(0)
     })
 })

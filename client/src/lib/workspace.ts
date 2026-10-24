@@ -28,6 +28,8 @@ export const NAV_ITEMS: NavItem[] = [
     { label: 'Habits & goals', to: '/goals', icon: 'fa-bullseye' },
     { label: 'Fitness', to: '/fitness', icon: 'fa-dumbbell' },
     { label: 'Nutrition', to: '/nutrition', icon: 'fa-bowl-food' },
+    { label: 'Timeline', to: '/timeline', icon: 'fa-route' },
     { label: 'Notes', to: '/notes', icon: 'fa-note-sticky' },
+    { label: 'Lists', to: '/lists', icon: 'fa-list-check' },
     { label: 'Weather', to: '/weather', icon: 'fa-cloud-sun' },
 ]

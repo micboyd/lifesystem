@@ -7,6 +7,7 @@ import EmptyState from './EmptyState'
 import Drawer from './Drawer'
 import BottomSheet from './BottomSheet'
 import Checkbox from './Checkbox'
+import Textarea from './Textarea'
 import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
 import ConditioningSessionDetail from './ConditioningSessionDetail'
@@ -259,6 +260,8 @@ function snapshotWeek(
                     order: e.order,
                     ignoreClash: e.ignoreClash === true,
                     ignoreOverload: e.ignoreOverload === true,
+                    skipped: e.skipped === true,
+                    skipReason: e.skipReason ?? '',
                 },
             ]
         }),
@@ -796,6 +799,28 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         }
     }
 
+    // Skip a planned session (with an optional reason), or take the skip back.
+    // Not an edit to the plan — it's done from the read-only detail drawer, like
+    // marking done. Optimistic, and a failed save puts the row back as it was.
+    async function handleSkip(entry: FitnessPlanEntry, skipped: boolean, skipReason = '') {
+        const before = { skipped: entry.skipped, skipReason: entry.skipReason }
+        const after = { skipped, skipReason: skipped ? skipReason.trim() : '' }
+        const apply = (patch: Partial<FitnessPlanEntry>) => {
+            setEntries((prev) => prev.map((e) => (e._id === entry._id ? { ...e, ...patch } : e)))
+            setDetail((d) => (d && d._id === entry._id ? { ...d, ...patch } : d))
+        }
+        apply(after)
+        try {
+            await updatePlanEntry(entry._id, after)
+            const name = planItemName(entry) ?? 'Session'
+            toast.show(skipped ? `Skipped “${name}”.` : `“${name}” is back on.`, 'success')
+        } catch {
+            apply(before)
+            toast.show('Could not save that — please try again.', 'danger')
+            throw new Error('skip failed')
+        }
+    }
+
     // Reorder a slot from a week-view drag — and, when the dragged item came from
     // another slot or day, move it in at the chosen spot. `ids` is the target
     // slot's new top-to-bottom order. Optimistic: rewrite the listed entries' date,
@@ -1075,6 +1100,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     if (id) markDoneKey(entry.kind, id, entry.date, logId)
                 }}
                 onUnlog={handleUnlog}
+                onSkip={handleSkip}
                 onLogWeights={(workout, date) => {
                     setDetail(null)
                     setLogTarget({ workout, date })
@@ -1100,7 +1126,8 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     if (!sessionTarget) return
                     const id = sessionTarget.session._id
                     // Re-dated in the wrap-up: the tick moves with it.
-                    if (date !== sessionTarget.date) clearDoneKey('conditioning', id, sessionTarget.date)
+                    if (date !== sessionTarget.date)
+                        clearDoneKey('conditioning', id, sessionTarget.date)
                     markDoneKey('conditioning', id, date, logId)
                 }}
             />
@@ -1940,6 +1967,7 @@ function FitnessWeekHero({
     const t = tally(entries)
     const total = entries.length
     const done = entries.filter(isDone).length
+    const skipped = entries.filter((e) => e.skipped && !isDone(e)).length
     const flag = weekNote ? FLAG_TONE[weekNote.color] : null
     const isThisWeek = mondayOf(today) === weekStart
     const goToday = () => onPick(today)
@@ -1947,7 +1975,8 @@ function FitnessWeekHero({
     // Everything about the week in one line of text, rather than a row of chips.
     const facts = [
         rangeLabel,
-        ready && total > 0 && `${done} of ${total} done`,
+        ready && total > 0 && `${done} of ${total - skipped} done`,
+        ready && skipped > 0 && `${skipped} skipped`,
         ready && t.workouts > 0 && `${t.workouts} strength`,
         ready && t.sessions > 0 && `${t.sessions} conditioning`,
         ready && t.minutes > 0 && `${t.minutes} min cardio`,
@@ -2065,7 +2094,11 @@ function FitnessWeekHero({
                                 active={date === selected}
                                 isToday={date === today}
                                 dots={ready ? kindsIn(dayEntries).map((k) => KIND_TONE[k].dot) : []}
-                                allDone={ready && dayEntries.length > 0 && dayEntries.every(isDone)}
+                                allDone={
+                                    ready &&
+                                    dayEntries.some(isDone) &&
+                                    dayEntries.every((e) => isDone(e) || e.skipped)
+                                }
                                 alert={ready && alertDates.has(date)}
                                 onClick={() => onSelect(date)}
                             />
@@ -2144,7 +2177,9 @@ function WeekView({
 
     // Swipe left/right on a phone to move a day — crossing Sunday or Monday
     // carries on into the next or previous week.
-    const { sliderProps, dayClass } = useDaySlider(selected, (dir) => onSelect(addDays(selected, dir)))
+    const { sliderProps, dayClass } = useDaySlider(selected, (dir) =>
+        onSelect(addDays(selected, dir))
+    )
 
     // A slot's items (any day) in display (order) sequence.
     const slotItems = (date: string, part: FitnessPlanPart) =>
@@ -2380,6 +2415,9 @@ function DayCard({
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
     const total = entries.length
     const doneCount = entries.filter(isDone).length
+    // Skipped sessions drop out of what the day is measured against.
+    const skippedCount = entries.filter((e) => e.skipped && !isDone(e)).length
+    const toDo = total - skippedCount
     const rest = total === 0
     const calendarCount = calendarEvents.length
     // On a rest day, what the calendar says you're doing instead.
@@ -2433,11 +2471,12 @@ function DayCard({
                 {total} {total === 1 ? 'session' : 'sessions'}
                 {minutes > 0 && ` · about ${minutes} min`}
                 {doneCount > 0 && <span className="text-emerald-700"> · {doneCount} done</span>}
+                {skippedCount > 0 && <span> · {skippedCount} skipped</span>}
             </p>
             <div className="h-1 overflow-hidden rounded-full bg-neutral-100">
                 <div
                     className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
-                    style={{ width: `${(doneCount / total) * 100}%` }}
+                    style={{ width: `${toDo > 0 ? (doneCount / toDo) * 100 : 0}%` }}
                 />
             </div>
         </div>
@@ -2900,20 +2939,33 @@ function PlannedRow({
     const name = planItemName(entry)
     const tone = KIND_TONE[entry.kind]
     const [dragging, setDragging] = useState(false)
+    // A logged session counts as done even if it was skipped first.
+    const skipped = !done && entry.skipped === true
 
     const body = (
         <span className="flex min-w-0 items-stretch gap-2.5">
-            <span className={`w-1 shrink-0 rounded-full ${tone.dot}`} aria-hidden="true" />
+            <span
+                className={`w-1 shrink-0 rounded-full ${skipped ? 'bg-neutral-300' : tone.dot}`}
+                aria-hidden="true"
+            />
             <span className="min-w-0 flex-1 py-0.5">
                 <span
                     className={`block truncate text-sm font-medium ${
-                        done ? 'text-neutral-500' : 'text-neutral-900'
+                        skipped
+                            ? 'text-neutral-400 line-through decoration-neutral-300'
+                            : done
+                              ? 'text-neutral-500'
+                              : 'text-neutral-900'
                     }`}
                 >
                     {name}
                 </span>
                 <span className="mt-0.5 block truncate text-[13px] text-neutral-500">
-                    {plannedMeta(entry)}
+                    {skipped
+                        ? entry.skipReason
+                            ? `Skipped · ${entry.skipReason}`
+                            : 'Skipped'
+                        : plannedMeta(entry)}
                 </span>
             </span>
         </span>
@@ -2989,6 +3041,17 @@ function PlannedRow({
                     <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
                 </span>
             )}
+            {skipped && (
+                <span
+                    className={`grid shrink-0 place-items-center rounded-full bg-red-50 text-red-500 ${
+                        compact ? 'h-5 w-5' : 'h-6 w-6'
+                    }`}
+                    aria-label="Skipped"
+                    title={entry.skipReason ? `Skipped — ${entry.skipReason}` : 'Skipped'}
+                >
+                    <i className="fa-solid fa-ban text-[11px]" aria-hidden="true" />
+                </span>
+            )}
             {onRemove && (
                 <button
                     type="button"
@@ -3004,6 +3067,9 @@ function PlannedRow({
         </li>
     )
 }
+
+/** Quick reasons offered when skipping a session. */
+const SKIP_SUGGESTIONS = ['Injured', 'Ill', 'Tired', 'Too busy', 'Travelling', 'Weather']
 
 /** How many library items the day drawer's add list lays out at a time. */
 const PICKER_PAGE_SIZE = 10
@@ -3338,6 +3404,7 @@ function PlannedDetailDrawer({
     onClose,
     onLogged,
     onUnlog,
+    onSkip,
     onLogWeights,
     onStartSession,
 }: {
@@ -3352,6 +3419,8 @@ function PlannedDetailDrawer({
     onLogged: (entry: FitnessPlanEntry, logId: string) => void
     /** Delete the completion log behind a ticked item, so it counts as not done. */
     onUnlog: (entry: FitnessPlanEntry, logId: string) => Promise<void>
+    /** Skip the item (with an optional reason), or put a skipped one back on. */
+    onSkip: (entry: FitnessPlanEntry, skipped: boolean, reason?: string) => Promise<void>
     /** Open the per-set weight logger for a planned workout, dated to its day. */
     onLogWeights: (workout: Workout, date: string) => void
     /** Open the session logger for a planned conditioning session — fresh, or
@@ -3368,6 +3437,15 @@ function PlannedDetailDrawer({
     const [logging, setLogging] = useState(false)
     // An undo of "Mark as done" awaiting confirmation — it deletes the log.
     const [confirmUndo, setConfirmUndo] = useState(false)
+    // The skip form: open while a reason is being written, closed on each new item.
+    const [skipping, setSkipping] = useState(false)
+    const [skipReason, setSkipReason] = useState('')
+    const [skipFor, setSkipFor] = useState<string | null>(null)
+    if (entry && entry._id !== skipFor) {
+        setSkipFor(entry._id)
+        setSkipping(false)
+        setSkipReason('')
+    }
 
     const e = view
     const title = e ? (planItemName(e) ?? KIND_META[e.kind].label) : 'Details'
@@ -3385,9 +3463,7 @@ function PlannedDetailDrawer({
     if (nextLogId !== logId) setLogId(nextLogId)
     const logKind = e?.kind
     const [doneLog, setDoneLog] = useState<
-        | { kind: 'workout'; log: WorkoutLog }
-        | { kind: 'conditioning'; log: ConditioningLog }
-        | null
+        { kind: 'workout'; log: WorkoutLog } | { kind: 'conditioning'; log: ConditioningLog } | null
     >(null)
     useEffect(() => {
         if (!entry || !logId) return
@@ -3417,9 +3493,11 @@ function PlannedDetailDrawer({
     // Any planned item can be logged straight from the planner — "Mark as done"
     // snapshots the library item into a completed record dated to the planned day,
     // mirroring the Done buttons in each category's log.
+    const skipped = !!e && !done && e.skipped === true
     const canMarkDone =
         !!e &&
         !done &&
+        !skipped &&
         ((e.kind === 'workout' && !!e.workout) || (e.kind === 'conditioning' && !!e.session))
 
     async function markDone() {
@@ -3432,9 +3510,7 @@ function PlannedDetailDrawer({
                 toast.show(`Logged “${e.workout.name}”.`, 'success')
             } else if (e.kind === 'conditioning' && e.session) {
                 logId = (
-                    await createConditioningLog(
-                        conditioningPayload(e.session, e.date, EMPTY_TAPS)
-                    )
+                    await createConditioningLog(conditioningPayload(e.session, e.date, EMPTY_TAPS))
                 )._id
                 toast.show(`Logged “${e.session.name}”.`, 'success')
             }
@@ -3442,6 +3518,32 @@ function PlannedDetailDrawer({
             onClose()
         } catch {
             toast.show('Could not log that — please try again.', 'danger')
+        } finally {
+            setLogging(false)
+        }
+    }
+
+    async function confirmSkip() {
+        if (!e) return
+        setLogging(true)
+        try {
+            await onSkip(e, true, skipReason)
+            setSkipping(false)
+            setSkipReason('')
+        } catch {
+            // The planner has already said it failed; keep the form open to retry.
+        } finally {
+            setLogging(false)
+        }
+    }
+
+    async function unskip() {
+        if (!e) return
+        setLogging(true)
+        try {
+            await onSkip(e, false)
+        } catch {
+            // Reported by the planner.
         } finally {
             setLogging(false)
         }
@@ -3477,58 +3579,148 @@ function PlannedDetailDrawer({
                 size="2xl"
                 title={title}
                 footer={
-                    <div className="flex w-full flex-wrap items-center justify-end gap-3">
-                        {done && doneLogId && (
+                    skipping ? (
+                        <div className="flex w-full flex-wrap items-center justify-end gap-3">
                             <Button
                                 variant="ghost"
-                                icon="fa-solid fa-rotate-left"
-                                onClick={() => setConfirmUndo(true)}
+                                onClick={() => setSkipping(false)}
                                 disabled={logging}
-                                className="mr-auto"
                             >
-                                Mark as not done
+                                Cancel
                             </Button>
-                        )}
-                        {canMarkDone && (
+                            <Button
+                                variant="danger"
+                                icon="fa-solid fa-ban"
+                                onClick={confirmSkip}
+                                disabled={logging}
+                            >
+                                {logging ? 'Saving…' : 'Skip session'}
+                            </Button>
+                        </div>
+                    ) : skipped ? (
+                        <div className="flex w-full flex-wrap items-center justify-end gap-3">
                             <Button
                                 variant="secondary"
-                                icon="fa-solid fa-check"
-                                onClick={markDone}
+                                icon="fa-solid fa-rotate-left"
+                                onClick={unskip}
                                 disabled={logging}
                             >
-                                {logging ? 'Logging…' : 'Mark as done'}
+                                {logging ? 'Saving…' : 'Unskip'}
                             </Button>
-                        )}
-                        {e?.kind === 'workout' && e.workout && (
-                            <Button
-                                icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
-                                onClick={() => e.workout && onLogWeights(e.workout, e.date)}
-                            >
-                                {done ? 'Open log' : 'Start workout'}
-                            </Button>
-                        )}
-                        {isSession && e && (
-                            <Button
-                                icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
-                                onClick={() =>
-                                    onStartSession(
-                                        e,
-                                        done ? doneLogId : null,
-                                        doneLog?.kind === 'conditioning'
-                                            ? doneLog.log.notes
-                                            : undefined
-                                    )
-                                }
-                            >
-                                {done ? 'Open log' : 'Start session'}
-                            </Button>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        <div className="flex w-full flex-wrap items-center justify-end gap-3">
+                            {canMarkDone && (
+                                <Button
+                                    variant="ghost"
+                                    icon="fa-solid fa-ban"
+                                    onClick={() => {
+                                        setSkipReason('')
+                                        setSkipping(true)
+                                    }}
+                                    disabled={logging}
+                                    className="mr-auto"
+                                >
+                                    Skip
+                                </Button>
+                            )}
+                            {done && doneLogId && (
+                                <Button
+                                    variant="ghost"
+                                    icon="fa-solid fa-rotate-left"
+                                    onClick={() => setConfirmUndo(true)}
+                                    disabled={logging}
+                                    className="mr-auto"
+                                >
+                                    Mark as not done
+                                </Button>
+                            )}
+                            {canMarkDone && (
+                                <Button
+                                    variant="secondary"
+                                    icon="fa-solid fa-check"
+                                    onClick={markDone}
+                                    disabled={logging}
+                                >
+                                    {logging ? 'Logging…' : 'Mark as done'}
+                                </Button>
+                            )}
+                            {e?.kind === 'workout' && e.workout && (
+                                <Button
+                                    icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
+                                    onClick={() => e.workout && onLogWeights(e.workout, e.date)}
+                                >
+                                    {done ? 'Open log' : 'Start workout'}
+                                </Button>
+                            )}
+                            {isSession && e && (
+                                <Button
+                                    icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
+                                    onClick={() =>
+                                        onStartSession(
+                                            e,
+                                            done ? doneLogId : null,
+                                            doneLog?.kind === 'conditioning'
+                                                ? doneLog.log.notes
+                                                : undefined
+                                        )
+                                    }
+                                >
+                                    {done ? 'Open log' : 'Start session'}
+                                </Button>
+                            )}
+                        </div>
+                    )
                 }
             >
                 {e && (
                     <div className="flex flex-col gap-6">
                         <PlannedContext entry={e} done={done} />
+                        {skipping && (
+                            <div className="flex flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
+                                <Textarea
+                                    label="Why are you skipping it?"
+                                    hint="Optional — it shows on the plan beside the no-entry sign."
+                                    rows={2}
+                                    maxLength={280}
+                                    autoFocus
+                                    value={skipReason}
+                                    onChange={(ev) => setSkipReason(ev.target.value)}
+                                    placeholder="e.g. Sore hamstring, rest instead"
+                                />
+                                <div className="flex flex-wrap gap-2">
+                                    {SKIP_SUGGESTIONS.map((r) => (
+                                        <button
+                                            key={r}
+                                            type="button"
+                                            onClick={() => setSkipReason(r)}
+                                            className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset transition-colors ${
+                                                skipReason === r
+                                                    ? 'bg-neutral-900 text-white ring-neutral-900'
+                                                    : 'bg-white text-neutral-600 ring-neutral-900/[0.08] hover:text-neutral-900'
+                                            }`}
+                                        >
+                                            {r}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {skipped && !skipping && (
+                            <div className="flex items-start gap-3 rounded-2xl bg-red-50/60 p-4">
+                                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-red-50 text-red-500 ring-1 ring-inset ring-red-500/15">
+                                    <i className="fa-solid fa-ban text-sm" aria-hidden="true" />
+                                </span>
+                                <div className="min-w-0 pt-1">
+                                    <p className="text-sm font-semibold text-neutral-900">
+                                        Skipped
+                                    </p>
+                                    <p className="mt-0.5 whitespace-pre-line text-sm text-neutral-600">
+                                        {e.skipReason || 'No reason given.'}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                         {showLog && doneLog ? (
                             doneLog.kind === 'workout' ? (
                                 <WorkoutLogSummary log={doneLog.log} />
@@ -3610,6 +3802,12 @@ function PlannedContext({ entry, done }: { entry: FitnessPlanEntry; done: boolea
                 <span className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700">
                     <i className="fa-solid fa-circle-check" aria-hidden="true" />
                     Done
+                </span>
+            )}
+            {!done && entry.skipped && (
+                <span className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-full bg-red-50 px-2.5 text-xs font-semibold text-red-600">
+                    <i className="fa-solid fa-ban" aria-hidden="true" />
+                    Skipped
                 </span>
             )}
         </div>

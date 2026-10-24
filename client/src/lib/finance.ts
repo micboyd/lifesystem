@@ -108,3 +108,26 @@ export function freeCashByMonth(
 
     return out
 }
+
+/**
+ * The month's planned income from the Monthly sheet: every income row active
+ * that month, at its entry for the month or its recurring amount. Matches the
+ * sheet's own "In" figure.
+ */
+export function incomeForMonth(
+    groups: FinanceGroup[],
+    rows: FinanceRow[],
+    entries: { row: string; amount: number }[],
+    month: string
+): number {
+    let total = 0
+    for (const g of groups) {
+        if (g.type !== 'income' || !groupVisibleInMonth(g, month)) continue
+        for (const r of rows) {
+            if (r.group !== g._id || !rowVisibleInMonth(r, month, g)) continue
+            const entry = entries.find((e) => e.row === r._id)?.amount
+            total += entry ?? recurringAmountForMonth(r, month) ?? 0
+        }
+    }
+    return Math.round(total * 100) / 100
+}

@@ -10,6 +10,13 @@ export interface IMacros {
     fat: number
 }
 
+/** One serving's worth: grams, or `items` for things bought by count (5 eggs), or both. */
+export interface IMealIngredient {
+    name: string
+    grams: number
+    items?: number
+}
+
 /** A meal in the library: a name, which meals of the day it's for, and its macros. */
 export interface IMeal extends Document {
     user: Types.ObjectId
@@ -17,6 +24,8 @@ export interface IMeal extends Document {
     /** Breakfast / lunch / dinner / snack — a meal can be more than one. */
     types: MealType[]
     macros: IMacros
+    /** What goes into one serving — what the shopping list buys. */
+    ingredients: IMealIngredient[]
     notes?: string
     order: number
     /** Set on meals added by a JSON import, so the last import can be undone. */
@@ -41,6 +50,15 @@ const mealSchema = new Schema<IMeal>(
         name: { type: String, required: true, trim: true },
         types: [{ type: String, enum: MEAL_TYPES }],
         macros: { type: macrosSchema, default: () => ({}) },
+        ingredients: {
+            type: [
+                new Schema<IMealIngredient>(
+                    { name: { type: String, trim: true }, grams: { type: Number, default: 0 }, items: Number },
+                    { _id: false }
+                ),
+            ],
+            default: [],
+        },
         notes: { type: String, trim: true },
         order: { type: Number, default: 0 },
         importBatch: { type: String, default: null },

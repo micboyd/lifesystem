@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import PhaseHeading, { phaseSpan } from '../components/PhaseHeading'
 import Container from '../components/Container'
 import { Card } from '../components/Card'
@@ -132,7 +133,16 @@ const SUBTITLE: Record<Tab, string> = {
 }
 
 export default function Fitness() {
-    const [tab, setTab] = useState<Tab>('Planner')
+    // `?tab=plans` / `?tab=body` lets another page (the Timeline's setup list)
+    // land on a tab. Read once on arrival, then dropped from the URL.
+    const [searchParams, setSearchParams] = useSearchParams()
+    const [tab, setTab] = useState<Tab>(
+        () => TABS.find((t) => t.toLowerCase() === searchParams.get('tab')) ?? 'Planner'
+    )
+    useEffect(() => {
+        if (searchParams.has('tab')) setSearchParams({}, { replace: true })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
     const [exportOpen, setExportOpen] = useState(false)
     // Set when applying a plan sends us to the planner, so it opens on the week
     // the plan actually starts rather than on this one. Cleared as soon as the

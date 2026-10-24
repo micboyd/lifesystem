@@ -5,7 +5,7 @@ import FinanceRow from '../models/FinanceRow'
 import FinancePot from '../models/FinancePot'
 import FinanceEntry, { MONTH_PATTERN } from '../models/FinanceEntry'
 import FinancePaid from '../models/FinancePaid'
-import { recurringAmountForMonth } from '../lib/rowAmounts'
+import { recurringAmountForMonth, weeklyAmountForWeek, monthlyFromWeekly, isMonday } from '../lib/rowAmounts'
 
 function isValidMonth(v: unknown): v is string {
     return typeof v === 'string' && MONTH_PATTERN.test(v)
@@ -203,20 +203,51 @@ export async function updateRow(req: AuthRequest, res: Response) {
         fields.recurringAmount = req.body.recurringAmount
     if (req.body.recurringAmount === null) fields.recurringAmount = undefined
 
+    // Weekly amount edits. The weekly figure is the source of truth; the monthly
+    // `recurringAmount` follows it (weekly × 52 ÷ 12) under the same scope, so
+    // Finances and forecasts keep adding up. 'onward' from `week` (a Monday)
+    // records the superseded weekly amount so closed weeks' carry is unchanged.
+    let amountScope = req.body.amountScope
+    let scopeMonth: unknown = req.body.month
+    if (typeof req.body.weeklyAmount === 'number' && req.body.weeklyAmount >= 0) {
+        const weekly = req.body.weeklyAmount as number
+        fields.weeklyAmount = weekly
+        fields.recurringAmount = monthlyFromWeekly(weekly)
+        if (req.body.amountScope === 'onward' && isMonday(req.body.week)) {
+            const existing = await FinanceRow.findOne({ _id: req.params.id, user: req.userId })
+            if (!existing) {
+                res.status(404).json({ message: 'Row not found' })
+                return
+            }
+            const week = req.body.week as string
+            const prevMonday = new Date(`${week}T00:00:00`)
+            prevMonday.setDate(prevMonday.getDate() - 7)
+            const prevKey = `${prevMonday.getFullYear()}-${String(prevMonday.getMonth() + 1).padStart(2, '0')}-${String(prevMonday.getDate()).padStart(2, '0')}`
+            const prevEffective = weeklyAmountForWeek(existing, prevKey)
+            const kept = (existing.pastWeeklyAmounts ?? []).filter((p) => p.beforeWeek <= week)
+            if (prevEffective !== weekly) kept.push({ beforeWeek: week, amount: prevEffective })
+            fields.pastWeeklyAmounts = kept
+            scopeMonth = week.slice(0, 7)
+        } else if (req.body.amountScope === 'all') {
+            fields.pastWeeklyAmounts = []
+        } else {
+            amountScope = undefined
+        }
+    }
+    if (req.body.weeklyAmount === null) fields.weeklyAmount = null
+    if (isMonday(req.body.carryFrom) || req.body.carryFrom === null)
+        fields.carryFrom = req.body.carryFrom ?? null
+
     // Scoped amount edits. 'onward' preserves what past months showed by
     // recording the superseded amount as a pastAmounts boundary; 'all' rewrites
     // history so every month uses the new value.
-    if (
-        'recurringAmount' in fields &&
-        req.body.amountScope === 'onward' &&
-        isValidMonth(req.body.month)
-    ) {
+    if ('recurringAmount' in fields && amountScope === 'onward' && isValidMonth(scopeMonth)) {
         const existing = await FinanceRow.findOne({ _id: req.params.id, user: req.userId })
         if (!existing) {
             res.status(404).json({ message: 'Row not found' })
             return
         }
-        const month = req.body.month as string
+        const month = scopeMonth
         const prevEffective = recurringAmountForMonth(existing, addMonths(month, -1))
         // Boundaries at or before the edit month still describe months this edit
         // doesn't touch; later ones are superseded by "from this month onwards".
@@ -225,7 +256,7 @@ export async function updateRow(req: AuthRequest, res: Response) {
             kept.push({ beforeMonth: month, amount: prevEffective })
         }
         fields.pastAmounts = kept
-    } else if ('recurringAmount' in fields && req.body.amountScope === 'all') {
+    } else if ('recurringAmount' in fields && amountScope === 'all') {
         fields.pastAmounts = []
     }
 

@@ -31,7 +31,12 @@ export function toIngredients(raw: unknown): IIngredient[] {
     return raw
         .map((i) => (i && typeof i === 'object' ? i : {}) as Record<string, unknown>)
         .filter((i) => typeof i.name === 'string' && i.name.trim())
-        .map((i) => ({ name: String(i.name).trim(), grams: toNumber(i.grams), per100: toMacros(i.per100) }))
+        .map((i) => ({
+            name: String(i.name).trim(),
+            grams: toNumber(i.grams),
+            items: toNumber(i.items) || undefined,
+            per100: toMacros(i.per100),
+        }))
 }
 
 function readFood(body: unknown) {
@@ -51,8 +56,8 @@ function readFood(body: unknown) {
 
 /**
  * GET /api/plate-foods — boxes and plain foods, each box with its open
- * batches (grams eaten from each, worked out from eaten plates) and its
- * latest cook, open or not.
+ * batches in use (grams eaten from each, worked out from eaten plates), its
+ * batches in the freezer, and its latest cook, open or not.
  */
 export async function listPlateFoods(req: AuthRequest, res: Response) {
     const foods = await PlateFood.find({ user: req.userId }).sort({ order: 1, createdAt: 1 })
@@ -71,11 +76,13 @@ export async function listPlateFoods(req: AuthRequest, res: Response) {
 
     const data = foods.map((f) => {
         const mine = cooks.filter((c) => String(c.food) === String(f._id))
+        const open = mine.filter((c) => !c.finished)
         return {
             ...f.toObject(),
-            open: mine
-                .filter((c) => !c.finished)
+            open: open
+                .filter((c) => !c.frozen)
                 .map((c) => ({ ...c.toObject(), eatenGrams: eatenBy.get(String(c._id)) ?? 0 })),
+            frozen: open.filter((c) => c.frozen).map((c) => c.toObject()),
             last: mine[0] ?? null,
         }
     })
@@ -142,6 +149,7 @@ async function renamePlannedBox(userId: string, food: IPlateFood) {
 async function removeFood(userId: string, food: IPlateFood) {
     await food.deleteOne()
     await BoxCook.deleteMany({ user: userId, food: food._id })
+    await MealPlanEntry.deleteMany({ user: userId, box: food._id })
     const planned = await MealPlanEntry.find({ user: userId, status: 'planned', 'plate.food': food._id })
     for (const e of planned) {
         const plate = (e.plate ?? []).filter((l) => String(l.food) !== String(food._id))
@@ -215,6 +223,8 @@ function readTray(raw: unknown, index: number): TrayFields | string[] {
             if (typeof ing.name !== 'string' || !ing.name.trim()) errors.push(`${where}: "name" is required`)
             if (ing.grams !== undefined && !isAmount(ing.grams))
                 errors.push(`${where}: grams must be a number of 0 or more`)
+            if (ing.items !== undefined && !(isAmount(ing.items) && Number(ing.items) > 0))
+                errors.push(`${where}: items must be a number above 0`)
             // Macros on a tray are always per 100 g raw — say so rather than guess.
             if (ing.per100 === undefined && ing.macros !== undefined)
                 errors.push(`${where}: use "per100" (the packet's macros per 100 g), not "macros"`)

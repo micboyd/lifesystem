@@ -48,6 +48,12 @@ export interface IMealPlanEntry extends Document {
      * lines' total and `name` is built from them; `meal` is absent.
      */
     plate?: IPlateLine[]
+    /**
+     * Set on a box note — "eating from this box" planned ahead, with no
+     * amounts. It carries no macros and is never ticked: weighing a plate of
+     * that box into the same slot replaces it.
+     */
+    box?: Types.ObjectId
     name: string
     macros: IMacros
     status: EntryStatus
@@ -64,6 +70,7 @@ const mealPlanEntrySchema = new Schema<IMealPlanEntry>(
         slot: { type: String, enum: MEAL_TYPES, required: true },
         meal: { type: Schema.Types.ObjectId, ref: 'Meal' },
         plate: { type: [plateLineSchema], default: undefined },
+        box: { type: Schema.Types.ObjectId, ref: 'PlateFood' },
         name: { type: String, required: true, trim: true },
         macros: { type: macrosSchema, default: () => ({}) },
         status: { type: String, enum: ENTRY_STATUSES, default: 'planned' },

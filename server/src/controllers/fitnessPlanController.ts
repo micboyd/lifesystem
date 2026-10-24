@@ -137,16 +137,22 @@ export async function createEntry(req: AuthRequest, res: Response) {
  * PATCH /api/fitness-plan/:id — move an entry to a different slot of its day,
  * and/or accept a warning raised against it. A move appends the entry to the end
  * of the target slot; `ignoreClash` silences the calendar-clash warning for this
- * entry, `ignoreOverload` the doubled-up-slot one.
- * Body: { part?, ignoreClash?, ignoreOverload? } — at least one, any on its own.
+ * entry, `ignoreOverload` the doubled-up-slot one. `skipped` marks the session
+ * as deliberately skipped, with an optional `skipReason`; unskipping clears it.
+ * Body: { part?, ignoreClash?, ignoreOverload?, skipped?, skipReason? } — at
+ * least one, any on its own.
  */
 export async function updateEntry(req: AuthRequest, res: Response) {
-    const { part, ignoreClash, ignoreOverload } = req.body
+    const { part, ignoreClash, ignoreOverload, skipped, skipReason } = req.body
     const moving = part !== undefined
     const overriding = ignoreClash !== undefined
     const overloading = ignoreOverload !== undefined
-    if (!moving && !overriding && !overloading) {
-        res.status(400).json({ message: 'part, ignoreClash or ignoreOverload is required' })
+    const skipping = skipped !== undefined
+    const explaining = skipReason !== undefined
+    if (!moving && !overriding && !overloading && !skipping && !explaining) {
+        res.status(400).json({
+            message: 'part, ignoreClash, ignoreOverload, skipped or skipReason is required',
+        })
         return
     }
     if (moving && !isPart(part)) {
@@ -159,6 +165,14 @@ export async function updateEntry(req: AuthRequest, res: Response) {
     }
     if (overloading && typeof ignoreOverload !== 'boolean') {
         res.status(400).json({ message: 'ignoreOverload must be true or false' })
+        return
+    }
+    if (skipping && typeof skipped !== 'boolean') {
+        res.status(400).json({ message: 'skipped must be true or false' })
+        return
+    }
+    if (explaining && typeof skipReason !== 'string') {
+        res.status(400).json({ message: 'skipReason must be text' })
         return
     }
 
@@ -179,6 +193,10 @@ export async function updateEntry(req: AuthRequest, res: Response) {
     }
     if (overriding) entry.ignoreClash = ignoreClash
     if (overloading) entry.ignoreOverload = ignoreOverload
+    if (skipping) entry.skipped = skipped
+    // A reason only means something on a skipped session; unskipping drops it.
+    if (explaining) entry.skipReason = skipReason.trim().slice(0, 280)
+    if (skipping && !skipped) entry.skipReason = ''
 
     if (entry.isModified()) await entry.save()
 
@@ -352,6 +370,9 @@ interface RestoredEntry {
     ignoreClash: boolean
     /** Whether its overloaded slot had been accepted. */
     ignoreOverload: boolean
+    /** Whether it had been skipped, and why. */
+    skipped: boolean
+    skipReason: string
 }
 
 /**
@@ -392,6 +413,11 @@ export async function restoreWeek(req: AuthRequest, res: Response) {
             order: typeof r.order === 'number' ? r.order : i,
             ignoreClash: r.ignoreClash === true,
             ignoreOverload: r.ignoreOverload === true,
+            skipped: r.skipped === true,
+            skipReason:
+                r.skipped === true && typeof r.skipReason === 'string'
+                    ? r.skipReason.trim().slice(0, 280)
+                    : '',
         })
     })
 
@@ -426,6 +452,8 @@ export async function restoreWeek(req: AuthRequest, res: Response) {
             order: e.order,
             ignoreClash: e.ignoreClash,
             ignoreOverload: e.ignoreOverload,
+            skipped: e.skipped,
+            skipReason: e.skipReason,
         }))
 
     const noteDocs = rows(req.body.notes)

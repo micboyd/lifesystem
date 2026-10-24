@@ -5,10 +5,10 @@ export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 /**
  * One day's energy expenditure, entered by hand from a watch or ring.
  *
- * `caloriesOut` is the *total* for the day — resting plus everything moved — not
- * the active-only figure, so the day's balance is simply intake minus this. That
- * choice is why there's no baseline stored alongside it: one number in, one
- * subtraction out, nothing to misconfigure.
+ * `caloriesOut` is what the watch says was burned. Once the user's body profile
+ * (height, date of birth, sex) and a weigh-in are in, the client works out that
+ * day's BMR and reads this as the active figure, adding the BMR on top; until
+ * then it's taken as the total.
  *
  * At most one per day per user, upserted on { user, date }, for the same reason
  * weigh-ins are: a second figure for a day is a correction, not a second day.
@@ -19,7 +19,7 @@ export interface IDailyEnergy extends Document {
     user: Types.ObjectId
     /** YYYY-MM-DD — the day the burn covers. */
     date: string
-    /** Total calories burned across the whole day. */
+    /** Calories burned — active once a BMR can be worked out, else the day's total. */
     caloriesOut: number
     notes?: string
     createdAt: Date

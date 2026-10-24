@@ -1,7 +1,17 @@
 import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import User, { TIME_PATTERN, IUserSettings } from '../models/User'
+import User, {
+    TIME_PATTERN,
+    IUserSettings,
+    SEXES,
+    TRAINING_AGES,
+    CREATINE_USE,
+    PROTEIN_HABITS,
+    SLEEP_BANDS,
+    ACTIVITY_LEVELS,
+    type ITimelineQuiz,
+} from '../models/User'
 import { AuthRequest } from '../middleware/auth'
 
 export async function register(req: Request, res: Response) {
@@ -69,6 +79,55 @@ export async function updateMe(req: AuthRequest, res: Response) {
     }
 }
 
+function includes<T extends string>(list: readonly T[], value: unknown): value is T {
+    return typeof value === 'string' && (list as readonly string[]).includes(value)
+}
+
+function adherence(value: unknown): number | null {
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0.5 && value <= 1 ? value : null
+}
+
+/** A valid quiz answer set, or null when anything required is missing or out of range. */
+function cleanTimelineQuiz(q: unknown): ITimelineQuiz | null {
+    if (!q || typeof q !== 'object') return null
+    const b = q as Record<string, unknown>
+    const trainingAdherence = adherence(b.trainingAdherence)
+    const nutritionAdherence = adherence(b.nutritionAdherence)
+    if (trainingAdherence === null || nutritionAdherence === null) return null
+    if (!includes(TRAINING_AGES, b.trainingAge) || !includes(CREATINE_USE, b.creatine)) return null
+    if (!includes(PROTEIN_HABITS, b.protein) || !includes(SLEEP_BANDS, b.sleep)) return null
+    if (!includes(ACTIVITY_LEVELS, b.activity)) return null
+
+    const cleaned: ITimelineQuiz = {
+        trainingAdherence,
+        nutritionAdherence,
+        trainingAge: b.trainingAge,
+        creatine: b.creatine,
+        protein: b.protein,
+        sleep: b.sleep,
+        activity: b.activity,
+        // Other settings saves send the whole settings object back, quiz and all,
+        // so a valid stamp is kept rather than re-dated on every save.
+        answeredAt:
+            typeof b.answeredAt === 'string' && !Number.isNaN(Date.parse(b.answeredAt))
+                ? b.answeredAt
+                : new Date().toISOString(),
+    }
+    if (b.creatine !== 'no') {
+        const dose = b.creatineDoseG
+        if (typeof dose === 'number' && Number.isFinite(dose) && dose > 0 && dose <= 30) cleaned.creatineDoseG = dose
+    }
+    if (b.creatine === 'new') {
+        cleaned.creatineLoading = b.creatineLoading === true
+        const start = b.creatineStart
+        if (typeof start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(start) && !Number.isNaN(Date.parse(start)))
+            cleaned.creatineStart = start
+    }
+    const bf = b.bodyFatPct
+    if (typeof bf === 'number' && Number.isFinite(bf) && bf >= 3 && bf <= 60) cleaned.bodyFatPct = bf
+    return cleaned
+}
+
 /** PUT /api/users/me/settings — update general settings (times, etc.). */
 export async function updateSettings(req: AuthRequest, res: Response) {
     const keys: (keyof IUserSettings)[] = ['wakeTime', 'bedTime', 'workStart', 'workEnd']
@@ -108,6 +167,18 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         DATE_PATTERN.test(req.body.financeStartDate)
     ) {
         set['settings.financeStartDate'] = req.body.financeStartDate
+    }
+
+    // Monthly savings goal: £ above zero, or null/0 to clear.
+    if (req.body.savingsGoal === null || req.body.savingsGoal === 0) {
+        unset['settings.savingsGoal'] = 1
+    } else if (
+        typeof req.body.savingsGoal === 'number' &&
+        Number.isFinite(req.body.savingsGoal) &&
+        req.body.savingsGoal > 0 &&
+        req.body.savingsGoal < 1_000_000
+    ) {
+        set['settings.savingsGoal'] = Math.round(req.body.savingsGoal * 100) / 100
     }
 
     // Array settings
@@ -181,6 +252,39 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         if (Object.keys(cleaned).length) set['settings.bodyGoals'] = cleaned
         else unset['settings.bodyGoals'] = 1
     }
+
+    // Body profile: { heightCm, birthDate, sex }, or null/'' to clear. Each
+    // field is kept only when it's sensible; the rest are dropped.
+    const profile = req.body.bodyProfile
+    if (profile === null || profile === '') {
+        unset['settings.bodyProfile'] = 1
+    } else if (profile && typeof profile === 'object') {
+        const cleaned: Record<string, number | string> = {}
+        const h = profile.heightCm
+        if (typeof h === 'number' && Number.isFinite(h) && h >= 50 && h <= 272) cleaned.heightCm = h
+        const dob = profile.birthDate
+        if (typeof dob === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dob) && !Number.isNaN(Date.parse(dob)))
+            cleaned.birthDate = dob
+        if (SEXES.includes(profile.sex)) cleaned.sex = profile.sex
+        if (Object.keys(cleaned).length) set['settings.bodyProfile'] = cleaned
+        else unset['settings.bodyProfile'] = 1
+    }
+    // Timeline quiz: replaced whole, or null/'' to clear. An answer set with
+    // anything missing or out of range is rejected rather than half-saved.
+    const quiz = req.body.timelineQuiz
+    if (quiz === null || quiz === '') {
+        unset['settings.timelineQuiz'] = 1
+    } else if (quiz !== undefined) {
+        const cleaned = cleanTimelineQuiz(quiz)
+        if (!cleaned) {
+            res.status(400).json({ message: 'Timeline quiz answers are incomplete' })
+            return
+        }
+        set['settings.timelineQuiz'] = cleaned
+    }
+
+    // The old typed-in BMR — calculated from the body profile now.
+    unset['settings.bmr'] = 1
 
     const user = await User.findByIdAndUpdate(
         req.userId,

@@ -16,6 +16,8 @@ interface RecurrencePickerProps {
     onEndsOnChange: (endsOn: string) => void
     /** Earliest selectable end date (usually the item's start/end date). */
     minEndDate?: string
+    /** Leave out the "Repeats" switch — the caller shows its own (e.g. a setting row). */
+    bare?: boolean
 }
 
 /**
@@ -31,24 +33,25 @@ export default function RecurrencePicker({
     endsOn,
     onEndsOnChange,
     minEndDate,
+    bare = false,
 }: RecurrencePickerProps) {
     return (
         <div className="flex flex-col gap-3">
-            <Switch checked={enabled} onChange={onEnabledChange} label="Repeats" />
+            {!bare && <Switch checked={enabled} onChange={onEnabledChange} label="Repeats" />}
             {enabled && (
                 <>
-                    <div className="grid grid-cols-3 gap-1 rounded-xl border border-neutral-200 bg-neutral-50 p-1">
+                    <div className="flex flex-wrap gap-2">
                         {RECURRENCE_FREQUENCIES.map((f) => (
                             <button
                                 key={f}
                                 type="button"
                                 onClick={() => onFrequencyChange(f)}
-                                className={[
-                                    'rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors',
+                                aria-pressed={frequency === f}
+                                className={`h-8 rounded-full px-3 text-[13px] font-medium transition-colors ${
                                     frequency === f
-                                        ? 'bg-neutral-950 text-white'
-                                        : 'text-neutral-500 hover:text-neutral-900',
-                                ].join(' ')}
+                                        ? 'bg-neutral-900 text-neutral-50'
+                                        : 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-200 hover:bg-neutral-50'
+                                }`}
                             >
                                 {RECURRENCE_LABELS[f]}
                             </button>
@@ -61,11 +64,8 @@ export default function RecurrencePicker({
                         </p>
                     )}
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                            Ends on{' '}
-                            <span className="normal-case font-normal text-neutral-300">
-                                (optional)
-                            </span>
+                        <span className="text-[13px] font-medium text-neutral-700">
+                            Ends on <span className="font-normal text-neutral-500">(optional)</span>
                         </span>
                         <DatePicker
                             value={endsOn || null}

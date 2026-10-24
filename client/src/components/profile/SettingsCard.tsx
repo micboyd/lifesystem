@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { updateSettings } from '../../services/users'
 import { Card, CardHeader, CardTitle, CardBody } from '../Card'
@@ -8,7 +8,11 @@ import DatePicker from '../DatePicker'
 import Input from '../Input'
 import Button from '../Button'
 import Alert from '../Alert'
-import type { UserSettings } from '../../types'
+import Select from '../Select'
+import { listWeightLogs } from '../../services/weightLogs'
+import { bmrReadout, missingForBmr } from '../../lib/bmr'
+import { todayKey } from '../../lib/calendar'
+import type { BodyProfile, UserSettings, WeightLog } from '../../types'
 
 function errorMessage(err: unknown, fallback: string): string {
     return (
@@ -32,6 +36,27 @@ export default function SettingsCard() {
     const [goalProtein, setGoalProtein] = useState<string>(g.protein ? String(g.protein) : '')
     const [goalCarbs, setGoalCarbs] = useState<string>(g.carbs ? String(g.carbs) : '')
     const [goalFat, setGoalFat] = useState<string>(g.fat ? String(g.fat) : '')
+    const bp = s.bodyProfile ?? {}
+    const [heightCm, setHeightCm] = useState<string>(bp.heightCm ? String(bp.heightCm) : '')
+    const [birthDate, setBirthDate] = useState<string>(bp.birthDate ?? '')
+    const [sex, setSex] = useState<string>(bp.sex ?? '')
+    // Weigh-ins, so the BMR the profile gives can be shown as it's filled in.
+    const [weights, setWeights] = useState<WeightLog[]>([])
+    useEffect(() => {
+        listWeightLogs()
+            .then(setWeights)
+            .catch(() => {})
+    }, [])
+    const profile: BodyProfile = useMemo(
+        () => ({
+            heightCm: Number(heightCm) > 0 ? Number(heightCm) : undefined,
+            birthDate: birthDate || undefined,
+            sex: sex === 'male' || sex === 'female' ? sex : undefined,
+        }),
+        [heightCm, birthDate, sex]
+    )
+    const readout = bmrReadout(profile, weights, todayKey())
+    const missing = missingForBmr(profile, weights)
     const [saving, setSaving] = useState(false)
     const [msg, setMsg] = useState<{ type: 'success' | 'danger'; text: string } | null>(null)
 
@@ -57,6 +82,8 @@ export default function SettingsCard() {
                     carbs: goal(goalCarbs),
                     fat: goal(goalFat),
                 },
+                // An empty profile clears it on the server.
+                bodyProfile: profile,
             }
             const updated = await updateSettings(payload)
             updateUser(updated)
@@ -218,6 +245,77 @@ export default function SettingsCard() {
                                     onChange={(e) => setGoalFat(e.target.value)}
                                 />
                             </Field>
+                        </div>
+                    </div>
+
+                    {/* Nutrition — body, for BMR */}
+                    <div className="border-t border-neutral-100 pt-6">
+                        <p className="text-sm font-semibold text-neutral-700">Body</p>
+                        <p className="mt-0.5 mb-3 text-xs text-neutral-500">
+                            Your BMR (calories burned at rest) is worked out from these and your trend
+                            weight, and added to the burned figure from your watch for each day’s balance.
+                        </p>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <Field label="Height">
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    inputMode="decimal"
+                                    placeholder="cm"
+                                    value={heightCm}
+                                    onChange={(e) => setHeightCm(e.target.value)}
+                                />
+                            </Field>
+                            <Field label="Date of birth">
+                                <DatePicker
+                                    mode="single"
+                                    value={birthDate || null}
+                                    onChange={(v) => setBirthDate(typeof v === 'string' ? v : '')}
+                                    placeholder="Not set"
+                                />
+                            </Field>
+                            <Field label="Sex">
+                                <Select
+                                    value={sex}
+                                    onChange={setSex}
+                                    placeholder="Not set"
+                                    options={[
+                                        { value: 'male', label: 'Male' },
+                                        { value: 'female', label: 'Female' },
+                                    ]}
+                                />
+                            </Field>
+                        </div>
+                        <div className="mt-4 rounded-2xl bg-neutral-50 px-4 py-3 text-sm">
+                            {readout ? (
+                                <>
+                                    <p className="text-neutral-900">
+                                        <span className="font-semibold tabular-nums">
+                                            {readout.bmr.toLocaleString()} kcal
+                                        </span>{' '}
+                                        a day at rest
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-neutral-500">
+                                        Mifflin–St Jeor · {readout.weightKg.toFixed(1)} kg trend weight · age{' '}
+                                        {readout.age}. It moves with your weight.
+                                    </p>
+                                    {readout.fromLeanMass && (
+                                        <p className="mt-1.5 text-xs text-neutral-500">
+                                            From lean mass it’d be{' '}
+                                            <span className="font-medium tabular-nums text-neutral-700">
+                                                {readout.fromLeanMass.bmr.toLocaleString()} kcal
+                                            </span>{' '}
+                                            (Katch–McArdle, {readout.fromLeanMass.bodyFatPct.toFixed(1)}% body fat) —
+                                            a second opinion only.
+                                        </p>
+                                    )}
+                                </>
+                            ) : (
+                                <p className="text-neutral-600">
+                                    Add your {missing.join(', ').replace(/, ([^,]*)$/, ' and $1')} to work out your BMR.
+                                </p>
+                            )}
                         </div>
                     </div>
 

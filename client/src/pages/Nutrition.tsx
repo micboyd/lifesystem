@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Container from '../components/Container'
 import Tabs from '../components/Tabs'
@@ -10,10 +10,13 @@ import BoxLibrary from '../components/nutrition/BoxLibrary'
 import Pantry from '../components/nutrition/Pantry'
 import NutritionStats from '../components/nutrition/NutritionStats'
 import PhasesTab from '../components/nutrition/PhasesTab'
+import { ShoppingDrawer, ShoppingPill, useShopping } from '../components/nutrition/ShoppingList'
 import { useAuth } from '../context/AuthContext'
 import { listMeals } from '../services/meals'
 import { listPlateFoods } from '../services/plateFoods'
-import type { Meal, PlateFood } from '../types'
+import { listWeightLogs } from '../services/weightLogs'
+import { makeBmrLookup } from '../lib/bmr'
+import type { Meal, PlateFood, WeightLog } from '../types'
 
 const TABS = ['Planner', 'Pantry', 'Library', 'Stats', 'Phases'] as const
 type Tab = (typeof TABS)[number]
@@ -51,8 +54,20 @@ export default function Nutrition() {
     useEffect(() => {
         Promise.all([reloadMeals(), reloadFoods().catch(() => {})]).finally(() => setLoading(false))
     }, [reloadMeals, reloadFoods])
+    // Each day's BMR comes from the body profile and that day's trend weight.
+    const [weights, setWeights] = useState<WeightLog[]>([])
+    useEffect(() => {
+        listWeightLogs()
+            .then(setWeights)
+            .catch(() => {})
+    }, [])
+    const profile = user?.settings?.bodyProfile
+    const bmrFor = useMemo(() => makeBmrLookup(profile, weights), [profile, weights])
+
     // The Library is split: saved meals, and the boxes and foods plates are weighed from.
     const [library, setLibrary] = useState<LibraryTab>('Meals')
+    const shopping = useShopping()
+    const [shoppingOpen, setShoppingOpen] = useState(false)
 
     const isLarge = useMediaQuery(LARGE_QUERY)
     // The week board spans the screen below the tabs, as in Fitness; the header,
@@ -69,6 +84,7 @@ export default function Nutrition() {
                         </h1>
                         <p className="mt-1 text-sm text-neutral-500">{SUBTITLE[tab]}</p>
                     </div>
+                    <ShoppingPill list={shopping.list} onOpen={() => setShoppingOpen(true)} />
                 </header>
 
                 <Tabs tabs={[...TABS]} value={tab} onChange={(t) => setTab(t as Tab)} className="self-start" />
@@ -80,7 +96,12 @@ export default function Nutrition() {
                         <Spinner />
                     </div>
                 ) : tab === 'Planner' ? (
-                    <NutritionPlanner meals={meals} foods={foods} settingsGoals={user?.settings?.macroGoals} />
+                    <NutritionPlanner
+                        meals={meals}
+                        foods={foods}
+                        settingsGoals={user?.settings?.macroGoals}
+                        bmrFor={bmrFor}
+                    />
                 ) : tab === 'Pantry' ? (
                     <Pantry foods={foods} onChanged={reloadFoods} />
                 ) : tab === 'Library' ? (
@@ -92,17 +113,24 @@ export default function Nutrition() {
                             className="self-start"
                         />
                         {library === 'Meals' ? (
-                            <MealLibrary meals={meals} onChanged={reloadMeals} />
+                            <MealLibrary meals={meals} onChanged={reloadMeals} onShop={shopping.add} />
                         ) : (
-                            <BoxLibrary foods={foods} onChanged={reloadFoods} />
+                            <BoxLibrary foods={foods} onChanged={reloadFoods} onShop={shopping.add} />
                         )}
                     </div>
                 ) : tab === 'Stats' ? (
-                    <NutritionStats settingsGoals={user?.settings?.macroGoals} />
+                    <NutritionStats settingsGoals={user?.settings?.macroGoals} bmrFor={bmrFor} />
                 ) : (
                     <PhasesTab openPhaseId={openPhaseId} onOpened={clearOpenPhase} />
                 )}
             </Container>
+
+            <ShoppingDrawer
+                open={shoppingOpen}
+                onClose={() => setShoppingOpen(false)}
+                list={shopping.list}
+                onChange={shopping.setList}
+            />
         </main>
     )
 }

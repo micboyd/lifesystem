@@ -50,16 +50,17 @@ export async function listCooks(req: AuthRequest, res: Response) {
 }
 
 /**
- * POST /api/box-cooks { food, date, ingredients, cookedGrams, finishOpen } —
+ * POST /api/box-cooks { food, date, ingredients, cookedGrams, finishOpen, frozen } —
  * "Cooked a box". The raw ingredients as they went in that day, and what the
  * cooked food weighed, give its macros per 100 g. `finishOpen` marks the box's
- * earlier batches as finished. Plates still planned move onto the new batch.
+ * earlier batches in use as finished; `frozen` puts this one in the freezer.
+ * Plates still planned move onto whichever batch now counts.
  */
 export async function createCook(req: AuthRequest, res: Response) {
-    const { food: foodId, date, ingredients, cookedGrams, finishOpen } = req.body ?? {}
-    const food = await PlateFood.findOne({ _id: foodId, user: req.userId, kind: 'box' })
+    const { food: foodId, date, ingredients, cookedGrams, finishOpen, frozen } = req.body ?? {}
+    const food = await PlateFood.findOne({ _id: foodId, user: req.userId })
     if (!food) {
-        res.status(404).json({ message: 'Box not found' })
+        res.status(404).json({ message: 'Food not found' })
         return
     }
     const grams = Number(cookedGrams)
@@ -67,8 +68,9 @@ export async function createCook(req: AuthRequest, res: Response) {
         res.status(400).json({ message: 'date and a cooked weight in grams are required' })
         return
     }
-    const list = toIngredients(ingredients)
-    if (list.length === 0) {
+    // A plain food's batch (rice, say) is just its cooked weight.
+    const list = food.kind === 'box' ? toIngredients(ingredients) : []
+    if (food.kind === 'box' && list.length === 0) {
         res.status(400).json({ message: 'A cook needs at least one ingredient' })
         return
     }
@@ -77,18 +79,45 @@ export async function createCook(req: AuthRequest, res: Response) {
         ingredients: list,
         cookedGrams: grams,
         finishOpen: finishOpen === true,
+        frozen: frozen === true,
     })
     res.status(201).json({ message: 'Created', data: cook })
 }
 
-/** PATCH /api/box-cooks/:id { finished } — the box ran out (or didn't after all). */
+/**
+ * PATCH /api/box-cooks/:id { finished?, frozen?, thawed? } — the box ran out
+ * (or didn't after all), or went into / came out of the freezer. Coming out
+ * stamps `thawed` (the day it was taken out, default today).
+ */
 export async function updateCook(req: AuthRequest, res: Response) {
-    const { finished } = req.body ?? {}
-    if (typeof finished !== 'boolean') {
+    const { finished, frozen, thawed } = req.body ?? {}
+    if (finished !== undefined && typeof finished !== 'boolean') {
         res.status(400).json({ message: 'finished must be true or false' })
         return
     }
-    const cook = await BoxCook.findOneAndUpdate({ _id: req.params.id, user: req.userId }, { finished }, { new: true })
+    if (frozen !== undefined && typeof frozen !== 'boolean') {
+        res.status(400).json({ message: 'frozen must be true or false' })
+        return
+    }
+    if (finished === undefined && frozen === undefined) {
+        res.status(400).json({ message: 'Nothing to change' })
+        return
+    }
+    const set: Record<string, unknown> = {}
+    const unset: Record<string, 1> = {}
+    if (finished !== undefined) set.finished = finished
+    if (frozen === true) {
+        set.frozen = true
+        unset.thawed = 1
+    } else if (frozen === false) {
+        set.frozen = false
+        set.thawed = isDate(thawed) ? thawed : new Date().toISOString().slice(0, 10)
+    }
+    const cook = await BoxCook.findOneAndUpdate(
+        { _id: req.params.id, user: req.userId },
+        { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) },
+        { new: true }
+    )
     if (!cook) {
         res.status(404).json({ message: 'Cook not found' })
         return

@@ -9,6 +9,7 @@ import Checkbox from '../Checkbox'
 import ConfirmModal from '../ConfirmModal'
 import { StatStrip, NoteBlock } from '../session/SessionUI'
 import { useToast } from '../../context/ToastContext'
+import { Link } from 'react-router-dom'
 import {
     HeroShell,
     HeroIconButton,
@@ -31,6 +32,7 @@ import { fmt, kcal, signedKcal } from './format'
 import {
     addPlanEntry,
     addPlatePlanEntry,
+    addBoxNotes,
     updatePlate,
     deletePlanEntry,
     listPlanEntries,
@@ -42,10 +44,12 @@ import {
 import { listDailyEnergy, saveDailyEnergy, deleteDailyEnergy } from '../../services/dailyEnergy'
 import { listNutritionPhases } from '../../services/nutritionPhases'
 import { addDays, formatWeekRange, parseDateKey, todayKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
-import { sumEatenMacros, sumMacros, targetsFor } from '../../lib/nutrition'
+import { addMacros, sumEatenMacros, sumMacros, targetsFor } from '../../lib/nutrition'
 import { MEAL_TYPES } from '../../types'
-import { plateTotal } from '../../lib/plates'
-import { PlateBuilder, PlateLinesEditor, plateGrams, plateTitle } from './PlateUI'
+import { gramsLeft, plateTotal } from '../../lib/plates'
+import { AimCard, PlateBuilder, PlateLinesEditor, plateGrams, plateTitle } from './PlateUI'
+import { fitCost, projectBoxNotes, slotBudget, type BoxProjection } from '../../lib/plateSuggest'
+import { totalOut } from '../../lib/energy'
 import type {
     DailyEnergy,
     MacroGoals,
@@ -99,8 +103,19 @@ const clearable = (e: MealPlanEntry) => !e.extra && e.status === 'planned'
 
 const isEaten = (e: MealPlanEntry) => e.status === 'eaten'
 
+/** "Eating from this box" planned ahead — no grams, no numbers, weighed out when eaten. */
+const isBoxNote = (e: MealPlanEntry) => !!e.box
+
+/** Box notes' projected plates, by entry id — estimates only, never counted as planned. */
+type Projections = Map<string, BoxProjection>
+
 /** The one-line summary under a planned meal's name. */
-function plannedMeta(entry: MealPlanEntry): string {
+function plannedMeta(entry: MealPlanEntry, projection?: BoxProjection): string {
+    if (isBoxNote(entry)) {
+        return projection
+            ? `~${fmt(projection.grams)} g · ~${kcal(projection.macros.calories)} kcal · ~${fmt(Math.round(projection.macros.protein))} g protein`
+            : 'From the box · weigh it when you eat'
+    }
     const grams = plateGrams(entry)
     return `${kcal(entry.macros.calories)} kcal · ${fmt(Math.round(entry.macros.protein))} g protein${grams ? ` · ${grams}` : ''}`
 }
@@ -108,18 +123,22 @@ function plannedMeta(entry: MealPlanEntry): string {
 // ─── Planner ────────────────────────────────────────────────────────────────────
 
 /** `eaten` is Quick log: added to its slot already ticked, with no need to plan first. */
-type PickerTarget = { date: string; slot: MealType; extra: boolean; eaten?: boolean }
+/** `box` is weighing out a box note: the plate starts with that box. */
+type PickerTarget = { date: string; slot: MealType; extra: boolean; eaten?: boolean; box?: string }
 
 
 export default function NutritionPlanner({
     meals,
     foods,
     settingsGoals,
+    bmrFor,
 }: {
     meals: Meal[]
     /** Boxes and plain foods, for weighing out plates. */
     foods: PlateFood[]
     settingsGoals?: MacroGoals
+    /** The BMR worked out for a day (lib/bmr.ts), or null until it can be. */
+    bmrFor: (date: string) => number | null
 }) {
     // Wide screens get the full-width week board; smaller ones a day feed (one
     // day at a time on a phone).
@@ -170,6 +189,25 @@ export default function NutritionPlanner({
         }
     }, [range.start, range.end])
 
+    // What each box note would come to at the suggested grams: the newest open
+    // batch's figures, else the last cook's (frozen or finished).
+    const projections = useMemo<Projections>(() => {
+        const per100For = (id: string) => {
+            const f = foods.find((x) => x._id === id)
+            return f?.open[0]?.per100 ?? f?.frozen[0]?.per100 ?? f?.last?.per100 ?? null
+        }
+        const all: Projections = new Map()
+        if (!entries.some(isBoxNote)) return all
+        for (let i = 0; i < 7; i++) {
+            const date = addDays(range.start, i)
+            const day = entries.filter((e) => e.date === date)
+            if (!day.some(isBoxNote)) continue
+            const goals = targetsFor(date, phases, settingsGoals).goals
+            for (const [id, p] of projectBoxNotes(day, goals, per100For)) all.set(id, p)
+        }
+        return all
+    }, [entries, foods, phases, settingsGoals, range.start])
+
     // Keep an open detail drawer in step with the row it was opened from.
     const detailEntry = detail ? (entries.find((e) => e._id === detail._id) ?? null) : null
     const mealsById = useMemo(() => new Map(meals.map((m) => [m._id, m])), [meals])
@@ -201,9 +239,23 @@ export default function NutritionPlanner({
     ) {
         try {
             const entry = await addPlatePlanEntry(date, slot, plate, extra, eaten)
-            setEntries((prev) => [...prev, entry])
+            // The server drops a box note once that box is weighed into its slot.
+            const plated = new Set(plate.map((l) => l.food))
+            setEntries((prev) => [
+                ...prev.filter((e) => !(e.box && e.date === date && e.slot === slot && plated.has(e.box))),
+                entry,
+            ])
         } catch {
             toast.show('Could not add that plate — please try again.', 'danger')
+        }
+    }
+
+    async function handleAddBox(box: string, slot: MealType, dates: string[]) {
+        try {
+            const created = await addBoxNotes(box, slot, dates)
+            setEntries((prev) => [...prev, ...created])
+        } catch {
+            toast.show('Could not plan that box — please try again.', 'danger')
         }
     }
 
@@ -237,6 +289,12 @@ export default function NutritionPlanner({
 
     // The tick: eaten, or back to planned. Optimistic, reverting on failure.
     async function handleToggle(entry: MealPlanEntry) {
+        // A box note isn't ticked — it opens the plate, ready to weigh that box.
+        if (entry.box) {
+            setDetail(null)
+            setPicker({ date: entry.date, slot: entry.slot, extra: false, eaten: true, box: entry.box })
+            return
+        }
         const next = entry.status === 'eaten' ? 'planned' : 'eaten'
         setEntries((prev) => prev.map((e) => (e._id === entry._id ? { ...e, status: next } : e)))
         try {
@@ -394,8 +452,10 @@ export default function NutritionPlanner({
                     today={today}
                     editing={editing}
                     entries={entries}
+                    projections={projections}
                     goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
                     outFor={(date) => energy.find((e) => e.date === date)?.caloriesOut ?? null}
+                    bmrFor={bmrFor}
                     onSelect={setAnchor}
                     onAdd={(date, slot) => setPicker({ date, slot, extra: false })}
                     onQuickLog={(date, slot) => setPicker({ date, slot, extra: false, eaten: true })}
@@ -413,14 +473,17 @@ export default function NutritionPlanner({
                 meals={meals}
                 foods={foods}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
+                goals={picker ? targetsFor(picker.date, phases, settingsGoals).goals : null}
                 onClose={() => setPicker(null)}
                 onAdd={handleAdd}
                 onAddPlate={handleAddPlate}
+                onAddBox={handleAddBox}
                 onRemove={handleRemove}
             />
 
             <PlannedMealDrawer
                 entry={detailEntry}
+                projection={detailEntry ? projections.get(detailEntry._id) : undefined}
                 meal={detailEntry?.meal ? (mealsById.get(detailEntry.meal) ?? null) : null}
                 onClose={() => setDetail(null)}
                 onToggle={handleToggle}
@@ -737,8 +800,10 @@ function WeekView({
     today,
     editing,
     entries,
+    projections,
     goalsFor,
     outFor,
+    bmrFor,
     onSelect,
     onAdd,
     onQuickLog,
@@ -757,8 +822,10 @@ function WeekView({
     today: string
     editing: boolean
     entries: MealPlanEntry[]
+    projections: Projections
     goalsFor: (date: string) => MacroGoals | null
     outFor: (date: string) => number | null
+    bmrFor: (date: string) => number | null
     onSelect: (date: string) => void
     onAdd: (date: string, slot: MealType) => void
     /** Log what was eaten into a slot, planned or not. */
@@ -828,8 +895,10 @@ function WeekView({
                     hasHappened={date <= today}
                     editable={editing}
                     entries={entries.filter((e) => e.date === date)}
+                    projections={projections}
                     goals={goalsFor(date)}
                     out={outFor(date)}
+                    bmr={bmrFor(date)}
                     onAdd={(slot) => onAdd(date, slot)}
                     onQuickLog={(slot) => onQuickLog(date, slot)}
                     onOpen={onOpen}
@@ -873,8 +942,10 @@ function DayCard({
     hasHappened,
     editable,
     entries,
+    projections,
     goals,
     out,
+    bmr,
     onAdd,
     onQuickLog,
     onOpen,
@@ -899,8 +970,11 @@ function DayCard({
     hasHappened: boolean
     editable: boolean
     entries: MealPlanEntry[]
+    projections: Projections
     goals: MacroGoals | null
     out: number | null
+    /** That day's worked-out BMR, or null until the profile is filled in. */
+    bmr: number | null
     onAdd: (slot: MealType) => void
     onQuickLog: (slot: MealType) => void
     onOpen: (entry: MealPlanEntry) => void
@@ -923,7 +997,14 @@ function DayCard({
     const extras = entries.filter((e) => e.extra).sort((a, b) => a.order - b.order)
     const total = planned.length
     const eatenCount = planned.filter(isEaten).length
-    const plannedKcal = sumMacros(planned).calories
+    const plannedMacros = sumMacros(planned)
+    const plannedKcal = plannedMacros.calories
+    // With box notes in the day, what it comes to at their suggested grams.
+    const boxEstimates = planned.flatMap((e) => (e.status === 'planned' ? (projections.get(e._id) ?? []) : []))
+    const projected =
+        boxEstimates.length > 0
+            ? boxEstimates.reduce((acc, p) => addMacros(acc, p.macros), plannedMacros)
+            : null
 
     const slotItems = (slot: MealType) => planned.filter((e) => e.slot === slot).sort((a, b) => a.order - b.order)
 
@@ -941,6 +1022,17 @@ function DayCard({
                     {eatenCount > 0 && <span className="text-emerald-700"> · {eatenCount} eaten</span>}
                     {extras.length > 0 && ` · ${extras.length} logged`}
                 </p>
+                {projected && (
+                    <p
+                        className="text-[13px] tabular-nums text-neutral-500"
+                        title="Including box notes at their suggested grams"
+                    >
+                        <i className="fa-solid fa-box mr-1.5 text-[10px] text-neutral-400" aria-hidden="true" />
+                        ~{kcal(projected.calories)} kcal · {fmt(Math.round(projected.protein))} P ·{' '}
+                        {fmt(Math.round(projected.carbs))} C · {fmt(Math.round(projected.fat))} F
+                        {!compact && ' projected'}
+                    </p>
+                )}
                 <div className="h-1 overflow-hidden rounded-full bg-neutral-100">
                     <div
                         className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
@@ -1000,6 +1092,7 @@ function DayCard({
                             slot={slot}
                             editable={editable}
                             entries={slotItems(slot)}
+                            projections={projections}
                             onAdd={() => onAdd(slot)}
                             onQuickLog={() => onQuickLog(slot)}
                             onOpen={onOpen}
@@ -1034,6 +1127,7 @@ function DayCard({
                     eaten={sumEatenMacros(entries)}
                     goals={goals}
                     out={out}
+                    bmr={bmr}
                     onSaveOut={onSaveOut}
                 />
             )}
@@ -1051,6 +1145,7 @@ function SlotSection({
     slot,
     editable,
     entries,
+    projections,
     onAdd,
     onQuickLog,
     onOpen,
@@ -1069,6 +1164,7 @@ function SlotSection({
     slot: MealType
     editable: boolean
     entries: MealPlanEntry[]
+    projections: Projections
     onAdd: () => void
     onQuickLog: () => void
     onOpen: (entry: MealPlanEntry) => void
@@ -1126,6 +1222,7 @@ function SlotSection({
             key={e._id}
             compact={compact}
             entry={e}
+            projection={projections.get(e._id)}
             dropId={e._id}
             onOpen={() => onOpen(e)}
             onToggle={editable ? undefined : () => onToggle(e)}
@@ -1318,6 +1415,7 @@ function DropLine() {
 function PlannedRow({
     compact = false,
     entry,
+    projection,
     onOpen,
     onToggle,
     onRemove,
@@ -1330,6 +1428,8 @@ function PlannedRow({
 }: {
     compact?: boolean
     entry: MealPlanEntry
+    /** A box note's projected plate, when its box has figures and the day has targets. */
+    projection?: BoxProjection
     onOpen?: () => void
     /** Viewing: the tick that marks the meal eaten, or back to planned. */
     onToggle?: () => void
@@ -1360,7 +1460,7 @@ function PlannedRow({
                 >
                     {plateTitle(entry)}
                 </span>
-                <span className="mt-0.5 block truncate text-[13px] text-neutral-500">{plannedMeta(entry)}</span>
+                <span className="mt-0.5 block truncate text-[13px] text-neutral-500">{plannedMeta(entry, projection)}</span>
             </span>
         </span>
     )
@@ -1422,6 +1522,17 @@ function PlannedRow({
                 <div className="min-w-0 flex-1">{body}</div>
             )}
             {onToggle ? (
+                isBoxNote(entry) ? (
+                    <button
+                        type="button"
+                        aria-label={`Weigh out ${entry.name}`}
+                        title="Weigh it out"
+                        onClick={onToggle}
+                        className={`grid shrink-0 place-items-center rounded-full bg-white text-neutral-400 ring-1 ring-inset ring-neutral-200 transition-colors hover:text-neutral-900 hover:ring-neutral-400 ${tickSize}`}
+                    >
+                        <i className="fa-solid fa-scale-balanced text-[11px]" aria-hidden="true" />
+                    </button>
+                ) : (
                 <button
                     type="button"
                     aria-pressed={done}
@@ -1436,6 +1547,7 @@ function PlannedRow({
                 >
                     <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
                 </button>
+                )
             ) : (
                 done &&
                 !entry.extra && (
@@ -1470,22 +1582,27 @@ function PlannedRow({
 
 /**
  * The day's balance, once it's happened: what's been eaten against the
- * target, calories out typed from a watch, and the difference.
+ * target, calories burned typed from a watch, the day's BMR (worked out from
+ * the body profile and trend weight — read-only here), and the difference.
  */
 function DayEnergy({
     compact,
     eaten,
     goals,
     out,
+    bmr,
     onSaveOut,
 }: {
     compact: boolean
     eaten: Macros
     goals: MacroGoals | null
     out: number | null
+    /** That day's worked-out BMR, or null until the profile is filled in. */
+    bmr: number | null
     onSaveOut: (value: number | null) => Promise<void>
 }) {
-    const net = out === null ? null : eaten.calories - out
+    const totalOutKcal = totalOut(out, bmr)
+    const net = totalOutKcal === null ? null : eaten.calories - totalOutKcal
     const macros = [
         { label: 'Protein', value: eaten.protein, goal: goals?.protein, bar: 'bg-brand-600' },
         { label: 'Carbs', value: eaten.carbs, goal: goals?.carbs, bar: 'bg-marigold' },
@@ -1523,6 +1640,18 @@ function DayEnergy({
                 <EnergyRow label="Burned">
                     <OutField out={out} onSave={onSaveOut} />
                     <Unit>kcal</Unit>
+                </EnergyRow>
+                <EnergyRow label="BMR">
+                    {bmr !== null ? (
+                        <>
+                            {kcal(bmr)}
+                            <Unit>kcal</Unit>
+                        </>
+                    ) : (
+                        <Link to="/profile" className="font-medium text-coral-600 hover:underline">
+                            Set up in Profile
+                        </Link>
+                    )}
                 </EnergyRow>
                 {/* Only once burned is in — there's no balance without it. */}
                 {net !== null && (
@@ -1566,7 +1695,15 @@ function Meter({ value, goal, bar }: { value: number; goal: number; bar: string 
 }
 
 /** Calories out, typed straight into the figure — saved on blur or Enter, cleared by emptying it. */
-function OutField({ out, onSave }: { out: number | null; onSave: (value: number | null) => Promise<void> }) {
+function OutField({
+    out,
+    onSave,
+    label = 'Calories out',
+}: {
+    out: number | null
+    onSave: (value: number | null) => Promise<void>
+    label?: string
+}) {
     const [value, setValue] = useState(out === null ? '' : String(out))
     const [saving, setSaving] = useState(false)
 
@@ -1593,7 +1730,7 @@ function OutField({ out, onSave }: { out: number | null; onSave: (value: number 
             type="text"
             inputMode="numeric"
             enterKeyHint="done"
-            aria-label="Calories out"
+            aria-label={label}
             placeholder="0"
             value={value}
             disabled={saving}
@@ -1623,22 +1760,27 @@ function MealPickerDrawer({
     meals,
     foods,
     entries,
+    goals,
     onClose,
     onAdd,
     onAddPlate,
+    onAddBox,
     onRemove,
 }: {
     target: PickerTarget | null
     meals: Meal[]
     foods: PlateFood[]
     entries: MealPlanEntry[]
+    goals: MacroGoals | null
     onClose: () => void
     onAdd: (date: string, slot: MealType, mealId: string, extra: boolean, eaten: boolean) => Promise<void>
     onAddPlate: (date: string, slot: MealType, plate: PlateLineInput[], extra: boolean, eaten: boolean) => Promise<void>
+    onAddBox: (box: string, slot: MealType, dates: string[]) => Promise<void>
     onRemove: (id: string) => void
 }) {
-    // A saved meal, or a plate weighed out from boxes and foods.
-    const [mode, setMode] = useState<'meal' | 'plate'>('meal')
+    // A saved meal, a plate weighed out from boxes and foods, or — planning
+    // ahead — just "eating from this box" on some days.
+    const [mode, setMode] = useState<'meal' | 'plate' | 'box'>('meal')
     // Retain the last target so the drawer keeps its content while sliding shut.
     const [view, setView] = useState(target)
     const [query, setQuery] = useState('')
@@ -1655,7 +1797,7 @@ function MealPickerDrawer({
             // saved meals, plating is the only way to fill any slot.
             const plated = meals.length === 0 || target.slot === 'lunch' || target.slot === 'dinner'
             const plateable = foods.some((f) => f.kind === 'plain' || f.open.length > 0)
-            setMode(plateable && plated ? 'plate' : 'meal')
+            setMode(target.box || (plateable && plated) ? 'plate' : 'meal')
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [target])
@@ -1666,13 +1808,61 @@ function MealPickerDrawer({
 
     const extra = view?.extra ?? false
     const eaten = view?.eaten ?? false
-    const title = extra ? 'Log more' : eaten ? 'Quick log' : 'Add to day'
+    const planning = !extra && !eaten
+    const title = view?.box ? 'Weigh it out' : extra ? 'Log more' : eaten ? 'Quick log' : 'Add to day'
+    // "From a box" only plans ahead, so it isn't offered when logging.
+    const modes = (
+        [
+            ['meal', 'Saved meal', 'fa-solid fa-bowl-food'],
+            ['plate', 'By weight', 'fa-solid fa-scale-balanced'],
+            ['box', 'From a box', 'fa-solid fa-box'],
+        ] as const
+    ).filter(([m]) => planning || m !== 'box')
+    const shown = !planning && mode === 'box' ? 'plate' : mode
 
     const results = useMemo(() => {
         const q = query.trim().toLowerCase()
         const base = q ? meals.filter((m) => m.name.toLowerCase().includes(q)) : meals.filter((m) => m.types.includes(activeSlot))
         return [...base].sort((a, b) => a.name.localeCompare(b.name))
     }, [meals, query, activeSlot])
+
+    // The slot's share of what's left of the day — for both ways of filling it.
+    const aim = slotBudget(goals, activeSlot, entries)
+    const aimOpen = !!aim && aim.keys.some((k) => aim.budget[k] >= (k === 'calories' ? 25 : 2))
+
+    // The saved meals that come closest to the aim, from those tagged for the
+    // slot (or the whole library when none are).
+    const bestFit = useMemo(() => {
+        if (!aim || !aimOpen) return []
+        const tagged = meals.filter((m) => m.types.includes(activeSlot))
+        return (tagged.length > 0 ? tagged : meals)
+            .map((m) => ({ m, cost: fitCost(m.macros, aim.budget, aim.keys) }))
+            .sort((a, b) => a.cost - b.cost)
+            .slice(0, 3)
+            .map((x) => x.m)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [meals, activeSlot, aimOpen, aim?.budget.calories, aim?.budget.protein, aim?.budget.carbs, aim?.budget.fat])
+
+    const mealRow = (m: Meal, detailed = false) => (
+        <li key={m._id}>
+            <button
+                type="button"
+                disabled={busy}
+                onClick={() => void add(m)}
+                className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-60"
+            >
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-neutral-800">{m.name}</p>
+                    <p className="truncate text-xs tabular-nums text-neutral-500">
+                        {kcal(m.macros.calories)} kcal · {fmt(Math.round(m.macros.protein))} g protein
+                        {detailed &&
+                            ` · ${fmt(Math.round(m.macros.carbs))} g carbs · ${fmt(Math.round(m.macros.fat))} g fat`}
+                    </p>
+                </div>
+                <i className="fa-solid fa-plus text-xs text-neutral-500" aria-hidden="true" />
+            </button>
+        </li>
+    )
 
     const total = results.length
     const pageCount = Math.max(1, Math.ceil(total / PICKER_PAGE_SIZE))
@@ -1756,20 +1946,17 @@ function MealPickerDrawer({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1">
-                    {(
-                        [
-                            ['meal', 'Saved meal', 'fa-solid fa-bowl-food'],
-                            ['plate', 'Plate by weight', 'fa-solid fa-scale-balanced'],
-                        ] as const
-                    ).map(([m, label, icon]) => (
+                {aim && <AimCard aim={aim.budget} keys={aim.keys} slotLabel={CATEGORY[activeSlot].label} />}
+
+                <div className={`grid gap-1 rounded-xl bg-neutral-100 p-1 ${modes.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                    {modes.map(([m, label, icon]) => (
                         <button
                             key={m}
                             type="button"
                             onClick={() => setMode(m)}
-                            aria-pressed={mode === m}
+                            aria-pressed={shown === m}
                             className={`inline-flex h-10 items-center justify-center gap-2 rounded-[9px] text-[13px] font-semibold transition-all ${
-                                mode === m
+                                shown === m
                                     ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
                                     : 'text-neutral-500 hover:text-neutral-900'
                             }`}
@@ -1780,11 +1967,32 @@ function MealPickerDrawer({
                     ))}
                 </div>
 
-                {mode === 'plate' ? (
+                {shown === 'box' ? (
+                    view && (
+                        <BoxPlanner
+                            key={view.date}
+                            foods={foods}
+                            date={view.date}
+                            slot={activeSlot}
+                            busy={busy}
+                            onPlan={async (box, dates) => {
+                                setBusy(true)
+                                try {
+                                    await onAddBox(box, activeSlot, dates)
+                                } finally {
+                                    setBusy(false)
+                                }
+                            }}
+                        />
+                    )
+                ) : shown === 'plate' ? (
                     <PlateBuilder
+                        key={`${view?.date}|${view?.box ?? ''}`}
+                        start={view?.box}
                         foods={foods}
                         busy={busy}
                         actionLabel={extra || eaten ? 'Log plate' : 'Add plate'}
+                        aim={aim}
                         onAdd={async (plate) => {
                             if (!view) return
                             setBusy(true)
@@ -1797,6 +2005,13 @@ function MealPickerDrawer({
                     />
                 ) : (
                 <>
+                {bestFit.length > 0 && !query.trim() && (
+                    <section className="flex flex-col gap-2">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Best fit for the aim</p>
+                        <ul className="flex flex-col gap-1.5">{bestFit.map((m) => mealRow(m, true))}</ul>
+                    </section>
+                )}
+
                 <Input
                     icon="fa-solid fa-magnifying-glass"
                     type="search"
@@ -1824,24 +2039,7 @@ function MealPickerDrawer({
                     </p>
                 ) : (
                     <ul className="flex flex-col gap-1.5">
-                        {results.slice(from, to).map((m) => (
-                            <li key={m._id}>
-                                <button
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => void add(m)}
-                                    className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-60"
-                                >
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-medium text-neutral-800">{m.name}</p>
-                                        <p className="text-xs tabular-nums text-neutral-500">
-                                            {kcal(m.macros.calories)} kcal · {fmt(Math.round(m.macros.protein))} g protein
-                                        </p>
-                                    </div>
-                                    <i className="fa-solid fa-plus text-xs text-neutral-500" aria-hidden="true" />
-                                </button>
-                            </li>
-                        ))}
+                        {results.slice(from, to).map((m) => mealRow(m))}
                     </ul>
                 )}
 
@@ -1853,11 +2051,157 @@ function MealPickerDrawer({
     )
 }
 
+// ─── From a box ──────────────────────────────────────────────────────────────
+
+/**
+ * "Eating from this box for these days": pick a box, tick the days, done. No
+ * grams and no numbers — each day gets a light note that's weighed out at the
+ * table. Any box can be planned, cooked or not, so a cook can be planned for.
+ */
+function BoxPlanner({
+    foods,
+    date,
+    slot,
+    busy,
+    onPlan,
+}: {
+    foods: PlateFood[]
+    date: string
+    slot: MealType
+    busy: boolean
+    onPlan: (box: string, dates: string[]) => Promise<void>
+}) {
+    const boxes = useMemo(() => foods.filter((f) => f.kind === 'box').sort((a, b) => a.order - b.order), [foods])
+    const [box, setBox] = useState<string | null>(null)
+    const [days, setDays] = useState<string[]>([date])
+    const [done, setDone] = useState<string | null>(null)
+    const today = todayKey()
+    // The picked day and the six after it — a box usually lasts a few days.
+    const span = Array.from({ length: 7 }, (_, i) => addDays(date, i))
+
+    if (boxes.length === 0) {
+        return (
+            <p className="rounded-2xl bg-neutral-50 px-4 py-4 text-center text-sm text-neutral-500">
+                No boxes yet — add one under Library → Boxes &amp; foods.
+            </p>
+        )
+    }
+
+    const status = (f: PlateFood) => {
+        const left = f.open.reduce((sum, c) => sum + gramsLeft(c.cookedGrams, c.eatenGrams), 0)
+        if (f.open.length > 0) return `In the pantry · ~${fmt(left)} g left`
+        if (f.frozen.length > 0) return 'In the freezer'
+        return 'Not cooked yet'
+    }
+
+    const toggle = (d: string) =>
+        setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()))
+
+    async function plan() {
+        if (!box || days.length === 0) return
+        await onPlan(box, days)
+        const name = boxes.find((b) => b._id === box)?.name ?? 'Box'
+        setDone(`${name} planned for ${days.length} ${CATEGORY[slot].label.toLowerCase()}${days.length === 1 ? '' : 's'}`)
+        setBox(null)
+        setDays([date])
+    }
+
+    return (
+        <div className="flex flex-col gap-4">
+            <p className="text-sm text-neutral-500">
+                Plan ahead without amounts. It won’t touch the day’s numbers — you weigh it out when you eat.
+            </p>
+            {done && (
+                <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-700">
+                    <i className="fa-solid fa-circle-check" aria-hidden="true" />
+                    {done}
+                </p>
+            )}
+            <ul className="flex flex-col gap-1.5">
+                {boxes.map((f) => {
+                    const active = box === f._id
+                    return (
+                        <li key={f._id}>
+                            <button
+                                type="button"
+                                aria-pressed={active}
+                                onClick={() => {
+                                    setBox(active ? null : f._id)
+                                    setDone(null)
+                                }}
+                                className={`flex min-h-12 w-full items-center gap-3 rounded-2xl border bg-white px-3 py-2 text-left transition-colors ${
+                                    active ? 'border-neutral-900' : 'border-neutral-200 hover:bg-neutral-50'
+                                }`}
+                            >
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm font-medium text-neutral-800">{f.name}</span>
+                                    <span className="block truncate text-xs tabular-nums text-neutral-500">{status(f)}</span>
+                                </span>
+                                <span
+                                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${
+                                        active ? 'bg-neutral-900 text-white' : 'ring-1 ring-inset ring-neutral-200'
+                                    }`}
+                                    aria-hidden="true"
+                                >
+                                    {active && <i className="fa-solid fa-check text-[10px]" />}
+                                </span>
+                            </button>
+                        </li>
+                    )
+                })}
+            </ul>
+
+            {box && (
+                <div className="flex flex-col gap-2">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                        Which days · {CATEGORY[slot].label}
+                    </p>
+                    <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
+                        {span.map((d) => {
+                            const on = days.includes(d)
+                            const { year, month, day } = parseDateKey(d)
+                            const wd = WEEKDAYS_LONG[new Date(year, month, day).getDay()].slice(0, 3)
+                            return (
+                                <button
+                                    key={d}
+                                    type="button"
+                                    aria-pressed={on}
+                                    disabled={d < today}
+                                    onClick={() => toggle(d)}
+                                    className={`flex h-14 flex-col items-center justify-center rounded-xl text-[13px] font-semibold transition-colors disabled:opacity-40 ${
+                                        on
+                                            ? 'bg-neutral-900 text-white'
+                                            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                    }`}
+                                >
+                                    <span>{wd}</span>
+                                    <span className={`text-xs font-medium ${on ? 'text-white/70' : 'text-neutral-500'}`}>{day}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
+                    <Button
+                        icon="fa-solid fa-box"
+                        disabled={busy || days.length === 0}
+                        onClick={() => void plan()}
+                        className="mt-2 w-full"
+                    >
+                        {days.length === 0
+                            ? 'Pick a day'
+                            : `Plan for ${days.length} day${days.length === 1 ? '' : 's'}`}
+                    </Button>
+                </div>
+            )}
+        </div>
+    )
+}
+
 // ─── Planned meal drawer ─────────────────────────────────────────────────────
 
 /** A planned meal opened from its row: its numbers, its notes, and the tick. */
 function PlannedMealDrawer({
     entry,
+    projection,
     meal,
     onClose,
     onToggle,
@@ -1865,6 +2209,8 @@ function PlannedMealDrawer({
     onRemove,
 }: {
     entry: MealPlanEntry | null
+    /** A box note's projected plate at the suggested grams. */
+    projection?: BoxProjection
     /** The library meal it came from, for its notes — gone if it's been deleted. */
     meal: Meal | null
     onClose: () => void
@@ -1902,7 +2248,11 @@ function PlannedMealDrawer({
                         >
                             Remove
                         </Button>
-                        {!e.extra &&
+                        {isBoxNote(e) ? (
+                            <Button icon="fa-solid fa-scale-balanced" onClick={() => onToggle(e)}>
+                                Weigh it out
+                            </Button>
+                        ) : !e.extra &&
                             (done ? (
                                 <Button variant="ghost" icon="fa-solid fa-rotate-left" onClick={() => onToggle(e)}>
                                     Mark as not eaten
@@ -1919,6 +2269,31 @@ function PlannedMealDrawer({
             {e && (
                 <div className="flex flex-col gap-6">
                     <PlannedContext entry={e} />
+                    {isBoxNote(e) ? (
+                        <>
+                            {projection && (
+                                <div className="flex flex-col gap-3">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                                        Projected at ~{fmt(projection.grams)} g
+                                    </p>
+                                    <StatStrip
+                                        stats={[
+                                            { icon: 'fa-solid fa-fire', label: 'Calories', value: `~${kcal(projection.macros.calories)} kcal` },
+                                            { icon: 'fa-solid fa-drumstick-bite', label: 'Protein', value: `~${fmt(Math.round(projection.macros.protein))} g` },
+                                            { icon: 'fa-solid fa-wheat-awn', label: 'Carbs', value: `~${fmt(Math.round(projection.macros.carbs))} g` },
+                                            { icon: 'fa-solid fa-droplet', label: 'Fat', value: `~${fmt(Math.round(projection.macros.fat))} g` },
+                                        ]}
+                                    />
+                                </div>
+                            )}
+                            <NoteBlock icon="fa-solid fa-box" title="Eating from the box">
+                                {projection
+                                    ? 'An estimate: the grams the plate builder would suggest for this slot, given the rest of the day. It shows in the day’s projection but not in its planned numbers. When you eat, weigh it out and the plate takes its place.'
+                                    : 'Planned without amounts, so it doesn’t count towards the day’s numbers. When you eat, weigh it out and the plate takes its place.'}
+                            </NoteBlock>
+                        </>
+                    ) : (
+                    <>
                     {e.plate?.length ? (
                         <PlateLinesEditor key={e._id} lines={e.plate} onChange={(lines) => onUpdatePlate(e, lines)} />
                     ) : null}
@@ -1934,6 +2309,8 @@ function PlannedMealDrawer({
                         <MacroBar macros={e.macros} thick />
                         <MacroLegend macros={e.macros} />
                     </div>
+                    </>
+                    )}
                     {viewMeal?.notes && (
                         <NoteBlock icon="fa-regular fa-note-sticky" title="Notes">
                             {viewMeal.notes}

@@ -11,6 +11,10 @@ export interface CurrentWeather {
     windSpeed: number
     humidity: number
     isDay: boolean
+    /** Degrees the wind blows from (0 = north). */
+    windDirection: number
+    windGust: number
+    cloudCover: number
 }
 
 export interface DailyForecast {
@@ -25,6 +29,16 @@ export interface DailyForecast {
     sunrise?: string
     sunset?: string
     uvIndexMax?: number
+    /** Total precipitation, mm. */
+    precipitationSum: number
+    /** Hours with any precipitation. */
+    precipitationHours: number
+    windGustMax: number
+    windDirection: number
+    apparentMax: number
+    apparentMin: number
+    /** Seconds of daylight. */
+    daylightDuration: number
 }
 
 export interface HourlySlot {
@@ -37,6 +51,14 @@ export interface HourlySlot {
     windGust: number
     visibility: number
     code: number
+    apparentTemperature: number
+    humidity: number
+    windSpeed: number
+    /** Degrees the wind blows from (0 = north). */
+    windDirection: number
+    cloudCover: number
+    uvIndex: number
+    isDay: boolean
 }
 
 export interface WeatherWarning {
@@ -49,7 +71,7 @@ export interface WeatherWarning {
 
 export interface Forecast {
     current: CurrentWeather
-    /** Today plus the next five days (six entries). */
+    /** Today plus the next seven days (eight entries). */
     daily: DailyForecast[]
     /** Today's hourly slots (hours 0–23), indexable by hour. */
     hourly: HourlySlot[]
@@ -65,6 +87,9 @@ interface OpenMeteoForecastResponse {
         wind_speed_10m: number
         relative_humidity_2m: number
         is_day: number
+        wind_direction_10m: number
+        wind_gusts_10m: number
+        cloud_cover: number
     }
     hourly: {
         time: string[]
@@ -74,6 +99,13 @@ interface OpenMeteoForecastResponse {
         wind_gusts_10m: number[]
         visibility: number[]
         weather_code: number[]
+        apparent_temperature: number[]
+        relative_humidity_2m: number[]
+        wind_speed_10m: number[]
+        wind_direction_10m: number[]
+        cloud_cover: number[]
+        uv_index: (number | null)[]
+        is_day: number[]
     }
     daily: {
         time: string[]
@@ -85,6 +117,13 @@ interface OpenMeteoForecastResponse {
         sunrise: string[]
         sunset: string[]
         uv_index_max: (number | null)[]
+        precipitation_sum: (number | null)[]
+        precipitation_hours: (number | null)[]
+        wind_gusts_10m_max: number[]
+        wind_direction_10m_dominant: (number | null)[]
+        apparent_temperature_max: number[]
+        apparent_temperature_min: number[]
+        daylight_duration: number[]
     }
 }
 
@@ -93,13 +132,14 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
         latitude: String(loc.latitude),
         longitude: String(loc.longitude),
         current:
-            'temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day',
-        hourly: 'temperature_2m,precipitation_probability,precipitation,wind_gusts_10m,visibility,weather_code',
+            'temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day,wind_direction_10m,wind_gusts_10m,cloud_cover',
+        hourly:
+            'temperature_2m,precipitation_probability,precipitation,wind_gusts_10m,visibility,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,cloud_cover,uv_index,is_day',
         daily:
-            'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset,uv_index_max',
+            'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_hours,wind_gusts_10m_max,wind_direction_10m_dominant,apparent_temperature_max,apparent_temperature_min,daylight_duration',
         timezone: 'auto',
         wind_speed_unit: 'mph',
-        forecast_days: '6',
+        forecast_days: '8',
     })
 
     const res = await fetch(`${FORECAST_URL}?${params.toString()}`)
@@ -117,6 +157,13 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
         sunrise: d.sunrise?.[i],
         sunset: d.sunset?.[i],
         uvIndexMax: d.uv_index_max?.[i] ?? undefined,
+        precipitationSum: d.precipitation_sum[i] ?? 0,
+        precipitationHours: d.precipitation_hours[i] ?? 0,
+        windGustMax: Math.round(d.wind_gusts_10m_max[i] ?? 0),
+        windDirection: d.wind_direction_10m_dominant[i] ?? 0,
+        apparentMax: Math.round(d.apparent_temperature_max[i]),
+        apparentMin: Math.round(d.apparent_temperature_min[i]),
+        daylightDuration: d.daylight_duration[i] ?? 0,
     }))
 
     // Keep every fetched hour, not just today's — the daily report needs
@@ -129,8 +176,16 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
         precipitationProbability: h.precipitation_probability[i] ?? 0,
         precipitation: h.precipitation[i] ?? 0,
         windGust: Math.round(h.wind_gusts_10m[i] ?? 0),
-        visibility: Math.round((h.visibility[i] ?? 10000) / 1000), // km
+        // km, to 0.1 — whole km would round fog (≤200m) away before warnings see it
+        visibility: Math.round((h.visibility[i] ?? 10000) / 100) / 10,
         code: h.weather_code[i],
+        apparentTemperature: Math.round(h.apparent_temperature[i]),
+        humidity: Math.round(h.relative_humidity_2m[i] ?? 0),
+        windSpeed: Math.round(h.wind_speed_10m[i] ?? 0),
+        windDirection: h.wind_direction_10m[i] ?? 0,
+        cloudCover: Math.round(h.cloud_cover[i] ?? 0),
+        uvIndex: h.uv_index[i] ?? 0,
+        isDay: h.is_day[i] === 1,
     }))
 
     const hourlyByDate: Record<string, HourlySlot[]> = {}
@@ -147,6 +202,9 @@ export async function fetchForecast(loc: WeatherLocation): Promise<Forecast> {
             windSpeed: Math.round(c.wind_speed_10m),
             humidity: Math.round(c.relative_humidity_2m),
             isDay: c.is_day === 1,
+            windDirection: c.wind_direction_10m,
+            windGust: Math.round(c.wind_gusts_10m),
+            cloudCover: Math.round(c.cloud_cover),
         },
         daily,
         // Callers index this by hour, so it must stay exactly one day long.
@@ -692,7 +750,7 @@ export function planningInsight(hourly: HourlySlot[]): string {
     const clearAfterRain = rainEnd && waking.some((h) => h.hour > rainEnd.hour && h.precipitationProbability < RAIN_THRESHOLD)
     if (clearAfterRain && rainEnd) {
         const clearHour = waking.find((h) => h.hour > rainEnd.hour && h.precipitationProbability < RAIN_THRESHOLD)
-        if (clearHour) return `Rain easing around ${fmt12(clearHour.hour)} — afternoon should improve`
+        if (clearHour) return `Rain easing around ${fmt12(clearHour.hour)} — drier after that`
     }
 
     // Rain arrives later
@@ -839,4 +897,92 @@ export function dayLabel(date: string, today: string): string {
     const diff = Math.round((d.getTime() - t.getTime()) / 86_400_000)
     if (diff === 1) return 'Tomorrow'
     return d.toLocaleDateString('en-GB', { weekday: 'short' })
+}
+
+// ── Forecast page helpers ─────────────────────────────────────────────────────
+
+/**
+ * The current hour plus the following `count - 1`, walking across midnight. The
+ * current hour leads so the strip can open on "Now".
+ */
+export function hoursFromNow(forecast: Forecast, count = 24, now: Date = new Date()): HourlySlot[] {
+    const today = forecast.daily[0]?.date
+    if (!today) return []
+    const all = forecast.daily.flatMap((d) => forecast.hourlyByDate[d.date] ?? [])
+    const start = all.findIndex((h) => h.date === today && h.hour === now.getHours())
+    return start < 0 ? [] : all.slice(start, start + count)
+}
+
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const
+
+/** Wind bearing (degrees it blows from) → eight-point compass, e.g. 225 → "SW". */
+export function compass(degrees: number): string {
+    const i = Math.round((((degrees % 360) + 360) % 360) / 45) % 8
+    return COMPASS[i]
+}
+
+/** UV index → the WHO band name. */
+export function uvLabel(uv: number): string {
+    const u = Math.round(uv)
+    if (u <= 2) return 'Low'
+    if (u <= 5) return 'Moderate'
+    if (u <= 7) return 'High'
+    if (u <= 10) return 'Very high'
+    return 'Extreme'
+}
+
+/** Plain-English wind feel for a sustained speed (mph). */
+export function windLabel(mph: number): string {
+    if (mph < 4) return 'Calm'
+    if (mph < 13) return 'Light breeze'
+    if (mph < 25) return 'Breezy'
+    if (mph < 39) return 'Windy'
+    return 'Gale'
+}
+
+/** Seconds → "11h 42m". */
+export function formatDuration(seconds: number): string {
+    const mins = Math.round(seconds / 60)
+    return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`
+}
+
+/** Text colour for a condition's icon: sun warm, rain blue, storms violet, night indigo. */
+export function conditionTone(code: number, isDay = true): string {
+    if (code >= 95) return 'text-violet-500'
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'text-sky-400'
+    if (code >= 51 && code <= 82) return 'text-sky-500'
+    if (code === 45 || code === 48 || code === 3) return 'text-neutral-400'
+    if (!isDay) return 'text-indigo-400'
+    return 'text-amber-500'
+}
+
+/**
+ * A one-or-two sentence read of a run of hours: when rain comes and goes, then
+ * the warmest and coldest points. Used as the headline over the next 24 hours.
+ */
+export function hoursSummary(hours: HourlySlot[]): string {
+    if (hours.length === 0) return ''
+    const label = (h: HourlySlot) => (h === hours[0] ? 'now' : fmt12(h.hour))
+    const wet = (h: HourlySlot) => h.precipitationProbability >= 50
+    const parts: string[] = []
+
+    const start = hours.findIndex(wet)
+    if (start < 0) {
+        parts.push(hours.length >= 24 ? 'Dry for the next 24 hours.' : 'Staying dry.')
+    } else {
+        const endOffset = hours.slice(start).findIndex((h) => !wet(h))
+        const from = start === 0 ? 'Rain now' : `Rain likely from ${label(hours[start])}`
+        parts.push(
+            endOffset < 0
+                ? `${from}, lasting through the period.`
+                : `${from}, easing by ${fmt12(hours[start + endOffset].hour)}.`
+        )
+    }
+
+    const peak = hours.reduce((a, b) => (b.temperature > a.temperature ? b : a))
+    const low = hours.reduce((a, b) => (b.temperature < a.temperature ? b : a))
+    if (peak.temperature !== low.temperature) {
+        parts.push(`High of ${peak.temperature}° ${peak === hours[0] ? 'now' : `at ${fmt12(peak.hour)}`}, low of ${low.temperature}° ${low === hours[0] ? 'now' : `at ${fmt12(low.hour)}`}.`)
+    }
+    return parts.join(' ')
 }

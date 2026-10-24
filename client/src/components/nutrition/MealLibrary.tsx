@@ -17,8 +17,10 @@ import { StatStrip, NoteBlock } from '../session/SessionUI'
 import { FIELD_LABEL } from '../fieldStyles'
 import { CATEGORY, MacroBar, MacroLegend, caloriesFromMacros, isHighProtein } from './mealUi'
 import { fmt, kcal } from './format'
+import { ShopButton, type ShopKind } from './ShoppingList'
+import { ingredientAmount } from '../../lib/shopping'
 import { createMeal, deleteAllMeals, deleteMeal, importMeals, updateMeal } from '../../services/meals'
-import { MEAL_TYPES, type Macros, type Meal, type MealInput, type MealType } from '../../types'
+import { MEAL_TYPES, type Macros, type Meal, type MealIngredient, type MealInput, type MealType } from '../../types'
 
 type Filter = MealType | 'all'
 type Sort = 'library' | 'protein' | 'lightest' | 'name'
@@ -52,7 +54,15 @@ type Drawered =
  * above a paged grid of cards. A card opens the meal; its menu edits,
  * duplicates or deletes it.
  */
-export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onChanged: () => Promise<void> }) {
+export default function MealLibrary({
+    meals,
+    onChanged,
+    onShop,
+}: {
+    meals: Meal[]
+    onChanged: () => Promise<void>
+    onShop: (kind: ShopKind, id: string, name: string) => void
+}) {
     const [drawer, setDrawer] = useState<Drawered>(null)
     const [importing, setImporting] = useState(false)
     const [clearing, setClearing] = useState(false)
@@ -95,7 +105,13 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
     }
 
     async function handleDuplicate(meal: Meal) {
-        await createMeal({ name: `${meal.name} (copy)`, types: meal.types, macros: meal.macros, notes: meal.notes })
+        await createMeal({
+            name: `${meal.name} (copy)`,
+            types: meal.types,
+            macros: meal.macros,
+            ingredients: meal.ingredients,
+            notes: meal.notes,
+        })
         await onChanged()
     }
 
@@ -223,6 +239,7 @@ export default function MealLibrary({ meals, onChanged }: { meals: Meal[]; onCha
                                     onEdit={() => setDrawer({ mode: 'edit', meal })}
                                     onDuplicate={() => void handleDuplicate(meal)}
                                     onDelete={() => setDeleting(meal)}
+                                    onShop={() => onShop('meal', meal._id, meal.name)}
                                 />
                             ))}
                         </div>
@@ -299,12 +316,14 @@ function MealCard({
     onEdit,
     onDuplicate,
     onDelete,
+    onShop,
 }: {
     meal: Meal
     onOpen: () => void
     onEdit: () => void
     onDuplicate: () => void
     onDelete: () => void
+    onShop: () => void
 }) {
     const { macros } = meal
     return (
@@ -316,13 +335,14 @@ function MealCard({
                 className="absolute inset-0 z-10 rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-500"
             />
 
-            <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
+            <div className="flex items-start gap-1">
+                <div className="min-w-0 flex-1 pr-1">
                     <p className="truncate font-semibold text-neutral-900">{meal.name}</p>
                     <p className="mt-0.5 text-xs tabular-nums text-neutral-500">
                         {kcal(macros.calories)} kcal · {fmt(Math.round(macros.protein))} g protein
                     </p>
                 </div>
+                <ShopButton name={meal.name} onClick={onShop} />
                 <DropdownMenu
                     align="right"
                     className="relative z-20 -mr-1 -mt-1 shrink-0"
@@ -413,7 +433,8 @@ function MealViewDrawer({
 }
 
 /** A meal's chips, numbers, macro split and notes. */
-function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'notes'> }) {
+function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'ingredients' | 'notes'> }) {
+    const ingredients = meal.ingredients ?? []
     const { macros } = meal
     return (
         <div className="flex flex-col gap-6">
@@ -436,6 +457,21 @@ function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'notes'> }
                 <MacroBar macros={macros} thick />
                 <MacroLegend macros={macros} />
             </div>
+            {ingredients.length > 0 && (
+                <section className="flex flex-col gap-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                        Ingredients · one serving
+                    </p>
+                    <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                        {ingredients.map((i, n) => (
+                            <li key={n} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                                <span className="min-w-0 truncate text-neutral-800">{i.name}</span>
+                                <span className="shrink-0 tabular-nums text-neutral-500">{ingredientAmount(i)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
             {meal.notes && (
                 <NoteBlock icon="fa-regular fa-note-sticky" title="Notes">
                     {meal.notes}
@@ -450,6 +486,14 @@ function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'notes'> }
 type FormState = { mode: 'create'; type: MealType | null } | { mode: 'edit'; meal: Meal }
 
 const num = (v: string) => Math.max(0, Number(v) || 0)
+
+type IngredientDraft = { name: string; grams: string; items: string }
+const blankIngredient = (): IngredientDraft => ({ name: '', grams: '', items: '' })
+const toDraft = (i: MealIngredient): IngredientDraft => ({
+    name: i.name,
+    grams: i.grams ? String(i.grams) : '',
+    items: i.items ? String(i.items) : '',
+})
 
 function MealFormDrawer({
     form,
@@ -475,6 +519,7 @@ function MealFormDrawer({
     const [protein, setProtein] = useState('')
     const [carbs, setCarbs] = useState('')
     const [fat, setFat] = useState('')
+    const [rows, setRows] = useState<IngredientDraft[]>([])
     const [notes, setNotes] = useState('')
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
@@ -487,6 +532,7 @@ function MealFormDrawer({
         setProtein(editing ? String(editing.macros.protein) : '')
         setCarbs(editing ? String(editing.macros.carbs) : '')
         setFat(editing ? String(editing.macros.fat) : '')
+        setRows(editing?.ingredients?.length ? editing.ingredients.map(toDraft) : [blankIngredient()])
         setNotes(editing?.notes ?? '')
         setSaving(false)
         setError('')
@@ -499,7 +545,14 @@ function MealFormDrawer({
     const offerImplied =
         implied > 0 && (macros.calories === 0 || Math.abs(implied - macros.calories) > Math.max(25, macros.calories * 0.15))
 
+    const ingredients: MealIngredient[] = rows
+        .filter((r) => r.name.trim())
+        .map((r) => ({ name: r.name.trim(), grams: num(r.grams), items: num(r.items) || undefined }))
     const valid = name.trim() !== ''
+
+    function patchRow(i: number, patch: Partial<IngredientDraft>) {
+        setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+    }
 
     function toggleType(t: MealType) {
         setTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : MEAL_TYPES.filter((x) => x === t || prev.includes(x))))
@@ -507,7 +560,7 @@ function MealFormDrawer({
 
     async function submit() {
         if (!view || !valid) return
-        const fields: MealInput = { name: name.trim(), types, macros, notes: notes.trim() || undefined }
+        const fields: MealInput = { name: name.trim(), types, macros, ingredients, notes: notes.trim() || undefined }
         setSaving(true)
         setError('')
         try {
@@ -595,6 +648,70 @@ function MealFormDrawer({
                     </div>
                 </div>
 
+                <div className="flex flex-col gap-3">
+                    <div>
+                        <p className={FIELD_LABEL}>Ingredients for one serving</p>
+                        <p className="mt-0.5 text-xs text-neutral-500">
+                            Optional. With these, the shopping list buys the ingredients instead of the meal. Use
+                            items for things you buy by count — 2 eggs, not 120 g.
+                        </p>
+                    </div>
+                    {rows.map((r, i) => (
+                        <div key={i} className="flex items-end gap-2">
+                            <div className="min-w-0 flex-1">
+                                <Input
+                                    aria-label="Ingredient"
+                                    placeholder="Ingredient, e.g. Chicken breast"
+                                    value={r.name}
+                                    onChange={(e) => patchRow(i, { name: e.target.value })}
+                                />
+                            </div>
+                            <div className="w-20 shrink-0">
+                                <Input
+                                    aria-label="Grams"
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    inputMode="decimal"
+                                    placeholder="g"
+                                    value={r.grams}
+                                    onChange={(e) => patchRow(i, { grams: e.target.value })}
+                                />
+                            </div>
+                            <div className="w-16 shrink-0">
+                                <Input
+                                    aria-label="Items"
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    inputMode="decimal"
+                                    placeholder="×"
+                                    value={r.items}
+                                    onChange={(e) => patchRow(i, { items: e.target.value })}
+                                />
+                            </div>
+                            {rows.length > 1 && (
+                                <button
+                                    type="button"
+                                    aria-label="Remove ingredient"
+                                    onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
+                                    className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                >
+                                    <i className="fa-solid fa-xmark" aria-hidden="true" />
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={() => setRows((prev) => [...prev, blankIngredient()])}
+                        className="inline-flex h-10 items-center gap-1.5 self-start rounded-[10px] px-3 text-sm font-semibold text-coral-600 transition-colors hover:bg-coral-50"
+                    >
+                        <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                        Add ingredient
+                    </button>
+                </div>
+
                 <Textarea
                     label="Notes"
                     rows={3}
@@ -615,17 +732,38 @@ const MEAL_TEMPLATE = JSON.stringify(
             name: 'Greek yoghurt, berries & granola',
             types: ['breakfast', 'snack'],
             macros: { calories: 380, protein: 28, carbs: 45, fat: 9 },
-            notes: '250 g 0% yoghurt, 80 g berries, 30 g granola',
+            ingredients: [
+                { name: '0% Greek yoghurt', grams: 250 },
+                { name: 'Mixed berries', grams: 80 },
+                { name: 'Granola', grams: 30 },
+            ],
         },
         {
             name: 'Chicken, rice & veg',
             types: ['lunch', 'dinner'],
             macros: { calories: 610, protein: 52, carbs: 70, fat: 12 },
+            ingredients: [
+                { name: 'Chicken breast', grams: 180 },
+                { name: 'Basmati rice', grams: 75 },
+                { name: 'Tenderstem broccoli', grams: 100 },
+                { name: 'Olive oil', grams: 5 },
+            ],
         },
         {
             name: 'Protein shake',
             types: ['snack'],
             macros: { calories: 160, protein: 30, carbs: 5, fat: 2 },
+            ingredients: [{ name: 'Whey protein', grams: 35 }],
+            notes: 'With water',
+        },
+        {
+            name: 'Scrambled eggs on toast',
+            types: ['breakfast'],
+            macros: { calories: 420, protein: 24, carbs: 30, fat: 22 },
+            ingredients: [
+                { name: 'Eggs', items: 3 },
+                { name: 'Sourdough', items: 1, grams: 50 },
+            ],
         },
     ],
     null,
@@ -652,7 +790,13 @@ function ImportNotes() {
                 {f('macros')} are per serving: {f('calories')} (kcal), {f('protein')}, {f('carbs')} and {f('fat')}{' '}
                 (grams). Missing ones count as 0.
             </p>
-            <p>{f('notes')} is free text — portions, where it’s from, how to make it.</p>
+            <p>
+                {f('ingredients')} is what goes into one serving: a list of {f('name')} with {f('grams')} (raw weight,
+                as bought) and/or {f('items')} — a count, for things you buy by number (3 eggs, not 180 g). With
+                {' '}{f('items')} the shopping list buys the count; otherwise the grams. Add a meal to the shopping list and it buys these — merged with the same ingredient from your trays
+                and other meals, so use the same names. Leave it out and the meal goes on the list as itself.
+            </p>
+            <p>{f('notes')} is free text — where it’s from, how to make it.</p>
             <p>A meal with the same name as one already in your library lets you choose to update it or keep both.</p>
         </>
     )

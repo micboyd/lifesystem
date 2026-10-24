@@ -177,7 +177,10 @@ export default function NutritionWidget({ data }: { data: NutritionToday }) {
                                     >
                                         {entryName(entry)}
                                     </p>
-                                    <span className={DASH.rowValue}>{Math.round(entryMacros(entry).calories)} kcal</span>
+                                    <span className={DASH.rowValue}>
+                                        {/* A box note is planned without amounts — it has no number yet. */}
+                                        {entry.box ? 'from the box' : `${Math.round(entryMacros(entry).calories)} kcal`}
+                                    </span>
                                 </li>
                             ))}
                         </ul>

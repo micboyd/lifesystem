@@ -1,9 +1,10 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Spinner from '../components/Spinner'
 import Button from '../components/Button'
-import Input from '../components/Input'
 import { Card } from '../components/Card'
+import ConfirmModal from '../components/ConfirmModal'
+import type { MenuEntry } from '../components/DropdownMenu'
 import {
     listGroups,
     createGroup,
@@ -21,7 +22,6 @@ import {
     createPot,
     updatePot,
     deletePot,
-    type AddScope,
 } from '../services/finances'
 import { listSavingsTargets } from '../services/savingsTargets'
 import {
@@ -32,15 +32,24 @@ import {
     type DeleteMode,
     type AmountScope,
 } from '../lib/finance'
-import { formatMoney, formatAmount } from '../lib/money'
+import { formatMoney } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
 import { useInvalidate } from '../context/DataSyncContext'
 import { useAuth } from '../context/AuthContext'
 import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
 import AmountScopeDialog from '../components/finance/AmountScopeDialog'
-import Tabs from '../components/Tabs'
-import DatePicker, { type DateRange, type DatePickerValue } from '../components/DatePicker'
+import { GroupHeader, PotHeader, SheetRow } from '../components/finance/MonthlySheet'
+import {
+    AddRowDrawer,
+    NameDrawer,
+    NewGroupDrawer,
+    RowDrawer,
+    type AddRowTarget,
+    type NameDrawerTarget,
+    type NewGroupValues,
+    type RowDrawerTarget,
+} from '../components/finance/MonthlyDrawers'
 import type { FinanceGroup, FinancePot, FinanceRow, FinanceEntry, SavingsTarget } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -55,470 +64,35 @@ function formatMonth(ym: string): string {
     return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 }
 
-// ── Inline amount cell ────────────────────────────────────────────────────────
+// The hero sits on ink, so its labels use the lighter stone.
+const HERO_OVERLINE = 'text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400'
 
-interface AmountCellProps {
-    value: number | undefined
-    placeholder?: number
-    onSave: (v: number | null) => void
-    /** Render as a large hero number (Monthly list rows) rather than a compact cell. */
-    large?: boolean
-}
-
-function AmountCell({ value, placeholder, onSave, large = false }: AmountCellProps) {
-    const [editing, setEditing] = useState(false)
-    const [draft, setDraft] = useState('')
-    const inputRef = useRef<HTMLInputElement>(null)
-
-    function startEdit() {
-        setDraft(
-            value !== undefined
-                ? String(value)
-                : placeholder !== undefined
-                  ? String(placeholder)
-                  : ''
-        )
-        setEditing(true)
-        setTimeout(() => inputRef.current?.select(), 0)
-    }
-
-    function commit() {
-        const trimmed = draft.trim()
-        if (trimmed === '') {
-            onSave(null)
-        } else {
-            const n = parseFloat(trimmed)
-            if (!Number.isNaN(n)) onSave(n)
-        }
-        setEditing(false)
-    }
-
-    if (editing) {
-        return (
-            <input
-                ref={inputRef}
-                autoFocus
-                type="number"
-                step="0.01"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={commit}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') commit()
-                    if (e.key === 'Escape') setEditing(false)
-                }}
-                className={[
-                    'w-full rounded-lg border border-neutral-300 bg-white px-2 text-right tabular-nums focus:border-neutral-950 focus:outline-none',
-                    large ? 'py-1 text-sm font-semibold' : 'py-1 text-sm',
-                ].join(' ')}
-            />
-        )
-    }
-
-    const display = value !== undefined ? value : placeholder
-    const isPlaceholder = value === undefined && placeholder !== undefined
-
+function MonthArrow({ dir, onClick, disabled = false }: { dir: 'prev' | 'next'; onClick: () => void; disabled?: boolean }) {
+    const label = dir === 'prev' ? 'Previous month' : 'Next month'
     return (
         <button
             type="button"
-            onClick={startEdit}
-            className={[
-                'w-full rounded-lg px-2 text-right tabular-nums transition-colors hover:bg-neutral-100',
-                large ? 'py-1 text-sm font-semibold' : 'py-1 text-sm',
-                isPlaceholder
-                    ? large
-                        ? 'text-neutral-500'
-                        : 'text-neutral-300'
-                    : 'text-neutral-900',
-            ].join(' ')}
+            aria-label={label}
+            title={label}
+            onClick={onClick}
+            disabled={disabled}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 text-neutral-200 transition-colors hover:bg-white/20 hover:text-white disabled:pointer-events-none disabled:opacity-40 sm:h-9 sm:w-9"
         >
-            {display !== undefined ? (
-                `£${formatAmount(display)}`
-            ) : (
-                <span className="text-neutral-200">—</span>
-            )}
+            <i className={`fa-solid ${dir === 'prev' ? 'fa-chevron-left' : 'fa-chevron-right'} text-xs`} aria-hidden="true" />
         </button>
     )
 }
 
-// ── Pot card ─────────────────────────────────────────────────────────────────
-
-interface PotCardProps {
-    pot: FinancePot
-    rows: FinanceRow[]
-    entries: FinanceEntry[]
-    month: string
-    totalCls: string
-    isSavings: boolean
-    isAddingRow: boolean
-    onStartAddRow: () => void
-    onCancelAddRow: () => void
-    onSaveAddRow: (name: string, amount: number | undefined, recurring: boolean) => Promise<void>
-    onSaveRow: (id: string, name: string, amountStr: string) => Promise<void>
-    onSetEntry: (rowId: string, amount: number | null) => Promise<void>
-    onDeleteRow: (id: string) => void
-    onToggleBudget: (rowId: string, budgeted: boolean) => Promise<void>
-    onNavigate: (rowId: string) => void
-    effectiveAmount: (row: FinanceRow) => number
-    onRename: (id: string, name: string) => Promise<void>
-    onDelete: (id: string) => void
-}
-
-function PotCard({
-    pot, rows, entries, month, totalCls, isSavings, isAddingRow,
-    onStartAddRow, onCancelAddRow, onSaveAddRow, onSaveRow,
-    onSetEntry, onDeleteRow, onToggleBudget, onNavigate,
-    effectiveAmount, onRename, onDelete,
-}: PotCardProps) {
-    const [renamingPot, setRenamingPot] = useState(false)
-    const [potNameInput, setPotNameInput] = useState(pot.name)
-    const [savingPotName, setSavingPotName] = useState(false)
-    const [editingRowId, setEditingRowId] = useState<string | null>(null)
-    const [draftName, setDraftName] = useState('')
-    const [draftAmount, setDraftAmount] = useState('')
-    const [savingRow, setSavingRow] = useState(false)
-    const total = rows.reduce((s, r) => s + effectiveAmount(r), 0)
-
-    async function saveRename() {
-        if (!potNameInput.trim() || potNameInput.trim() === pot.name) { setRenamingPot(false); return }
-        setSavingPotName(true)
-        try { await onRename(pot._id, potNameInput.trim()); setRenamingPot(false) }
-        finally { setSavingPotName(false) }
-    }
-
-    function startEditRow(row: FinanceRow) {
-        setEditingRowId(row._id)
-        setDraftName(row.name)
-        const current = row.recurring === false
-            ? (entries.find((e) => e.row === row._id)?.amount ?? row.recurringAmount)
-            : recurringAmountForMonth(row, month)
-        setDraftAmount(current !== undefined ? String(current) : '')
-    }
-
-    async function commitEditRow(id: string) {
-        setSavingRow(true)
-        try { await onSaveRow(id, draftName, draftAmount); setEditingRowId(null) }
-        finally { setSavingRow(false) }
-    }
-
+function Figure({ label, dot, value }: { label: string; dot: string; value: number }) {
     return (
-        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 transition-shadow hover:shadow-sm">
-            {/* Pot header */}
-            <div className="flex items-center justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3">
-                {renamingPot ? (
-                    <div className="flex flex-1 items-center gap-2">
-                        <Input
-                            autoFocus
-                            className="!py-1 !text-xs"
-                            value={potNameInput}
-                            onChange={(e) => setPotNameInput(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenamingPot(false) }}
-                        />
-                        <Button size="sm" onClick={saveRename} disabled={savingPotName}>Save</Button>
-                        <Button size="sm" variant="ghost" onClick={() => setRenamingPot(false)}>Cancel</Button>
-                    </div>
-                ) : (
-                    <>
-                        <div className="flex items-center gap-2">
-                            <i className="fa-solid fa-layer-group text-xs text-neutral-500" aria-hidden="true" />
-                            <span className="text-sm font-semibold text-neutral-700">{pot.name}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className={`mr-1 text-xs font-semibold tabular-nums ${totalCls}`}>
-                                {formatMoney(total)}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => { setRenamingPot(true); setPotNameInput(pot.name) }}
-                                className="grid h-6 w-6 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                            >
-                                <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onDelete(pot._id)}
-                                className="grid h-6 w-6 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-red-100 hover:text-red-500"
-                            >
-                                <i className="fa-solid fa-trash-can text-[11px]" aria-hidden="true" />
-                            </button>
-                        </div>
-                    </>
-                )}
-            </div>
-
-            {/* Pot rows — list presentation */}
-            <div>
-                <div className="flex flex-col divide-y divide-neutral-200/70">
-                    {rows.map((row) => {
-                        const amt = entries.find((e) => e.row === row._id)?.amount
-                        const monthlyDefault = recurringAmountForMonth(row, month)
-                        const rowVal = effectiveAmount(row)
-                        const pct = total !== 0 ? Math.min(100, Math.abs(rowVal / total) * 100) : 0
-                        const barCls = totalCls.includes('emerald')
-                            ? 'bg-emerald-400'
-                            : totalCls.includes('blue')
-                              ? 'bg-blue-400'
-                              : 'bg-red-300'
-
-                        if (editingRowId === row._id) {
-                            return (
-                                <div
-                                    key={row._id}
-                                    className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center"
-                                >
-                                    <Input
-                                        autoFocus
-                                        className="!py-1.5 !text-sm sm:flex-1"
-                                        value={draftName}
-                                        onChange={(e) => setDraftName(e.target.value)}
-                                    />
-                                    <Input
-                                        className="!py-1.5 !text-sm sm:w-40"
-                                        type="number"
-                                        step="0.01"
-                                        placeholder={row.recurring === false ? 'Amount' : 'Monthly amount'}
-                                        value={draftAmount}
-                                        onChange={(e) => setDraftAmount(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && commitEditRow(row._id)}
-                                    />
-                                    <div className="flex gap-1">
-                                        <Button size="sm" onClick={() => commitEditRow(row._id)} disabled={savingRow}>Save</Button>
-                                        <Button size="sm" variant="ghost" onClick={() => setEditingRowId(null)}>Cancel</Button>
-                                    </div>
-                                </div>
-                            )
-                        }
-
-                        return (
-                            <div
-                                key={row._id}
-                                // On phones the action icons are always visible (no
-                                // hover), so they wrap to their own line instead of
-                                // squeezing the row name down to a letter or two.
-                                className="group/row flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-white/70 sm:flex-nowrap"
-                            >
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="truncate text-sm font-medium text-neutral-900">{row.name}</span>
-                                        {row.budgeted && (
-                                            <i className="fa-solid fa-bookmark text-[11px] text-neutral-300" title="In Budgets" aria-hidden="true" />
-                                        )}
-                                        {row.recurring === false && (
-                                            <span className="rounded-full bg-neutral-200/70 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                                one-time
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="mt-1.5 flex items-center gap-2">
-                                        <div className="h-1 w-full max-w-[120px] overflow-hidden rounded-full bg-neutral-200/70">
-                                            <div className={`h-full rounded-full ${barCls}`} style={{ width: `${pct}%` }} />
-                                        </div>
-                                        {row.recurring !== false && monthlyDefault !== undefined && (
-                                            <span className="shrink-0 text-[11px] tabular-nums text-neutral-500">
-                                                £{formatAmount(monthlyDefault)}/mo
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="flex shrink-0 items-center justify-end max-sm:w-auto">
-                                <div className="w-20 text-right sm:w-28">
-                                    <AmountCell large value={amt} placeholder={monthlyDefault} onSave={(v) => onSetEntry(row._id, v)} />
-                                </div>
-                                </div>
-
-                                <div className="flex items-center gap-0.5 overflow-hidden opacity-100 transition-all duration-200 max-sm:w-full max-sm:justify-end sm:max-w-0 sm:opacity-0 sm:group-hover/row:max-w-[160px] sm:group-hover/row:opacity-100">
-                                    <button type="button" onClick={() => onNavigate(row._id)} title="View breakdown"
-                                        className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
-                                        <i className="fa-solid fa-chart-pie text-[11px]" aria-hidden="true" />
-                                    </button>
-                                    <button type="button" onClick={() => onToggleBudget(row._id, !row.budgeted)}
-                                        title={row.budgeted ? 'Remove from Budgets' : 'Add to Budgets'}
-                                        className={['grid h-7 w-7 place-items-center rounded-[10px] transition-colors',
-                                            row.budgeted ? 'text-neutral-900 hover:bg-neutral-100' : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500'].join(' ')}>
-                                        <i className="fa-solid fa-bookmark text-[11px]" aria-hidden="true" />
-                                    </button>
-                                    <button type="button" onClick={() => startEditRow(row)}
-                                        className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
-                                        <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
-                                    </button>
-                                    {!isSavings && (
-                                        <button type="button" onClick={() => onDeleteRow(row._id)}
-                                            className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-500">
-                                            <i className="fa-solid fa-trash-can text-[11px]" aria-hidden="true" />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        )
-                    })}
-                    {isAddingRow && (
-                        <AddRowForm month={month} onSave={onSaveAddRow} onCancel={onCancelAddRow} />
-                    )}
-                </div>
-
-                <div className="flex items-center justify-between gap-3 border-t border-neutral-200 px-4 py-3">
-                    {!isSavings && !isAddingRow ? (
-                        <Button size="sm" variant="secondary" icon="fa-solid fa-plus" onClick={onStartAddRow}>
-                            Add row
-                        </Button>
-                    ) : (
-                        <span />
-                    )}
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Total</span>
-                        <span className={`pr-2 text-sm font-medium tabular-nums tracking-tight ${totalCls}`}>
-                            {formatMoney(total)}
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-// ── Add pot inline ────────────────────────────────────────────────────────────
-
-function AddPotInline({ groupId, onAdd }: { groupId: string; onAdd: (groupId: string, name: string) => Promise<void> }) {
-    const [open, setOpen] = useState(false)
-    const [name, setName] = useState('')
-    const [saving, setSaving] = useState(false)
-
-    async function submit() {
-        if (!name.trim()) return
-        setSaving(true)
-        try { await onAdd(groupId, name.trim()); setName(''); setOpen(false) }
-        finally { setSaving(false) }
-    }
-
-    if (!open) {
-        return (
-            <Button
-                size="sm"
-                variant="secondary"
-                icon="fa-solid fa-layer-group"
-                onClick={() => setOpen(true)}
-                className="self-start"
-            >
-                Add pot
-            </Button>
-        )
-    }
-
-    return (
-        <div className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2">
-            <Input
-                autoFocus
-                className="!py-1.5 !text-xs"
-                placeholder="Pot name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setOpen(false) }}
-            />
-            <Button size="sm" onClick={submit} disabled={saving || !name.trim()}>
-                {saving ? '…' : 'Add'}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-        </div>
-    )
-}
-
-// ── Add row inline form ───────────────────────────────────────────────────────
-
-interface AddRowFormProps {
-    month: string
-    onSave: (name: string, amount: number | undefined, recurring: boolean) => Promise<void>
-    onCancel: () => void
-}
-
-function AddRowForm({ month, onSave, onCancel }: AddRowFormProps) {
-    const [name, setName] = useState('')
-    const [isRecurring, setIsRecurring] = useState(true)
-    const [amount, setAmount] = useState('')
-    const [saving, setSaving] = useState(false)
-
-    async function handleSave() {
-        if (!name.trim()) return
-        setSaving(true)
-        try {
-            const n = amount.trim() !== '' ? parseFloat(amount) : undefined
-            await onSave(
-                name.trim(),
-                n !== undefined && !Number.isNaN(n) ? n : undefined,
-                isRecurring
-            )
-        } finally {
-            setSaving(false)
-        }
-    }
-
-    const monthLabel = formatMonth(month)
-
-    return (
-        <div className="flex flex-col gap-3 bg-neutral-50 px-5 py-4">
-            {/* Type toggle */}
-            <div className="flex w-fit gap-1 rounded-lg border border-neutral-200 bg-white p-1">
-                {(
-                    [
-                        ['recurring', 'Recurring'],
-                        ['onetime', 'One-time'],
-                    ] as const
-                ).map(([key, label]) => {
-                    const active = (key === 'recurring') === isRecurring
-                    return (
-                        <button
-                            key={key}
-                            type="button"
-                            onClick={() => setIsRecurring(key === 'recurring')}
-                            className={[
-                                'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
-                                active
-                                    ? 'bg-neutral-950 text-white'
-                                    : 'text-neutral-500 hover:text-neutral-900',
-                            ].join(' ')}
-                        >
-                            {label}
-                        </button>
-                    )
-                })}
-            </div>
-
-            {/* Name + amount */}
-            <div className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                    autoFocus
-                    className="!py-1.5 !text-xs sm:flex-1"
-                    placeholder="Row name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                />
-                <Input
-                    className="!py-1.5 !text-xs sm:w-48"
-                    type="number"
-                    step="0.01"
-                    placeholder={isRecurring ? 'Monthly amount' : `Amount for ${monthLabel}`}
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                />
-            </div>
-
-            <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-neutral-500">
-                    {isRecurring
-                        ? 'Applied every month — you can override the amount per month.'
-                        : `Only counts in ${monthLabel}.`}
-                </p>
-                <div className="flex shrink-0 gap-1">
-                    <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
-                        {saving ? 'Saving…' : 'Add'}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={onCancel}>
-                        Cancel
-                    </Button>
-                </div>
-            </div>
+        <div className="min-w-0">
+            <p className={`flex items-center gap-1.5 ${HERO_OVERLINE}`}>
+                <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
+                {label}
+            </p>
+            <p className="mt-1.5 truncate text-xl font-medium tabular-nums tracking-[-0.03em] text-white sm:text-2xl">
+                {formatMoney(value, 0)}
+            </p>
         </div>
     )
 }
@@ -545,14 +119,12 @@ export default function Finances() {
     const [loading, setLoading] = useState(true)
     const [paidRows, setPaidRows] = useState<Set<string>>(new Set())
 
-    // New group form
-    const [addingGroup, setAddingGroup] = useState(false)
-    const [newGroupName, setNewGroupName] = useState('')
-    const [newGroupType, setNewGroupType] = useState<'income' | 'expense' | 'savings'>('expense')
-    const [newGroupScope, setNewGroupScope] = useState<AddScope>('all')
-    const [newGroupRange, setNewGroupRange] = useState<DateRange | null>(null)
-    const [newGroupMonthly, setNewGroupMonthly] = useState('')
-    const [savingGroup, setSavingGroup] = useState(false)
+    // Drawers
+    const [newGroupOpen, setNewGroupOpen] = useState(false)
+    const [rowDrawer, setRowDrawer] = useState<RowDrawerTarget | null>(null)
+    const [addRowTarget, setAddRowTarget] = useState<AddRowTarget | null>(null)
+    const [nameDrawer, setNameDrawer] = useState<NameDrawerTarget | null>(null)
+    const [potToDelete, setPotToDelete] = useState<FinancePot | null>(null)
 
     // Delete confirmation / scope dialog
     const [pendingDelete, setPendingDelete] = useState<{
@@ -569,14 +141,6 @@ export default function Finances() {
         name: string
         fields: { name?: string; recurringAmount: number | null }
     } | null>(null)
-
-    // Editing
-    const [editingGroup, setEditingGroup] = useState<string | null>(null)
-    const [editGroupName, setEditGroupName] = useState('')
-    const [addingRowFor, setAddingRowFor] = useState<{ groupId: string; potId?: string } | null>(null)
-    const [editingRow, setEditingRow] = useState<string | null>(null)
-    const [editRowName, setEditRowName] = useState('')
-    const [editRowAmount, setEditRowAmount] = useState('')
 
     useEffect(() => {
         let active = true
@@ -638,22 +202,26 @@ export default function Finances() {
         return visibleRows(group).reduce((sum, r) => sum + effectiveAmount(r), 0)
     }
 
-    const totalIncome = monthGroups
-        .filter((g) => g.type === 'income')
-        .reduce((sum, g) => sum + groupTotal(g), 0)
+    function typeTotal(type: FinanceGroup['type']): number {
+        return monthGroups.filter((g) => g.type === type).reduce((sum, g) => sum + groupTotal(g), 0)
+    }
 
-    const totalExpense = monthGroups
-        .filter((g) => g.type === 'expense')
-        .reduce((sum, g) => sum + groupTotal(g), 0)
-
-    const totalSavings = monthGroups
-        .filter((g) => g.type === 'savings')
-        .reduce((sum, g) => sum + groupTotal(g), 0)
-
+    const totalIncome = typeTotal('income')
+    const totalExpense = typeTotal('expense')
+    const totalSavings = typeTotal('savings')
     const net = totalIncome - totalExpense - totalSavings
 
+    // What's owed this month (expenses + savings) and how much is ticked off.
+    const outgoingRows = monthGroups.filter((g) => g.type !== 'income').flatMap((g) => visibleRows(g))
+    const totalOwed = outgoingRows.reduce((sum, r) => sum + Math.abs(effectiveAmount(r)), 0)
+    const totalPaid = outgoingRows
+        .filter((r) => paidRows.has(r._id))
+        .reduce((sum, r) => sum + Math.abs(effectiveAmount(r)), 0)
+    const leftToPay = totalOwed - totalPaid
+    const paidPct = totalOwed > 0 ? Math.min(100, (totalPaid / totalOwed) * 100) : 0
+
     // Savings plans (from the Forecast target planner) that expect a
-    // contribution in the viewed month. Drives the advisory banner below.
+    // contribution in the viewed month. Drives the advisory line below.
     const activePlans = savingsTargets.filter(
         (t) =>
             !t.onTrack &&
@@ -693,21 +261,15 @@ export default function Finances() {
 
     // ── Handlers ──────────────────────────────────────────────────────────────
 
-    async function handleAddGroup() {
-        if (!newGroupName.trim()) return
-        setSavingGroup(true)
+    async function handleAddGroup({ name, type, scope, range, monthly }: NewGroupValues): Promise<boolean> {
         try {
-            const monthly = parseFloat(newGroupMonthly.replace(/,/g, ''))
-            const extra = newGroupType === 'savings' && !Number.isNaN(monthly) && monthly > 0
-                ? { recurringAmount: monthly }
-                : undefined
-            const range = newGroupRange ?? { start: month, end: month }
+            const extra = type === 'savings' && monthly !== undefined ? { recurringAmount: monthly } : undefined
             const g =
-                newGroupScope === 'range'
-                    ? await createGroup(newGroupName.trim(), newGroupType, 'range', range.start, extra, range.end)
-                    : await createGroup(newGroupName.trim(), newGroupType, newGroupScope, month, extra)
+                scope === 'range'
+                    ? await createGroup(name, type, 'range', range.start, extra, range.end)
+                    : await createGroup(name, type, scope, month, extra)
             setGroups((prev) => [...prev, g])
-            if (newGroupScope === 'range' && (month < range.start || month > range.end)) {
+            if (scope === 'range' && (month < range.start || month > range.end)) {
                 toast.show(`Added for ${formatMonth(range.start)} to ${formatMonth(range.end)}.`, 'success')
             }
             // Savings groups auto-create a row on the server — re-fetch so it appears
@@ -715,24 +277,19 @@ export default function Finances() {
                 const updatedRows = await listRows()
                 setRows(updatedRows)
             }
-            setNewGroupName('')
-            setNewGroupScope('all')
-            setNewGroupRange(null)
-            setNewGroupMonthly('')
-            setAddingGroup(false)
+            setNewGroupOpen(false)
+            return true
         } catch {
             toast.error('Couldn’t add the group. Please try again.')
-        } finally {
-            setSavingGroup(false)
+            return false
         }
     }
 
-    async function handleSaveGroupEdit(id: string) {
-        if (!editGroupName.trim()) return
+    async function handleRenameGroup(id: string, name: string) {
         try {
-            const g = await updateGroup(id, { name: editGroupName.trim() })
+            const g = await updateGroup(id, { name })
             setGroups((prev) => prev.map((x) => (x._id === id ? g : x)))
-            setEditingGroup(null)
+            setNameDrawer(null)
         } catch {
             toast.error('Couldn’t rename the group.')
         }
@@ -761,6 +318,7 @@ export default function Finances() {
         try {
             const pot = await createPot(groupId, name)
             setPots((prev) => [...prev, pot])
+            setNameDrawer(null)
         } catch {
             toast.error("Couldn't add the pot.")
         }
@@ -770,6 +328,7 @@ export default function Finances() {
         try {
             const updated = await updatePot(id, name)
             setPots((prev) => prev.map((p) => (p._id === id ? updated : p)))
+            setNameDrawer(null)
         } catch {
             toast.error("Couldn't rename the pot.")
         }
@@ -786,12 +345,12 @@ export default function Finances() {
     }
 
     async function handleAddRow(
-        groupId: string,
+        target: AddRowTarget,
         name: string,
         amount: number | undefined,
-        recurring: boolean,
-        potId?: string
+        recurring: boolean
     ) {
+        const { groupId, potId } = target
         try {
             if (recurring === false) {
                 const r = await createRow(groupId, name, undefined, false, month, undefined, potId)
@@ -806,7 +365,7 @@ export default function Finances() {
                 const r = await createRow(groupId, name, amount, true, undefined, month, potId)
                 setRows((prev) => [...prev, r])
             }
-            setAddingRowFor(null)
+            setAddRowTarget(null)
         } catch {
             toast.error("Couldn’t add the row.")
         }
@@ -853,46 +412,23 @@ export default function Finances() {
         }
     }
 
-    async function handleSaveRowFromPot(id: string, name: string, amountStr: string) {
-        const row = rows.find((x) => x._id === id)
-        if (!row) return
+    async function handleSaveRow(row: FinanceRow, name: string, amountStr: string, budgeted: boolean) {
+        setRowDrawer(null)
         const trimmed = amountStr.trim()
         const parsed = trimmed !== '' && !Number.isNaN(parseFloat(trimmed)) ? parseFloat(trimmed) : null
+        if (budgeted !== !!row.budgeted) await handleToggleBudget(row._id, budgeted)
         try {
             if (row.recurring === false) {
                 if (name.trim() && name.trim() !== row.name) {
-                    const updated = await updateRow(id, { name: name.trim() })
-                    setRows((prev) => prev.map((x) => (x._id === id ? updated : x)))
+                    const updated = await updateRow(row._id, { name: name.trim() })
+                    setRows((prev) => prev.map((x) => (x._id === row._id ? updated : x)))
                 }
-                await handleSetEntry(id, parsed)
+                await handleSetEntry(row._id, parsed)
             } else {
                 await saveRecurringRowEdit(row, name, parsed)
             }
         } catch {
             toast.error("Couldn't save the row.")
-        }
-    }
-
-    async function handleSaveRowEdit(id: string) {
-        const row = rows.find((x) => x._id === id)
-        const trimmed = editRowAmount.trim()
-        const parsed =
-            trimmed !== '' && !Number.isNaN(parseFloat(trimmed)) ? parseFloat(trimmed) : null
-
-        try {
-            if (row && row.recurring === false) {
-                // One-time row: the amount is the month entry; the name is the only row field to update.
-                if (editRowName.trim() && editRowName.trim() !== row.name) {
-                    const updated = await updateRow(id, { name: editRowName.trim() })
-                    setRows((prev) => prev.map((x) => (x._id === id ? updated : x)))
-                }
-                await handleSetEntry(id, parsed)
-            } else if (row) {
-                await saveRecurringRowEdit(row, editRowName, parsed)
-            }
-            setEditingRow(null)
-        } catch {
-            toast.error('Couldn’t save the row.')
         }
     }
 
@@ -943,6 +479,16 @@ export default function Finances() {
         }
     }
 
+    function openRow(row: FinanceRow, isSavings: boolean) {
+        setRowDrawer({
+            row,
+            amount: row.recurring === false
+                ? (entryAmount(row._id) ?? row.recurringAmount)
+                : recurringAmountForMonth(row, month),
+            canDelete: !isSavings,
+        })
+    }
+
     if (loading) {
         return (
             <div className="grid place-items-center py-16">
@@ -951,298 +497,168 @@ export default function Finances() {
         )
     }
 
-    // Only groups active in the viewed month are shown (month-scope lifecycle).
-    const incomeGroups = monthGroups.filter((g) => g.type === 'income')
-    const expenseGroups = monthGroups.filter((g) => g.type === 'expense')
-    const savingsGroups = monthGroups.filter((g) => g.type === 'savings')
+    const monthLabel = formatMonth(month)
+    const isCurrent = month === currentMonth()
+    // Income first, then what goes out, then what's put away.
+    const orderedGroups = (['income', 'expense', 'savings'] as const).flatMap((t) =>
+        monthGroups.filter((g) => g.type === t)
+    )
+
+    function renderRows(list: FinanceRow[], group: FinanceGroup) {
+        const isSavings = group.type === 'savings'
+        return (
+            <ul className="divide-y divide-neutral-100">
+                {list.map((row) => (
+                    <SheetRow
+                        key={row._id}
+                        row={row}
+                        entry={entryAmount(row._id)}
+                        monthlyDefault={recurringAmountForMonth(row, month)}
+                        paid={paidRows.has(row._id)}
+                        isIncome={group.type === 'income'}
+                        onTogglePaid={() => togglePaid(row._id)}
+                        onOpen={() => openRow(row, isSavings)}
+                        onSetEntry={(v) => handleSetEntry(row._id, v)}
+                    />
+                ))}
+            </ul>
+        )
+    }
 
     return (
         <>
-            {/* Header */}
-            <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">Finances</h1>
-                    <p className="mt-1 text-sm text-neutral-500">Monthly income and expenses.</p>
-                </div>
-                {!addingGroup && (
-                    <Button icon="fa-solid fa-plus" onClick={() => setAddingGroup(true)}>
-                        New group
+            {/* Hero — the month and where it lands, before any detail */}
+            <section className="mb-4 rounded-3xl bg-neutral-900 p-5 text-neutral-50 sm:p-7">
+                <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-1.5">
+                        <MonthArrow
+                            dir="prev"
+                            onClick={() => setMonth((m) => addMonths(m, -1))}
+                            disabled={!!(financeStartMonth && month <= financeStartMonth)}
+                        />
+                        <MonthArrow dir="next" onClick={() => setMonth((m) => addMonths(m, 1))} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h1 className="truncate text-xl font-semibold tracking-tight text-white sm:text-[22px]">
+                            {monthLabel}
+                        </h1>
+                        <p className="truncate text-[13px] text-neutral-400">
+                            {isCurrent ? 'This month' : (
+                                <button
+                                    type="button"
+                                    onClick={() => setMonth(currentMonth())}
+                                    className="font-medium text-white underline underline-offset-4"
+                                >
+                                    Back to this month
+                                </button>
+                            )}
+                        </p>
+                    </div>
+                    <Button icon="fa-solid fa-plus" onClick={() => setNewGroupOpen(true)} aria-label="New group">
+                        <span className="hidden sm:inline">New group</span>
                     </Button>
-                )}
-            </header>
+                </div>
 
-            {/* Month navigator */}
-            <div className="mb-8 flex items-center gap-3">
-                <button
-                    type="button"
-                    onClick={() => setMonth((m) => addMonths(m, -1))}
-                    disabled={!!(financeStartMonth && month <= financeStartMonth)}
-                    className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-30 disabled:pointer-events-none"
-                >
-                    <i className="fa-solid fa-chevron-left text-sm" aria-hidden="true" />
-                </button>
-                <span className="min-w-[160px] text-center text-base font-semibold text-neutral-900">
-                    {formatMonth(month)}
-                </span>
-                <button
-                    type="button"
-                    onClick={() => setMonth((m) => addMonths(m, 1))}
-                    className="grid h-9 w-9 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                >
-                    <i className="fa-solid fa-chevron-right text-sm" aria-hidden="true" />
-                </button>
-                {month !== currentMonth() && (
-                    <button
-                        type="button"
-                        onClick={() => setMonth(currentMonth())}
-                        className="ml-1 rounded-full px-3 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                    >
-                        Today
-                    </button>
-                )}
-            </div>
-
-            {/* Month payment summary */}
-            {(() => {
-                const outgoingGroups = [...expenseGroups, ...savingsGroups]
-                const allOutgoingRows = outgoingGroups.flatMap((g) => visibleRows(g))
-                const totalOwed = allOutgoingRows.reduce((sum, r) => sum + Math.abs(effectiveAmount(r)), 0)
-                const totalPaid = allOutgoingRows
-                    .filter((r) => paidRows.has(r._id))
-                    .reduce((sum, r) => sum + Math.abs(effectiveAmount(r)), 0)
-                const leftToPay = totalOwed - totalPaid
-                const pct = totalOwed > 0 ? Math.min(100, (totalPaid / totalOwed) * 100) : 0
-
-                if (totalOwed === 0) return null
-
-                return (
-                    <div className="mb-8 rounded-2xl border border-neutral-200 bg-white px-5 py-4">
-                        <div className="flex items-baseline justify-between gap-4 mb-3">
-                            <div>
-                                <span className="text-2xl font-bold tabular-nums tracking-tight text-neutral-900">
-                                    £{formatAmount(leftToPay)}
-                                </span>
-                                <span className="ml-2 text-sm text-neutral-500">left to pay</span>
-                            </div>
-                            <span className="text-sm tabular-nums text-neutral-500">
-                                £{formatAmount(totalPaid)} of £{formatAmount(totalOwed)} done
-                            </span>
+                {monthGroups.length > 0 && (
+                    <div className="mt-7 grid grid-cols-3 gap-x-4 gap-y-6 lg:grid-cols-[1.6fr_1fr_1fr_1fr] lg:items-end">
+                        <div className="col-span-3 lg:col-span-1">
+                            <p className={HERO_OVERLINE}>Left over</p>
+                            <p className="mt-2 text-[40px] font-medium leading-none tracking-[-0.04em] tabular-nums text-white">
+                                {net > 0 ? '+' : ''}
+                                {formatMoney(net, 0)}
+                            </p>
+                            <p className="mt-2 text-[13px] text-neutral-400">
+                                {net < 0 ? (
+                                    <span className="inline-flex rounded-full bg-coral-500/20 px-2 py-0.5 text-xs font-medium text-coral-300">
+                                        More going out than coming in
+                                    </span>
+                                ) : (
+                                    'After expenses and savings'
+                                )}
+                            </p>
                         </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
+                        <Figure label="In" dot="bg-emerald-400" value={totalIncome} />
+                        <Figure label="Out" dot="bg-coral-400" value={totalExpense} />
+                        <Figure label="Saved" dot="bg-brand-400" value={totalSavings} />
+                    </div>
+                )}
+
+                {totalOwed > 0 && (
+                    <div className="mt-6 border-t border-white/10 pt-4">
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                            <p className="text-[15px] text-neutral-100">
+                                {leftToPay > 0 ? (
+                                    <>
+                                        <span className="font-medium tabular-nums text-white">{formatMoney(leftToPay)}</span> left to pay
+                                    </>
+                                ) : (
+                                    'Everything’s paid'
+                                )}
+                            </p>
+                            <p className="text-[13px] text-neutral-400">
+                                <span className="tabular-nums">{formatMoney(totalPaid, 0)}</span> of{' '}
+                                <span className="tabular-nums">{formatMoney(totalOwed, 0)}</span> paid
+                            </p>
+                        </div>
+                        <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-white/15">
                             <div
-                                className="h-full rounded-full bg-neutral-950 transition-all duration-300"
-                                style={{ width: `${pct}%` }}
+                                className="h-full rounded-full bg-white transition-all duration-300"
+                                style={{ width: `${paidPct}%` }}
                             />
                         </div>
                     </div>
-                )
-            })()}
+                )}
+            </section>
 
             {/* Savings plan advisory — what your saved plans expect this month */}
             {activePlans.length > 0 && (
                 <div
                     className={[
-                        'mb-8 rounded-2xl border px-5 py-4',
-                        savingsShort
-                            ? 'border-amber-200 bg-amber-50'
-                            : 'border-neutral-200 bg-white',
+                        'mb-4 flex items-center gap-3 rounded-2xl px-4 py-3',
+                        savingsShort ? 'bg-warning-bg' : 'bg-neutral-100',
                     ].join(' ')}
                 >
-                    <div className="flex items-start gap-3">
-                        <i
-                            className={[
-                                'fa-solid mt-0.5 text-sm',
-                                savingsShort
-                                    ? 'fa-triangle-exclamation text-amber-500'
-                                    : 'fa-piggy-bank text-neutral-500',
-                            ].join(' ')}
-                            aria-hidden="true"
-                        />
-                        <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-neutral-900 tabular-nums">
-                                {activePlans.length === 1 ? (
-                                    <>
-                                        According to your savings plan{' '}
-                                        <span className="font-bold">{activePlans[0].name}</span>,
-                                        you should be saving £{formatAmount(plannedSavings, 0)} this
-                                        month.
-                                    </>
-                                ) : (
-                                    <>
-                                        According to your {activePlans.length} savings plans, you
-                                        should be saving £{formatAmount(plannedSavings, 0)} this
-                                        month.
-                                    </>
-                                )}
-                            </p>
-                            <p className="mt-0.5 text-xs text-neutral-500 tabular-nums">
-                                {savingsShort ? (
-                                    <>
-                                        This sheet has £{formatAmount(totalSavings, 0)} of savings —
-                                        £{formatAmount(savingsShortfall, 0)} short of the plan.
-                                    </>
-                                ) : (
-                                    <>
-                                        Covered — this sheet already has £
-                                        {formatAmount(totalSavings, 0)} of savings.
-                                    </>
-                                )}
-                            </p>
-                            {activePlans.length > 1 && (
-                                <ul className="mt-3 flex flex-col gap-1.5 border-t border-neutral-950/5 pt-3">
-                                    {activePlans.map((t) => (
-                                        <li
-                                            key={t._id}
-                                            className="flex items-baseline justify-between gap-4 text-xs"
-                                        >
-                                            <span className="truncate font-semibold text-neutral-700">
-                                                {t.name}
-                                            </span>
-                                            <span className="shrink-0 tabular-nums text-neutral-500">
-                                                £{formatAmount(t.requiredMonthly, 0)} / month
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => navigate('/finances/forecast')}
-                            className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-950/5 hover:text-neutral-900"
-                        >
-                            View plans
-                        </button>
-                    </div>
+                    <i
+                        className={[
+                            'fa-solid w-4 shrink-0 text-center text-sm',
+                            savingsShort ? 'fa-triangle-exclamation text-warning' : 'fa-piggy-bank text-neutral-500',
+                        ].join(' ')}
+                        aria-hidden="true"
+                    />
+                    <p className="min-w-0 flex-1 text-[13px] leading-snug text-neutral-700">
+                        <span className="font-medium text-neutral-900">
+                            {activePlans.length === 1 ? `${activePlans[0].name} expects` : `Your ${activePlans.length} savings plans expect`}{' '}
+                            <span className="tabular-nums">{formatMoney(plannedSavings, 0)}</span> saved this month.
+                        </span>{' '}
+                        {savingsShort ? (
+                            <>
+                                This sheet is <span className="tabular-nums">{formatMoney(savingsShortfall, 0)}</span> short.
+                            </>
+                        ) : (
+                            'This sheet covers it.'
+                        )}
+                    </p>
+                    <Button size="sm" variant="ghost" onClick={() => navigate('/finances/forecast')}>
+                        Plans
+                    </Button>
                 </div>
-            )}
-
-            {/* Add group form */}
-            {addingGroup && (
-                <Card className="mb-6">
-                    <h2 className="mb-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        New group
-                    </h2>
-                    <div className="flex flex-col gap-3">
-                        <Input
-                            autoFocus
-                            placeholder="Group name (e.g. Fixed Expenses)"
-                            value={newGroupName}
-                            onChange={(e) => setNewGroupName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddGroup()}
-                        />
-                        <div className="flex gap-2">
-                            {(['income', 'expense', 'savings'] as const).map((t) => {
-                                const selected = newGroupType === t
-                                const colours =
-                                    t === 'income'
-                                        ? selected
-                                            ? 'bg-emerald-100 text-emerald-700'
-                                            : 'bg-emerald-50 text-emerald-400 hover:bg-emerald-100 hover:text-emerald-600'
-                                        : t === 'savings'
-                                          ? selected
-                                              ? 'bg-blue-100 text-blue-700'
-                                              : 'bg-blue-50 text-blue-400 hover:bg-blue-100 hover:text-blue-600'
-                                          : selected
-                                            ? 'bg-red-100 text-red-700'
-                                            : 'bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600'
-                                return (
-                                    <button
-                                        key={t}
-                                        type="button"
-                                        onClick={() => setNewGroupType(t)}
-                                        className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${colours}`}
-                                    >
-                                        {t.charAt(0).toUpperCase() + t.slice(1)}
-                                    </button>
-                                )
-                            })}
-                        </div>
-
-                        {/* Monthly amount — savings only */}
-                        {newGroupType === 'savings' && (
-                            <div className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 focus-within:border-neutral-950 focus-within:ring-4 focus-within:ring-neutral-950/5">
-                                <span className="text-sm font-semibold text-neutral-500">£</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    placeholder="Monthly amount (optional)"
-                                    value={newGroupMonthly}
-                                    onChange={(e) => setNewGroupMonthly(e.target.value)}
-                                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-neutral-900 outline-none placeholder:font-normal placeholder:text-neutral-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                />
-                                <span className="text-sm text-neutral-500">/ mo</span>
-                            </div>
-                        )}
-
-                        {/* Month scope */}
-                        <Tabs
-                            className="self-start"
-                            tabs={[`All months (from ${formatMonth(month)})`, `Just ${formatMonth(month)}`, 'Month range']}
-                            value={
-                                newGroupScope === 'all'
-                                    ? `All months (from ${formatMonth(month)})`
-                                    : newGroupScope === 'month'
-                                      ? `Just ${formatMonth(month)}`
-                                      : 'Month range'
-                            }
-                            onChange={(label) =>
-                                setNewGroupScope(label.startsWith('All') ? 'all' : label.startsWith('Just') ? 'month' : 'range')
-                            }
-                        />
-                        {newGroupScope === 'range' && (
-                            <DatePicker
-                                mode="range"
-                                precision="month"
-                                clearable={false}
-                                value={newGroupRange ?? { start: month, end: month }}
-                                onChange={(v: DatePickerValue) => {
-                                    if (v && typeof v === 'object' && 'start' in v) {
-                                        // Mid-selection the end comes back empty; treat it
-                                        // as a single month until the second click lands.
-                                        setNewGroupRange({ start: v.start, end: v.end || v.start })
-                                    }
-                                }}
-                            />
-                        )}
-
-                        <div className="flex gap-2">
-                            <Button
-                                onClick={handleAddGroup}
-                                disabled={savingGroup || !newGroupName.trim()}
-                            >
-                                {savingGroup ? 'Saving…' : 'Save'}
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                onClick={() => {
-                                    setAddingGroup(false)
-                                    setNewGroupName('')
-                                    setNewGroupScope('all')
-                                    setNewGroupRange(null)
-                                    setNewGroupMonthly('')
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                        </div>
-                    </div>
-                </Card>
             )}
 
             {/* Groups */}
-            {monthGroups.length === 0 && !addingGroup ? (
-                <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-12 text-center">
-                    <p className="text-sm text-neutral-500">
+            {monthGroups.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-neutral-300 px-6 py-12 text-center">
+                    <p className="text-[15px] text-neutral-500">
                         {groups.length === 0
-                            ? 'No groups yet. Add one to get started.'
-                            : `No groups in ${formatMonth(month)}. Add one or switch months.`}
+                            ? 'No groups yet. Start with your income, then your bills.'
+                            : `Nothing set up for ${monthLabel}.`}
                     </p>
+                    <Button className="mt-4" variant="secondary" icon="fa-solid fa-plus" onClick={() => setNewGroupOpen(true)}>
+                        New group
+                    </Button>
                 </div>
             ) : (
-                <div className="flex flex-col gap-6">
-                    {[...incomeGroups, ...expenseGroups, ...savingsGroups].map((group) => {
+                <div className="flex flex-col gap-4">
+                    {orderedGroups.map((group) => {
                         const groupRows = visibleRows(group)
                         const total = groupTotal(group)
                         const isIncome = group.type === 'income'
@@ -1250,530 +666,183 @@ export default function Finances() {
                         const groupRowIds = groupRows.map((r) => r._id)
                         const allPaid = groupRowIds.length > 0 && groupRowIds.every((id) => paidRows.has(id))
                         const somePaid = groupRowIds.some((id) => paidRows.has(id))
-                        const leftToPay = groupRows.reduce((sum, r) => {
-                            if (paidRows.has(r._id)) return sum
-                            return sum + Math.abs(effectiveAmount(r))
-                        }, 0)
-                        const paidSoFar = groupRows.reduce((sum, r) => {
-                            if (!paidRows.has(r._id)) return sum
-                            return sum + Math.abs(effectiveAmount(r))
-                        }, 0)
+                        const outstanding = groupRows.reduce(
+                            (sum, r) => (paidRows.has(r._id) ? sum : sum + Math.abs(effectiveAmount(r))),
+                            0
+                        )
+                        const groupPots = pots.filter((p) => p.group === group._id)
+                        const potIds = new Set(groupPots.map((p) => p._id))
+                        const looseRows = groupRows.filter((r) => !r.pot || !potIds.has(r.pot))
 
-                        const headerBg = isIncome
-                            ? 'bg-emerald-50'
-                            : isSavings
-                              ? 'bg-blue-50'
-                              : 'bg-red-50'
-                        const badgeCls = isIncome
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : isSavings
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-red-100 text-red-700'
-                        const totalCls = isIncome
-                            ? 'text-emerald-700'
-                            : isSavings
-                              ? 'text-blue-700'
-                              : 'text-red-700'
+                        const menu: MenuEntry[] = [
+                            ...(!isSavings
+                                ? [
+                                      { label: 'Add row', icon: 'fa-solid fa-plus', onClick: () => setAddRowTarget({ groupId: group._id, where: group.name }) },
+                                      {
+                                          label: 'Add pot',
+                                          icon: 'fa-solid fa-layer-group',
+                                          onClick: () =>
+                                              setNameDrawer({
+                                                  title: 'New pot',
+                                                  label: 'Pot name',
+                                                  initial: '',
+                                                  saveLabel: 'Add pot',
+                                                  onSave: (name) => handleAddPot(group._id, name),
+                                              }),
+                                      },
+                                  ]
+                                : []),
+                            ...(groupRowIds.length > 0
+                                ? [{
+                                      label: allPaid
+                                          ? isIncome ? 'Mark all not received' : 'Mark all unpaid'
+                                          : isIncome ? 'Mark all received' : 'Mark all paid',
+                                      icon: allPaid ? 'fa-regular fa-circle' : 'fa-solid fa-circle-check',
+                                      onClick: () => setGroupAllPaid(groupRowIds, !allPaid),
+                                  }]
+                                : []),
+                            {
+                                label: 'Rename',
+                                icon: 'fa-solid fa-pen',
+                                onClick: () =>
+                                    setNameDrawer({
+                                        title: 'Rename group',
+                                        label: 'Group name',
+                                        initial: group.name,
+                                        saveLabel: 'Save',
+                                        onSave: (name) => handleRenameGroup(group._id, name),
+                                    }),
+                            },
+                            'divider',
+                            {
+                                label: 'Delete group',
+                                icon: 'fa-solid fa-trash-can',
+                                danger: true,
+                                onClick: () => setPendingDelete({ kind: 'group', id: group._id, name: group.name, scoped: true }),
+                            },
+                        ]
 
                         return (
-                            <Card key={group._id} flush className="overflow-hidden">
-                                {/* Group header */}
-                                <div
-                                    className={`group/gh flex items-center justify-between px-5 py-4 ${headerBg}`}
-                                >
-                                    {editingGroup === group._id ? (
-                                        <div className="flex flex-1 items-center gap-2">
-                                            <Input
-                                                autoFocus
-                                                className="!py-1.5 !text-xs"
-                                                value={editGroupName}
-                                                onChange={(e) => setEditGroupName(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter')
-                                                        handleSaveGroupEdit(group._id)
-                                                    if (e.key === 'Escape') setEditingGroup(null)
-                                                }}
-                                            />
-                                            <Button
-                                                size="sm"
-                                                onClick={() => handleSaveGroupEdit(group._id)}
-                                            >
-                                                Save
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => setEditingGroup(null)}
-                                            >
-                                                Cancel
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            {/* Left: name + total */}
-                                            <div className="flex min-w-0 flex-1 items-baseline gap-3">
-                                                <span className="truncate text-sm font-bold tracking-tight text-neutral-900">
-                                                    {group.name}
-                                                </span>
-                                                <span className={`shrink-0 text-base font-bold tabular-nums tracking-tight ${totalCls}`}>
-                                                    {formatMoney(total)}
-                                                </span>
-                                                <span className={`shrink-0 w-fit rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] ${badgeCls}`}>
-                                                    {group.type}
-                                                </span>
-                                            </div>
-                                            {/* Right: hover actions + paid checkbox */}
-                                            <div className="flex items-center gap-1">
-                                                <div className="flex items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/gh:opacity-100">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setEditingGroup(group._id)
-                                                            setEditGroupName(group.name)
-                                                        }}
-                                                        className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-white/60 hover:text-neutral-700"
-                                                    >
-                                                        <i className="fa-solid fa-pen text-xs" aria-hidden="true" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setPendingDelete({
-                                                                kind: 'group',
-                                                                id: group._id,
-                                                                name: group.name,
-                                                                scoped: true,
-                                                            })
-                                                        }
-                                                        className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-100 hover:text-red-500"
-                                                    >
-                                                        <i className="fa-solid fa-trash-can text-xs" aria-hidden="true" />
-                                                    </button>
-                                                </div>
-                                                {/* All paid checkbox */}
-                                                <button
-                                                    type="button"
-                                                    title={allPaid ? 'Mark all unpaid' : 'Mark all paid'}
-                                                    onClick={() => setGroupAllPaid(groupRowIds, !allPaid)}
-                                                    className={[
-                                                        'ml-1 grid h-6 w-6 shrink-0 place-items-center rounded-md border-2 transition-colors',
-                                                        allPaid
-                                                            ? 'border-neutral-700 bg-neutral-700 text-white'
-                                                            : somePaid
-                                                              ? 'border-neutral-400 bg-neutral-200 text-neutral-500'
-                                                              : 'border-neutral-300 bg-white/60 text-transparent hover:border-neutral-500',
-                                                    ].join(' ')}
-                                                >
-                                                    <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
-                                                </button>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
+                            <Card key={group._id} as="section" flush hover={false} className="overflow-hidden">
+                                <GroupHeader
+                                    group={group}
+                                    total={total}
+                                    outstanding={outstanding}
+                                    showOutstanding={somePaid}
+                                    menu={menu}
+                                />
 
-                                {/* Rows — list presentation */}
-                                <div>
-                                    <div className="flex flex-col divide-y divide-neutral-100 border-b border-neutral-100">
-                                        {groupRows.map((row) => {
-                                            const amt = entryAmount(row._id)
-                                            const monthlyDefault = recurringAmountForMonth(row, month)
-                                            const rowVal = effectiveAmount(row)
-                                            const pct =
-                                                total !== 0
-                                                    ? Math.min(100, Math.abs(rowVal / total) * 100)
-                                                    : 0
-                                            const barCls = isIncome
-                                                ? 'bg-emerald-400'
-                                                : isSavings
-                                                  ? 'bg-blue-400'
-                                                  : 'bg-red-300'
+                                {looseRows.length > 0 && (
+                                    <div className="border-t border-neutral-100">{renderRows(looseRows, group)}</div>
+                                )}
 
-                                            if (editingRow === row._id) {
-                                                return (
-                                                    <div
-                                                        key={row._id}
-                                                        className="flex flex-col gap-2 bg-neutral-50 px-5 py-3 sm:flex-row sm:items-center"
-                                                    >
-                                                        <Input
-                                                            autoFocus
-                                                            className="!py-1.5 !text-sm sm:flex-1"
-                                                            value={editRowName}
-                                                            onChange={(e) =>
-                                                                setEditRowName(e.target.value)
-                                                            }
-                                                        />
-                                                        <Input
-                                                            className="!py-1.5 !text-sm sm:w-40"
-                                                            type="number"
-                                                            step="0.01"
-                                                            placeholder={
-                                                                row.recurring === false
-                                                                    ? 'Amount'
-                                                                    : 'Monthly amount'
-                                                            }
-                                                            value={editRowAmount}
-                                                            onChange={(e) =>
-                                                                setEditRowAmount(e.target.value)
-                                                            }
-                                                            onKeyDown={(e) =>
-                                                                e.key === 'Enter' &&
-                                                                handleSaveRowEdit(row._id)
-                                                            }
-                                                        />
-                                                        <div className="flex gap-1">
-                                                            <Button
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    handleSaveRowEdit(row._id)
-                                                                }
-                                                            >
-                                                                Save
-                                                            </Button>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                onClick={() => setEditingRow(null)}
-                                                            >
-                                                                Cancel
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            }
-
-                                            return (
-                                                <div
-                                                    key={row._id}
-                                                    // On phones the actions are always visible (no
-                                                    // hover), so they wrap to their own line rather
-                                                    // than squeezing the name to a letter or two.
-                                                    className="group/row flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 transition-colors hover:bg-neutral-50/70 sm:flex-nowrap"
-                                                >
-                                                    {/* Name + meta + proportion bar */}
-                                                    <div className="min-w-0 flex-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="truncate text-sm font-semibold text-neutral-900">
-                                                                {row.name}
-                                                            </span>
-                                                            {row.budgeted && (
-                                                                <i
-                                                                    className="fa-solid fa-bookmark text-[11px] text-neutral-300"
-                                                                    title="In Budgets"
-                                                                    aria-hidden="true"
-                                                                />
-                                                            )}
-                                                            {row.recurring === false && (
-                                                                <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                                                    one-time
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="mt-1.5 flex items-center gap-2">
-                                                            <div className="h-1 w-full max-w-[140px] overflow-hidden rounded-full bg-neutral-100">
-                                                                <div
-                                                                    className={`h-full rounded-full ${barCls}`}
-                                                                    style={{ width: `${pct}%` }}
-                                                                />
-                                                            </div>
-                                                            {row.recurring !== false &&
-                                                                monthlyDefault !== undefined && (
-                                                                    <span className="shrink-0 text-[11px] tabular-nums text-neutral-500">
-                                                                        £
-                                                                        {formatAmount(
-                                                                            monthlyDefault
-                                                                        )}
-                                                                        /mo
-                                                                    </span>
-                                                                )}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Right cluster: amount flush-right, actions slide in on hover */}
-                                                    <div className="flex shrink-0 items-center justify-end">
-                                                    <div className="w-20 text-right sm:w-28">
-                                                        <AmountCell
-                                                            large
-                                                            value={amt}
-                                                            placeholder={monthlyDefault}
-                                                            onSave={(v) =>
-                                                                handleSetEntry(row._id, v)
-                                                            }
-                                                        />
-                                                    </div>
-                                                    </div>
-
-                                                    {/* Actions */}
-                                                    <div className="flex items-center gap-0.5 overflow-hidden opacity-100 transition-all duration-200 max-sm:order-last max-sm:w-full max-sm:justify-end sm:max-w-0 sm:opacity-0 sm:group-hover/row:max-w-[160px] sm:group-hover/row:opacity-100">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                navigate(
-                                                                    `/finances/breakdown/${row._id}?month=${month}&recurring=${row.recurring !== false}`
-                                                                )
-                                                            }
-                                                            title="View breakdown"
-                                                            className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                                                        >
-                                                            <i
-                                                                className="fa-solid fa-chart-pie text-xs"
-                                                                aria-hidden="true"
-                                                            />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                handleToggleBudget(
-                                                                    row._id,
-                                                                    !row.budgeted
-                                                                )
-                                                            }
-                                                            title={
-                                                                row.budgeted
-                                                                    ? 'Remove from Budgets'
-                                                                    : 'Add to Budgets'
-                                                            }
-                                                            className={[
-                                                                'grid h-7 w-7 place-items-center rounded-[10px] transition-colors',
-                                                                row.budgeted
-                                                                    ? 'text-neutral-900 hover:bg-neutral-100'
-                                                                    : 'text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500',
-                                                            ].join(' ')}
-                                                        >
-                                                            <i
-                                                                className="fa-solid fa-bookmark text-xs"
-                                                                aria-hidden="true"
-                                                            />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setEditingRow(row._id)
-                                                                setEditRowName(row.name)
-                                                                const current =
-                                                                    row.recurring === false
-                                                                        ? (amt ??
-                                                                          row.recurringAmount)
-                                                                        : monthlyDefault
-                                                                setEditRowAmount(
-                                                                    current !== undefined
-                                                                        ? String(current)
-                                                                        : ''
-                                                                )
-                                                            }}
-                                                            className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                                                        >
-                                                            <i
-                                                                className="fa-solid fa-pen text-xs"
-                                                                aria-hidden="true"
-                                                            />
-                                                        </button>
-                                                        {!isSavings && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setPendingDelete({
-                                                                        kind: 'row',
-                                                                        id: row._id,
-                                                                        name: row.name,
-                                                                        scoped:
-                                                                            row.recurring !== false,
-                                                                    })
-                                                                }
-                                                                className="grid h-7 w-7 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-500"
-                                                            >
-                                                                <i
-                                                                    className="fa-solid fa-trash-can text-xs"
-                                                                    aria-hidden="true"
-                                                                />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                    {/* Paid checkbox */}
-                                                    <button
-                                                        type="button"
-                                                        title={paidRows.has(row._id) ? 'Mark unpaid' : 'Mark paid'}
-                                                        onClick={() => togglePaid(row._id)}
-                                                        className={[
-                                                            'ml-2 grid h-6 w-6 shrink-0 place-items-center rounded-md border-2 transition-colors',
-                                                            paidRows.has(row._id)
-                                                                ? 'border-neutral-700 bg-neutral-700 text-white'
-                                                                : 'border-neutral-300 bg-white text-transparent hover:border-neutral-500',
-                                                        ].join(' ')}
-                                                    >
-                                                        <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
-                                                    </button>
-                                                </div>
-                                            )
-                                        })}
-
-                                        {addingRowFor?.groupId === group._id &&
-                                            !addingRowFor.potId && (
-                                                <AddRowForm
-                                                    month={month}
-                                                    onSave={(name, amount, recurring) =>
-                                                        handleAddRow(
-                                                            group._id,
-                                                            name,
-                                                            amount,
-                                                            recurring
-                                                        )
-                                                    }
-                                                    onCancel={() => setAddingRowFor(null)}
-                                                />
-                                            )}
-                                    </div>
-
-                                    {/* Footer: add row / add pot + group total */}
-                                    <div className="flex items-center justify-between gap-3 bg-neutral-50 px-5 py-3">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            {!isSavings &&
-                                                !(
-                                                    addingRowFor?.groupId === group._id &&
-                                                    !addingRowFor.potId
-                                                ) && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="secondary"
-                                                        icon="fa-solid fa-plus"
-                                                        onClick={() =>
-                                                            setAddingRowFor({ groupId: group._id })
-                                                        }
-                                                    >
-                                                        Add row
-                                                    </Button>
-                                                )}
-                                            {!isSavings && (
-                                                <AddPotInline
-                                                    groupId={group._id}
-                                                    onAdd={handleAddPot}
-                                                />
-                                            )}
-                                        </div>
-                                        <div className="flex items-baseline gap-2">
-                                            {somePaid ? (
-                                                <>
-                                                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                                        Paid
-                                                    </span>
-                                                    <span className="pr-3 text-sm font-bold tabular-nums tracking-tight text-neutral-500">
-                                                        {formatMoney(paidSoFar)}
-                                                    </span>
-                                                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                                        Left to pay
-                                                    </span>
-                                                    <span className={`pr-2 text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
-                                                        {formatMoney(leftToPay)}
-                                                    </span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                                        Total
-                                                    </span>
-                                                    <span className={`pr-2 text-sm font-bold tabular-nums tracking-tight ${totalCls}`}>
-                                                        {formatMoney(total)}
-                                                    </span>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Pots */}
-                                {(() => {
-                                    const groupPots = pots.filter((p) => p.group === group._id)
-                                    if (groupPots.length === 0) return null
+                                {groupPots.map((pot) => {
+                                    const potRows = groupRows.filter((r) => r.pot === pot._id)
+                                    const potTotal = potRows.reduce((s, r) => s + effectiveAmount(r), 0)
                                     return (
-                                        <div className="flex flex-col gap-3 p-4 pt-0">
-                                            {groupPots.map((pot) => (
-                                                <PotCard
-                                                    key={pot._id}
-                                                    pot={pot}
-                                                    rows={rows.filter((r) => r.pot === pot._id && rowVisibleInMonth(r, month, group))}
-                                                    entries={entries}
-                                                    month={month}
-                                                    totalCls={totalCls}
-                                                    isSavings={isSavings}
-                                                    isAddingRow={addingRowFor?.potId === pot._id}
-                                                    onStartAddRow={() => setAddingRowFor({ groupId: group._id, potId: pot._id })}
-                                                    onCancelAddRow={() => setAddingRowFor(null)}
-                                                    onSaveAddRow={(name, amount, recurring) =>
-                                                        handleAddRow(group._id, name, amount, recurring, pot._id)
-                                                    }
-                                                    onSaveRow={handleSaveRowFromPot}
-                                                    onSetEntry={handleSetEntry}
-                                                    onDeleteRow={(id) => setPendingDelete({ kind: 'row', id, name: rows.find((r) => r._id === id)?.name ?? '', scoped: (rows.find((r) => r._id === id)?.recurring ?? true) !== false })}
-                                                    onToggleBudget={handleToggleBudget}
-                                                    onNavigate={(rowId) => navigate(`/finances/breakdown/${rowId}?month=${month}&recurring=${(rows.find((r) => r._id === rowId)?.recurring ?? true) !== false}`)}
-                                                    effectiveAmount={(row) => {
-                                                        const e = entries.find((en) => en.row === row._id)?.amount
-                                                        return e !== undefined ? e : (recurringAmountForMonth(row, month) ?? 0)
-                                                    }}
-                                                    onRename={handleRenamePot}
-                                                    onDelete={handleDeletePot}
-                                                />
-                                            ))}
+                                        <div key={pot._id} className="border-t border-neutral-100">
+                                            <PotHeader
+                                                name={pot.name}
+                                                total={potTotal}
+                                                menu={[
+                                                    ...(!isSavings
+                                                        ? [{ label: 'Add row', icon: 'fa-solid fa-plus', onClick: () => setAddRowTarget({ groupId: group._id, potId: pot._id, where: `${group.name} · ${pot.name}` }) }]
+                                                        : []),
+                                                    {
+                                                        label: 'Rename',
+                                                        icon: 'fa-solid fa-pen',
+                                                        onClick: () =>
+                                                            setNameDrawer({
+                                                                title: 'Rename pot',
+                                                                label: 'Pot name',
+                                                                initial: pot.name,
+                                                                saveLabel: 'Save',
+                                                                onSave: (name) => handleRenamePot(pot._id, name),
+                                                            }),
+                                                    },
+                                                    'divider',
+                                                    { label: 'Delete pot', icon: 'fa-solid fa-trash-can', danger: true, onClick: () => setPotToDelete(pot) },
+                                                ]}
+                                            />
+                                            {potRows.length > 0 ? (
+                                                renderRows(potRows, group)
+                                            ) : (
+                                                <p className="px-4 py-3 pl-[3.25rem] text-[13px] text-neutral-500 sm:pl-14">Nothing in this pot yet.</p>
+                                            )}
                                         </div>
                                     )
-                                })()}
+                                })}
+
+                                {groupRows.length === 0 && groupPots.length === 0 && (
+                                    <p className="border-t border-neutral-100 px-4 py-4 text-[13px] text-neutral-500 sm:px-5">
+                                        No rows in {monthLabel}.
+                                    </p>
+                                )}
+
+                                {!isSavings && (
+                                    <div className="border-t border-neutral-100 px-2 py-1.5 sm:px-3">
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            icon="fa-solid fa-plus"
+                                            onClick={() => setAddRowTarget({ groupId: group._id, where: group.name })}
+                                        >
+                                            Add row
+                                        </Button>
+                                    </div>
+                                )}
                             </Card>
                         )
                     })}
-
-                    {/* Net summary */}
-                    {monthGroups.length > 0 && (
-                        <div className="rounded-3xl border border-neutral-200 bg-neutral-950 p-6 text-white shadow-sm">
-                            <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                    Summary
-                                </span>
-                            </div>
-                            <div
-                                className={`mt-4 grid gap-4 ${savingsGroups.length > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}
-                            >
-                                <div>
-                                    <p className="text-[11px] font-medium text-neutral-500">Total Income</p>
-                                    <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-400">
-                                        {formatMoney(totalIncome)}
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-[11px] font-medium text-neutral-500">Total Expenses</p>
-                                    <p className="mt-0.5 text-lg font-bold tabular-nums text-red-400">
-                                        {formatMoney(totalExpense)}
-                                    </p>
-                                </div>
-                                {savingsGroups.length > 0 && (
-                                    <div>
-                                        <p className="text-[11px] font-medium text-neutral-500">Total Savings</p>
-                                        <p className="mt-0.5 text-lg font-bold tabular-nums text-blue-400">
-                                            {formatMoney(totalSavings)}
-                                        </p>
-                                    </div>
-                                )}
-                                <div>
-                                    <p className="text-[11px] font-medium text-neutral-500">Net</p>
-                                    <p
-                                        className={[
-                                            'mt-0.5 text-lg font-bold tabular-nums',
-                                            net >= 0 ? 'text-emerald-400' : 'text-red-400',
-                                        ].join(' ')}
-                                    >
-                                        {net >= 0 ? '+' : ''}
-                                        {formatMoney(net)}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
+
+            <NewGroupDrawer
+                open={newGroupOpen}
+                month={month}
+                monthLabel={monthLabel}
+                onClose={() => setNewGroupOpen(false)}
+                onCreate={handleAddGroup}
+            />
+
+            <RowDrawer
+                target={rowDrawer}
+                monthLabel={monthLabel}
+                onClose={() => setRowDrawer(null)}
+                onSave={handleSaveRow}
+                onDelete={(row) => {
+                    setRowDrawer(null)
+                    setPendingDelete({ kind: 'row', id: row._id, name: row.name, scoped: row.recurring !== false })
+                }}
+                onBreakdown={(row) =>
+                    navigate(`/finances/breakdown/${row._id}?month=${month}&recurring=${row.recurring !== false}`)
+                }
+            />
+
+            <AddRowDrawer
+                target={addRowTarget}
+                monthLabel={monthLabel}
+                onClose={() => setAddRowTarget(null)}
+                onSave={handleAddRow}
+            />
+
+            <NameDrawer target={nameDrawer} onClose={() => setNameDrawer(null)} />
+
+            <ConfirmModal
+                open={!!potToDelete}
+                title="Delete pot?"
+                message={`“${potToDelete?.name ?? ''}” goes, but its rows stay in the group.`}
+                confirmLabel="Delete pot"
+                danger
+                onClose={() => setPotToDelete(null)}
+                onConfirm={() => potToDelete && handleDeletePot(potToDelete._id)}
+            />
 
             {pendingDelete && (
                 <DeleteScopeDialog
                     kind={pendingDelete.kind}
                     name={pendingDelete.name}
-                    monthLabel={formatMonth(month)}
+                    monthLabel={monthLabel}
                     scoped={pendingDelete.scoped}
                     onClose={() => setPendingDelete(null)}
                     onConfirm={handleConfirmDelete}
@@ -1783,7 +852,7 @@ export default function Finances() {
             {pendingAmountEdit && (
                 <AmountScopeDialog
                     name={pendingAmountEdit.name}
-                    monthLabel={formatMonth(month)}
+                    monthLabel={monthLabel}
                     onClose={() => setPendingAmountEdit(null)}
                     onConfirm={handleConfirmAmountScope}
                 />

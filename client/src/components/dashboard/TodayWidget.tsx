@@ -49,7 +49,7 @@ export default function TodayWidget({
             icon="fa-regular fa-calendar"
             tone="violet"
             meta={loading ? undefined : count === 0 ? 'A clear day' : `${count} ${count === 1 ? 'event' : 'events'}`}
-            to={`/day/${date}`}
+            to={`/calendar?date=${date}`}
             action="Open day"
         >
             {loading ? (

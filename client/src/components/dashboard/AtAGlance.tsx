@@ -171,7 +171,7 @@ export default function AtAGlance({
                 tone={hasBudgets && !budget.dayOff && safe < 0 ? 'bad' : 'neutral'}
             />
             <Tile
-                to={`/day/${date}`}
+                to={`/calendar?date=${date}`}
                 icon="fa-regular fa-calendar"
                 area="violet"
                 label="Events"

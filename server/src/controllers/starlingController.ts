@@ -3,12 +3,16 @@ import { AuthRequest } from '../middleware/auth'
 import BudgetSpend from '../models/BudgetSpend'
 import FinanceRow from '../models/FinanceRow'
 import StarlingExclusion, { IStarlingExclusion } from '../models/StarlingExclusion'
+import StarlingMonth from '../models/StarlingMonth'
 import {
     StarlingError,
     StarlingFeedItem,
+    getAccountBalance,
     getFeedBetween,
+    getMainAccountSource,
     getSpaceBalance,
     listSpaces,
+    listSpacesCached,
     minorToMajor,
     starlingConfigured,
 } from '../lib/starling'
@@ -255,14 +259,81 @@ const MAX_SPEND_RANGE_DAYS = 70
  *  both ask for the same days within moments of each other; Starling doesn't
  *  need to hear about it twice. */
 const SPEND_CACHE_MS = 5 * 60_000
-const spendCache = new Map<string, { at: number; data: unknown }>()
+/** A range that ended before today can't change, bar the odd late refund. */
+const PAST_SPEND_CACHE_MS = 6 * 60 * 60_000
+const SPEND_FEED_CONCURRENCY = 3
+/** Rate-limit retries stop waiting this long into a request, well inside Heroku's 30s cut-off. */
+const SPEND_RETRY_BUDGET_MS = 20_000
+const spendCache = new Map<string, { at: number; data: FlowItem[] }>()
+
+/** One payment in or out, as the Statement reads it. */
+export interface FlowItem {
+    id: string
+    /** Local calendar day, YYYY-MM-DD. */
+    date: string
+    time: string
+    /** Pounds, always positive. */
+    amount: number
+    merchant: string | null
+    category: string | null
+    space: string
+    direction: 'IN' | 'OUT'
+    /** How it moved, e.g. MASTER_CARD, FASTER_PAYMENTS_IN, DIRECT_DEBIT. */
+    source: string | null
+}
 
 /**
- * GET /finances/starling/spend?from=YYYY-MM-DD&to=YYYY-MM-DD — every genuine
- * money-out transaction across all spending spaces, bucketed by local date.
- * Independent of budgets and syncs: it's the raw "what left the spaces" figure
- * the daily report totals. Transfers, declines and reversals are left out, the
- * same rule the budget sync applies.
+ * Every genuine payment in and out across the main account and every space
+ * between two local dates. Declines, reversals and money moved between your own
+ * balances are left out on both sides, so a top-up from main to a space is
+ * neither spend nor income.
+ */
+export async function fetchFlow(from: string, to: string, deadline: number): Promise<FlowItem[]> {
+    const start = new Date(`${from}T00:00:00Z`)
+    const end = new Date(`${to}T00:00:00Z`)
+    // Widen a day either side and bucket by local date, as the monthly sync does.
+    start.setUTCDate(start.getUTCDate() - 1)
+    end.setUTCDate(end.getUTCDate() + 2)
+
+    const [main, allSpaces] = await Promise.all([getMainAccountSource(), listSpacesCached()])
+    const spaces = [main, ...allSpaces.filter((s) => s.id !== main.id)]
+    // A few at a time: firing every feed at once is what trips Starling's rate limit.
+    const feeds: StarlingFeedItem[][] = []
+    for (let i = 0; i < spaces.length; i += SPEND_FEED_CONCURRENCY) {
+        const batch = spaces.slice(i, i + SPEND_FEED_CONCURRENCY)
+        feeds.push(
+            ...(await Promise.all(batch.map((s) => getFeedBetween(s.id, start.toISOString(), end.toISOString(), deadline))))
+        )
+    }
+    return feeds
+        .flatMap((items, i) =>
+            items
+                // CATEGORY = the other side is one of your own spaces.
+                .filter((it) => !isNonSpending(it) && it.counterPartyType !== 'CATEGORY')
+                .map(
+                    (it): FlowItem => ({
+                        id: it.feedItemUid,
+                        date: localDate(it.transactionTime),
+                        time: it.transactionTime,
+                        amount: minorToMajor(it.amount.minorUnits),
+                        merchant: (it.counterPartyName || it.reference || '').trim() || null,
+                        category: it.spendingCategory ?? null,
+                        space: spaces[i].name,
+                        direction: it.direction,
+                        source: it.source ?? null,
+                    })
+                )
+        )
+        .filter((t) => t.date >= from && t.date <= to)
+        .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
+}
+
+/**
+ * GET /finances/starling/spend?from=YYYY-MM-DD&to=YYYY-MM-DD[&in=1] — every
+ * genuine money-out transaction across the main account and every space,
+ * bucketed by local date. With `in=1`, money coming in is included too (each
+ * item carries `direction`), read from the same feeds at no extra cost.
+ * Independent of budgets and syncs.
  */
 export async function getStarlingSpend(req: AuthRequest, res: Response) {
     if (!starlingConfigured()) {
@@ -271,6 +342,7 @@ export async function getStarlingSpend(req: AuthRequest, res: Response) {
     }
 
     const { from, to } = req.query
+    const withIn = req.query.in === '1'
     if (
         typeof from !== 'string' ||
         typeof to !== 'string' ||
@@ -281,53 +353,143 @@ export async function getStarlingSpend(req: AuthRequest, res: Response) {
         res.status(400).json({ message: 'from and to must be YYYY-MM-DD, from on or before to' })
         return
     }
-    const start = new Date(`${from}T00:00:00Z`)
-    const end = new Date(`${to}T00:00:00Z`)
-    if ((end.getTime() - start.getTime()) / 86_400_000 > MAX_SPEND_RANGE_DAYS) {
+    if ((Date.parse(to) - Date.parse(from)) / 86_400_000 > MAX_SPEND_RANGE_DAYS) {
         res.status(400).json({ message: `Range can be at most ${MAX_SPEND_RANGE_DAYS} days` })
         return
     }
 
+    const pick = (all: FlowItem[]) => (withIn ? all : all.filter((t) => t.direction === 'OUT'))
     const key = `${req.userId}|${from}|${to}`
     const hit = spendCache.get(key)
-    if (hit && Date.now() - hit.at < SPEND_CACHE_MS) {
-        res.json({ message: 'OK', data: hit.data })
+    const finished = to < localDate(new Date().toISOString())
+    if (hit && Date.now() - hit.at < (finished ? PAST_SPEND_CACHE_MS : SPEND_CACHE_MS)) {
+        res.json({ message: 'OK', data: pick(hit.data) })
         return
     }
 
-    // Widen a day either side and bucket by local date, as the monthly sync does.
-    start.setUTCDate(start.getUTCDate() - 1)
-    end.setUTCDate(end.getUTCDate() + 2)
-
-    let data
+    let data: FlowItem[]
     try {
-        const spaces = (await listSpaces()).filter((s) => s.type === 'spending')
-        const feeds = await Promise.all(
-            spaces.map((s) => getFeedBetween(s.id, start.toISOString(), end.toISOString()))
-        )
-        data = feeds
-            .flatMap((items, i) =>
-                items
-                    .filter((it) => it.direction === 'OUT' && !isNonSpending(it))
-                    .map((it) => ({
-                        id: it.feedItemUid,
-                        date: localDate(it.transactionTime),
-                        time: it.transactionTime,
-                        amount: minorToMajor(it.amount.minorUnits),
-                        merchant: (it.counterPartyName || it.reference || '').trim() || null,
-                        category: it.spendingCategory ?? null,
-                        space: spaces[i].name,
-                    }))
-            )
-            .filter((t) => t.date >= from && t.date <= to)
-            .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
+        data = await fetchFlow(from, to, Date.now() + SPEND_RETRY_BUDGET_MS)
     } catch (err) {
         if (handleStarlingError(res, err)) return
         throw err
     }
 
     spendCache.set(key, { at: Date.now(), data })
-    res.json({ message: 'OK', data })
+    res.json({ message: 'OK', data: pick(data) })
+}
+
+// ── Balance ───────────────────────────────────────────────────────────────────
+
+const BALANCE_CACHE_MS = 2 * 60_000
+const balanceCache = new Map<string, { at: number; data: unknown }>()
+
+/**
+ * GET /finances/starling/balance — what's in the account right now: the main
+ * balance, what's sitting in spaces, and the total. For the Statement's "what's
+ * really yours" card. Cached briefly; balances move, but not by the second.
+ */
+export async function getStarlingBalance(req: AuthRequest, res: Response) {
+    if (!starlingConfigured()) {
+        res.status(501).json({ message: 'Starling is not configured on the server' })
+        return
+    }
+    const key = String(req.userId)
+    const hit = balanceCache.get(key)
+    if (hit && Date.now() - hit.at < BALANCE_CACHE_MS) {
+        res.json({ message: 'OK', data: hit.data })
+        return
+    }
+    try {
+        const { main, total } = await getAccountBalance()
+        const data = { main, spaces: Math.round((total - main) * 100) / 100, total, asOf: new Date().toISOString() }
+        balanceCache.set(key, { at: Date.now(), data })
+        res.json({ message: 'OK', data })
+    } catch (err) {
+        if (handleStarlingError(res, err)) return
+        throw err
+    }
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+
+/** A finished month is re-read until this long after it ends, for late refunds. */
+const MONTH_SETTLE_DAYS = 5
+const MAX_HISTORY_MONTHS = 12
+/** Stop starting a new month with less than this left of the request budget. */
+const HISTORY_MIN_HEADROOM_MS = 7_000
+
+function monthBounds(month: string): { from: string; to: string; settledBy: Date } {
+    const [y, m] = month.split('-').map(Number)
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate()
+    return {
+        from: `${month}-01`,
+        to: `${month}-${String(last).padStart(2, '0')}`,
+        settledBy: new Date(Date.UTC(y, m - 1, last + 1 + MONTH_SETTLE_DAYS)),
+    }
+}
+
+function shiftMonthKey(month: string, delta: number): string {
+    const [y, m] = month.split('-').map(Number)
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1))
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+/**
+ * GET /finances/starling/history?months=12 — the last N finished months of
+ * payments in and out, for trends and subscriptions. Read from the stored
+ * months; any missing (or not yet settled) month is fetched from Starling and
+ * stored, newest first, as many as fit in one request's time budget. `pending`
+ * says how many are still to come, so the client can ask again.
+ */
+export async function getStarlingHistory(req: AuthRequest, res: Response) {
+    if (!starlingConfigured()) {
+        res.status(501).json({ message: 'Starling is not configured on the server' })
+        return
+    }
+    const n = Math.min(MAX_HISTORY_MONTHS, Math.max(1, Number(req.query.months) || MAX_HISTORY_MONTHS))
+    const thisMonth = localDate(new Date().toISOString()).slice(0, 7)
+    const wanted = Array.from({ length: n }, (_, i) => shiftMonthKey(thisMonth, -(i + 1)))
+
+    const stored = await StarlingMonth.find({ user: req.userId, month: { $in: wanted } })
+    const byMonth = new Map(stored.map((d) => [d.month, d]))
+    const stale = wanted.filter((m) => {
+        const doc = byMonth.get(m)
+        return !doc || doc.fetchedAt < monthBounds(m).settledBy
+    })
+
+    const deadline = Date.now() + SPEND_RETRY_BUDGET_MS
+    let pending = 0
+    let stopped = false
+    for (const month of stale) {
+        if (stopped || deadline - Date.now() < HISTORY_MIN_HEADROOM_MS) {
+            pending++
+            continue
+        }
+        const { from, to } = monthBounds(month)
+        try {
+            const items = await fetchFlow(from, to, deadline)
+            const doc = await StarlingMonth.findOneAndUpdate(
+                { user: req.userId, month },
+                { items, fetchedAt: new Date() },
+                { upsert: true, new: true }
+            )
+            byMonth.set(month, doc)
+        } catch (err) {
+            // Rate-limited or slow: keep what we have, stop asking, and let the client come back.
+            if (err instanceof StarlingError) {
+                pending++
+                stopped = true
+                continue
+            }
+            throw err
+        }
+    }
+
+    const months = wanted
+        .filter((m) => byMonth.has(m))
+        .map((m) => ({ month: m, items: byMonth.get(m)!.items }))
+    res.json({ message: 'OK', data: { months, pending } })
 }
 
 /**
@@ -346,6 +508,20 @@ export async function listStarlingExclusions(req: AuthRequest, res: Response) {
         reason: { $exists: true },
     }).sort({ createdAt: -1 })
     res.json({ message: 'OK', data: exclusions })
+}
+
+/**
+ * POST /finances/starling/exclusions/archive — "Clear" the removed list. Nothing is
+ * deleted: each live tombstone is stamped archivedAt, so it moves to the archive
+ * view, keeps blocking re-import, and can still be recovered.
+ */
+export async function archiveStarlingExclusions(req: AuthRequest, res: Response) {
+    const archivedAt = new Date()
+    const result = await StarlingExclusion.updateMany(
+        { user: req.userId, reason: { $exists: true }, archivedAt: null },
+        { $set: { archivedAt } }
+    )
+    res.json({ message: 'Cleared', data: { archived: result.modifiedCount, archivedAt } })
 }
 
 /**

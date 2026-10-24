@@ -31,7 +31,10 @@ import {
     getStarlingReconciliation,
     listStarlingExclusions,
     recoverStarlingExclusion,
+    archiveStarlingExclusions,
     getStarlingSpend,
+    getStarlingBalance,
+    getStarlingHistory,
 } from '../controllers/starlingController'
 import {
     listBudgetTopUps,
@@ -91,7 +94,10 @@ router.get('/starling/spaces', listStarlingSpaces)
 router.post('/starling/sync', syncStarlingRow)
 router.get('/starling/reconcile', getStarlingReconciliation)
 router.get('/starling/spend', getStarlingSpend)
+router.get('/starling/balance', getStarlingBalance)
+router.get('/starling/history', getStarlingHistory)
 router.get('/starling/exclusions', listStarlingExclusions)
+router.post('/starling/exclusions/archive', archiveStarlingExclusions)
 router.post('/starling/exclusions/:id/recover', recoverStarlingExclusion)
 
 // Budget top-ups (extra money added to a budget, forward-only from the day it's added)

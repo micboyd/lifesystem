@@ -11,7 +11,6 @@ import type { ReactNode } from 'react'
  * would need server push (SSE/WebSockets).
  */
 export type SyncTopic =
-    | 'tasks'
     | 'habits'
     | 'timeboxes'
     | 'budget'

@@ -29,6 +29,9 @@ export interface PlanWeekSnapshot {
         ignoreClash: boolean
         /** Whether its overloaded slot had been accepted. */
         ignoreOverload: boolean
+        /** Whether it had been skipped, and why. */
+        skipped: boolean
+        skipReason: string
     }[]
     notes: {
         scope: FitnessNoteScope
@@ -82,6 +85,8 @@ export async function updatePlanEntry(
         part?: FitnessPlanPart
         ignoreClash?: boolean
         ignoreOverload?: boolean
+        skipped?: boolean
+        skipReason?: string
     }
 ): Promise<FitnessPlanEntry> {
     const res = await api.patch<ApiResponse<FitnessPlanEntry>>(`/fitness-plan/${id}`, patch)

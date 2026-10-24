@@ -5,6 +5,7 @@ import type {
     NutritionPhaseInput,
     PhaseAdjustmentInput,
 } from '../types'
+import { importBody, importResult, type ImportResult, type OverwriteMap } from './imports'
 
 /** Phases overlapping the YYYY-MM-DD range, or every phase when no range is given. */
 export async function listNutritionPhases(
@@ -28,6 +29,18 @@ export async function updateNutritionPhase(
 ): Promise<NutritionPhase> {
     const res = await api.put<ApiResponse<NutritionPhase>>(`/nutrition-phases/${id}`, input)
     return res.data.data
+}
+
+/** Bulk-add phases from pasted JSON. Name clashes the user chose to overwrite update in place. */
+export async function importNutritionPhases(
+    phases: unknown,
+    overwrite?: OverwriteMap
+): Promise<ImportResult> {
+    const res = await api.post<ApiResponse<NutritionPhase[]> & { updated?: number }>(
+        '/nutrition-phases/import',
+        importBody(phases, overwrite)
+    )
+    return importResult(res.data.data, res.data)
 }
 
 export async function deleteNutritionPhase(id: string): Promise<void> {

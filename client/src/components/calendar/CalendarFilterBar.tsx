@@ -83,10 +83,11 @@ export default function CalendarFilterBar({ onChanged }: { onChanged: () => void
                     aria-haspopup="true"
                     aria-expanded={open}
                     className={[
-                        'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors',
+                        // Matches the planners' soft hero buttons it sits beside.
+                        'inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-sm font-semibold transition-colors sm:h-9 sm:px-3.5',
                         activeFilters
-                            ? 'border-transparent bg-neutral-900 text-white hover:bg-neutral-800'
-                            : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
+                            ? 'bg-neutral-900 text-white hover:bg-neutral-800'
+                            : 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-900/[0.06] hover:text-neutral-900',
                     ].join(' ')}
                 >
                     <i className="fa-solid fa-filter text-xs" aria-hidden="true" />

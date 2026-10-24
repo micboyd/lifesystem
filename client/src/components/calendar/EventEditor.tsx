@@ -8,6 +8,20 @@ import Switch from '../Switch'
 import TimePicker from '../TimePicker'
 import RecurrencePicker from './RecurrencePicker'
 import { slotOrdinal } from '../../lib/calendar'
+import { FIELD_ERROR_TEXT } from '../fieldStyles'
+import {
+    EVENT_TYPE_ICON,
+    PART_META,
+    TypeTile,
+    Section,
+    ChoiceChip,
+    Segmented,
+    Segment,
+    SettingList,
+    SettingRow,
+    relativeDay,
+    whenLine,
+} from './eventUi'
 import { useCalendars } from '../../context/CalendarsContext'
 import {
     EVENT_TYPES,
@@ -39,37 +53,15 @@ interface EventEditorProps {
     onRevealCalendar?: (calendarId: string) => void
 }
 
-// ── Days-until helper ─────────────────────────────────────────────────────────
-
-function daysUntilLabel(dateStr: string): string {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const [y, m, d] = dateStr.split('-').map(Number)
-    const target = new Date(y, m - 1, d)
-    const diff = Math.round((target.getTime() - today.getTime()) / 86_400_000)
-    if (diff === 0) return 'Today'
-    if (diff === 1) return 'Tomorrow'
-    if (diff === -1) return 'Yesterday'
-    if (diff > 0) return `In ${diff} days`
-    return `${Math.abs(diff)} days ago`
-}
-
-const REAL_PARTS: Part[] = ['morning', 'afternoon', 'evening']
-const PART_LABELS: Record<string, string> = {
-    morning: 'Morning',
-    afternoon: 'Afternoon',
-    evening: 'Evening',
-}
+const REAL_PARTS: Exclude<Part, 'na'>[] = ['morning', 'afternoon', 'evening']
 
 // ── Range-selectable part bar (single-day) ────────────────────────────────────
 //
 // Click an unselected segment → selects it (start = end = that part)
 // Click outside the current selection → extends the range to include it
 // Click the start or end of a multi-segment range → shrinks by one
-// Click the only selected segment → deselects everything (→ "No fixed time")
+// Click the only selected segment → deselects everything (→ "Anytime")
 // Click the middle of a 3-segment range → resets to just that part
-// "All day" chip → selects all three (shortcut)
-// "No fixed time" chip → clears selection
 
 function TimeOfDayPicker({
     startPart,
@@ -81,127 +73,46 @@ function TimeOfDayPicker({
     onChange: (start: Part, end: Part) => void
 }) {
     const isNa = startPart === 'na'
-    const isAllDay = !isNa && startPart === 'morning' && endPart === 'evening'
+    const startIdx = isNa ? -1 : REAL_PARTS.indexOf(startPart as Exclude<Part, 'na'>)
+    const endIdx = isNa ? -1 : REAL_PARTS.indexOf(endPart as Exclude<Part, 'na'>)
 
-    const startIdx = isNa ? -1 : REAL_PARTS.indexOf(startPart)
-    const endIdx = isNa ? -1 : REAL_PARTS.indexOf(endPart)
-
-    const isSegSelected = (p: Part) => {
-        if (isNa) return false
-        const i = REAL_PARTS.indexOf(p)
-        return i >= startIdx && i <= endIdx
-    }
-
-    function handleSegClick(part: Part) {
+    function handleSegClick(part: Exclude<Part, 'na'>) {
         const i = REAL_PARTS.indexOf(part)
-
-        if (isNa) {
-            onChange(part, part)
-            return
-        }
-        if (i < startIdx) {
-            // Expand start backward
-            onChange(part, endPart)
-        } else if (i > endIdx) {
-            // Expand end forward
-            onChange(startPart, part)
-        } else if (startIdx === endIdx) {
-            // Only one selected — deselect → no fixed time
-            onChange('na', 'na')
-        } else if (i === startIdx) {
-            // Shrink from start
-            onChange(REAL_PARTS[startIdx + 1], endPart)
-        } else if (i === endIdx) {
-            // Shrink from end
-            onChange(startPart, REAL_PARTS[endIdx - 1])
-        } else {
-            // Middle of 3-segment range — reset to single
-            onChange(part, part)
-        }
+        if (isNa) onChange(part, part)
+        else if (i < startIdx) onChange(part, endPart)
+        else if (i > endIdx) onChange(startPart, part)
+        else if (startIdx === endIdx) onChange('na', 'na')
+        else if (i === startIdx) onChange(REAL_PARTS[startIdx + 1], endPart)
+        else if (i === endIdx) onChange(startPart, REAL_PARTS[endIdx - 1])
+        else onChange(part, part)
     }
-
-    const chipCls = (active: boolean) =>
-        [
-            'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-            active
-                ? 'bg-neutral-950 text-white'
-                : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900',
-        ].join(' ')
 
     return (
-        <div className="flex flex-col gap-2">
-            {/* Segment range bar */}
-            <div className="flex overflow-hidden rounded-xl border border-neutral-200">
-                {REAL_PARTS.map((part, i) => {
-                    const sel = isSegSelected(part)
-                    const prevSel = i > 0 && isSegSelected(REAL_PARTS[i - 1])
-                    return (
-                        <button
-                            key={part}
-                            type="button"
-                            onClick={() => handleSegClick(part)}
-                            className={[
-                                'flex-1 py-2.5 text-xs font-semibold transition-colors',
-                                i > 0
-                                    ? `border-l ${sel && prevSel ? 'border-neutral-700' : 'border-neutral-200'}`
-                                    : '',
-                                sel
-                                    ? 'bg-neutral-950 text-white'
-                                    : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900',
-                            ]
-                                .filter(Boolean)
-                                .join(' ')}
-                        >
-                            {PART_LABELS[part]}
-                        </button>
-                    )
-                })}
-            </div>
-
-            {/* Special-mode chips */}
-            <div className="flex gap-1.5">
-                <button
-                    type="button"
-                    onClick={() =>
-                        onChange(isAllDay ? 'morning' : 'morning', isAllDay ? 'morning' : 'evening')
-                    }
-                    className={chipCls(isAllDay)}
+        <Segmented>
+            {REAL_PARTS.map((part, i) => (
+                <Segment
+                    key={part}
+                    on={!isNa && i >= startIdx && i <= endIdx}
+                    onClick={() => handleSegClick(part)}
+                    icon={PART_META[part].icon}
                 >
-                    All day
-                </button>
-                <button
-                    type="button"
-                    onClick={() => onChange(isNa ? 'morning' : 'na', isNa ? 'morning' : 'na')}
-                    className={chipCls(isNa)}
-                >
-                    No fixed time
-                </button>
-            </div>
-        </div>
+                    {PART_META[part].label}
+                </Segment>
+            ))}
+        </Segmented>
     )
 }
 
-// ── Part segment (multi-day start/end) ────────────────────────────────────────
-
+/** One part of the day, for a multi-day event's first or last day. */
 function PartSegment({ value, onChange }: { value: Part; onChange: (p: Part) => void }) {
     return (
-        <div className="flex flex-1 gap-1.5">
+        <Segmented>
             {REAL_PARTS.map((part) => (
-                <button
-                    key={part}
-                    type="button"
-                    onClick={() => onChange(part)}
-                    className={[
-                        'flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-                        value === part
-                            ? 'bg-neutral-950 text-white'
-                            : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900',
-                    ].join(' ')}
-                >
-                    {PART_LABELS[part]}
-                </button>
+                <Segment key={part} on={value === part} onClick={() => onChange(part)}>
+                    {PART_META[part].label}
+                </Segment>
             ))}
-        </div>
+        </Segmented>
     )
 }
 
@@ -366,186 +277,140 @@ export default function EventEditor({
         })
     }
 
-    const chipBtn = (active: boolean) =>
-        [
-            'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-            active
-                ? 'bg-neutral-950 text-white'
-                : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900',
-        ].join(' ')
+    const finalEnd = multiDay ? endDate || startDate : startDate
+    const summary = startDate
+        ? whenLine({
+              startDate,
+              endDate: finalEnd,
+              startPart,
+              endPart,
+              time: !multiDay && !isAllDay && !isNa ? (time ?? undefined) : undefined,
+          })
+        : 'Pick a date'
+    const titleError =
+        error ||
+        (conflict
+            ? 'This calendar already has an event in that slot — adjust the dates, the parts, or the calendar.'
+            : '')
+
+    function toggleAllDay() {
+        setStartPart('morning')
+        setEndPart(isAllDay ? 'morning' : 'evening')
+    }
+
+    function toggleAnytime() {
+        setStartPart(isNa ? 'morning' : 'na')
+        setEndPart(isNa ? 'morning' : 'na')
+    }
 
     return (
         <Drawer
             open={open}
             onClose={onClose}
             side="right"
-            size="lg"
+            size="xl"
             title={event ? 'Edit event' : 'New event'}
-            badge={startDate ? daysUntilLabel(startDate) : undefined}
+            badge={startDate ? relativeDay(startDate) : undefined}
             footer={
                 <>
                     {event && (
                         <Button
                             variant="ghost"
-                            size="sm"
                             icon="fa-solid fa-trash-can"
                             onClick={onDelete}
                             disabled={saving}
-                            className="mr-auto text-red-500 hover:bg-red-50 hover:text-red-600"
+                            className="mr-auto text-red-600 hover:bg-red-50 hover:text-red-700"
                         >
-                            Remove
+                            Delete
                         </Button>
                     )}
-                    <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
+                    <Button variant="ghost" onClick={onClose} disabled={saving}>
                         Cancel
                     </Button>
-                    <Button
-                        size="sm"
-                        icon="fa-solid fa-check"
-                        onClick={handleSave}
-                        disabled={saving}
-                    >
-                        {saving ? 'Saving…' : 'Save'}
+                    <Button onClick={handleSave} disabled={saving}>
+                        {saving ? 'Saving…' : event ? 'Save' : 'Add event'}
                     </Button>
                 </>
             }
         >
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-7">
+                {/* What — the type's tile, the title, and a live summary of when. */}
+                <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-3.5">
+                        <TypeTile type={eventType} size="lg" />
+                        <div className="min-w-0 flex-1">
+                            <input
+                                value={title}
+                                onChange={(e) => {
+                                    setTitle(e.target.value)
+                                    setError('')
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSave()
+                                }}
+                                placeholder="What's happening?"
+                                aria-label="Title"
+                                autoFocus
+                                className={`w-full border-b bg-transparent pb-1 text-[22px] font-semibold tracking-[-0.02em] text-neutral-950 outline-none transition-colors placeholder:font-medium placeholder:text-neutral-400 focus-visible:outline-none ${
+                                    titleError ? 'border-red-600' : 'border-neutral-200 focus:border-neutral-900'
+                                }`}
+                            />
+                            <p className="mt-1.5 truncate text-[13px] text-neutral-500">{summary}</p>
+                        </div>
+                    </div>
+                    {titleError && (
+                        <p className={FIELD_ERROR_TEXT}>
+                            <i className="fa-solid fa-circle-exclamation" aria-hidden="true" />
+                            {titleError}
+                        </p>
+                    )}
+                </div>
+
+                <Section title="Type">
+                    <div className="flex flex-wrap gap-2">
+                        {EVENT_TYPES.map((t) => {
+                            const c = EVENT_TYPE_COLORS[t]
+                            return (
+                                <ChoiceChip
+                                    key={t}
+                                    on={eventType === t}
+                                    onClick={() => setEventType(t)}
+                                    icon={EVENT_TYPE_ICON[t]}
+                                    tone={`${c.light} ${c.text}`}
+                                >
+                                    {EVENT_TYPE_LABELS[t]}
+                                </ChoiceChip>
+                            )
+                        })}
+                    </div>
+                </Section>
+
                 {/* Calendar (layer) — only worth showing once there's a choice. */}
                 {calendars.length > 1 && (
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[13px] font-medium text-neutral-700">
-                            Calendar
-                        </label>
-                        <div className="flex flex-wrap gap-1.5">
+                    <Section title="Calendar">
+                        <div className="flex flex-wrap gap-2">
                             {calendars.map((c) => {
                                 const cls = CALENDAR_COLOR_CLASSES[c.color]
-                                const selected = activeCalendarId === c._id
                                 return (
-                                    <button
+                                    <ChoiceChip
                                         key={c._id}
-                                        type="button"
+                                        on={activeCalendarId === c._id}
                                         onClick={() => setCalendarId(c._id)}
-                                        className={[
-                                            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
-                                            selected
-                                                ? `border-transparent ${cls.bg} ${cls.text}`
-                                                : 'border-neutral-200 text-neutral-500 hover:bg-neutral-50',
-                                        ].join(' ')}
+                                        dot={cls.dot}
+                                        tone={`${cls.bg} ${cls.text}`}
                                     >
-                                        <span className={`h-2 w-2 rounded-full ${cls.dot}`} />
                                         {c.name}
-                                    </button>
+                                    </ChoiceChip>
                                 )
                             })}
                         </div>
-                    </div>
+                    </Section>
                 )}
 
-                {/* Cross-calendar overlap — information, not a blocker. */}
-                {overlaps.length > 0 && (
-                    <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 px-4 py-3">
-                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                            Also in this slot
-                        </p>
-                        {overlaps.map((other) => {
-                            const cal = other.calendar ? byId.get(other.calendar) : undefined
-                            return (
-                                <div
-                                    key={other._id}
-                                    className="flex items-center gap-2 text-sm text-neutral-600"
-                                >
-                                    {cal && (
-                                        <span
-                                            className={`h-2 w-2 shrink-0 rounded-full ${CALENDAR_COLOR_CLASSES[cal.color].dot}`}
-                                        />
-                                    )}
-                                    <span className="min-w-0 truncate font-medium">
-                                        {cal ? `${cal.name} · ` : ''}
-                                        {other.title}
-                                    </span>
-                                    {cal && !cal.visible && onRevealCalendar && (
-                                        <button
-                                            type="button"
-                                            onClick={() => onRevealCalendar(cal._id)}
-                                            className="ml-auto shrink-0 text-xs font-semibold text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
-                                        >
-                                            Show
-                                        </button>
-                                    )}
-                                </div>
-                            )
-                        })}
-                    </div>
-                )}
-
-                {/* Title */}
-                <Input
-                    label="Title"
-                    placeholder="What's happening?"
-                    value={title}
-                    onChange={(e) => {
-                        setTitle(e.target.value)
-                        setError('')
-                    }}
-                    error={
-                        error ||
-                        (conflict
-                            ? 'This calendar already has an event in that slot — adjust the dates, the parts, or the calendar.'
-                            : '')
-                    }
-                    autoFocus
-                />
-
-                {/* Location */}
-                <Input
-                    label="Location"
-                    placeholder="Optional"
-                    icon="fa-solid fa-location-dot"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                />
-
-                {/* Type */}
-                <div className="flex flex-col gap-2">
-                    <label className="text-[13px] font-medium text-neutral-700">
-                        Type
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                        {EVENT_TYPES.map((t) => {
-                            const c = EVENT_TYPE_COLORS[t]
-                            const selected = eventType === t
-                            return (
-                                <button
-                                    key={t}
-                                    type="button"
-                                    onClick={() => setEventType(t)}
-                                    className={[
-                                        'rounded-xl border px-3 py-2 text-sm font-semibold transition-colors',
-                                        selected
-                                            ? `${c.bg} border-transparent ${c.text}`
-                                            : `border-neutral-200 ${c.text} hover:${c.light}`,
-                                    ].join(' ')}
-                                >
-                                    {EVENT_TYPE_LABELS[t]}
-                                </button>
-                            )
-                        })}
-                    </div>
-                </div>
-
-                {/* Date */}
-                <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                        <label className="text-[13px] font-medium text-neutral-700">
-                            Date
-                        </label>
-                        <Switch
-                            checked={multiDay}
-                            onChange={handleMultiDayChange}
-                            label="Multi-day"
-                        />
-                    </div>
+                <Section
+                    title="When"
+                    aside={<Switch checked={multiDay} onChange={handleMultiDayChange} label="Multi-day" />}
+                >
                     {!multiDay ? (
                         <DatePicker
                             value={startDate}
@@ -564,111 +429,125 @@ export default function EventEditor({
                             }}
                         />
                     )}
-                </div>
-
-                {/* When in the day */}
-                <div className="flex flex-col gap-2">
-                    <label className="text-[13px] font-medium text-neutral-700">
-                        When
-                    </label>
 
                     {!multiDay ? (
-                        /* Single-day: range-selectable segment bar + special chips */
-                        <TimeOfDayPicker
-                            startPart={startPart}
-                            endPart={endPart}
-                            onChange={handleTimeOfDayChange}
-                        />
+                        <TimeOfDayPicker startPart={startPart} endPart={endPart} onChange={handleTimeOfDayChange} />
                     ) : (
-                        /* Multi-day: all-day / no-fixed-time toggles + optional start/end parts */
-                        <div className="flex flex-col gap-3">
-                            <div className="flex gap-1.5">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setStartPart(isAllDay ? 'morning' : 'morning')
-                                        setEndPart(isAllDay ? 'morning' : 'evening')
-                                    }}
-                                    className={chipBtn(isAllDay)}
-                                >
-                                    All day
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setStartPart(isNa ? 'morning' : 'na')
-                                        setEndPart(isNa ? 'morning' : 'na')
-                                    }}
-                                    className={chipBtn(isNa)}
-                                >
-                                    No fixed time
-                                </button>
-                            </div>
-                            {!isAllDay && !isNa && (
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-3">
-                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-500">
-                                            Starts
-                                        </span>
+                        !isAllDay &&
+                        !isNa && (
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-3">
+                                    <span className="w-12 shrink-0 text-[13px] text-neutral-500">Starts</span>
+                                    <div className="flex-1">
                                         <PartSegment value={startPart} onChange={setStartPart} />
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="w-10 shrink-0 text-xs font-medium text-neutral-500">
-                                            Ends
-                                        </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="w-12 shrink-0 text-[13px] text-neutral-500">Ends</span>
+                                    <div className="flex-1">
                                         <PartSegment value={endPart} onChange={setEndPart} />
                                     </div>
                                 </div>
-                            )}
+                            </div>
+                        )
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                        <ChoiceChip on={isAllDay} onClick={toggleAllDay} icon="fa-solid fa-sun">
+                            All day
+                        </ChoiceChip>
+                        <ChoiceChip on={isNa} onClick={toggleAnytime} icon="fa-regular fa-clock">
+                            Anytime
+                        </ChoiceChip>
+                    </div>
+
+                    {/* Optional time — single-day, not all-day, not anytime */}
+                    {!multiDay && !isAllDay && !isNa && (
+                        <TimePicker value={time} onChange={setTime} placeholder="Add a time (optional)" />
+                    )}
+
+                    {/* Cross-calendar overlap — information, not a blocker. */}
+                    {overlaps.length > 0 && (
+                        <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 px-4 py-3">
+                            <p className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-700">
+                                <i className="fa-solid fa-layer-group text-[11px] text-neutral-500" aria-hidden="true" />
+                                Also in this slot
+                            </p>
+                            {overlaps.map((other) => {
+                                const cal = other.calendar ? byId.get(other.calendar) : undefined
+                                return (
+                                    <div key={other._id} className="flex items-center gap-2 text-sm text-neutral-600">
+                                        {cal && (
+                                            <span
+                                                className={`h-2 w-2 shrink-0 rounded-full ${CALENDAR_COLOR_CLASSES[cal.color].dot}`}
+                                            />
+                                        )}
+                                        <span className="min-w-0 truncate">
+                                            {cal ? `${cal.name} · ` : ''}
+                                            {other.title}
+                                        </span>
+                                        {cal && !cal.visible && onRevealCalendar && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onRevealCalendar(cal._id)}
+                                                className="ml-auto shrink-0 text-xs font-medium text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
+                                            >
+                                                Show
+                                            </button>
+                                        )}
+                                    </div>
+                                )
+                            })}
                         </div>
                     )}
-                </div>
+                </Section>
 
-                {/* Optional time — single-day, not all-day, not na */}
-                {!multiDay && !isAllDay && !isNa && (
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[13px] font-medium text-neutral-700">
-                            Time{' '}
-                            <span className="normal-case font-normal text-neutral-300">
-                                (optional)
-                            </span>
-                        </label>
-                        <TimePicker value={time} onChange={setTime} placeholder="Add a time" />
-                    </div>
-                )}
-
-                {/* Repeats */}
-                <RecurrencePicker
-                    enabled={recurring}
-                    onEnabledChange={setRecurring}
-                    frequency={recurrenceFrequency}
-                    onFrequencyChange={setRecurrenceFrequency}
-                    endsOn={recurrenceEndsOn}
-                    onEndsOnChange={setRecurrenceEndsOn}
-                    minEndDate={endDate || startDate || undefined}
-                />
-
-                {/* Planner clashes */}
-                <div className="flex flex-col gap-1.5 rounded-2xl bg-neutral-50 px-4 py-3">
-                    <Switch
-                        checked={ignoreClash}
-                        onChange={setIgnoreClash}
-                        label="Ignore planner clashes"
+                <Section title="Details">
+                    <Input
+                        label="Location"
+                        placeholder="Optional"
+                        icon="fa-solid fa-location-dot"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
                     />
-                    <p className="text-xs text-neutral-500">
-                        Keep this event off the Fitness planner’s clash warnings — it won’t flag
-                        against gym sessions in the same slot.
-                    </p>
-                </div>
+                    <Textarea
+                        label="Notes"
+                        rows={3}
+                        placeholder="Optional details"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                    />
+                </Section>
 
-                {/* Notes */}
-                <Textarea
-                    label="Notes"
-                    rows={3}
-                    placeholder="Optional details"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                />
+                <Section title="Options">
+                    <SettingList>
+                        <SettingRow
+                            icon="fa-solid fa-repeat"
+                            label="Repeats"
+                            hint={recurring ? undefined : 'Daily, weekly, monthly…'}
+                            control={<Switch checked={recurring} onChange={setRecurring} />}
+                        >
+                            {recurring && (
+                                <RecurrencePicker
+                                    bare
+                                    enabled={recurring}
+                                    onEnabledChange={setRecurring}
+                                    frequency={recurrenceFrequency}
+                                    onFrequencyChange={setRecurrenceFrequency}
+                                    endsOn={recurrenceEndsOn}
+                                    onEndsOnChange={setRecurrenceEndsOn}
+                                    minEndDate={endDate || startDate || undefined}
+                                />
+                            )}
+                        </SettingRow>
+                        <SettingRow
+                            icon="fa-solid fa-dumbbell"
+                            label="Ignore planner clashes"
+                            hint="Won’t flag against gym sessions in the same slot."
+                            control={<Switch checked={ignoreClash} onChange={setIgnoreClash} />}
+                        />
+                    </SettingList>
+                </Section>
             </div>
         </Drawer>
     )

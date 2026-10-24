@@ -36,12 +36,63 @@ export interface UserSettings {
     workDays?: number[]
     /** YYYY-MM-DD — all finance data before this date is hidden. */
     financeStartDate?: string
+    /** £ a month to keep back; drives the Statement's savings plan. */
+    savingsGoal?: number
     /** Saved location the weather forecast is based on. */
     weatherLocation?: WeatherLocation
     /** Per-day macro targets, tracked against the weekly meal plan. */
     macroGoals?: MacroGoals
     /** Bodyweight target and intended rate of change. */
     bodyGoals?: BodyGoals
+    /**
+     * Height, date of birth and sex. With the trend weight they give each
+     * day's BMR (lib/bmr.ts), which is added to the burned figure from a watch.
+     */
+    bodyProfile?: BodyProfile
+    /** Answers to the Timeline quiz (pages/Timeline.tsx). */
+    timelineQuiz?: TimelineQuiz
+}
+
+export const TRAINING_AGES = ['beginner', 'intermediate', 'advanced'] as const
+export type TrainingAge = (typeof TRAINING_AGES)[number]
+export const CREATINE_USE = ['no', 'new', 'already'] as const
+export type CreatineUse = (typeof CREATINE_USE)[number]
+export const PROTEIN_HABITS = ['always', 'mostly', 'rarely'] as const
+export type ProteinHabit = (typeof PROTEIN_HABITS)[number]
+export const SLEEP_BANDS = ['under6', '6to7', '7to8', 'over8'] as const
+export type SleepBand = (typeof SLEEP_BANDS)[number]
+export const ACTIVITY_LEVELS = ['low', 'some', 'active', 'very'] as const
+export type ActivityLevel = (typeof ACTIVITY_LEVELS)[number]
+
+/**
+ * How closely the plans will really be followed, plus what the plans don't say.
+ * Adherences are fractions from 0.5 to 1.
+ */
+export interface TimelineQuiz {
+    trainingAdherence: number
+    nutritionAdherence: number
+    trainingAge: TrainingAge
+    creatine: CreatineUse
+    /** Daily grams, when taking or starting it. */
+    creatineDoseG?: number
+    /** A 20 g/day loading week first ('new' only). */
+    creatineLoading?: boolean
+    /** "YYYY-MM-DD" a new course starts ('new' only). */
+    creatineStart?: string
+    protein: ProteinHabit
+    sleep: SleepBand
+    activity: ActivityLevel
+    /** Known body fat, used when no recent reading is logged. */
+    bodyFatPct?: number
+    /** ISO timestamp the quiz was last answered. */
+    answeredAt: string
+}
+
+export interface BodyProfile {
+    heightCm?: number
+    /** "YYYY-MM-DD". */
+    birthDate?: string
+    sex?: 'male' | 'female'
 }
 
 /**
@@ -136,13 +187,22 @@ export interface Meal {
     /** Breakfast / lunch / dinner / snack — a meal can be more than one. */
     types: MealType[]
     macros: Macros
+    /** What goes into one serving — what the shopping list buys. */
+    ingredients: MealIngredient[]
     notes?: string
     order: number
     createdAt: string
     updatedAt: string
 }
 
-export type MealInput = Pick<Meal, 'name' | 'types' | 'macros' | 'notes'>
+/** One serving's worth: grams, or `items` for things bought by count (5 eggs), or both. */
+export interface MealIngredient {
+    name: string
+    grams: number
+    items?: number
+}
+
+export type MealInput = Pick<Meal, 'name' | 'types' | 'macros' | 'notes'> & { ingredients?: MealIngredient[] }
 
 export interface Exercise {
     _id: string
@@ -359,10 +419,14 @@ export type EntryStatus = (typeof ENTRY_STATUSES)[number]
  * day never changes when the library does. `extra` is food added with "Log
  * more" rather than planned.
  */
-/** A raw ingredient in a box: how much goes in, and its packet macros per 100 g. */
+/**
+ * A raw ingredient in a box: how much goes in, and its packet macros per
+ * 100 g. `items` is how many, for things bought by count (5 eggs).
+ */
 export interface Ingredient {
     name: string
     grams: number
+    items?: number
     per100: Macros
 }
 
@@ -380,6 +444,10 @@ export interface BoxCook {
     cookedGrams: number
     per100: Macros
     finished: boolean
+    /** In the freezer — in the pantry, but can't go on a plate until taken out. */
+    frozen?: boolean
+    /** "YYYY-MM-DD" it came out of the freezer; its fridge age counts from here. */
+    thawed?: string
     /** Grams eaten from it so far (open batches only). */
     eatenGrams?: number
     /** Grams on plates still planned (pantry list only). */
@@ -399,8 +467,10 @@ export interface PlateFood {
     per100?: Macros
     notes?: string
     order: number
-    /** A box's batches not yet finished, newest first. */
+    /** A box's batches in use (not finished, not frozen), newest first. */
     open: BoxCook[]
+    /** A box's batches in the freezer, newest first. */
+    frozen: BoxCook[]
     /** A box's latest cook, finished or not. */
     last: BoxCook | null
 }
@@ -433,6 +503,11 @@ export interface MealPlanEntry {
     meal?: string
     /** Set on a plate: foods weighed by the gram. `macros` is their total. */
     plate?: PlateLine[]
+    /**
+     * Set on a box note: "eating from this box" planned ahead with no amounts.
+     * No macros, never ticked — weighing that box into the slot replaces it.
+     */
+    box?: string
     name: string
     macros: Macros
     status: EntryStatus
@@ -469,6 +544,10 @@ export interface FitnessPlanEntry {
     ignoreClash?: boolean
     /** When true this item's overloaded slot has been accepted, so it stops warning. */
     ignoreOverload?: boolean
+    /** When true the session was deliberately skipped — shown with a no-entry sign. */
+    skipped?: boolean
+    /** Why it was skipped, when a reason was given. */
+    skipReason?: string
     createdAt: string
     updatedAt: string
 }
@@ -705,10 +784,13 @@ export const EVENT_TYPE_DOTS: Record<EventType, string> = {
     general: 'bg-teal-400',
 }
 
-/** Font Awesome glyphs marking specific event types inside chips. */
-export const EVENT_TYPE_ICONS: Partial<Record<EventType, string>> = {
-    hobby: 'fa-solid fa-football',
+/** Font Awesome glyph for each event type — on chips, rows and type tiles (Year view keeps only hobby + work trip). */
+export const EVENT_TYPE_ICONS: Record<EventType, string> = {
+    trip: 'fa-solid fa-plane-departure',
     worktrip: 'fa-solid fa-briefcase',
+    social: 'fa-solid fa-champagne-glasses',
+    hobby: 'fa-solid fa-football',
+    general: 'fa-solid fa-calendar-day',
 }
 
 // ─── Calendars (layers) ───────────────────────────────────────────────────────
@@ -1270,14 +1352,21 @@ export interface Timebox {
     updatedAt: string
 }
 
-export interface Task {
+export type ListKind = 'checklist' | 'bullets' | 'numbered'
+
+export interface ListItem {
+    /** Client-generated id, stable across saves. */
+    id: string
+    text: string
+    done: boolean
+}
+
+export interface List {
     _id: string
-    date: string
     title: string
-    completed: boolean
-    order: number
-    /** Estimated duration in minutes. */
-    duration?: number
+    kind: ListKind
+    pinned: boolean
+    items: ListItem[]
     createdAt: string
     updatedAt: string
 }
@@ -1353,6 +1442,14 @@ export interface FinanceRow {
     skipMonths?: string[] // months explicitly hidden ("this month only" deletes)
     budgeted?: boolean
     budgetType?: 'daily' | 'weekly' | null
+    /** Weekly budgets: £ per Mon–Sun week (the source of truth; the monthly
+     *  figure is derived as weekly × 52 ÷ 12). */
+    weeklyAmount?: number | null
+    /** Superseded weekly amounts: weeks starting before `beforeWeek` (a Monday)
+     *  used `amount`. `weeklyAmount` stays the current value. */
+    pastWeeklyAmounts?: { beforeWeek: string; amount: number }[]
+    /** Weekly budgets: the Monday carry starts rolling from. Absent = no carry. */
+    carryFrom?: string | null
     /** Starling Space categoryUid this budget mirrors transactions from. */
     starlingCategoryUid?: string | null
     createdAt: string
@@ -1369,7 +1466,7 @@ export interface StarlingSpace {
     currency: string
 }
 
-/** One money-out transaction from a spending space, as the daily report reads it. */
+/** One money-out transaction from the main account or a space, as the Statement reads it. */
 export interface StarlingSpendItem {
     /** Starling feedItemUid. */
     id: string
@@ -1382,8 +1479,27 @@ export interface StarlingSpendItem {
     merchant: string | null
     /** Starling's spending category, e.g. "EATING_OUT". */
     category: string | null
-    /** The spending space it left from. */
+    /** Where it left from: "Main account" or the space's name. */
     space: string
+    /** Present when money in is included; absent means money out. */
+    direction?: 'IN' | 'OUT'
+    /** How the money moved, e.g. MASTER_CARD, FASTER_PAYMENTS_IN, DIRECT_CREDIT. */
+    source?: string | null
+}
+
+/** The account right now: main balance, what's in spaces, and the total. */
+export interface StarlingBalance {
+    main: number
+    spaces: number
+    total: number
+    asOf: string
+}
+
+/** Stored finished months of payments in and out, for trends and subscriptions. */
+export interface StarlingHistory {
+    months: { month: string; items: StarlingSpendItem[] }[]
+    /** Months still to be fetched; ask again for them. */
+    pending: number
 }
 
 /** Why a Starling movement didn't count as a budget transaction. */
@@ -1414,6 +1530,8 @@ export interface StarlingExclusion {
     date: string
     amount: number
     note?: string
+    /** Set once cleared from the removed list — shown only in the archive view. */
+    archivedAt?: string | null
     createdAt: string
 }
 
@@ -1796,4 +1914,26 @@ export interface PhaseAdjustmentInput {
     targets: MacroGoals
     reason?: string
     source?: AdjustmentSource
+}
+
+/**
+ * Something added to the nutrition shopping list. A box lists its raw
+ * ingredients for one batch, bought for `count` batches; a meal, a food or a
+ * typed-in `item` is itself, `count` of them. The list you shop from merges
+ * them into one line per name (see lib/shopping.ts).
+ */
+export interface ShoppingGroup {
+    id: string
+    kind: 'box' | 'meal' | 'food' | 'item'
+    ref?: string
+    name: string
+    count: number
+    /** A box's ingredients for one batch, or a meal's for one serving. */
+    ingredients: { name: string; grams: number; items?: number }[]
+}
+
+export interface ShoppingList {
+    groups: ShoppingGroup[]
+    /** Lines in the basket, by lower-cased name. */
+    ticked: string[]
 }

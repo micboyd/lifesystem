@@ -18,6 +18,14 @@ import {
     type Suggestion,
 } from './session/WorkoutSummary'
 import { resolveTags } from '../lib/exerciseSwap'
+import {
+    describeSet,
+    lastSetsFor,
+    setInsight,
+    type InsightLine,
+    type LastSets,
+    type TodaySet,
+} from '../lib/setInsight'
 import type {
     Exercise,
     LoggedSet,
@@ -140,8 +148,8 @@ function toNum(s: string): number | undefined {
 function setSummary(s: SetDraft): string {
     const w = s.weight.trim()
     const r = s.reps.trim()
-    if (w && r) return `${w} kg × ${r}`
-    if (w) return `${w} kg`
+    if (w && r) return `${w}kg × ${r}`
+    if (w) return `${w}kg`
     if (r) return `${r} reps`
     return 'done'
 }
@@ -714,6 +722,7 @@ export default function WorkoutLogWeightsDrawer({
     const w = view
 
     const lastTime = current ? lastTimeFor(history, current.name, logId) : null
+    const lastSets = current ? lastSetsFor(history, current.name, logId) : null
     const currentEx = current ? resolved.get(current.exerciseId) : undefined
     const equipment = (currentEx && resolveTags(currentEx).equipment) || ''
 
@@ -847,6 +856,7 @@ export default function WorkoutLogWeightsDrawer({
                                     ticks={stepTicks.ticks[step]}
                                     onToggleStep={(s) => toggleStep(step, s)}
                                     lastTime={lastTime}
+                                    lastSets={lastSets}
                                     suggestion={
                                         lastTime
                                             ? suggestNext(lastTime, lines[step]?.reps, equipment)
@@ -951,6 +961,7 @@ function ExerciseStep({
     ticks,
     onToggleStep,
     lastTime,
+    lastSets,
     suggestion,
     onUseSuggestion,
     onWarmUpDone,
@@ -973,6 +984,8 @@ function ExerciseStep({
     onToggleStep: (step: number) => void
     /** The heaviest set the last time this exercise was logged with a weight. */
     lastTime: LastTime | null
+    /** Every set from the last time, for the set-by-set comparison. */
+    lastSets: LastSets | null
     /** What to try today, worked out from last time. */
     suggestion: Suggestion | null
     onUseSuggestion: (s: Suggestion) => void
@@ -991,6 +1004,25 @@ function ExerciseStep({
     const rest = line?.rest?.trim()
     const warmUp = isWarmUp(ex)
     const warmedUp = warmUp && !!ex.sets[0]?.done
+    const settled = useSettledSets(ex.sets, `${number}:${ex.exerciseId}`)
+    // The insight follows the set you last typed into, until a tick (or another
+    // exercise) moves things on; before that, the set you're up to.
+    const shape = `${number}:${ex.exerciseId}|${ex.sets.map((s) => (s.done ? 1 : 0)).join('')}`
+    const [editing, setEditing] = useState<{ shape: string; si: number } | null>(null)
+    const focusSet =
+        editing && editing.shape === shape && editing.si < settled.length
+            ? editing.si
+            : settled.findIndex((s) => !s.done)
+    const insight = warmUp ? {} : liveInsight(settled, focusSet, lastSets)
+    function edit(si: number, patch: Partial<SetDraft>) {
+        setEditing({ shape, si })
+        onSet(si, patch)
+    }
+    /** A new set takes the focus, so the read-out turns straight to it. */
+    function add() {
+        setEditing({ shape: `${shape}0`, si: ex.sets.length })
+        onAddSet()
+    }
 
     return (
         <div className="flex flex-col gap-7">
@@ -1058,7 +1090,12 @@ function ExerciseStep({
             {swapPicker}
 
             {!warmUp && (
-                <LastTimeNote last={lastTime} suggestion={suggestion} onUse={onUseSuggestion} />
+                <LastTimeNote
+                    last={lastTime}
+                    lastSets={lastSets}
+                    suggestion={suggestion}
+                    onUse={onUseSuggestion}
+                />
             )}
 
             {(line?.notes || !!line?.steps?.length) && (
@@ -1084,6 +1121,7 @@ function ExerciseStep({
                 </button>
             ) : (
                 <section className="flex flex-col gap-2">
+                    <InsightStrip insight={insight} />
                     <div className="flex items-center justify-between px-1">
                         <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
                             Sets
@@ -1131,7 +1169,7 @@ function ExerciseStep({
                                     placeholder={prevWeight || '—'}
                                     aria-label={`Set ${si + 1} weight`}
                                     value={s.weight}
-                                    onChange={(e) => onSet(si, { weight: e.target.value })}
+                                    onChange={(e) => edit(si, { weight: e.target.value })}
                                     className={`${inputCls} ${s.done ? 'border-emerald-200' : 'border-neutral-200'}`}
                                 />
                                 <input
@@ -1142,7 +1180,7 @@ function ExerciseStep({
                                     placeholder="—"
                                     aria-label={`Set ${si + 1} reps`}
                                     value={s.reps}
-                                    onChange={(e) => onSet(si, { reps: e.target.value })}
+                                    onChange={(e) => edit(si, { reps: e.target.value })}
                                     className={`${inputCls} ${s.done ? 'border-emerald-200' : 'border-neutral-200'}`}
                                 />
                                 <button
@@ -1168,7 +1206,7 @@ function ExerciseStep({
                     <div className="flex items-center gap-1 pt-1">
                         <button
                             type="button"
-                            onClick={onAddSet}
+                            onClick={add}
                             className="inline-flex h-10 items-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-coral-600 transition-colors hover:bg-coral-50"
                         >
                             <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
@@ -1193,10 +1231,12 @@ function ExerciseStep({
 /** A quiet grey note of what you lifted last time, to aim off while you're under the bar. */
 function LastTimeNote({
     last,
+    lastSets,
     suggestion,
     onUse,
 }: {
     last: LastTime | null
+    lastSets: LastSets | null
     suggestion: Suggestion | null
     onUse: (s: Suggestion) => void
 }) {
@@ -1207,7 +1247,22 @@ function LastTimeNote({
                     className="fa-solid fa-clock-rotate-left w-3 text-center text-xs text-neutral-400"
                     aria-hidden="true"
                 />
-                {last ? (
+                {lastSets && lastSets.sets.length > 1 ? (
+                    <p className="min-w-0 text-sm text-neutral-600">
+                        Last time{' '}
+                        <span className="text-neutral-500">
+                            ({formatLogDate(lastSets.date, todayISO())})
+                        </span>
+                        {lastSets.sets.map((s, i) => (
+                            <span key={i} className="tabular-nums">
+                                {' · '}
+                                <span className="font-semibold text-neutral-900">
+                                    {describeSet(s)}
+                                </span>
+                            </span>
+                        ))}
+                    </p>
+                ) : last ? (
                     <p className="min-w-0 text-sm text-neutral-600">
                         Last time{' '}
                         <span className="text-neutral-500">
@@ -1215,7 +1270,7 @@ function LastTimeNote({
                         </span>
                         {' · '}max{' '}
                         <span className="font-semibold tabular-nums text-neutral-900">
-                            {last.weight} kg
+                            {last.weight}kg
                         </span>
                         {last.reps != null && (
                             <span className="tabular-nums text-neutral-500"> × {last.reps}</span>
@@ -1234,7 +1289,7 @@ function LastTimeNote({
                     <p className="min-w-0 flex-1 text-sm text-neutral-700">
                         Try{' '}
                         <span className="font-semibold tabular-nums text-neutral-900">
-                            {suggestion.weight} kg
+                            {suggestion.weight}kg
                         </span>
                         {suggestion.reps != null && (
                             <span className="font-semibold tabular-nums text-neutral-900">
@@ -1254,6 +1309,103 @@ function LastTimeNote({
                     </button>
                 </div>
             )}
+        </div>
+    )
+}
+
+/** How long typing has to pause before the insight strip rewrites. */
+const INSIGHT_SETTLE_MS = 600
+
+/**
+ * The sets as the insight strip should read them: typed weights and reps land
+ * once you stop typing, so the read-out isn't rewriting on every keystroke.
+ * Ticking, adding or removing a set, or moving to another exercise (`key`)
+ * lands at once.
+ */
+function useSettledSets(sets: SetDraft[], key: string): SetDraft[] {
+    const [settled, setSettled] = useState(sets)
+    const shape = `${key}|${sets.map((s) => (s.done ? 1 : 0)).join('')}`
+    const [seenShape, setSeenShape] = useState(shape)
+    if (shape !== seenShape) {
+        setSeenShape(shape)
+        setSettled(sets)
+    }
+
+    useEffect(() => {
+        const t = setTimeout(() => setSettled(sets), INSIGHT_SETTLE_MS)
+        return () => clearTimeout(t)
+    }, [sets])
+
+    return settled
+}
+
+/** A typed set as numbers, blanks left out. */
+function toTodaySet(s: SetDraft): TodaySet {
+    return { weight: toNum(s.weight), reps: toNum(s.reps) }
+}
+
+/**
+ * Today against last time: the sets so far, plus the set in focus — the one
+ * being typed into, or just added.
+ */
+function liveInsight(sets: SetDraft[], focusSet: number, lastSets: LastSets | null) {
+    // A set counts once it's ticked, or once it has a weight in — so adding a
+    // set (which copies the last one's weight) registers straight away.
+    // Bodyweight work goes on ticks alone, as its reps come pre-filled.
+    const weighted = !lastSets || lastSets.sets.some((s) => s.weight != null)
+    const done = sets
+        .filter((s) => s.done || (weighted && toNum(s.weight) != null))
+        .map(toTodaySet)
+        .filter((s) => s.weight != null || s.reps != null)
+    const current = focusSet === -1 ? null : { index: focusSet, set: toTodaySet(sets[focusSet]) }
+    return setInsight(lastSets, done, current)
+}
+
+const toneIcon: Record<InsightLine['tone'], string> = {
+    up: 'fa-arrow-up text-emerald-600',
+    down: 'fa-arrow-down text-neutral-400',
+    same: 'fa-equals text-neutral-400',
+    mixed: 'fa-right-left text-neutral-400',
+}
+
+/**
+ * A quiet live read-out pinned to the top while you log: this set against the
+ * same set last time, then sets and volume so far. Only ups get a colour —
+ * being down on last time is information, not a telling-off.
+ */
+function InsightStrip({ insight }: { insight: ReturnType<typeof setInsight> }) {
+    const lines = [insight.current, insight.sets, insight.volume].filter(
+        (l): l is InsightLine => !!l
+    )
+    if (lines.length === 0) return null
+    return (
+        <div className="sticky -top-5 z-10 -mx-1 -mt-5 bg-white px-1 pb-2 pt-5" aria-live="polite">
+            <ul className="flex flex-col gap-1 rounded-2xl bg-neutral-100 px-4 py-2.5">
+                {lines.map((l, i) => (
+                    <li key={i} className="flex items-center gap-3 text-[13px]">
+                        <i
+                            className={`fa-solid ${toneIcon[l.tone]} w-3 text-center text-[10px]`}
+                            aria-hidden="true"
+                        />
+                        <span
+                            className={`min-w-0 ${i === 0 ? 'text-neutral-800' : 'text-neutral-600'}`}
+                        >
+                            {l.parts.map((p, j) =>
+                                typeof p === 'string' ? (
+                                    p
+                                ) : (
+                                    <span
+                                        key={j}
+                                        className="font-semibold tabular-nums text-neutral-900"
+                                    >
+                                        {p.v}
+                                    </span>
+                                )
+                            )}
+                        </span>
+                    </li>
+                ))}
+            </ul>
         </div>
     )
 }

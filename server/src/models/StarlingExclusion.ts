@@ -26,6 +26,9 @@ export interface IStarlingExclusion extends Document {
     date: string
     amount: number
     note?: string
+    /** Set when the user clears the removed list — hidden behind the archive view,
+     *  still blocking re-import and still recoverable. */
+    archivedAt?: Date | null
     createdAt: Date
     updatedAt: Date
 }
@@ -43,6 +46,7 @@ const starlingExclusionSchema = new Schema<IStarlingExclusion>(
         date: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
         amount: { type: Number, required: true, min: 0 },
         note: { type: String, trim: true, maxlength: 200 },
+        archivedAt: { type: Date, default: null },
     },
     { timestamps: true }
 )

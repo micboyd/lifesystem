@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
     MONTHS,
     WEEKDAYS,
@@ -11,9 +11,7 @@ import {
     todayKey,
     addDays,
     addMonths,
-    getWeekStart,
     formatMonthYear,
-    formatWeekRange,
     formatDateLong,
     parseDateKey,
     monthKey,
@@ -39,7 +37,6 @@ import { DAY_STATUS_OPTIONS } from '../types'
 import type { Event, Part, DayStatus, TotalRow, Reminder, MonthNote, Birthday } from '../types'
 import type { CalendarRow } from '../lib/calendarFilters'
 import Container from '../components/Container'
-import Checkbox from '../components/Checkbox'
 import ConfirmModal from '../components/ConfirmModal'
 import Tabs from '../components/Tabs'
 import EventDetailModal from '../components/calendar/EventDetailModal'
@@ -55,7 +52,7 @@ import EditRecurringEventDialog, {
 import MonthView from '../components/calendar/MonthView'
 import MonthFlags from '../components/calendar/MonthFlags'
 import MonthNoteEditor from '../components/calendar/MonthNoteEditor'
-import WeekView from '../components/calendar/WeekView'
+import { HeroShell, HeroButton, HeroIconButton } from '../components/planner/WeekPlannerUI'
 import CalendarFilterBar from '../components/calendar/CalendarFilterBar'
 import HiddenCalendarDots from '../components/calendar/HiddenCalendarDots'
 import Drawer from '../components/Drawer'
@@ -65,14 +62,10 @@ import BirthdaysDaySection from '../components/calendar/BirthdaysDaySection'
 import DayMarkers from '../components/calendar/DayMarkers'
 import RemindersDaySection from '../components/reminders/RemindersDaySection'
 
-type CalendarView = 'Week' | 'Month' | 'Year'
-const VIEWS: CalendarView[] = ['Year', 'Month', 'Week']
+type CalendarView = 'Month' | 'Year'
+const VIEWS: CalendarView[] = ['Year', 'Month']
 
 function getRange(view: CalendarView, focusDate: string): { from: string; to: string } {
-    if (view === 'Week') {
-        const start = getWeekStart(focusDate)
-        return { from: start, to: addDays(start, 6) }
-    }
     if (view === 'Month') {
         const { year, month } = parseDateKey(focusDate)
         const last = new Date(year, month + 1, 0).getDate()
@@ -94,7 +87,6 @@ function daySpan(start: string, end: string): number {
 }
 
 function navigate(view: CalendarView, focusDate: string, delta: number): string {
-    if (view === 'Week') return addDays(focusDate, delta * 7)
     if (view === 'Month') return addMonths(focusDate, delta)
     // Year
     const { year, month, day } = parseDateKey(focusDate)
@@ -102,21 +94,33 @@ function navigate(view: CalendarView, focusDate: string, delta: number): string 
 }
 
 function getTitle(view: CalendarView, focusDate: string): string {
-    if (view === 'Year') return focusDate.slice(0, 4)
-    if (view === 'Month') return formatMonthYear(focusDate)
-    const start = getWeekStart(focusDate)
-    return formatWeekRange(start, addDays(start, 6))
+    return view === 'Year' ? focusDate.slice(0, 4) : formatMonthYear(focusDate)
+}
+
+/** "This week", "Next month", "Last year", "In 3 months", "2 years ago" — the focused period against today. */
+function relativeLabel(view: CalendarView, focusDate: string): string {
+    const tk = todayKey()
+    const f = parseDateKey(focusDate)
+    const t = parseDateKey(tk)
+    const diff = view === 'Month' ? (f.year - t.year) * 12 + (f.month - t.month) : f.year - t.year
+    const unit = view.toLowerCase()
+    if (diff === 0) return `This ${unit}`
+    if (diff === 1) return `Next ${unit}`
+    if (diff === -1) return `Last ${unit}`
+    return diff > 0 ? `In ${diff} ${unit}s` : `${-diff} ${unit}s ago`
 }
 
 export default function Calendar() {
     const today = new Date()
-    const nav = useNavigate()
     const { user } = useAuth()
     const { byId: calendarsById, setVisible } = useCalendars()
     const { types: hiddenTypes, rows: hiddenRows } = useCalendarFilters()
-    const [view, setView] = useState<CalendarView>('Year')
+    // ?date=YYYY-MM-DD (from the dashboard's "Open day") opens that day's month.
+    const [searchParams] = useSearchParams()
+    const linkedDate = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get('date') ?? '') ? searchParams.get('date')! : null
+    const [view, setView] = useState<CalendarView>(linkedDate ? 'Month' : 'Year')
     const [showPastMonths, setShowPastMonths] = useState(false)
-    const [focusDate, setFocusDate] = useState(todayKey())
+    const [focusDate, setFocusDate] = useState(linkedDate ?? todayKey())
     const [events, setEvents] = useState<Event[]>([])
     const [statuses, setStatuses] = useState<DayStatus[]>([])
     const [reminders, setReminders] = useState<Reminder[]>([])
@@ -576,6 +580,21 @@ export default function Calendar() {
         [setVisible]
     )
 
+    /**
+     * A day number in the year view opens that month; in the month view, where
+     * the day is already in front of you, it starts a new event on it.
+     */
+    const openDay = (date: string) => {
+        if (view === 'Month') {
+            setEditingEvent(null)
+            setEditorOpen(true)
+            setDefaultSlot({ date, part: 'morning' })
+            return
+        }
+        setFocusDate(date)
+        setView('Month')
+    }
+
     const sharedProps = {
         focusDate,
         events: visibleEvents,
@@ -586,11 +605,10 @@ export default function Calendar() {
         hiddenByDate,
         birthdaysByDay,
         onRevealCalendar: revealCalendar,
-        onOpenDay: (date: string) => nav(`/day/${date}`),
+        onOpenDay: openDay,
         onOpenReminders: (date: string) => setReminderDate(date),
         onOpenBirthdays: (date: string) => setBirthdayDate(date),
-        // Adding an event from a slot opens the editor in place — only the day
-        // number navigates to the day view.
+        // Adding an event from a slot opens the editor in place.
         onOpenPart: (date: string, part: Part) => {
             setEditingEvent(null)
             setEditorOpen(true)
@@ -620,77 +638,78 @@ export default function Calendar() {
             : 12
     const visibleMonths = MONTHS.map((_, m) => m).filter((m) => m >= firstMonth)
 
+    const inRange = visibleEvents.filter((e) => e.startDate <= to && e.endDate >= from).length
+    const eventCountLabel = inRange === 0 ? 'Nothing planned' : `${inRange} ${inRange === 1 ? 'event' : 'events'}`
+
+    const arrows = (
+        <div className="flex shrink-0 items-center gap-2 sm:gap-1">
+            <HeroIconButton
+                label={`Previous ${view.toLowerCase()}`}
+                icon="fa-solid fa-chevron-left"
+                onClick={() => setFocusDate((d) => navigate(view, d, -1))}
+            />
+            <HeroIconButton
+                label={`Next ${view.toLowerCase()}`}
+                icon="fa-solid fa-chevron-right"
+                onClick={() => setFocusDate((d) => navigate(view, d, 1))}
+            />
+        </div>
+    )
+
     return (
         <main className="min-h-screen bg-neutral-50">
-            {/* Toolbar — the bar is full-bleed; its content uses the fluid container. */}
-            <div className="sticky top-14 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-sm lg:top-0">
-                <Container fluid className="flex flex-wrap items-center justify-between gap-3 py-3">
-                    {/* Title + nav. Wraps on phones: in Year view the arrows, the
-                        title, "Today" and the past-months checkbox total ~460px,
-                        and none of them shrink. */}
-                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-                        <button
-                            type="button"
-                            onClick={() => setFocusDate((d) => navigate(view, d, -1))}
-                            aria-label="Previous"
-                            className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                        >
-                            <i className="fa-solid fa-chevron-left text-xs" aria-hidden="true" />
-                        </button>
-                        <h1 className="min-w-0 flex-1 text-center text-lg font-bold tracking-tight text-neutral-950 sm:min-w-32 sm:flex-none">
-                            {title}
-                        </h1>
-                        <button
-                            type="button"
-                            onClick={() => setFocusDate((d) => navigate(view, d, 1))}
-                            aria-label="Next"
-                            className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                        >
-                            <i className="fa-solid fa-chevron-right text-xs" aria-hidden="true" />
-                        </button>
-                        {!isToday && (
-                            <button
-                                type="button"
-                                onClick={() => setFocusDate(todayKey())}
-                                className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                            >
-                                Today
-                            </button>
-                        )}
-                        {view === 'Year' && (
-                            <Checkbox
-                                checked={showPastMonths}
-                                onChange={setShowPastMonths}
-                                label="View previous months"
-                                className="ml-0 shrink-0 sm:ml-2"
+            {/* Header — the planners' soft hero: where you are, how to move, and the view. */}
+            <Container fluid className="pt-5 sm:pt-6">
+                <HeroShell tone="soft">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                            <div className="hidden sm:block">{arrows}</div>
+                            <div className="min-w-0 flex-1">
+                                <h1 className="truncate text-xl font-semibold tracking-tight sm:text-[22px]">
+                                    {relativeLabel(view, focusDate)}
+                                </h1>
+                                <p className="mt-0.5 truncate text-[13px] text-neutral-500">
+                                    {[title, eventCountLabel].join(' · ')}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="sm:hidden">{arrows}</div>
+                            {!isToday && (
+                                <HeroButton icon="fa-solid fa-calendar-day" onClick={() => setFocusDate(todayKey())}>
+                                    Today
+                                </HeroButton>
+                            )}
+                            {view === 'Year' && (
+                                <HeroButton
+                                    icon={showPastMonths ? 'fa-solid fa-eye-slash' : 'fa-solid fa-clock-rotate-left'}
+                                    onClick={() => setShowPastMonths((v) => !v)}
+                                    iconOnlyOnPhone
+                                >
+                                    {showPastMonths ? 'Hide past months' : 'Past months'}
+                                </HeroButton>
+                            )}
+                            <CalendarFilterBar onChanged={reload} />
+                            <HeroIconButton
+                                icon="fa-solid fa-file-export"
+                                label="Export calendar"
+                                onClick={() => setExportOpen(true)}
                             />
-                        )}
+                            <Tabs
+                                tabs={VIEWS}
+                                value={view}
+                                onChange={(v) => setView(v as CalendarView)}
+                                className="ml-auto lg:ml-0"
+                            />
+                        </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
-                        <CalendarFilterBar onChanged={reload} />
-                        <button
-                            type="button"
-                            onClick={() => setExportOpen(true)}
-                            aria-label="Export calendar"
-                            title="Export calendar as JSON"
-                            className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                        >
-                            <i className="fa-solid fa-file-export text-sm" aria-hidden="true" />
-                        </button>
-                        <Tabs
-                            tabs={VIEWS}
-                            value={view}
-                            onChange={(v) => setView(v as CalendarView)}
-                        />
-                    </div>
-                </Container>
-            </div>
+                </HeroShell>
+            </Container>
 
             {/* Views */}
             <Container fluid className="py-4 sm:py-6">
-                {view === 'Week' && <WeekView {...sharedProps} />}
-
                 {view === 'Month' && (
                     <div className="flex flex-col gap-3">
                         <MonthFlags
@@ -742,7 +761,7 @@ export default function Calendar() {
                                     onRenameRow={handleRenameRow}
                                     onDeleteRow={handleDeleteRow}
                                     onChangeGranularity={handleChangeGranularity}
-                                    onOpenDay={(date) => nav(`/day/${date}`)}
+                                    onOpenDay={openDay}
                                     onOpenPart={(date, part) => {
                                         setEditingEvent(null)
                                         setEditorOpen(true)
@@ -1208,6 +1227,7 @@ function MonthBlock({
                                             ].join(' ')}
                                         >
                                             <EventStack
+                                                compact
                                                 events={slotEvents}
                                                 past={past}
                                                 onEventClick={onEventClick}
@@ -1265,6 +1285,7 @@ function MonthBlock({
                                             ].join(' ')}
                                         >
                                             <EventStack
+                                                compact
                                                 events={slotEvents}
                                                 past={otherPast}
                                                 onEventClick={onEventClick}

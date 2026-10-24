@@ -8,6 +8,13 @@ export interface IPastAmount {
     amount?: number
 }
 
+/** A superseded weekly amount: weeks starting strictly before `beforeWeek` (a
+ *  Monday) use `amount` (unless an earlier entry covers them). */
+export interface IPastWeeklyAmount {
+    beforeWeek: string // YYYY-MM-DD Monday, exclusive upper bound
+    amount: number
+}
+
 export interface IFinanceRow extends Document {
     user: Types.ObjectId
     group: Types.ObjectId
@@ -22,6 +29,12 @@ export interface IFinanceRow extends Document {
     skipMonths: string[] // months explicitly hidden ("this month only" deletes)
     budgeted: boolean
     budgetType?: 'daily' | 'weekly' | null
+    /** Weekly budgets: £ per Mon–Sun week — the source of truth. `recurringAmount`
+     *  is kept in step as weekly × 52 ÷ 12 so monthly views still add up. */
+    weeklyAmount?: number | null
+    pastWeeklyAmounts: IPastWeeklyAmount[]
+    /** Weekly budgets: the Monday carry rolls from (null = no carry). */
+    carryFrom?: string | null
     pot?: Types.ObjectId | null
     /** Starling Space categoryUid this budget mirrors transactions from (null = not linked). */
     starlingCategoryUid?: string | null
@@ -55,6 +68,20 @@ const financeRowSchema = new Schema<IFinanceRow>(
         skipMonths: { type: [String], default: [] },
         budgeted: { type: Boolean, default: false },
         budgetType: { type: String, enum: ['daily', 'weekly'], default: null },
+        weeklyAmount: { type: Number, default: null },
+        pastWeeklyAmounts: {
+            type: [
+                new Schema<IPastWeeklyAmount>(
+                    {
+                        beforeWeek: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+                        amount: { type: Number, required: true },
+                    },
+                    { _id: false }
+                ),
+            ],
+            default: [],
+        },
+        carryFrom: { type: String, default: null, match: /^\d{4}-\d{2}-\d{2}$/ },
         pot: { type: Schema.Types.ObjectId, ref: 'FinancePot', default: null },
         starlingCategoryUid: { type: String, default: null },
     },

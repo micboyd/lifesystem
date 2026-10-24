@@ -12,6 +12,8 @@ import type {
     FinanceSubItem,
     StarlingSpace,
     StarlingSpendItem,
+    StarlingBalance,
+    StarlingHistory,
     StarlingMovement,
     StarlingExclusion,
 } from '../types'
@@ -136,10 +138,16 @@ export async function updateRow(
             'name' | 'order' | 'recurring' | 'budgeted' | 'budgetType' | 'starlingCategoryUid'
         > & {
             recurringAmount: number | null
+            /** £/week for weekly budgets; the server keeps recurringAmount in step. */
+            weeklyAmount: number | null
+            /** Monday carry rolls from (null = no carry). */
+            carryFrom: string | null
             /** How an amount edit applies: everywhere, or from `month` onwards. */
             amountScope: AmountScope
             /** YYYY-MM the 'onward' scope starts from (the viewed month). */
             month: string
+            /** Monday a weekly 'onward' edit starts from. */
+            week: string
         }
     >
 ): Promise<FinanceRow> {
@@ -254,7 +262,7 @@ export async function listStarlingSpaces(): Promise<StarlingSpace[]> {
 }
 
 /**
- * Every money-out transaction across all spending spaces for [from, to]
+ * Every money-out transaction across the main account and all spaces for [from, to]
  * (inclusive, YYYY-MM-DD). Throws 501 if Starling isn't configured.
  */
 export async function listStarlingSpend(from: string, to: string): Promise<StarlingSpendItem[]> {
@@ -310,6 +318,14 @@ export async function getStarlingReconciliation(
 /** List transactions deleted or moved away from a Starling-linked budget. */
 export async function listStarlingExclusions(): Promise<StarlingExclusion[]> {
     const res = await api.get<ApiResponse<StarlingExclusion[]>>('/finances/starling/exclusions')
+    return res.data.data
+}
+
+/** Clear the removed list: archives every live entry (nothing is deleted). */
+export async function archiveStarlingExclusions(): Promise<{ archived: number; archivedAt: string }> {
+    const res = await api.post<ApiResponse<{ archived: number; archivedAt: string }>>(
+        '/finances/starling/exclusions/archive'
+    )
     return res.data.data
 }
 
@@ -450,4 +466,23 @@ export async function updateSubItem(
 
 export async function deleteSubItem(id: string): Promise<void> {
     await api.delete(`/finances/sub-items/${id}`)
+}
+
+/** Money out and money in for [from, to], from the same Starling reads as listStarlingSpend. */
+export async function listStarlingFlow(from: string, to: string): Promise<{ out: StarlingSpendItem[]; in: StarlingSpendItem[] }> {
+    const res = await api.get<ApiResponse<StarlingSpendItem[]>>('/finances/starling/spend', { params: { from, to, in: '1' } })
+    const all = res.data.data
+    return { out: all.filter((t) => t.direction !== 'IN'), in: all.filter((t) => t.direction === 'IN') }
+}
+
+/** What's in the account right now. */
+export async function getStarlingBalance(): Promise<StarlingBalance> {
+    const res = await api.get<ApiResponse<StarlingBalance>>('/finances/starling/balance')
+    return res.data.data
+}
+
+/** The last `months` finished months, from storage (fetched from Starling as needed). */
+export async function getStarlingHistory(months = 12): Promise<StarlingHistory> {
+    const res = await api.get<ApiResponse<StarlingHistory>>('/finances/starling/history', { params: { months } })
+    return res.data.data
 }

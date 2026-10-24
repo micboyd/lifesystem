@@ -234,6 +234,7 @@ export default function PhaseLibrary({
     error,
     onSave,
     onDelete,
+    onImport,
     openPhaseId,
     onOpened,
 }: {
@@ -242,6 +243,8 @@ export default function PhaseLibrary({
     error: string | null
     onSave: (input: NutritionPhaseInput, id?: string) => Promise<boolean>
     onDelete: (phase: NutritionPhase) => void
+    /** Switch to the paste-JSON importer. */
+    onImport: () => void
     /** A phase to open for editing on arrival — set when coming from the Life Plan timeline. */
     openPhaseId?: string | null
     /** Called once that request has been honoured, so it fires only once. */
@@ -356,9 +359,14 @@ export default function PhaseLibrary({
                     A phase is a dated stretch of eating — a cut, a bulk or maintenance — with the
                     targets the planner and stats judge each day against.
                 </p>
-                <Button icon="fa-solid fa-plus" onClick={startNew}>
-                    New phase
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="secondary" icon="fa-solid fa-file-import" onClick={onImport}>
+                        Import
+                    </Button>
+                    <Button icon="fa-solid fa-plus" onClick={startNew}>
+                        New phase
+                    </Button>
+                </div>
             </div>
 
             {phases.length === 0 ? (

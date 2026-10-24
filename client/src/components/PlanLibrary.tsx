@@ -840,7 +840,8 @@ function planProgress(plan: TrainingPlan): { label: string; pct: number } {
     }
 }
 
-function PlanDetail({ plan }: { plan: TrainingPlan }) {
+/** A plan in full, tabbed. Exported for the Timeline's plan drawer. */
+export function PlanDetail({ plan }: { plan: TrainingPlan }) {
     const [tab, setTab] = useState<DetailTab>('Overview')
     const progress = planProgress(plan)
 

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import Button from '../Button'
-import { MacroBar, MacroLegend } from './mealUi'
+import { MACRO_DOT, MacroBar } from './mealUi'
 import { fmt, kcal } from './format'
 import { gramsLeft, lineMacros, plateTotal, ZERO } from '../../lib/plates'
+import { suggestGrams } from '../../lib/plateSuggest'
 import { shortDate } from './BoxLibrary'
 import type { BoxCook, Macros, MealPlanEntry, PlateFood, PlateLine, PlateLineInput } from '../../types'
 
@@ -29,15 +30,84 @@ const num = (v: string) => Math.max(0, Number(v) || 0)
 const gramsInputCls =
     'h-11 w-20 rounded-xl border border-neutral-200 bg-white px-2 text-right text-base font-semibold tabular-nums text-neutral-900 outline-none transition-[border-color,box-shadow] placeholder:font-normal placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100'
 
-function PlateTotal({ macros }: { macros: Macros }) {
+const MACROS = ['protein', 'carbs', 'fat'] as const
+
+/**
+ * Protein, carbs and fat in three fixed columns, so numbers never wrap onto a
+ * line of their own. With an aim, each shows "67 / 57 g".
+ */
+function MacroGrid({ macros, aim, keys }: { macros?: Macros; aim?: Macros | null; keys?: (keyof Macros)[] }) {
     return (
-        <div className="flex flex-col gap-2 rounded-2xl bg-neutral-50 px-4 py-3">
+        <div className="grid grid-cols-3 gap-2">
+            {MACROS.map((k) => {
+                const target = aim && (!keys || keys.includes(k)) ? Math.round(aim[k]) : null
+                return (
+                    <div key={k} className="min-w-0">
+                        <p className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+                            <span className={`h-2 w-2 shrink-0 rounded-full ${MACRO_DOT[k]}`} aria-hidden="true" />
+                            {k[0].toUpperCase() + k.slice(1)}
+                        </p>
+                        <p className="whitespace-nowrap text-sm font-semibold tabular-nums text-neutral-900">
+                            {macros ? fmt(Math.round(macros[k])) : target != null ? fmt(target) : '—'}
+                            {macros && target != null && <span className="font-normal text-neutral-400"> / {fmt(target)}</span>}
+                            {(macros || target != null) && <span className="font-normal text-neutral-500"> g</span>}
+                        </p>
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
+function PlateTotal({ macros, aim, keys }: { macros: Macros; aim?: Macros | null; keys?: (keyof Macros)[] }) {
+    return (
+        <div className="flex flex-col gap-3 rounded-2xl bg-neutral-50 px-4 py-3">
             <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">Plate</span>
-                <span className="text-lg font-semibold tabular-nums text-neutral-900">{kcal(macros.calories)} kcal</span>
+                <span className="whitespace-nowrap text-lg font-semibold tabular-nums text-neutral-900">
+                    {kcal(macros.calories)}
+                    {aim && aim.calories > 0 && (
+                        <span className="text-sm font-normal text-neutral-400"> / {kcal(aim.calories)}</span>
+                    )}
+                    <span className="text-sm font-normal text-neutral-500"> kcal</span>
+                </span>
             </div>
             <MacroBar macros={macros} thick />
-            <MacroLegend macros={macros} compact />
+            <MacroGrid macros={macros} aim={aim} keys={keys} />
+        </div>
+    )
+}
+
+/**
+ * What this slot should aim for, from the day's targets shared out as three
+ * meals and a snack, less what the day already holds.
+ */
+export function AimCard({ aim, keys, slotLabel }: { aim: Macros; keys: (keyof Macros)[]; slotLabel: string }) {
+    const done = keys.every((k) => aim[k] < (k === 'calories' ? 25 : 2))
+    if (done) {
+        return (
+            <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3">
+                <i className="fa-solid fa-circle-check text-sm text-brand-600" aria-hidden="true" />
+                <p className="text-sm font-semibold text-neutral-900">Today’s targets are already met</p>
+            </div>
+        )
+    }
+    return (
+        <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                    <i className="fa-solid fa-bullseye" aria-hidden="true" />
+                    <span className="truncate">{slotLabel} aim</span>
+                </span>
+                {keys.includes('calories') && (
+                    <span className="whitespace-nowrap text-lg font-semibold tabular-nums text-neutral-900">
+                        {kcal(aim.calories)}
+                        <span className="text-sm font-normal text-neutral-500"> kcal</span>
+                    </span>
+                )}
+            </div>
+            {MACROS.some((k) => keys.includes(k)) && <MacroGrid aim={aim} keys={keys} />}
+            <p className="text-[11px] text-neutral-500">What’s left of today, split over three meals and a snack.</p>
         </div>
     )
 }
@@ -71,9 +141,23 @@ function sourcesFrom(foods: PlateFood[]): { batches: Source[]; plain: Source[] }
                 left: gramsLeft(c.cookedGrams, c.eatenGrams),
             }))
         )
+    // A plain food is always offered. With a batch out (a box of rice), it
+    // draws from that, so the pantry knows what's left; it still counts at
+    // the food's own figures.
     const plain = byOrder
         .filter((f) => f.kind === 'plain')
-        .map((f) => ({ key: f._id, food: f, cook: null, label: f.name, per100: f.per100 ?? ZERO, left: null }))
+        .flatMap((f): Source[] =>
+            f.open.length === 0
+                ? [{ key: f._id, food: f, cook: null, label: f.name, per100: f.per100 ?? ZERO, left: null }]
+                : f.open.map((c) => ({
+                      key: c._id,
+                      food: f,
+                      cook: c,
+                      label: f.open.length > 1 ? `${f.name} · ${shortDate(c.date)}` : f.name,
+                      per100: f.per100 ?? ZERO,
+                      left: gramsLeft(c.cookedGrams, c.eatenGrams),
+                  }))
+        )
     return { batches, plain }
 }
 
@@ -83,15 +167,24 @@ export function PlateBuilder({
     foods,
     busy,
     actionLabel,
+    aim,
+    start,
     onAdd,
 }: {
     foods: PlateFood[]
     busy: boolean
     actionLabel: string
+    /** A box to start the plate with (its newest open batch) — weighing out a box note. */
+    start?: string
+    /** This slot's share of the day's targets, when there are targets. */
+    aim?: { budget: Macros; keys: (keyof Macros)[] } | null
     onAdd: (plate: PlateLineInput[]) => Promise<void>
 }) {
-    const [lines, setLines] = useState<Draft[]>([])
     const { batches, plain } = sourcesFrom(foods)
+    const [lines, setLines] = useState<Draft[]>(() => {
+        const src = start ? batches.find((b) => b.food._id === start) : undefined
+        return src ? [{ key: src.key, grams: '' }] : []
+    })
     const byKey = new Map([...batches, ...plain].map((src) => [src.key, src]))
 
     const resolved = lines.flatMap((l) => {
@@ -101,8 +194,28 @@ export function PlateBuilder({
     const total = plateTotal(resolved.map((l) => ({ grams: l.g, per100: l.src.per100 })))
     const ready = resolved.some((l) => l.g > 0)
 
-    function patch(i: number, grams: string) {
-        setLines((prev) => prev.map((l, j) => (j === i ? { ...l, grams } : l)))
+    // Blank lines get suggested grams (shown as the placeholder) around the
+    // ones already typed. With everything typed, "Rebalance" re-fits them all.
+    const blank = (l: Draft) => l.grams.trim() === ''
+    const suggest = (keepTyped: boolean) =>
+        aim
+            ? suggestGrams(
+                  resolved.map((l) => ({
+                      per100: l.src.per100,
+                      fixed: keepTyped && !blank(l) ? l.g : null,
+                      max: l.src.left,
+                  })),
+                  aim.budget,
+                  aim.keys
+              )
+            : null
+    const suggested = suggest(true)
+    const anyBlank = resolved.some(blank)
+
+    function applySuggestion() {
+        const grams = anyBlank ? suggested : suggest(false)
+        if (!grams) return
+        setLines(resolved.map((l, i) => ({ key: l.key, grams: anyBlank && !blank(l) ? l.grams : String(grams[i]) })))
     }
 
     async function submit() {
@@ -123,31 +236,78 @@ export function PlateBuilder({
         )
     }
 
-    const chip = (src: Source) => {
-        const on = lines.some((l) => l.key === src.key)
+    const add = (key: string) => setLines((prev) => [...prev, { key, grams: '' }])
+    const remove = (key: string) => setLines((prev) => prev.filter((l) => l.key !== key))
+    const patch = (key: string, grams: string) =>
+        setLines((prev) => prev.map((l) => (l.key === key ? { ...l, grams } : l)))
+
+    // One row per food. Off the plate it's a tap target with what's left;
+    // on it, the same row grows a grams box and the line's numbers.
+    const row = (src: Source) => {
+        const i = resolved.findIndex((l) => l.key === src.key)
+        if (i < 0) {
+            return (
+                <li key={src.key}>
+                    <button
+                        type="button"
+                        onClick={() => add(src.key)}
+                        className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-left transition-colors hover:bg-neutral-50"
+                    >
+                        <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-neutral-800">{src.label}</span>
+                            <span className="block truncate text-xs tabular-nums text-neutral-500">
+                                {kcal(src.per100.calories)} kcal / 100 g
+                                {src.left != null && ` · ~${fmt(src.left)} g left`}
+                            </span>
+                        </span>
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-600">
+                            <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                        </span>
+                    </button>
+                </li>
+            )
+        }
+        const l = resolved[i]
+        const m = lineMacros(l.g, src.per100)
+        const over = src.left != null && l.g > src.left
         return (
-            <button
-                key={src.key}
-                type="button"
-                disabled={on}
-                onClick={() => setLines((prev) => [...prev, { key: src.key, grams: '' }])}
-                className={`inline-flex min-h-10 max-w-full items-center gap-1.5 rounded-full px-3.5 py-1.5 text-left text-[13px] font-medium transition-colors ${
-                    on
-                        ? 'bg-neutral-900 text-white'
-                        : 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-200 hover:bg-neutral-50'
-                }`}
-            >
-                <i
-                    className={`fa-solid ${on ? 'fa-check' : src.cook ? 'fa-box' : 'fa-plus'} shrink-0 text-[11px]`}
-                    aria-hidden="true"
-                />
-                <span className="truncate">{src.label}</span>
-                {src.left != null && (
-                    <span className={`shrink-0 tabular-nums ${on ? 'text-white/70' : 'text-neutral-400'}`}>
-                        ~{fmt(src.left)} g
-                    </span>
-                )}
-            </button>
+            <li key={src.key} className="flex items-center gap-2 rounded-2xl border border-neutral-900 bg-white py-2 pl-3 pr-1">
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-neutral-900">{src.label}</p>
+                    <p className={`truncate text-xs tabular-nums ${over ? 'text-amber-700' : 'text-neutral-500'}`}>
+                        {over
+                            ? `Only ~${fmt(src.left!)} g left`
+                            : `${kcal(m.calories)} kcal · ${fmt(Math.round(m.protein))} g protein`}
+                    </p>
+                </div>
+                <label className="relative shrink-0">
+                    <input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step="any"
+                        placeholder={suggested && blank(l) ? String(suggested[i]) : '0'}
+                        aria-label={`${src.label} grams`}
+                        autoFocus={l.key === lines[lines.length - 1]?.key}
+                        enterKeyHint="done"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                        }}
+                        value={l.grams}
+                        onChange={(e) => patch(src.key, e.target.value)}
+                        className={`${gramsInputCls} w-24 pr-7`}
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm text-neutral-500">g</span>
+                </label>
+                <button
+                    type="button"
+                    aria-label={`Take ${src.label} off the plate`}
+                    onClick={() => remove(src.key)}
+                    className="grid h-11 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:text-neutral-700"
+                >
+                    <i className="fa-solid fa-xmark" aria-hidden="true" />
+                </button>
+            </li>
         )
     }
 
@@ -156,7 +316,7 @@ export function PlateBuilder({
             <div className="flex flex-col gap-2">
                 <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">From the pantry</p>
                 {batches.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">{batches.map(chip)}</div>
+                    <ul className="flex flex-col gap-2">{batches.map(row)}</ul>
                 ) : (
                     <p className="text-xs text-neutral-500">Nothing cooked — log a cook in the Pantry tab.</p>
                 )}
@@ -165,56 +325,22 @@ export function PlateBuilder({
             {plain.length > 0 && (
                 <div className="flex flex-col gap-2">
                     <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Sides</p>
-                    <div className="flex flex-wrap gap-2">{plain.map(chip)}</div>
+                    <ul className="flex flex-col gap-2">{plain.map(row)}</ul>
                 </div>
             )}
 
-            {resolved.length > 0 && (
-                <ul className="flex flex-col gap-2">
-                    {resolved.map((l, i) => {
-                        const m = lineMacros(l.g, l.src.per100)
-                        const over = l.src.left != null && l.g > l.src.left
-                        return (
-                            <li key={l.key} className="flex items-center gap-3 rounded-2xl border border-neutral-200 py-2.5 pl-3 pr-2">
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-neutral-900">{l.src.label}</p>
-                                    <p className={`text-xs tabular-nums ${over ? 'text-amber-700' : 'text-neutral-500'}`}>
-                                        {kcal(m.calories)} kcal · {fmt(Math.round(m.protein))} g protein
-                                        {over && ` · only ~${fmt(l.src.left!)} g left`}
-                                    </p>
-                                </div>
-                                <input
-                                    type="number"
-                                    inputMode="decimal"
-                                    min={0}
-                                    step="any"
-                                    placeholder="0"
-                                    aria-label={`${l.src.label} grams`}
-                                    autoFocus={i === resolved.length - 1}
-                                    enterKeyHint="done"
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                                    }}
-                                    value={l.grams}
-                                    onChange={(e) => patch(i, e.target.value)}
-                                    className={gramsInputCls}
-                                />
-                                <span className="text-sm text-neutral-500">g</span>
-                                <button
-                                    type="button"
-                                    aria-label={`Take ${l.src.label} off the plate`}
-                                    onClick={() => setLines((prev) => prev.filter((_, j) => j !== i))}
-                                    className="grid h-11 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:text-neutral-700"
-                                >
-                                    <i className="fa-solid fa-xmark" aria-hidden="true" />
-                                </button>
-                            </li>
-                        )
-                    })}
-                </ul>
+            {aim && resolved.length > 0 && (
+                <Button
+                    variant="secondary"
+                    icon="fa-solid fa-wand-magic-sparkles"
+                    onClick={applySuggestion}
+                    className="w-full justify-center"
+                >
+                    {anyBlank ? 'Fill in suggested grams' : 'Rebalance to hit the aim'}
+                </Button>
             )}
 
-            {resolved.length > 0 && <PlateTotal macros={total} />}
+            {resolved.length > 0 && <PlateTotal macros={total} aim={aim?.budget} keys={aim?.keys} />}
 
             <Button
                 icon="fa-solid fa-plus"

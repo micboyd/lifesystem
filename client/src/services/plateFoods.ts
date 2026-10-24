@@ -40,13 +40,17 @@ export async function listCooks(): Promise<{ open: BoxCook[]; finished: BoxCook[
     return res.data.data
 }
 
-/** "Cooked a box". `finishOpen` marks the box's earlier batches as finished. */
+/**
+ * "Cooked a box". `finishOpen` marks the box's earlier batches in use as
+ * finished; `frozen` puts the new batch straight in the freezer.
+ */
 export async function cookBox(fields: {
     food: string
     date: string
     ingredients: Ingredient[]
     cookedGrams: number
     finishOpen: boolean
+    frozen: boolean
 }): Promise<BoxCook> {
     const res = await api.post<ApiResponse<BoxCook>>('/box-cooks', fields)
     return res.data.data
@@ -54,6 +58,11 @@ export async function cookBox(fields: {
 
 export async function setCookFinished(id: string, finished: boolean): Promise<void> {
     await api.patch(`/box-cooks/${id}`, { finished })
+}
+
+/** Into the freezer, or out of it (`thawed` = the day it came out). */
+export async function setCookFrozen(id: string, frozen: boolean, thawed?: string): Promise<void> {
+    await api.patch(`/box-cooks/${id}`, { frozen, ...(thawed ? { thawed } : {}) })
 }
 
 export async function deleteCook(id: string): Promise<void> {

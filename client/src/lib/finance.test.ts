@@ -174,3 +174,19 @@ describe('freeCashByMonth', () => {
         expect(free['2026-06']).toBe(3000)
     })
 })
+
+describe('incomeForMonth', () => {
+    it("adds up the month's income rows, entries over recurring amounts", async () => {
+        const { incomeForMonth } = await import('./finance')
+        const groups = [
+            { _id: 'g1', type: 'income', name: 'Pay' },
+            { _id: 'g2', type: 'expense', name: 'Bills' },
+        ] as unknown as Parameters<typeof incomeForMonth>[0]
+        const rows = [
+            { _id: 'r1', group: 'g1', name: 'Salary', recurringAmount: 3000 },
+            { _id: 'r2', group: 'g1', name: 'Side gig', recurringAmount: 200 },
+            { _id: 'r3', group: 'g2', name: 'Rent', recurringAmount: 1200 },
+        ] as unknown as Parameters<typeof incomeForMonth>[1]
+        expect(incomeForMonth(groups, rows, [{ row: 'r2', amount: 350 }], '2026-11')).toBe(3350)
+    })
+})

@@ -24,12 +24,21 @@ interface EventStackProps {
     onPaste?: () => void
     /** Whether a copied event is available to paste. */
     canPaste?: boolean
+    /**
+     * Narrow cells (Year view): only the types that need telling apart at a
+     * glance keep their icon, so the title isn't squeezed out.
+     */
+    compact?: boolean
 }
+
+/** The types whose icon survives in a compact cell. */
+const COMPACT_ICON_TYPES = new Set(['hobby', 'worktrip'])
 
 function Chip({
     event,
     mini = false,
     muted = false,
+    compact = false,
     onClick,
     onContextMenu,
 }: {
@@ -37,18 +46,19 @@ function Chip({
     mini?: boolean
     /** Dim the chip (a past slot) — it stays clickable. */
     muted?: boolean
+    compact?: boolean
     onClick: () => void
     onContextMenu?: (e: ReactMouseEvent) => void
 }) {
     const { byId } = useCalendars()
     const { bg, hover, text } = colorsForEvent(event, byId)
     const sizing = mini ? 'min-h-0 flex-1' : 'h-full'
-    const base = `flex h-full w-full items-center gap-1 overflow-hidden rounded-md px-1.5 text-left ${bg} ${text}`
+    const base = `flex h-full w-full items-center gap-1 overflow-hidden rounded-lg px-2 text-left ${bg} ${text}`
     const title = (
         <>
-            {EVENT_TYPE_ICONS[event.eventType] && (
+            {(!compact || COMPACT_ICON_TYPES.has(event.eventType)) && (
                 <i
-                    className={`${EVENT_TYPE_ICONS[event.eventType]} shrink-0 text-[9px] opacity-80`}
+                    className={`${EVENT_TYPE_ICONS[event.eventType]} shrink-0 text-[9px] opacity-70`}
                     aria-hidden="true"
                 />
             )}
@@ -99,6 +109,7 @@ export default function EventStack({
     onDeleteEvent,
     onPaste,
     canPaste = false,
+    compact = false,
 }: EventStackProps) {
     // Cursor-anchored menu; `event` is null when opened over an empty slot.
     const [menu, setMenu] = useState<{ x: number; y: number; event: Event | null } | null>(null)
@@ -169,6 +180,7 @@ export default function EventStack({
         return (
             <>
                 <Chip
+                    compact={compact}
                     event={events[0]}
                     muted={past}
                     onClick={() => onEventClick(events[0])}
@@ -181,10 +193,11 @@ export default function EventStack({
 
     const overflow = events.length > 2
     return (
-        <div className="flex h-full w-full flex-col gap-px">
+        <div className="flex h-full w-full flex-col gap-0.5">
             {overflow ? (
                 <>
                     <Chip
+                        compact={compact}
                         event={events[0]}
                         mini
                         muted={past}
@@ -198,7 +211,7 @@ export default function EventStack({
                             onPick(events)
                         }}
                         onContextMenu={(e) => openMenu(e, null)}
-                        className={`flex min-h-0 flex-1 items-center justify-center rounded-md bg-neutral-200 text-[11px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-300 ${past ? 'opacity-50 hover:opacity-100' : ''}`}
+                        className={`flex min-h-0 flex-1 items-center justify-center rounded-lg bg-neutral-200 text-[11px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-300 ${past ? 'opacity-50 hover:opacity-100' : ''}`}
                     >
                         +{events.length - 1} more
                     </button>
@@ -206,6 +219,7 @@ export default function EventStack({
             ) : (
                 events.map((e) => (
                     <Chip
+                        compact={compact}
                         key={e._id}
                         event={e}
                         mini

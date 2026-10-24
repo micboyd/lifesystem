@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
-import Modal from '../Modal'
+import { useState, type ReactNode } from 'react'
+import Drawer from '../Drawer'
 import Button from '../Button'
 import Textarea from '../Textarea'
-import { EVENT_TYPE_LABELS, RECURRENCE_LABELS } from '../../types'
-import { MONTHS, WEEKDAYS_LONG } from '../../lib/calendar'
+import { EVENT_TYPE_LABELS, RECURRENCE_LABELS, CALENDAR_COLOR_CLASSES } from '../../types'
 import { useCalendars } from '../../context/CalendarsContext'
-import { colorsForEvent } from '../../lib/eventColors'
 import type { Event } from '../../types'
+import { StatStrip, type Stat } from '../session/SessionUI'
+import { TypeTile, nightsBetween, partsLabel, relativeDay, shortDate } from './eventUi'
 
 interface Props {
     event: Event | null
@@ -20,46 +20,11 @@ interface Props {
     onSaveNotes?: (notes: string) => Promise<void>
 }
 
-const PART_LABELS: Record<string, string> = {
-    morning: 'Morning',
-    afternoon: 'Afternoon',
-    evening: 'Evening',
-    na: 'N/A',
-}
-
-function daysUntilLabel(dateStr: string): string {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const [y, m, d] = dateStr.split('-').map(Number)
-    const target = new Date(y, m - 1, d)
-    const diff = Math.round((target.getTime() - today.getTime()) / 86_400_000)
-    if (diff === 0) return 'Today'
-    if (diff === 1) return 'Tomorrow'
-    if (diff === -1) return 'Yesterday'
-    if (diff > 0) return `In ${diff} days`
-    return `${Math.abs(diff)} days ago`
-}
-
-function formatDate(date: string) {
-    const [y, m, d] = date.split('-').map(Number)
-    return `${WEEKDAYS_LONG[new Date(y, m - 1, d).getDay()]} ${d} ${MONTHS[m - 1]} ${y}`
-}
-
-function nightsBetween(start: string, end: string): number {
-    const [y1, m1, d1] = start.split('-').map(Number)
-    const [y2, m2, d2] = end.split('-').map(Number)
-    return Math.round(
-        (new Date(y2, m2 - 1, d2).getTime() - new Date(y1, m1 - 1, d1).getTime()) / 86_400_000
-    )
-}
-
-function partRange(event: Event): string {
-    if (event.allDay) return 'All day'
-    if (event.startPart === 'na') return 'N/A — informational'
-    if (event.startPart === event.endPart) return PART_LABELS[event.startPart]
-    return `${PART_LABELS[event.startPart]} → ${PART_LABELS[event.endPart]}`
-}
-
+/**
+ * An event, read at a glance: its type tile and title, a strip of when / how
+ * long / time, where, how it repeats and its notes (editable in place). Opens
+ * as a drawer, like a session or a meal does elsewhere.
+ */
 export default function EventDetailModal({
     event,
     onClose,
@@ -70,22 +35,29 @@ export default function EventDetailModal({
     const { byId } = useCalendars()
     const [deleting, setDeleting] = useState(false)
     const [editingNotes, setEditingNotes] = useState(false)
-    const [notesDraft, setNotesDraft] = useState('')
+    const [notesDraft, setNotesDraft] = useState(event?.notes ?? '')
     const [savingNotes, setSavingNotes] = useState(false)
 
+    // Keep the last event while the drawer slides shut.
+    const [shown, setShown] = useState<Event | null>(event)
+    if (event && event !== shown) setShown(event)
+
     // Reset the inline notes editor whenever the viewed event changes.
-    useEffect(() => {
+    const notesKey = `${event?._id}|${event?.notes ?? ''}`
+    const [lastNotesKey, setLastNotesKey] = useState(notesKey)
+    if (notesKey !== lastNotesKey) {
+        setLastNotesKey(notesKey)
         setEditingNotes(false)
         setNotesDraft(event?.notes ?? '')
-    }, [event?._id, event?.notes])
+    }
 
-    if (!event) return null
+    const e = shown
 
     async function handleDelete() {
-        if (!onDelete) return
+        if (!onDelete || !e) return
         setDeleting(true)
         try {
-            await onDelete(event!)
+            await onDelete(e)
         } finally {
             setDeleting(false)
         }
@@ -102,172 +74,168 @@ export default function EventDetailModal({
         }
     }
 
-    const isNa = event.startPart === 'na'
-    const colors = colorsForEvent(event, byId)
-    const calendar = event.calendar ? byId.get(event.calendar) : undefined
-    const isMultiDay = event.startDate !== event.endDate
+    const calendar = e?.calendar ? byId.get(e.calendar) : undefined
+    const isMultiDay = !!e && e.startDate !== e.endDate
+
+    const stats: Stat[] = e
+        ? [
+              isMultiDay
+                  ? { icon: 'fa-regular fa-calendar', label: 'From', value: shortDate(e.startDate) }
+                  : { icon: 'fa-regular fa-calendar', label: 'Date', value: shortDate(e.startDate, true) },
+              isMultiDay
+                  ? { icon: 'fa-regular fa-calendar-check', label: 'To', value: shortDate(e.endDate) }
+                  : { icon: 'fa-regular fa-clock', label: 'When', value: partsLabel(e.startPart, e.endPart) },
+              ...(isMultiDay
+                  ? [
+                        {
+                            icon: 'fa-solid fa-moon',
+                            label: 'Length',
+                            value: `${nightsBetween(e.startDate, e.endDate)} ${nightsBetween(e.startDate, e.endDate) === 1 ? 'night' : 'nights'}`,
+                        },
+                    ]
+                  : e.time
+                    ? [{ icon: 'fa-solid fa-stopwatch', label: 'Time', value: e.time }]
+                    : []),
+          ]
+        : []
 
     return (
-        <Modal
-            open
+        <Drawer
+            open={!!event}
             onClose={onClose}
-            size="sm"
+            size="xl"
+            title="Event"
+            badge={e ? relativeDay(e.startDate) : undefined}
             footer={
                 <>
                     {onDelete && (
                         <Button
                             variant="ghost"
-                            size="sm"
                             icon="fa-solid fa-trash-can"
                             onClick={handleDelete}
                             disabled={deleting}
-                            className="mr-auto text-red-500 hover:bg-red-50 hover:text-red-600"
+                            className="mr-auto text-red-600 hover:bg-red-50 hover:text-red-700"
                         >
                             {deleting ? 'Deleting…' : 'Delete'}
                         </Button>
                     )}
-                    <Button variant="ghost" size="sm" onClick={onClose}>
+                    <Button variant="ghost" onClick={onClose}>
                         Close
                     </Button>
-                    <Button size="sm" icon="fa-solid fa-pen" onClick={onEdit}>
+                    <Button icon="fa-solid fa-pen" onClick={onEdit}>
                         Edit
                     </Button>
                 </>
             }
         >
-            {/* Title block */}
-            <div className="flex items-center gap-2">
-                <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${colors.bg} ${colors.text}`}
-                >
-                    {isNa ? 'N/A' : EVENT_TYPE_LABELS[event.eventType]}
-                </span>
-                {calendar && !calendar.isDefault && (
-                    <span className="text-xs font-semibold text-neutral-500">{calendar.name}</span>
-                )}
-                <span className="text-xs font-medium text-neutral-500">
-                    {daysUntilLabel(event.startDate)}
-                </span>
-            </div>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight text-neutral-950">
-                {event.title}
-            </h2>
-            {event.recurrence && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-neutral-500">
-                    <i className="fa-solid fa-repeat text-[11px]" aria-hidden="true" />
-                    Repeats {RECURRENCE_LABELS[event.recurrence.frequency].toLowerCase()}
-                    {event.recurrence.endsOn ? ` · ends ${event.recurrence.endsOn}` : ''}
-                </p>
-            )}
-
-            {/* Details */}
-            <div className="mt-5 flex flex-col gap-3.5">
-                {/* Date(s) */}
-                <DetailRow icon="fa-regular fa-calendar">
-                    {isMultiDay ? (
-                        <>
-                            {formatDate(event.startDate)}
-                            <span className="mx-1 text-neutral-300">→</span>
-                            {formatDate(event.endDate)}
-                            {(() => {
-                                const nights = nightsBetween(event.startDate, event.endDate)
-                                return (
-                                    <span className="ml-2 whitespace-nowrap text-neutral-500">
-                                        · {nights} {nights === 1 ? 'night' : 'nights'}
+            {e && (
+                <div className="flex flex-col gap-6">
+                    {/* Title block */}
+                    <div className="flex items-start gap-3.5">
+                        <TypeTile type={e.eventType} size="lg" />
+                        <div className="min-w-0 flex-1">
+                            <h2 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] text-neutral-950">
+                                {e.title}
+                            </h2>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-neutral-500">
+                                <span>{e.startPart === 'na' ? 'Anytime' : EVENT_TYPE_LABELS[e.eventType]}</span>
+                                {calendar && !calendar.isDefault && (
+                                    <span className="inline-flex items-center gap-1.5">
+                                        <span
+                                            className={`h-2 w-2 rounded-full ${CALENDAR_COLOR_CLASSES[calendar.color].dot}`}
+                                            aria-hidden="true"
+                                        />
+                                        {calendar.name}
                                     </span>
-                                )
-                            })()}
-                        </>
-                    ) : (
-                        formatDate(event.startDate)
-                    )}
-                </DetailRow>
-
-                {/* Part range */}
-                <DetailRow icon="fa-regular fa-clock">{partRange(event)}</DetailRow>
-
-                {/* Informational time */}
-                {event.time && <DetailRow icon="fa-solid fa-stopwatch">{event.time}</DetailRow>}
-
-                {/* Location */}
-                {event.location && (
-                    <DetailRow icon="fa-solid fa-location-dot">{event.location}</DetailRow>
-                )}
-
-                {/* Notes — inline-editable when onSaveNotes is provided */}
-                {onSaveNotes ? (
-                    editingNotes ? (
-                        <div className="flex flex-col gap-2">
-                            <Textarea
-                                rows={3}
-                                autoFocus
-                                placeholder="Add notes…"
-                                value={notesDraft}
-                                onChange={(e) => setNotesDraft(e.target.value)}
-                            />
-                            <div className="flex justify-end gap-2">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        setNotesDraft(event.notes ?? '')
-                                        setEditingNotes(false)
-                                    }}
-                                    disabled={savingNotes}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button size="sm" onClick={handleSaveNotes} disabled={savingNotes}>
-                                    {savingNotes ? 'Saving…' : 'Save notes'}
-                                </Button>
+                                )}
                             </div>
                         </div>
-                    ) : event.notes ? (
-                        <button
-                            type="button"
-                            onClick={() => setEditingNotes(true)}
-                            className="group rounded-2xl bg-neutral-50 px-4 py-3 text-left transition-colors hover:bg-neutral-100"
-                        >
-                            <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">
-                                {event.notes}
-                            </p>
-                            <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-neutral-500 group-hover:text-neutral-500">
-                                <i className="fa-solid fa-pen text-[11px]" aria-hidden="true" />
-                                Edit notes
-                            </span>
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => setEditingNotes(true)}
-                            className="flex items-center gap-2 rounded-2xl border border-dashed border-neutral-200 px-4 py-3 text-sm font-medium text-neutral-500 transition-colors hover:border-neutral-300 hover:text-neutral-600"
-                        >
-                            <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
-                            Add notes
-                        </button>
-                    )
-                ) : (
-                    event.notes && (
-                        <div className="rounded-2xl bg-neutral-50 px-4 py-3">
-                            <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600">
-                                {event.notes}
-                            </p>
+                    </div>
+
+                    <StatStrip stats={stats} />
+
+                    {(e.location || e.recurrence) && (
+                        <div className="flex flex-col gap-3">
+                            {e.location && <DetailRow icon="fa-solid fa-location-dot">{e.location}</DetailRow>}
+                            {e.recurrence && (
+                                <DetailRow icon="fa-solid fa-repeat">
+                                    Repeats {RECURRENCE_LABELS[e.recurrence.frequency].toLowerCase()}
+                                    {e.recurrence.endsOn ? ` · until ${shortDate(e.recurrence.endsOn, true)}` : ''}
+                                </DetailRow>
+                            )}
                         </div>
-                    )
-                )}
-            </div>
-        </Modal>
+                    )}
+
+                    {/* Notes — inline-editable when onSaveNotes is provided */}
+                    <section className="flex flex-col gap-3">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Notes</p>
+                        {onSaveNotes && editingNotes ? (
+                            <div className="flex flex-col gap-2">
+                                <Textarea
+                                    rows={4}
+                                    autoFocus
+                                    placeholder="Add notes…"
+                                    value={notesDraft}
+                                    onChange={(ev) => setNotesDraft(ev.target.value)}
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setNotesDraft(e.notes ?? '')
+                                            setEditingNotes(false)
+                                        }}
+                                        disabled={savingNotes}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button size="sm" onClick={handleSaveNotes} disabled={savingNotes}>
+                                        {savingNotes ? 'Saving…' : 'Save notes'}
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : e.notes ? (
+                            <button
+                                type="button"
+                                onClick={() => onSaveNotes && setEditingNotes(true)}
+                                disabled={!onSaveNotes}
+                                className="group rounded-2xl bg-neutral-50 px-4 py-3.5 text-left transition-colors enabled:hover:bg-neutral-100"
+                            >
+                                <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-700">{e.notes}</p>
+                                {onSaveNotes && (
+                                    <span className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500">
+                                        <i className="fa-solid fa-pen text-[10px]" aria-hidden="true" />
+                                        Edit notes
+                                    </span>
+                                )}
+                            </button>
+                        ) : onSaveNotes ? (
+                            <button
+                                type="button"
+                                onClick={() => setEditingNotes(true)}
+                                className="flex items-center gap-2 rounded-2xl border border-dashed border-neutral-300 px-4 py-3.5 text-sm font-medium text-neutral-500 transition-colors hover:border-neutral-400 hover:text-neutral-700"
+                            >
+                                <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                                Add notes
+                            </button>
+                        ) : (
+                            <p className="text-sm text-neutral-500">No notes.</p>
+                        )}
+                    </section>
+                </div>
+            )}
+        </Drawer>
     )
 }
 
-function DetailRow({ icon, children }: { icon: string; children: React.ReactNode }) {
+function DetailRow({ icon, children }: { icon: string; children: ReactNode }) {
     return (
-        <div className="flex items-start gap-3">
-            <i
-                className={`${icon} mt-0.5 w-4 shrink-0 text-center text-sm text-neutral-500`}
-                aria-hidden="true"
-            />
-            <span className="text-sm font-medium text-neutral-700">{children}</span>
+        <div className="flex items-center gap-3">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-neutral-100 text-xs text-neutral-600" aria-hidden="true">
+                <i className={icon} />
+            </span>
+            <span className="text-sm text-neutral-800">{children}</span>
         </div>
     )
 }

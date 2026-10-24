@@ -321,6 +321,143 @@ export function computeBudgetWeek(
     return { monthlyAmount, weeklyRate, carry, spentThisWeek, remaining, monthlyRemaining }
 }
 
+// ── True weekly budgets ───────────────────────────────────────────────────────
+//
+// A weekly budget is £X per Mon–Sun week. Weeks run a full seven days across
+// month boundaries, and under/overspend rolls into the next week indefinitely
+// from the row's `carryFrom` Monday. Months are derived (weekly × 52 ÷ 12), never
+// the other way round.
+
+/** Average-month equivalent of a weekly amount — what Finances and forecasts see. */
+export function monthlyFromWeekly(weekly: number): number {
+    return (weekly * 52) / 12
+}
+
+/** Weekly equivalent of a monthly amount, to the nearest £ — used when converting. */
+export function weeklyFromMonthly(monthly: number): number {
+    return Math.round((monthly * 12) / 52)
+}
+
+/** The row's weekly amount for the week starting `weekStart`, honouring past amounts. */
+export function weeklyAmountForWeek(row: FinanceRow, weekStart: string): number {
+    if (row.pastWeeklyAmounts?.length) {
+        const boundary = [...row.pastWeeklyAmounts]
+            .sort((a, b) => (a.beforeWeek < b.beforeWeek ? -1 : 1))
+            .find((p) => weekStart < p.beforeWeek)
+        if (boundary) return boundary.amount
+    }
+    return row.weeklyAmount ?? 0
+}
+
+export interface WeeklyBudget {
+    /** Monday of the week. */
+    weekStart: string
+    /** Sunday of the week. */
+    weekEnd: string
+    /** The row's £/week for this week. */
+    weeklyAmount: number
+    /** weeklyAmount less 1/7 for each day off this week. */
+    allowance: number
+    /** Rolled-over balance from every completed week since `carryFrom` (− = overspend). */
+    carry: number
+    /** Top-ups (+) and withdrawals (−) this week, up to the cutoff. */
+    adjustments: number
+    /** allowance + carry + adjustments — the week's whole pot. */
+    available: number
+    /** Spend this week up to the cutoff (today for the current week). */
+    spent: number
+    /** available − spent. */
+    remaining: number
+    /** Active days from today to Sunday inclusive (0 for a past week, all for a future one). */
+    daysLeft: number
+    /** Spend logged today (0 unless today is an active day in this week). */
+    spentToday: number
+    /** Soft guide: the pot as it stood this morning ÷ daysLeft. Negative when over. */
+    dailyGuide: number
+    /** dailyGuide − spentToday: what's left of today's even share. */
+    todayLeft: number
+}
+
+function addDaysKey(date: string, n: number): string {
+    const d = new Date(`${date}T00:00:00`)
+    d.setDate(d.getDate() + n)
+    return localDateStr(d)
+}
+
+function sumBetween(items: { date: string; amount: number }[], start: string, end: string, excluded?: Set<string>): number {
+    return items
+        .filter((i) => i.date >= start && i.date <= end && !excluded?.has(i.date))
+        .reduce((sum, i) => sum + i.amount, 0)
+}
+
+/**
+ * Weekly maths for one row, for the Mon–Sun week containing `date`, seen on `today`.
+ *
+ * Carry walks every completed week from the row's `carryFrom` Monday up to this
+ * week: (allowance − spend + adjustments). With no `carryFrom` there's no carry —
+ * each week starts clean. Spends and adjustments before `carryFrom` are ignored.
+ *
+ * Days off take 1/7 of the weekly amount with them, and spend on them sits outside
+ * the budget. Adjustments are forward-only (a current-week top-up counts once its
+ * date has arrived); refills never count. For a future week, all spends logged in
+ * it count (planned spend), as with the month maths.
+ *
+ * `rowSpends` / `allTopUps` must cover `carryFrom` → the week's Sunday.
+ */
+export function computeWeeklyBudget(
+    row: FinanceRow,
+    rowSpends: BudgetSpend[],
+    allTopUps: BudgetTopUp[],
+    date: string,
+    today: string,
+    excluded: Set<string> = new Set()
+): WeeklyBudget {
+    const adjustments = budgetAdjustments(allTopUps)
+    const weekStart = weekStartOf(date)
+    const weekEnd = weekEndOf(date)
+    const allowanceFor = (monday: string) =>
+        (weeklyAmountForWeek(row, monday) * activeDaysBetween(monday, addDaysKey(monday, 6), excluded)) / 7
+
+    let carry = 0
+    if (row.carryFrom) {
+        for (let cursor = weekStartOf(row.carryFrom); cursor < weekStart; cursor = addDaysKey(cursor, 7)) {
+            const sunday = addDaysKey(cursor, 6)
+            carry += allowanceFor(cursor) - sumBetween(rowSpends, cursor, sunday, excluded) + sumBetween(adjustments, cursor, sunday)
+        }
+    }
+
+    const isFuture = today < weekStart
+    const isPast = today > weekEnd
+    const cutoff = isFuture || isPast ? weekEnd : today
+
+    const allowance = allowanceFor(weekStart)
+    const weekAdjustments = sumBetween(adjustments, weekStart, cutoff)
+    const available = allowance + carry + weekAdjustments
+    const spent = sumBetween(rowSpends, weekStart, cutoff, excluded)
+    const remaining = available - spent
+
+    const daysLeft = isPast ? 0 : activeDaysBetween(isFuture ? weekStart : today, weekEnd, excluded)
+    const spentToday = isPast || isFuture ? 0 : sumBetween(rowSpends, today, today, excluded)
+    const dailyGuide = daysLeft > 0 ? (remaining + spentToday) / daysLeft : 0
+    const todayLeft = dailyGuide - spentToday
+
+    return {
+        weekStart,
+        weekEnd,
+        weeklyAmount: weeklyAmountForWeek(row, weekStart),
+        allowance,
+        carry,
+        adjustments: weekAdjustments,
+        available,
+        spent,
+        remaining,
+        daysLeft,
+        spentToday,
+        dailyGuide,
+        todayLeft,
+    }
+}
+
 // ── Exclusion budgets ─────────────────────────────────────────────────────────
 
 export interface ExclusionPot {

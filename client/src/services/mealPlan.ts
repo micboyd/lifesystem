@@ -32,6 +32,12 @@ export async function addPlatePlanEntry(
     return res.data.data
 }
 
+/** "Eating from this box" on each of `dates` — light notes with no grams or macros. */
+export async function addBoxNotes(box: string, slot: MealType, dates: string[]): Promise<MealPlanEntry[]> {
+    const res = await api.post<ApiResponse<MealPlanEntry[]>>('/meal-plan/box', { box, slot, dates })
+    return res.data.data
+}
+
 /** Change a plate's grams. Lines that name a batch keep it. */
 export async function updatePlate(id: string, plate: PlateLineInput[]): Promise<MealPlanEntry> {
     const res = await api.patch<ApiResponse<MealPlanEntry>>(`/meal-plan/${id}`, { plate })

@@ -21,6 +21,7 @@ import {
     type StarlingReconciliation,
     listStarlingExclusions,
     recoverStarlingExclusion,
+    archiveStarlingExclusions,
     listBudgetTopUps,
     createBudgetTopUp,
     deleteBudgetTopUp,
@@ -849,23 +850,80 @@ interface RemovedTransactionsDrawerProps {
     open: boolean
     exclusions: StarlingExclusion[]
     recoveringId: string | null
+    clearing: boolean
     onClose: () => void
     onRecover: (id: string) => void
+    onClear: () => void
 }
 
+/**
+ * Removed (deleted/moved) Starling transactions, recoverable. "Clear" archives the
+ * live list rather than deleting it — archived items sit behind a quiet archive
+ * icon, still recoverable, and still kept out of future syncs.
+ */
 function RemovedTransactionsDrawer({
-    open, exclusions, recoveringId, onClose, onRecover,
+    open, exclusions, recoveringId, clearing, onClose, onRecover, onClear,
 }: RemovedTransactionsDrawerProps) {
+    const [showArchive, setShowArchive] = useState(false)
+    const live = exclusions.filter((x) => !x.archivedAt)
+    const archived = exclusions.filter((x) => x.archivedAt)
+    // Fall back to the live list once the last archived item is recovered.
+    const viewingArchive = showArchive && archived.length > 0
+    const items = viewingArchive ? archived : live
+
+    function close() {
+        setShowArchive(false)
+        onClose()
+    }
+
     return (
-        <Drawer open={open} onClose={onClose} title="Removed transactions" size="md">
-            {exclusions.length === 0 ? (
+        <Drawer open={open} onClose={close} title={viewingArchive ? 'Archived' : 'Removed transactions'} size="md">
+            {(live.length > 0 || archived.length > 0) && (
+                <div className="mb-3 flex items-center justify-between gap-2">
+                    {viewingArchive ? (
+                        <button
+                            type="button"
+                            onClick={() => setShowArchive(false)}
+                            className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-900"
+                        >
+                            <i className="fa-solid fa-arrow-left text-[10px]" aria-hidden="true" />
+                            Removed transactions
+                        </button>
+                    ) : live.length > 0 ? (
+                        <button
+                            type="button"
+                            onClick={onClear}
+                            disabled={clearing}
+                            className="text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-900 disabled:opacity-50"
+                        >
+                            {clearing ? 'Clearing…' : 'Clear'}
+                        </button>
+                    ) : (
+                        <span />
+                    )}
+                    {!viewingArchive && archived.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setShowArchive(true)}
+                            aria-label={`Archived (${archived.length})`}
+                            title={`Archived (${archived.length})`}
+                            className="grid h-7 w-7 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                        >
+                            <i className="fa-solid fa-box-archive text-[11px]" aria-hidden="true" />
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {items.length === 0 ? (
                 <p className="text-sm text-neutral-500">
-                    Nothing here — deleted or moved Starling transactions show up in this list so
-                    you can bring them back.
+                    {archived.length > 0
+                        ? 'All cleared — older removed transactions are in the archive.'
+                        : 'Nothing here — deleted or moved Starling transactions show up in this list so you can bring them back.'}
                 </p>
             ) : (
                 <ul className="flex flex-col gap-2">
-                    {exclusions.map((x) => (
+                    {items.map((x) => (
                         <li
                             key={x._id}
                             className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 px-4 py-3"
@@ -1519,6 +1577,8 @@ export default function Budgets() {
     const [txRow, setTxRow] = useState<FinanceRow | null>(null)
     const [exclusions, setExclusions] = useState<StarlingExclusion[]>([])
     const [exclusionsOpen, setExclusionsOpen] = useState(false)
+    const [clearingExclusions, setClearingExclusions] = useState(false)
+    const liveExclusionCount = exclusions.filter((x) => !x.archivedAt).length
     const [recoveringId, setRecoveringId] = useState<string | null>(null)
     // Tracks which month has already been auto-synced this session, so navigating
     // back and forth within the same month doesn't re-trigger it.
@@ -1640,6 +1700,20 @@ export default function Budgets() {
 
         return () => { active = false }
     }, [month, starlingEnabled, loading, rows])
+
+    async function handleClearExclusions() {
+        setClearingExclusions(true)
+        try {
+            const { archivedAt } = await archiveStarlingExclusions()
+            setExclusions((prev) => prev.map((x) => (x.archivedAt ? x : { ...x, archivedAt })))
+            toast.show('Cleared — still recoverable from the archive.', 'success')
+        } catch (err) {
+            const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+            toast.error(message ?? "Couldn't clear the list.")
+        } finally {
+            setClearingExclusions(false)
+        }
+    }
 
     async function handleRecover(id: string) {
         setRecoveringId(id)
@@ -1815,9 +1889,9 @@ export default function Budgets() {
                             className="relative grid h-9 w-9 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                         >
                             <i className="fa-solid fa-clock-rotate-left text-xs" aria-hidden="true" />
-                            {exclusions.length > 0 && (
+                            {liveExclusionCount > 0 && (
                                 <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-amber-500 text-[9px] font-bold text-white">
-                                    {exclusions.length > 9 ? '9+' : exclusions.length}
+                                    {liveExclusionCount > 9 ? '9+' : liveExclusionCount}
                                 </span>
                             )}
                         </button>
@@ -1968,8 +2042,10 @@ export default function Budgets() {
                 open={exclusionsOpen}
                 exclusions={exclusions}
                 recoveringId={recoveringId}
+                clearing={clearingExclusions}
                 onClose={() => setExclusionsOpen(false)}
                 onRecover={handleRecover}
+                onClear={handleClearExclusions}
             />
         </>
     )

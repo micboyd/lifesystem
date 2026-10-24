@@ -1,5 +1,7 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
+import { makeLastImportHandler, makeUndoImportHandler, newBatchId } from '../lib/importBatch'
+import { extractList, extractOverwrite, nameKey } from '../lib/importReconcile'
 import NutritionPhase, {
     ADJUSTMENT_SOURCES,
     GOAL_MODES,
@@ -12,6 +14,7 @@ import NutritionPhase, {
     type IMacroPolicy,
     type IPhaseAdjustment,
     type IPhaseGoal,
+    type INutritionPhase,
     type IPhaseTargets,
     type ITargetStrategy,
     type MacroRole,
@@ -336,7 +339,26 @@ export async function updateNutritionPhase(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Phase not found' })
         return
     }
+    const phase = await applyUpdate(existing, parsed, req.userId)
+    if (!phase) {
+        res.status(404).json({ message: 'Phase not found' })
+        return
+    }
+    res.json({ message: 'Saved', data: phase })
+}
 
+type ParsedPhase = Exclude<ReturnType<typeof readBody>, { error: string }>
+
+/**
+ * Write a validated body over an existing phase. Shared by the edit route and
+ * by imports that overwrite a phase of the same name, so both keep the same
+ * history rules.
+ */
+async function applyUpdate(
+    existing: INutritionPhase,
+    parsed: ParsedPhase,
+    userId: string | undefined
+) {
     const { weeklyRate, notes, goal, goalMode, adaptive, macroPolicy, strategy, targets, ...rest } =
         parsed
 
@@ -406,17 +428,75 @@ export async function updateNutritionPhase(req: AuthRequest, res: Response) {
     const update: Record<string, unknown> = { $set: set }
     if (Object.keys(unset).length > 0) update.$unset = unset
 
-    const phase = await NutritionPhase.findOneAndUpdate(
-        { _id: req.params.id, user: req.userId },
-        update,
-        { new: true }
-    )
-    if (!phase) {
-        res.status(404).json({ message: 'Phase not found' })
+    return NutritionPhase.findOneAndUpdate({ _id: existing._id, user: userId }, update, {
+        new: true,
+    })
+}
+
+/**
+ * POST /api/nutrition-phases/import — add many phases at once.
+ *
+ * Every phase is checked before any is written, so a typo in the fifth phase
+ * doesn't leave the first four half-imported. A name the user chose to
+ * overwrite updates that phase in place (keeping its id, so Life Plan season
+ * links survive) and goes through the same history rules as an edit.
+ */
+export async function importNutritionPhases(req: AuthRequest, res: Response) {
+    const body = req.body as unknown
+    const list = extractList(body, 'phases')
+    const overwrite = extractOverwrite(body)
+    if (!list) {
+        res.status(400).json({
+            message: 'Expected a JSON array of phases, or an object with a "phases" array.',
+        })
         return
     }
-    res.json({ message: 'Saved', data: phase })
+    if (list.length === 0) {
+        res.status(400).json({ message: 'No phases found to import.' })
+        return
+    }
+
+    const errors: string[] = []
+    const parsed: ParsedPhase[] = []
+    list.forEach((raw, i) => {
+        const name =
+            raw && typeof raw === 'object' && typeof (raw as { name?: unknown }).name === 'string'
+                ? `"${((raw as { name: string }).name).trim()}"`
+                : `Phase ${i + 1}`
+        const result = readBody(raw)
+        if ('error' in result) errors.push(`${name}: ${result.error}`)
+        else parsed.push(result)
+    })
+    if (errors.length) {
+        res.status(400).json({ message: errors.slice(0, 8).join(' · ') })
+        return
+    }
+
+    const batch = newBatchId()
+    const created = []
+    let updated = 0
+    for (const phase of parsed) {
+        const existingId = overwrite.get(nameKey(phase.name))
+        const existing = existingId
+            ? await NutritionPhase.findOne({ _id: existingId, user: req.userId })
+            : null
+        if (existing) {
+            await applyUpdate(existing, phase, req.userId)
+            updated++
+        } else {
+            created.push(
+                await NutritionPhase.create({ user: req.userId, ...phase, importBatch: batch })
+            )
+        }
+    }
+    res.status(201).json({ message: 'Imported', data: created, updated })
 }
+
+/** GET /api/nutrition-phases/import/last — the latest import batch, if any. */
+export const lastImport = makeLastImportHandler(NutritionPhase)
+
+/** DELETE /api/nutrition-phases/import/last — remove the phases the last import added. */
+export const undoImport = makeUndoImportHandler(NutritionPhase)
 
 /**
  * POST /api/nutrition-phases/:id/adjustments — record a target change.
