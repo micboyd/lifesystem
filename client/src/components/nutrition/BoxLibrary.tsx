@@ -765,8 +765,8 @@ export function TotalPanel({ label, macros }: { label: string; macros: Macros })
  * Log a cook: the box's ingredients come in pre-filled (change any grams that
  * were different today), then the cooked weight turns the raw total into
  * macros per 100 g. Earlier batches can be marked finished in the same go.
- * Cooked the recipe more than once? Each batch gets its own weight and goes in
- * the pantry on its own.
+ * Cooked the recipe more than once? Each batch gets its own weight (and can go
+ * in the freezer or not) and goes in the pantry on its own.
  */
 const STEP_BTN =
     'grid h-9 w-9 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-white hover:text-neutral-900 disabled:opacity-40 disabled:hover:bg-transparent'
@@ -787,7 +787,8 @@ export function CookDrawer({
     // One cooked weight per batch.
     const [cooked, setCooked] = useState<string[]>([''])
     const [finishOpen, setFinishOpen] = useState(true)
-    const [freezing, setFreezing] = useState(false)
+    // Which batches go straight in the freezer, one flag per batch.
+    const [frozen, setFrozen] = useState<boolean[]>([false])
     // The raw grams are usually the same as last time, so they start folded away.
     const [showRaw, setShowRaw] = useState(false)
     const [saving, setSaving] = useState(false)
@@ -802,7 +803,7 @@ export function CookDrawer({
         setGrams(food.ingredients.map((i) => str(i.grams)))
         setCooked([''])
         setFinishOpen(true)
-        setFreezing(false)
+        setFrozen([false])
         setShowRaw(false)
         setSaving(false)
         setError('')
@@ -826,10 +827,19 @@ export function CookDrawer({
           )
     const valid = weights.every((g) => g > 0) && (plain || ingredients.some((i) => i.grams > 0))
 
+    const keptOut = frozen.some((z) => !z)
+
     function setBatches(n: number) {
         setCooked((prev) =>
             n > prev.length ? [...prev, ...Array(n - prev.length).fill('')] : prev.slice(0, n)
         )
+        setFrozen((prev) =>
+            n > prev.length ? [...prev, ...Array(n - prev.length).fill(false)] : prev.slice(0, n)
+        )
+    }
+
+    function setFrozenAt(n: number, on: boolean) {
+        setFrozen((prev) => prev.map((z, j) => (j === n ? on : z)))
     }
 
     async function submit() {
@@ -843,8 +853,8 @@ export function CookDrawer({
                 ingredients,
                 cookedGrams: weights,
                 // Freezing a new one says nothing about the one in use.
-                finishOpen: !freezing && finishOpen && f.open.length > 0,
-                frozen: freezing,
+                finishOpen: keptOut && finishOpen && f.open.length > 0,
+                frozen,
             })
             await onSaved()
             onClose()
@@ -972,11 +982,30 @@ export function CookDrawer({
                                             g
                                         </span>
                                     </div>
-                                    {batches > 1 && !plain && g > 0 && (
-                                        <p className="pl-[4.5rem] text-xs tabular-nums text-neutral-500">
-                                            {kcal(per100Of(g).calories)} kcal ·{' '}
-                                            {fmt(per100Of(g).protein)} g protein per 100 g
-                                        </p>
+                                    {batches > 1 && (
+                                        <div className="flex min-h-9 items-center gap-2 pl-[4.5rem]">
+                                            <p className="min-w-0 flex-1 truncate text-xs tabular-nums text-neutral-500">
+                                                {!plain &&
+                                                    g > 0 &&
+                                                    `${kcal(per100Of(g).calories)} kcal · ${fmt(per100Of(g).protein)} g protein per 100 g`}
+                                            </p>
+                                            <button
+                                                type="button"
+                                                aria-pressed={frozen[n]}
+                                                onClick={() => setFrozenAt(n, !frozen[n])}
+                                                className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors ${
+                                                    frozen[n]
+                                                        ? 'bg-sky-100 text-sky-700'
+                                                        : 'bg-neutral-100 text-neutral-500 hover:text-neutral-800'
+                                                }`}
+                                            >
+                                                <i
+                                                    className="fa-solid fa-snowflake text-[11px]"
+                                                    aria-hidden="true"
+                                                />
+                                                {frozen[n] ? 'Freezing' : 'Freeze'}
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             )
@@ -1062,16 +1091,22 @@ export function CookDrawer({
                         />
                     </section>
 
-                    <div className="rounded-2xl bg-sky-50 px-4 py-3">
-                        <Checkbox checked={freezing} onChange={setFreezing} label="Freezing it" />
-                        <p className="mt-1.5 pl-7 text-xs text-neutral-500">
-                            {freezing
-                                ? 'It goes in the pantry as frozen — you’ll be told when to get it out.'
-                                : 'Tick if it’s going straight in the freezer.'}
-                        </p>
-                    </div>
+                    {batches === 1 && (
+                        <div className="rounded-2xl bg-sky-50 px-4 py-3">
+                            <Checkbox
+                                checked={frozen[0]}
+                                onChange={(on) => setFrozenAt(0, on)}
+                                label="Freezing it"
+                            />
+                            <p className="mt-1.5 pl-7 text-xs text-neutral-500">
+                                {frozen[0]
+                                    ? 'It goes in the pantry as frozen — you’ll be told when to get it out.'
+                                    : 'Tick if it’s going straight in the freezer.'}
+                            </p>
+                        </div>
+                    )}
 
-                    {!freezing && f.open.length > 0 && (
+                    {keptOut && f.open.length > 0 && (
                         <div className="rounded-2xl bg-neutral-50 px-4 py-3">
                             <Checkbox
                                 checked={finishOpen}

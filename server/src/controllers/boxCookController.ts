@@ -57,7 +57,8 @@ export async function listCooks(req: AuthRequest, res: Response) {
  * Plates still planned move onto whichever batch now counts.
  *
  * `cookedGrams` can be a list — the same recipe cooked several times, one
- * weight per batch. Each goes in the pantry as its own batch.
+ * weight per batch. Each goes in the pantry as its own batch. `frozen` can be a
+ * list too, saying which of them go in the freezer.
  */
 export async function createCook(req: AuthRequest, res: Response) {
     const { food: foodId, date, ingredients, cookedGrams, finishOpen, frozen } = req.body ?? {}
@@ -86,7 +87,7 @@ export async function createCook(req: AuthRequest, res: Response) {
                 cookedGrams: grams,
                 // Only the earlier batches finish — never ones logged just now.
                 finishOpen: n === 0 && finishOpen === true,
-                frozen: frozen === true,
+                frozen: (Array.isArray(frozen) ? frozen[n] : frozen) === true,
             })
         )
     }

@@ -51,7 +51,8 @@ export async function cookBox(fields: {
     /** One weight per batch — each goes in the pantry as its own batch. */
     cookedGrams: number[]
     finishOpen: boolean
-    frozen: boolean
+    /** Per batch: whether it goes straight in the freezer. */
+    frozen: boolean[]
 }): Promise<BoxCook[]> {
     const res = await api.post<ApiResponse<BoxCook[]>>('/box-cooks', fields)
     return res.data.data
