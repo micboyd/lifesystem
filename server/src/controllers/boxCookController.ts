@@ -55,6 +55,9 @@ export async function listCooks(req: AuthRequest, res: Response) {
  * cooked food weighed, give its macros per 100 g. `finishOpen` marks the box's
  * earlier batches in use as finished; `frozen` puts this one in the freezer.
  * Plates still planned move onto whichever batch now counts.
+ *
+ * `cookedGrams` can be a list — the same recipe cooked several times, one
+ * weight per batch. Each goes in the pantry as its own batch.
  */
 export async function createCook(req: AuthRequest, res: Response) {
     const { food: foodId, date, ingredients, cookedGrams, finishOpen, frozen } = req.body ?? {}
@@ -63,8 +66,8 @@ export async function createCook(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Food not found' })
         return
     }
-    const grams = Number(cookedGrams)
-    if (!isDate(date) || !Number.isFinite(grams) || grams <= 0) {
+    const weights = (Array.isArray(cookedGrams) ? cookedGrams : [cookedGrams]).map(Number)
+    if (!isDate(date) || weights.length === 0 || weights.some((g) => !Number.isFinite(g) || g <= 0)) {
         res.status(400).json({ message: 'date and a cooked weight in grams are required' })
         return
     }
@@ -74,14 +77,20 @@ export async function createCook(req: AuthRequest, res: Response) {
         res.status(400).json({ message: 'A cook needs at least one ingredient' })
         return
     }
-    const cook = await logCook(req.userId!, food, {
-        date,
-        ingredients: list,
-        cookedGrams: grams,
-        finishOpen: finishOpen === true,
-        frozen: frozen === true,
-    })
-    res.status(201).json({ message: 'Created', data: cook })
+    const cooks = []
+    for (const [n, grams] of weights.entries()) {
+        cooks.push(
+            await logCook(req.userId!, food, {
+                date,
+                ingredients: list,
+                cookedGrams: grams,
+                // Only the earlier batches finish — never ones logged just now.
+                finishOpen: n === 0 && finishOpen === true,
+                frozen: frozen === true,
+            })
+        )
+    }
+    res.status(201).json({ message: 'Created', data: Array.isArray(cookedGrams) ? cooks : cooks[0] })
 }
 
 /**

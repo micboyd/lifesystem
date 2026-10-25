@@ -48,11 +48,12 @@ export async function cookBox(fields: {
     food: string
     date: string
     ingredients: Ingredient[]
-    cookedGrams: number
+    /** One weight per batch — each goes in the pantry as its own batch. */
+    cookedGrams: number[]
     finishOpen: boolean
     frozen: boolean
-}): Promise<BoxCook> {
-    const res = await api.post<ApiResponse<BoxCook>>('/box-cooks', fields)
+}): Promise<BoxCook[]> {
+    const res = await api.post<ApiResponse<BoxCook[]>>('/box-cooks', fields)
     return res.data.data
 }
 

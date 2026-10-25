@@ -14,7 +14,7 @@ const KEYS = ['calories', 'protein', 'carbs', 'fat'] as const
 /** One decimal place — enough for a gram of protein, without float noise. */
 const r1 = (n: number) => Math.round(n * 10) / 10
 
-function scale(m: Macros, factor: number): Macros {
+export function scale(m: Macros, factor: number): Macros {
     return {
         calories: m.calories * factor,
         protein: m.protein * factor,

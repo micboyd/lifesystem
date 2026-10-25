@@ -17,7 +17,7 @@ import { FIELD_LABEL } from '../fieldStyles'
 import { MacroBar, MacroLegend, caloriesFromMacros } from './mealUi'
 import { fmt, kcal } from './format'
 import { ShopButton, type ShopKind } from './ShoppingList'
-import { gramsLeft, per100FromCook, rawTotal, ZERO } from '../../lib/plates'
+import { gramsLeft, per100FromCook, rawTotal, scale, ZERO } from '../../lib/plates'
 import { todayKey } from '../../lib/calendar'
 import { ingredientAmount } from '../../lib/shopping'
 import {
@@ -765,7 +765,12 @@ export function TotalPanel({ label, macros }: { label: string; macros: Macros })
  * Log a cook: the box's ingredients come in pre-filled (change any grams that
  * were different today), then the cooked weight turns the raw total into
  * macros per 100 g. Earlier batches can be marked finished in the same go.
+ * Cooked the recipe more than once? Each batch gets its own weight and goes in
+ * the pantry on its own.
  */
+const STEP_BTN =
+    'grid h-9 w-9 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-white hover:text-neutral-900 disabled:opacity-40 disabled:hover:bg-transparent'
+
 export function CookDrawer({
     food,
     onClose,
@@ -779,7 +784,8 @@ export function CookDrawer({
     const [openedFor, setOpenedFor] = useState<string | null>(null)
     const [date, setDate] = useState(todayKey())
     const [grams, setGrams] = useState<string[]>([])
-    const [cooked, setCooked] = useState('')
+    // One cooked weight per batch.
+    const [cooked, setCooked] = useState<string[]>([''])
     const [finishOpen, setFinishOpen] = useState(true)
     const [freezing, setFreezing] = useState(false)
     // The raw grams are usually the same as last time, so they start folded away.
@@ -794,7 +800,7 @@ export function CookDrawer({
         setOpenedFor(food._id)
         setDate(todayKey())
         setGrams(food.ingredients.map((i) => str(i.grams)))
-        setCooked('')
+        setCooked([''])
         setFinishOpen(true)
         setFreezing(false)
         setShowRaw(false)
@@ -808,9 +814,23 @@ export function CookDrawer({
     const plain = f?.kind === 'plain'
     const ingredients: Ingredient[] = (f?.ingredients ?? []).map((i, n) => ({ ...i, grams: num(grams[n] ?? '') }))
     const raw = rawTotal(ingredients)
-    const cookedGrams = num(cooked)
-    const per100 = plain ? (f?.per100 ?? ZERO) : per100FromCook(raw, cookedGrams)
-    const valid = cookedGrams > 0 && (plain || ingredients.some((i) => i.grams > 0))
+    const weights = cooked.map(num)
+    const batches = cooked.length
+    const per100Of = (g: number) => (plain ? (f?.per100 ?? ZERO) : per100FromCook(raw, g))
+    // Several batches: the figure across them all (each keeps its own).
+    const per100 = plain
+        ? (f?.per100 ?? ZERO)
+        : per100FromCook(
+              scale(raw, batches),
+              weights.reduce((a, b) => a + b, 0)
+          )
+    const valid = weights.every((g) => g > 0) && (plain || ingredients.some((i) => i.grams > 0))
+
+    function setBatches(n: number) {
+        setCooked((prev) =>
+            n > prev.length ? [...prev, ...Array(n - prev.length).fill('')] : prev.slice(0, n)
+        )
+    }
 
     async function submit() {
         if (!f || !valid) return
@@ -821,7 +841,7 @@ export function CookDrawer({
                 food: f._id,
                 date,
                 ingredients,
-                cookedGrams,
+                cookedGrams: weights,
                 // Freezing a new one says nothing about the one in use.
                 finishOpen: !freezing && finishOpen && f.open.length > 0,
                 frozen: freezing,
@@ -848,7 +868,7 @@ export function CookDrawer({
                         Cancel
                     </Button>
                     <Button icon="fa-solid fa-check" onClick={submit} disabled={saving || !valid}>
-                        {saving ? 'Saving…' : 'Save cook'}
+                        {saving ? 'Saving…' : batches > 1 ? `Save ${batches} batches` : 'Save cook'}
                     </Button>
                 </>
             }
@@ -856,32 +876,123 @@ export function CookDrawer({
             {f && (
                 <div className="flex flex-col gap-6">
                     <section className="flex flex-col gap-2">
-                        <p className={FIELD_LABEL}>{plain ? 'Weight' : 'Cooked weight'}</p>
-                        <div className="flex items-center gap-2">
-                            <div className="min-w-0 flex-1">
-                                <Input
-                                    aria-label="Cooked weight in grams"
-                                    type="number"
-                                    min={0}
-                                    step="any"
-                                    inputMode="decimal"
-                                    enterKeyHint="done"
-                                    autoFocus
-                                    placeholder={plain ? 'Weigh the whole batch' : 'Weigh it all once cooked'}
-                                    value={cooked}
-                                    error={error || undefined}
-                                    onChange={(e) => setCooked(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                                    }}
-                                    className="h-14 text-xl font-semibold tabular-nums"
-                                />
+                        <div className="flex items-center gap-3">
+                            <p className={`min-w-0 flex-1 ${FIELD_LABEL}`}>Batches</p>
+                            <div className="flex shrink-0 items-center rounded-full bg-neutral-100 p-0.5">
+                                <button
+                                    type="button"
+                                    aria-label="One fewer batch"
+                                    disabled={batches <= 1}
+                                    onClick={() => setBatches(batches - 1)}
+                                    className={STEP_BTN}
+                                >
+                                    <i
+                                        className="fa-solid fa-minus text-[11px]"
+                                        aria-hidden="true"
+                                    />
+                                </button>
+                                <span className="min-w-6 text-center text-sm font-semibold tabular-nums text-neutral-900">
+                                    {batches}
+                                </span>
+                                <button
+                                    type="button"
+                                    aria-label="One more batch"
+                                    onClick={() => setBatches(batches + 1)}
+                                    className={STEP_BTN}
+                                >
+                                    <i
+                                        className="fa-solid fa-plus text-[11px]"
+                                        aria-hidden="true"
+                                    />
+                                </button>
                             </div>
-                            <span className="text-base font-medium text-neutral-500">g</span>
                         </div>
+                        {batches > 1 && (
+                            <p className="text-xs text-neutral-500">
+                                Each batch is the recipe below, weighed on its own. They go in the
+                                pantry separately.
+                            </p>
+                        )}
                     </section>
 
-                    <TotalPanel label={plain ? 'Per 100 g' : 'Per 100 g cooked'} macros={per100} />
+                    <section className="flex flex-col gap-2">
+                        <p className={FIELD_LABEL}>
+                            {plain ? 'Weight' : 'Cooked weight'}
+                            {batches > 1 ? 's' : ''}
+                        </p>
+                        {cooked.map((value, n) => {
+                            const g = weights[n]
+                            return (
+                                <div key={n} className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2">
+                                        {batches > 1 && (
+                                            <span className="w-16 shrink-0 text-sm font-medium text-neutral-600">
+                                                Batch {n + 1}
+                                            </span>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                            <Input
+                                                aria-label={
+                                                    batches > 1
+                                                        ? `Batch ${n + 1} cooked weight in grams`
+                                                        : 'Cooked weight in grams'
+                                                }
+                                                type="number"
+                                                min={0}
+                                                step="any"
+                                                inputMode="decimal"
+                                                enterKeyHint="done"
+                                                autoFocus={n === 0}
+                                                placeholder={
+                                                    plain
+                                                        ? 'Weigh the whole batch'
+                                                        : 'Weigh it all once cooked'
+                                                }
+                                                value={value}
+                                                error={(n === batches - 1 && error) || undefined}
+                                                onChange={(e) =>
+                                                    setCooked((prev) =>
+                                                        prev.map((c, j) =>
+                                                            j === n ? e.target.value : c
+                                                        )
+                                                    )
+                                                }
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter')
+                                                        (e.target as HTMLInputElement).blur()
+                                                }}
+                                                className={
+                                                    batches > 1
+                                                        ? 'h-12 text-lg font-semibold tabular-nums'
+                                                        : 'h-14 text-xl font-semibold tabular-nums'
+                                                }
+                                            />
+                                        </div>
+                                        <span className="text-base font-medium text-neutral-500">
+                                            g
+                                        </span>
+                                    </div>
+                                    {batches > 1 && !plain && g > 0 && (
+                                        <p className="pl-[4.5rem] text-xs tabular-nums text-neutral-500">
+                                            {kcal(per100Of(g).calories)} kcal ·{' '}
+                                            {fmt(per100Of(g).protein)} g protein per 100 g
+                                        </p>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </section>
+
+                    <TotalPanel
+                        label={
+                            plain
+                                ? 'Per 100 g'
+                                : batches > 1
+                                  ? 'Per 100 g cooked, all batches'
+                                  : 'Per 100 g cooked'
+                        }
+                        macros={per100}
+                    />
 
                     <section className={plain ? 'hidden' : 'flex flex-col gap-2'}>
                         <button
@@ -891,10 +1002,15 @@ export function CookDrawer({
                             className="-mx-1 flex min-h-11 items-center gap-3 rounded-xl px-1 text-left"
                         >
                             <span className="min-w-0 flex-1">
-                                <span className={`block ${FIELD_LABEL}`}>What went in (raw)</span>
+                                <span className={`block ${FIELD_LABEL}`}>
+                                    {batches > 1
+                                        ? 'What went in each batch (raw)'
+                                        : 'What went in (raw)'}
+                                </span>
                                 <span className="mt-0.5 block truncate text-xs tabular-nums text-neutral-500">
-                                    {f.ingredients.length} ingredient{f.ingredients.length === 1 ? '' : 's'} ·{' '}
-                                    {kcal(raw.calories)} kcal · {fmt(raw.protein)} g protein
+                                    {f.ingredients.length} ingredient
+                                    {f.ingredients.length === 1 ? '' : 's'} · {kcal(raw.calories)}{' '}
+                                    kcal · {fmt(raw.protein)} g protein
                                 </span>
                             </span>
                             <span className="shrink-0 text-[13px] font-semibold text-coral-600">
@@ -904,8 +1020,13 @@ export function CookDrawer({
                         {showRaw && (
                             <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
                                 {f.ingredients.map((i, n) => (
-                                    <li key={n} className="flex items-center gap-3 py-2 pl-3 pr-2 sm:pl-4">
-                                        <span className="min-w-0 flex-1 truncate text-sm text-neutral-800">{i.name}</span>
+                                    <li
+                                        key={n}
+                                        className="flex items-center gap-3 py-2 pl-3 pr-2 sm:pl-4"
+                                    >
+                                        <span className="min-w-0 flex-1 truncate text-sm text-neutral-800">
+                                            {i.name}
+                                        </span>
                                         <div className="flex w-28 shrink-0 items-center gap-1.5">
                                             <Input
                                                 aria-label={`${i.name} grams`}
@@ -916,7 +1037,11 @@ export function CookDrawer({
                                                 enterKeyHint="done"
                                                 value={grams[n] ?? ''}
                                                 onChange={(e) =>
-                                                    setGrams((prev) => prev.map((g, j) => (j === n ? e.target.value : g)))
+                                                    setGrams((prev) =>
+                                                        prev.map((g, j) =>
+                                                            j === n ? e.target.value : g
+                                                        )
+                                                    )
                                                 }
                                                 className="text-right tabular-nums"
                                             />
