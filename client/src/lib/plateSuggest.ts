@@ -229,12 +229,14 @@ export interface BoxProjection {
 
 /**
  * Projections for one day's box notes ("eating from this box", no amounts).
- * Just an estimate, so it only aims at calories — protein, carbs and fat fall
- * where the box puts them. Every slot holding notes gets its share of what
- * the rest of the day leaves, all at once, so lunch and dinner come out
- * balanced rather than lunch taking its fill first. Notes in one slot split
- * that slot's calories evenly. A note whose box has no figures yet (never
- * cooked), or a day with no calorie target, gets nothing.
+ * Just an estimate of a sensible portion: the box fills its slot's share of
+ * the day until the first macro reaches its share — so a lean, protein-heavy
+ * box stops at a meal's worth of protein (not 160 g of it chasing the
+ * calories), and whatever's left is room for sides. Every slot holding notes
+ * gets its share of what the rest of the day leaves, all at once, so lunch
+ * and dinner come out the same. Notes in one slot split that slot evenly. A
+ * note whose box has no figures yet (never cooked), or a day with no
+ * targets, gets nothing.
  */
 export function projectBoxNotes(
     entries: { _id: string; slot: MealType; macros: Macros; box?: string; away?: boolean }[],
@@ -242,22 +244,24 @@ export function projectBoxNotes(
     per100For: (box: string) => Macros | null
 ): Map<string, BoxProjection> {
     const out = new Map<string, BoxProjection>()
-    if (!((goals?.calories ?? 0) > 0)) return out
-    const kcalOnly = { calories: goals!.calories }
     // Everything but the box notes — so every noted slot is still open.
     const known: BudgetEntry[] = entries.filter((e) => !e.box)
     for (const slot of MEAL_TYPES) {
         const notes = entries.flatMap((e) => {
             if (!e.box || e.slot !== slot) return []
             const per100 = per100For(e.box)
-            return per100 && per100.calories > 0 ? [{ id: e._id, per100 }] : []
+            return per100 ? [{ id: e._id, per100 }] : []
         })
         if (notes.length === 0) continue
-        const aim = slotBudget(kcalOnly, slot, known)
-        if (!aim) continue
-        const each = aim.budget.calories / notes.length
+        const aim = slotBudget(goals, slot, known)
+        if (!aim) return out
         for (const n of notes) {
-            const grams = Math.round((each / n.per100.calories) * 100 / 5) * 5
+            // The grams at which each macro reaches this note's part of the slot.
+            const caps = aim.keys
+                .filter((k) => n.per100[k] > 0)
+                .map((k) => (aim.budget[k] / notes.length / n.per100[k]) * 100)
+            if (caps.length === 0) continue
+            const grams = Math.round(Math.min(...caps) / 5) * 5
             if (grams > 0) out.set(n.id, { grams, macros: lineMacros(grams, n.per100) })
         }
     }

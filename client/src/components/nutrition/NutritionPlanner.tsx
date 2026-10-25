@@ -60,6 +60,8 @@ import { MEAL_TYPES } from '../../types'
 import { gramsLeft, plateTotal } from '../../lib/plates'
 import { AimCard, PlateBuilder, PlateLinesEditor, plateGrams, plateTitle } from './PlateUI'
 import { fitCost, projectBoxNotes, slotBudget, type BoxProjection } from '../../lib/plateSuggest'
+import { weekStock } from '../../lib/weekStock'
+import { WeekStock } from './WeekStock'
 import { totalOut } from '../../lib/energy'
 import type {
     DailyEnergy,
@@ -229,6 +231,18 @@ export default function NutritionPlanner({
         }
         return all
     }, [entries, foods, phases, settingsGoals, range.start])
+
+    // Whether the pantry covers what's still to eat this week, today onwards.
+    const stock = useMemo(
+        () =>
+            weekStock(
+                entries.filter((e) => e.date <= range.end),
+                foods,
+                (id) => projections.get(id)?.grams ?? null,
+                today > range.start ? today : range.start
+            ),
+        [entries, foods, projections, today, range.start, range.end]
+    )
 
     // Keep an open detail drawer in step with the row it was opened from.
     const detailEntry = detail ? (entries.find((e) => e._id === detail._id) ?? null) : null
@@ -471,6 +485,8 @@ export default function NutritionPlanner({
                     )}
                 </EditBar>
             )}
+
+            {!loading && <WeekStock rows={stock} />}
 
             {loading ? (
                 <div className="grid place-items-center py-16">
@@ -2490,7 +2506,7 @@ function PlannedMealDrawer({
                             )}
                             <NoteBlock icon="fa-solid fa-box" title="Eating from the box">
                                 {projection
-                                    ? 'An estimate: this slot’s share of the day’s calories, given the rest of the day — lunch and dinner get the same. It shows in the day’s projection but not in its planned numbers. When you eat, weigh it out and the plate takes its place.'
+                                    ? 'An estimate: a portion that fills this slot’s share of the day until the first macro (usually protein) reaches it — anything left is room for sides. Lunch and dinner get the same. It shows in the day’s projection but not in its planned numbers. When you eat, weigh it out and the plate takes its place.'
                                     : 'Planned without amounts, so it doesn’t count towards the day’s numbers. When you eat, weigh it out and the plate takes its place.'}
                             </NoteBlock>
                         </>

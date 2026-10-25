@@ -136,19 +136,21 @@ describe('projectBoxNotes', () => {
     const zero = m(0, 0, 0, 0)
     const per100 = (box: string) => (box === 'chicken' ? chicken : null)
 
-    it('fills a box note to its slot share', () => {
+    it('fills a box note until the first macro reaches its slot share', () => {
         const out = projectBoxNotes([{ _id: 'n', slot: 'lunch', macros: zero, box: 'chicken' }], goals, per100)
         const p = out.get('n')!
         expect(p.grams % 5).toBe(0)
-        expect(p.macros.calories).toBeGreaterThan(500)
-        expect(p.macros.calories).toBeLessThan(700)
+        // Lunch's share is 48 g protein; chicken hits it at ~190 g, well short of 600 kcal.
+        expect(p.macros.protein).toBeLessThanOrEqual(48 + 1.5)
+        expect(p.macros.protein).toBeGreaterThan(44)
+        expect(p.macros.calories).toBeLessThan(600)
     })
 
     it('lets a big breakfast shrink the dinner after it', () => {
         const alone = projectBoxNotes([{ _id: 'd', slot: 'dinner', macros: zero, box: 'chicken' }], goals, per100)
         const big = projectBoxNotes(
             [
-                { _id: 'b', slot: 'breakfast', macros: m(900, 40, 90, 30) },
+                { _id: 'b', slot: 'breakfast', macros: m(900, 90, 90, 30) },
                 { _id: 'd', slot: 'dinner', macros: zero, box: 'chicken' },
             ],
             goals,
@@ -168,11 +170,9 @@ describe('projectBoxNotes', () => {
             per100
         )
         expect(out.get('l')!.grams).toBe(out.get('d')!.grams)
-        // 2000 − 550 shared 3:3:1 → ~621 kcal each.
-        expect(out.get('l')!.macros.calories).toBeCloseTo((1450 * 3) / 7, -1)
     })
 
-    it('splits a slot evenly between two boxes by calories', () => {
+    it('splits a slot between two boxes', () => {
         const out = projectBoxNotes(
             [
                 { _id: 'c', slot: 'lunch', macros: zero, box: 'chicken' },
@@ -181,7 +181,9 @@ describe('projectBoxNotes', () => {
             goals,
             (b) => (b === 'chicken' ? chicken : b === 'rice' ? rice : null)
         )
-        expect(out.get('c')!.macros.calories).toBeCloseTo(out.get('r')!.macros.calories, -1)
+        // Each gets half the slot: chicken stops at half the protein, rice at half the carbs.
+        expect(out.get('c')!.macros.protein).toBeCloseTo(24, -0.5)
+        expect(out.get('r')!.macros.carbs).toBeCloseTo(30, -0.5)
     })
 
     it('skips boxes with no figures and days with no targets', () => {
@@ -207,7 +209,7 @@ describe('projectBoxNotes', () => {
             perLean
         )
         // It used to come to ~105 g against ~900 g at lunch.
-        expect(out.get('d')!.grams).toBeGreaterThan(out.get('l')!.grams * 0.6)
+        expect(out.get('d')!.grams).toBe(out.get('l')!.grams)
     })
 
     it('counts an away slot as its usual share, not as nothing eaten', () => {
@@ -220,9 +222,9 @@ describe('projectBoxNotes', () => {
             big,
             perLean
         )
-        // A dinner's usual share is 840 kcal — not the ~2090 it used to get.
-        expect(out.get('d')!.macros.calories).toBeLessThan(900)
-        expect(out.get('d')!.macros.calories).toBeGreaterThan(780)
+        // A dinner's usual share: 45 g protein — not the 340 g (2090 kcal) it used to get.
+        expect(out.get('d')!.macros.protein).toBeLessThanOrEqual(45 + 1)
+        expect(out.get('d')!.macros.protein).toBeGreaterThan(42)
     })
 })
 
