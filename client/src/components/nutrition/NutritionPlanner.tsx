@@ -511,6 +511,7 @@ export default function NutritionPlanner({
                 meals={meals}
                 foods={foods}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
+                projections={projections}
                 events={picker ? events.filter((ev) => picker.date >= ev.startDate && picker.date <= ev.endDate) : []}
                 goals={picker ? targetsFor(picker.date, phases, settingsGoals).goals : null}
                 onClose={() => setPicker(null)}
@@ -1810,6 +1811,7 @@ function MealPickerDrawer({
     meals,
     foods,
     entries,
+    projections,
     events,
     goals,
     onClose,
@@ -1823,6 +1825,7 @@ function MealPickerDrawer({
     meals: Meal[]
     foods: PlateFood[]
     entries: MealPlanEntry[]
+    projections: Projections
     /** Calendar events touching the day, offered for "Away". */
     events: Event[]
     goals: MacroGoals | null
@@ -1884,7 +1887,12 @@ function MealPickerDrawer({
     }, [meals, query, activeSlot])
 
     // The slot's share of what's left of the day — for both ways of filling it.
-    const aim = slotBudget(goals, activeSlot, entries)
+    // Box notes elsewhere in the day count at their projected grams.
+    const aim = slotBudget(
+        goals,
+        activeSlot,
+        entries.map((e) => (e.box ? { ...e, macros: projections.get(e._id)?.macros ?? e.macros } : e))
+    )
     const aimOpen = !!aim && aim.keys.some((k) => aim.budget[k] >= (k === 'calories' ? 25 : 2))
 
     // The saved meals that come closest to the aim, from those tagged for the
@@ -1893,7 +1901,7 @@ function MealPickerDrawer({
         if (!aim || !aimOpen) return []
         const tagged = meals.filter((m) => m.types.includes(activeSlot))
         return (tagged.length > 0 ? tagged : meals)
-            .map((m) => ({ m, cost: fitCost(m.macros, aim.budget, aim.keys) }))
+            .map((m) => ({ m, cost: fitCost(m.macros, aim.budget, aim.keys, aim.size) }))
             .sort((a, b) => a.cost - b.cost)
             .slice(0, 3)
             .map((x) => x.m)
@@ -2482,7 +2490,7 @@ function PlannedMealDrawer({
                             )}
                             <NoteBlock icon="fa-solid fa-box" title="Eating from the box">
                                 {projection
-                                    ? 'An estimate: the grams the plate builder would suggest for this slot, given the rest of the day. It shows in the day’s projection but not in its planned numbers. When you eat, weigh it out and the plate takes its place.'
+                                    ? 'An estimate: this slot’s share of the day’s calories, given the rest of the day — lunch and dinner get the same. It shows in the day’s projection but not in its planned numbers. When you eat, weigh it out and the plate takes its place.'
                                     : 'Planned without amounts, so it doesn’t count towards the day’s numbers. When you eat, weigh it out and the plate takes its place.'}
                             </NoteBlock>
                         </>

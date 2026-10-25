@@ -144,7 +144,7 @@ describe('projectBoxNotes', () => {
         expect(p.macros.calories).toBeLessThan(700)
     })
 
-    it('lets a projected lunch shrink the dinner after it', () => {
+    it('lets a big breakfast shrink the dinner after it', () => {
         const alone = projectBoxNotes([{ _id: 'd', slot: 'dinner', macros: zero, box: 'chicken' }], goals, per100)
         const big = projectBoxNotes(
             [
@@ -157,9 +157,84 @@ describe('projectBoxNotes', () => {
         expect(big.get('d')!.grams).toBeLessThan(alone.get('d')!.grams)
     })
 
+    it('balances lunch and dinner from the same box', () => {
+        const out = projectBoxNotes(
+            [
+                { _id: 'b', slot: 'breakfast', macros: m(550, 35, 35, 29) },
+                { _id: 'l', slot: 'lunch', macros: zero, box: 'chicken' },
+                { _id: 'd', slot: 'dinner', macros: zero, box: 'chicken' },
+            ],
+            goals,
+            per100
+        )
+        expect(out.get('l')!.grams).toBe(out.get('d')!.grams)
+        // 2000 − 550 shared 3:3:1 → ~621 kcal each.
+        expect(out.get('l')!.macros.calories).toBeCloseTo((1450 * 3) / 7, -1)
+    })
+
+    it('splits a slot evenly between two boxes by calories', () => {
+        const out = projectBoxNotes(
+            [
+                { _id: 'c', slot: 'lunch', macros: zero, box: 'chicken' },
+                { _id: 'r', slot: 'lunch', macros: zero, box: 'rice' },
+            ],
+            goals,
+            (b) => (b === 'chicken' ? chicken : b === 'rice' ? rice : null)
+        )
+        expect(out.get('c')!.macros.calories).toBeCloseTo(out.get('r')!.macros.calories, -1)
+    })
+
     it('skips boxes with no figures and days with no targets', () => {
         const note = [{ _id: 'n', slot: 'lunch' as const, macros: zero, box: 'beef' }]
         expect(projectBoxNotes(note, goals, per100).size).toBe(0)
         expect(projectBoxNotes([{ ...note[0], box: 'chicken' }], null, per100).size).toBe(0)
+    })
+
+    // From a real week: a lean box (~106 kcal, 17 g protein per 100 g) at
+    // lunch and dinner after a 550 kcal breakfast, on a ~2800 kcal day.
+    const lean = m(105.8, 17.2, 3, 2.7)
+    const big = { calories: 2800, protein: 150, carbs: 250, fat: 70 }
+    const perLean = () => lean
+
+    it('does not starve dinner once lunch has used up the protein', () => {
+        const out = projectBoxNotes(
+            [
+                { _id: 'b', slot: 'breakfast', macros: m(550, 35, 35, 29) },
+                { _id: 'l', slot: 'lunch', macros: zero, box: 'x' },
+                { _id: 'd', slot: 'dinner', macros: zero, box: 'x' },
+            ],
+            big,
+            perLean
+        )
+        // It used to come to ~105 g against ~900 g at lunch.
+        expect(out.get('d')!.grams).toBeGreaterThan(out.get('l')!.grams * 0.6)
+    })
+
+    it('counts an away slot as its usual share, not as nothing eaten', () => {
+        const out = projectBoxNotes(
+            [
+                { _id: 'a1', slot: 'breakfast', macros: zero, away: true },
+                { _id: 'a2', slot: 'lunch', macros: zero, away: true },
+                { _id: 'd', slot: 'dinner', macros: zero, box: 'x' },
+            ],
+            big,
+            perLean
+        )
+        // A dinner's usual share is 840 kcal — not the ~2090 it used to get.
+        expect(out.get('d')!.macros.calories).toBeLessThan(900)
+        expect(out.get('d')!.macros.calories).toBeGreaterThan(780)
+    })
+})
+
+describe('slotBudget with notes', () => {
+    it('takes an away slot off at its usual share', () => {
+        const out = slotBudget(goals, 'dinner', [{ slot: 'lunch', macros: m(0, 0, 0, 0), away: true }])!
+        // 2000 − 600 for lunch away, shared 3:3:1 between breakfast, dinner and snack.
+        expect(out.budget.calories).toBeCloseTo((1400 * 3) / 7)
+    })
+
+    it('does not count a box note in the slot being filled', () => {
+        const out = slotBudget(goals, 'lunch', [{ slot: 'lunch', macros: m(600, 50, 20, 20), box: 'x' }])!
+        expect(out.budget.calories).toBeCloseTo(600)
     })
 })

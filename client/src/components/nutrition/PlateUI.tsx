@@ -177,7 +177,7 @@ export function PlateBuilder({
     /** A box to start the plate with (its newest open batch) — weighing out a box note. */
     start?: string
     /** This slot's share of the day's targets, when there are targets. */
-    aim?: { budget: Macros; keys: (keyof Macros)[] } | null
+    aim?: { budget: Macros; size?: Macros; keys: (keyof Macros)[] } | null
     onAdd: (plate: PlateLineInput[]) => Promise<void>
 }) {
     const { batches, plain } = sourcesFrom(foods)
@@ -206,7 +206,8 @@ export function PlateBuilder({
                       max: l.src.left,
                   })),
                   aim.budget,
-                  aim.keys
+                  aim.keys,
+                  aim.size
               )
             : null
     const suggested = suggest(true)

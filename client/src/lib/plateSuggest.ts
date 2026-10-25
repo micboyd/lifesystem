@@ -14,19 +14,42 @@ export const SLOT_SHARE: Record<MealType, number> = { breakfast: 3, lunch: 3, di
 
 const KEYS = ['calories', 'protein', 'carbs', 'fat'] as const
 
+const SHARE_TOTAL = MEAL_TYPES.reduce((a, s) => a + SLOT_SHARE[s], 0)
+
+/** An entry as the budget sees it: an away note (eating out) or a box note (no amounts yet). */
+export type BudgetEntry = { slot: MealType; macros: Macros; away?: boolean; box?: string }
+
 /**
  * What this slot should aim for: the day's targets less what's in the other
  * slots, split between this slot and the ones still empty, less what's
  * already in this slot. Null with no targets. Macros without a target are 0
  * and left out of `keys`.
+ *
+ * An away slot (at an event) counts as its usual share eaten, so the meals
+ * left in the day aren't asked to make up for it. A box note in this slot is
+ * what's being filled, so it doesn't count as already there. `size` is the
+ * slot's usual share of the day — what a miss is measured against.
  */
 export function slotBudget(
     goals: MacroGoals | null | undefined,
     slot: MealType,
-    entries: { slot: MealType; macros: Macros }[]
-): { budget: Macros; keys: (keyof Macros)[] } | null {
+    entries: BudgetEntry[]
+): { budget: Macros; size: Macros; keys: (keyof Macros)[] } | null {
     const keys = KEYS.filter((k) => (goals?.[k] ?? 0) > 0)
     if (!goals || keys.length === 0) return null
+
+    const size = { ...ZERO }
+    for (const k of keys) size[k] = ((goals[k] ?? 0) * SLOT_SHARE[slot]) / SHARE_TOTAL
+    // Away slots as their usual share; one away note per slot is enough.
+    const awaySlots = new Set(entries.filter((e) => e.away).map((e) => e.slot))
+    entries = [
+        ...entries.filter((e) => !e.away && !(e.box && e.slot === slot)),
+        ...[...awaySlots].map((s) => {
+            const macros = { ...ZERO }
+            for (const k of keys) macros[k] = ((goals[k] ?? 0) * SLOT_SHARE[s]) / SHARE_TOTAL
+            return { slot: s, macros }
+        }),
+    ]
 
     const sum = (list: { macros: Macros }[]) =>
         list.reduce((acc, e) => {
@@ -46,7 +69,7 @@ export function slotBudget(
         const left = Math.max(0, (goals[k] ?? 0) - used[k])
         budget[k] = Math.max(0, left * share - here[k])
     }
-    return { budget, keys }
+    return { budget, size, keys }
 }
 
 /**
@@ -78,11 +101,28 @@ export type SuggestLine = {
 }
 
 /**
+ * How big a miss on each macro is, as a fraction: of what's left for the slot,
+ * or of its usual share (`size`) when less is left. Measured against the
+ * leftover alone, a target already met made every gram over it count as a
+ * miss many times its size — 50 g of protein past a used-up target outweighed
+ * 800 kcal short, and dinner shrank to a spoonful.
+ */
+function missScale(budget: Macros, size: Macros | undefined, k: keyof Macros): number {
+    return 1 / Math.max(budget[k], size?.[k] ?? 0, k === 'calories' ? 50 : 5)
+}
+
+/**
  * Grams for each line that best hit `budget` (weighted least squares, see
  * WEIGHT; never below 0 or over what's left), rounded to 5 g. Fixed lines
- * come back as typed. A food with nothing in it gets 0.
+ * come back as typed. A food with nothing in it gets 0. `size` is the slot's
+ * usual share (from slotBudget) — see missScale.
  */
-export function suggestGrams(lines: SuggestLine[], budget: Macros, keys: (keyof Macros)[]): number[] {
+export function suggestGrams(
+    lines: SuggestLine[],
+    budget: Macros,
+    keys: (keyof Macros)[],
+    size?: Macros
+): number[] {
     const free = lines.map((_, i) => i).filter((i) => lines[i].fixed == null)
     const grams = lines.map((l) => l.fixed ?? 0)
     if (free.length === 0 || keys.length === 0) return grams
@@ -95,9 +135,8 @@ export function suggestGrams(lines: SuggestLine[], budget: Macros, keys: (keyof 
         for (const k of keys) target[k] -= m[k]
     }
 
-    // Scale each macro by its target so they're comparable; the floor stops a
-    // near-zero target (nothing left of it) swamping the rest.
-    const scale = (k: keyof Macros) => 1 / Math.max(budget[k], k === 'calories' ? 50 : 5)
+    // Scale each macro by its target so they're comparable (see missScale).
+    const scale = (k: keyof Macros) => missScale(budget, size, k)
     const A = keys.map((k) => free.map((i) => (lines[i].per100[k] / 100) * scale(k)))
     const b = keys.map((k) => target[k] * scale(k))
     const w = (r: number, miss: number) => (miss < 0 ? WEIGHT[keys[r]].under : WEIGHT[keys[r]].over)
@@ -175,51 +214,52 @@ const FIT_WEIGHT: Record<keyof Macros, { under: number; over: number }> = {
     fat: { under: 0.25, over: 1 },
 }
 
-export function fitCost(macros: Macros, budget: Macros, keys: (keyof Macros)[]): number {
+export function fitCost(macros: Macros, budget: Macros, keys: (keyof Macros)[], size?: Macros): number {
     return keys.reduce((a, k) => {
-        const miss = ((macros[k] || 0) - budget[k]) / Math.max(budget[k], k === 'calories' ? 50 : 5)
+        const miss = ((macros[k] || 0) - budget[k]) * missScale(budget, size, k)
         return a + (miss < 0 ? FIT_WEIGHT[k].under : FIT_WEIGHT[k].over) * miss * miss
     }, 0)
 }
 
-/** A box note's projected plate: the grams suggestGrams would pick, and what they come to. */
+/** A box note's projected plate: the grams it's estimated at, and what they come to. */
 export interface BoxProjection {
     grams: number
     macros: Macros
 }
 
 /**
- * Projections for one day's box notes ("eating from this box", no amounts):
- * each note gets what the plate builder would suggest for its slot. Slots go
- * in day order, so a projected breakfast leaves a smaller lunch, just as a
- * real one would; notes still to be projected leave their slots open rather
- * than counting as filled. Notes in one slot are fitted together. A note
- * whose box has no figures yet (never cooked), or a day with no targets,
- * gets nothing.
+ * Projections for one day's box notes ("eating from this box", no amounts).
+ * Just an estimate, so it only aims at calories — protein, carbs and fat fall
+ * where the box puts them. Every slot holding notes gets its share of what
+ * the rest of the day leaves, all at once, so lunch and dinner come out
+ * balanced rather than lunch taking its fill first. Notes in one slot split
+ * that slot's calories evenly. A note whose box has no figures yet (never
+ * cooked), or a day with no calorie target, gets nothing.
  */
 export function projectBoxNotes(
-    entries: { _id: string; slot: MealType; macros: Macros; box?: string }[],
+    entries: { _id: string; slot: MealType; macros: Macros; box?: string; away?: boolean }[],
     goals: MacroGoals | null | undefined,
     per100For: (box: string) => Macros | null
 ): Map<string, BoxProjection> {
     const out = new Map<string, BoxProjection>()
-    const known: { slot: MealType; macros: Macros }[] = entries.filter((e) => !e.box)
+    if (!((goals?.calories ?? 0) > 0)) return out
+    const kcalOnly = { calories: goals!.calories }
+    // Everything but the box notes — so every noted slot is still open.
+    const known: BudgetEntry[] = entries.filter((e) => !e.box)
     for (const slot of MEAL_TYPES) {
         const notes = entries.flatMap((e) => {
             if (!e.box || e.slot !== slot) return []
             const per100 = per100For(e.box)
-            return per100 ? [{ id: e._id, per100 }] : []
+            return per100 && per100.calories > 0 ? [{ id: e._id, per100 }] : []
         })
         if (notes.length === 0) continue
-        const aim = slotBudget(goals, slot, known)
-        if (!aim) return out
-        const grams = suggestGrams(notes.map((n) => ({ per100: n.per100 })), aim.budget, aim.keys)
-        notes.forEach((n, i) => {
-            if (grams[i] <= 0) return
-            const macros = lineMacros(grams[i], n.per100)
-            out.set(n.id, { grams: grams[i], macros })
-            known.push({ slot, macros })
-        })
+        const aim = slotBudget(kcalOnly, slot, known)
+        if (!aim) continue
+        const each = aim.budget.calories / notes.length
+        for (const n of notes) {
+            const grams = Math.round((each / n.per100.calories) * 100 / 5) * 5
+            if (grams > 0) out.set(n.id, { grams, macros: lineMacros(grams, n.per100) })
+        }
     }
     return out
 }
