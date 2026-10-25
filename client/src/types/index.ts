@@ -508,6 +508,11 @@ export interface MealPlanEntry {
      * No macros, never ticked — weighing that box into the slot replaces it.
      */
     box?: string
+    /**
+     * Set on an away note: at an event, so no meal in this slot. `name` is the
+     * event's title. No macros, never ticked; a meal added to the slot replaces it.
+     */
+    away?: boolean
     name: string
     macros: Macros
     status: EntryStatus

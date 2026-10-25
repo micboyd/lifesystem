@@ -60,6 +60,7 @@ export async function createEntry(req: AuthRequest, res: Response) {
             slot,
             box: { $in: lines.map((l) => l.food) },
         })
+        if (extra !== true) await dropAwayNote(req.userId!, date, slot)
         res.status(201).json({ message: 'Created', data: entry })
         return
     }
@@ -80,7 +81,13 @@ export async function createEntry(req: AuthRequest, res: Response) {
         extra: extra === true,
         order: (last?.order ?? -1) + 1,
     })
+    if (extra !== true) await dropAwayNote(req.userId!, date, slot)
     res.status(201).json({ message: 'Created', data: entry })
+}
+
+/** A meal put in a slot means it wasn't skipped after all — its away note goes. */
+async function dropAwayNote(user: string, date: string, slot: MealType) {
+    await MealPlanEntry.deleteMany({ user, date, slot, away: true })
 }
 
 /**
@@ -126,6 +133,34 @@ export async function createBoxNotes(req: AuthRequest, res: Response) {
 }
 
 /**
+ * POST /api/meal-plan/away { date, slot, name } — "at an event, so no meal
+ * here": a note with no macros that fills the slot. `name` is the event's
+ * title, or a reason typed in. The slot's still-planned meals make way for it.
+ */
+export async function createAwayNote(req: AuthRequest, res: Response) {
+    const { date, slot, name } = req.body ?? {}
+    if (!isDate(date) || !isSlot(slot)) {
+        res.status(400).json({ message: 'date and slot are required' })
+        return
+    }
+    const title = typeof name === 'string' && name.trim() ? name.trim().slice(0, 120) : 'Out'
+    const removed = await MealPlanEntry.find({ user: req.userId, date, slot, extra: false, status: 'planned' }).select('_id')
+    await MealPlanEntry.deleteMany({ _id: { $in: removed.map((e) => e._id) } })
+    const last = await MealPlanEntry.findOne({ user: req.userId, date, slot }).sort({ order: -1 })
+    const entry = await MealPlanEntry.create({
+        user: req.userId,
+        date,
+        slot,
+        away: true,
+        name: title,
+        status: 'planned',
+        extra: false,
+        order: (last?.order ?? -1) + 1,
+    })
+    res.status(201).json({ message: 'Created', data: { entry, removed: removed.map((e) => String(e._id)) } })
+}
+
+/**
  * PATCH /api/meal-plan/:id { status?, plate? } — the tick, and a plate's
  * grams (or batch) changed at the table. Each line keeps the batch figures it
  * was given, so an eaten plate never moves when a box is cooked again.
@@ -147,6 +182,10 @@ export async function updateEntry(req: AuthRequest, res: Response) {
     }
     if (entry.box && status === 'eaten') {
         res.status(400).json({ message: 'A box note is weighed out, not ticked' })
+        return
+    }
+    if (entry.away && status === 'eaten') {
+        res.status(400).json({ message: 'An away note is not ticked' })
         return
     }
     if (plate !== undefined) {
@@ -232,6 +271,8 @@ export async function copyWeek(req: AuthRequest, res: Response) {
         date: { $in: fromDays },
         slot: { $in: slots },
         extra: false,
+        // Away notes belong to that week's events, so they stay behind.
+        away: { $ne: true },
     }).sort({ date: 1, order: 1, createdAt: 1 })
 
     // What's left on the target week (eaten meals) keeps its place; copies go after it.

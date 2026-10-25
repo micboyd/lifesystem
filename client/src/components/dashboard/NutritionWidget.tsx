@@ -179,7 +179,11 @@ export default function NutritionWidget({ data }: { data: NutritionToday }) {
                                     </p>
                                     <span className={DASH.rowValue}>
                                         {/* A box note is planned without amounts — it has no number yet. */}
-                                        {entry.box ? 'from the box' : `${Math.round(entryMacros(entry).calories)} kcal`}
+                                        {entry.away
+                                            ? 'away'
+                                            : entry.box
+                                              ? 'from the box'
+                                              : `${Math.round(entryMacros(entry).calories)} kcal`}
                                     </span>
                                 </li>
                             ))}

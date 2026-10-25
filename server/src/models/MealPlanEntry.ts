@@ -54,6 +54,12 @@ export interface IMealPlanEntry extends Document {
      * that box into the same slot replaces it.
      */
     box?: Types.ObjectId
+    /**
+     * Set on an away note — "at an event, so no meal here". `name` is the
+     * event's title (or whatever was typed). No macros and never ticked; the
+     * slot simply counts as taken care of.
+     */
+    away?: boolean
     name: string
     macros: IMacros
     status: EntryStatus
@@ -71,6 +77,7 @@ const mealPlanEntrySchema = new Schema<IMealPlanEntry>(
         meal: { type: Schema.Types.ObjectId, ref: 'Meal' },
         plate: { type: [plateLineSchema], default: undefined },
         box: { type: Schema.Types.ObjectId, ref: 'PlateFood' },
+        away: { type: Boolean },
         name: { type: String, required: true, trim: true },
         macros: { type: macrosSchema, default: () => ({}) },
         status: { type: String, enum: ENTRY_STATUSES, default: 'planned' },

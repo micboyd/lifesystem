@@ -38,6 +38,23 @@ export async function addBoxNotes(box: string, slot: MealType, dates: string[]):
     return res.data.data
 }
 
+/**
+ * "At an event, so no meal here" — fills the slot with a note named after the
+ * event. The slot's still-planned meals make way; their ids come back.
+ */
+export async function addAwayNote(
+    date: string,
+    slot: MealType,
+    name: string
+): Promise<{ entry: MealPlanEntry; removed: string[] }> {
+    const res = await api.post<ApiResponse<{ entry: MealPlanEntry; removed: string[] }>>('/meal-plan/away', {
+        date,
+        slot,
+        name,
+    })
+    return res.data.data
+}
+
 /** Change a plate's grams. Lines that name a batch keep it. */
 export async function updatePlate(id: string, plate: PlateLineInput[]): Promise<MealPlanEntry> {
     const res = await api.patch<ApiResponse<MealPlanEntry>>(`/meal-plan/${id}`, { plate })

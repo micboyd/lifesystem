@@ -33,6 +33,7 @@ import {
     addPlanEntry,
     addPlatePlanEntry,
     addBoxNotes,
+    addAwayNote,
     updatePlate,
     deletePlanEntry,
     listPlanEntries,
@@ -43,7 +44,17 @@ import {
 } from '../../services/mealPlan'
 import { listDailyEnergy, saveDailyEnergy, deleteDailyEnergy } from '../../services/dailyEnergy'
 import { listNutritionPhases } from '../../services/nutritionPhases'
-import { addDays, formatWeekRange, parseDateKey, todayKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
+import { listEvents } from '../../services/events'
+import {
+    addDays,
+    formatWeekRange,
+    parseDateKey,
+    todayKey,
+    WEEKDAYS_LONG,
+    MONTHS,
+    eventCoversAllDay,
+    eventCoversSlot,
+} from '../../lib/calendar'
 import { addMacros, sumEatenMacros, sumMacros, targetsFor } from '../../lib/nutrition'
 import { MEAL_TYPES } from '../../types'
 import { gramsLeft, plateTotal } from '../../lib/plates'
@@ -52,6 +63,7 @@ import { fitCost, projectBoxNotes, slotBudget, type BoxProjection } from '../../
 import { totalOut } from '../../lib/energy'
 import type {
     DailyEnergy,
+    Event,
     MacroGoals,
     Macros,
     Meal,
@@ -106,11 +118,17 @@ const isEaten = (e: MealPlanEntry) => e.status === 'eaten'
 /** "Eating from this box" planned ahead — no grams, no numbers, weighed out when eaten. */
 const isBoxNote = (e: MealPlanEntry) => !!e.box
 
+/** "At an event, so no meal here" — no numbers, never ticked. */
+const isAwayNote = (e: MealPlanEntry) => !!e.away
+
+const isAwayIn = (e: MealPlanEntry, date: string, slot: MealType) => !!e.away && e.date === date && e.slot === slot
+
 /** Box notes' projected plates, by entry id — estimates only, never counted as planned. */
 type Projections = Map<string, BoxProjection>
 
 /** The one-line summary under a planned meal's name. */
 function plannedMeta(entry: MealPlanEntry, projection?: BoxProjection): string {
+    if (isAwayNote(entry)) return 'Away · no meal here'
     if (isBoxNote(entry)) {
         return projection
             ? `~${fmt(projection.grams)} g · ~${kcal(projection.macros.calories)} kcal · ~${fmt(Math.round(projection.macros.protein))} g protein`
@@ -148,6 +166,8 @@ export default function NutritionPlanner({
     const [entries, setEntries] = useState<MealPlanEntry[]>([])
     const [energy, setEnergy] = useState<DailyEnergy[]>([])
     const [phases, setPhases] = useState<NutritionPhase[]>([])
+    // Calendar events across the week, offered when marking a slot as away.
+    const [events, setEvents] = useState<Event[]>([])
     const [loading, setLoading] = useState(true)
     // The planner opens read-only; Edit reveals the add/remove/drag controls.
     const [editing, setEditing] = useState(false)
@@ -176,12 +196,14 @@ export default function NutritionPlanner({
             listPlanEntries(range.start, range.end),
             listDailyEnergy(range.start, range.end).catch(() => [] as DailyEnergy[]),
             listNutritionPhases(range.start, range.end).catch(() => [] as NutritionPhase[]),
+            listEvents(range.start, range.end).catch(() => [] as Event[]),
         ])
-            .then(([rows, en, ph]) => {
+            .then(([rows, en, ph, ev]) => {
                 if (!active) return
                 setEntries(rows)
                 setEnergy(en)
                 setPhases(ph)
+                setEvents(ev)
             })
             .finally(() => active && setLoading(false))
         return () => {
@@ -224,7 +246,7 @@ export default function NutritionPlanner({
     async function handleAdd(date: string, slot: MealType, mealId: string, extra: boolean, eaten = false) {
         try {
             const entry = await addPlanEntry(date, slot, mealId, extra, eaten)
-            setEntries((prev) => [...prev, entry])
+            setEntries((prev) => [...prev.filter((e) => extra || !isAwayIn(e, date, slot)), entry])
         } catch {
             toast.show('Could not add that meal — please try again.', 'danger')
         }
@@ -241,8 +263,13 @@ export default function NutritionPlanner({
             const entry = await addPlatePlanEntry(date, slot, plate, extra, eaten)
             // The server drops a box note once that box is weighed into its slot.
             const plated = new Set(plate.map((l) => l.food))
+            // Likewise an away note, once anything is put in the slot after all.
             setEntries((prev) => [
-                ...prev.filter((e) => !(e.box && e.date === date && e.slot === slot && plated.has(e.box))),
+                ...prev.filter(
+                    (e) =>
+                        !(e.box && e.date === date && e.slot === slot && plated.has(e.box)) &&
+                        (extra || !isAwayIn(e, date, slot))
+                ),
                 entry,
             ])
         } catch {
@@ -256,6 +283,16 @@ export default function NutritionPlanner({
             setEntries((prev) => [...prev, ...created])
         } catch {
             toast.show('Could not plan that box — please try again.', 'danger')
+        }
+    }
+
+    async function handleAddAway(date: string, slot: MealType, name: string) {
+        try {
+            const { entry, removed } = await addAwayNote(date, slot, name)
+            const gone = new Set(removed)
+            setEntries((prev) => [...prev.filter((e) => !gone.has(e._id) && !isAwayIn(e, date, slot)), entry])
+        } catch {
+            toast.show('Could not save that — please try again.', 'danger')
         }
     }
 
@@ -289,6 +326,7 @@ export default function NutritionPlanner({
 
     // The tick: eaten, or back to planned. Optimistic, reverting on failure.
     async function handleToggle(entry: MealPlanEntry) {
+        if (entry.away) return
         // A box note isn't ticked — it opens the plate, ready to weigh that box.
         if (entry.box) {
             setDetail(null)
@@ -473,11 +511,13 @@ export default function NutritionPlanner({
                 meals={meals}
                 foods={foods}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
+                events={picker ? events.filter((ev) => picker.date >= ev.startDate && picker.date <= ev.endDate) : []}
                 goals={picker ? targetsFor(picker.date, phases, settingsGoals).goals : null}
                 onClose={() => setPicker(null)}
                 onAdd={handleAdd}
                 onAddPlate={handleAddPlate}
                 onAddBox={handleAddBox}
+                onAddAway={handleAddAway}
                 onRemove={handleRemove}
             />
 
@@ -1449,7 +1489,7 @@ function PlannedRow({
     const body = (
         <span className="flex min-w-0 items-stretch gap-2.5">
             <span
-                className={`w-1 shrink-0 rounded-full ${entry.extra ? 'bg-neutral-300' : CATEGORY[entry.slot].solid}`}
+                className={`w-1 shrink-0 rounded-full ${entry.extra || entry.away ? 'bg-neutral-300' : CATEGORY[entry.slot].solid}`}
                 aria-hidden="true"
             />
             <span className="min-w-0 flex-1 py-0.5">
@@ -1521,7 +1561,17 @@ function PlannedRow({
             ) : (
                 <div className="min-w-0 flex-1">{body}</div>
             )}
-            {onToggle ? (
+            {isAwayNote(entry) ? (
+                <span
+                    className={`grid shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-400 ${
+                        compact ? 'h-6 w-6' : onToggle ? tickSize : 'h-6 w-6'
+                    }`}
+                    title="Away — no meal here"
+                    aria-hidden="true"
+                >
+                    <i className="fa-regular fa-calendar text-[11px]" />
+                </span>
+            ) : onToggle ? (
                 isBoxNote(entry) ? (
                     <button
                         type="button"
@@ -1760,27 +1810,33 @@ function MealPickerDrawer({
     meals,
     foods,
     entries,
+    events,
     goals,
     onClose,
     onAdd,
     onAddPlate,
     onAddBox,
+    onAddAway,
     onRemove,
 }: {
     target: PickerTarget | null
     meals: Meal[]
     foods: PlateFood[]
     entries: MealPlanEntry[]
+    /** Calendar events touching the day, offered for "Away". */
+    events: Event[]
     goals: MacroGoals | null
     onClose: () => void
     onAdd: (date: string, slot: MealType, mealId: string, extra: boolean, eaten: boolean) => Promise<void>
     onAddPlate: (date: string, slot: MealType, plate: PlateLineInput[], extra: boolean, eaten: boolean) => Promise<void>
     onAddBox: (box: string, slot: MealType, dates: string[]) => Promise<void>
+    onAddAway: (date: string, slot: MealType, name: string) => Promise<void>
     onRemove: (id: string) => void
 }) {
     // A saved meal, a plate weighed out from boxes and foods, or — planning
-    // ahead — just "eating from this box" on some days.
-    const [mode, setMode] = useState<'meal' | 'plate' | 'box'>('meal')
+    // ahead — just "eating from this box" on some days. Or away: at an event,
+    // so no meal in the slot.
+    const [mode, setMode] = useState<'meal' | 'plate' | 'box' | 'away'>('meal')
     // Retain the last target so the drawer keeps its content while sliding shut.
     const [view, setView] = useState(target)
     const [query, setQuery] = useState('')
@@ -1816,9 +1872,10 @@ function MealPickerDrawer({
             ['meal', 'Saved meal', 'fa-solid fa-bowl-food'],
             ['plate', 'By weight', 'fa-solid fa-scale-balanced'],
             ['box', 'From a box', 'fa-solid fa-box'],
+            ['away', 'Away', 'fa-regular fa-calendar'],
         ] as const
-    ).filter(([m]) => planning || m !== 'box')
-    const shown = !planning && mode === 'box' ? 'plate' : mode
+    ).filter(([m]) => (m === 'box' ? planning : m === 'away' ? !extra && !view?.box : true))
+    const shown = modes.some(([m]) => m === mode) ? mode : 'plate'
 
     const results = useMemo(() => {
         const q = query.trim().toLowerCase()
@@ -1948,14 +2005,18 @@ function MealPickerDrawer({
 
                 {aim && <AimCard aim={aim.budget} keys={aim.keys} slotLabel={CATEGORY[activeSlot].label} />}
 
-                <div className={`grid gap-1 rounded-xl bg-neutral-100 p-1 ${modes.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                <div
+                    className={`grid gap-1 rounded-xl bg-neutral-100 p-1 ${
+                        modes.length === 4 ? 'grid-cols-2' : modes.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
+                    }`}
+                >
                     {modes.map(([m, label, icon]) => (
                         <button
                             key={m}
                             type="button"
                             onClick={() => setMode(m)}
                             aria-pressed={shown === m}
-                            className={`inline-flex h-10 items-center justify-center gap-2 rounded-[9px] text-[13px] font-semibold transition-all ${
+                            className={`inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-[9px] text-[13px] font-semibold transition-all ${
                                 shown === m
                                     ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
                                     : 'text-neutral-500 hover:text-neutral-900'
@@ -1967,7 +2028,27 @@ function MealPickerDrawer({
                     ))}
                 </div>
 
-                {shown === 'box' ? (
+                {shown === 'away' ? (
+                    view && (
+                        <AwayPicker
+                            key={view.date}
+                            date={view.date}
+                            slot={activeSlot}
+                            events={events}
+                            planned={entries.filter((e) => e.slot === activeSlot && clearable(e) && !isAwayNote(e)).length}
+                            busy={busy}
+                            onPick={async (name) => {
+                                setBusy(true)
+                                try {
+                                    await onAddAway(view.date, activeSlot, name)
+                                    onClose()
+                                } finally {
+                                    setBusy(false)
+                                }
+                            }}
+                        />
+                    )
+                ) : shown === 'box' ? (
                     view && (
                         <BoxPlanner
                             key={view.date}
@@ -2196,6 +2277,114 @@ function BoxPlanner({
     )
 }
 
+// ─── Away ────────────────────────────────────────────────────────────────────
+
+/** The part of the day a slot falls in, for matching it against calendar events. */
+const SLOT_PART: Record<MealType, 'morning' | 'afternoon' | 'evening' | null> = {
+    breakfast: 'morning',
+    lunch: 'afternoon',
+    dinner: 'evening',
+    snack: null,
+}
+
+/**
+ * "At an event, so no meal here": pick one of the day's calendar events — the
+ * ones over this slot come first — or type a reason. The slot gets a note
+ * with no numbers, replacing whatever was still planned there.
+ */
+function AwayPicker({
+    date,
+    slot,
+    events,
+    planned,
+    busy,
+    onPick,
+}: {
+    date: string
+    slot: MealType
+    events: Event[]
+    /** Meals still planned in the slot, which the note replaces. */
+    planned: number
+    busy: boolean
+    onPick: (name: string) => Promise<void>
+}) {
+    const [other, setOther] = useState('')
+    const part = SLOT_PART[slot]
+    const covers = (e: Event) =>
+        eventCoversAllDay(e, date) || (part ? eventCoversSlot(e, date, part) : true)
+    const sorted = [...events].sort((a, b) => Number(covers(b)) - Number(covers(a)) || (a.time ?? '').localeCompare(b.time ?? ''))
+    const slotName = CATEGORY[slot].label.toLowerCase()
+
+    const when = (e: Event) => {
+        if (e.allDay || e.startPart === 'na' || date !== e.startDate) return e.time && date === e.startDate ? e.time : 'All day'
+        return e.time ?? e.startPart[0].toUpperCase() + e.startPart.slice(1)
+    }
+
+    return (
+        <div className="flex flex-col gap-4">
+            <p className="text-sm text-neutral-500">
+                Not eating {slotName} here? Mark the slot as away. It doesn’t count towards the day’s numbers, and
+                the rest of the day’s aim is shared over the other slots.
+                {planned > 0 && ` The ${planned} meal${planned === 1 ? '' : 's'} planned for ${slotName} will be removed.`}
+            </p>
+
+            <section className="flex flex-col gap-2">
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">On the calendar</p>
+                {sorted.length === 0 ? (
+                    <p className="rounded-2xl bg-neutral-50 px-4 py-4 text-center text-sm text-neutral-500">
+                        Nothing on the calendar this day.
+                    </p>
+                ) : (
+                    <ul className="flex flex-col gap-1.5">
+                        {sorted.map((e) => (
+                            <li key={`${e._id}|${e.startDate}`}>
+                                <button
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void onPick(e.title)}
+                                    className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-60"
+                                >
+                                    <i className="fa-regular fa-calendar text-sm text-neutral-400" aria-hidden="true" />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-sm font-medium text-neutral-800">{e.title}</span>
+                                        <span className="block truncate text-xs text-neutral-500">
+                                            {when(e)}
+                                            {e.location ? ` · ${e.location}` : ''}
+                                        </span>
+                                    </span>
+                                    {covers(e) && part && (
+                                        <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
+                                            Over {slotName}
+                                        </span>
+                                    )}
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+
+            <form
+                className="flex flex-col gap-2"
+                onSubmit={(ev) => {
+                    ev.preventDefault()
+                    void onPick(other)
+                }}
+            >
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Something else</p>
+                <div className="flex gap-2">
+                    <div className="min-w-0 flex-1">
+                        <Input placeholder="e.g. Eating out" value={other} onChange={(e) => setOther(e.target.value)} />
+                    </div>
+                    <Button type="submit" variant="secondary" disabled={busy}>
+                        Mark away
+                    </Button>
+                </div>
+            </form>
+        </div>
+    )
+}
+
 // ─── Planned meal drawer ─────────────────────────────────────────────────────
 
 /** A planned meal opened from its row: its numbers, its notes, and the tick. */
@@ -2248,7 +2437,7 @@ function PlannedMealDrawer({
                         >
                             Remove
                         </Button>
-                        {isBoxNote(e) ? (
+                        {isAwayNote(e) ? null : isBoxNote(e) ? (
                             <Button icon="fa-solid fa-scale-balanced" onClick={() => onToggle(e)}>
                                 Weigh it out
                             </Button>
@@ -2269,7 +2458,12 @@ function PlannedMealDrawer({
             {e && (
                 <div className="flex flex-col gap-6">
                     <PlannedContext entry={e} />
-                    {isBoxNote(e) ? (
+                    {isAwayNote(e) ? (
+                        <NoteBlock icon="fa-regular fa-calendar" title="Away">
+                            No {CATEGORY[e.slot].label.toLowerCase()} here. It doesn’t count towards the day’s numbers,
+                            and the day’s aim is shared over the other slots. Add a meal to the slot and this note goes.
+                        </NoteBlock>
+                    ) : isBoxNote(e) ? (
                         <>
                             {projection && (
                                 <div className="flex flex-col gap-3">
