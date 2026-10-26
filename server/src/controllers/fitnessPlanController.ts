@@ -48,6 +48,18 @@ function isColor(v: unknown): v is FitnessFlagColor {
     return typeof v === 'string' && FITNESS_FLAG_COLORS.includes(v as FitnessFlagColor)
 }
 
+/**
+ * The entry ids a clear or paste must leave alone — the planner sends the
+ * sessions already done, so they stay on the plan. Anything that isn't a
+ * valid id is dropped.
+ */
+function keepIds(v: unknown): Types.ObjectId[] {
+    if (!Array.isArray(v)) return []
+    return v
+        .filter((id): id is string => typeof id === 'string' && Types.ObjectId.isValid(id))
+        .map((id) => new Types.ObjectId(id))
+}
+
 /** Keep the slot if recognised, else fall back to the morning slot. */
 function toPart(v: unknown): FitnessPlanPart {
     return FITNESS_PLAN_PARTS.includes(v as FitnessPlanPart)
@@ -261,7 +273,9 @@ export async function deleteEntry(req: AuthRequest, res: Response) {
  * POST /api/fitness-plan/copy-week — copy one week's plan onto another, for the
  * chosen categories only. Each item keeps its weekday, slot and order; only the
  * selected `kinds` in the target week are replaced (other categories untouched).
- * Body: { from: Monday, to: Monday, kinds: FitnessPlanKind[] }.
+ * Entries named in `keep` (sessions already done) stay, and a source entry
+ * that would duplicate one of them on the same day isn't copied.
+ * Body: { from: Monday, to: Monday, kinds: FitnessPlanKind[], keep?: string[] }.
  */
 export async function copyWeek(req: AuthRequest, res: Response) {
     const { from, to } = req.body
@@ -284,12 +298,20 @@ export async function copyWeek(req: AuthRequest, res: Response) {
         return
     }
 
-    // Wipe the selected categories from the target week, then clone the source.
+    // Wipe the selected categories from the target week — bar the kept
+    // entries — then clone the source.
+    const keep = keepIds(req.body.keep)
     await FitnessPlanEntry.deleteMany({
         user: req.userId,
         date: { $in: toDays },
         kind: { $in: uniqueKinds },
+        _id: { $nin: keep },
     })
+    const kept = keep.length
+        ? await FitnessPlanEntry.find({ user: req.userId, _id: { $in: keep }, date: { $in: toDays } })
+        : []
+    const keptKey = (date: string | undefined, kind: string, item: unknown) => `${date}|${kind}|${String(item)}`
+    const keptKeys = new Set(kept.map((e) => keptKey(e.date, e.kind, e.kind === 'workout' ? e.workout : e.session)))
 
     const source = await FitnessPlanEntry.find({
         user: req.userId,
@@ -298,15 +320,19 @@ export async function copyWeek(req: AuthRequest, res: Response) {
     }).sort({ date: 1, order: 1, createdAt: 1 })
 
     const dateMap = new Map(fromDays.map((d, i) => [d, toDays[i]]))
-    const docs = source.map((e) => ({
-        user: req.userId,
-        date: dateMap.get(e.date),
-        part: e.part,
-        kind: e.kind,
-        workout: e.workout,
-        session: e.session,
-        order: e.order,
-    }))
+    const docs = source
+        .filter(
+            (e) => !keptKeys.has(keptKey(dateMap.get(e.date), e.kind, e.kind === 'workout' ? e.workout : e.session))
+        )
+        .map((e) => ({
+            user: req.userId,
+            date: dateMap.get(e.date),
+            part: e.part,
+            kind: e.kind,
+            workout: e.workout,
+            session: e.session,
+            order: e.order,
+        }))
 
     if (docs.length > 0) await FitnessPlanEntry.insertMany(docs)
     res.json({ message: 'OK', data: { copied: docs.length } })
@@ -315,7 +341,8 @@ export async function copyWeek(req: AuthRequest, res: Response) {
 /**
  * POST /api/fitness-plan/clear — delete every planned entry whose date falls in
  * [start, end] (inclusive). Clears a single day (start === end) or a whole week.
- * Flag notes are left untouched. Body: { start: YYYY-MM-DD, end: YYYY-MM-DD }.
+ * Entries named in `keep` (sessions already done) and flag notes are left
+ * untouched. Body: { start: YYYY-MM-DD, end: YYYY-MM-DD, keep?: string[] }.
  */
 export async function clearRange(req: AuthRequest, res: Response) {
     const { start, end } = req.body
@@ -331,6 +358,7 @@ export async function clearRange(req: AuthRequest, res: Response) {
     const { deletedCount } = await FitnessPlanEntry.deleteMany({
         user: req.userId,
         date: { $gte: start, $lte: end },
+        _id: { $nin: keepIds(req.body.keep) },
     })
     res.json({ message: 'OK', data: { cleared: deletedCount ?? 0 } })
 }

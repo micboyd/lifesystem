@@ -18,8 +18,9 @@ export interface ConditioningLogInput {
     notes?: string
 }
 
-export async function listLogs(): Promise<ConditioningLog[]> {
-    const res = await api.get<ApiResponse<ConditioningLog[]>>('/conditioning-logs')
+/** Every log, or only those dated `from`–`to` (inclusive). */
+export async function listLogs(range?: { from: string; to: string }): Promise<ConditioningLog[]> {
+    const res = await api.get<ApiResponse<ConditioningLog[]>>('/conditioning-logs', { params: range })
     return res.data.data
 }
 

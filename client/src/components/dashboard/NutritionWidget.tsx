@@ -37,6 +37,8 @@ export interface NutritionToday {
     waistChangeCm: number | null
     phaseName: string | null
     status: string | null
+    /** Weigh-ins over the last 120 days, oldest first as the API returns them. */
+    weightLogs: WeightLog[]
 }
 
 /**
@@ -94,6 +96,7 @@ export function useNutritionToday(date: string): NutritionToday {
         waistChangeCm: typeof waist === 'string' ? null : waist.recentChangeCm,
         phaseName: targets.phase?.name ?? null,
         status: progress ? GOAL_STATUS_LABELS[progress.status] : null,
+        weightLogs: logs,
     }
 }
 

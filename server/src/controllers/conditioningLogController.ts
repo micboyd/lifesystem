@@ -1,6 +1,7 @@
 import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
+import { dateRangeFilter } from '../lib/dateRange'
 import ConditioningLog from '../models/ConditioningLog'
 import { toMinutes, toTimestamp } from '../lib/timeWindow'
 import ConditioningSession, {
@@ -77,9 +78,12 @@ function toCheckpoints(raw: unknown) {
     return out.length > 0 ? out : undefined
 }
 
-/** GET /api/conditioning-logs — list the user's logged sessions, newest first. */
+/**
+ * GET /api/conditioning-logs[?from&to] — list the user's logged sessions, newest
+ * first; `from` / `to` (YYYY-MM-DD, inclusive) narrow it to a range.
+ */
 export async function listLogs(req: AuthRequest, res: Response) {
-    const logs = await ConditioningLog.find({ user: req.userId }).sort({ date: -1, createdAt: -1 })
+    const logs = await ConditioningLog.find({ user: req.userId, ...dateRangeFilter(req.query) }).sort({ date: -1, createdAt: -1 })
     res.json({ message: 'OK', data: logs })
 }
 

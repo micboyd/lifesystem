@@ -2,30 +2,23 @@ import { useState } from 'react'
 import Container from '../components/Container'
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import DashboardDateNav from '../components/dashboard/DashboardDateNav'
-import AtAGlance from '../components/dashboard/AtAGlance'
-import TodayWidget, { useDayEvents } from '../components/dashboard/TodayWidget'
+import YourDayWidget from '../components/dashboard/YourDayWidget'
 import TomorrowWidget, { useTomorrowVisible } from '../components/dashboard/TomorrowWidget'
-import HabitsWidget from '../components/dashboard/HabitsWidget'
-import FitnessWidget from '../components/dashboard/FitnessWidget'
-import NutritionWidget, { useNutritionToday } from '../components/dashboard/NutritionWidget'
+import TimelineWidget from '../components/dashboard/TimelineWidget'
 import WeatherWidget from '../components/dashboard/WeatherWidget'
 import CountdownsWidget from '../components/dashboard/CountdownsWidget'
 import BirthdaysWidget from '../components/dashboard/BirthdaysWidget'
-import TimelineWidget from '../components/dashboard/TimelineWidget'
-import { useBudgetToday } from '../components/dashboard/useBudgetToday'
 import { todayKey } from '../lib/calendar'
 
 /**
- * The day on one open page. A large greeting, then four figures on a hairline
- * band, then what to act on (left) and what to glance at (right) as boxless
- * sections with room around them. On a phone the columns stack in that order.
+ * The day on one open page, most important first. A greeting, then Your day —
+ * training, meals, habits and targets, in order, and what to do next — which
+ * is the one place today lives. Then, quieter, a row of things to glance at:
+ * the timeline, the weather, countdowns, and birthdays when one is close.
  */
 export default function Home() {
     const [date, setDate] = useState(todayKey())
     const { show: showTomorrow } = useTomorrowVisible(date)
-    const nutrition = useNutritionToday(date)
-    const budget = useBudgetToday(date)
-    const day = useDayEvents(date)
 
     return (
         <Container as="main" className="pb-20 pt-8 sm:pt-14">
@@ -34,45 +27,22 @@ export default function Home() {
                 <DashboardDateNav date={date} onChange={setDate} />
             </div>
 
+            <div className="mt-10 sm:mt-12">
+                <YourDayWidget date={date} />
+            </div>
+
             {/* Evenings only: tonight's prep for tomorrow, across the whole page. */}
             {showTomorrow && (
-                <div className="mt-8 sm:mt-10">
+                <div className="mt-14 sm:mt-16">
                     <TomorrowWidget date={date} />
                 </div>
             )}
 
-            <div className="mt-10 sm:mt-12">
-                <AtAGlance
-                    date={date}
-                    nutrition={nutrition}
-                    budget={budget}
-                    events={day.events}
-                    eventsLoading={day.loading}
-                />
-            </div>
-
-            <div className="mt-12 grid gap-x-16 gap-y-12 sm:mt-16 lg:grid-cols-12">
-                {/* Act on */}
-                <div className="flex min-w-0 flex-col gap-12 lg:col-span-7">
-                    <FitnessWidget date={date} />
-                    <TodayWidget date={date} events={day.events} loading={day.loading} />
-                    <HabitsWidget date={date} />
-                    <CountdownsWidget />
-                </div>
-
-                {/* Glance at */}
-                <div className="flex min-w-0 flex-col gap-12 lg:col-span-5 lg:border-l lg:border-neutral-200 lg:pl-12">
-                    <TimelineWidget />
-                    <div className="border-t border-neutral-200 pt-12">
-                        <NutritionWidget data={nutrition} />
-                    </div>
-                    <div className="border-t border-neutral-200 pt-12">
-                        <WeatherWidget />
-                    </div>
-                    <div className="border-t border-neutral-200 pt-12">
-                        <BirthdaysWidget date={date} />
-                    </div>
-                </div>
+            <div className="mt-14 grid gap-x-12 gap-y-12 border-t border-neutral-200 pt-12 sm:mt-16 md:grid-cols-2 lg:grid-cols-3">
+                <TimelineWidget />
+                <WeatherWidget />
+                <CountdownsWidget />
+                <BirthdaysWidget date={date} />
             </div>
         </Container>
     )

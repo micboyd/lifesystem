@@ -1,6 +1,7 @@
 import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
+import { dateRangeFilter } from '../lib/dateRange'
 import WorkoutLog, { IWorkoutLogExercise, ILoggedSet } from '../models/WorkoutLog'
 import Workout from '../models/Workout'
 import Exercise from '../models/Exercise'
@@ -159,9 +160,12 @@ async function snapshotExercises(
     return lines
 }
 
-/** GET /api/workout-logs — list the user's logged workouts, newest first. */
+/**
+ * GET /api/workout-logs[?from&to] — list the user's logged workouts, newest
+ * first; `from` / `to` (YYYY-MM-DD, inclusive) narrow it to a range.
+ */
 export async function listLogs(req: AuthRequest, res: Response) {
-    const logs = await WorkoutLog.find({ user: req.userId }).sort({ date: -1, createdAt: -1 })
+    const logs = await WorkoutLog.find({ user: req.userId, ...dateRangeFilter(req.query) }).sort({ date: -1, createdAt: -1 })
     res.json({ message: 'OK', data: logs })
 }
 

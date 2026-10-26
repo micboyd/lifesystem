@@ -9,14 +9,14 @@ import {
     type ReactNode,
     type TouchEvent,
 } from 'react'
-import Button from '../Button'
 import { parseDateKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
 
 /**
  * The building blocks shared by the week planners (Fitness and Nutrition): a
- * gradient hero with week navigation, a progress ring, a seven-day strip, a
- * sticky edit bar and the swipe that moves a phone between days. Each planner
- * supplies its own numbers; these keep the two looking and behaving alike.
+ * gradient hero with week navigation, a progress ring, a seven-day strip and
+ * the swipe that moves a phone between days. Each planner supplies its own
+ * numbers; these keep the two looking and behaving alike. The day cards'
+ * slots, rows, menus and banners live in PlannerParts.
  */
 
 // ─── Layout helpers ─────────────────────────────────────────────────────────────
@@ -462,54 +462,6 @@ export function DayPill({
                 />
             )}
         </button>
-    )
-}
-
-// ─── Edit bar ─────────────────────────────────────────────────────────────────
-
-/**
- * Pinned under the hero while editing (and below the phone header), so "Done"
- * stays in reach however far down the week the edit has scrolled.
- */
-export function EditBar({
-    children,
-    onCancel,
-    onDone,
-    busy = false,
-}: {
-    children?: ReactNode
-    /** Omit when the planner's edits can't be rolled back. */
-    onCancel?: () => void
-    onDone: () => void
-    busy?: boolean
-}) {
-    return (
-        <div className="sticky top-16 z-30 flex flex-wrap items-center gap-2 rounded-2xl bg-white/90 p-2 pl-4 shadow-lg ring-1 ring-neutral-900/[0.06] backdrop-blur-md lg:top-3">
-            <span className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
-                <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-coral-500 opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-coral-500" />
-                </span>
-                Editing
-            </span>
-            <div className="flex flex-1 flex-wrap items-center justify-end gap-1.5">
-                {children}
-                {onCancel && (
-                    <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>
-                        {busy ? 'Undoing…' : 'Cancel'}
-                    </Button>
-                )}
-                <Button
-                    variant="primary"
-                    size="sm"
-                    icon="fa-solid fa-check"
-                    disabled={busy}
-                    onClick={onDone}
-                >
-                    Done
-                </Button>
-            </div>
-        </div>
     )
 }
 

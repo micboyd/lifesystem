@@ -183,7 +183,7 @@ function OnRow({
             <span className="w-20 shrink-0 text-[13px] text-white/50">{label}</span>
             {dot && <span className={`${DASH.dot} ${dot}`} />}
             <span className="min-w-0 flex-1 truncate text-[15px] text-white/90">{text}</span>
-            {value && <span className="shrink-0 text-[13px] tabular-nums text-white/60">{value}</span>}
+            {value && <span className="shrink-0 text-[13px] nums text-white/60">{value}</span>}
         </li>
     )
 }
@@ -324,7 +324,7 @@ function TomorrowBrief({
                                     <i className={`${info.icon} text-4xl text-sky-300`} aria-hidden="true" />
                                     <div className="min-w-0">
                                         <p className="flex items-baseline gap-2">
-                                            <span className="text-[40px] font-medium leading-none tracking-[-0.04em] tabular-nums">
+                                            <span className="text-[40px] font-medium leading-none tracking-[-0.04em] nums">
                                                 {day.tempMax}&deg;
                                             </span>
                                             <span className="text-[15px] text-white/70">{info.label}</span>
@@ -341,7 +341,7 @@ function TomorrowBrief({
                                         {facts.map((f) => (
                                             <div key={f.label} className="rounded-xl bg-white/[0.06] px-3 py-2">
                                                 <dt className="text-[11px] text-white/50">{f.label}</dt>
-                                                <dd className="text-sm font-medium tabular-nums text-white/90">{f.value}</dd>
+                                                <dd className="text-sm font-medium nums text-white/90">{f.value}</dd>
                                             </div>
                                         ))}
                                     </dl>
@@ -385,7 +385,7 @@ function TomorrowBrief({
                             {firstTimed ? (
                                 <>
                                     First thing · <span className="text-white/90">{firstTimed.title}</span>{' '}
-                                    <span className="tabular-nums text-white/90">{firstTimed.time}</span>
+                                    <span className="nums text-white/90">{firstTimed.time}</span>
                                 </>
                             ) : (
                                 "What's on"

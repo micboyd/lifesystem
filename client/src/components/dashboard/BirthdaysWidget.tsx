@@ -29,7 +29,7 @@ function countLabel(days: number): string {
     return `${days}d`
 }
 
-/** The birthdays coming up in the next few days, soonest first. */
+/** The birthdays coming up in the next few days, soonest first. Hidden when there are none. */
 export default function BirthdaysWidget({ date }: { date: string }) {
     const [birthdays, setBirthdays] = useState<Birthday[] | null>(null)
 
@@ -45,6 +45,9 @@ export default function BirthdaysWidget({ date }: { date: string }) {
     const soon = sorted.filter(({ days }) => days <= WINDOW_DAYS)
     const shown = soon.slice(0, SHOW)
     const todayCount = sorted.filter(({ days }) => days === 0).length
+
+    // Nothing to say, so it takes no room on the dashboard.
+    if (birthdays !== null && shown.length === 0) return null
 
     return (
         <DashSection
@@ -63,8 +66,6 @@ export default function BirthdaysWidget({ date }: { date: string }) {
         >
             {birthdays === null ? (
                 <SectionLoading rows={2} />
-            ) : shown.length === 0 ? (
-                <p className={DASH.empty}>No birthdays in the next {WINDOW_DAYS} days.</p>
             ) : (
                 <ul className={DASH.list}>
                     {shown.map(({ birthday, days }) => (

@@ -113,22 +113,25 @@ export async function deletePlanEntry(id: string): Promise<void> {
 /**
  * Copy one week's plan onto another for the chosen categories only. Each item
  * keeps its weekday, slot and order; only the selected `kinds` in the target
- * week are overwritten. `from` and `to` are the Mondays of each week.
+ * week are overwritten, bar the entries in `keep` (sessions already done).
+ * `from` and `to` are the Mondays of each week.
  */
 export async function copyPlanWeek(
     from: string,
     to: string,
-    kinds: FitnessPlanKind[]
+    kinds: FitnessPlanKind[],
+    keep: string[] = []
 ): Promise<void> {
-    await api.post('/fitness-plan/copy-week', { from, to, kinds })
+    await api.post('/fitness-plan/copy-week', { from, to, kinds, keep })
 }
 
 /**
- * Delete every planned entry whose date falls in [start, end] (inclusive).
- * Clears a single day (start === end) or a whole week. Flags are left untouched.
+ * Delete every planned entry whose date falls in [start, end] (inclusive),
+ * bar the entries in `keep` (sessions already done). Clears a single day
+ * (start === end) or a whole week. Flags are left untouched.
  */
-export async function clearPlanRange(start: string, end: string): Promise<void> {
-    await api.post('/fitness-plan/clear', { start, end })
+export async function clearPlanRange(start: string, end: string, keep: string[] = []): Promise<void> {
+    await api.post('/fitness-plan/clear', { start, end, keep })
 }
 
 // ─── Day / week flag + label notes ──────────────────────────────────────────────

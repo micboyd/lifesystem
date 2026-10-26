@@ -1390,12 +1390,18 @@ export interface Reminder {
     updatedAt: string
 }
 
+/** When in the day a habit is done. Absent means any time. */
+export const HABIT_PARTS = ['morning', 'afternoon', 'evening'] as const
+export type HabitPart = (typeof HABIT_PARTS)[number]
+
 export interface HabitDef {
     _id: string
     name: string
     description?: string
     /** Font Awesome class for the tile icon, e.g. "fa-solid fa-dumbbell". */
     icon?: string
+    /** When in the day it's done, so Your day puts it there. Absent: any time. */
+    part?: HabitPart
     order: number
     active: boolean
     createdAt: string

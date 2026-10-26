@@ -1,11 +1,15 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
-import HabitDef from '../models/HabitDef'
+import HabitDef, { HABIT_PARTS, type HabitPart } from '../models/HabitDef'
 import HabitLog, { DATE_PATTERN } from '../models/HabitLog'
 import Goal from '../models/Goal'
 
 function isValidDate(v: unknown): v is string {
     return typeof v === 'string' && DATE_PATTERN.test(v)
+}
+
+function isPart(v: unknown): v is HabitPart {
+    return typeof v === 'string' && (HABIT_PARTS as readonly string[]).includes(v)
 }
 
 // ─── Definitions ────────────────────────────────────────────────────────────
@@ -28,15 +32,17 @@ export async function createHabit(req: AuthRequest, res: Response) {
     const icon =
         typeof req.body.icon === 'string' && req.body.icon.trim() ? req.body.icon.trim() : undefined
 
+    const part = isPart(req.body.part) ? req.body.part : undefined
+
     // Place at the end of the current list
     const last = await HabitDef.findOne({ user: req.userId }).sort({ order: -1 })
     const order = last ? last.order + 1 : 0
 
-    const habit = await HabitDef.create({ user: req.userId, name, description, icon, order })
+    const habit = await HabitDef.create({ user: req.userId, name, description, icon, part, order })
     res.status(201).json({ message: 'Created', data: habit })
 }
 
-/** PUT /api/habits/:id — update name, description, or active flag. */
+/** PUT /api/habits/:id — update name, description, icon, time of day, order or active flag. */
 export async function updateHabit(req: AuthRequest, res: Response) {
     const fields: Record<string, unknown> = {}
     if (typeof req.body.name === 'string' && req.body.name.trim()) {
@@ -54,13 +60,17 @@ export async function updateHabit(req: AuthRequest, res: Response) {
     if (typeof req.body.active === 'boolean') {
         fields.active = req.body.active
     }
+    // `part: null` takes it back to any time.
+    const unset: Record<string, ''> = {}
+    if (isPart(req.body.part)) fields.part = req.body.part
+    else if (req.body.part === null) unset.part = ''
     if (typeof req.body.order === 'number') {
         fields.order = req.body.order
     }
 
     const habit = await HabitDef.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },
-        { $set: fields },
+        { $set: fields, ...(Object.keys(unset).length ? { $unset: unset } : {}) },
         { new: true }
     )
     if (!habit) {

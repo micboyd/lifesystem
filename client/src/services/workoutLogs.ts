@@ -41,8 +41,9 @@ export interface WorkoutLogInput {
     rebuild?: boolean
 }
 
-export async function listLogs(): Promise<WorkoutLog[]> {
-    const res = await api.get<ApiResponse<WorkoutLog[]>>('/workout-logs')
+/** Every log, or only those dated `from`–`to` (inclusive). */
+export async function listLogs(range?: { from: string; to: string }): Promise<WorkoutLog[]> {
+    const res = await api.get<ApiResponse<WorkoutLog[]>>('/workout-logs', { params: range })
     return res.data.data
 }
 

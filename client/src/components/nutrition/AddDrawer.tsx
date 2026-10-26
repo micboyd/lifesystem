@@ -3,6 +3,7 @@ import Drawer from '../Drawer'
 import Button from '../Button'
 import Input from '../Input'
 import Pagination from '../Pagination'
+import { PickRow, PICK_LABEL, Segmented } from '../planner/PlannerParts'
 import { CATEGORY } from './mealUi'
 import { fmt, kcal } from './format'
 import {
@@ -55,7 +56,7 @@ export type AddTarget = {
 
 const PAGE_SIZE = 10
 
-const LABEL = 'text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600'
+const LABEL = PICK_LABEL
 
 function dayLabel(date: string): string {
     const { year, month, day } = parseDateKey(date)
@@ -273,36 +274,6 @@ export function AddDrawer({
 
 // ─── Pieces ────────────────────────────────────────────────────────────────────
 
-function Segmented<T extends string>({
-    value,
-    options,
-    onChange,
-}: {
-    value: T
-    options: [T, string][]
-    onChange: (v: T) => void
-}) {
-    return (
-        <div className="inline-flex flex-wrap gap-1 rounded-xl bg-neutral-100 p-1">
-            {options.map(([v, label]) => (
-                <button
-                    key={v}
-                    type="button"
-                    aria-pressed={v === value}
-                    onClick={() => onChange(v)}
-                    className={`h-8 rounded-[9px] px-3 text-[13px] font-medium transition-all ${
-                        v === value
-                            ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
-                            : 'text-neutral-500 hover:text-neutral-900'
-                    }`}
-                >
-                    {label}
-                </button>
-            ))}
-        </div>
-    )
-}
-
 /** "Aim ~720 kcal · 57 g protein · …" — what's left of the day for this slot. */
 function AimLine({ aim, keys, open }: { aim: Macros; keys: (keyof Macros)[]; open: boolean }) {
     if (!open) {
@@ -339,41 +310,6 @@ function BackButton({ onClick }: { onClick: () => void }) {
             <i className="fa-solid fa-arrow-left text-[11px]" aria-hidden="true" />
             Back
         </button>
-    )
-}
-
-function Row({
-    title,
-    detail,
-    icon,
-    disabled,
-    onClick,
-}: {
-    title: string
-    detail: string
-    icon: string
-    disabled?: boolean
-    onClick: () => void
-}) {
-    return (
-        <li>
-            <button
-                type="button"
-                disabled={disabled}
-                onClick={onClick}
-                className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-                <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-neutral-800">
-                        {title}
-                    </span>
-                    <span className="block truncate text-xs tabular-nums text-neutral-500">
-                        {detail}
-                    </span>
-                </span>
-                <i className={`${icon} shrink-0 text-xs text-neutral-500`} aria-hidden="true" />
-            </button>
-        </li>
     )
 }
 
@@ -461,7 +397,7 @@ function ListStep({
 
             {copied && onPaste && !q && (
                 <ul>
-                    <Row
+                    <PickRow
                         title={`Paste ${copied.name}`}
                         detail="The meal you copied"
                         icon="fa-solid fa-paste"
@@ -476,7 +412,7 @@ function ListStep({
                     <p className={LABEL}>Best fit for the aim</p>
                     <ul className="flex flex-col gap-1.5">
                         {bestFit.map((m) => (
-                            <Row
+                            <PickRow
                                 key={m._id}
                                 title={m.name}
                                 detail={`${mealDetail(m)} · ${fmt(Math.round(m.macros.carbs))} g carbs · ${fmt(Math.round(m.macros.fat))} g fat`}
@@ -494,7 +430,7 @@ function ListStep({
                     <p className={LABEL}>Boxes & foods</p>
                     <ul className="flex flex-col gap-1.5">
                         {shownFoods.map((f) => (
-                            <Row
+                            <PickRow
                                 key={f._id}
                                 title={f.name}
                                 detail={
@@ -528,7 +464,7 @@ function ListStep({
                         {shownMeals
                             .slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
                             .map((m) => (
-                                <Row
+                                <PickRow
                                     key={m._id}
                                     title={m.name}
                                     detail={mealDetail(m)}
@@ -544,7 +480,7 @@ function ListStep({
 
             {!q && (
                 <ul>
-                    <Row
+                    <PickRow
                         title="Not eating here"
                         detail="Away at an event, or eating out — no meal in this slot"
                         icon="fa-regular fa-calendar"
@@ -930,7 +866,7 @@ function AwayStep({
                     <p className={LABEL}>On the calendar</p>
                     <ul className="flex flex-col gap-1.5">
                         {sorted.map((e) => (
-                            <Row
+                            <PickRow
                                 key={`${e._id}|${e.startDate}`}
                                 title={e.title}
                                 detail={`${when(e)}${e.location ? ` · ${e.location}` : ''}${

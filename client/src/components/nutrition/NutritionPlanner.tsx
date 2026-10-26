@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import Spinner from '../Spinner'
 import Button from '../Button'
 import EmptyState from '../EmptyState'
 import Drawer from '../Drawer'
-import Checkbox from '../Checkbox'
 import ConfirmModal from '../ConfirmModal'
-import DropdownMenu, { type MenuEntry, type MenuItem } from '../DropdownMenu'
+import { type MenuEntry, type MenuItem } from '../DropdownMenu'
 import ContextMenu from '../ContextMenu'
 import { StatStrip, NoteBlock } from '../session/SessionUI'
 import { useToast } from '../../context/ToastContext'
@@ -26,6 +25,18 @@ import {
     useMediaQuery,
     LARGE_QUERY,
 } from '../planner/WeekPlannerUI'
+import {
+    HeroMenu,
+    DayMenu,
+    DayTitle,
+    PlanSlot,
+    PlanRow,
+    RowTick,
+    rowButtonSize,
+    WeekClipboardBanner,
+    CopiedBanner,
+    CopyWeekDrawer,
+} from '../planner/PlannerParts'
 import { CATEGORY, MacroBar, MacroLegend } from './mealUi'
 import { fmt, kcal, signedKcal } from './format'
 import {
@@ -345,7 +356,7 @@ export default function NutritionPlanner({
 
     function copyEntry(entry: MealPlanEntry) {
         setCopied(entry)
-        toast.show(`Copied ${entry.name} — right-click a slot, or tap +, to paste it`)
+        toast.show(`Copied ${entry.name} — right-click a slot, or tap +, to paste it`, 'info')
     }
 
     // A copied meal into another slot or day — planned ahead, eaten today and
@@ -564,55 +575,21 @@ export default function NutritionPlanner({
             />
 
             {clipboard && (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-neutral-900 px-4 py-2.5 text-sm text-white">
-                    <i className="fa-solid fa-copy text-xs text-white/60" aria-hidden="true" />
-                    <span className="min-w-0 flex-1">
-                        Copied {slotsLabel(clipboard.slots)} from{' '}
-                        {formatWeekRange(clipboard.from, addDays(clipboard.from, 6))}
-                        {clipboard.from === range.start && (
-                            <span className="text-white/60"> — go to another week to paste</span>
-                        )}
-                    </span>
-                    {clipboard.from !== range.start && (
-                        <button
-                            type="button"
-                            onClick={() =>
-                                clipboard.slots.some((sl) => weekSlots.has(sl))
-                                    ? setPasteConfirm(true)
-                                    : void handlePasteWeek()
-                            }
-                            className="h-8 rounded-full bg-white px-3 text-[13px] font-semibold text-neutral-900"
-                        >
-                            Paste here
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        aria-label="Forget the copied week"
-                        onClick={() => setClipboard(null)}
-                        className="grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
-                    >
-                        <i className="fa-solid fa-xmark" aria-hidden="true" />
-                    </button>
-                </div>
+                <WeekClipboardBanner
+                    what={slotsLabel(clipboard.slots)}
+                    fromLabel={formatWeekRange(clipboard.from, addDays(clipboard.from, 6))}
+                    sameWeek={clipboard.from === range.start}
+                    onPaste={() =>
+                        clipboard.slots.some((sl) => weekSlots.has(sl))
+                            ? setPasteConfirm(true)
+                            : void handlePasteWeek()
+                    }
+                    onForget={() => setClipboard(null)}
+                />
             )}
 
             {copied && (
-                <div className="flex items-center gap-3 rounded-2xl bg-neutral-100 px-4 py-2 text-[13px] text-neutral-700">
-                    <i className="fa-solid fa-paste text-xs text-neutral-400" aria-hidden="true" />
-                    <span className="min-w-0 flex-1 truncate">
-                        <span className="font-semibold text-neutral-900">{copied.name}</span> copied — right-click a slot,
-                        or tap +, to paste it
-                    </span>
-                    <button
-                        type="button"
-                        aria-label="Forget the copied meal"
-                        onClick={() => setCopied(null)}
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-500 hover:bg-white hover:text-neutral-900"
-                    >
-                        <i className="fa-solid fa-xmark" aria-hidden="true" />
-                    </button>
-                </div>
+                <CopiedBanner name={copied.name} forgetLabel="Forget the copied meal" onForget={() => setCopied(null)} />
             )}
 
             {!loading && <WeekStock rows={stock} onOpenPantry={onOpenPantry} />}
@@ -698,6 +675,9 @@ export default function NutritionPlanner({
             <CopyWeekDrawer
                 open={copying}
                 weekLabel={formatWeekRange(range.start, range.end)}
+                options={MEAL_TYPES.map((s) => ({ value: s, label: CATEGORY[s].label }))}
+                describe={slotsLabel}
+                hint="Pick the meals to copy, then go to another week and paste. Only planned meals are replaced there."
                 onClose={() => setCopying(false)}
                 onCopy={(slots) => {
                     handleCopyWeek(slots)
@@ -769,73 +749,6 @@ export default function NutritionPlanner({
                 onClose={() => setClearTarget(null)}
             />
         </div>
-    )
-}
-
-// ─── Copy / paste week ──────────────────────────────────────────────────────────
-
-/** Copy this week's plan — every slot, or just some — to paste onto another week. */
-function CopyWeekDrawer({
-    open,
-    weekLabel,
-    onClose,
-    onCopy,
-}: {
-    open: boolean
-    weekLabel: string
-    onClose: () => void
-    onCopy: (slots: MealType[]) => void
-}) {
-    const [selected, setSelected] = useState<Set<MealType>>(() => new Set(MEAL_TYPES))
-    const chosen = MEAL_TYPES.filter((s) => selected.has(s))
-
-    function toggle(slot: MealType) {
-        setSelected((prev) => {
-            const next = new Set(prev)
-            if (next.has(slot)) next.delete(slot)
-            else next.add(slot)
-            return next
-        })
-    }
-
-    return (
-        <Drawer
-            open={open}
-            onClose={onClose}
-            title="Copy week"
-            badge={weekLabel}
-            footer={
-                <>
-                    <Button variant="ghost" onClick={onClose}>
-                        Cancel
-                    </Button>
-                    <Button
-                        icon="fa-solid fa-copy"
-                        disabled={chosen.length === 0}
-                        onClick={() => chosen.length > 0 && onCopy(chosen)}
-                    >
-                        Copy {chosen.length ? slotsLabel(chosen) : ''}
-                    </Button>
-                </>
-            }
-        >
-            <div className="flex flex-col gap-3">
-                <p className="text-sm text-neutral-500">
-                    Pick the meals to copy, then go to another week and paste. Only planned meals are replaced there.
-                </p>
-                <div className="flex flex-col gap-0.5">
-                    {MEAL_TYPES.map((s) => (
-                        <Checkbox
-                            key={s}
-                            checked={selected.has(s)}
-                            onChange={() => toggle(s)}
-                            label={CATEGORY[s].label}
-                            className="rounded-lg px-1.5 py-2 hover:bg-neutral-50"
-                        />
-                    ))}
-                </div>
-            </div>
-        </Drawer>
     )
 }
 
@@ -928,14 +841,7 @@ function NutritionWeekHero({
                             Today
                         </HeroButton>
                     )}
-                    <div className="ml-auto">
-                        <DropdownMenu
-                            align="right"
-                            size="medium"
-                            items={menu}
-                            trigger={<HeroIconButton icon="fa-solid fa-ellipsis" label="Week options" onClick={() => {}} />}
-                        />
-                    </div>
+                    <HeroMenu items={menu} />
                 </div>
             </div>
 
@@ -1176,35 +1082,13 @@ function DayCard({
             ? ['divider' as const, { label: 'Clear day', icon: 'fa-solid fa-broom', danger: true, onClick: onClear }]
             : []),
     ]
-    const actions = (
-        <DropdownMenu
-            align="right"
-            className="-my-1.5 ml-auto"
-            items={dayMenu}
-            trigger={
-                <button
-                    type="button"
-                    aria-label={`${weekday} options`}
-                    title="Day options"
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-                >
-                    <i className="fa-solid fa-ellipsis text-[13px]" aria-hidden="true" />
-                </button>
-            }
-        />
-    )
-
     const titleRow = (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h3 className={`font-semibold tracking-tight text-neutral-900 ${compact ? 'text-base' : 'text-lg'}`}>
-                {compact ? weekday.slice(0, 3) : weekday}
-            </h3>
-            <span className="text-sm text-neutral-500">
-                {day} {compact ? MONTHS[month].slice(0, 3) : MONTHS[month]}
-            </span>
-            {isToday && <span className="text-sm font-medium text-coral-600">Today</span>}
-            {actions}
-        </div>
+        <DayTitle
+            date={date}
+            compact={compact}
+            isToday={isToday}
+            actions={<DayMenu label={`${weekday} options`} items={dayMenu} />}
+        />
     )
 
     return (
@@ -1326,113 +1210,42 @@ function SlotSection({
     onDropEntry: () => void
 }) {
     const meta = CATEGORY[slot]
-    const listRef = useRef<HTMLUListElement>(null)
-
-    // The insertion point comes from the cursor's Y against each row's
-    // midpoint, skipping the row in flight.
-    const targetForY = (clientY: number): { refId: string | null; after: boolean } => {
-        const rows = listRef.current?.querySelectorAll<HTMLElement>('[data-plan-row]')
-        if (rows) {
-            for (const row of Array.from(rows)) {
-                const id = row.getAttribute('data-plan-row')
-                if (id === draggedId) continue
-                const rect = row.getBoundingClientRect()
-                if (clientY < rect.top + rect.height / 2) return { refId: id, after: false }
-            }
-        }
-        return { refId: null, after: false }
-    }
-
-    const dropProps = dragActive
-        ? {
-              onDragOver: (e: DragEvent) => {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                  const t = targetForY(e.clientY)
-                  onTarget(t.refId, t.after)
-              },
-              onDragLeave: (e: DragEvent) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) onClearTarget()
-              },
-              onDrop: (e: DragEvent) => {
-                  e.preventDefault()
-                  onDropEntry()
-              },
-          }
-        : {}
-
-    const rows = entries.map((e) => (
-        <PlannedRow
-            key={e._id}
-            compact={compact}
-            entry={e}
-            projection={projections.get(e._id)}
-            dropId={e._id}
-            onOpen={() => onOpen(e)}
-            onToggle={() => onToggle(e)}
-            onContextMenu={(ev) => {
-                ev.preventDefault()
-                ev.stopPropagation()
-                onRowMenu(ev, e)
-            }}
-            draggable
-            onDragStart={() => onEntryDragStart(e._id)}
-            onDragEnd={onEntryDragEnd}
-            dropEdge={drop && drop.refId === e._id ? (drop.after ? 'bottom' : 'top') : null}
-        />
-    ))
-
-    const addButton = (
-        <button
-            type="button"
-            onClick={onAdd}
-            aria-label={`Add to ${meta.label.toLowerCase()}`}
-            title={`Add to ${meta.label.toLowerCase()}`}
-            className={`grid shrink-0 place-items-center rounded-full text-neutral-500 ring-1 ring-inset ring-neutral-200 transition-colors hover:bg-neutral-900 hover:text-white hover:ring-neutral-900 ${
-                compact ? 'h-6 w-6' : 'h-9 w-9 sm:h-8 sm:w-8'
-            }`}
-        >
-            <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
-        </button>
-    )
-
     return (
-        <div
-            {...dropProps}
-            onContextMenu={(ev) => {
-                ev.preventDefault()
-                onSlotMenu(ev)
-            }}
-            className={`${
-                compact
-                    ? 'flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0'
-                    : // Phones: the slot's name over its meals, so rows get the full width.
-                      'flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-start sm:gap-3'
-            } ${drop ? '-mx-1.5 rounded-xl bg-coral-50 px-1.5 ring-2 ring-inset ring-coral-200' : ''}`}
+        <PlanSlot
+            compact={compact}
+            marker={<span className={`h-2 w-2 shrink-0 rounded-full ${meta.solid}`} aria-hidden="true" />}
+            label={meta.label}
+            empty={entries.length === 0}
+            onAdd={onAdd}
+            onContextMenu={onSlotMenu}
+            dragActive={dragActive}
+            draggedId={draggedId}
+            drop={drop}
+            onTarget={onTarget}
+            onClearTarget={onClearTarget}
+            onDrop={onDropEntry}
         >
-            <div className={`flex items-center justify-between gap-2 ${compact ? '' : 'sm:flex-col sm:items-start sm:pt-1.5'}`}>
-                <span className="flex items-center gap-2">
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${meta.solid}`} aria-hidden="true" />
-                    <span className="text-[13px] font-medium text-neutral-500">{meta.label}</span>
-                </span>
-                {addButton}
-            </div>
-            {entries.length > 0 ? (
-                <ul ref={listRef} className={compact ? 'flex flex-col gap-1.5' : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'}>
-                    {rows}
-                    {drop && drop.refId === null && <DropLine />}
-                </ul>
-            ) : (
-                <button type="button" onClick={onAdd} className="group block w-full text-left">
-                    <EmptySlotTile
-                        compact={compact}
-                        active={dragActive}
-                        title={dragActive ? 'Move here' : 'Nothing yet'}
-                        detail={dragActive ? 'Drop to move it' : 'Tap to add'}
-                    />
-                </button>
-            )}
-        </div>
+            {entries.map((e) => (
+                <PlannedRow
+                    key={e._id}
+                    compact={compact}
+                    entry={e}
+                    projection={projections.get(e._id)}
+                    dropId={e._id}
+                    onOpen={() => onOpen(e)}
+                    onToggle={() => onToggle(e)}
+                    onContextMenu={(ev) => {
+                        ev.preventDefault()
+                        ev.stopPropagation()
+                        onRowMenu(ev, e)
+                    }}
+                    draggable
+                    onDragStart={() => onEntryDragStart(e._id)}
+                    onDragEnd={onEntryDragEnd}
+                    dropEdge={drop && drop.refId === e._id ? (drop.after ? 'bottom' : 'top') : null}
+                />
+            ))}
+        </PlanSlot>
     )
 }
 
@@ -1467,53 +1280,13 @@ function ExtrasSection({
     )
 }
 
-/** A slot with nothing in it, built like a planned row so it stands as tall as one. */
-function EmptySlotTile({
-    compact = false,
-    active = false,
-    title,
-    detail,
-}: {
-    compact?: boolean
-    active?: boolean
-    title: string
-    detail: string
-}) {
-    return (
-        <span
-            className={`flex items-center rounded-xl outline-1 -outline-offset-1 outline-dashed transition-colors ${
-                compact ? 'p-2' : 'px-2.5 py-2'
-            } ${
-                active
-                    ? 'bg-coral-50 text-coral-600 outline-coral-300'
-                    : 'text-neutral-400 outline-neutral-200 group-hover:text-neutral-600 group-hover:outline-neutral-300'
-            }`}
-        >
-            <span className="flex min-w-0 items-stretch gap-2.5">
-                <span className="w-1 shrink-0" aria-hidden="true" />
-                <span className="min-w-0 flex-1 py-0.5">
-                    <span className="block truncate text-sm font-medium">{title}</span>
-                    <span className="mt-0.5 block truncate text-[13px] opacity-80">{detail}</span>
-                </span>
-            </span>
-        </span>
-    )
-}
-
-/** The coral marker showing where a dragged row will drop within a slot. */
-function DropLine() {
-    return <li aria-hidden="true" className="h-0.5 rounded-full bg-coral-500" />
-}
-
 function PlannedRow({
     compact = false,
     entry,
     projection,
     onOpen,
     onToggle,
-    onRemove,
     draggable = false,
-    lane = draggable,
     onDragStart,
     onDragEnd,
     dropId,
@@ -1527,12 +1300,9 @@ function PlannedRow({
     /** A box note's projected plate, when its box has figures and the day has targets. */
     projection?: BoxProjection
     onOpen?: () => void
-    /** Viewing: the tick that marks the meal eaten, or back to planned. */
+    /** The tick that marks the meal eaten, or back to planned. */
     onToggle?: () => void
-    onRemove?: () => void
     draggable?: boolean
-    /** Sits in a grey edit lane, so it stands off it in white. */
-    lane?: boolean
     onDragStart?: () => void
     onDragEnd?: () => void
     dropId?: string
@@ -1540,148 +1310,70 @@ function PlannedRow({
     dropEdge?: 'top' | 'bottom' | null
 }) {
     const done = isEaten(entry)
-    const [dragging, setDragging] = useState(false)
+    const size = rowButtonSize(compact)
 
-    const body = (
-        <span className="flex min-w-0 items-stretch gap-2.5">
-            <span
-                className={`w-1 shrink-0 rounded-full ${entry.extra || entry.away ? 'bg-neutral-300' : CATEGORY[entry.slot].solid}`}
-                aria-hidden="true"
-            />
-            <span className="min-w-0 flex-1 py-0.5">
-                <span
-                    className={`block truncate font-medium ${compact ? 'text-sm' : 'text-[15px] sm:text-sm'} ${
-                        done && !entry.extra ? 'text-neutral-500' : 'text-neutral-900'
-                    }`}
-                >
-                    {plateTitle(entry)}
-                </span>
-                <span className="mt-0.5 block truncate text-[13px] text-neutral-500">{plannedMeta(entry, projection)}</span>
-            </span>
+    const trailing = isAwayNote(entry) ? (
+        <span
+            className={`grid shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-400 ${
+                compact ? 'h-6 w-6' : onToggle ? size : 'h-6 w-6'
+            }`}
+            title="Away — no meal here"
+            aria-hidden="true"
+        >
+            <i className="fa-regular fa-calendar text-[11px]" />
         </span>
+    ) : onToggle ? (
+        isBoxNote(entry) ? (
+            <button
+                type="button"
+                aria-label={`Weigh out ${entry.name}`}
+                title="Weigh it out"
+                onClick={onToggle}
+                className={`grid shrink-0 place-items-center rounded-full bg-white text-neutral-400 ring-1 ring-inset ring-neutral-200 transition-colors hover:text-neutral-900 hover:ring-neutral-400 ${size}`}
+            >
+                <i className="fa-solid fa-scale-balanced text-[11px]" aria-hidden="true" />
+            </button>
+        ) : (
+            <RowTick
+                done={done}
+                compact={compact}
+                label={done ? `Mark ${entry.name} as not eaten` : `Mark ${entry.name} as eaten`}
+                title={done ? 'Eaten' : 'Mark as eaten'}
+                onClick={onToggle}
+            />
+        )
+    ) : (
+        done &&
+        !entry.extra && (
+            <span
+                className={`grid shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-600 ${
+                    compact ? 'h-5 w-5' : 'h-6 w-6'
+                }`}
+                aria-label="Eaten"
+                title="Eaten"
+            >
+                <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
+            </span>
+        )
     )
 
-    const tickSize = compact ? 'h-6 w-6' : 'h-10 w-10 sm:h-8 sm:w-8'
-
     return (
-        <li
+        <PlanRow
+            compact={compact}
+            bar={entry.extra || entry.away ? 'bg-neutral-300' : CATEGORY[entry.slot].solid}
+            title={plateTitle(entry)}
+            titleTone={done && !entry.extra ? 'text-neutral-500' : 'text-neutral-900'}
+            meta={plannedMeta(entry, projection)}
+            name={entry.name}
+            onOpen={onOpen}
+            trailing={trailing}
             draggable={draggable}
-            onDragStart={
-                draggable
-                    ? (e: DragEvent) => {
-                          e.dataTransfer.setData('text/plain', entry._id)
-                          e.dataTransfer.effectAllowed = 'move'
-                          setDragging(true)
-                          onDragStart?.()
-                      }
-                    : undefined
-            }
-            onDragEnd={
-                draggable
-                    ? () => {
-                          setDragging(false)
-                          onDragEnd?.()
-                      }
-                    : undefined
-            }
-            data-plan-row={dropId}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            dropId={dropId}
+            dropEdge={dropEdge}
             onContextMenu={onContextMenu}
-            className={`group relative flex items-center rounded-xl transition-colors ${
-                compact ? 'gap-1 p-2' : 'min-h-14 gap-2 px-3 py-2 sm:min-h-0 sm:px-2.5'
-            } ${lane ? 'bg-white ring-1 ring-neutral-900/[0.06]' : 'bg-neutral-50'} ${
-                onOpen ? (lane ? 'hover:ring-neutral-900/[0.12]' : 'hover:bg-neutral-100') : ''
-            } ${draggable ? 'md:cursor-grab md:active:cursor-grabbing' : ''} ${dragging ? 'opacity-40' : ''}`}
-        >
-            {dropEdge && (
-                <span
-                    aria-hidden="true"
-                    className={`pointer-events-none absolute inset-x-0 h-0.5 rounded-full bg-coral-500 ${
-                        dropEdge === 'top' ? '-top-[5px]' : '-bottom-[5px]'
-                    }`}
-                />
-            )}
-            {draggable && !compact && (
-                <i
-                    className="fa-solid fa-grip-vertical hidden shrink-0 pl-1 text-[11px] text-neutral-300 md:invisible md:inline md:group-hover:visible"
-                    aria-hidden="true"
-                />
-            )}
-            {onOpen ? (
-                <button
-                    type="button"
-                    onClick={onOpen}
-                    aria-label={`View ${entry.name}`}
-                    className="min-w-0 flex-1 rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-300"
-                >
-                    {body}
-                </button>
-            ) : (
-                <div className="min-w-0 flex-1">{body}</div>
-            )}
-            {isAwayNote(entry) ? (
-                <span
-                    className={`grid shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-400 ${
-                        compact ? 'h-6 w-6' : onToggle ? tickSize : 'h-6 w-6'
-                    }`}
-                    title="Away — no meal here"
-                    aria-hidden="true"
-                >
-                    <i className="fa-regular fa-calendar text-[11px]" />
-                </span>
-            ) : onToggle ? (
-                isBoxNote(entry) ? (
-                    <button
-                        type="button"
-                        aria-label={`Weigh out ${entry.name}`}
-                        title="Weigh it out"
-                        onClick={onToggle}
-                        className={`grid shrink-0 place-items-center rounded-full bg-white text-neutral-400 ring-1 ring-inset ring-neutral-200 transition-colors hover:text-neutral-900 hover:ring-neutral-400 ${tickSize}`}
-                    >
-                        <i className="fa-solid fa-scale-balanced text-[11px]" aria-hidden="true" />
-                    </button>
-                ) : (
-                <button
-                    type="button"
-                    aria-pressed={done}
-                    aria-label={done ? `Mark ${entry.name} as not eaten` : `Mark ${entry.name} as eaten`}
-                    title={done ? 'Eaten' : 'Mark as eaten'}
-                    onClick={onToggle}
-                    className={`grid shrink-0 place-items-center rounded-full transition-colors ${tickSize} ${
-                        done
-                            ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                            : 'bg-white text-neutral-300 ring-1 ring-inset ring-neutral-200 hover:text-emerald-600 hover:ring-emerald-300'
-                    }`}
-                >
-                    <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
-                </button>
-                )
-            ) : (
-                done &&
-                !entry.extra && (
-                    <span
-                        className={`grid shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-600 ${
-                            compact ? 'h-5 w-5' : 'h-6 w-6'
-                        }`}
-                        aria-label="Eaten"
-                        title="Eaten"
-                    >
-                        <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
-                    </span>
-                )
-            )}
-            {onRemove && (
-                <button
-                    type="button"
-                    aria-label={`Remove ${entry.name}`}
-                    onClick={onRemove}
-                    className={`grid shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500 ${
-                        compact ? 'h-6 w-6' : 'h-8 w-8'
-                    }`}
-                >
-                    <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
-                </button>
-            )}
-        </li>
+        />
     )
 }
 

@@ -4,12 +4,22 @@ import Button from '../Button'
 import Input from '../Input'
 import HabitIconPicker from '../habits/HabitIconPicker'
 import { ChipToggle, SectionLabel } from './ui'
-import type { Goal, HabitDef } from '../../types'
+import type { Goal, HabitDef, HabitPart } from '../../types'
+
+/** When in the day, as offered in the form. */
+const WHEN: { value: HabitPart | undefined; label: string; icon: string }[] = [
+    { value: undefined, label: 'Any time', icon: 'fa-regular fa-clock' },
+    { value: 'morning', label: 'Morning', icon: 'fa-solid fa-sun' },
+    { value: 'afternoon', label: 'Afternoon', icon: 'fa-solid fa-cloud-sun' },
+    { value: 'evening', label: 'Evening', icon: 'fa-solid fa-moon' },
+]
 
 export interface HabitDraft {
     name: string
     description: string
     icon: string | undefined
+    /** When in the day it's done; undefined is any time. */
+    part: HabitPart | undefined
     /** Active goals this habit builds toward. */
     goalIds: string[]
 }
@@ -32,6 +42,7 @@ export default function HabitModal({ habit, presetGoalIds = [], goals, onClose, 
         name: habit?.name ?? '',
         description: habit?.description ?? '',
         icon: habit?.icon,
+        part: habit?.part,
         goalIds: habit
             ? activeGoals.filter((g) => g.linkedHabits.includes(habit._id)).map((g) => g._id)
             : presetGoalIds,
@@ -86,6 +97,22 @@ export default function HabitModal({ habit, presetGoalIds = [], goals, onClose, 
                     value={draft.description}
                     onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
                 />
+                <div>
+                    <SectionLabel className="mb-2">When</SectionLabel>
+                    <div className="flex flex-wrap gap-2">
+                        {WHEN.map((w) => (
+                            <ChipToggle
+                                key={w.label}
+                                on={draft.part === w.value}
+                                onClick={() => setDraft((d) => ({ ...d, part: w.value }))}
+                                icon={w.icon}
+                            >
+                                {w.label}
+                            </ChipToggle>
+                        ))}
+                    </div>
+                    <p className="mt-2 text-xs text-neutral-500">Where it sits in Your day on the dashboard.</p>
+                </div>
                 <div>
                     <SectionLabel className="mb-2">Icon</SectionLabel>
                     <HabitIconPicker

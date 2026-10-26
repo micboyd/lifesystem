@@ -121,8 +121,8 @@ export default function WeatherWidget() {
                                 >
                                     <span className={DASH.note}>{hourLabel(h.hour)}</span>
                                     <i className={`${info.icon} text-lg ${iconTint(info.icon)}`} aria-hidden="true" />
-                                    <span className="text-[15px] tabular-nums text-neutral-900">{h.temperature}&deg;</span>
-                                    <span className="text-[11px] tabular-nums text-info">
+                                    <span className="text-[15px] nums text-neutral-900">{h.temperature}&deg;</span>
+                                    <span className="text-[11px] nums text-info">
                                         {h.precipitationProbability >= 20 ? `${h.precipitationProbability}%` : '\u00a0'}
                                     </span>
                                 </div>

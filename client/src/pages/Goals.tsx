@@ -111,8 +111,9 @@ export default function Goals() {
                   name: draft.name,
                   description: draft.description || undefined,
                   icon: draft.icon ?? null,
+                  part: draft.part ?? null,
               })
-            : await createHabit(draft.name, draft.description || undefined, draft.icon)
+            : await createHabit(draft.name, draft.description || undefined, draft.icon, draft.part)
         setHabits((prev) => (existing ? prev.map((h) => (h._id === habit._id ? habit : h)) : [...prev, habit]))
 
         // Links live on the goal, so join or leave each goal whose membership changed.

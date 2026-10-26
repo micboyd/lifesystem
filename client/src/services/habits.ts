@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, HabitDef, HabitLog } from '../types'
+import type { ApiResponse, HabitDef, HabitLog, HabitPart } from '../types'
 
 // ─── Definitions ─────────────────────────────────────────────────────────────
 
@@ -11,17 +11,20 @@ export async function listHabits(): Promise<HabitDef[]> {
 export async function createHabit(
     name: string,
     description?: string,
-    icon?: string
+    icon?: string,
+    part?: HabitPart
 ): Promise<HabitDef> {
-    const res = await api.post<ApiResponse<HabitDef>>('/habits', { name, description, icon })
+    const res = await api.post<ApiResponse<HabitDef>>('/habits', { name, description, icon, part })
     return res.data.data
 }
 
 export async function updateHabit(
     id: string,
-    // `icon: null` clears a chosen icon (back to the automatic name-based one).
+    // `icon: null` clears a chosen icon (back to the automatic name-based one);
+    // `part: null` takes the habit back to any time.
     fields: Partial<Pick<HabitDef, 'name' | 'description' | 'active' | 'order'>> & {
         icon?: string | null
+        part?: HabitPart | null
     }
 ): Promise<HabitDef> {
     const res = await api.put<ApiResponse<HabitDef>>(`/habits/${id}`, fields)

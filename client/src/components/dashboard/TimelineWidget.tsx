@@ -44,7 +44,7 @@ export default function TimelineWidget() {
                                 <span className="ml-1.5 text-sm tracking-normal text-neutral-500">of {hint.total}</span>
                             </p>
                         </div>
-                        <p className={`${DASH.note} tabular-nums`}>
+                        <p className={`${DASH.note} nums`}>
                             {hint.weeksLeft === 0
                                 ? 'Last week'
                                 : `${hint.weeksLeft} week${hint.weeksLeft === 1 ? '' : 's'} to go`}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
@@ -6,12 +6,13 @@ import Pagination from './Pagination'
 import EmptyState from './EmptyState'
 import Drawer from './Drawer'
 import BottomSheet from './BottomSheet'
-import Checkbox from './Checkbox'
 import Textarea from './Textarea'
 import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
+import ContextMenu from './ContextMenu'
+import { type MenuEntry, type MenuItem } from './DropdownMenu'
 import ConditioningSessionDetail from './ConditioningSessionDetail'
-import { useStepTicks, workoutStepsKey } from './session/SessionUI'
+import { clearTicks, useStepTicks, workoutStepsKey } from './session/SessionUI'
 import WorkoutDetail from './session/WorkoutDetail'
 import { WorkoutLogSummary } from './WorkoutsLog'
 import { conditioningPayload } from './useConditioningLog'
@@ -48,8 +49,6 @@ import {
     listPlanNotes,
     savePlanNote,
     deletePlanNote,
-    restorePlanWeek,
-    type PlanWeekSnapshot,
 } from '../services/fitnessPlan'
 import { FITNESS_PLAN_KINDS, FITNESS_PLAN_PARTS, FITNESS_FLAG_COLORS } from '../types'
 import type {
@@ -58,7 +57,6 @@ import type {
     Workout,
     Exercise,
     ConditioningSession,
-    ConditioningCategory,
     FitnessPlanEntry,
     FitnessPlanKind,
     FitnessPlanPart,
@@ -84,7 +82,6 @@ import {
     HeroButton,
     DayStrip,
     DayPill,
-    EditBar,
     DayCardShell,
     SwipeHint,
     dayCardId,
@@ -95,6 +92,21 @@ import {
     useMediaQuery,
     LARGE_QUERY,
 } from './planner/WeekPlannerUI'
+import {
+    HeroMenu,
+    DayMenu,
+    DayTitle,
+    PlanSlot,
+    PlanRow,
+    RowTick,
+    rowButtonSize,
+    WeekClipboardBanner,
+    CopiedBanner,
+    CopyWeekDrawer,
+    Segmented,
+    PickRow,
+    PICK_LABEL,
+} from './planner/PlannerParts'
 import { estimateWorkoutMinutes } from '../lib/phases'
 import { restDayNote } from '../lib/restDayMessage'
 
@@ -232,71 +244,10 @@ function entryLibId(entry: FitnessPlanEntry): string | undefined {
     return entry.session?._id
 }
 
-/**
- * A week reduced to what putting it back needs: each entry's library item by id
- * rather than its populated document, plus the flags on those days. Entries whose
- * library item has been deleted are left out — they can't be rebuilt, and the
- * list endpoint drops them anyway, so they were never on screen.
- */
-function snapshotWeek(
-    start: string,
-    end: string,
-    entries: FitnessPlanEntry[],
-    notes: FitnessPlanNote[]
-): PlanWeekSnapshot {
-    return {
-        start,
-        end,
-        entries: entries.flatMap((e) => {
-            const item = entryLibId(e)
-            if (!item) return []
-            return [
-                {
-                    date: e.date,
-                    part: e.part,
-                    kind: e.kind,
-                    item,
-                    plan: e.plan,
-                    order: e.order,
-                    ignoreClash: e.ignoreClash === true,
-                    ignoreOverload: e.ignoreOverload === true,
-                    skipped: e.skipped === true,
-                    skipReason: e.skipReason ?? '',
-                },
-            ]
-        }),
-        notes: notes.map((n) => ({
-            scope: n.scope,
-            date: n.date,
-            color: n.color,
-            label: n.label,
-        })),
-    }
-}
-
 /** The done-key for a planned entry, or null when its library item is missing. */
 function entryDoneKey(entry: FitnessPlanEntry): string | null {
     const id = entryLibId(entry)
     return id ? doneKey(entry.kind, id, entry.date) : null
-}
-
-/** Compact "3 × 8-12" / "3 sets" / "8-12 reps" label, or '' when neither is set. */
-const CATEGORY_CHIP: Record<ConditioningCategory, string> = {
-    HIIT: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-    Cardio: 'bg-sky-50 text-sky-700 ring-sky-600/20',
-    Endurance: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
-    Mobility: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-    Recovery: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-}
-
-function CategoryChip({ category }: { category: ConditioningCategory }) {
-    return (
-        <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${CATEGORY_CHIP[category]}`}
-        >
-            {category}
-        </span>
-    )
 }
 
 // ─── Date helpers ───────────────────────────────────────────────────────────────
@@ -469,6 +420,17 @@ function tally(entries: FitnessPlanEntry[]): WeekTally {
 
 // ─── Planner ────────────────────────────────────────────────────────────────────
 
+/**
+ * The fitness week planner, built from the same parts as the Nutrition one and
+ * laid out the same way: a week hero with the day strip, and a card per day
+ * split into morning, afternoon and evening. Wide screens get the seven days
+ * side by side; phones one day at a time.
+ *
+ * There's one mode: each slot's + adds to it, sessions tick off as they're
+ * done (a quick log — the logger is a tap away in the session's drawer), open
+ * for a closer look (and Remove), and drag between slots and days on a wide
+ * screen. Copy, paste, flags, export and clear live in the ⋯ menus.
+ */
 export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) {
     // Wide screens always get the full-width week board; smaller ones a day feed
     // (one day at a time on a phone).
@@ -490,44 +452,38 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     // that completed it, so a planned row can show a tick once its matching log
     // exists — and undo it by deleting that log again.
     const [doneLogs, setDoneLogs] = useState<Map<string, string>>(new Map())
+    // Rows whose tick is being saved, so a double tap can't log twice.
+    const [ticking, setTicking] = useState<Set<string>>(new Set())
     const [loading, setLoading] = useState(true)
-    // The picker always targets one day + slot; the type (strength / conditioning)
-    // and the slot are then chosen inside the drawer.
+    // The add drawer: a day + slot to add to (the slot and type can change inside).
     const [picker, setPicker] = useState<{ date: string; part: FitnessPlanPart } | null>(null)
     // A day or week whose flag+label is being edited (opens the flag editor).
     const [flagTarget, setFlagTarget] = useState<{
         scope: FitnessNoteScope
         date: string
     } | null>(null)
-    // A planned item opened for a read-only look at its full details.
+    // A planned item opened for a closer look.
     const [detail, setDetail] = useState<FitnessPlanEntry | null>(null)
     // A planned strength workout being logged with per-set weights, and the day
     // it's dated to (opened from the detail drawer).
     const [logTarget, setLogTarget] = useState<{ workout: Workout; date: string } | null>(null)
     // A planned conditioning session open in the session logger.
     const [sessionTarget, setSessionTarget] = useState<ConditioningLogTarget | null>(null)
-    // The planner opens read-only; Edit reveals the add/remove controls.
-    const [editing, setEditing] = useState(false)
     // The planner export drawer — writes the weeks out as JSON, as they stand.
     const [exportOpen, setExportOpen] = useState(false)
-    // Every change saves as it's made, so cancelling can't unwind a queue of
-    // writes. Instead each week touched since editing began is kept as it was,
-    // keyed by its Monday, and Cancel hands those back to be put in place.
-    const baseline = useRef(new Map<string, PlanWeekSnapshot>())
-    // Whether anything has actually been changed, so Cancel can bow out quietly
-    // when nothing has — and warn before throwing work away when something has.
-    const [dirty, setDirty] = useState(false)
-    const [confirmDiscard, setConfirmDiscard] = useState(false)
-    const [discarding, setDiscarding] = useState(false)
-    // The week the loaded entries belong to. The grid deliberately keeps the old
-    // week on screen while the next one loads, so this is what says the rows in
-    // hand really are this week's — and are safe to snapshot.
-    const [loadedWeek, setLoadedWeek] = useState<string | null>(null)
+    // A session copied to paste into another slot or day, and an open right-click menu.
+    const [copied, setCopied] = useState<FitnessPlanEntry | null>(null)
+    const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null)
+    // A done session whose tick was tapped — un-ticking deletes its log, so it asks first.
+    const [unlogTarget, setUnlogTarget] = useState<FitnessPlanEntry | null>(null)
     // A copied week held for pasting elsewhere: the source Monday plus which
     // categories were copied. Only those categories are overwritten on paste.
     const [clipboard, setClipboard] = useState<{ from: string; kinds: FitnessPlanKind[] } | null>(
         null
     )
+    // Choosing which categories to copy, and confirming a paste that would replace sessions.
+    const [copying, setCopying] = useState(false)
+    const [pasteConfirm, setPasteConfirm] = useState(false)
     // A pending "clear" awaiting confirmation: a single day, or the whole week.
     const [clearTarget, setClearTarget] = useState<
         { type: 'day'; date: string } | { type: 'week' } | null
@@ -541,6 +497,21 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
 
     const today = todayKey()
     const toast = useToast()
+
+    // Whether a planned item has a matching completion log on its day.
+    const isDone = (entry: FitnessPlanEntry) => {
+        const k = entryDoneKey(entry)
+        return k ? doneLogs.has(k) : false
+    }
+
+    // The id of the log that completed a planned item, when there is one.
+    const doneLogIdOf = (entry: FitnessPlanEntry) => {
+        const k = entryDoneKey(entry)
+        return (k ? doneLogs.get(k) : undefined) ?? null
+    }
+
+    // Sessions still to do — the only ones a clear or a paste replaces.
+    const clearable = (entry: FitnessPlanEntry) => !isDone(entry)
 
     // Mark a kind's library item as done on a date, so its planned rows tick.
     function markDoneKey(kind: FitnessPlanKind, libId: string, date: string, logId: string) {
@@ -556,14 +527,71 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         })
     }
 
+    // A planned session ticked off without going through the logger: its
+    // library item is logged as it stands, dated to the planned day — the same
+    // as the Done buttons in each category's log.
+    async function markDone(entry: FitnessPlanEntry) {
+        try {
+            let logId: string
+            if (entry.kind === 'workout' && entry.workout) {
+                logId = (await createWorkoutLog({ workout: entry.workout._id, date: entry.date }))._id
+            } else if (entry.kind === 'conditioning' && entry.session) {
+                logId = (
+                    await createConditioningLog(
+                        conditioningPayload(entry.session, entry.date, EMPTY_TAPS)
+                    )
+                )._id
+            } else return
+            const libId = entryLibId(entry)
+            if (libId) markDoneKey(entry.kind, libId, entry.date, logId)
+            toast.show(`Logged “${planItemName(entry)}”.`, 'success')
+        } catch {
+            toast.show('Could not log that — please try again.', 'danger')
+            throw new Error('log failed')
+        }
+    }
+
     // Undo a completion: delete the log behind it, in whichever category's log it
     // was recorded, then untick the row. Marking done can always be redone.
-    async function handleUnlog(entry: FitnessPlanEntry, logId: string) {
+    async function unmarkDone(entry: FitnessPlanEntry) {
+        const logId = doneLogIdOf(entry)
         const libId = entryLibId(entry)
-        if (!libId) return
-        if (entry.kind === 'workout') await deleteWorkoutLog(logId)
-        else await deleteConditioningLog(logId)
+        if (!logId || !libId) return
+        try {
+            if (entry.kind === 'workout') await deleteWorkoutLog(logId)
+            else await deleteConditioningLog(logId)
+        } catch {
+            toast.show('Could not undo that — please try again.', 'danger')
+            throw new Error('unlog failed')
+        }
         clearDoneKey(entry.kind, libId, entry.date)
+        // Start over: nothing from the undone session stays ticked on this
+        // device — sub-list steps, a strength draft, conditioning presses.
+        const ticksKey = stepTicksKey(entry)
+        if (ticksKey) clearTicks(ticksKey)
+        if (entry.kind === 'workout' && entry.workout) clearDraft(entry.workout._id)
+        if (entry.kind === 'conditioning') clearTaps(entry._id)
+        toast.show(`“${planItemName(entry) ?? 'Item'}” is no longer marked done.`, 'success')
+    }
+
+    // The row's tick: a quick log, or — on a done session — the way back, after
+    // asking, since it deletes the log and anything recorded on it.
+    function handleTick(entry: FitnessPlanEntry) {
+        if (ticking.has(entry._id)) return
+        if (isDone(entry)) {
+            setUnlogTarget(entry)
+            return
+        }
+        setTicking((prev) => new Set(prev).add(entry._id))
+        markDone(entry)
+            .catch(() => {})
+            .finally(() =>
+                setTicking((prev) => {
+                    const next = new Set(prev)
+                    next.delete(entry._id)
+                    return next
+                })
+            )
     }
 
     // Log a planned workout with the per-set weights entered in the weight drawer.
@@ -581,8 +609,8 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         return { start, end: addDays(start, 6) }
     }, [anchor])
 
-    // The libraries — loaded once, for the picker, the "is it empty" check and
-    // the detail drawer (exercises resolve a workout's exercise names).
+    // The libraries — loaded once, for the add drawer, the "is it empty" check
+    // and the detail drawer (exercises resolve a workout's exercise names).
     useEffect(() => {
         Promise.all([listWorkouts(), listSessions(), listExercises()])
             .then(([wk, se, ex]) => {
@@ -618,7 +646,6 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 setEntries(rows)
                 setNotes(noteRows)
                 setEvents(eventRows)
-                setLoadedWeek(range.start)
                 // Build the week's completion keys from each kind's logs. Logs with
                 // no library link (their item was deleted) can't match a plan row.
                 const keys = new Map<string, string>()
@@ -636,64 +663,8 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         }
     }, [range.start, range.end])
 
-    // Snapshot each week the first time it's seen in edit mode — the one on show
-    // when Edit was pressed, and any navigated to afterwards. Later runs are no-ops
-    // thanks to the `has` guard, so a snapshot is always the week untouched.
-    useEffect(() => {
-        if (!editing || loadedWeek !== range.start) return
-        if (baseline.current.has(range.start)) return
-        baseline.current.set(range.start, snapshotWeek(range.start, range.end, entries, notes))
-    }, [editing, loadedWeek, range.start, range.end, entries, notes])
-
     function step(dir: -1 | 1) {
         setAnchor((a) => addDays(mondayOf(a), dir * 7))
-    }
-
-    /** Note that the week on screen no longer matches its snapshot. */
-    function markDirty() {
-        setDirty(true)
-    }
-
-    /** Leave edit mode, keeping everything as it now stands. */
-    function stopEditing() {
-        setPicker(null)
-        baseline.current.clear()
-        setDirty(false)
-        setEditing(false)
-    }
-
-    /**
-     * Put every week touched since editing began back as it was, then leave edit
-     * mode. The week on show is refetched afterwards either way, so a restore that
-     * fails part-way still leaves the grid showing what is actually saved.
-     */
-    async function discardChanges() {
-        setConfirmDiscard(false)
-        setDiscarding(true)
-        let failed = false
-        for (const snapshot of baseline.current.values()) {
-            try {
-                await restorePlanWeek(snapshot)
-            } catch {
-                failed = true
-            }
-        }
-        try {
-            const [rows, noteRows] = await Promise.all([
-                listPlanEntries(range.start, range.end),
-                listPlanNotes(range.start, range.end),
-            ])
-            setEntries(rows)
-            setNotes(noteRows)
-        } catch {
-            failed = true
-        }
-        setDiscarding(false)
-        stopEditing()
-        toast.show(
-            failed ? 'Some changes could not be undone.' : 'Changes undone.',
-            failed ? 'warning' : 'success'
-        )
     }
 
     async function handleAdd(
@@ -702,15 +673,85 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         itemId: string,
         part: FitnessPlanPart
     ) {
-        const entry = await addPlanEntry(date, kind, itemId, part)
-        setEntries((prev) => [...prev, entry])
-        markDirty()
+        try {
+            const entry = await addPlanEntry(date, kind, itemId, part)
+            setEntries((prev) => [...prev, entry])
+        } catch {
+            toast.show('Could not add that — please try again.', 'danger')
+        }
     }
 
+    // Optimistic, putting the row back if the delete fails.
     async function handleRemove(id: string) {
+        const removed = entries.find((e) => e._id === id)
         setEntries((prev) => prev.filter((e) => e._id !== id))
-        markDirty()
-        await deletePlanEntry(id)
+        try {
+            await deletePlanEntry(id)
+        } catch {
+            if (removed) setEntries((prev) => [...prev, removed])
+            toast.show('Could not remove that — please try again.', 'danger')
+        }
+    }
+
+    function copyEntry(entry: FitnessPlanEntry) {
+        setCopied(entry)
+        toast.show(`Copied ${planItemName(entry) ?? 'session'} — right-click a slot, or tap +, to paste it`, 'info')
+    }
+
+    // A copied session into another slot or day.
+    async function pasteInto(date: string, part: FitnessPlanPart) {
+        const src = copied
+        if (!src) return
+        const item = entryLibId(src)
+        if (!item) {
+            toast.show('That session has left your library, so it can’t be pasted.', 'danger')
+            return
+        }
+        await handleAdd(date, src.kind, item, part)
+    }
+
+    function openRowMenu(ev: { clientX: number; clientY: number }, entry: FitnessPlanEntry) {
+        setMenu({
+            x: ev.clientX,
+            y: ev.clientY,
+            items: [
+                { label: 'Copy', icon: 'fa-solid fa-copy', onClick: () => copyEntry(entry) },
+                { label: 'Open', icon: 'fa-solid fa-up-right-from-square', onClick: () => setDetail(entry) },
+                {
+                    label: 'Remove',
+                    icon: 'fa-solid fa-trash-can',
+                    danger: true,
+                    onClick: () => void handleRemove(entry._id),
+                },
+            ],
+        })
+    }
+
+    function openSlotMenu(
+        ev: { clientX: number; clientY: number },
+        date: string,
+        part: FitnessPlanPart
+    ) {
+        setMenu({
+            x: ev.clientX,
+            y: ev.clientY,
+            items: [
+                ...(copied
+                    ? [
+                          {
+                              label: `Paste ${planItemName(copied) ?? 'session'}`,
+                              icon: 'fa-solid fa-paste',
+                              onClick: () => void pasteInto(date, part),
+                          },
+                      ]
+                    : []),
+                {
+                    label: `Add to ${PART_META[part].label.toLowerCase()}…`,
+                    icon: 'fa-solid fa-plus',
+                    onClick: () => setPicker({ date, part }),
+                },
+            ],
+        })
     }
 
     // Copy the current week's selected categories to the clipboard for pasting.
@@ -718,48 +759,46 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         setClipboard({ from: range.start, kinds })
     }
 
-    // Paste the clipboard onto the current week — overwriting only the copied
-    // categories — then refetch so the grid shows the pasted plan.
+    // Paste the clipboard onto the current week — replacing only the copied
+    // categories' sessions still to do — then refetch so the grid shows the
+    // pasted plan.
     async function handlePasteWeek() {
         if (!clipboard) return
-        await copyPlanWeek(clipboard.from, range.start, clipboard.kinds)
-        const rows = await listPlanEntries(range.start, range.end)
-        setEntries(rows)
-        markDirty()
-    }
-
-    // Clear every planned item from a single day. Optimistic, reverting on failure.
-    async function handleClearDay(date: string) {
-        const removed = entries.filter((e) => e.date === date)
-        if (removed.length === 0) return
-        setEntries((prev) => prev.filter((e) => e.date !== date))
-        markDirty()
+        const keep = entries
+            .filter((e) => e.date >= range.start && e.date <= range.end && isDone(e))
+            .map((e) => e._id)
         try {
-            await clearPlanRange(date, date)
+            await copyPlanWeek(clipboard.from, range.start, clipboard.kinds, keep)
+            setEntries(await listPlanEntries(range.start, range.end))
         } catch {
-            setEntries((prev) => [...prev, ...removed])
+            toast.show('Could not paste that week — please try again.', 'danger')
         }
     }
 
-    // Clear every planned item from the displayed week. Optimistic, reverting on failure.
-    async function handleClearWeek() {
-        const { start, end } = range
-        const removed = entries.filter((e) => e.date >= start && e.date <= end)
+    // Clear the sessions still to do from a span of days — done ones stay.
+    // Optimistic, reverting on failure.
+    async function clearDays(start: string, end: string) {
+        const inRange = entries.filter((e) => e.date >= start && e.date <= end)
+        const removed = inRange.filter(clearable)
         if (removed.length === 0) return
-        setEntries((prev) => prev.filter((e) => !(e.date >= start && e.date <= end)))
-        markDirty()
+        const ids = new Set(removed.map((e) => e._id))
+        setEntries((prev) => prev.filter((e) => !ids.has(e._id)))
         try {
-            await clearPlanRange(start, end)
+            await clearPlanRange(
+                start,
+                end,
+                inRange.filter(isDone).map((e) => e._id)
+            )
         } catch {
             setEntries((prev) => [...prev, ...removed])
+            toast.show('Could not clear that — please try again.', 'danger')
         }
     }
 
-    // Move a planned item to another slot of its own day (week-view drag-and-drop).
+    // Move a planned item to another slot of its own day (from the warnings).
     // Optimistic: the row jumps immediately, then the server records the new slot.
     async function handleMove(id: string, part: FitnessPlanPart) {
         setEntries((prev) => prev.map((e) => (e._id === id ? { ...e, part } : e)))
-        markDirty()
         await updatePlanEntry(id, { part })
     }
 
@@ -769,7 +808,6 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     // request — a clash silenced only on screen is worse than one still showing.
     async function handleOverrideClash(id: string, ignoreClash: boolean) {
         setEntries((prev) => prev.map((e) => (e._id === id ? { ...e, ignoreClash } : e)))
-        markDirty()
         try {
             await updatePlanEntry(id, { ignoreClash })
         } catch {
@@ -790,7 +828,6 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 prev.map((e) => (ids.includes(e._id) ? { ...e, ignoreOverload: on } : e))
             )
         flip(ignoreOverload)
-        markDirty()
         try {
             await Promise.all(ids.map((id) => updatePlanEntry(id, { ignoreOverload })))
         } catch {
@@ -800,15 +837,12 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     }
 
     // Skip a planned session (with an optional reason), or take the skip back.
-    // Not an edit to the plan — it's done from the read-only detail drawer, like
-    // marking done. Optimistic, and a failed save puts the row back as it was.
+    // Optimistic, and a failed save puts the row back as it was.
     async function handleSkip(entry: FitnessPlanEntry, skipped: boolean, skipReason = '') {
         const before = { skipped: entry.skipped, skipReason: entry.skipReason }
         const after = { skipped, skipReason: skipped ? skipReason.trim() : '' }
-        const apply = (patch: Partial<FitnessPlanEntry>) => {
+        const apply = (patch: Partial<FitnessPlanEntry>) =>
             setEntries((prev) => prev.map((e) => (e._id === entry._id ? { ...e, ...patch } : e)))
-            setDetail((d) => (d && d._id === entry._id ? { ...d, ...patch } : d))
-        }
         apply(after)
         try {
             await updatePlanEntry(entry._id, after)
@@ -821,10 +855,9 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         }
     }
 
-    // Reorder a slot from a week-view drag — and, when the dragged item came from
-    // another slot or day, move it in at the chosen spot. `ids` is the target
-    // slot's new top-to-bottom order. Optimistic: rewrite the listed entries' date,
-    // part + order, reverting to the snapshot if the save fails.
+    // Reorder a slot from a drag — and, when the dragged item came from another
+    // slot or day, move it in at the chosen spot. `ids` is the target slot's new
+    // top-to-bottom order. Optimistic, reverting to the snapshot if the save fails.
     async function handleReorder(date: string, part: FitnessPlanPart, ids: string[]) {
         const position = new Map(ids.map((id, i) => [id, i]))
         const snapshot = entries
@@ -833,7 +866,6 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 position.has(e._id) ? { ...e, date, part, order: position.get(e._id)! } : e
             )
         )
-        markDirty()
         try {
             await reorderPlanSlot(date, part, ids)
         } catch {
@@ -855,13 +887,11 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
             return [...rest, saved]
         })
         setFlagTarget(null)
-        markDirty()
     }
 
     async function handleRemoveFlag(id: string) {
         setNotes((prev) => prev.filter((n) => n._id !== id))
         setFlagTarget(null)
-        markDirty()
         await deletePlanNote(id)
     }
 
@@ -880,10 +910,6 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         ? (notes.find((n) => n.scope === flagTarget.scope && n.date === flagTarget.date) ?? null)
         : null
 
-    // Clashes keyed by day: each planned item that overlaps a calendar event in
-    // its slot (or any all-day event). Days with no clash are absent from the map.
-    // Accepted clashes stay in the map, marked, so they can still be taken back —
-    // it's the day's badge that stops sounding the alarm for them, not this.
     // What's on the calendar each day, in the morning, afternoon or evening — an
     // all-day event covers all three; "Other" events (no slot) are left out.
     const calendarByDate = useMemo(() => {
@@ -898,6 +924,10 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         return m
     }, [events, range.start])
 
+    // Clashes keyed by day: each planned item that overlaps a calendar event in
+    // its slot (or any all-day event). Days with no clash are absent from the map.
+    // Accepted clashes stay in the map, marked, so they can still be taken back —
+    // it's the day's badge that stops sounding the alarm for them, not this.
     const clashesByDate = useMemo(() => {
         const m = new Map<string, Clash[]>()
         for (const entry of entries) {
@@ -917,8 +947,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
 
     // Overloaded slots keyed by day: each slot holding two hard sessions.
     // Days with nothing doubled up are absent from the map. Accepted slots stay
-    // in the map, marked, so they can still be taken back — it's the day's badge
-    // that stops sounding the alarm for them, not this.
+    // in the map, marked, so they can still be taken back.
     const overloadsByDate = useMemo(() => {
         const m = new Map<string, SlotOverload[]>()
         for (const overload of overloadsIn(entries)) {
@@ -931,39 +960,26 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     }, [entries])
 
     const libraryEmpty = workouts.length === 0 && sessions.length === 0
+    const weekHasClearable = entries.some(clearable)
 
-    // Which categories the displayed week already holds — a paste only needs
-    // confirmation when it would overwrite one of these.
-    const weekKinds = useMemo(() => {
-        const s = new Set<FitnessPlanKind>()
-        for (const e of entries) s.add(e.kind)
-        return s
-    }, [entries])
+    // Which categories the displayed week still has sessions to do in — a paste
+    // only needs confirming when it would replace one of these.
+    const weekKinds = new Set(entries.filter(clearable).map((e) => e.kind))
 
     const rangeLabel = formatWeekRange(range.start, range.end)
 
-    // Whether a planned item has a matching completion log on its day.
-    const isDone = (entry: FitnessPlanEntry) => {
-        const k = entryDoneKey(entry)
-        return k ? doneLogs.has(k) : false
-    }
-
-    // The id of the log that completed a planned item, when there is one.
-    const doneLogIdOf = (entry: FitnessPlanEntry) => {
-        const k = entryDoneKey(entry)
-        return (k ? doneLogs.get(k) : undefined) ?? null
-    }
-
     // Count and label the items a pending clear would remove, for the confirm dialog.
-    const clearInfo = useMemo(() => {
+    const clearInfo = (() => {
         if (!clearTarget) return null
         if (clearTarget.type === 'day') {
-            const count = entries.filter((e) => e.date === clearTarget.date).length
+            const count = entries.filter((e) => e.date === clearTarget.date && clearable(e)).length
             return { count, where: shortDayLabel(clearTarget.date), scope: 'day' as const }
         }
-        const count = entries.filter((e) => e.date >= range.start && e.date <= range.end).length
-        return { count, where: formatWeekRange(range.start, range.end), scope: 'week' as const }
-    }, [clearTarget, entries, range.start, range.end])
+        const count = entries.filter(
+            (e) => e.date >= range.start && e.date <= range.end && clearable(e)
+        ).length
+        return { count, where: rangeLabel, scope: 'week' as const }
+    })()
 
     // Days with a warning still standing, for the hero's week strip.
     const alertDates = new Set<string>()
@@ -972,12 +988,53 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     for (const [date, list] of overloadsByDate)
         if (list.some((o) => !o.acknowledged)) alertDates.add(date)
 
+    // Keep an open detail drawer in step with the row it was opened from.
+    const detailEntry = detail ? (entries.find((e) => e._id === detail._id) ?? null) : null
+
     // Picking a day focuses it; on wide screens, where every day is on show, it
     // also scrolls there.
     function selectDay(date: string) {
         setAnchor(date)
         if (isWide() && date >= range.start && date <= range.end) scrollToDay('plan', date)
     }
+
+    function requestPaste() {
+        if (!clipboard) return
+        if (clipboard.kinds.some((k) => weekKinds.has(k))) setPasteConfirm(true)
+        else void handlePasteWeek()
+    }
+
+    const weekMenu: MenuEntry[] = [
+        ...(libraryEmpty
+            ? []
+            : [{ label: 'Copy week…', icon: 'fa-solid fa-copy', onClick: () => setCopying(true) }]),
+        ...(clipboard && clipboard.from !== range.start
+            ? [
+                  {
+                      label: `Paste ${kindsLabel(clipboard.kinds)}`,
+                      icon: 'fa-solid fa-paste',
+                      onClick: requestPaste,
+                  },
+              ]
+            : []),
+        {
+            label: weekNote ? 'Edit week flag…' : 'Flag week…',
+            icon: 'fa-solid fa-flag',
+            onClick: () => setFlagTarget({ scope: 'week', date: range.start }),
+        },
+        { label: 'Export…', icon: 'fa-solid fa-file-export', onClick: () => setExportOpen(true) },
+        ...(weekHasClearable
+            ? [
+                  'divider' as const,
+                  {
+                      label: 'Clear week',
+                      icon: 'fa-solid fa-broom',
+                      danger: true,
+                      onClick: () => setClearTarget({ type: 'week' }),
+                  },
+              ]
+            : []),
+    ]
 
     return (
         <div className="flex flex-col gap-6 sm:gap-5">
@@ -991,61 +1048,37 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 isDone={isDone}
                 alertDates={alertDates}
                 weekNote={weekNote}
-                editing={editing}
-                canEdit={!libraryEmpty}
-                discarding={discarding}
+                menu={weekMenu}
                 onStep={step}
                 onSelect={selectDay}
                 onPick={setAnchor}
                 onEditFlag={() => setFlagTarget({ scope: 'week', date: range.start })}
-                onStartEditing={() => {
-                    setPicker(null)
-                    baseline.current.clear()
-                    setDirty(false)
-                    setEditing(true)
-                }}
-                onExport={() => setExportOpen(true)}
                 board={board}
             />
 
-            {editing && (
-                <EditBar
-                    busy={discarding}
-                    // Nothing changed means nothing to warn about — just drop
-                    // back out of edit mode.
-                    onCancel={() => (dirty ? setConfirmDiscard(true) : stopEditing())}
-                    onDone={stopEditing}
-                >
-                    {!libraryEmpty && (
-                        <WeekCopyControls
-                            weekStart={range.start}
-                            weekEnd={range.end}
-                            clipboard={clipboard}
-                            presentKinds={weekKinds}
-                            onCopy={handleCopyWeek}
-                            onPaste={handlePasteWeek}
-                            onClearClipboard={() => setClipboard(null)}
-                        />
-                    )}
-                    {entries.length > 0 && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            icon="fa-solid fa-broom"
-                            onClick={() => setClearTarget({ type: 'week' })}
-                            className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                        >
-                            Clear week
-                        </Button>
-                    )}
-                </EditBar>
+            {clipboard && (
+                <WeekClipboardBanner
+                    what={kindsLabel(clipboard.kinds)}
+                    fromLabel={formatWeekRange(clipboard.from, addDays(clipboard.from, 6))}
+                    sameWeek={clipboard.from === range.start}
+                    onPaste={requestPaste}
+                    onForget={() => setClipboard(null)}
+                />
+            )}
+
+            {copied && (
+                <CopiedBanner
+                    name={planItemName(copied) ?? 'Session'}
+                    forgetLabel="Forget the copied session"
+                    onForget={() => setCopied(null)}
+                />
             )}
 
             {libLoading || loading ? (
                 <div className="grid place-items-center py-16">
                     <Spinner />
                 </div>
-            ) : libraryEmpty ? (
+            ) : libraryEmpty && entries.length === 0 ? (
                 <EmptyState
                     icon="fa-solid fa-calendar-week"
                     title="Nothing to plan with yet"
@@ -1057,16 +1090,18 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     weekStart={range.start}
                     selected={anchor}
                     today={today}
-                    editing={editing}
                     entries={entries}
                     dayNotes={dayNotes}
                     clashesByDate={clashesByDate}
                     overloadsByDate={overloadsByDate}
-                    isDone={isDone}
+                    isDone={(e) => isDone(e) || ticking.has(e._id)}
+                    clearable={clearable}
                     onSelect={setAnchor}
                     onAdd={(date, part) => setPicker({ date, part })}
                     onOpen={setDetail}
-                    onRemove={handleRemove}
+                    onTick={handleTick}
+                    onRowMenu={openRowMenu}
+                    onSlotMenu={openSlotMenu}
                     onReorder={handleReorder}
                     onEditFlag={(scope, date) => setFlagTarget({ scope, date })}
                     onClearDay={(date) => setClearTarget({ type: 'day', date })}
@@ -1077,30 +1112,35 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 />
             )}
 
-            <ItemPicker
+            <AddDrawer
                 target={picker}
-                editable={editing}
                 workouts={workouts}
                 sessions={sessions}
-                entries={picker ? entries.filter((e) => e.date === picker.date) : []}
-                isDone={isDone}
+                copied={copied}
                 onClose={() => setPicker(null)}
                 onAdd={handleAdd}
-                onRemove={handleRemove}
+                onPaste={pasteInto}
             />
 
+            {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+
             <PlannedDetailDrawer
-                entry={detail}
+                entry={detailEntry}
                 exercisesById={exercisesById}
-                done={detail ? isDone(detail) : false}
-                doneLogId={detail ? doneLogIdOf(detail) : null}
+                done={detailEntry ? isDone(detailEntry) : false}
+                doneLogId={detailEntry ? doneLogIdOf(detailEntry) : null}
                 onClose={() => setDetail(null)}
-                onLogged={(entry, logId) => {
-                    const id = entryLibId(entry)
-                    if (id) markDoneKey(entry.kind, id, entry.date, logId)
-                }}
-                onUnlog={handleUnlog}
+                onMarkDone={markDone}
+                onUnlog={unmarkDone}
                 onSkip={handleSkip}
+                onCopy={(e) => {
+                    setDetail(null)
+                    copyEntry(e)
+                }}
+                onRemove={(id) => {
+                    setDetail(null)
+                    void handleRemove(id)
+                }}
                 onLogWeights={(workout, date) => {
                     setDetail(null)
                     setLogTarget({ workout, date })
@@ -1149,6 +1189,41 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 onRemove={handleRemoveFlag}
             />
 
+            <CopyWeekDrawer
+                open={copying}
+                weekLabel={rangeLabel}
+                options={FITNESS_PLAN_KINDS.map((k) => ({ value: k, label: KIND_META[k].label }))}
+                describe={kindsLabel}
+                hint="Pick what to copy, then go to another week and paste. Sessions you’ve already done there stay as they are."
+                onClose={() => setCopying(false)}
+                onCopy={(kinds) => {
+                    handleCopyWeek(kinds)
+                    setCopying(false)
+                }}
+            />
+
+            <ConfirmModal
+                open={pasteConfirm}
+                title="Paste week plan?"
+                confirmLabel="Paste"
+                message={
+                    clipboard && (
+                        <p className="text-sm text-neutral-600">
+                            Replace the planned{' '}
+                            <span className="font-semibold">{kindsLabel(clipboard.kinds)}</span> for{' '}
+                            <span className="font-semibold">{rangeLabel}</span> with the plan copied
+                            from{' '}
+                            <span className="font-semibold">
+                                {formatWeekRange(clipboard.from, addDays(clipboard.from, 6))}
+                            </span>
+                            ? Sessions you’ve done stay as they are.
+                        </p>
+                    )
+                }
+                onConfirm={() => void handlePasteWeek()}
+                onClose={() => setPasteConfirm(false)}
+            />
+
             <ConfirmModal
                 open={clearTarget !== null}
                 danger
@@ -1158,10 +1233,10 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                         <>
                             Remove{' '}
                             <span className="font-semibold">
-                                {clearInfo.count} planned item{clearInfo.count !== 1 ? 's' : ''}
+                                {clearInfo.count} planned session{clearInfo.count !== 1 ? 's' : ''}
                             </span>{' '}
-                            from <span className="font-semibold">{clearInfo.where}</span>? Flags
-                            stay in place. This can’t be undone.
+                            from <span className="font-semibold">{clearInfo.where}</span>? Sessions
+                            you’ve done and flags stay.
                         </>
                     ) : (
                         ''
@@ -1170,28 +1245,19 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 confirmLabel="Clear"
                 onConfirm={() => {
                     if (!clearTarget) return
-                    if (clearTarget.type === 'week') handleClearWeek()
-                    else handleClearDay(clearTarget.date)
+                    if (clearTarget.type === 'week') void clearDays(range.start, range.end)
+                    else void clearDays(clearTarget.date, clearTarget.date)
                     setClearTarget(null)
                 }}
                 onClose={() => setClearTarget(null)}
             />
 
-            <ConfirmModal
-                open={confirmDiscard}
-                danger
-                title="Undo your changes?"
-                message={
-                    <>
-                        Everything you have added, removed, moved or flagged since pressing{' '}
-                        <span className="font-semibold">Edit plan</span> will be put back as it was
-                        {baseline.current.size > 1 && ', across every week you have edited'}. This
-                        can’t itself be undone.
-                    </>
-                }
-                confirmLabel="Undo changes"
-                onConfirm={discardChanges}
-                onClose={() => setConfirmDiscard(false)}
+            <UndoDoneConfirm
+                entry={unlogTarget}
+                onConfirm={() => {
+                    if (unlogTarget) void unmarkDone(unlogTarget).catch(() => {})
+                }}
+                onClose={() => setUnlogTarget(null)}
             />
 
             <DayEventsSheet
@@ -1226,6 +1292,41 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 weekStart={range.start}
             />
         </div>
+    )
+}
+
+/** "Mark as not done?" — un-ticking a session deletes the log it wrote. */
+function UndoDoneConfirm({
+    entry,
+    onConfirm,
+    onClose,
+}: {
+    entry: FitnessPlanEntry | null
+    onConfirm: () => void
+    onClose: () => void
+}) {
+    // Keep the last session's words while the modal closes.
+    const [shown, setShown] = useState(entry)
+    if (entry && entry !== shown) setShown(entry)
+    return (
+        <ConfirmModal
+            open={!!entry}
+            danger
+            title="Mark as not done?"
+            message={
+                <>
+                    The log this wrote to your{' '}
+                    <span className="font-semibold">{shown ? KIND_META[shown.kind].label : ''}</span>{' '}
+                    history on{' '}
+                    <span className="font-semibold">{shown ? shortDayLabel(shown.date) : ''}</span> will
+                    be deleted, along with anything recorded on it. The session stays in the plan and
+                    can be marked done again.
+                </>
+            }
+            confirmLabel="Mark as not done"
+            onConfirm={onConfirm}
+            onClose={onClose}
+        />
     )
 }
 
@@ -1730,181 +1831,6 @@ function OverloadModal({
     )
 }
 
-// ─── Copy / paste week ──────────────────────────────────────────────────────────
-
-/**
- * Copy the current week's plan and paste it onto another week. "Copy week"
- * opens a checklist of categories (tick one, several or all); copying drops the
- * ticked categories onto a clipboard, and navigating to a different week reveals
- * "Paste", which overwrites only those categories there. Only shown in edit mode.
- */
-function WeekCopyControls({
-    weekStart,
-    weekEnd,
-    clipboard,
-    presentKinds,
-    onCopy,
-    onPaste,
-    onClearClipboard,
-}: {
-    weekStart: string
-    weekEnd: string
-    clipboard: { from: string; kinds: FitnessPlanKind[] } | null
-    presentKinds: Set<FitnessPlanKind>
-    onCopy: (kinds: FitnessPlanKind[]) => void
-    onPaste: () => void
-    onClearClipboard: () => void
-}) {
-    const [confirming, setConfirming] = useState(false)
-    const [open, setOpen] = useState(false)
-    // Which categories to copy — defaults to all; the checklist can narrow it.
-    const [selected, setSelected] = useState<Set<FitnessPlanKind>>(
-        () => new Set(FITNESS_PLAN_KINDS)
-    )
-    const panelRef = useRef<HTMLDivElement>(null)
-
-    // Close the copy checklist on an outside click.
-    useEffect(() => {
-        if (!open) return
-        function handle(e: MouseEvent) {
-            if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false)
-        }
-        document.addEventListener('mousedown', handle)
-        return () => document.removeEventListener('mousedown', handle)
-    }, [open])
-
-    // The clipboard's source week can't be pasted back onto itself.
-    const sameWeek = clipboard?.from === weekStart
-    // A paste only overwrites — and so only needs confirming — when this week
-    // already holds one of the categories being pasted. Otherwise paste straight.
-    const wouldReplace = clipboard?.kinds.some((k) => presentKinds.has(k)) ?? false
-
-    // The ticked categories, always in canonical order.
-    const chosen = FITNESS_PLAN_KINDS.filter((k) => selected.has(k))
-    const allSelected = chosen.length === FITNESS_PLAN_KINDS.length
-
-    function toggle(kind: FitnessPlanKind) {
-        setSelected((prev) => {
-            const next = new Set(prev)
-            if (next.has(kind)) next.delete(kind)
-            else next.add(kind)
-            return next
-        })
-    }
-
-    function handleCopyClick() {
-        if (chosen.length === 0) return
-        onCopy(chosen)
-        setOpen(false)
-    }
-
-    return (
-        <div className="flex items-center gap-2">
-            <div ref={panelRef} className="inline-block sm:relative">
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    icon="fa-solid fa-copy"
-                    onClick={() => setOpen((o) => !o)}
-                >
-                    Copy week
-                </Button>
-                {open && (
-                    // On a phone the panel spans the edit bar (its positioned parent) so it
-                    // can't open off-screen; from sm up it hangs under the button.
-                    <div className="absolute inset-x-0 top-full z-50 mt-2 rounded-xl border border-neutral-100 bg-white p-3 shadow-lg sm:inset-x-auto sm:right-0 sm:top-auto sm:min-w-56">
-                        <div className="mb-2 flex items-center justify-between">
-                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                Copy which categories
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setSelected(
-                                        allSelected ? new Set() : new Set(FITNESS_PLAN_KINDS)
-                                    )
-                                }
-                                className="text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-900"
-                            >
-                                {allSelected ? 'Clear' : 'All'}
-                            </button>
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                            {FITNESS_PLAN_KINDS.map((k) => (
-                                <Checkbox
-                                    key={k}
-                                    checked={selected.has(k)}
-                                    onChange={() => toggle(k)}
-                                    label={KIND_META[k].label}
-                                    className="rounded-lg px-1.5 py-1 hover:bg-neutral-50"
-                                />
-                            ))}
-                        </div>
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            icon="fa-solid fa-copy"
-                            onClick={handleCopyClick}
-                            disabled={chosen.length === 0}
-                            className="mt-3 w-full justify-center"
-                        >
-                            Copy {chosen.length ? kindsLabel(chosen) : ''}
-                        </Button>
-                    </div>
-                )}
-            </div>
-
-            {clipboard && (
-                <div className="flex items-center gap-1">
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        icon="fa-solid fa-paste"
-                        disabled={sameWeek}
-                        onClick={() => (wouldReplace ? setConfirming(true) : onPaste())}
-                        title={
-                            sameWeek
-                                ? 'This is the week you copied — move to another week to paste'
-                                : undefined
-                        }
-                    >
-                        Paste {kindsLabel(clipboard.kinds)}
-                    </Button>
-                    <IconButton
-                        icon="fa-solid fa-xmark"
-                        label="Clear copied week"
-                        onClick={onClearClipboard}
-                    />
-                </div>
-            )}
-
-            <ConfirmModal
-                open={confirming}
-                title="Paste week plan?"
-                confirmLabel="Paste"
-                message={
-                    clipboard && (
-                        <p className="text-sm text-neutral-600">
-                            Replace{' '}
-                            <span className="font-semibold">{kindsLabel(clipboard.kinds)}</span> for{' '}
-                            <span className="font-semibold">
-                                {formatWeekRange(weekStart, weekEnd)}
-                            </span>{' '}
-                            with the plan copied from{' '}
-                            <span className="font-semibold">
-                                {formatWeekRange(clipboard.from, addDays(clipboard.from, 6))}
-                            </span>
-                            ? Other categories on this week stay as they are.
-                        </p>
-                    )
-                }
-                onConfirm={onPaste}
-                onClose={() => setConfirming(false)}
-            />
-        </div>
-    )
-}
-
 // ─── Week hero ────────────────────────────────────────────────────────────────
 
 /** The kinds a list of entries holds, in canonical order. */
@@ -1928,15 +1854,11 @@ function FitnessWeekHero({
     isDone,
     alertDates,
     weekNote,
-    editing,
-    canEdit,
-    discarding,
+    menu,
     onStep,
     onSelect,
     onPick,
     onEditFlag,
-    onStartEditing,
-    onExport,
     board,
 }: {
     weekStart: string
@@ -1951,15 +1873,12 @@ function FitnessWeekHero({
     /** Days with an unaccepted clash or overload warning. */
     alertDates: Set<string>
     weekNote: FitnessPlanNote | null
-    editing: boolean
-    canEdit: boolean
-    discarding: boolean
+    /** The week's options: copy, paste, flag, export, clear. */
+    menu: MenuEntry[]
     onStep: (dir: -1 | 1) => void
     onSelect: (date: string) => void
     onPick: (date: string) => void
     onEditFlag: () => void
-    onStartEditing: () => void
-    onExport: () => void
     /** The full-width week board is showing — it does the strip's job. */
     board: boolean
 }) {
@@ -1970,7 +1889,6 @@ function FitnessWeekHero({
     const skipped = entries.filter((e) => e.skipped && !isDone(e)).length
     const flag = weekNote ? FLAG_TONE[weekNote.color] : null
     const isThisWeek = mondayOf(today) === weekStart
-    const goToday = () => onPick(today)
 
     // Everything about the week in one line of text, rather than a row of chips.
     const facts = [
@@ -1982,34 +1900,6 @@ function FitnessWeekHero({
         ready && t.minutes > 0 && `${t.minutes} min cardio`,
         ready && total === 0 && 'nothing planned yet',
     ].filter(Boolean)
-
-    const weekFlag =
-        weekNote && flag ? (
-            <button
-                type="button"
-                onClick={editing ? onEditFlag : undefined}
-                aria-label={editing ? 'Edit week flag' : undefined}
-                className={`inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-neutral-900 ring-1 ring-inset ring-neutral-900/[0.06] ${
-                    editing ? 'transition-opacity hover:opacity-80' : 'cursor-default'
-                }`}
-            >
-                <span className={`h-1.5 w-1.5 rounded-full ${flag.dot}`} aria-hidden="true" />
-                <span className="truncate">{weekNote.label || 'Flagged week'}</span>
-            </button>
-        ) : (
-            editing && (
-                <button
-                    type="button"
-                    onClick={onEditFlag}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-neutral-500 outline-1 -outline-offset-1 outline-dashed outline-coral-300 transition-colors hover:text-neutral-900"
-                >
-                    <i className="fa-solid fa-flag text-[10px]" aria-hidden="true" />
-                    Flag week
-                </button>
-            )
-        )
-
-    const showActions = canEdit && !editing
 
     const arrows = (
         <div className="flex shrink-0 items-center gap-2 sm:gap-1">
@@ -2027,7 +1917,7 @@ function FitnessWeekHero({
     )
 
     // Phones: the week's title gets a row to itself, the controls a row under
-    // it. From `sm` up it all sits on one line.
+    // it. From `sm` up it all sits on one line — the same as the Nutrition planner.
     return (
         <HeroShell tone="soft">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-3">
@@ -2038,7 +1928,17 @@ function FitnessWeekHero({
                             <h2 className="truncate text-xl font-semibold tracking-tight sm:text-lg">
                                 {relativeWeekLabel(weekStart, mondayOf(today))}
                             </h2>
-                            {weekFlag}
+                            {weekNote && flag && (
+                                <button
+                                    type="button"
+                                    onClick={onEditFlag}
+                                    aria-label="Edit week flag"
+                                    className="inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-neutral-900 ring-1 ring-inset ring-neutral-900/[0.06] transition-opacity hover:opacity-80"
+                                >
+                                    <span className={`h-1.5 w-1.5 rounded-full ${flag.dot}`} aria-hidden="true" />
+                                    <span className="truncate">{weekNote.label || 'Flagged week'}</span>
+                                </button>
+                            )}
                         </div>
                         <p className="mt-0.5 text-[13px] leading-snug text-neutral-500 sm:mt-0 sm:truncate">
                             {facts.join(' · ')}
@@ -2049,37 +1949,11 @@ function FitnessWeekHero({
                 <div className="flex shrink-0 items-center gap-3 sm:ml-auto sm:gap-2">
                     <div className="sm:hidden">{arrows}</div>
                     {!isThisWeek && (
-                        <HeroButton icon="fa-solid fa-calendar-day" onClick={goToday}>
+                        <HeroButton icon="fa-solid fa-calendar-day" onClick={() => onPick(today)} iconOnlyOnPhone>
                             Today
                         </HeroButton>
                     )}
-                    {showActions && (
-                        <div className="ml-auto flex items-center gap-3 sm:gap-2">
-                            <HeroButton
-                                icon="fa-solid fa-file-export"
-                                onClick={onExport}
-                                iconOnlyOnPhone={!isThisWeek}
-                            >
-                                Export
-                            </HeroButton>
-                            <HeroButton
-                                primary
-                                icon="fa-solid fa-pen"
-                                onClick={onStartEditing}
-                                disabled={discarding}
-                            >
-                                {isThisWeek ? (
-                                    'Edit plan'
-                                ) : (
-                                    // Make room for Today on a phone.
-                                    <>
-                                        <span className="sm:hidden">Edit</span>
-                                        <span className="hidden sm:inline">Edit plan</span>
-                                    </>
-                                )}
-                            </HeroButton>
-                        </div>
-                    )}
+                    <HeroMenu items={menu} />
                 </div>
             </div>
 
@@ -2117,16 +1991,18 @@ function WeekView({
     weekStart,
     selected,
     today,
-    editing,
     entries,
     dayNotes,
     clashesByDate,
     overloadsByDate,
     isDone,
+    clearable,
     onSelect,
     onAdd,
     onOpen,
-    onRemove,
+    onTick,
+    onRowMenu,
+    onSlotMenu,
     onReorder,
     onEditFlag,
     onClearDay,
@@ -2141,17 +2017,20 @@ function WeekView({
     /** The focused day — the only one shown on a phone. */
     selected: string
     today: string
-    editing: boolean
     entries: FitnessPlanEntry[]
     dayNotes: Map<string, FitnessPlanNote>
     clashesByDate: Map<string, Clash[]>
     overloadsByDate: Map<string, SlotOverload[]>
     /** Whether a planned item has a matching completion log on its day. */
     isDone: (entry: FitnessPlanEntry) => boolean
+    /** Whether a clear would take it — sessions still to do. */
+    clearable: (entry: FitnessPlanEntry) => boolean
     onSelect: (date: string) => void
     onAdd: (date: string, part: FitnessPlanPart) => void
     onOpen: (entry: FitnessPlanEntry) => void
-    onRemove: (id: string) => void
+    onTick: (entry: FitnessPlanEntry) => void
+    onRowMenu: (ev: { clientX: number; clientY: number }, entry: FitnessPlanEntry) => void
+    onSlotMenu: (ev: { clientX: number; clientY: number }, date: string, part: FitnessPlanPart) => void
     onReorder: (date: string, part: FitnessPlanPart, ids: string[]) => void
     onEditFlag: (scope: FitnessNoteScope, date: string) => void
     onClearDay: (date: string) => void
@@ -2236,7 +2115,6 @@ function WeekView({
                     // Only the focused day on a phone; every day from md up.
                     className={board ? 'flex' : dayClass(date)}
                     isToday={date === today}
-                    editable={editing}
                     entries={entries.filter((e) => e.date === date)}
                     note={dayNotes.get(date) ?? null}
                     clashCount={
@@ -2252,9 +2130,12 @@ function WeekView({
                         (overloadsByDate.get(date) ?? []).filter((o) => o.acknowledged).length
                     }
                     isDone={isDone}
+                    clearable={clearable}
                     onAdd={(part) => onAdd(date, part)}
                     onOpen={onOpen}
-                    onRemove={onRemove}
+                    onTick={onTick}
+                    onRowMenu={onRowMenu}
+                    onSlotMenu={(ev, part) => onSlotMenu(ev, date, part)}
                     dragActive={dragId !== null}
                     draggedId={dragId}
                     dropForDay={dropAt && dropAt.date === date ? dropAt : null}
@@ -2273,33 +2154,8 @@ function WeekView({
                     onShowEvents={() => onShowEvents(date)}
                 />
             ))}
-            {/* A nudge that the day view swipes — phones only, and only while viewing. */}
-            {!editing && !board && <SwipeHint />}
+            {!board && <SwipeHint />}
         </div>
-    )
-}
-
-function IconButton({
-    icon,
-    label,
-    onClick,
-    disabled = false,
-}: {
-    icon: string
-    label: string
-    onClick: () => void
-    disabled?: boolean
-}) {
-    return (
-        <button
-            type="button"
-            aria-label={label}
-            onClick={onClick}
-            disabled={disabled}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-500"
-        >
-            <i className={icon} aria-hidden="true" />
-        </button>
     )
 }
 
@@ -2344,7 +2200,6 @@ function DayCard({
     compact = false,
     className = '',
     isToday,
-    editable,
     entries,
     note,
     clashCount,
@@ -2352,9 +2207,12 @@ function DayCard({
     overloadCount,
     acceptedOverloadCount,
     isDone,
+    clearable,
     onAdd,
     onOpen,
-    onRemove,
+    onTick,
+    onRowMenu,
+    onSlotMenu,
     dragActive,
     draggedId,
     dropForDay,
@@ -2375,7 +2233,6 @@ function DayCard({
     compact?: boolean
     className?: string
     isToday: boolean
-    editable: boolean
     entries: FitnessPlanEntry[]
     note: FitnessPlanNote | null
     /** How many of this day's planned items clash with a calendar event, unaccepted. */
@@ -2388,9 +2245,12 @@ function DayCard({
     acceptedOverloadCount: number
     /** Whether a planned item has a matching completion log on its day. */
     isDone: (entry: FitnessPlanEntry) => boolean
+    clearable: (entry: FitnessPlanEntry) => boolean
     onAdd: (part: FitnessPlanPart) => void
     onOpen: (entry: FitnessPlanEntry) => void
-    onRemove: (id: string) => void
+    onTick: (entry: FitnessPlanEntry) => void
+    onRowMenu: (ev: { clientX: number; clientY: number }, entry: FitnessPlanEntry) => void
+    onSlotMenu: (ev: { clientX: number; clientY: number }, part: FitnessPlanPart) => void
     /** True while any row (this day's or another's) is being dragged. */
     dragActive: boolean
     /** The id of the row in flight, so it never targets itself. */
@@ -2435,34 +2295,21 @@ function DayCard({
     const slotItems = (part: FitnessPlanPart) =>
         entries.filter((e) => partOf(e) === part).sort((a, b) => a.order - b.order)
 
-    // Every slot always shows: editing, each is an add button and a drop target;
-    // viewing, an empty one reads "Nothing planned" so the day's shape stays clear.
-    const parts = FITNESS_PLAN_PARTS
-
-    const flagChip =
-        note && tone ? (
-            <button
-                type="button"
-                onClick={editable ? onEditFlag : undefined}
-                aria-label={editable ? 'Edit day flag' : undefined}
-                className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone.chip} ${
-                    editable ? 'transition-opacity hover:opacity-80' : 'cursor-default'
-                }`}
-            >
-                <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
-                <span className="truncate">{note.label || 'Flagged'}</span>
-            </button>
-        ) : null
     // What the day holds, with a thin bar filling as sessions are logged.
     const summary = rest ? (
         <p className="text-[13px] text-neutral-500">
             Rest day
-            {/* The wide feed has no rest-day body, so the note rides here. */}
-            {restNote && !compact && (
-                <span className="hidden md:inline">
+            {restNote && (
+                <>
                     {' · '}
-                    <span className="text-sky-700">{restNote.text}</span>
-                </span>
+                    <button
+                        type="button"
+                        onClick={onShowEvents}
+                        className="text-left text-sky-700 hover:underline"
+                    >
+                        {restNote.text}
+                    </button>
+                </>
             )}
         </p>
     ) : (
@@ -2481,13 +2328,44 @@ function DayCard({
             </div>
         </div>
     )
-    const hasActions =
-        calendarCount > 0 ||
-        clashCount > 0 ||
-        overloadCount > 0 ||
-        (editable && (acceptedClashCount > 0 || acceptedOverloadCount > 0 || !note || total > 0))
+
+    // The day's ⋯ menu: its flag, warnings that have been accepted (so they can
+    // be taken back), and clearing what's still to do.
+    const canClear = entries.some(clearable)
+    const dayMenu: MenuEntry[] = [
+        {
+            label: note ? 'Edit flag…' : 'Flag day…',
+            icon: 'fa-solid fa-flag',
+            onClick: onEditFlag,
+        },
+        ...(clashCount === 0 && acceptedClashCount > 0
+            ? [
+                  {
+                      label: `Accepted clash${acceptedClashCount === 1 ? '' : 'es'}…`,
+                      icon: 'fa-solid fa-calendar-check',
+                      onClick: onShowClashes,
+                  },
+              ]
+            : []),
+        ...(overloadCount === 0 && acceptedOverloadCount > 0
+            ? [
+                  {
+                      label: `Accepted overload${acceptedOverloadCount === 1 ? '' : 's'}…`,
+                      icon: 'fa-solid fa-gauge-high',
+                      onClick: onShowOverloads,
+                  },
+              ]
+            : []),
+        ...(canClear
+            ? [
+                  'divider' as const,
+                  { label: 'Clear day', icon: 'fa-solid fa-broom', danger: true, onClick: onClear },
+              ]
+            : []),
+    ]
+
     const actions = (
-        <div className="flex shrink-0 flex-wrap items-center gap-1">
+        <>
             {/* Something on the calendar in one of the day's slots — a heads-up
                 whether or not it clashes with anything planned. */}
             {calendarCount > 0 && (
@@ -2499,9 +2377,7 @@ function DayCard({
                     onClick={onShowEvents}
                 />
             )}
-            {/* Accepted warnings only show while editing, as a quiet mark that keeps
-                them one press from being taken back. */}
-            {clashCount > 0 ? (
+            {clashCount > 0 && (
                 <DayAlertButton
                     tone="amber"
                     icon="fa-solid fa-triangle-exclamation"
@@ -2509,18 +2385,8 @@ function DayCard({
                     label={`${clashCount} calendar clash${clashCount === 1 ? '' : 'es'} — view`}
                     onClick={onShowClashes}
                 />
-            ) : (
-                editable &&
-                acceptedClashCount > 0 && (
-                    <DayAlertButton
-                        tone="quiet"
-                        icon="fa-solid fa-calendar-check"
-                        label={`${acceptedClashCount} accepted calendar clash${acceptedClashCount === 1 ? '' : 'es'} — view`}
-                        onClick={onShowClashes}
-                    />
-                )
             )}
-            {overloadCount > 0 ? (
+            {overloadCount > 0 && (
                 <DayAlertButton
                     tone="violet"
                     icon="fa-solid fa-gauge-high"
@@ -2528,61 +2394,9 @@ function DayCard({
                     label={`${overloadCount} overloaded slot${overloadCount === 1 ? '' : 's'} — view`}
                     onClick={onShowOverloads}
                 />
-            ) : (
-                editable &&
-                acceptedOverloadCount > 0 && (
-                    <DayAlertButton
-                        tone="quiet"
-                        icon="fa-solid fa-gauge-high"
-                        label={`${acceptedOverloadCount} accepted overloaded slot${acceptedOverloadCount === 1 ? '' : 's'} — view`}
-                        onClick={onShowOverloads}
-                    />
-                )
             )}
-            {editable && !note && (
-                <button
-                    type="button"
-                    onClick={onEditFlag}
-                    aria-label={`Flag ${weekday}`}
-                    title="Flag day"
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
-                >
-                    <i className="fa-solid fa-flag text-[12px]" aria-hidden="true" />
-                </button>
-            )}
-            {editable && total > 0 && (
-                <button
-                    type="button"
-                    onClick={onClear}
-                    aria-label={`Clear ${weekday}`}
-                    title="Clear day"
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                >
-                    <i className="fa-solid fa-broom text-[12px]" aria-hidden="true" />
-                </button>
-            )}
-        </div>
-    )
-
-    // One line: weekday, date, today, flag — then the day's buttons pushed right.
-    const titleRow = (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h3
-                className={`font-semibold tracking-tight text-neutral-900 ${
-                    compact ? 'text-base' : 'text-lg'
-                }`}
-            >
-                {compact ? weekday.slice(0, 3) : weekday}
-            </h3>
-            <span className="text-sm text-neutral-500">
-                {day} {compact ? MONTHS[month].slice(0, 3) : MONTHS[month]}
-            </span>
-            {isToday && <span className="text-sm font-medium text-coral-600">Today</span>}
-            {flagChip}
-            {/* Negative margin so the 28px buttons never make the line taller than
-                the title — with or without them, the row is the same height. */}
-            {hasActions && <div className="-my-1.5 ml-auto">{actions}</div>}
-        </div>
+            <DayMenu label={`${weekday} options`} items={dayMenu} />
+        </>
     )
 
     return (
@@ -2598,97 +2412,66 @@ function DayCard({
             )}
 
             <header className="flex flex-col gap-2">
-                {titleRow}
+                <DayTitle date={date} compact={compact} isToday={isToday} actions={actions}>
+                    {note && tone && (
+                        <button
+                            type="button"
+                            onClick={onEditFlag}
+                            aria-label="Edit day flag"
+                            className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80 ${tone.chip}`}
+                        >
+                            <i className="fa-solid fa-flag text-[9px]" aria-hidden="true" />
+                            <span className="truncate">{note.label || 'Flagged'}</span>
+                        </button>
+                    )}
+                </DayTitle>
                 {summary}
             </header>
 
-            {rest && !editable ? (
-                // One rest-day block everywhere it shows: a phone's single day
-                // and a board column (where it fills the height so columns line
-                // up). The wide feed keeps rest days to their header line.
-                <div
-                    className={`flex items-center gap-3 rounded-xl bg-neutral-50 px-3 py-3 ${
-                        compact ? 'flex-1 flex-col justify-center text-center' : 'md:hidden'
-                    }`}
-                >
-                    <span
-                        className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
-                            restNote ? 'bg-sky-50 text-sky-600' : 'bg-emerald-50 text-emerald-500'
-                        }`}
-                    >
-                        <i
-                            className={`${restNote?.icon ?? 'fa-solid fa-mug-hot'} text-sm`}
-                            aria-hidden="true"
-                        />
-                    </span>
-                    {restNote ? (
-                        <button
-                            type="button"
-                            onClick={onShowEvents}
-                            className="min-w-0 text-left text-xs leading-snug text-sky-700 hover:underline"
-                        >
-                            {restNote.text}
-                        </button>
-                    ) : (
-                        <p className="text-xs text-neutral-500">
-                            Nothing planned. Rest and recharge.
-                        </p>
-                    )}
-                </div>
-            ) : (
-                parts.length > 0 && (
-                    <div
-                        className={
-                            editable
-                                ? compact
-                                    ? 'flex flex-col gap-3'
-                                    : 'grid gap-3 lg:grid-cols-3'
-                                : 'flex flex-col divide-y divide-neutral-100'
-                        }
-                    >
-                        {parts.map((part) => (
-                            <SlotSection
-                                key={part}
-                                compact={compact}
-                                part={part}
-                                editable={editable}
-                                entries={slotItems(part)}
-                                isDone={isDone}
-                                onAdd={() => onAdd(part)}
-                                onOpen={onOpen}
-                                onRemove={onRemove}
-                                dragActive={dragActive}
-                                draggedId={draggedId}
-                                drop={dropForDay && dropForDay.part === part ? dropForDay : null}
-                                onEntryDragStart={onEntryDragStart}
-                                onEntryDragEnd={onEntryDragEnd}
-                                onTarget={(refId, after) => onTarget(part, refId, after)}
-                                onClearTarget={() => onClearTarget(part)}
-                                onDropEntry={onDropEntry}
-                            />
-                        ))}
-                    </div>
-                )
-            )}
+            <div className="flex flex-col divide-y divide-neutral-100">
+                {FITNESS_PLAN_PARTS.map((part) => (
+                    <SlotSection
+                        key={part}
+                        compact={compact}
+                        part={part}
+                        entries={slotItems(part)}
+                        isDone={isDone}
+                        onAdd={() => onAdd(part)}
+                        onOpen={onOpen}
+                        onTick={onTick}
+                        onRowMenu={onRowMenu}
+                        onSlotMenu={(ev) => onSlotMenu(ev, part)}
+                        dragActive={dragActive}
+                        draggedId={draggedId}
+                        drop={dropForDay && dropForDay.part === part ? dropForDay : null}
+                        onEntryDragStart={onEntryDragStart}
+                        onEntryDragEnd={onEntryDragEnd}
+                        onTarget={(refId, after) => onTarget(part, refId, after)}
+                        onClearTarget={() => onClearTarget(part)}
+                        onDropEntry={onDropEntry}
+                    />
+                ))}
+            </div>
         </DayCardShell>
     )
 }
 
 /**
- * One slot (morning / afternoon / evening) of a day. Holds a flat list of items
- * of any category, each carrying its own colour. Viewing, it's a label over a
- * grid of item cards; editing, it becomes a lane — an add button and a drop
- * target, shown even when empty.
+ * One slot (morning / afternoon / evening) of a day: its name and a + beside
+ * its sessions (or over them in a board column). Sessions of any category sit
+ * together, each in its own colour; they tick off as they're done, open for a
+ * closer look, and drag to another slot or day on a wide screen.
  */
 function SlotSection({
     compact = false,
     part,
-    editable,
     entries,
     isDone,
     onAdd,
     onOpen,
-    onRemove,
+    onTick,
+    onRowMenu,
+    onSlotMenu,
     dragActive,
     draggedId,
     drop,
@@ -2701,13 +2484,16 @@ function SlotSection({
     /** A narrow board column: rows one under another, never side by side. */
     compact?: boolean
     part: FitnessPlanPart
-    editable: boolean
     entries: FitnessPlanEntry[]
     /** Whether a planned item has a matching completion log on its day. */
     isDone: (entry: FitnessPlanEntry) => boolean
     onAdd: () => void
     onOpen: (entry: FitnessPlanEntry) => void
-    onRemove: (id: string) => void
+    onTick: (entry: FitnessPlanEntry) => void
+    /** Right-click on a session: copy, open, remove. */
+    onRowMenu: (ev: { clientX: number; clientY: number }, entry: FitnessPlanEntry) => void
+    /** Right-click on the slot: paste a copied session, or add. */
+    onSlotMenu: (ev: { clientX: number; clientY: number }) => void
     /** True while an item is being dragged, so slots show as drop targets. */
     dragActive: boolean
     /** The id of the row in flight, if any — it never acts as its own drop target. */
@@ -2722,174 +2508,48 @@ function SlotSection({
     onDropEntry: () => void
 }) {
     const meta = PART_META[part]
-    const listRef = useRef<HTMLUListElement>(null)
-
-    // The whole slot is one continuous drop target: rather than hit-testing
-    // individual rows (which leaves dead gaps between them), we pick the insertion
-    // point from the cursor's Y against each row's midpoint. That makes every
-    // "between items" zone span from one row's middle to the next — a large,
-    // forgiving target with no seams. Skips the row in flight so its own space
-    // merges into its neighbours' zones instead of showing a self-drop.
-    const targetForY = (clientY: number): { refId: string | null; after: boolean } => {
-        const rows = listRef.current?.querySelectorAll<HTMLElement>('[data-plan-row]')
-        if (rows) {
-            for (const row of Array.from(rows)) {
-                const id = row.getAttribute('data-plan-row')
-                if (id === draggedId) continue
-                const rect = row.getBoundingClientRect()
-                if (clientY < rect.top + rect.height / 2) return { refId: id, after: false }
-            }
-        }
-        return { refId: null, after: false }
-    }
-
-    const containerDropProps = dragActive
-        ? {
-              onDragOver: (e: DragEvent) => {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                  const t = targetForY(e.clientY)
-                  onTarget(t.refId, t.after)
-              },
-              onDragLeave: (e: DragEvent) => {
-                  // Ignore bubbling from children; only clear when leaving the slot.
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) onClearTarget()
-              },
-              onDrop: (e: DragEvent) => {
-                  e.preventDefault()
-                  onDropEntry()
-              },
-          }
-        : {}
-
-    const label = <span className="text-[13px] font-medium text-neutral-500">{meta.label}</span>
-
-    const rows = entries.map((e) => (
-        <PlannedRow
-            key={e._id}
+    return (
+        <PlanSlot
             compact={compact}
-            entry={e}
-            done={isDone(e)}
-            dropId={e._id}
-            onOpen={() => onOpen(e)}
-            onRemove={editable ? () => onRemove(e._id) : undefined}
-            draggable={editable}
-            onDragStart={() => onEntryDragStart(e._id)}
-            onDragEnd={onEntryDragEnd}
-            dropEdge={drop && drop.refId === e._id ? (drop.after ? 'bottom' : 'top') : null}
-        />
-    ))
-
-    if (!editable) {
-        // A board column stacks the label over its items; wider, the label
-        // gets its own column so the items line up down the day.
-        return (
-            <div
-                className={
-                    compact
-                        ? 'flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0'
-                        : 'grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-3 first:pt-0 last:pb-0'
-                }
-            >
-                <span className={compact ? '' : 'pt-2'}>{label}</span>
-                {entries.length > 0 ? (
-                    <ul
-                        className={
-                            compact
-                                ? 'flex flex-col gap-1.5'
-                                : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'
-                        }
-                    >
-                        {rows}
-                    </ul>
-                ) : (
-                    <EmptySlotTile compact={compact} title="Free" detail="Nothing planned" />
-                )}
-            </div>
-        )
-    }
-
-    return (
-        <div
-            {...containerDropProps}
-            className={`flex flex-col gap-2 rounded-2xl transition-colors ${compact ? 'p-1.5' : 'p-2.5'} ${
-                drop ? 'bg-coral-50 ring-2 ring-inset ring-coral-200' : 'bg-neutral-50'
-            }`}
+            marker={
+                <i
+                    className={`${meta.icon} w-3 shrink-0 text-center text-[11px] text-neutral-400`}
+                    aria-hidden="true"
+                />
+            }
+            label={meta.label}
+            empty={entries.length === 0}
+            onAdd={onAdd}
+            onContextMenu={onSlotMenu}
+            dragActive={dragActive}
+            draggedId={draggedId}
+            drop={drop}
+            onTarget={onTarget}
+            onClearTarget={onClearTarget}
+            onDrop={onDropEntry}
         >
-            <div className="flex items-center justify-between pl-1">
-                {label}
-                <button
-                    type="button"
-                    aria-label={`Add to ${meta.label.toLowerCase()}`}
-                    onClick={onAdd}
-                    className="grid h-8 w-8 place-items-center rounded-[10px] bg-white text-neutral-500 shadow-sm ring-1 ring-neutral-900/[0.06] transition-colors hover:bg-neutral-900 hover:text-white"
-                >
-                    <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
-                </button>
-            </div>
-            {entries.length > 0 ? (
-                <ul ref={listRef} className={`flex flex-col ${compact ? 'gap-1.5' : 'gap-2'}`}>
-                    {rows}
-                    {drop && drop.refId === null && <DropLine />}
-                </ul>
-            ) : (
-                <button type="button" onClick={onAdd} className="group block w-full text-left">
-                    <EmptySlotTile
-                        compact={compact}
-                        active={dragActive}
-                        title={dragActive ? 'Move here' : `Add to ${meta.label.toLowerCase()}`}
-                        detail={dragActive ? 'Drop to move it' : 'Pick a session'}
-                    />
-                </button>
-            )}
-        </div>
+            {entries.map((e) => (
+                <PlannedRow
+                    key={e._id}
+                    compact={compact}
+                    entry={e}
+                    done={isDone(e)}
+                    onOpen={() => onOpen(e)}
+                    onTick={() => onTick(e)}
+                    onContextMenu={(ev) => {
+                        ev.preventDefault()
+                        ev.stopPropagation()
+                        onRowMenu(ev, e)
+                    }}
+                    onDragStart={() => onEntryDragStart(e._id)}
+                    onDragEnd={onEntryDragEnd}
+                    dropEdge={drop && drop.refId === e._id ? (drop.after ? 'bottom' : 'top') : null}
+                />
+            ))}
+        </PlanSlot>
     )
 }
 
-/**
- * A slot with nothing in it. Built like a planned row (bar gap, name, detail
- * line) so it stands exactly as tall as one, and outlined rather than bordered
- * so the dashes add no height.
- */
-function EmptySlotTile({
-    compact = false,
-    active = false,
-    title,
-    detail,
-}: {
-    compact?: boolean
-    /** A drag is in flight and this slot would take it. */
-    active?: boolean
-    title: string
-    detail: string
-}) {
-    return (
-        <span
-            className={`flex items-center rounded-xl outline-1 -outline-offset-1 outline-dashed transition-colors ${
-                compact ? 'p-2' : 'px-2.5 py-2'
-            } ${
-                active
-                    ? 'bg-coral-50 text-coral-600 outline-coral-300'
-                    : 'text-neutral-400 outline-neutral-200 group-hover:text-neutral-600 group-hover:outline-neutral-300'
-            }`}
-        >
-            <span className="flex min-w-0 items-stretch gap-2.5">
-                <span className="w-1 shrink-0" aria-hidden="true" />
-                <span className="min-w-0 flex-1 py-0.5">
-                    <span className="block truncate text-sm font-medium">{title}</span>
-                    <span className="mt-0.5 block truncate text-[13px] opacity-80">{detail}</span>
-                </span>
-            </span>
-        </span>
-    )
-}
-
-/** The coral marker showing where a dragged row will drop within a slot. */
-function DropLine() {
-    return <li aria-hidden="true" className="h-0.5 rounded-full bg-coral-500" />
-}
-
-/** A small pill naming an item's category, so mixed slots stay legible. */
 /** The one-line summary under a planned item's name. */
 function plannedMeta(entry: FitnessPlanEntry): string {
     if (entry.kind === 'workout' && entry.workout) {
@@ -2909,239 +2569,144 @@ function PlannedRow({
     entry,
     done = false,
     onOpen,
-    onRemove,
-    draggable = false,
+    onTick,
     onDragStart,
     onDragEnd,
-    dropId,
     dropEdge = null,
+    onContextMenu,
 }: {
-    /** Tighter, for a narrow board column: smaller tile, no drag grip. */
+    /** Tighter, for a narrow board column: smaller tick, no drag grip. */
     compact?: boolean
     entry: FitnessPlanEntry
-    /** When true the item has a matching completion log — shows a green tick. */
+    /** When true the item has a matching completion log — the tick shows green. */
     done?: boolean
-    onOpen?: () => void
-    onRemove?: () => void
-    /** When true the row can be dragged to another slot or day (week view). */
-    draggable?: boolean
-    onDragStart?: () => void
-    onDragEnd?: () => void
-    /** Marks the row for the slot's geometry-based drop targeting (`data-plan-row`). */
-    dropId?: string
-    /**
-     * Which edge to mark as the pending drop spot, or null for none. Drawn as an
-     * overlay so it never shifts the row's box — otherwise the row would slide out
-     * from under the cursor mid-drag and the target would flicker.
-     */
+    onOpen: () => void
+    /** The tick: a quick log, or the way back from one. */
+    onTick: () => void
+    onDragStart: () => void
+    onDragEnd: () => void
+    /** Which edge to mark as the pending drop spot — an overlay, so the row never shifts. */
     dropEdge?: 'top' | 'bottom' | null
+    /** Right-click on the row. */
+    onContextMenu: (ev: MouseEvent) => void
 }) {
-    const name = planItemName(entry)
-    const tone = KIND_TONE[entry.kind]
-    const [dragging, setDragging] = useState(false)
+    const name = planItemName(entry) ?? KIND_META[entry.kind].noun
     // A logged session counts as done even if it was skipped first.
     const skipped = !done && entry.skipped === true
 
-    const body = (
-        <span className="flex min-w-0 items-stretch gap-2.5">
-            <span
-                className={`w-1 shrink-0 rounded-full ${skipped ? 'bg-neutral-300' : tone.dot}`}
-                aria-hidden="true"
-            />
-            <span className="min-w-0 flex-1 py-0.5">
-                <span
-                    className={`block truncate text-sm font-medium ${
-                        skipped
-                            ? 'text-neutral-400 line-through decoration-neutral-300'
-                            : done
-                              ? 'text-neutral-500'
-                              : 'text-neutral-900'
-                    }`}
-                >
-                    {name}
-                </span>
-                <span className="mt-0.5 block truncate text-[13px] text-neutral-500">
-                    {skipped
-                        ? entry.skipReason
-                            ? `Skipped · ${entry.skipReason}`
-                            : 'Skipped'
-                        : plannedMeta(entry)}
-                </span>
-            </span>
+    const trailing = skipped ? (
+        <span
+            className={`grid shrink-0 place-items-center rounded-full bg-red-50 text-red-500 ${rowButtonSize(compact)}`}
+            aria-label="Skipped"
+            title={entry.skipReason ? `Skipped — ${entry.skipReason}` : 'Skipped'}
+        >
+            <i className="fa-solid fa-ban text-[11px]" aria-hidden="true" />
         </span>
+    ) : (
+        <RowTick
+            done={done}
+            compact={compact}
+            label={done ? `Mark ${name} as not done` : `Mark ${name} as done`}
+            title={done ? 'Done' : 'Mark as done'}
+            onClick={onTick}
+        />
     )
 
     return (
-        <li
-            draggable={draggable}
-            onDragStart={
-                draggable
-                    ? (e: DragEvent) => {
-                          // A payload is required for the drag to start in Firefox.
-                          e.dataTransfer.setData('text/plain', entry._id)
-                          e.dataTransfer.effectAllowed = 'move'
-                          setDragging(true)
-                          onDragStart?.()
-                      }
-                    : undefined
+        <PlanRow
+            compact={compact}
+            bar={skipped ? 'bg-neutral-300' : KIND_TONE[entry.kind].dot}
+            title={name}
+            titleTone={
+                skipped
+                    ? 'text-neutral-400 line-through decoration-neutral-300'
+                    : done
+                      ? 'text-neutral-500'
+                      : 'text-neutral-900'
             }
-            onDragEnd={
-                draggable
-                    ? () => {
-                          setDragging(false)
-                          onDragEnd?.()
-                      }
-                    : undefined
+            meta={
+                skipped
+                    ? entry.skipReason
+                        ? `Skipped · ${entry.skipReason}`
+                        : 'Skipped'
+                    : plannedMeta(entry)
             }
-            data-plan-row={dropId}
-            className={`group relative flex items-center rounded-xl transition-colors ${
-                compact ? 'gap-1 p-2' : 'gap-2 px-2.5 py-2'
-            } ${
-                // In an edit lane (grey) the row needs to stand off it in white.
-                draggable ? 'bg-white ring-1 ring-neutral-900/[0.06]' : 'bg-neutral-50'
-            } ${onOpen ? (draggable ? 'hover:ring-neutral-900/[0.12]' : 'hover:bg-neutral-100') : ''} ${draggable ? 'md:cursor-grab md:active:cursor-grabbing' : ''} ${
-                dragging ? 'opacity-40' : ''
-            }`}
-        >
-            {dropEdge && (
-                <span
-                    aria-hidden="true"
-                    className={`pointer-events-none absolute inset-x-0 h-0.5 rounded-full bg-coral-500 ${
-                        dropEdge === 'top' ? '-top-[5px]' : '-bottom-[5px]'
-                    }`}
-                />
-            )}
-            {draggable && !compact && (
-                // Drag-and-drop is a mouse thing — no grip on touch screens.
-                <i
-                    className="fa-solid fa-grip-vertical hidden shrink-0 pl-1 text-[11px] text-neutral-300 md:inline"
-                    aria-hidden="true"
-                />
-            )}
-            {onOpen ? (
-                <button
-                    type="button"
-                    onClick={onOpen}
-                    aria-label={`View ${name ?? 'item'}`}
-                    className="min-w-0 flex-1 rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-coral-300"
-                >
-                    {body}
-                </button>
-            ) : (
-                <div className="min-w-0 flex-1">{body}</div>
-            )}
-            {done && (
-                <span
-                    className={`grid shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-600 ${
-                        compact ? 'h-5 w-5' : 'h-6 w-6'
-                    }`}
-                    aria-label="Done"
-                    title="Completed"
-                >
-                    <i className="fa-solid fa-check text-[11px]" aria-hidden="true" />
-                </span>
-            )}
-            {skipped && (
-                <span
-                    className={`grid shrink-0 place-items-center rounded-full bg-red-50 text-red-500 ${
-                        compact ? 'h-5 w-5' : 'h-6 w-6'
-                    }`}
-                    aria-label="Skipped"
-                    title={entry.skipReason ? `Skipped — ${entry.skipReason}` : 'Skipped'}
-                >
-                    <i className="fa-solid fa-ban text-[11px]" aria-hidden="true" />
-                </span>
-            )}
-            {onRemove && (
-                <button
-                    type="button"
-                    aria-label={`Remove ${name ?? 'item'}`}
-                    onClick={onRemove}
-                    className={`grid shrink-0 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500 ${
-                        compact ? 'h-6 w-6' : 'h-8 w-8'
-                    }`}
-                >
-                    <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
-                </button>
-            )}
-        </li>
+            name={name}
+            onOpen={onOpen}
+            trailing={trailing}
+            draggable
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            dropId={entry._id}
+            dropEdge={dropEdge}
+            onContextMenu={onContextMenu}
+        />
     )
 }
 
 /** Quick reasons offered when skipping a session. */
 const SKIP_SUGGESTIONS = ['Injured', 'Ill', 'Tired', 'Too busy', 'Travelling', 'Weather']
 
-/** How many library items the day drawer's add list lays out at a time. */
+/** How many library items the add drawer lays out at a time. */
 const PICKER_PAGE_SIZE = 10
 
 /**
- * The day drawer. It targets one day + slot; inside, a Slot toggle and a Type
- * toggle (Strength / Conditioning) choose where an added item lands
- * and which library the add list draws from. In view mode it's a read-only
- * summary grouped by slot; in edit mode items can be added and removed here.
- *
- * The add list is paged: the libraries grow into the hundreds, so it shows the
- * first `PICKER_PAGE_SIZE` — pinned workouts first, where they're pinned — and
- * leaves search and the pager to reach the rest.
+ * Adding to a day — laid out like the Nutrition one. The slot and the type
+ * (Strength / Conditioning) at the top, then search, the copied session to
+ * paste, pinned workouts, and the library a page at a time (it grows into the
+ * hundreds). Picking one adds it and closes.
  */
-function ItemPicker({
+function AddDrawer({
     target,
-    editable,
     workouts,
     sessions,
-    entries,
-    isDone,
+    copied,
     onClose,
     onAdd,
-    onRemove,
+    onPaste,
 }: {
     target: { date: string; part: FitnessPlanPart } | null
-    editable: boolean
     workouts: Workout[]
     sessions: ConditioningSession[]
-    entries: FitnessPlanEntry[]
-    /** Whether a planned item has a matching completion log on its day. */
-    isDone: (entry: FitnessPlanEntry) => boolean
+    /** A session copied elsewhere, offered first so it can be pasted here. */
+    copied: FitnessPlanEntry | null
     onClose: () => void
-    onAdd: (
-        date: string,
-        kind: FitnessPlanKind,
-        itemId: string,
-        part: FitnessPlanPart
-    ) => Promise<void>
-    onRemove: (id: string) => void
+    onAdd: (date: string, kind: FitnessPlanKind, itemId: string, part: FitnessPlanPart) => Promise<void>
+    onPaste: (date: string, part: FitnessPlanPart) => Promise<void>
 }) {
-    // Retain the last target so the drawer keeps its content while sliding shut.
+    // The last target stays on show while the drawer slides shut.
     const [view, setView] = useState(target)
+    const [part, setPart] = useState<FitnessPlanPart>('morning')
+    const [kind, setKind] = useState<FitnessPlanKind>('workout')
     const [query, setQuery] = useState('')
-    // Which library the add list shows, and which slot an added item lands in.
-    const [activeKind, setActiveKind] = useState<FitnessPlanKind>('workout')
-    const [activePart, setActivePart] = useState<FitnessPlanPart>('morning')
-    // Which page of the add list is on show. Libraries run to hundreds of items
-    // (conditioning especially), and laying them all out at once is what made
-    // the drawer buckle — so it shows a page at a time, with search to narrow.
     const [page, setPage] = useState(1)
-    useEffect(() => {
-        if (target) {
-            setView(target)
-            setQuery('')
-            setActiveKind('workout')
-            setActivePart(target.part)
-            setPage(1)
-        }
-    }, [target])
+    const [busy, setBusy] = useState(false)
 
-    // A different library or a new search starts the list over at the top.
-    useEffect(() => {
+    // Opened on a slot: start fresh from it.
+    if (target && target !== view) {
+        setView(target)
+        setPart(target.part)
+        setKind('workout')
+        setQuery('')
         setPage(1)
-    }, [activeKind, query])
+        setBusy(false)
+    }
 
-    const kind = activeKind
+    async function run(fn: () => Promise<void>) {
+        if (busy) return
+        setBusy(true)
+        try {
+            await fn()
+            onClose()
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    const q = query.trim().toLowerCase()
     const meta = KIND_META[kind]
-    const title = editable ? 'Add to day' : 'Day plan'
 
     const workoutResults = useMemo(() => {
-        const q = query.trim().toLowerCase()
         const base = q
             ? workouts.filter(
                   (w) =>
@@ -3149,15 +2714,10 @@ function ItemPicker({
                       (w.description ?? '').toLowerCase().includes(q)
               )
             : workouts
-        // Pinned workouts (showInPlanner) bubble to the top as suggestions.
-        return [...base].sort(
-            (a, b) =>
-                Number(b.showInPlanner) - Number(a.showInPlanner) || a.name.localeCompare(b.name)
-        )
-    }, [workouts, query])
+        return [...base].sort((a, b) => a.name.localeCompare(b.name))
+    }, [workouts, q])
 
     const sessionResults = useMemo(() => {
-        const q = query.trim().toLowerCase()
         const base = q
             ? sessions.filter(
                   (s) =>
@@ -3166,224 +2726,148 @@ function ItemPicker({
               )
             : sessions
         return [...base].sort((a, b) => a.name.localeCompare(b.name))
-    }, [sessions, query])
+    }, [sessions, q])
 
-    // How many of the active library matched, and the slice of it on show.
+    // Workouts pinned to the planner (showInPlanner), offered first.
+    const pinned = kind === 'workout' && !q ? workoutResults.filter((w) => w.showInPlanner) : []
+
     const total = kind === 'workout' ? workoutResults.length : sessionResults.length
     const pageCount = Math.max(1, Math.ceil(total / PICKER_PAGE_SIZE))
-    // A new search or a shrinking library can leave `page` past the end — pull it back.
-    useEffect(() => {
-        if (page > pageCount) setPage(pageCount)
-    }, [page, pageCount])
-    const from = (page - 1) * PICKER_PAGE_SIZE
+    const current = Math.min(page, pageCount)
+    const from = (current - 1) * PICKER_PAGE_SIZE
     const to = from + PICKER_PAGE_SIZE
 
-    // The day's items, grouped by slot for the read-only summary.
-    const slots = FITNESS_PLAN_PARTS.map((part) => ({
-        part,
-        items: entries.filter((e) => partOf(e) === part),
-    })).filter((s) => s.items.length > 0)
+    const date = view?.date ?? todayKey()
+    const add = (id: string) => run(() => onAdd(date, kind, id, part))
+
+    const workoutDetail = (w: Workout) => {
+        const mins = estimateWorkoutMinutes(w)
+        return [
+            `${w.main.length} ${w.main.length === 1 ? 'exercise' : 'exercises'}`,
+            mins > 0 ? `~${mins} min` : '',
+        ]
+            .filter(Boolean)
+            .join(' · ')
+    }
+
+    const empty =
+        kind === 'workout'
+            ? workouts.length === 0
+                ? 'No workouts yet — build some in Strength.'
+                : 'No workouts found.'
+            : sessions.length === 0
+              ? 'No sessions yet — build some in Conditioning.'
+              : 'No sessions found.'
 
     return (
         <Drawer
             open={!!target}
             onClose={onClose}
-            title={title}
+            title={`Add to ${PART_META[part].label.toLowerCase()}`}
             badge={view ? shortDayLabel(view.date) : undefined}
-            footer={
-                <Button variant="ghost" onClick={onClose}>
-                    Done
-                </Button>
-            }
         >
-            <div className="flex flex-col gap-4">
-                {slots.length > 0 ? (
-                    <section className="flex flex-col gap-3">
-                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                            On this day
-                        </p>
-                        {slots.map(({ part, items }) => (
-                            <div key={part} className="flex flex-col gap-1.5">
-                                <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                    <i
-                                        className={`${PART_META[part].icon} text-[11px] text-neutral-500`}
-                                        aria-hidden="true"
-                                    />
-                                    {PART_META[part].label}
-                                </span>
-                                <ul className="flex flex-col gap-1">
-                                    {items.map((e) => (
-                                        <PlannedRow
-                                            key={e._id}
-                                            entry={e}
-                                            done={isDone(e)}
-                                            onRemove={editable ? () => onRemove(e._id) : undefined}
-                                        />
-                                    ))}
-                                </ul>
-                            </div>
-                        ))}
-                    </section>
-                ) : (
-                    !editable && (
-                        <p className="py-6 text-center text-sm text-neutral-500">
-                            Nothing planned — a rest day.
-                        </p>
-                    )
-                )}
+            {view && (
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Segmented
+                            value={part}
+                            options={FITNESS_PLAN_PARTS.map(
+                                (p) => [p, PART_META[p].label] as [FitnessPlanPart, string]
+                            )}
+                            onChange={setPart}
+                        />
+                        <Segmented
+                            value={kind}
+                            options={FITNESS_PLAN_KINDS.map(
+                                (k) => [k, KIND_META[k].label] as [FitnessPlanKind, string]
+                            )}
+                            onChange={(k) => {
+                                setKind(k)
+                                setPage(1)
+                            }}
+                        />
+                    </div>
 
-                {!editable ? null : (
-                    <>
-                        <div className="flex flex-col gap-1.5">
-                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                Slot
-                            </p>
-                            <div className="inline-flex self-start gap-1 rounded-xl bg-neutral-100 p-1">
-                                {FITNESS_PLAN_PARTS.map((p) => {
-                                    const active = p === activePart
-                                    return (
-                                        <button
-                                            key={p}
-                                            type="button"
-                                            onClick={() => setActivePart(p)}
-                                            className={`h-8 rounded-[9px] px-3 text-[13px] font-medium transition-all duration-200 ${
-                                                active
-                                                    ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
-                                                    : 'text-neutral-500 hover:text-neutral-900'
-                                            }`}
-                                        >
-                                            {PART_META[p].label}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                Type
-                            </p>
-                            <div className="inline-flex self-start gap-1 rounded-xl bg-neutral-100 p-1">
-                                {FITNESS_PLAN_KINDS.map((k) => {
-                                    const active = k === activeKind
-                                    return (
-                                        <button
-                                            key={k}
-                                            type="button"
-                                            onClick={() => setActiveKind(k)}
-                                            className={`h-8 rounded-[9px] px-3 text-[13px] font-medium transition-all duration-200 ${
-                                                active
-                                                    ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
-                                                    : 'text-neutral-500 hover:text-neutral-900'
-                                            }`}
-                                        >
-                                            {KIND_META[k].label}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-
+                    <div className="flex flex-col gap-5">
                         <Input
+                            icon="fa-solid fa-magnifying-glass"
+                            type="search"
                             placeholder={`Search ${meta.noun}s…`}
                             value={query}
-                            onChange={(e) => setQuery(e.target.value)}
+                            onChange={(e) => {
+                                setQuery(e.target.value)
+                                setPage(1)
+                            }}
                         />
 
-                        {total > 0 && (
-                            <p className="text-xs text-neutral-500">
-                                {total <= PICKER_PAGE_SIZE
-                                    ? `${total} ${meta.noun}${total === 1 ? '' : 's'}`
-                                    : `Showing ${from + 1}–${Math.min(to, total)} of ${total} ${meta.noun}s`}
-                                {total > PICKER_PAGE_SIZE && !query.trim() && ' — search to narrow'}
-                            </p>
-                        )}
-
-                        {kind === 'workout' ? (
-                            workoutResults.length === 0 ? (
-                                <p className="py-6 text-center text-sm text-neutral-500">
-                                    No workouts found.
-                                </p>
-                            ) : (
-                                <ul className="flex flex-col gap-1.5">
-                                    {workoutResults.slice(from, to).map((w) => (
-                                        <li key={w._id}>
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    view &&
-                                                    onAdd(view.date, 'workout', w._id, activePart)
-                                                }
-                                                className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-                                            >
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <p className="truncate text-sm font-medium text-neutral-800">
-                                                            {w.name}
-                                                        </p>
-                                                        {w.showInPlanner && (
-                                                            <i
-                                                                className="fa-solid fa-thumbtack shrink-0 text-[11px] text-coral-500"
-                                                                aria-hidden="true"
-                                                                title="Pinned"
-                                                            />
-                                                        )}
-                                                    </div>
-                                                    <p className="text-xs tabular-nums text-neutral-500">
-                                                        {w.main.length}{' '}
-                                                        {w.main.length === 1
-                                                            ? 'exercise'
-                                                            : 'exercises'}
-                                                    </p>
-                                                </div>
-                                                <i
-                                                    className="fa-solid fa-plus text-xs text-neutral-500"
-                                                    aria-hidden="true"
-                                                />
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )
-                        ) : sessionResults.length === 0 ? (
-                            <p className="py-6 text-center text-sm text-neutral-500">
-                                No sessions found.
-                            </p>
-                        ) : (
-                            <ul className="flex flex-col gap-1.5">
-                                {sessionResults.slice(from, to).map((s) => (
-                                    <li key={s._id}>
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                view &&
-                                                onAdd(view.date, 'conditioning', s._id, activePart)
-                                            }
-                                            className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-                                        >
-                                            <div className="min-w-0 flex-1">
-                                                <p className="truncate text-sm font-medium text-neutral-800">
-                                                    {s.name}
-                                                </p>
-                                                <p className="text-xs tabular-nums text-neutral-500">
-                                                    {s.duration} min
-                                                </p>
-                                            </div>
-                                            <CategoryChip category={s.category} />
-                                            <i
-                                                className="fa-solid fa-plus text-xs text-neutral-500"
-                                                aria-hidden="true"
-                                            />
-                                        </button>
-                                    </li>
-                                ))}
+                        {copied && !q && (
+                            <ul>
+                                <PickRow
+                                    title={`Paste ${planItemName(copied) ?? 'session'}`}
+                                    detail="The session you copied"
+                                    icon="fa-solid fa-paste"
+                                    disabled={busy}
+                                    onClick={() => run(() => onPaste(date, part))}
+                                />
                             </ul>
                         )}
 
-                        <Pagination page={page} pageCount={pageCount} onChange={setPage} />
-                    </>
-                )}
-            </div>
+                        {pinned.length > 0 && (
+                            <section className="flex flex-col gap-2">
+                                <p className={PICK_LABEL}>Pinned</p>
+                                <ul className="flex flex-col gap-1.5">
+                                    {pinned.map((w) => (
+                                        <PickRow
+                                            key={w._id}
+                                            title={w.name}
+                                            detail={workoutDetail(w)}
+                                            icon="fa-solid fa-plus"
+                                            disabled={busy}
+                                            onClick={() => add(w._id)}
+                                        />
+                                    ))}
+                                </ul>
+                            </section>
+                        )}
+
+                        <section className="flex flex-col gap-2">
+                            <p className={PICK_LABEL}>
+                                {q ? `${meta.label} results` : kind === 'workout' ? 'All workouts' : 'All sessions'}
+                            </p>
+                            {total === 0 ? (
+                                <p className="rounded-xl bg-neutral-50 px-3 py-3 text-center text-sm text-neutral-500">
+                                    {empty}
+                                </p>
+                            ) : (
+                                <ul className="flex flex-col gap-1.5">
+                                    {kind === 'workout'
+                                        ? workoutResults.slice(from, to).map((w) => (
+                                              <PickRow
+                                                  key={w._id}
+                                                  title={w.name}
+                                                  detail={workoutDetail(w)}
+                                                  icon="fa-solid fa-plus"
+                                                  disabled={busy}
+                                                  onClick={() => add(w._id)}
+                                              />
+                                          ))
+                                        : sessionResults.slice(from, to).map((s) => (
+                                              <PickRow
+                                                  key={s._id}
+                                                  title={s.name}
+                                                  detail={`${s.category} · ${s.duration} min`}
+                                                  icon="fa-solid fa-plus"
+                                                  disabled={busy}
+                                                  onClick={() => add(s._id)}
+                                              />
+                                          ))}
+                                </ul>
+                            )}
+                            <Pagination page={current} pageCount={pageCount} onChange={setPage} />
+                        </section>
+                    </div>
+                </div>
+            )}
         </Drawer>
     )
 }
@@ -3391,10 +2875,11 @@ function ItemPicker({
 // ─── Planned item detail drawer ────────────────────────────────────────────────
 
 /**
- * A read-only look at a planned item, opened by clicking its row in the week
- * view. Renders the full details of whichever library it came from — a
- * workout's exercises, or a conditioning session's parts. All detail data rides along on the populated plan entry; only a
- * workout's exercise *names* need the exercises library (via `exercisesById`).
+ * A planned item opened from its row: the full details of whichever library it
+ * came from — a workout's exercises, or a conditioning session's parts — and
+ * what can be done with it (start, mark done, skip, copy, remove). All detail
+ * data rides along on the populated plan entry; only a workout's exercise
+ * *names* need the exercises library (via `exercisesById`).
  */
 function PlannedDetailDrawer({
     entry,
@@ -3402,9 +2887,11 @@ function PlannedDetailDrawer({
     done,
     doneLogId,
     onClose,
-    onLogged,
+    onMarkDone,
     onUnlog,
     onSkip,
+    onCopy,
+    onRemove,
     onLogWeights,
     onStartSession,
 }: {
@@ -3415,12 +2902,16 @@ function PlannedDetailDrawer({
     /** The id of the log that completed it, when the tick can be undone. */
     doneLogId: string | null
     onClose: () => void
-    /** Called after an item is logged, so the planner can tick its row. */
-    onLogged: (entry: FitnessPlanEntry, logId: string) => void
+    /** Log the item as it stands, dated to its day, so its row ticks. */
+    onMarkDone: (entry: FitnessPlanEntry) => Promise<void>
     /** Delete the completion log behind a ticked item, so it counts as not done. */
-    onUnlog: (entry: FitnessPlanEntry, logId: string) => Promise<void>
+    onUnlog: (entry: FitnessPlanEntry) => Promise<void>
     /** Skip the item (with an optional reason), or put a skipped one back on. */
     onSkip: (entry: FitnessPlanEntry, skipped: boolean, reason?: string) => Promise<void>
+    /** Copy it, to paste into another slot or day. */
+    onCopy: (entry: FitnessPlanEntry) => void
+    /** Take it off the plan. Any log it wrote stays in the history. */
+    onRemove: (id: string) => void
     /** Open the per-set weight logger for a planned workout, dated to its day. */
     onLogWeights: (workout: Workout, date: string) => void
     /** Open the session logger for a planned conditioning session — fresh, or
@@ -3433,7 +2924,6 @@ function PlannedDetailDrawer({
         if (entry) setView(entry)
     }, [entry])
 
-    const toast = useToast()
     const [logging, setLogging] = useState(false)
     // An undo of "Mark as done" awaiting confirmation — it deletes the log.
     const [confirmUndo, setConfirmUndo] = useState(false)
@@ -3504,20 +2994,10 @@ function PlannedDetailDrawer({
         if (!e) return
         setLogging(true)
         try {
-            let logId = ''
-            if (e.kind === 'workout' && e.workout) {
-                logId = (await createWorkoutLog({ workout: e.workout._id, date: e.date }))._id
-                toast.show(`Logged “${e.workout.name}”.`, 'success')
-            } else if (e.kind === 'conditioning' && e.session) {
-                logId = (
-                    await createConditioningLog(conditioningPayload(e.session, e.date, EMPTY_TAPS))
-                )._id
-                toast.show(`Logged “${e.session.name}”.`, 'success')
-            }
-            onLogged(e, logId)
+            await onMarkDone(e)
             onClose()
         } catch {
-            toast.show('Could not log that — please try again.', 'danger')
+            // The planner has already said it failed.
         } finally {
             setLogging(false)
         }
@@ -3557,15 +3037,11 @@ function PlannedDetailDrawer({
         if (!e || !doneLogId) return
         setLogging(true)
         try {
-            await onUnlog(e, doneLogId)
-            // Start over: nothing from the undone session stays ticked on this
-            // device — sub-list steps, a strength draft, conditioning presses.
+            await onUnlog(e)
+            // The planner forgot the device's ticks; forget the ones on show too.
             steps.reset()
-            if (e.kind === 'workout' && e.workout) clearDraft(e.workout._id)
-            if (e.kind === 'conditioning') clearTaps(e._id)
-            toast.show(`“${planItemName(e) ?? 'Item'}” is no longer marked done.`, 'success')
         } catch {
-            toast.show('Could not undo that — please try again.', 'danger')
+            // Reported by the planner.
         } finally {
             setLogging(false)
         }
@@ -3597,31 +3073,43 @@ function PlannedDetailDrawer({
                                 {logging ? 'Saving…' : 'Skip session'}
                             </Button>
                         </div>
-                    ) : skipped ? (
-                        <div className="flex w-full flex-wrap items-center justify-end gap-3">
-                            <Button
-                                variant="secondary"
-                                icon="fa-solid fa-rotate-left"
-                                onClick={unskip}
-                                disabled={logging}
-                            >
-                                {logging ? 'Saving…' : 'Unskip'}
-                            </Button>
-                        </div>
                     ) : (
+                        e && (
                         <div className="flex w-full flex-wrap items-center justify-end gap-3">
-                            {canMarkDone && (
+                            <div className="mr-auto flex items-center gap-1">
                                 <Button
                                     variant="ghost"
-                                    icon="fa-solid fa-ban"
-                                    onClick={() => {
-                                        setSkipReason('')
-                                        setSkipping(true)
-                                    }}
+                                    icon="fa-solid fa-trash-can"
+                                    onClick={() => onRemove(e._id)}
                                     disabled={logging}
-                                    className="mr-auto"
                                 >
-                                    Skip
+                                    Remove
+                                </Button>
+                                <Button variant="ghost" icon="fa-solid fa-copy" onClick={() => onCopy(e)}>
+                                    Copy
+                                </Button>
+                                {canMarkDone && (
+                                    <Button
+                                        variant="ghost"
+                                        icon="fa-solid fa-ban"
+                                        onClick={() => {
+                                            setSkipReason('')
+                                            setSkipping(true)
+                                        }}
+                                        disabled={logging}
+                                    >
+                                        Skip
+                                    </Button>
+                                )}
+                            </div>
+                            {skipped && (
+                                <Button
+                                    variant="secondary"
+                                    icon="fa-solid fa-rotate-left"
+                                    onClick={unskip}
+                                    disabled={logging}
+                                >
+                                    {logging ? 'Saving…' : 'Unskip'}
                                 </Button>
                             )}
                             {done && doneLogId && (
@@ -3630,7 +3118,6 @@ function PlannedDetailDrawer({
                                     icon="fa-solid fa-rotate-left"
                                     onClick={() => setConfirmUndo(true)}
                                     disabled={logging}
-                                    className="mr-auto"
                                 >
                                     Mark as not done
                                 </Button>
@@ -3645,7 +3132,7 @@ function PlannedDetailDrawer({
                                     {logging ? 'Logging…' : 'Mark as done'}
                                 </Button>
                             )}
-                            {e?.kind === 'workout' && e.workout && (
+                            {!skipped && e.kind === 'workout' && e.workout && (
                                 <Button
                                     icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
                                     onClick={() => e.workout && onLogWeights(e.workout, e.date)}
@@ -3653,7 +3140,7 @@ function PlannedDetailDrawer({
                                     {done ? 'Open log' : 'Start workout'}
                                 </Button>
                             )}
-                            {isSession && e && (
+                            {!skipped && isSession && (
                                 <Button
                                     icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
                                     onClick={() =>
@@ -3670,6 +3157,7 @@ function PlannedDetailDrawer({
                                 </Button>
                             )}
                         </div>
+                        )
                     )
                 }
             >
@@ -3749,22 +3237,9 @@ function PlannedDetailDrawer({
                 )}
             </Drawer>
 
-            <ConfirmModal
-                open={confirmUndo}
-                danger
-                title="Mark as not done?"
-                message={
-                    <>
-                        The log this wrote to your{' '}
-                        <span className="font-semibold">{e ? KIND_META[e.kind].label : ''}</span>{' '}
-                        history on{' '}
-                        <span className="font-semibold">{e ? shortDayLabel(e.date) : ''}</span> will
-                        be deleted, along with anything recorded on it. The item stays in the plan
-                        and can be marked done again.
-                    </>
-                }
-                confirmLabel="Mark as not done"
-                onConfirm={undoDone}
+            <UndoDoneConfirm
+                entry={confirmUndo ? e : null}
+                onConfirm={() => void undoDone()}
                 onClose={() => setConfirmUndo(false)}
             />
         </>
