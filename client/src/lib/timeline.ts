@@ -271,6 +271,8 @@ export interface Timeline {
     chainStart: string
     /** Weeks from `chainStart` up to the one before this week. */
     past: PastWeek[]
+    /** What the plans had done by today, from the weigh-ins: the trend at `chainStart`, fat lost, lean built. */
+    since: { weight: number; fat: number; lean: number }
     end: string
     initial: TimelineStart
     weeks: TimelineWeek[]
@@ -1008,6 +1010,7 @@ export function buildTimeline(given: TimelineInputs): Timeline {
         start: today,
         chainStart,
         past: pastWeeks(inputs, chainStart, initial),
+        since: progressSince(inputs, chainStart, initial),
         end,
         initial,
         weeks: main.weeks,
@@ -1270,7 +1273,7 @@ function run(
 
     const total = Math.max(1, daysBetween(today, end) + 1)
     const weeks: TimelineWeek[] = []
-    const milestones = withMilestones ? new MilestoneTracker(inputs, initial, ctx, end) : null
+    const milestones = withMilestones ? new MilestoneTracker(inputs, initial, ctx, end, gridStart) : null
     let burnSum = 0
 
     // The current week began on the grid, maybe a few days ago; its snapshot is still
@@ -1315,7 +1318,7 @@ function run(
         week.cardio += s?.cardio ?? 0
 
         const snap = snapshot(date)
-        milestones?.check(date, d, snap)
+        milestones?.check(date, snap)
 
         if (daysBetween(gridStart, date) % 7 === 6 || date === end) {
             const mid = addDays(weekStart, Math.floor((daysBetween(weekStart, date) + 1) / 2))
@@ -1361,6 +1364,46 @@ function run(
             strengthPct: last.strengthPct,
         },
     }
+}
+
+/** How far either side of the plans' first day a weigh-in can sit and still count as the start. */
+const START_READING_DAYS = { before: 14, after: 6 }
+
+/**
+ * What the plans have already done since `from`, read off the weigh-in trend, so
+ * milestones count from the start of the plans rather than from today: ten weeks
+ * in, the first kilo of fat isn't still to come. Fat comes from the body-fat
+ * trend when there's a reading at both ends, else from the scale less the
+ * glycogen water a cut sheds first. Never negative — a bad stretch doesn't
+ * unearn a milestone, it just isn't counted.
+ */
+export function progressSince(
+    inputs: TimelineInputs,
+    from: string,
+    initial: TimelineStart
+): { weight: number; fat: number; lean: number } {
+    const none = { weight: initial.weight, fat: 0, lean: 0 }
+    if (from >= inputs.today) return none
+    const logs = inputs.weightLogs.filter((l) => l.date <= inputs.today)
+    const nearest = <T extends { date: string }>(xs: T[]): T | null =>
+        xs
+            .filter((x) => x.date >= addDays(from, -START_READING_DAYS.before) && x.date <= addDays(from, START_READING_DAYS.after))
+            .sort((a, b) => Math.abs(daysBetween(from, a.date)) - Math.abs(daysBetween(from, b.date)))[0] ?? null
+
+    const w0 = nearest(trendSeries(logs))?.trend
+    if (w0 === undefined) return none
+    const bf0 = nearest(bodyFatSeries(logs))?.trend
+    if (bf0 !== undefined && initial.bodyFatSource === 'logged') {
+        const fat0 = (w0 * bf0) / 100
+        const fatNow = (initial.weight * initial.bodyFat) / 100
+        return {
+            weight: w0,
+            fat: Math.max(0, fat0 - fatNow),
+            lean: Math.max(0, initial.weight - fatNow - (w0 - fat0)),
+        }
+    }
+    const water = phaseFor(from, inputs.phases)?.kind === 'cut' ? GLYCOGEN_WATER_KG : 0
+    return { weight: w0, fat: Math.max(0, w0 - initial.weight - water), lean: 0 }
 }
 
 function pastWeeks(inputs: TimelineInputs, chainStart: string, initial: TimelineStart): PastWeek[] {
@@ -1491,17 +1534,23 @@ class MilestoneTracker {
     private halfway: string
     private startBf: number
     private bfShift: number
+    /** What the plans had already done by today, so steps count from their first day. */
+    private prior: { weight: number; fat: number; lean: number }
 
     constructor(
         private inputs: TimelineInputs,
         private initial: TimelineStart,
         private ctx: Context,
-        private end: string
+        private end: string,
+        private chainStart: string
     ) {
         const { today, quiz } = inputs
-        this.halfway = addDays(today, Math.floor(daysBetween(today, end) / 2))
+        this.halfway = addDays(chainStart, Math.floor(daysBetween(chainStart, end) / 2))
         this.startBf = initial.bodyFat
         this.bfShift = inputs.profile?.sex === 'female' ? 8 : 0
+        this.prior = progressSince(inputs, chainStart, initial)
+        for (const [kg] of FAT_STEPS) if (this.prior.fat >= kg) this.fatDone.add(kg)
+        for (const [kg] of LEAN_STEPS) if (this.prior.lean >= kg) this.leanDone.add(kg)
 
         // Plan changes, chained in order.
         for (const p of livePhases(ctx.phases, today)) {
@@ -1581,8 +1630,9 @@ class MilestoneTracker {
         this.out.push({ date, kind, title, detail })
     }
 
-    check(date: string, day: number, snap: Snapshot) {
-        const lost = -snap.fatChange
+    check(date: string, snap: Snapshot) {
+        const lost = this.prior.fat - snap.fatChange
+        const built = this.prior.lean + snap.leanChange
         for (const [kg, title, detail] of FAT_STEPS) {
             if (lost >= kg && !this.fatDone.has(kg)) {
                 this.fatDone.add(kg)
@@ -1590,9 +1640,9 @@ class MilestoneTracker {
             }
         }
         for (const [kg, title, detail] of LEAN_STEPS) {
-            if (snap.leanChange >= kg && !this.leanDone.has(kg)) {
+            if (built >= kg && !this.leanDone.has(kg)) {
                 this.leanDone.add(kg)
-                this.add(date, 'muscle', title, `${detail} About ${fmtKg(snap.leanChange)} of lean mass built.`)
+                this.add(date, 'muscle', title, `${detail} About ${fmtKg(built)} of lean mass built.`)
             }
         }
         for (const [line, detail] of BF_STEPS) {
@@ -1613,8 +1663,8 @@ class MilestoneTracker {
             }
         }
         this.checkGoals(date, snap)
-        if (date === this.halfway && day > 14) {
-            const change = snap.weight.mid - this.initial.weight
+        if (date === this.halfway && daysBetween(this.chainStart, date) > 14) {
+            const change = snap.weight.mid - this.prior.weight
             const kind = phaseFor(date, this.ctx.phases)?.kind
             const wanted = kind === 'cut' ? change <= -0.3 : kind === 'gain' ? change >= 0.3 : Math.abs(change) < 1
             this.add(
@@ -1652,10 +1702,12 @@ class MilestoneTracker {
 
     finish(last: TimelineWeek): Milestone[] {
         const parts: string[] = []
-        const change = last.weight.mid - this.initial.weight
+        const change = last.weight.mid - this.prior.weight
+        const lost = this.prior.fat - last.fatChange
+        const built = this.prior.lean + last.leanChange
         if (Math.abs(change) >= 0.3) parts.push(`${fmtKg(Math.abs(change))} ${change < 0 ? 'lighter' : 'heavier'}`)
-        if (last.fatChange <= -0.3) parts.push(`${fmtKg(-last.fatChange)} of fat gone`)
-        if (last.leanChange >= 0.2) parts.push(`${fmtKg(last.leanChange)} of muscle built`)
+        if (lost >= 0.3) parts.push(`${fmtKg(lost)} of fat gone`)
+        if (built >= 0.2) parts.push(`${fmtKg(built)} of muscle built`)
         if (last.strengthPct >= 1) parts.push(`lifts up ~${Math.round(last.strengthPct)}%`)
         this.add(this.end, 'progress', 'Finish line', parts.length ? `${capitalise(parts.join(', '))}.` : 'The plans, done.')
         return this.out.sort((a, b) => a.date.localeCompare(b.date))

@@ -1,6 +1,6 @@
 import type { MacroGoals, Macros, MealType } from '../types'
 import { MEAL_TYPES } from '../types'
-import { lineMacros, ZERO } from './plates'
+import { lineMacros, plateTotal, scale, ZERO } from './plates'
 
 /**
  * Suggested grams for a plate. The day's targets are shared out as three meals
@@ -52,10 +52,13 @@ export function slotBudget(
     ]
 
     const sum = (list: { macros: Macros }[]) =>
-        list.reduce((acc, e) => {
-            for (const k of KEYS) acc[k] += e.macros[k] || 0
-            return acc
-        }, { ...ZERO })
+        list.reduce(
+            (acc, e) => {
+                for (const k of KEYS) acc[k] += e.macros[k] || 0
+                return acc
+            },
+            { ...ZERO }
+        )
 
     const elsewhere = entries.filter((e) => e.slot !== slot)
     const here = sum(entries.filter((e) => e.slot === slot))
@@ -164,7 +167,14 @@ export function suggestGrams(
             for (let p = 0; p + 1 < sorted.length; p++) {
                 const lo = sorted[p]
                 const hi = sorted[p + 1]
-                const mid = isFinite(lo) && isFinite(hi) ? (lo + hi) / 2 : isFinite(lo) ? lo + 1 : isFinite(hi) ? hi - 1 : 0
+                const mid =
+                    isFinite(lo) && isFinite(hi)
+                        ? (lo + hi) / 2
+                        : isFinite(lo)
+                          ? lo + 1
+                          : isFinite(hi)
+                            ? hi - 1
+                            : 0
                 let num = 0
                 let den = 0
                 for (const r of rows) {
@@ -214,7 +224,12 @@ const FIT_WEIGHT: Record<keyof Macros, { under: number; over: number }> = {
     fat: { under: 0.25, over: 1 },
 }
 
-export function fitCost(macros: Macros, budget: Macros, keys: (keyof Macros)[], size?: Macros): number {
+export function fitCost(
+    macros: Macros,
+    budget: Macros,
+    keys: (keyof Macros)[],
+    size?: Macros
+): number {
     return keys.reduce((a, k) => {
         const miss = ((macros[k] || 0) - budget[k]) * missScale(budget, size, k)
         return a + (miss < 0 ? FIT_WEIGHT[k].under : FIT_WEIGHT[k].over) * miss * miss
@@ -223,25 +238,39 @@ export function fitCost(macros: Macros, budget: Macros, keys: (keyof Macros)[], 
 
 /** A box note's projected plate: the grams it's estimated at, and what they come to. */
 export interface BoxProjection {
+    /** All of it — the box and any sides. */
     grams: number
     macros: Macros
+    /** Grams of each food: the box first, then its sides. */
+    lines: { food: string; grams: number }[]
 }
 
 /**
  * Projections for one day's box notes ("eating from this box", no amounts).
- * Just an estimate of a sensible portion: the box fills its slot's share of
- * the day until the first macro reaches its share — so a lean, protein-heavy
- * box stops at a meal's worth of protein (not 160 g of it chasing the
- * calories), and whatever's left is room for sides. Every slot holding notes
- * gets its share of what the rest of the day leaves, all at once, so lunch
- * and dinner come out the same. Notes in one slot split that slot evenly. A
- * note whose box has no figures yet (never cooked), or a day with no
- * targets, gets nothing.
+ * Just an estimate of a sensible portion. Every slot holding notes gets its
+ * share of what the rest of the day leaves, all at once, so lunch and dinner
+ * come out the same; notes in one slot split it evenly.
+ *
+ * A box on its own fills its share until the first macro reaches it — so a
+ * lean, protein-heavy box stops at a meal's worth of protein (not 160 g of
+ * it chasing the calories), and what's left is room for sides. A box planned
+ * with sides is fitted with them as one plate, the way the plate builder
+ * does: the box carries the protein, the rice makes up the calories.
+ *
+ * A food with no figures (never cooked, no recipe) is left out; a box with
+ * none, or a day with no targets, gets nothing.
  */
 export function projectBoxNotes(
-    entries: { _id: string; slot: MealType; macros: Macros; box?: string; away?: boolean }[],
+    entries: {
+        _id: string
+        slot: MealType
+        macros: Macros
+        box?: string
+        sides?: string[]
+        away?: boolean
+    }[],
     goals: MacroGoals | null | undefined,
-    per100For: (box: string) => Macros | null
+    per100For: (food: string) => Macros | null
 ): Map<string, BoxProjection> {
     const out = new Map<string, BoxProjection>()
     // Everything but the box notes — so every noted slot is still open.
@@ -250,19 +279,44 @@ export function projectBoxNotes(
         const notes = entries.flatMap((e) => {
             if (!e.box || e.slot !== slot) return []
             const per100 = per100For(e.box)
-            return per100 ? [{ id: e._id, per100 }] : []
+            if (!per100) return []
+            const sides = (e.sides ?? []).flatMap((food) => {
+                const p = per100For(food)
+                return p ? [{ food, per100: p }] : []
+            })
+            return [{ id: e._id, food: e.box, per100, sides }]
         })
         if (notes.length === 0) continue
         const aim = slotBudget(goals, slot, known)
         if (!aim) return out
+        const part = (m: Macros) => scale(m, 1 / notes.length)
         for (const n of notes) {
-            // The grams at which each macro reaches this note's part of the slot.
-            const caps = aim.keys
-                .filter((k) => n.per100[k] > 0)
-                .map((k) => (aim.budget[k] / notes.length / n.per100[k]) * 100)
-            if (caps.length === 0) continue
-            const grams = Math.round(Math.min(...caps) / 5) * 5
-            if (grams > 0) out.set(n.id, { grams, macros: lineMacros(grams, n.per100) })
+            let lines: { food: string; grams: number; per100: Macros }[]
+            if (n.sides.length > 0) {
+                const plate = [{ food: n.food, per100: n.per100 }, ...n.sides]
+                const grams = suggestGrams(plate, part(aim.budget), aim.keys, part(aim.size))
+                lines = plate.map((l, i) => ({ ...l, grams: grams[i] }))
+            } else {
+                // The grams at which each macro reaches this note's part of the slot.
+                const caps = aim.keys
+                    .filter((k) => n.per100[k] > 0)
+                    .map((k) => (aim.budget[k] / notes.length / n.per100[k]) * 100)
+                if (caps.length === 0) continue
+                lines = [
+                    {
+                        food: n.food,
+                        per100: n.per100,
+                        grams: Math.round(Math.min(...caps) / 5) * 5,
+                    },
+                ]
+            }
+            lines = lines.filter((l) => l.grams > 0)
+            if (lines.length === 0) continue
+            out.set(n.id, {
+                grams: lines.reduce((sum, l) => sum + l.grams, 0),
+                macros: plateTotal(lines),
+                lines: lines.map(({ food, grams }) => ({ food, grams })),
+            })
         }
     }
     return out

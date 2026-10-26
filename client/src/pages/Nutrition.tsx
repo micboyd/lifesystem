@@ -101,6 +101,7 @@ export default function Nutrition() {
                         foods={foods}
                         settingsGoals={user?.settings?.macroGoals}
                         bmrFor={bmrFor}
+                        onOpenPantry={() => setTab('Pantry')}
                     />
                 ) : tab === 'Pantry' ? (
                     <Pantry foods={foods} onChanged={reloadFoods} />

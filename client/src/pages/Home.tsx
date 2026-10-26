@@ -11,6 +11,7 @@ import NutritionWidget, { useNutritionToday } from '../components/dashboard/Nutr
 import WeatherWidget from '../components/dashboard/WeatherWidget'
 import CountdownsWidget from '../components/dashboard/CountdownsWidget'
 import BirthdaysWidget from '../components/dashboard/BirthdaysWidget'
+import TimelineWidget from '../components/dashboard/TimelineWidget'
 import { useBudgetToday } from '../components/dashboard/useBudgetToday'
 import { todayKey } from '../lib/calendar'
 
@@ -61,7 +62,10 @@ export default function Home() {
 
                 {/* Glance at */}
                 <div className="flex min-w-0 flex-col gap-12 lg:col-span-5 lg:border-l lg:border-neutral-200 lg:pl-12">
-                    <NutritionWidget data={nutrition} />
+                    <TimelineWidget />
+                    <div className="border-t border-neutral-200 pt-12">
+                        <NutritionWidget data={nutrition} />
+                    </div>
                     <div className="border-t border-neutral-200 pt-12">
                         <WeatherWidget />
                     </div>

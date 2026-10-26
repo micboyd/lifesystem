@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react'
 import Spinner from '../Spinner'
 import Button from '../Button'
-import Input from '../Input'
-import Pagination from '../Pagination'
 import EmptyState from '../EmptyState'
 import Drawer from '../Drawer'
 import Checkbox from '../Checkbox'
 import ConfirmModal from '../ConfirmModal'
+import DropdownMenu, { type MenuEntry, type MenuItem } from '../DropdownMenu'
+import ContextMenu from '../ContextMenu'
 import { StatStrip, NoteBlock } from '../session/SessionUI'
 import { useToast } from '../../context/ToastContext'
 import { Link } from 'react-router-dom'
@@ -16,7 +16,6 @@ import {
     HeroButton,
     DayStrip,
     DayPill,
-    EditBar,
     DayCardShell,
     SwipeHint,
     dayCardId,
@@ -52,22 +51,23 @@ import {
     todayKey,
     WEEKDAYS_LONG,
     MONTHS,
-    eventCoversAllDay,
-    eventCoversSlot,
 } from '../../lib/calendar'
-import { addMacros, sumEatenMacros, sumMacros, targetsFor } from '../../lib/nutrition'
+import { targetsFor } from '../../lib/nutrition'
 import { MEAL_TYPES } from '../../types'
-import { gramsLeft, plateTotal } from '../../lib/plates'
-import { AimCard, PlateBuilder, PlateLinesEditor, plateGrams, plateTitle } from './PlateUI'
-import { fitCost, projectBoxNotes, slotBudget, type BoxProjection } from '../../lib/plateSuggest'
+import { expectedPer100, plateTotal } from '../../lib/plates'
+import { PlateLinesEditor, plateGrams, plateTitle } from './PlateUI'
+import { projectBoxNotes, type BoxProjection } from '../../lib/plateSuggest'
 import { weekStock } from '../../lib/weekStock'
 import { WeekStock } from './WeekStock'
+import { DayNumbers } from './DayNumbers'
+import { WeighOutDrawer } from './WeighOutDrawer'
+import { AddDrawer, type AddTarget } from './AddDrawer'
+import { dayTotals, weekAverage } from '../../lib/dayTotals'
 import { totalOut } from '../../lib/energy'
 import type {
     DailyEnergy,
     Event,
     MacroGoals,
-    Macros,
     Meal,
     MealPlanEntry,
     MealType,
@@ -83,9 +83,11 @@ import type {
  * and a card per day split into breakfast, lunch, dinner and snacks. Wide
  * screens get the seven days side by side; phones one day at a time.
  *
- * Viewing, each meal ticks off as it's eaten and "Log more" adds anything
- * else. Editing adds, removes and drags meals between slots and days, and
- * copies, pastes or clears a week.
+ * There's one mode: each slot's + adds to it (planned on days ahead, eaten
+ * today and before), meals tick off as they're eaten, open for a closer look
+ * (and Remove), and drag between slots and days on a wide screen. Copy,
+ * paste and clear live in the week's ⋯ menu. Each day carries one set of
+ * numbers against its target (lib/dayTotals).
  */
 
 // ─── Date helpers ───────────────────────────────────────────────────────────────
@@ -132,8 +134,9 @@ type Projections = Map<string, BoxProjection>
 function plannedMeta(entry: MealPlanEntry, projection?: BoxProjection): string {
     if (isAwayNote(entry)) return 'Away · no meal here'
     if (isBoxNote(entry)) {
+        const grams = projection?.lines.map((l) => `${fmt(l.grams)} g`).join(' + ')
         return projection
-            ? `~${fmt(projection.grams)} g · ~${kcal(projection.macros.calories)} kcal · ~${fmt(Math.round(projection.macros.protein))} g protein`
+            ? `~${grams} · ~${kcal(projection.macros.calories)} kcal · ~${fmt(Math.round(projection.macros.protein))} g protein`
             : 'From the box · weigh it when you eat'
     }
     const grams = plateGrams(entry)
@@ -142,17 +145,15 @@ function plannedMeta(entry: MealPlanEntry, projection?: BoxProjection): string {
 
 // ─── Planner ────────────────────────────────────────────────────────────────────
 
-/** `eaten` is Quick log: added to its slot already ticked, with no need to plan first. */
-/** `box` is weighing out a box note: the plate starts with that box. */
-type PickerTarget = { date: string; slot: MealType; extra: boolean; eaten?: boolean; box?: string }
-
-
 export default function NutritionPlanner({
     meals,
     foods,
     settingsGoals,
     bmrFor,
+    onOpenPantry,
 }: {
+    /** Switch to the Pantry tab. */
+    onOpenPantry?: () => void
     meals: Meal[]
     /** Boxes and plain foods, for weighing out plates. */
     foods: PlateFood[]
@@ -171,14 +172,20 @@ export default function NutritionPlanner({
     // Calendar events across the week, offered when marking a slot as away.
     const [events, setEvents] = useState<Event[]>([])
     const [loading, setLoading] = useState(true)
-    // The planner opens read-only; Edit reveals the add/remove/drag controls.
-    const [editing, setEditing] = useState(false)
     // The day drawer: a day + slot to add to, or a day to "Log more" on.
-    const [picker, setPicker] = useState<PickerTarget | null>(null)
+    const [picker, setPicker] = useState<AddTarget | null>(null)
     // A planned meal opened for a closer look.
     const [detail, setDetail] = useState<MealPlanEntry | null>(null)
+    // A meal copied to paste into another slot or day, and an open right-click menu.
+    const [copied, setCopied] = useState<MealPlanEntry | null>(null)
+    const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null)
+    // A box meal being eaten: its suggested grams, ready to confirm.
+    const [weighing, setWeighing] = useState<MealPlanEntry | null>(null)
     // A copied week held for pasting elsewhere: its Monday and which slots.
     const [clipboard, setClipboard] = useState<{ from: string; slots: MealType[] } | null>(null)
+    // Choosing which slots to copy, and confirming a paste that would replace meals.
+    const [copying, setCopying] = useState(false)
+    const [pasteConfirm, setPasteConfirm] = useState(false)
     // A pending "clear" awaiting confirmation: a single day, or the whole week.
     const [clearTarget, setClearTarget] = useState<{ type: 'day'; date: string } | { type: 'week' } | null>(null)
 
@@ -214,11 +221,12 @@ export default function NutritionPlanner({
     }, [range.start, range.end])
 
     // What each box note would come to at the suggested grams: the newest open
-    // batch's figures, else the last cook's (frozen or finished).
+    // batch's figures, else the last cook's (frozen or finished), else — never
+    // cooked — the recipe's, so a box can be planned before it's made.
     const projections = useMemo<Projections>(() => {
         const per100For = (id: string) => {
             const f = foods.find((x) => x._id === id)
-            return f?.open[0]?.per100 ?? f?.frozen[0]?.per100 ?? f?.last?.per100 ?? null
+            return (f && expectedPer100(f)?.per100) ?? null
         }
         const all: Projections = new Map()
         if (!entries.some(isBoxNote)) return all
@@ -238,10 +246,30 @@ export default function NutritionPlanner({
             weekStock(
                 entries.filter((e) => e.date <= range.end),
                 foods,
-                (id) => projections.get(id)?.grams ?? null,
+                (id) => projections.get(id)?.lines ?? null,
                 today > range.start ? today : range.start
             ),
         [entries, foods, projections, today, range.start, range.end]
+    )
+
+    // The week's average day against its target, for the hero.
+    const average = useMemo(
+        () =>
+            weekAverage(
+                Array.from({ length: 7 }, (_, i) => {
+                    const date = addDays(range.start, i)
+                    return {
+                        totals: dayTotals(
+                            entries.filter((e) => e.date === date),
+                            (e) => projections.get(e._id)?.macros ?? null,
+                            date,
+                            today
+                        ),
+                        goals: targetsFor(date, phases, settingsGoals).goals,
+                    }
+                })
+            ),
+        [entries, projections, range.start, today, phases, settingsGoals]
     )
 
     // Keep an open detail drawer in step with the row it was opened from.
@@ -250,11 +278,6 @@ export default function NutritionPlanner({
 
     function step(dir: -1 | 1) {
         setAnchor((a) => addDays(mondayOf(a), dir * 7))
-    }
-
-    function stopEditing() {
-        setPicker(null)
-        setEditing(false)
     }
 
     async function handleAdd(date: string, slot: MealType, mealId: string, extra: boolean, eaten = false) {
@@ -291,9 +314,9 @@ export default function NutritionPlanner({
         }
     }
 
-    async function handleAddBox(box: string, slot: MealType, dates: string[]) {
+    async function handleAddBox(box: string, slot: MealType, dates: string[], sides: string[]) {
         try {
-            const created = await addBoxNotes(box, slot, dates)
+            const created = await addBoxNotes(box, slot, dates, sides)
             setEntries((prev) => [...prev, ...created])
         } catch {
             toast.show('Could not plan that box — please try again.', 'danger')
@@ -308,6 +331,65 @@ export default function NutritionPlanner({
         } catch {
             toast.show('Could not save that — please try again.', 'danger')
         }
+    }
+
+    // Away for the whole day: every slot gets the note.
+    async function handleAddAwayDay(date: string, name: string) {
+        for (const slot of MEAL_TYPES) await handleAddAway(date, slot, name)
+    }
+
+    // Back from being away all day: the day's away notes go.
+    async function handleBackFromAway(date: string) {
+        for (const e of entries.filter((x) => x.date === date && x.away)) await handleRemove(e._id)
+    }
+
+    function copyEntry(entry: MealPlanEntry) {
+        setCopied(entry)
+        toast.show(`Copied ${entry.name} — right-click a slot, or tap +, to paste it`)
+    }
+
+    // A copied meal into another slot or day — planned ahead, eaten today and
+    // before, as the + would. Box meals and away notes paste as notes.
+    async function pasteInto(date: string, slot: MealType) {
+        const src = copied
+        if (!src) return
+        const eaten = date <= today
+        if (src.away) return handleAddAway(date, slot, src.name)
+        if (src.box) return handleAddBox(src.box, slot, [date], src.sides ?? [])
+        if (src.plate?.length)
+            // Each line draws from whichever batch is current there.
+            return handleAddPlate(date, slot, src.plate.map((l) => ({ food: l.food, grams: l.grams })), false, eaten)
+        if (src.meal) return handleAdd(date, slot, src.meal, false, eaten)
+        toast.show('That meal has left your library, so it can’t be pasted.', 'danger')
+    }
+
+    function openRowMenu(ev: { clientX: number; clientY: number }, entry: MealPlanEntry) {
+        setMenu({
+            x: ev.clientX,
+            y: ev.clientY,
+            items: [
+                { label: 'Copy', icon: 'fa-solid fa-copy', onClick: () => copyEntry(entry) },
+                { label: 'Open', icon: 'fa-solid fa-up-right-from-square', onClick: () => setDetail(entry) },
+                { label: 'Remove', icon: 'fa-solid fa-trash-can', danger: true, onClick: () => void handleRemove(entry._id) },
+            ],
+        })
+    }
+
+    function openSlotMenu(ev: { clientX: number; clientY: number }, date: string, slot: MealType) {
+        setMenu({
+            x: ev.clientX,
+            y: ev.clientY,
+            items: [
+                ...(copied
+                    ? [{ label: `Paste ${copied.name}`, icon: 'fa-solid fa-paste', onClick: () => void pasteInto(date, slot) }]
+                    : []),
+                {
+                    label: `Add to ${CATEGORY[slot].label.toLowerCase()}…`,
+                    icon: 'fa-solid fa-plus',
+                    onClick: () => setPicker({ date, slot, eaten: date <= today }),
+                },
+            ],
+        })
     }
 
     // A plate's grams changed at the table. Lines keep their batch, so an eaten
@@ -341,10 +423,10 @@ export default function NutritionPlanner({
     // The tick: eaten, or back to planned. Optimistic, reverting on failure.
     async function handleToggle(entry: MealPlanEntry) {
         if (entry.away) return
-        // A box note isn't ticked — it opens the plate, ready to weigh that box.
+        // A box note is eaten by confirming its grams — suggested ones filled in.
         if (entry.box) {
             setDetail(null)
-            setPicker({ date: entry.date, slot: entry.slot, extra: false, eaten: true, box: entry.box })
+            setWeighing(entry)
             return
         }
         const next = entry.status === 'eaten' ? 'planned' : 'eaten'
@@ -448,45 +530,92 @@ export default function NutritionPlanner({
                 rangeLabel={formatWeekRange(range.start, range.end)}
                 entries={entries}
                 ready={!loading}
-                editing={editing}
-                canEdit={!libraryEmpty}
                 onStep={step}
                 onSelect={selectDay}
                 onPick={setAnchor}
-                onStartEditing={() => {
-                    setPicker(null)
-                    setEditing(true)
-                }}
                 board={board}
+                average={average}
+                menu={[
+                    { label: 'Copy week…', icon: 'fa-solid fa-copy', onClick: () => setCopying(true) },
+                    ...(clipboard && clipboard.from !== range.start
+                        ? [
+                              {
+                                  label: `Paste ${slotsLabel(clipboard.slots)}`,
+                                  icon: 'fa-solid fa-paste',
+                                  onClick: () =>
+                                      clipboard.slots.some((sl) => weekSlots.has(sl))
+                                          ? setPasteConfirm(true)
+                                          : void handlePasteWeek(),
+                              },
+                          ]
+                        : []),
+                    ...(weekHasClearable
+                        ? [
+                              'divider' as const,
+                              {
+                                  label: 'Clear week',
+                                  icon: 'fa-solid fa-broom',
+                                  danger: true,
+                                  onClick: () => setClearTarget({ type: 'week' }),
+                              },
+                          ]
+                        : []),
+                ]}
             />
 
-            {editing && (
-                // Every change saves as it's made, so there's nothing to cancel.
-                <EditBar onDone={stopEditing}>
-                    <WeekCopyControls
-                        weekStart={range.start}
-                        weekEnd={range.end}
-                        clipboard={clipboard}
-                        presentSlots={weekSlots}
-                        onCopy={handleCopyWeek}
-                        onPaste={handlePasteWeek}
-                        onClearClipboard={() => setClipboard(null)}
-                    />
-                    {weekHasClearable && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            icon="fa-solid fa-broom"
-                            onClick={() => setClearTarget({ type: 'week' })}
-                            className="text-red-500 hover:bg-red-50 hover:text-red-600"
+            {clipboard && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-neutral-900 px-4 py-2.5 text-sm text-white">
+                    <i className="fa-solid fa-copy text-xs text-white/60" aria-hidden="true" />
+                    <span className="min-w-0 flex-1">
+                        Copied {slotsLabel(clipboard.slots)} from{' '}
+                        {formatWeekRange(clipboard.from, addDays(clipboard.from, 6))}
+                        {clipboard.from === range.start && (
+                            <span className="text-white/60"> — go to another week to paste</span>
+                        )}
+                    </span>
+                    {clipboard.from !== range.start && (
+                        <button
+                            type="button"
+                            onClick={() =>
+                                clipboard.slots.some((sl) => weekSlots.has(sl))
+                                    ? setPasteConfirm(true)
+                                    : void handlePasteWeek()
+                            }
+                            className="h-8 rounded-full bg-white px-3 text-[13px] font-semibold text-neutral-900"
                         >
-                            Clear week
-                        </Button>
+                            Paste here
+                        </button>
                     )}
-                </EditBar>
+                    <button
+                        type="button"
+                        aria-label="Forget the copied week"
+                        onClick={() => setClipboard(null)}
+                        className="grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+                    >
+                        <i className="fa-solid fa-xmark" aria-hidden="true" />
+                    </button>
+                </div>
             )}
 
-            {!loading && <WeekStock rows={stock} />}
+            {copied && (
+                <div className="flex items-center gap-3 rounded-2xl bg-neutral-100 px-4 py-2 text-[13px] text-neutral-700">
+                    <i className="fa-solid fa-paste text-xs text-neutral-400" aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate">
+                        <span className="font-semibold text-neutral-900">{copied.name}</span> copied — right-click a slot,
+                        or tap +, to paste it
+                    </span>
+                    <button
+                        type="button"
+                        aria-label="Forget the copied meal"
+                        onClick={() => setCopied(null)}
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-500 hover:bg-white hover:text-neutral-900"
+                    >
+                        <i className="fa-solid fa-xmark" aria-hidden="true" />
+                    </button>
+                </div>
+            )}
+
+            {!loading && <WeekStock rows={stock} onOpenPantry={onOpenPantry} />}
 
             {loading ? (
                 <div className="grid place-items-center py-16">
@@ -504,50 +633,111 @@ export default function NutritionPlanner({
                     weekStart={range.start}
                     selected={anchor}
                     today={today}
-                    editing={editing}
                     entries={entries}
                     projections={projections}
                     goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
                     outFor={(date) => energy.find((e) => e.date === date)?.caloriesOut ?? null}
                     bmrFor={bmrFor}
                     onSelect={setAnchor}
-                    onAdd={(date, slot) => setPicker({ date, slot, extra: false })}
-                    onQuickLog={(date, slot) => setPicker({ date, slot, extra: false, eaten: true })}
+                    // Days ahead are planned; today and before, what's added was eaten.
+                    onAdd={(date, slot) => setPicker({ date, slot, eaten: date <= today })}
                     onOpen={setDetail}
                     onToggle={handleToggle}
-                    onRemove={handleRemove}
+                    onRowMenu={openRowMenu}
+                    onSlotMenu={openSlotMenu}
+                    onAwayDay={(date) => setPicker({ date, slot: 'breakfast', eaten: false, awayDay: true })}
+                    onBackFromAway={(date) => void handleBackFromAway(date)}
                     onReorder={handleReorder}
                     onClearDay={(date) => setClearTarget({ type: 'day', date })}
                     onSaveOut={saveOut}
                 />
             )}
 
-            <MealPickerDrawer
+            <AddDrawer
                 target={picker}
                 meals={meals}
                 foods={foods}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
                 projections={projections}
                 events={picker ? events.filter((ev) => picker.date >= ev.startDate && picker.date <= ev.endDate) : []}
-                goals={picker ? targetsFor(picker.date, phases, settingsGoals).goals : null}
+                goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
                 onClose={() => setPicker(null)}
-                onAdd={handleAdd}
-                onAddPlate={handleAddPlate}
+                onAddMeal={(date, slot, id, eaten) => handleAdd(date, slot, id, false, eaten)}
+                onAddPlate={(date, slot, plate, eaten) => handleAddPlate(date, slot, plate, false, eaten)}
                 onAddBox={handleAddBox}
                 onAddAway={handleAddAway}
-                onRemove={handleRemove}
+                onAddAwayDay={handleAddAwayDay}
+                copied={copied}
+                onPaste={pasteInto}
             />
+
+            {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
 
             <PlannedMealDrawer
                 entry={detailEntry}
                 projection={detailEntry ? projections.get(detailEntry._id) : undefined}
+                foodName={(id) => foods.find((f) => f._id === id)?.name ?? 'Food'}
+                fromRecipe={(() => {
+                    const f = detailEntry?.box ? foods.find((x) => x._id === detailEntry.box) : undefined
+                    return !!(f && expectedPer100(f)?.fromRecipe)
+                })()}
                 meal={detailEntry?.meal ? (mealsById.get(detailEntry.meal) ?? null) : null}
+                onCopy={(e) => {
+                    setDetail(null)
+                    copyEntry(e)
+                }}
                 onClose={() => setDetail(null)}
                 onToggle={handleToggle}
                 onUpdatePlate={handleUpdatePlate}
                 onRemove={(id) => {
                     setDetail(null)
                     void handleRemove(id)
+                }}
+            />
+
+            <CopyWeekDrawer
+                open={copying}
+                weekLabel={formatWeekRange(range.start, range.end)}
+                onClose={() => setCopying(false)}
+                onCopy={(slots) => {
+                    handleCopyWeek(slots)
+                    setCopying(false)
+                }}
+            />
+
+            <ConfirmModal
+                open={pasteConfirm}
+                title="Paste week plan?"
+                confirmLabel="Paste"
+                message={
+                    clipboard && (
+                        <p className="text-sm text-neutral-600">
+                            Replace the planned <span className="font-semibold">{slotsLabel(clipboard.slots)}</span>{' '}
+                            for <span className="font-semibold">{formatWeekRange(range.start, range.end)}</span> with
+                            the plan copied from{' '}
+                            <span className="font-semibold">
+                                {formatWeekRange(clipboard.from, addDays(clipboard.from, 6))}
+                            </span>
+                            ? Meals already eaten stay as they are.
+                        </p>
+                    )
+                }
+                onConfirm={() => void handlePasteWeek()}
+                onClose={() => setPasteConfirm(false)}
+            />
+
+            <WeighOutDrawer
+                entry={weighing}
+                projection={weighing ? projections.get(weighing._id) : undefined}
+                foods={foods}
+                onClose={() => setWeighing(null)}
+                onLog={(plate) =>
+                    weighing ? handleAddPlate(weighing.date, weighing.slot, plate, false, true) : Promise.resolve()
+                }
+                onMore={() => {
+                    const e = weighing
+                    setWeighing(null)
+                    if (e) setPicker({ date: e.date, slot: e.slot, eaten: true })
                 }}
             />
 
@@ -584,47 +774,20 @@ export default function NutritionPlanner({
 
 // ─── Copy / paste week ──────────────────────────────────────────────────────────
 
-/**
- * Copy this week's plan and paste it onto another. "Copy week" opens a
- * checklist of slots; navigating to a different week reveals "Paste", which
- * replaces only the still-planned meals in those slots there.
- */
-function WeekCopyControls({
-    weekStart,
-    weekEnd,
-    clipboard,
-    presentSlots,
+/** Copy this week's plan — every slot, or just some — to paste onto another week. */
+function CopyWeekDrawer({
+    open,
+    weekLabel,
+    onClose,
     onCopy,
-    onPaste,
-    onClearClipboard,
 }: {
-    weekStart: string
-    weekEnd: string
-    clipboard: { from: string; slots: MealType[] } | null
-    presentSlots: Set<MealType>
+    open: boolean
+    weekLabel: string
+    onClose: () => void
     onCopy: (slots: MealType[]) => void
-    onPaste: () => void
-    onClearClipboard: () => void
 }) {
-    const [confirming, setConfirming] = useState(false)
-    const [open, setOpen] = useState(false)
     const [selected, setSelected] = useState<Set<MealType>>(() => new Set(MEAL_TYPES))
-    const panelRef = useRef<HTMLDivElement>(null)
-
-    // Close the checklist on an outside click.
-    useEffect(() => {
-        if (!open) return
-        function handle(e: MouseEvent) {
-            if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false)
-        }
-        document.addEventListener('mousedown', handle)
-        return () => document.removeEventListener('mousedown', handle)
-    }, [open])
-
-    const sameWeek = clipboard?.from === weekStart
-    const wouldReplace = clipboard?.slots.some((s) => presentSlots.has(s)) ?? false
     const chosen = MEAL_TYPES.filter((s) => selected.has(s))
-    const allSelected = chosen.length === MEAL_TYPES.length
 
     function toggle(slot: MealType) {
         setSelected((prev) => {
@@ -636,94 +799,43 @@ function WeekCopyControls({
     }
 
     return (
-        <div className="flex items-center gap-2">
-            <div ref={panelRef} className="inline-block sm:relative">
-                <Button variant="secondary" size="sm" icon="fa-solid fa-copy" onClick={() => setOpen((o) => !o)}>
-                    Copy week
-                </Button>
-                {open && (
-                    // On a phone the panel spans the edit bar so it can't open
-                    // off-screen; from sm up it hangs under the button.
-                    <div className="absolute inset-x-0 top-full z-50 mt-2 rounded-xl border border-neutral-100 bg-white p-3 shadow-lg sm:inset-x-auto sm:right-0 sm:top-auto sm:min-w-56">
-                        <div className="mb-2 flex items-center justify-between">
-                            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                Copy which meals
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() => setSelected(allSelected ? new Set() : new Set(MEAL_TYPES))}
-                                className="text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-900"
-                            >
-                                {allSelected ? 'Clear' : 'All'}
-                            </button>
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                            {MEAL_TYPES.map((s) => (
-                                <Checkbox
-                                    key={s}
-                                    checked={selected.has(s)}
-                                    onChange={() => toggle(s)}
-                                    label={CATEGORY[s].label}
-                                    className="rounded-lg px-1.5 py-1 hover:bg-neutral-50"
-                                />
-                            ))}
-                        </div>
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            icon="fa-solid fa-copy"
-                            onClick={() => {
-                                if (chosen.length === 0) return
-                                onCopy(chosen)
-                                setOpen(false)
-                            }}
-                            disabled={chosen.length === 0}
-                            className="mt-3 w-full justify-center"
-                        >
-                            Copy {chosen.length ? slotsLabel(chosen) : ''}
-                        </Button>
-                    </div>
-                )}
-            </div>
-
-            {clipboard && (
-                <div className="flex items-center gap-1">
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        icon="fa-solid fa-paste"
-                        disabled={sameWeek}
-                        onClick={() => (wouldReplace ? setConfirming(true) : onPaste())}
-                        title={sameWeek ? 'This is the week you copied — move to another week to paste' : undefined}
-                    >
-                        Paste {slotsLabel(clipboard.slots)}
+        <Drawer
+            open={open}
+            onClose={onClose}
+            title="Copy week"
+            badge={weekLabel}
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onClose}>
+                        Cancel
                     </Button>
-                    <IconButton icon="fa-solid fa-xmark" label="Clear copied week" onClick={onClearClipboard} />
+                    <Button
+                        icon="fa-solid fa-copy"
+                        disabled={chosen.length === 0}
+                        onClick={() => chosen.length > 0 && onCopy(chosen)}
+                    >
+                        Copy {chosen.length ? slotsLabel(chosen) : ''}
+                    </Button>
+                </>
+            }
+        >
+            <div className="flex flex-col gap-3">
+                <p className="text-sm text-neutral-500">
+                    Pick the meals to copy, then go to another week and paste. Only planned meals are replaced there.
+                </p>
+                <div className="flex flex-col gap-0.5">
+                    {MEAL_TYPES.map((s) => (
+                        <Checkbox
+                            key={s}
+                            checked={selected.has(s)}
+                            onChange={() => toggle(s)}
+                            label={CATEGORY[s].label}
+                            className="rounded-lg px-1.5 py-2 hover:bg-neutral-50"
+                        />
+                    ))}
                 </div>
-            )}
-
-            <ConfirmModal
-                open={confirming}
-                title="Paste week plan?"
-                confirmLabel="Paste"
-                message={
-                    clipboard && (
-                        <p className="text-sm text-neutral-600">
-                            Replace the planned{' '}
-                            <span className="font-semibold">{slotsLabel(clipboard.slots)}</span> for{' '}
-                            <span className="font-semibold">{formatWeekRange(weekStart, weekEnd)}</span> with
-                            the plan copied from{' '}
-                            <span className="font-semibold">
-                                {formatWeekRange(clipboard.from, addDays(clipboard.from, 6))}
-                            </span>
-                            ? Meals already eaten stay as they are.
-                        </p>
-                    )
-                }
-                onConfirm={onPaste}
-                onClose={() => setConfirming(false)}
-            />
-        </div>
+            </div>
+        </Drawer>
     )
 }
 
@@ -747,40 +859,41 @@ function NutritionWeekHero({
     rangeLabel,
     entries,
     ready,
-    editing,
-    canEdit,
     onStep,
     onSelect,
     onPick,
-    onStartEditing,
     board,
+    average,
+    menu,
 }: {
+    /** The week's options: copy, paste, clear. */
+    menu: MenuEntry[]
+    /** The average day against the average target (lib/dayTotals). */
+    average: ReturnType<typeof weekAverage>
     weekStart: string
     selected: string
     today: string
     rangeLabel: string
     entries: MealPlanEntry[]
     ready: boolean
-    editing: boolean
-    canEdit: boolean
     onStep: (dir: -1 | 1) => void
     onSelect: (date: string) => void
     onPick: (date: string) => void
-    onStartEditing: () => void
     board: boolean
 }) {
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
     const planned = entries.filter((e) => !e.extra)
     const eaten = planned.filter(isEaten).length
-    // Average planned calories over the days that have anything on them.
-    const daysWithMeals = days.filter((d) => entries.some((e) => e.date === d))
-    const avgKcal = daysWithMeals.length ? sumMacros(entries).calories / daysWithMeals.length : 0
     const isThisWeek = mondayOf(today) === weekStart
 
     const facts = [
         rangeLabel,
         ready && planned.length > 0 && `${eaten} of ${planned.length} eaten`,
-        ready && avgKcal > 0 && `~${kcal(avgKcal)} kcal a day`,
+        ready &&
+            average &&
+            `${average.estimated ? '~' : ''}${kcal(average.calories)}${
+                average.target ? ` / ${kcal(average.target)}` : ''
+            } kcal a day`,
         ready && entries.length === 0 && 'nothing planned yet',
     ].filter(Boolean)
 
@@ -815,13 +928,14 @@ function NutritionWeekHero({
                             Today
                         </HeroButton>
                     )}
-                    {canEdit && !editing && (
-                        <div className="ml-auto">
-                            <HeroButton primary icon="fa-solid fa-pen" onClick={onStartEditing}>
-                                Edit plan
-                            </HeroButton>
-                        </div>
-                    )}
+                    <div className="ml-auto">
+                        <DropdownMenu
+                            align="right"
+                            size="medium"
+                            items={menu}
+                            trigger={<HeroIconButton icon="fa-solid fa-ellipsis" label="Week options" onClick={() => {}} />}
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -855,7 +969,6 @@ function WeekView({
     weekStart,
     selected,
     today,
-    editing,
     entries,
     projections,
     goalsFor,
@@ -863,10 +976,12 @@ function WeekView({
     bmrFor,
     onSelect,
     onAdd,
-    onQuickLog,
     onOpen,
     onToggle,
-    onRemove,
+    onRowMenu,
+    onSlotMenu,
+    onAwayDay,
+    onBackFromAway,
     onReorder,
     onClearDay,
     onSaveOut,
@@ -877,7 +992,6 @@ function WeekView({
     /** The focused day — the only one shown on a phone. */
     selected: string
     today: string
-    editing: boolean
     entries: MealPlanEntry[]
     projections: Projections
     goalsFor: (date: string) => MacroGoals | null
@@ -885,11 +999,12 @@ function WeekView({
     bmrFor: (date: string) => number | null
     onSelect: (date: string) => void
     onAdd: (date: string, slot: MealType) => void
-    /** Log what was eaten into a slot, planned or not. */
-    onQuickLog: (date: string, slot: MealType) => void
     onOpen: (entry: MealPlanEntry) => void
     onToggle: (entry: MealPlanEntry) => void
-    onRemove: (id: string) => void
+    onRowMenu: (ev: { clientX: number; clientY: number }, entry: MealPlanEntry) => void
+    onSlotMenu: (ev: { clientX: number; clientY: number }, date: string, slot: MealType) => void
+    onAwayDay: (date: string) => void
+    onBackFromAway: (date: string) => void
     onReorder: (date: string, slot: MealType, ids: string[]) => void
     onClearDay: (date: string) => void
     onSaveOut: (date: string, value: number | null) => Promise<void>
@@ -950,17 +1065,18 @@ function WeekView({
                     isToday={date === today}
                     // Calories out only make sense once the day has happened.
                     hasHappened={date <= today}
-                    editable={editing}
                     entries={entries.filter((e) => e.date === date)}
                     projections={projections}
                     goals={goalsFor(date)}
                     out={outFor(date)}
                     bmr={bmrFor(date)}
                     onAdd={(slot) => onAdd(date, slot)}
-                    onQuickLog={(slot) => onQuickLog(date, slot)}
                     onOpen={onOpen}
                     onToggle={onToggle}
-                    onRemove={onRemove}
+                    onRowMenu={onRowMenu}
+                    onSlotMenu={(ev, slot) => onSlotMenu(ev, date, slot)}
+                    onAwayDay={() => onAwayDay(date)}
+                    onBackFromAway={() => onBackFromAway(date)}
                     dragActive={dragId !== null}
                     draggedId={dragId}
                     dropForDay={dropAt && dropAt.date === date ? dropAt : null}
@@ -973,21 +1089,8 @@ function WeekView({
                     onSaveOut={(v) => onSaveOut(date, v)}
                 />
             ))}
-            {!editing && !board && <SwipeHint />}
+            {!board && <SwipeHint />}
         </div>
-    )
-}
-
-function IconButton({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
-    return (
-        <button
-            type="button"
-            aria-label={label}
-            onClick={onClick}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-        >
-            <i className={icon} aria-hidden="true" />
-        </button>
     )
 }
 
@@ -997,17 +1100,18 @@ function DayCard({
     className = '',
     isToday,
     hasHappened,
-    editable,
     entries,
     projections,
     goals,
     out,
     bmr,
     onAdd,
-    onQuickLog,
     onOpen,
     onToggle,
-    onRemove,
+    onRowMenu,
+    onSlotMenu,
+    onAwayDay,
+    onBackFromAway,
     dragActive,
     draggedId,
     dropForDay,
@@ -1025,7 +1129,6 @@ function DayCard({
     isToday: boolean
     /** Today or earlier — the day gets its calories-out line. */
     hasHappened: boolean
-    editable: boolean
     entries: MealPlanEntry[]
     projections: Projections
     goals: MacroGoals | null
@@ -1033,10 +1136,12 @@ function DayCard({
     /** That day's worked-out BMR, or null until the profile is filled in. */
     bmr: number | null
     onAdd: (slot: MealType) => void
-    onQuickLog: (slot: MealType) => void
     onOpen: (entry: MealPlanEntry) => void
     onToggle: (entry: MealPlanEntry) => void
-    onRemove: (id: string) => void
+    onRowMenu: (ev: { clientX: number; clientY: number }, entry: MealPlanEntry) => void
+    onSlotMenu: (ev: { clientX: number; clientY: number }, slot: MealType) => void
+    onAwayDay: () => void
+    onBackFromAway: () => void
     dragActive: boolean
     draggedId: string | null
     dropForDay: { slot: MealType; refId: string | null; after: boolean } | null
@@ -1052,64 +1157,41 @@ function DayCard({
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
     const planned = entries.filter((e) => !e.extra)
     const extras = entries.filter((e) => e.extra).sort((a, b) => a.order - b.order)
-    const total = planned.length
-    const eatenCount = planned.filter(isEaten).length
-    const plannedMacros = sumMacros(planned)
-    const plannedKcal = plannedMacros.calories
-    // With box notes in the day, what it comes to at their suggested grams.
-    const boxEstimates = planned.flatMap((e) => (e.status === 'planned' ? (projections.get(e._id) ?? []) : []))
-    const projected =
-        boxEstimates.length > 0
-            ? boxEstimates.reduce((acc, p) => addMacros(acc, p.macros), plannedMacros)
-            : null
+    const totals = dayTotals(entries, (e) => projections.get(e._id)?.macros ?? null, date, todayKey())
 
     const slotItems = (slot: MealType) => planned.filter((e) => e.slot === slot).sort((a, b) => a.order - b.order)
 
-    // What the day holds, with a thin bar filling as meals are eaten.
-    const summary =
-        total === 0 ? (
-            <p className="text-[13px] text-neutral-500">
-                {extras.length > 0 ? `${extras.length} logged` : 'Nothing planned'}
-            </p>
-        ) : (
-            <div className="flex flex-col gap-1.5">
-                <p className="text-[13px] text-neutral-500">
-                    {total} {total === 1 ? 'meal' : 'meals'}
-                    {plannedKcal > 0 && ` · ${kcal(plannedKcal)} kcal`}
-                    {eatenCount > 0 && <span className="text-emerald-700"> · {eatenCount} eaten</span>}
-                    {extras.length > 0 && ` · ${extras.length} logged`}
-                </p>
-                {projected && (
-                    <p
-                        className="text-[13px] tabular-nums text-neutral-500"
-                        title="Including box notes at their suggested grams"
-                    >
-                        <i className="fa-solid fa-box mr-1.5 text-[10px] text-neutral-400" aria-hidden="true" />
-                        ~{kcal(projected.calories)} kcal · {fmt(Math.round(projected.protein))} P ·{' '}
-                        {fmt(Math.round(projected.carbs))} C · {fmt(Math.round(projected.fat))} F
-                        {!compact && ' projected'}
-                    </p>
-                )}
-                <div className="h-1 overflow-hidden rounded-full bg-neutral-100">
-                    <div
-                        className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
-                        style={{ width: `${(eatenCount / total) * 100}%` }}
-                    />
-                </div>
-            </div>
-        )
+    // One set of numbers: the day against its target.
+    const summary = <DayNumbers totals={totals} goals={goals} compact={compact} />
 
-    const canClear = editable && planned.some(clearable)
-    const actions = canClear && (
-        <button
-            type="button"
-            onClick={onClear}
-            aria-label={`Clear ${weekday}`}
-            title="Clear day"
-            className="-my-1.5 ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-300 transition-colors hover:bg-red-50 hover:text-red-500"
-        >
-            <i className="fa-solid fa-broom text-[12px]" aria-hidden="true" />
-        </button>
+    const canClear = planned.some((e) => clearable(e) && !e.away)
+    // Every slot marked away: the day is off the plan, and out of the numbers.
+    const awayAllDay = MEAL_TYPES.every((s) => planned.some((e) => e.slot === s && e.away))
+    const awayName = awayAllDay ? (planned.find((e) => e.away)?.name ?? 'Away') : null
+    const dayMenu: MenuEntry[] = [
+        awayAllDay
+            ? { label: 'Not away after all', icon: 'fa-solid fa-rotate-left', onClick: onBackFromAway }
+            : { label: 'Away all day…', icon: 'fa-regular fa-calendar', onClick: onAwayDay },
+        ...(canClear
+            ? ['divider' as const, { label: 'Clear day', icon: 'fa-solid fa-broom', danger: true, onClick: onClear }]
+            : []),
+    ]
+    const actions = (
+        <DropdownMenu
+            align="right"
+            className="-my-1.5 ml-auto"
+            items={dayMenu}
+            trigger={
+                <button
+                    type="button"
+                    aria-label={`${weekday} options`}
+                    title="Day options"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                >
+                    <i className="fa-solid fa-ellipsis text-[13px]" aria-hidden="true" />
+                </button>
+            }
+        />
     )
 
     const titleRow = (
@@ -1129,32 +1211,46 @@ function DayCard({
         <DayCardShell id={dayCardId('meals', date)} isToday={isToday} compact={compact} className={className}>
             <header className="flex flex-col gap-2">
                 {titleRow}
-                {summary}
+                {awayAllDay ? (
+                    <p className="text-[13px] text-neutral-500">Away all day — not counted</p>
+                ) : (
+                    summary
+                )}
             </header>
 
-            {
-                <div
-                    className={
-                        editable
-                            ? compact
-                                ? 'flex flex-col gap-3'
-                                : 'grid gap-3 lg:grid-cols-2 2xl:grid-cols-4'
-                            : 'flex flex-col divide-y divide-neutral-100'
-                    }
-                >
+            {awayAllDay ? (
+                <div className="flex items-center gap-3 rounded-xl bg-neutral-50 px-3 py-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-neutral-400 ring-1 ring-neutral-200">
+                        <i className="fa-regular fa-calendar text-sm" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-neutral-900">{awayName}</span>
+                        <span className="block truncate text-[13px] text-neutral-500">No meals planned here</span>
+                    </span>
+                    {!compact && (
+                        <button
+                            type="button"
+                            onClick={onBackFromAway}
+                            className="shrink-0 rounded-full px-3 py-1.5 text-[13px] font-semibold text-neutral-600 hover:bg-white hover:text-neutral-900"
+                        >
+                            Undo
+                        </button>
+                    )}
+                </div>
+            ) : (
+                <div className="flex flex-col divide-y divide-neutral-100">
                     {MEAL_TYPES.map((slot) => (
                         <SlotSection
                             key={slot}
                             compact={compact}
                             slot={slot}
-                            editable={editable}
                             entries={slotItems(slot)}
                             projections={projections}
                             onAdd={() => onAdd(slot)}
-                            onQuickLog={() => onQuickLog(slot)}
                             onOpen={onOpen}
                             onToggle={onToggle}
-                            onRemove={onRemove}
+                            onRowMenu={onRowMenu}
+                            onSlotMenu={(ev) => onSlotMenu(ev, slot)}
                             dragActive={dragActive}
                             draggedId={draggedId}
                             drop={dropForDay && dropForDay.slot === slot ? dropForDay : null}
@@ -1166,23 +1262,15 @@ function DayCard({
                         />
                     ))}
                     {extras.length > 0 && (
-                        <ExtrasSection
-                            compact={compact}
-                            editable={editable}
-                            entries={extras}
-                            onOpen={onOpen}
-                            onRemove={onRemove}
-                        />
+                        <ExtrasSection compact={compact} entries={extras} onOpen={onOpen} />
                     )}
                 </div>
-            }
+            )}
 
-            {hasHappened && !editable && (
+            {hasHappened && (
                 <DayEnergy
                     key={out ?? 'none'}
-                    compact={compact}
-                    eaten={sumEatenMacros(entries)}
-                    goals={goals}
+                    eaten={totals.eaten.calories}
                     out={out}
                     bmr={bmr}
                     onSaveOut={onSaveOut}
@@ -1193,21 +1281,21 @@ function DayCard({
 }
 
 /**
- * One meal slot of a day. Viewing, it's a label beside its meals (or over them
- * in a board column); editing, it becomes a lane — an add button and a drop
- * target, shown even when empty.
+ * One meal slot of a day: its name and an add button, beside its meals (or
+ * over them in a board column). Meals tick off as they're eaten, open for a
+ * closer look, and drag to another slot or day on a wide screen. The whole
+ * slot is a drop target while something's being dragged.
  */
 function SlotSection({
     compact = false,
     slot,
-    editable,
     entries,
     projections,
     onAdd,
-    onQuickLog,
     onOpen,
     onToggle,
-    onRemove,
+    onRowMenu,
+    onSlotMenu,
     dragActive,
     draggedId,
     drop,
@@ -1219,14 +1307,15 @@ function SlotSection({
 }: {
     compact?: boolean
     slot: MealType
-    editable: boolean
     entries: MealPlanEntry[]
     projections: Projections
     onAdd: () => void
-    onQuickLog: () => void
     onOpen: (entry: MealPlanEntry) => void
     onToggle: (entry: MealPlanEntry) => void
-    onRemove: (id: string) => void
+    /** Right-click on a meal: copy, open, remove. */
+    onRowMenu: (ev: { clientX: number; clientY: number }, entry: MealPlanEntry) => void
+    /** Right-click on the slot: paste a copied meal, or add. */
+    onSlotMenu: (ev: { clientX: number; clientY: number }) => void
     dragActive: boolean
     draggedId: string | null
     drop: { refId: string | null; after: boolean } | null
@@ -1239,8 +1328,8 @@ function SlotSection({
     const meta = CATEGORY[slot]
     const listRef = useRef<HTMLUListElement>(null)
 
-    // The whole slot is one drop target: the insertion point comes from the
-    // cursor's Y against each row's midpoint, skipping the row in flight.
+    // The insertion point comes from the cursor's Y against each row's
+    // midpoint, skipping the row in flight.
     const targetForY = (clientY: number): { refId: string | null; after: boolean } => {
         const rows = listRef.current?.querySelectorAll<HTMLElement>('[data-plan-row]')
         if (rows) {
@@ -1254,7 +1343,7 @@ function SlotSection({
         return { refId: null, after: false }
     }
 
-    const containerDropProps = dragActive
+    const dropProps = dragActive
         ? {
               onDragOver: (e: DragEvent) => {
                   e.preventDefault()
@@ -1272,8 +1361,6 @@ function SlotSection({
           }
         : {}
 
-    const label = <span className="text-[13px] font-medium text-neutral-500">{meta.label}</span>
-
     const rows = entries.map((e) => (
         <PlannedRow
             key={e._id}
@@ -1282,87 +1369,56 @@ function SlotSection({
             projection={projections.get(e._id)}
             dropId={e._id}
             onOpen={() => onOpen(e)}
-            onToggle={editable ? undefined : () => onToggle(e)}
-            onRemove={editable ? () => onRemove(e._id) : undefined}
-            draggable={editable}
+            onToggle={() => onToggle(e)}
+            onContextMenu={(ev) => {
+                ev.preventDefault()
+                ev.stopPropagation()
+                onRowMenu(ev, e)
+            }}
+            draggable
             onDragStart={() => onEntryDragStart(e._id)}
             onDragEnd={onEntryDragEnd}
             dropEdge={drop && drop.refId === e._id ? (drop.after ? 'bottom' : 'top') : null}
         />
     ))
 
-    if (!editable) {
-        const logButton = (
-            <button
-                type="button"
-                onClick={onQuickLog}
-                aria-label={`Quick log ${meta.label.toLowerCase()}`}
-                title="Quick log"
-                className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full font-semibold text-neutral-600 ring-1 ring-inset ring-neutral-200 transition-colors hover:bg-neutral-900 hover:text-white hover:ring-neutral-900 ${
-                    compact ? 'h-6 w-6 text-[10px]' : 'h-9 px-3 text-xs sm:h-8'
-                }`}
-            >
-                <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
-                {!compact && <span>Log</span>}
-            </button>
-        )
-        return (
-            <div
-                className={
-                    compact
-                        ? 'flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0'
-                        : // Phones: the slot's name over its meals, so rows get the full width.
-                          'flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-start sm:gap-3'
-                }
-            >
-                <div
-                    className={`flex items-center justify-between gap-2 ${
-                        compact ? '' : 'sm:flex-col sm:items-start sm:pt-1.5'
-                    }`}
-                >
-                    <span className="flex items-center gap-2">
-                        <span className={`h-2 w-2 shrink-0 rounded-full ${meta.solid}`} aria-hidden="true" />
-                        {label}
-                    </span>
-                    {logButton}
-                </div>
-                {entries.length > 0 ? (
-                    <ul className={compact ? 'flex flex-col gap-1.5' : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'}>
-                        {rows}
-                    </ul>
-                ) : (
-                    <button type="button" onClick={onQuickLog} className="group block w-full text-left">
-                        <EmptySlotTile
-                            compact={compact}
-                            title="Nothing yet"
-                            detail={compact ? 'Tap to log' : 'Tap to log what you ate'}
-                        />
-                    </button>
-                )}
-            </div>
-        )
-    }
+    const addButton = (
+        <button
+            type="button"
+            onClick={onAdd}
+            aria-label={`Add to ${meta.label.toLowerCase()}`}
+            title={`Add to ${meta.label.toLowerCase()}`}
+            className={`grid shrink-0 place-items-center rounded-full text-neutral-500 ring-1 ring-inset ring-neutral-200 transition-colors hover:bg-neutral-900 hover:text-white hover:ring-neutral-900 ${
+                compact ? 'h-6 w-6' : 'h-9 w-9 sm:h-8 sm:w-8'
+            }`}
+        >
+            <i className="fa-solid fa-plus text-[10px]" aria-hidden="true" />
+        </button>
+    )
 
     return (
         <div
-            {...containerDropProps}
-            className={`flex flex-col gap-2 rounded-2xl transition-colors ${compact ? 'p-1.5' : 'p-2.5'} ${
-                drop ? 'bg-coral-50 ring-2 ring-inset ring-coral-200' : 'bg-neutral-50'
-            }`}
+            {...dropProps}
+            onContextMenu={(ev) => {
+                ev.preventDefault()
+                onSlotMenu(ev)
+            }}
+            className={`${
+                compact
+                    ? 'flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0'
+                    : // Phones: the slot's name over its meals, so rows get the full width.
+                      'flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-start sm:gap-3'
+            } ${drop ? '-mx-1.5 rounded-xl bg-coral-50 px-1.5 ring-2 ring-inset ring-coral-200' : ''}`}
         >
-            <div className="flex items-center justify-between pl-1">
-                {label}
-                <button
-                    type="button"
-                    aria-label={`Add to ${meta.label.toLowerCase()}`}
-                    onClick={onAdd}
-                    className="grid h-8 w-8 place-items-center rounded-[10px] bg-white text-neutral-500 shadow-sm ring-1 ring-neutral-900/[0.06] transition-colors hover:bg-neutral-900 hover:text-white"
-                >
-                    <i className="fa-solid fa-plus text-[11px]" aria-hidden="true" />
-                </button>
+            <div className={`flex items-center justify-between gap-2 ${compact ? '' : 'sm:flex-col sm:items-start sm:pt-1.5'}`}>
+                <span className="flex items-center gap-2">
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${meta.solid}`} aria-hidden="true" />
+                    <span className="text-[13px] font-medium text-neutral-500">{meta.label}</span>
+                </span>
+                {addButton}
             </div>
             {entries.length > 0 ? (
-                <ul ref={listRef} className={`flex flex-col ${compact ? 'gap-1.5' : 'gap-2'}`}>
+                <ul ref={listRef} className={compact ? 'flex flex-col gap-1.5' : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'}>
                     {rows}
                     {drop && drop.refId === null && <DropLine />}
                 </ul>
@@ -1371,8 +1427,8 @@ function SlotSection({
                     <EmptySlotTile
                         compact={compact}
                         active={dragActive}
-                        title={dragActive ? 'Move here' : `Add to ${meta.label.toLowerCase()}`}
-                        detail={dragActive ? 'Drop to move it' : 'Pick a meal'}
+                        title={dragActive ? 'Move here' : 'Nothing yet'}
+                        detail={dragActive ? 'Drop to move it' : 'Tap to add'}
                     />
                 </button>
             )}
@@ -1383,37 +1439,13 @@ function SlotSection({
 /** Whatever was logged with "Log more" — eaten already, so never dragged or ticked. */
 function ExtrasSection({
     compact,
-    editable,
     entries,
     onOpen,
-    onRemove,
 }: {
     compact: boolean
-    editable: boolean
     entries: MealPlanEntry[]
     onOpen: (entry: MealPlanEntry) => void
-    onRemove: (id: string) => void
 }) {
-    const label = <span className="text-[13px] font-medium text-neutral-500">Also ate</span>
-    const rows = entries.map((e) => (
-        <PlannedRow
-            key={e._id}
-            compact={compact}
-            entry={e}
-            onOpen={() => onOpen(e)}
-            onRemove={editable ? () => onRemove(e._id) : undefined}
-            draggable={false}
-            lane={editable}
-        />
-    ))
-    if (editable) {
-        return (
-            <div className={`flex flex-col gap-2 rounded-2xl bg-neutral-50 ${compact ? 'p-1.5' : 'p-2.5'}`}>
-                <div className="flex h-8 items-center pl-1">{label}</div>
-                <ul className={`flex flex-col ${compact ? 'gap-1.5' : 'gap-2'}`}>{rows}</ul>
-            </div>
-        )
-    }
     return (
         <div
             className={
@@ -1424,9 +1456,13 @@ function ExtrasSection({
         >
             <span className={`flex items-center gap-2 ${compact ? '' : 'sm:pt-1.5'}`}>
                 <span className="h-2 w-2 shrink-0 rounded-full bg-neutral-300" aria-hidden="true" />
-                {label}
+                <span className="text-[13px] font-medium text-neutral-500">Also ate</span>
             </span>
-            <ul className={compact ? 'flex flex-col gap-1.5' : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'}>{rows}</ul>
+            <ul className={compact ? 'flex flex-col gap-1.5' : 'grid gap-2 sm:grid-cols-2 2xl:grid-cols-3'}>
+                {entries.map((e) => (
+                    <PlannedRow key={e._id} compact={compact} entry={e} onOpen={() => onOpen(e)} />
+                ))}
+            </ul>
         </div>
     )
 }
@@ -1482,7 +1518,10 @@ function PlannedRow({
     onDragEnd,
     dropId,
     dropEdge = null,
+    onContextMenu,
 }: {
+    /** Right-click on the row. */
+    onContextMenu?: (ev: MouseEvent) => void
     compact?: boolean
     entry: MealPlanEntry
     /** A box note's projected plate, when its box has figures and the day has targets. */
@@ -1546,6 +1585,7 @@ function PlannedRow({
                     : undefined
             }
             data-plan-row={dropId}
+            onContextMenu={onContextMenu}
             className={`group relative flex items-center rounded-xl transition-colors ${
                 compact ? 'gap-1 p-2' : 'min-h-14 gap-2 px-3 py-2 sm:min-h-0 sm:px-2.5'
             } ${lane ? 'bg-white ring-1 ring-neutral-900/[0.06]' : 'bg-neutral-50'} ${
@@ -1562,7 +1602,7 @@ function PlannedRow({
             )}
             {draggable && !compact && (
                 <i
-                    className="fa-solid fa-grip-vertical hidden shrink-0 pl-1 text-[11px] text-neutral-300 md:inline"
+                    className="fa-solid fa-grip-vertical hidden shrink-0 pl-1 text-[11px] text-neutral-300 md:invisible md:inline md:group-hover:visible"
                     aria-hidden="true"
                 />
             )}
@@ -1648,88 +1688,90 @@ function PlannedRow({
 // ─── Calories in and out ─────────────────────────────────────────────────────
 
 /**
- * The day's balance, once it's happened: what's been eaten against the
- * target, calories burned typed from a watch, the day's BMR (worked out from
- * the body profile and trend weight — read-only here), and the difference.
+ * Calories in against out, once the day has happened — folded away under one
+ * line ("Balance −420 kcal", or a nudge to add what was burned). Burned is
+ * typed from a watch; BMR comes from the body profile and trend weight.
  */
 function DayEnergy({
-    compact,
     eaten,
-    goals,
     out,
     bmr,
     onSaveOut,
 }: {
-    compact: boolean
-    eaten: Macros
-    goals: MacroGoals | null
+    /** Calories eaten that day. */
+    eaten: number
     out: number | null
     /** That day's worked-out BMR, or null until the profile is filled in. */
     bmr: number | null
     onSaveOut: (value: number | null) => Promise<void>
 }) {
+    const [open, setOpen] = useState(false)
     const totalOutKcal = totalOut(out, bmr)
-    const net = totalOutKcal === null ? null : eaten.calories - totalOutKcal
-    const macros = [
-        { label: 'Protein', value: eaten.protein, goal: goals?.protein, bar: 'bg-brand-600' },
-        { label: 'Carbs', value: eaten.carbs, goal: goals?.carbs, bar: 'bg-marigold' },
-        { label: 'Fat', value: eaten.fat, goal: goals?.fat, bar: 'bg-coral-300' },
-    ]
-    // On a narrow board column only protein fits beside the calories.
-    const shown = compact ? macros.slice(0, 1) : macros
+    const net = totalOutKcal === null ? null : eaten - totalOutKcal
 
     return (
-        <div className={`flex flex-col rounded-2xl bg-neutral-50 ${compact ? 'gap-2.5 p-2.5' : 'gap-3 p-3.5 sm:p-4'}`}>
-            <div className="flex flex-col gap-1.5">
-                <EnergyRow label="Eaten">
-                    {kcal(eaten.calories)}
-                    {goals?.calories ? <span className="font-normal text-neutral-500"> / {kcal(goals.calories)}</span> : null}
-                    <Unit>kcal</Unit>
-                </EnergyRow>
-                {goals?.calories ? <Meter value={eaten.calories} goal={goals.calories} bar="bg-neutral-900" /> : null}
-            </div>
-
-            <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'grid-cols-3'}`}>
-                {shown.map((m) => (
-                    <div key={m.label} className="flex min-w-0 flex-col gap-1">
-                        <span className="text-[13px] text-neutral-500">{m.label}</span>
-                        <span className="truncate text-sm font-semibold tabular-nums text-neutral-900">
-                            {fmt(Math.round(m.value))}
-                            {m.goal ? <span className="font-normal text-neutral-500"> / {fmt(m.goal)}</span> : null}
-                            <Unit>g</Unit>
-                        </span>
-                        {m.goal ? <Meter value={m.value} goal={m.goal} bar={m.bar} /> : null}
-                    </div>
-                ))}
-            </div>
-
-            <div className="flex flex-col gap-2 border-t border-neutral-200/70 pt-3">
-                <EnergyRow label="Burned">
-                    <OutField out={out} onSave={onSaveOut} />
-                    <Unit>kcal</Unit>
-                </EnergyRow>
-                <EnergyRow label="BMR">
-                    {bmr !== null ? (
+        <div className="rounded-2xl bg-neutral-50">
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                aria-expanded={open}
+                className="flex min-h-10 w-full items-center gap-2 px-3 text-left"
+            >
+                <i className="fa-solid fa-bolt text-[11px] text-neutral-400" aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate text-[13px] text-neutral-600">
+                    {net !== null ? (
                         <>
-                            {kcal(bmr)}
-                            <Unit>kcal</Unit>
+                            Balance{' '}
+                            <span
+                                className={`font-semibold tabular-nums ${
+                                    net < 0 ? 'text-emerald-700' : net > 0 ? 'text-amber-700' : 'text-neutral-900'
+                                }`}
+                            >
+                                {signedKcal(net)}
+                            </span>{' '}
+                            kcal
                         </>
                     ) : (
-                        <Link to="/profile" className="font-medium text-coral-600 hover:underline">
-                            Set up in Profile
-                        </Link>
+                        'Add calories burned'
                     )}
-                </EnergyRow>
-                {/* Only once burned is in — there's no balance without it. */}
-                {net !== null && (
-                    <EnergyRow label="Balance">
-                        <span className={net < 0 ? 'text-emerald-700' : net > 0 ? 'text-amber-700' : ''}>
-                            {signedKcal(net)}
-                        </span>
-                        <Unit>kcal {net < 0 ? 'deficit' : net > 0 ? 'surplus' : 'even'}</Unit>
+                </span>
+                <i
+                    className={`fa-solid fa-chevron-down text-[10px] text-neutral-400 transition-transform ${open ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
+                />
+            </button>
+            {open && (
+                <div className="flex flex-col gap-1 border-t border-neutral-200/70 px-3 pb-2.5 pt-2">
+                    <EnergyRow label="Eaten">
+                        {kcal(eaten)}
+                        <Unit>kcal</Unit>
                     </EnergyRow>
-                )}
-            </div>
+                    <EnergyRow label="Burned">
+                        <OutField out={out} onSave={onSaveOut} />
+                        <Unit>kcal</Unit>
+                    </EnergyRow>
+                    <EnergyRow label="BMR">
+                        {bmr !== null ? (
+                            <>
+                                {kcal(bmr)}
+                                <Unit>kcal</Unit>
+                            </>
+                        ) : (
+                            <Link to="/profile" className="font-medium text-coral-600 hover:underline">
+                                Set up in Profile
+                            </Link>
+                        )}
+                    </EnergyRow>
+                    {net !== null && (
+                        <EnergyRow label="Balance">
+                            <span className={net < 0 ? 'text-emerald-700' : net > 0 ? 'text-amber-700' : ''}>
+                                {signedKcal(net)}
+                            </span>
+                            <Unit>kcal {net < 0 ? 'deficit' : net > 0 ? 'surplus' : 'even'}</Unit>
+                        </EnergyRow>
+                    )}
+                </div>
+            )}
         </div>
     )
 }
@@ -1749,16 +1791,6 @@ function EnergyRow({ label, children }: { label: string; children: ReactNode }) 
 
 function Unit({ children }: { children: ReactNode }) {
     return <span className="ml-1 whitespace-nowrap font-normal text-neutral-500">{children}</span>
-}
-
-/** A thin bar filling toward a target — never past full. */
-function Meter({ value, goal, bar }: { value: number; goal: number; bar: string }) {
-    const pct = goal > 0 ? Math.min(100, (value / goal) * 100) : 0
-    return (
-        <div className="h-1 overflow-hidden rounded-full bg-neutral-200/80">
-            <div className={`h-full rounded-full transition-[width] duration-500 ${bar}`} style={{ width: `${pct}%` }} />
-        </div>
-    )
 }
 
 /** Calories out, typed straight into the figure — saved on blur or Enter, cleared by emptying it. */
@@ -1811,619 +1843,30 @@ function OutField({
     )
 }
 
-// ─── Day drawer: add a meal / log more ───────────────────────────────────────
-
-/** How many library meals the add list lays out at a time. */
-const PICKER_PAGE_SIZE = 10
-
-/**
- * The day drawer. Planning, it targets a day + slot: the slot toggle picks
- * where an added meal lands and narrows the list to meals tagged for it (a
- * search reaches the whole library). "Log more" uses the same drawer, but
- * what's added goes straight in as eaten.
- */
-function MealPickerDrawer({
-    target,
-    meals,
-    foods,
-    entries,
-    projections,
-    events,
-    goals,
-    onClose,
-    onAdd,
-    onAddPlate,
-    onAddBox,
-    onAddAway,
-    onRemove,
-}: {
-    target: PickerTarget | null
-    meals: Meal[]
-    foods: PlateFood[]
-    entries: MealPlanEntry[]
-    projections: Projections
-    /** Calendar events touching the day, offered for "Away". */
-    events: Event[]
-    goals: MacroGoals | null
-    onClose: () => void
-    onAdd: (date: string, slot: MealType, mealId: string, extra: boolean, eaten: boolean) => Promise<void>
-    onAddPlate: (date: string, slot: MealType, plate: PlateLineInput[], extra: boolean, eaten: boolean) => Promise<void>
-    onAddBox: (box: string, slot: MealType, dates: string[]) => Promise<void>
-    onAddAway: (date: string, slot: MealType, name: string) => Promise<void>
-    onRemove: (id: string) => void
-}) {
-    // A saved meal, a plate weighed out from boxes and foods, or — planning
-    // ahead — just "eating from this box" on some days. Or away: at an event,
-    // so no meal in the slot.
-    const [mode, setMode] = useState<'meal' | 'plate' | 'box' | 'away'>('meal')
-    // Retain the last target so the drawer keeps its content while sliding shut.
-    const [view, setView] = useState(target)
-    const [query, setQuery] = useState('')
-    const [activeSlot, setActiveSlot] = useState<MealType>('breakfast')
-    const [page, setPage] = useState(1)
-    const [busy, setBusy] = useState(false)
-    useEffect(() => {
-        if (target) {
-            setView(target)
-            setQuery('')
-            setActiveSlot(target.slot)
-            setPage(1)
-            // Lunch and dinner are usually plated from the pantry — and with no
-            // saved meals, plating is the only way to fill any slot.
-            const plated = meals.length === 0 || target.slot === 'lunch' || target.slot === 'dinner'
-            const plateable = foods.some((f) => f.kind === 'plain' || f.open.length > 0)
-            setMode(target.box || (plateable && plated) ? 'plate' : 'meal')
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [target])
-
-    useEffect(() => {
-        setPage(1)
-    }, [activeSlot, query])
-
-    const extra = view?.extra ?? false
-    const eaten = view?.eaten ?? false
-    const planning = !extra && !eaten
-    const title = view?.box ? 'Weigh it out' : extra ? 'Log more' : eaten ? 'Quick log' : 'Add to day'
-    // "From a box" only plans ahead, so it isn't offered when logging.
-    const modes = (
-        [
-            ['meal', 'Saved meal', 'fa-solid fa-bowl-food'],
-            ['plate', 'By weight', 'fa-solid fa-scale-balanced'],
-            ['box', 'From a box', 'fa-solid fa-box'],
-            ['away', 'Away', 'fa-regular fa-calendar'],
-        ] as const
-    ).filter(([m]) => (m === 'box' ? planning : m === 'away' ? !extra && !view?.box : true))
-    const shown = modes.some(([m]) => m === mode) ? mode : 'plate'
-
-    const results = useMemo(() => {
-        const q = query.trim().toLowerCase()
-        const base = q ? meals.filter((m) => m.name.toLowerCase().includes(q)) : meals.filter((m) => m.types.includes(activeSlot))
-        return [...base].sort((a, b) => a.name.localeCompare(b.name))
-    }, [meals, query, activeSlot])
-
-    // The slot's share of what's left of the day — for both ways of filling it.
-    // Box notes elsewhere in the day count at their projected grams.
-    const aim = slotBudget(
-        goals,
-        activeSlot,
-        entries.map((e) => (e.box ? { ...e, macros: projections.get(e._id)?.macros ?? e.macros } : e))
-    )
-    const aimOpen = !!aim && aim.keys.some((k) => aim.budget[k] >= (k === 'calories' ? 25 : 2))
-
-    // The saved meals that come closest to the aim, from those tagged for the
-    // slot (or the whole library when none are).
-    const bestFit = useMemo(() => {
-        if (!aim || !aimOpen) return []
-        const tagged = meals.filter((m) => m.types.includes(activeSlot))
-        return (tagged.length > 0 ? tagged : meals)
-            .map((m) => ({ m, cost: fitCost(m.macros, aim.budget, aim.keys, aim.size) }))
-            .sort((a, b) => a.cost - b.cost)
-            .slice(0, 3)
-            .map((x) => x.m)
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [meals, activeSlot, aimOpen, aim?.budget.calories, aim?.budget.protein, aim?.budget.carbs, aim?.budget.fat])
-
-    const mealRow = (m: Meal, detailed = false) => (
-        <li key={m._id}>
-            <button
-                type="button"
-                disabled={busy}
-                onClick={() => void add(m)}
-                className="flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-60"
-            >
-                <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-neutral-800">{m.name}</p>
-                    <p className="truncate text-xs tabular-nums text-neutral-500">
-                        {kcal(m.macros.calories)} kcal · {fmt(Math.round(m.macros.protein))} g protein
-                        {detailed &&
-                            ` · ${fmt(Math.round(m.macros.carbs))} g carbs · ${fmt(Math.round(m.macros.fat))} g fat`}
-                    </p>
-                </div>
-                <i className="fa-solid fa-plus text-xs text-neutral-500" aria-hidden="true" />
-            </button>
-        </li>
-    )
-
-    const total = results.length
-    const pageCount = Math.max(1, Math.ceil(total / PICKER_PAGE_SIZE))
-    useEffect(() => {
-        if (page > pageCount) setPage(pageCount)
-    }, [page, pageCount])
-    const from = (page - 1) * PICKER_PAGE_SIZE
-    const to = from + PICKER_PAGE_SIZE
-
-    // The day's meals, grouped by slot: what's planned, or — logging — what's
-    // been logged so far.
-    const slots = MEAL_TYPES.map((slot) => ({
-        slot,
-        items: entries.filter((e) => e.slot === slot && e.extra === extra).sort((a, b) => a.order - b.order),
-    })).filter((s) => s.items.length > 0)
-
-    async function add(meal: Meal) {
-        if (!view || busy) return
-        setBusy(true)
-        try {
-            await onAdd(view.date, activeSlot, meal._id, extra, eaten)
-        } finally {
-            setBusy(false)
-        }
-    }
-
-    return (
-        <Drawer
-            open={!!target}
-            onClose={onClose}
-            title={title}
-            badge={view ? shortDayLabel(view.date) : undefined}
-            footer={
-                <Button variant="ghost" onClick={onClose}>
-                    Done
-                </Button>
-            }
-        >
-            <div className="flex flex-col gap-4">
-                {slots.length > 0 && (
-                    <section className="flex flex-col gap-3">
-                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                            {extra ? 'Logged on this day' : 'On this day'}
-                        </p>
-                        {slots.map(({ slot, items }) => (
-                            <div key={slot} className="flex flex-col gap-1.5">
-                                <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                    <i className={`${CATEGORY[slot].icon} text-[11px] text-neutral-500`} aria-hidden="true" />
-                                    {CATEGORY[slot].label}
-                                </span>
-                                <ul className="flex flex-col gap-1">
-                                    {items.map((e) => (
-                                        <PlannedRow key={e._id} entry={e} onRemove={() => onRemove(e._id)} />
-                                    ))}
-                                </ul>
-                            </div>
-                        ))}
-                    </section>
-                )}
-
-                <div className="flex flex-col gap-1.5">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Slot</p>
-                    <div className="inline-flex flex-wrap self-start gap-1 rounded-xl bg-neutral-100 p-1">
-                        {MEAL_TYPES.map((s) => {
-                            const active = s === activeSlot
-                            return (
-                                <button
-                                    key={s}
-                                    type="button"
-                                    onClick={() => setActiveSlot(s)}
-                                    className={`h-8 rounded-[9px] px-3 text-[13px] font-medium transition-all duration-200 ${
-                                        active
-                                            ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
-                                            : 'text-neutral-500 hover:text-neutral-900'
-                                    }`}
-                                >
-                                    {CATEGORY[s].label}
-                                </button>
-                            )
-                        })}
-                    </div>
-                </div>
-
-                {aim && <AimCard aim={aim.budget} keys={aim.keys} slotLabel={CATEGORY[activeSlot].label} />}
-
-                <div
-                    className={`grid gap-1 rounded-xl bg-neutral-100 p-1 ${
-                        modes.length === 4 ? 'grid-cols-2' : modes.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
-                    }`}
-                >
-                    {modes.map(([m, label, icon]) => (
-                        <button
-                            key={m}
-                            type="button"
-                            onClick={() => setMode(m)}
-                            aria-pressed={shown === m}
-                            className={`inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-[9px] text-[13px] font-semibold transition-all ${
-                                shown === m
-                                    ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/[0.04]'
-                                    : 'text-neutral-500 hover:text-neutral-900'
-                            }`}
-                        >
-                            <i className={`${icon} text-xs`} aria-hidden="true" />
-                            {label}
-                        </button>
-                    ))}
-                </div>
-
-                {shown === 'away' ? (
-                    view && (
-                        <AwayPicker
-                            key={view.date}
-                            date={view.date}
-                            slot={activeSlot}
-                            events={events}
-                            planned={entries.filter((e) => e.slot === activeSlot && clearable(e) && !isAwayNote(e)).length}
-                            busy={busy}
-                            onPick={async (name) => {
-                                setBusy(true)
-                                try {
-                                    await onAddAway(view.date, activeSlot, name)
-                                    onClose()
-                                } finally {
-                                    setBusy(false)
-                                }
-                            }}
-                        />
-                    )
-                ) : shown === 'box' ? (
-                    view && (
-                        <BoxPlanner
-                            key={view.date}
-                            foods={foods}
-                            date={view.date}
-                            slot={activeSlot}
-                            busy={busy}
-                            onPlan={async (box, dates) => {
-                                setBusy(true)
-                                try {
-                                    await onAddBox(box, activeSlot, dates)
-                                } finally {
-                                    setBusy(false)
-                                }
-                            }}
-                        />
-                    )
-                ) : shown === 'plate' ? (
-                    <PlateBuilder
-                        key={`${view?.date}|${view?.box ?? ''}`}
-                        start={view?.box}
-                        foods={foods}
-                        busy={busy}
-                        actionLabel={extra || eaten ? 'Log plate' : 'Add plate'}
-                        aim={aim}
-                        onAdd={async (plate) => {
-                            if (!view) return
-                            setBusy(true)
-                            try {
-                                await onAddPlate(view.date, activeSlot, plate, extra, eaten)
-                            } finally {
-                                setBusy(false)
-                            }
-                        }}
-                    />
-                ) : (
-                <>
-                {bestFit.length > 0 && !query.trim() && (
-                    <section className="flex flex-col gap-2">
-                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Best fit for the aim</p>
-                        <ul className="flex flex-col gap-1.5">{bestFit.map((m) => mealRow(m, true))}</ul>
-                    </section>
-                )}
-
-                <Input
-                    icon="fa-solid fa-magnifying-glass"
-                    type="search"
-                    placeholder="Search every meal…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                />
-
-                {total > 0 && (
-                    <p className="text-xs text-neutral-500">
-                        {query.trim()
-                            ? `${total} matching meal${total === 1 ? '' : 's'}`
-                            : `${total} ${CATEGORY[activeSlot].label.toLowerCase()} meal${total === 1 ? '' : 's'}`}
-                        {total > PICKER_PAGE_SIZE && ` — showing ${from + 1}–${Math.min(to, total)}`}
-                    </p>
-                )}
-
-                {results.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-neutral-500">
-                        {meals.length === 0
-                            ? 'Your library is empty — add meals in the Library tab.'
-                            : query.trim()
-                              ? 'No meals found.'
-                              : `No meals tagged ${CATEGORY[activeSlot].label.toLowerCase()} — search to find any meal.`}
-                    </p>
-                ) : (
-                    <ul className="flex flex-col gap-1.5">
-                        {results.slice(from, to).map((m) => mealRow(m))}
-                    </ul>
-                )}
-
-                <Pagination page={page} pageCount={pageCount} onChange={setPage} />
-                </>
-                )}
-            </div>
-        </Drawer>
-    )
-}
-
-// ─── From a box ──────────────────────────────────────────────────────────────
-
-/**
- * "Eating from this box for these days": pick a box, tick the days, done. No
- * grams and no numbers — each day gets a light note that's weighed out at the
- * table. Any box can be planned, cooked or not, so a cook can be planned for.
- */
-function BoxPlanner({
-    foods,
-    date,
-    slot,
-    busy,
-    onPlan,
-}: {
-    foods: PlateFood[]
-    date: string
-    slot: MealType
-    busy: boolean
-    onPlan: (box: string, dates: string[]) => Promise<void>
-}) {
-    const boxes = useMemo(() => foods.filter((f) => f.kind === 'box').sort((a, b) => a.order - b.order), [foods])
-    const [box, setBox] = useState<string | null>(null)
-    const [days, setDays] = useState<string[]>([date])
-    const [done, setDone] = useState<string | null>(null)
-    const today = todayKey()
-    // The picked day and the six after it — a box usually lasts a few days.
-    const span = Array.from({ length: 7 }, (_, i) => addDays(date, i))
-
-    if (boxes.length === 0) {
-        return (
-            <p className="rounded-2xl bg-neutral-50 px-4 py-4 text-center text-sm text-neutral-500">
-                No boxes yet — add one under Library → Boxes &amp; foods.
-            </p>
-        )
-    }
-
-    const status = (f: PlateFood) => {
-        const left = f.open.reduce((sum, c) => sum + gramsLeft(c.cookedGrams, c.eatenGrams), 0)
-        if (f.open.length > 0) return `In the pantry · ~${fmt(left)} g left`
-        if (f.frozen.length > 0) return 'In the freezer'
-        return 'Not cooked yet'
-    }
-
-    const toggle = (d: string) =>
-        setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()))
-
-    async function plan() {
-        if (!box || days.length === 0) return
-        await onPlan(box, days)
-        const name = boxes.find((b) => b._id === box)?.name ?? 'Box'
-        setDone(`${name} planned for ${days.length} ${CATEGORY[slot].label.toLowerCase()}${days.length === 1 ? '' : 's'}`)
-        setBox(null)
-        setDays([date])
-    }
-
-    return (
-        <div className="flex flex-col gap-4">
-            <p className="text-sm text-neutral-500">
-                Plan ahead without amounts. It won’t touch the day’s numbers — you weigh it out when you eat.
-            </p>
-            {done && (
-                <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-700">
-                    <i className="fa-solid fa-circle-check" aria-hidden="true" />
-                    {done}
-                </p>
-            )}
-            <ul className="flex flex-col gap-1.5">
-                {boxes.map((f) => {
-                    const active = box === f._id
-                    return (
-                        <li key={f._id}>
-                            <button
-                                type="button"
-                                aria-pressed={active}
-                                onClick={() => {
-                                    setBox(active ? null : f._id)
-                                    setDone(null)
-                                }}
-                                className={`flex min-h-12 w-full items-center gap-3 rounded-2xl border bg-white px-3 py-2 text-left transition-colors ${
-                                    active ? 'border-neutral-900' : 'border-neutral-200 hover:bg-neutral-50'
-                                }`}
-                            >
-                                <span className="min-w-0 flex-1">
-                                    <span className="block truncate text-sm font-medium text-neutral-800">{f.name}</span>
-                                    <span className="block truncate text-xs tabular-nums text-neutral-500">{status(f)}</span>
-                                </span>
-                                <span
-                                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${
-                                        active ? 'bg-neutral-900 text-white' : 'ring-1 ring-inset ring-neutral-200'
-                                    }`}
-                                    aria-hidden="true"
-                                >
-                                    {active && <i className="fa-solid fa-check text-[10px]" />}
-                                </span>
-                            </button>
-                        </li>
-                    )
-                })}
-            </ul>
-
-            {box && (
-                <div className="flex flex-col gap-2">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        Which days · {CATEGORY[slot].label}
-                    </p>
-                    <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
-                        {span.map((d) => {
-                            const on = days.includes(d)
-                            const { year, month, day } = parseDateKey(d)
-                            const wd = WEEKDAYS_LONG[new Date(year, month, day).getDay()].slice(0, 3)
-                            return (
-                                <button
-                                    key={d}
-                                    type="button"
-                                    aria-pressed={on}
-                                    disabled={d < today}
-                                    onClick={() => toggle(d)}
-                                    className={`flex h-14 flex-col items-center justify-center rounded-xl text-[13px] font-semibold transition-colors disabled:opacity-40 ${
-                                        on
-                                            ? 'bg-neutral-900 text-white'
-                                            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                                    }`}
-                                >
-                                    <span>{wd}</span>
-                                    <span className={`text-xs font-medium ${on ? 'text-white/70' : 'text-neutral-500'}`}>{day}</span>
-                                </button>
-                            )
-                        })}
-                    </div>
-                    <Button
-                        icon="fa-solid fa-box"
-                        disabled={busy || days.length === 0}
-                        onClick={() => void plan()}
-                        className="mt-2 w-full"
-                    >
-                        {days.length === 0
-                            ? 'Pick a day'
-                            : `Plan for ${days.length} day${days.length === 1 ? '' : 's'}`}
-                    </Button>
-                </div>
-            )}
-        </div>
-    )
-}
-
-// ─── Away ────────────────────────────────────────────────────────────────────
-
-/** The part of the day a slot falls in, for matching it against calendar events. */
-const SLOT_PART: Record<MealType, 'morning' | 'afternoon' | 'evening' | null> = {
-    breakfast: 'morning',
-    lunch: 'afternoon',
-    dinner: 'evening',
-    snack: null,
-}
-
-/**
- * "At an event, so no meal here": pick one of the day's calendar events — the
- * ones over this slot come first — or type a reason. The slot gets a note
- * with no numbers, replacing whatever was still planned there.
- */
-function AwayPicker({
-    date,
-    slot,
-    events,
-    planned,
-    busy,
-    onPick,
-}: {
-    date: string
-    slot: MealType
-    events: Event[]
-    /** Meals still planned in the slot, which the note replaces. */
-    planned: number
-    busy: boolean
-    onPick: (name: string) => Promise<void>
-}) {
-    const [other, setOther] = useState('')
-    const part = SLOT_PART[slot]
-    const covers = (e: Event) =>
-        eventCoversAllDay(e, date) || (part ? eventCoversSlot(e, date, part) : true)
-    const sorted = [...events].sort((a, b) => Number(covers(b)) - Number(covers(a)) || (a.time ?? '').localeCompare(b.time ?? ''))
-    const slotName = CATEGORY[slot].label.toLowerCase()
-
-    const when = (e: Event) => {
-        if (e.allDay || e.startPart === 'na' || date !== e.startDate) return e.time && date === e.startDate ? e.time : 'All day'
-        return e.time ?? e.startPart[0].toUpperCase() + e.startPart.slice(1)
-    }
-
-    return (
-        <div className="flex flex-col gap-4">
-            <p className="text-sm text-neutral-500">
-                Not eating {slotName} here? Mark the slot as away. It doesn’t count towards the day’s numbers, and
-                the rest of the day’s aim is shared over the other slots.
-                {planned > 0 && ` The ${planned} meal${planned === 1 ? '' : 's'} planned for ${slotName} will be removed.`}
-            </p>
-
-            <section className="flex flex-col gap-2">
-                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">On the calendar</p>
-                {sorted.length === 0 ? (
-                    <p className="rounded-2xl bg-neutral-50 px-4 py-4 text-center text-sm text-neutral-500">
-                        Nothing on the calendar this day.
-                    </p>
-                ) : (
-                    <ul className="flex flex-col gap-1.5">
-                        {sorted.map((e) => (
-                            <li key={`${e._id}|${e.startDate}`}>
-                                <button
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => void onPick(e.title)}
-                                    className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-60"
-                                >
-                                    <i className="fa-regular fa-calendar text-sm text-neutral-400" aria-hidden="true" />
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-sm font-medium text-neutral-800">{e.title}</span>
-                                        <span className="block truncate text-xs text-neutral-500">
-                                            {when(e)}
-                                            {e.location ? ` · ${e.location}` : ''}
-                                        </span>
-                                    </span>
-                                    {covers(e) && part && (
-                                        <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
-                                            Over {slotName}
-                                        </span>
-                                    )}
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </section>
-
-            <form
-                className="flex flex-col gap-2"
-                onSubmit={(ev) => {
-                    ev.preventDefault()
-                    void onPick(other)
-                }}
-            >
-                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Something else</p>
-                <div className="flex gap-2">
-                    <div className="min-w-0 flex-1">
-                        <Input placeholder="e.g. Eating out" value={other} onChange={(e) => setOther(e.target.value)} />
-                    </div>
-                    <Button type="submit" variant="secondary" disabled={busy}>
-                        Mark away
-                    </Button>
-                </div>
-            </form>
-        </div>
-    )
-}
-
 // ─── Planned meal drawer ─────────────────────────────────────────────────────
 
 /** A planned meal opened from its row: its numbers, its notes, and the tick. */
 function PlannedMealDrawer({
     entry,
     projection,
+    foodName,
+    fromRecipe,
     meal,
+    onCopy,
     onClose,
     onToggle,
     onUpdatePlate,
     onRemove,
 }: {
+    /** Copy it, to paste into another slot or day. */
+    onCopy: (entry: MealPlanEntry) => void
     entry: MealPlanEntry | null
     /** A box note's projected plate at the suggested grams. */
     projection?: BoxProjection
+    /** A food's name, for a projection's lines. */
+    foodName: (id: string) => string
+    /** The box hasn't been cooked yet, so the projection is off its raw recipe. */
+    fromRecipe?: boolean
     /** The library meal it came from, for its notes — gone if it's been deleted. */
     meal: Meal | null
     onClose: () => void
@@ -2453,14 +1896,14 @@ function PlannedMealDrawer({
             footer={
                 e && (
                     <div className="flex w-full flex-wrap items-center justify-end gap-3">
-                        <Button
-                            variant="ghost"
-                            icon="fa-solid fa-trash-can"
-                            className="mr-auto"
-                            onClick={() => onRemove(e._id)}
-                        >
-                            Remove
-                        </Button>
+                        <div className="mr-auto flex items-center gap-1">
+                            <Button variant="ghost" icon="fa-solid fa-trash-can" onClick={() => onRemove(e._id)}>
+                                Remove
+                            </Button>
+                            <Button variant="ghost" icon="fa-solid fa-copy" onClick={() => onCopy(e)}>
+                                Copy
+                            </Button>
+                        </div>
                         {isAwayNote(e) ? null : isBoxNote(e) ? (
                             <Button icon="fa-solid fa-scale-balanced" onClick={() => onToggle(e)}>
                                 Weigh it out
@@ -2502,6 +1945,26 @@ function PlannedMealDrawer({
                                             { icon: 'fa-solid fa-droplet', label: 'Fat', value: `~${fmt(Math.round(projection.macros.fat))} g` },
                                         ]}
                                     />
+                                    {projection.lines.length > 1 && (
+                                        <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                                            {projection.lines.map((l) => (
+                                                <li key={l.food} className="flex items-center gap-3 px-3 py-2 text-sm">
+                                                    <span className="min-w-0 flex-1 truncate text-neutral-800">
+                                                        {foodName(l.food)}
+                                                    </span>
+                                                    <span className="shrink-0 tabular-nums text-neutral-500">
+                                                        ~{fmt(l.grams)} g
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    {fromRecipe && (
+                                        <p className="text-xs text-neutral-500">
+                                            Not cooked yet, so this is worked out from the recipe. It firms up once
+                                            you’ve cooked and weighed a batch.
+                                        </p>
+                                    )}
                                 </div>
                             )}
                             <NoteBlock icon="fa-solid fa-box" title="Eating from the box">

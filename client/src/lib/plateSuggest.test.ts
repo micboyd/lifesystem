@@ -4,7 +4,12 @@ import { fitCost, projectBoxNotes, slotBudget, suggestGrams } from './plateSugge
 import type { Macros } from '../types'
 
 const goals = { calories: 2000, protein: 160, carbs: 200, fat: 60 }
-const m = (calories: number, protein: number, carbs: number, fat: number): Macros => ({ calories, protein, carbs, fat })
+const m = (calories: number, protein: number, carbs: number, fat: number): Macros => ({
+    calories,
+    protein,
+    carbs,
+    fat,
+})
 
 // Chicken box: lean, protein-led. Rice: carbs.
 const chicken = m(150, 25, 3, 4)
@@ -23,7 +28,9 @@ describe('slotBudget', () => {
 
     it('shares what other slots left between the empty ones', () => {
         // A 1000 kcal breakfast leaves 1000 for lunch, dinner and snack (3:3:1).
-        const out = slotBudget(goals, 'lunch', [{ slot: 'breakfast', macros: m(1000, 40, 100, 30) }])!
+        const out = slotBudget(goals, 'lunch', [
+            { slot: 'breakfast', macros: m(1000, 40, 100, 30) },
+        ])!
         expect(out.budget.calories).toBeCloseTo((1000 * 3) / 7)
         expect(out.budget.protein).toBeCloseTo((120 * 3) / 7)
     })
@@ -67,7 +74,11 @@ describe('suggestGrams', () => {
     })
 
     it('keeps typed grams and fills around them', () => {
-        const [c, r] = suggestGrams([{ per100: chicken, fixed: 200 }, { per100: rice }], budget, keys)
+        const [c, r] = suggestGrams(
+            [{ per100: chicken, fixed: 200 }, { per100: rice }],
+            budget,
+            keys
+        )
         expect(c).toBe(200)
         expect(r).toBeGreaterThan(0)
     })
@@ -78,8 +89,12 @@ describe('suggestGrams', () => {
     })
 
     it('suggests nothing once the day is full', () => {
-        const full = slotBudget(goals, 'dinner', [{ slot: 'lunch', macros: m(2500, 200, 300, 90) }])!
-        expect(suggestGrams([{ per100: chicken }, { per100: rice }], full.budget, full.keys)).toEqual([0, 0])
+        const full = slotBudget(goals, 'dinner', [
+            { slot: 'lunch', macros: m(2500, 200, 300, 90) },
+        ])!
+        expect(
+            suggestGrams([{ per100: chicken }, { per100: rice }], full.budget, full.keys)
+        ).toEqual([0, 0])
     })
 
     it('still hits the calories when a target is out of reach', () => {
@@ -87,7 +102,12 @@ describe('suggestGrams', () => {
         // only lean foods to hand. The plate should still land on the kcal.
         const aim = m(980, 37, 60, 53)
         const box = m(110, 17, 4, 2)
-        const grams = suggestGrams([{ per100: box }, { per100: rice }], aim, ['calories', 'protein', 'carbs', 'fat'])
+        const grams = suggestGrams([{ per100: box }, { per100: rice }], aim, [
+            'calories',
+            'protein',
+            'carbs',
+            'fat',
+        ])
         const kcal = lineMacros(grams[0], box).calories + lineMacros(grams[1], rice).calories
         const protein = lineMacros(grams[0], box).protein + lineMacros(grams[1], rice).protein
         expect(kcal).toBeGreaterThan(980 * 0.95)
@@ -95,12 +115,17 @@ describe('suggestGrams', () => {
         expect(protein).toBeGreaterThanOrEqual(37)
     })
 
-    it('shares the fat it can\'t reach between protein and carbs', () => {
+    it("shares the fat it can't reach between protein and carbs", () => {
         // Fajita box and rice for an 800 kcal breakfast: the plate used to
         // pile on the box, 93 g protein against 57.
         const aim = m(800, 57, 73, 26)
         const box = m(137, 19.8, 5.6, 4.1)
-        const [b, r] = suggestGrams([{ per100: box }, { per100: rice }], aim, ['calories', 'protein', 'carbs', 'fat'])
+        const [b, r] = suggestGrams([{ per100: box }, { per100: rice }], aim, [
+            'calories',
+            'protein',
+            'carbs',
+            'fat',
+        ])
         const t = [lineMacros(b, box), lineMacros(r, rice)]
         const protein = t[0].protein + t[1].protein
         const carbs = t[0].carbs + t[1].carbs
@@ -124,11 +149,15 @@ describe('fitCost', () => {
     })
 
     it('ranks a close meal above a far one', () => {
-        expect(fitCost(m(580, 42, 55, 15), aim, keys)).toBeLessThan(fitCost(m(900, 20, 120, 40), aim, keys))
+        expect(fitCost(m(580, 42, 55, 15), aim, keys)).toBeLessThan(
+            fitCost(m(900, 20, 120, 40), aim, keys)
+        )
     })
 
     it('prefers protein right over kcal spot on', () => {
-        expect(fitCost(m(540, 45, 50, 15), aim, keys)).toBeLessThan(fitCost(m(600, 22, 85, 20), aim, keys))
+        expect(fitCost(m(540, 45, 50, 15), aim, keys)).toBeLessThan(
+            fitCost(m(600, 22, 85, 20), aim, keys)
+        )
     })
 })
 
@@ -137,7 +166,11 @@ describe('projectBoxNotes', () => {
     const per100 = (box: string) => (box === 'chicken' ? chicken : null)
 
     it('fills a box note until the first macro reaches its slot share', () => {
-        const out = projectBoxNotes([{ _id: 'n', slot: 'lunch', macros: zero, box: 'chicken' }], goals, per100)
+        const out = projectBoxNotes(
+            [{ _id: 'n', slot: 'lunch', macros: zero, box: 'chicken' }],
+            goals,
+            per100
+        )
         const p = out.get('n')!
         expect(p.grams % 5).toBe(0)
         // Lunch's share is 48 g protein; chicken hits it at ~190 g, well short of 600 kcal.
@@ -147,7 +180,11 @@ describe('projectBoxNotes', () => {
     })
 
     it('lets a big breakfast shrink the dinner after it', () => {
-        const alone = projectBoxNotes([{ _id: 'd', slot: 'dinner', macros: zero, box: 'chicken' }], goals, per100)
+        const alone = projectBoxNotes(
+            [{ _id: 'd', slot: 'dinner', macros: zero, box: 'chicken' }],
+            goals,
+            per100
+        )
         const big = projectBoxNotes(
             [
                 { _id: 'b', slot: 'breakfast', macros: m(900, 90, 90, 30) },
@@ -228,15 +265,53 @@ describe('projectBoxNotes', () => {
     })
 })
 
+describe('projectBoxNotes with sides', () => {
+    const zero = m(0, 0, 0, 0)
+    const per100 = (f: string) => (f === 'chicken' ? chicken : f === 'rice' ? rice : null)
+
+    it('fits the box and its side together, filling the calories the box alone leaves', () => {
+        const alone = projectBoxNotes(
+            [{ _id: 'n', slot: 'lunch', macros: zero, box: 'chicken' }],
+            goals,
+            per100
+        )
+        const withRice = projectBoxNotes(
+            [{ _id: 'n', slot: 'lunch', macros: zero, box: 'chicken', sides: ['rice'] }],
+            goals,
+            per100
+        ).get('n')!
+        expect(withRice.lines.map((l) => l.food)).toEqual(['chicken', 'rice'])
+        expect(withRice.lines.every((l) => l.grams > 0 && l.grams % 5 === 0)).toBe(true)
+        expect(withRice.grams).toBe(withRice.lines[0].grams + withRice.lines[1].grams)
+        // Lunch's share is 600 kcal: the pair lands near it, the box alone well short.
+        expect(withRice.macros.calories).toBeGreaterThan(540)
+        expect(withRice.macros.calories).toBeLessThan(660)
+        expect(alone.get('n')!.macros.calories).toBeLessThan(withRice.macros.calories)
+    })
+
+    it('leaves out a side with no figures', () => {
+        const out = projectBoxNotes(
+            [{ _id: 'n', slot: 'lunch', macros: zero, box: 'chicken', sides: ['mystery'] }],
+            goals,
+            per100
+        ).get('n')!
+        expect(out.lines.map((l) => l.food)).toEqual(['chicken'])
+    })
+})
+
 describe('slotBudget with notes', () => {
     it('takes an away slot off at its usual share', () => {
-        const out = slotBudget(goals, 'dinner', [{ slot: 'lunch', macros: m(0, 0, 0, 0), away: true }])!
+        const out = slotBudget(goals, 'dinner', [
+            { slot: 'lunch', macros: m(0, 0, 0, 0), away: true },
+        ])!
         // 2000 − 600 for lunch away, shared 3:3:1 between breakfast, dinner and snack.
         expect(out.budget.calories).toBeCloseTo((1400 * 3) / 7)
     })
 
     it('does not count a box note in the slot being filled', () => {
-        const out = slotBudget(goals, 'lunch', [{ slot: 'lunch', macros: m(600, 50, 20, 20), box: 'x' }])!
+        const out = slotBudget(goals, 'lunch', [
+            { slot: 'lunch', macros: m(600, 50, 20, 20), box: 'x' },
+        ])!
         expect(out.budget.calories).toBeCloseTo(600)
     })
 })

@@ -68,3 +68,46 @@ export function plateName(lines: { name: string }[]): string {
 export function gramsLeft(cookedGrams: number, eatenGrams = 0): number {
     return Math.max(0, Math.round(cookedGrams - eatenGrams))
 }
+
+/** The figures a box will plate at, and where they come from. */
+export interface ExpectedPer100 {
+    per100: Macros
+    /** No cook yet: worked out from the recipe as if cooking didn't change the weight. */
+    fromRecipe: boolean
+}
+
+/**
+ * Macros per 100 g a box is expected to plate at: its newest open batch, else
+ * the freezer, else its last cook. A box never cooked falls back to its raw
+ * recipe (raw total over raw weight) — rough, since cooking loses water, but
+ * enough to plan around. A plain food has its own figures.
+ */
+export function expectedPer100(food: {
+    kind: 'box' | 'plain'
+    per100?: Macros
+    ingredients: { grams: number; per100: Macros }[]
+    open: { per100: Macros }[]
+    frozen: { per100: Macros }[]
+    last: { per100: Macros } | null
+}): ExpectedPer100 | null {
+    if (food.kind === 'plain')
+        return food.per100 ? { per100: food.per100, fromRecipe: false } : null
+    const cooked = food.open[0] ?? food.frozen[0] ?? food.last
+    if (cooked) return { per100: cooked.per100, fromRecipe: false }
+    const rawGrams = food.ingredients.reduce((sum, i) => sum + Math.max(0, i.grams), 0)
+    if (!(rawGrams > 0)) return null
+    return { per100: per100FromCook(rawTotal(food.ingredients), rawGrams), fromRecipe: true }
+}
+
+/**
+ * Roughly what one batch of a food comes to: its last cook's weight, else
+ * (never cooked) the recipe's raw weight. Null when there's nothing to go on.
+ */
+export function batchYield(food: {
+    ingredients: { grams: number }[]
+    last: { cookedGrams: number } | null
+}): number | null {
+    if (food.last && food.last.cookedGrams > 0) return food.last.cookedGrams
+    const raw = food.ingredients.reduce((sum, i) => sum + Math.max(0, i.grams), 0)
+    return raw > 0 ? raw : null
+}

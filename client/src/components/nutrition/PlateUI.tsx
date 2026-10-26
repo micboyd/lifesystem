@@ -174,16 +174,19 @@ export function PlateBuilder({
     foods: PlateFood[]
     busy: boolean
     actionLabel: string
-    /** A box to start the plate with (its newest open batch) — weighing out a box note. */
-    start?: string
+    /** Foods to start the plate with — weighing out a box note (the box, then its sides). */
+    start?: string[]
     /** This slot's share of the day's targets, when there are targets. */
     aim?: { budget: Macros; size?: Macros; keys: (keyof Macros)[] } | null
     onAdd: (plate: PlateLineInput[]) => Promise<void>
 }) {
     const { batches, plain } = sourcesFrom(foods)
     const [lines, setLines] = useState<Draft[]>(() => {
-        const src = start ? batches.find((b) => b.food._id === start) : undefined
-        return src ? [{ key: src.key, grams: '' }] : []
+        // A box's newest open batch, or a plain food. Anything not cooked yet is left off.
+        return (start ?? []).flatMap((id) => {
+            const src = batches.find((b) => b.food._id === id) ?? plain.find((p) => p.food._id === id)
+            return src ? [{ key: src.key, grams: '' }] : []
+        })
     })
     const byKey = new Map([...batches, ...plain].map((src) => [src.key, src]))
 

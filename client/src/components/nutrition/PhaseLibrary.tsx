@@ -33,6 +33,7 @@ import {
 } from '../../lib/nutritionConfig'
 import { compositionTarget, goalImplication } from '../../lib/nutritionGoal'
 import { formatDateShort, todayKey } from '../../lib/calendar'
+import { byClosest } from '../../lib/phaseOrder'
 
 /**
  * The phase library: dated stretches of eating with their own targets.
@@ -195,7 +196,8 @@ function goalFrom(form: FormState): PhaseGoal | undefined {
         startBodyFatPct: readNumber(form.startBodyFat),
         targetDate: form.endDate,
         targetWeightKg: readNumber(form.targetWeight),
-        targetWeightRangeKg: wMin !== undefined && wMax !== undefined ? { min: wMin, max: wMax } : undefined,
+        targetWeightRangeKg:
+            wMin !== undefined && wMax !== undefined ? { min: wMin, max: wMax } : undefined,
         targetBodyFatPct: readNumber(form.targetBodyFat),
         targetWeeklyRateKg: readSigned(form.weeklyRate),
         acceptableWeeklyRateKg: min !== undefined && max !== undefined ? { min, max } : undefined,
@@ -235,6 +237,7 @@ export default function PhaseLibrary({
     onSave,
     onDelete,
     onImport,
+    onExport,
     openPhaseId,
     onOpened,
 }: {
@@ -245,6 +248,8 @@ export default function PhaseLibrary({
     onDelete: (phase: NutritionPhase) => void
     /** Switch to the paste-JSON importer. */
     onImport: () => void
+    /** Open the exporter, where phases are ticked and exported as one set. */
+    onExport: () => void
     /** A phase to open for editing on arrival — set when coming from the Life Plan timeline. */
     openPhaseId?: string | null
     /** Called once that request has been honoured, so it fires only once. */
@@ -360,6 +365,15 @@ export default function PhaseLibrary({
                     targets the planner and stats judge each day against.
                 </p>
                 <div className="flex gap-2">
+                    {phases.length > 0 && (
+                        <Button
+                            variant="secondary"
+                            icon="fa-solid fa-file-export"
+                            onClick={onExport}
+                        >
+                            Export
+                        </Button>
+                    )}
                     <Button variant="secondary" icon="fa-solid fa-file-import" onClick={onImport}>
                         Import
                     </Button>
@@ -382,20 +396,19 @@ export default function PhaseLibrary({
                 />
             ) : (
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    {[...phases]
-                        .sort((a, b) => b.startDate.localeCompare(a.startDate))
-                        .map((phase) => (
-                            <PhaseCard
-                                key={phase._id}
-                                phase={phase}
-                                onOpen={() => startEdit(phase)}
-                                onDelete={() => onDelete(phase)}
-                            />
-                        ))}
+                    {byClosest(phases, todayKey()).map((phase) => (
+                        <PhaseCard
+                            key={phase._id}
+                            phase={phase}
+                            onOpen={() => startEdit(phase)}
+                            onDelete={() => onDelete(phase)}
+                        />
+                    ))}
                 </div>
             )}
 
-            <Drawer size="xl"
+            <Drawer
+                size="xl"
                 open={open}
                 onClose={() => setOpen(false)}
                 title={editing ? 'Edit phase' : 'New phase'}
@@ -508,7 +521,9 @@ export default function PhaseLibrary({
                         <Switch
                             label="Adaptive targets"
                             checked={form.adaptive}
-                            onChange={(checked: boolean) => setForm((f) => ({ ...f, adaptive: checked }))}
+                            onChange={(checked: boolean) =>
+                                setForm((f) => ({ ...f, adaptive: checked }))
+                            }
                         />
                         <p className="mt-1.5 text-[11px] text-neutral-500">
                             Track a goal weight and let the review suggest calorie changes from your
@@ -530,8 +545,8 @@ export default function PhaseLibrary({
                                         }
                                     />
                                     <p className="mt-1.5 text-[11px] text-neutral-500">
-                                        What the goal is for. Recomposition reads a flat scale with a
-                                        falling waist as success rather than a stall.
+                                        What the goal is for. Recomposition reads a flat scale with
+                                        a falling waist as success rather than a stall.
                                     </p>
                                 </div>
 
@@ -577,7 +592,10 @@ export default function PhaseLibrary({
                                         placeholder="94"
                                         value={form.targetWeightMin}
                                         onChange={(e) =>
-                                            setForm((f) => ({ ...f, targetWeightMin: e.target.value }))
+                                            setForm((f) => ({
+                                                ...f,
+                                                targetWeightMin: e.target.value,
+                                            }))
                                         }
                                     />
                                     <Input
@@ -588,7 +606,10 @@ export default function PhaseLibrary({
                                         placeholder="96"
                                         value={form.targetWeightMax}
                                         onChange={(e) =>
-                                            setForm((f) => ({ ...f, targetWeightMax: e.target.value }))
+                                            setForm((f) => ({
+                                                ...f,
+                                                targetWeightMax: e.target.value,
+                                            }))
                                         }
                                     />
                                     <Input
@@ -599,7 +620,10 @@ export default function PhaseLibrary({
                                         placeholder="20"
                                         value={form.targetBodyFat}
                                         onChange={(e) =>
-                                            setForm((f) => ({ ...f, targetBodyFat: e.target.value }))
+                                            setForm((f) => ({
+                                                ...f,
+                                                targetBodyFat: e.target.value,
+                                            }))
                                         }
                                     />
                                     <Input
@@ -667,50 +691,75 @@ export default function PhaseLibrary({
                                                     label="Review window (days)"
                                                     type="number"
                                                     min={1}
-                                                    placeholder={String(DEFAULT_ADAPTIVE_SETTINGS.reviewWindowDays)}
+                                                    placeholder={String(
+                                                        DEFAULT_ADAPTIVE_SETTINGS.reviewWindowDays
+                                                    )}
                                                     value={form.reviewWindowDays}
                                                     onChange={(e) =>
-                                                        setForm((f) => ({ ...f, reviewWindowDays: e.target.value }))
+                                                        setForm((f) => ({
+                                                            ...f,
+                                                            reviewWindowDays: e.target.value,
+                                                        }))
                                                     }
                                                 />
                                                 <Input
                                                     label="Max adjustment (kcal)"
                                                     type="number"
                                                     min={0}
-                                                    placeholder={String(DEFAULT_ADAPTIVE_SETTINGS.maxAdjustmentKcal)}
+                                                    placeholder={String(
+                                                        DEFAULT_ADAPTIVE_SETTINGS.maxAdjustmentKcal
+                                                    )}
                                                     value={form.maxAdjustmentKcal}
                                                     onChange={(e) =>
-                                                        setForm((f) => ({ ...f, maxAdjustmentKcal: e.target.value }))
+                                                        setForm((f) => ({
+                                                            ...f,
+                                                            maxAdjustmentKcal: e.target.value,
+                                                        }))
                                                     }
                                                 />
                                                 <Input
                                                     label="Minimum data (days)"
                                                     type="number"
                                                     min={1}
-                                                    placeholder={String(DEFAULT_ADAPTIVE_SETTINGS.minimumDataDays)}
+                                                    placeholder={String(
+                                                        DEFAULT_ADAPTIVE_SETTINGS.minimumDataDays
+                                                    )}
                                                     value={form.minimumDataDays}
                                                     onChange={(e) =>
-                                                        setForm((f) => ({ ...f, minimumDataDays: e.target.value }))
+                                                        setForm((f) => ({
+                                                            ...f,
+                                                            minimumDataDays: e.target.value,
+                                                        }))
                                                     }
                                                 />
                                                 <Input
                                                     label="Days before advising"
                                                     type="number"
                                                     min={1}
-                                                    placeholder={String(DEFAULT_ADAPTIVE_SETTINGS.preferredDataDays)}
+                                                    placeholder={String(
+                                                        DEFAULT_ADAPTIVE_SETTINGS.preferredDataDays
+                                                    )}
                                                     value={form.preferredDataDays}
                                                     onChange={(e) =>
-                                                        setForm((f) => ({ ...f, preferredDataDays: e.target.value }))
+                                                        setForm((f) => ({
+                                                            ...f,
+                                                            preferredDataDays: e.target.value,
+                                                        }))
                                                     }
                                                 />
                                                 <Input
                                                     label="Adherence tolerance (kcal)"
                                                     type="number"
                                                     min={0}
-                                                    placeholder={String(DEFAULT_ADAPTIVE_SETTINGS.calorieAdherenceToleranceKcal)}
+                                                    placeholder={String(
+                                                        DEFAULT_ADAPTIVE_SETTINGS.calorieAdherenceToleranceKcal
+                                                    )}
                                                     value={form.adherenceTolerance}
                                                     onChange={(e) =>
-                                                        setForm((f) => ({ ...f, adherenceTolerance: e.target.value }))
+                                                        setForm((f) => ({
+                                                            ...f,
+                                                            adherenceTolerance: e.target.value,
+                                                        }))
                                                     }
                                                 />
                                             </div>
@@ -736,7 +785,10 @@ export default function PhaseLibrary({
                                                             }))}
                                                             value={form[key]}
                                                             onChange={(v) =>
-                                                                setForm((f) => ({ ...f, [key]: v as MacroRole }))
+                                                                setForm((f) => ({
+                                                                    ...f,
+                                                                    [key]: v as MacroRole,
+                                                                }))
                                                             }
                                                         />
                                                     ))}
@@ -758,7 +810,9 @@ export default function PhaseLibrary({
                         <Switch
                             label="Cycle calories by training day"
                             checked={form.cycling}
-                            onChange={(checked: boolean) => setForm((f) => ({ ...f, cycling: checked }))}
+                            onChange={(checked: boolean) =>
+                                setForm((f) => ({ ...f, cycling: checked }))
+                            }
                         />
                         <p className="mt-1.5 text-[11px] text-neutral-500">
                             Shift the daily target by how hard the fitness planner says the day
@@ -860,13 +914,20 @@ function PhaseCard({
                     }
                     items={[
                         { label: 'Edit', icon: 'fa-solid fa-pen', onClick: onOpen },
-                        { label: 'Delete', icon: 'fa-solid fa-trash-can', danger: true, onClick: onDelete },
+                        {
+                            label: 'Delete',
+                            icon: 'fa-solid fa-trash-can',
+                            danger: true,
+                            onClick: onDelete,
+                        },
                     ]}
                 />
             </div>
 
             <div className="flex flex-wrap gap-1.5">
-                <Badge variant={KIND_VARIANTS[phase.kind]}>{NUTRITION_PHASE_LABELS[phase.kind]}</Badge>
+                <Badge variant={KIND_VARIANTS[phase.kind]}>
+                    {NUTRITION_PHASE_LABELS[phase.kind]}
+                </Badge>
                 {typeof phase.weeklyRate === 'number' && phase.weeklyRate !== 0 && (
                     <Badge variant="outline">
                         {phase.weeklyRate > 0 ? '+' : ''}

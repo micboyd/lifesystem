@@ -1,5 +1,5 @@
 import type { MealPlanEntry, PlateFood } from '../types'
-import { gramsLeft } from './plates'
+import { batchYield, gramsLeft } from './plates'
 
 /**
  * Whether the pantry covers what's planned: for each box (or plain food kept
@@ -31,12 +31,15 @@ export interface StockRow {
     status: StockStatus
     /** Grams missing, when short. */
     short: number
+    /** Batches to cook to cover the shortfall, from what one batch usually comes to — null when unknown. */
+    batches: number | null
 }
 
 export function weekStock(
     entries: MealPlanEntry[],
     foods: PlateFood[],
-    projectedGrams: (entryId: string) => number | null,
+    /** A box note's projected grams of each food (the box and its sides). */
+    projected: (entryId: string) => { food: string; grams: number }[] | null,
     from: string
 ): StockRow[] {
     const need = new Map<string, { grams: number; unsized: number }>()
@@ -48,7 +51,11 @@ export function weekStock(
     }
     for (const e of entries) {
         if (e.status !== 'planned' || e.date < from) continue
-        if (e.box) add(e.box, projectedGrams(e._id))
+        if (e.box) {
+            const lines = projected(e._id)
+            if (lines) for (const l of lines) add(l.food, l.grams)
+            else for (const food of [e.box, ...(e.sides ?? [])]) add(food, null)
+        }
         for (const l of e.plate ?? []) if (l.grams > 0) add(l.food, l.grams)
     }
 
@@ -72,7 +79,12 @@ export function weekStock(
             frozen,
             status,
             short: status === 'short' ? Math.max(0, Math.round(n.grams - open - frozen)) : 0,
+            batches: null,
         })
+        const row = rows[rows.length - 1]
+        const perBatch = batchYield(f)
+        if (status === 'short' && perBatch)
+            row.batches = Math.max(1, Math.ceil(row.short / perBatch))
     }
     const rank: Record<StockStatus, number> = { short: 0, thaw: 1, ok: 2 }
     return rows.sort((a, b) => rank[a.status] - rank[b.status] || a.name.localeCompare(b.name))

@@ -52,7 +52,7 @@ const plate = (
         plate: [{ food: foodId, name: foodId, grams, per100: Z }],
     }) as unknown as MealPlanEntry
 
-const note = (id: string, date: string, box: string) =>
+const note = (id: string, date: string, box: string, sides?: string[]) =>
     ({
         _id: id,
         date,
@@ -61,6 +61,7 @@ const note = (id: string, date: string, box: string) =>
         name: box,
         macros: Z,
         box,
+        sides,
     }) as unknown as MealPlanEntry
 
 const noProjection = () => null
@@ -102,7 +103,7 @@ describe('weekStock', () => {
         const rows = weekStock(
             [note('n1', '2026-10-26', 'chilli'), note('n2', '2026-10-27', 'chilli')],
             [food('chilli', [cook('a', 700)])],
-            () => 400,
+            () => [{ food: 'chilli', grams: 400 }],
             '2026-10-26'
         )
         expect(rows[0]).toMatchObject({ needed: 800, status: 'short', short: 100 })
@@ -147,5 +148,47 @@ describe('weekStock', () => {
             '2026-10-26'
         )
         expect(rows.map((r) => r.food)).toEqual(['b', 'a'])
+    })
+
+    it('says how many batches to cook, from the last cook (or the recipe)', () => {
+        const cooked = weekStock(
+            [plate('2026-10-26', 'chilli', 2500)],
+            [food('chilli', [cook('a', 400)])],
+            noProjection,
+            '2026-10-26'
+        )
+        // 2100 g short, a batch is ~400 g → 6 batches.
+        expect(cooked[0]).toMatchObject({ short: 2100, batches: 6 })
+
+        const never: PlateFood = {
+            ...food('tray', []),
+            ingredients: [
+                { name: 'Chicken', grams: 1000, per100: Z },
+                { name: 'Veg', grams: 500, per100: Z },
+            ],
+        }
+        const fresh = weekStock(
+            [plate('2026-10-26', 'tray', 2000)],
+            [never],
+            noProjection,
+            '2026-10-26'
+        )
+        expect(fresh[0]).toMatchObject({ short: 2000, batches: 2 })
+    })
+
+    it("counts a note's sides too", () => {
+        const rows = weekStock(
+            [note('n', '2026-10-26', 'chilli', ['rice'])],
+            [food('chilli', [cook('a', 1000)]), food('rice', [cook('r', 100)], [], 'plain')],
+            () => [
+                { food: 'chilli', grams: 300 },
+                { food: 'rice', grams: 200 },
+            ],
+            '2026-10-26'
+        )
+        expect(rows.map((r) => [r.food, r.status])).toEqual([
+            ['rice', 'short'],
+            ['chilli', 'ok'],
+        ])
     })
 })

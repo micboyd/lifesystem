@@ -325,6 +325,51 @@ describe('the whole chain stays on screen', () => {
     })
 })
 
+describe('milestones count from the start of the plans', () => {
+    // Six weeks into a 16-week cut, with 4 kg off the scale already.
+    const began = addDays(TODAY, -42)
+    const given = (start: string) =>
+        inputs({
+            plans: [plan(start, 16)],
+            phases: [phase(start, addDays(start, 16 * 7 - 1), 'cut', 2100)],
+            weightLogs: [
+                weigh(began, 96),
+                weigh(addDays(began, 14), 94.5),
+                weigh(addDays(began, 28), 93),
+                weigh(TODAY, 92),
+            ],
+        })
+    const t = buildTimeline(given(began))
+    const titles = (x: typeof t) => x.weeks.flatMap((w) => w.milestones).map((m) => m.title)
+
+    it('reads what’s already done off the weigh-ins, less the cut’s first water', () => {
+        expect(t.since.weight).toBeCloseTo(96)
+        // Trend about 92.1 today, minus 0.8 kg of glycogen water.
+        expect(t.since.fat).toBeGreaterThan(2.5)
+        expect(t.since.fat).toBeLessThan(3.5)
+        expect(t.since.lean).toBe(0)
+    })
+
+    it('doesn’t promise the fat steps already passed', () => {
+        expect(titles(t)).not.toContain('First kilo of fat gone')
+        expect(titles(t)).not.toContain('Waistband feels looser')
+        expect(titles(t)).toContain('Leaner in photos')
+        // Starting today, the same plans would still have them ahead.
+        expect(titles(buildTimeline(given(TODAY)))).toContain('First kilo of fat gone')
+    })
+
+    it('puts halfway at the middle of the plans, measured from their start', () => {
+        const half = t.weeks.flatMap((w) => w.milestones).find((m) => m.title === 'Halfway there')!
+        expect(half.date).toBe(addDays(began, 55))
+        expect(half.detail).toContain('down on the scale so far')
+    })
+
+    it('counts nothing when the plans start today', () => {
+        const fresh = buildTimeline(given(TODAY))
+        expect(fresh.since).toEqual({ weight: fresh.initial.weight, fat: 0, lean: 0 })
+    })
+})
+
 describe('startingPoint', () => {
     it('uses a recent logged body fat first, then the quiz, then an estimate', () => {
         expect(startingPoint(inputs()).bodyFatSource).toBe('logged')

@@ -54,6 +54,8 @@ export interface IMealPlanEntry extends Document {
      * that box into the same slot replaces it.
      */
     box?: Types.ObjectId
+    /** A box note's sides (plain foods or other boxes) — one meal with the box. */
+    sides?: Types.ObjectId[]
     /**
      * Set on an away note — "at an event, so no meal here". `name` is the
      * event's title (or whatever was typed). No macros and never ticked; the
@@ -77,6 +79,7 @@ const mealPlanEntrySchema = new Schema<IMealPlanEntry>(
         meal: { type: Schema.Types.ObjectId, ref: 'Meal' },
         plate: { type: [plateLineSchema], default: undefined },
         box: { type: Schema.Types.ObjectId, ref: 'PlateFood' },
+        sides: { type: [{ type: Schema.Types.ObjectId, ref: 'PlateFood' }], default: undefined },
         away: { type: Boolean },
         name: { type: String, required: true, trim: true },
         macros: { type: macrosSchema, default: () => ({}) },

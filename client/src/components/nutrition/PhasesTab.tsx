@@ -3,6 +3,7 @@ import Spinner from '../Spinner'
 import Alert from '../Alert'
 import ConfirmModal from '../ConfirmModal'
 import PhaseLibrary from './PhaseLibrary'
+import PhaseExportDrawer from './PhaseExportDrawer'
 import JsonImportPanel from '../JsonImportPanel'
 import type { NutritionPhase, NutritionPhaseInput } from '../../types'
 import * as phaseService from '../../services/nutritionPhases'
@@ -34,6 +35,7 @@ export default function PhasesTab({
     const [error, setError] = useState<string | null>(null)
     const [deleting, setDeleting] = useState<NutritionPhase | null>(null)
     const [importing, setImporting] = useState(false)
+    const [exporting, setExporting] = useState(false)
 
     function reload() {
         return phaseService
@@ -119,10 +121,16 @@ export default function PhasesTab({
                 onSave={save}
                 onDelete={setDeleting}
                 onImport={() => setImporting(true)}
+                onExport={() => setExporting(true)}
                 // Only handed over once phases have loaded, so the request can't be
                 // consumed against an empty list and silently dropped.
                 openPhaseId={openPhaseId}
                 onOpened={onOpened}
+            />
+            <PhaseExportDrawer
+                open={exporting}
+                phases={phases}
+                onClose={() => setExporting(false)}
             />
             <ConfirmModal
                 open={!!deleting}

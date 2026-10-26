@@ -91,13 +91,14 @@ async function dropAwayNote(user: string, date: string, slot: MealType) {
 }
 
 /**
- * POST /api/meal-plan/box { box, slot, dates } — "eating from this box" on
- * each of those days: a light note with no grams and no macros, so it plans
- * ahead without moving any numbers. A day already holding that box's note
- * in the slot is left as it is.
+ * POST /api/meal-plan/box { box, sides?, slot, dates } — "eating from this
+ * box" on each of those days: a light note with no grams and no macros, so it
+ * plans ahead without moving any numbers. `sides` are foods eaten with it
+ * (rice, another box) — one meal. Cooked or not doesn't matter: it's a plan.
+ * A day already holding that box's note in the slot is left as it is.
  */
 export async function createBoxNotes(req: AuthRequest, res: Response) {
-    const { box: boxId, slot, dates } = req.body ?? {}
+    const { box: boxId, sides: sideIds, slot, dates } = req.body ?? {}
     if (!isSlot(slot) || !Array.isArray(dates) || dates.length === 0 || dates.length > 31 || !dates.every(isDate)) {
         res.status(400).json({ message: 'slot and dates (YYYY-MM-DD) are required' })
         return
@@ -106,11 +107,21 @@ export async function createBoxNotes(req: AuthRequest, res: Response) {
         res.status(400).json({ message: 'box is required' })
         return
     }
-    const box = await PlateFood.findOne({ _id: boxId, user: req.userId, kind: 'box' })
+    // Usually a box, but a plain food (a batch of rice) plans just the same.
+    const box = await PlateFood.findOne({ _id: boxId, user: req.userId })
     if (!box) {
         res.status(404).json({ message: 'Box not found' })
         return
     }
+    const wanted = Array.isArray(sideIds) ? [...new Set(sideIds.map(String))] : []
+    if (wanted.length > 4 || !wanted.every((id) => Types.ObjectId.isValid(id))) {
+        res.status(400).json({ message: 'sides must be up to 4 foods' })
+        return
+    }
+    const sides = (
+        await PlateFood.find({ _id: { $in: wanted.filter((id) => id !== String(box._id)) }, user: req.userId })
+    ).sort((a, b) => wanted.indexOf(String(a._id)) - wanted.indexOf(String(b._id)))
+    const name = [box.name, ...sides.map((s) => s.name)].join(' + ')
     const days = [...new Set(dates as string[])]
     const existing = await MealPlanEntry.find({ user: req.userId, date: { $in: days }, slot })
     const taken = new Set(existing.filter((e) => String(e.box) === String(box._id)).map((e) => e.date))
@@ -123,7 +134,8 @@ export async function createBoxNotes(req: AuthRequest, res: Response) {
             date,
             slot,
             box: box._id,
-            name: box.name,
+            ...(sides.length ? { sides: sides.map((s) => s._id) } : {}),
+            name,
             status: 'planned',
             extra: false,
             order: nextOrder.get(date) ?? 0,
@@ -295,6 +307,7 @@ export async function copyWeek(req: AuthRequest, res: Response) {
             meal: e.meal,
             ...(e.plate?.length ? { plate: e.plate } : {}),
             ...(e.box ? { box: e.box } : {}),
+            ...(e.sides?.length ? { sides: e.sides } : {}),
             name: e.name,
             macros: e.macros,
             status: 'planned',

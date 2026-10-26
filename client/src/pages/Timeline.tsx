@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import Container from '../components/Container'
 import Button from '../components/Button'
@@ -20,20 +20,12 @@ import {
 } from '../components/timeline/format'
 import { AreaIcon, type AreaTone } from '../components/dashboard/DashSection'
 import { OVERLINE, PANEL } from '../components/lifeplan/ui'
+import { useTimeline, type TimelineSources } from '../components/timeline/useTimeline'
 import { useAuth } from '../context/AuthContext'
 import { updateSettings } from '../services/users'
-import { listPlans } from '../services/plans'
-import { listNutritionPhases } from '../services/nutritionPhases'
-import { listWeightLogs } from '../services/weightLogs'
-import { listLogs } from '../services/workoutLogs'
-import { listLogs as listConditioningLogs } from '../services/conditioningLogs'
-import { listPlanEntries as listMealEntries } from '../services/mealPlan'
-import { addDays, todayKey } from '../lib/calendar'
 import { daysBetween } from '../lib/weightTrend'
+import { planDirection } from '../lib/timelineHint'
 import {
-    ADHERENCE_WINDOW_DAYS,
-    buildTimeline,
-    timelineGaps,
     type AdherenceReading,
     type Milestone,
     type Range,
@@ -44,15 +36,7 @@ import {
     type TimelineGap,
     type TimelineWeek,
 } from '../lib/timeline'
-import type {
-    ConditioningLog,
-    MealPlanEntry,
-    NutritionPhase,
-    TimelineQuiz,
-    TrainingPlan,
-    WeightLog,
-    WorkoutLog,
-} from '../types'
+import type { TimelineQuiz } from '../types'
 
 /**
  * Timeline: where the training and nutrition plans could take you, week by week,
@@ -62,15 +46,6 @@ import type {
  * Figures use `.nums` (aligned digits in the body font), never `tabular-nums`,
  * which switches to the mono face.
  */
-
-interface Data {
-    plans: TrainingPlan[]
-    phases: NutritionPhase[]
-    weightLogs: WeightLog[]
-    workoutLogs: WorkoutLog[]
-    conditioningLogs: ConditioningLog[]
-    mealEntries: MealPlanEntry[]
-}
 
 const GAP_COPY: Record<TimelineGap, { title: string; detail: string; to: string; action: string }> = {
     'training-plan': {
@@ -101,44 +76,11 @@ const GAP_COPY: Record<TimelineGap, { title: string; detail: string; to: string;
 
 export default function Timeline() {
     const { user, updateUser } = useAuth()
-    const today = todayKey()
     const quiz = user?.settings?.timelineQuiz
-    const profile = user?.settings?.bodyProfile
+    const { today, data, error, gaps, timeline } = useTimeline()
 
-    const [data, setData] = useState<Data | null>(null)
-    const [error, setError] = useState(false)
     const [quizOpen, setQuizOpen] = useState(false)
     const [saving, setSaving] = useState(false)
-
-    useEffect(() => {
-        let active = true
-        Promise.all([
-            listPlans({ schedule: true }),
-            listNutritionPhases(),
-            listWeightLogs(),
-            listLogs(),
-            listConditioningLogs(),
-            // Measured nutrition adherence looks back four weeks (lib/timeline.ts).
-            listMealEntries(addDays(today, -ADHERENCE_WINDOW_DAYS), addDays(today, -1)),
-        ])
-            .then(([plans, phases, weightLogs, workoutLogs, conditioningLogs, mealEntries]) => {
-                if (active) setData({ plans, phases, weightLogs, workoutLogs, conditioningLogs, mealEntries })
-            })
-            .catch(() => active && setError(true))
-        return () => {
-            active = false
-        }
-    }, [today])
-
-    const gaps = useMemo(
-        () => (data ? timelineGaps(today, data.plans, data.phases, profile, data.weightLogs) : []),
-        [data, today, profile]
-    )
-
-    const timeline = useMemo(() => {
-        if (!data || !quiz || gaps.length > 0) return null
-        return buildTimeline({ today, ...data, profile, quiz, bodyGoals: user?.settings?.bodyGoals })
-    }, [data, quiz, gaps, today, profile, user?.settings?.bodyGoals])
 
     const hasRecentBodyFat = !!data?.weightLogs.some(
         (l) => l.bodyFat && l.date <= today && daysBetween(l.date, today) <= 60
@@ -264,7 +206,7 @@ interface View {
     final: TimelineEnd
 }
 
-function TimelineView({ timeline, today, data }: { timeline: TimelineData; today: string; data: Data }) {
+function TimelineView({ timeline, today, data }: { timeline: TimelineData; today: string; data: TimelineSources }) {
     const [allIn, setAllIn] = useState(false)
     const [openPlan, setOpenPlan] = useState<OpenPlan | null>(null)
     const view: View = allIn && timeline.perfect ? timeline.perfect : timeline
@@ -294,16 +236,6 @@ function TimelineView({ timeline, today, data }: { timeline: TimelineData; today
     )
 }
 
-/** Which way the plans want the scale to go: down for a cut goal, up for a build. */
-function direction(timeline: TimelineData): -1 | 0 | 1 {
-    const goal = timeline.goal.weightKg
-    if (goal) return goal < timeline.initial.weight ? -1 : 1
-    const kinds = timeline.plans.filter((p) => p.kind).map((p) => p.kind)
-    if (kinds.includes('cut')) return -1
-    if (kinds.includes('gain')) return 1
-    return 0
-}
-
 function Overview({
     timeline,
     view,
@@ -319,7 +251,7 @@ function Overview({
 }) {
     const { initial } = timeline
     const { final } = view
-    const dir = direction(timeline)
+    const dir = planDirection(timeline)
     const lead = final.lifts[0]
     const leadStart = initial.lifts[0]
     const [metric, setMetric] = useState('weight')

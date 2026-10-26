@@ -32,9 +32,14 @@ export async function addPlatePlanEntry(
     return res.data.data
 }
 
-/** "Eating from this box" on each of `dates` — light notes with no grams or macros. */
-export async function addBoxNotes(box: string, slot: MealType, dates: string[]): Promise<MealPlanEntry[]> {
-    const res = await api.post<ApiResponse<MealPlanEntry[]>>('/meal-plan/box', { box, slot, dates })
+/** "Eating from this box" (with any sides) on each of `dates` — light notes with no grams or macros. */
+export async function addBoxNotes(
+    box: string,
+    slot: MealType,
+    dates: string[],
+    sides: string[] = []
+): Promise<MealPlanEntry[]> {
+    const res = await api.post<ApiResponse<MealPlanEntry[]>>('/meal-plan/box', { box, sides, slot, dates })
     return res.data.data
 }
 
