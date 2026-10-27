@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Container from '../components/Container'
 import Tabs from '../components/Tabs'
@@ -14,9 +14,7 @@ import { ShoppingDrawer, ShoppingPill, useShopping } from '../components/nutriti
 import { useAuth } from '../context/AuthContext'
 import { listMeals } from '../services/meals'
 import { listPlateFoods } from '../services/plateFoods'
-import { listWeightLogs } from '../services/weightLogs'
-import { makeBmrLookup } from '../lib/bmr'
-import type { Meal, PlateFood, WeightLog } from '../types'
+import type { Meal, PlateFood } from '../types'
 
 const TABS = ['Planner', 'Pantry', 'Library', 'Stats', 'Phases'] as const
 type Tab = (typeof TABS)[number]
@@ -54,15 +52,6 @@ export default function Nutrition() {
     useEffect(() => {
         Promise.all([reloadMeals(), reloadFoods().catch(() => {})]).finally(() => setLoading(false))
     }, [reloadMeals, reloadFoods])
-    // Each day's BMR comes from the body profile and that day's trend weight.
-    const [weights, setWeights] = useState<WeightLog[]>([])
-    useEffect(() => {
-        listWeightLogs()
-            .then(setWeights)
-            .catch(() => {})
-    }, [])
-    const profile = user?.settings?.bodyProfile
-    const bmrFor = useMemo(() => makeBmrLookup(profile, weights), [profile, weights])
 
     // The Library is split: saved meals, and the boxes and foods plates are weighed from.
     const [library, setLibrary] = useState<LibraryTab>('Meals')
@@ -100,7 +89,6 @@ export default function Nutrition() {
                         meals={meals}
                         foods={foods}
                         settingsGoals={user?.settings?.macroGoals}
-                        bmrFor={bmrFor}
                         onOpenPantry={() => setTab('Pantry')}
                     />
                 ) : tab === 'Pantry' ? (
@@ -120,7 +108,7 @@ export default function Nutrition() {
                         )}
                     </div>
                 ) : tab === 'Stats' ? (
-                    <NutritionStats settingsGoals={user?.settings?.macroGoals} bmrFor={bmrFor} />
+                    <NutritionStats settingsGoals={user?.settings?.macroGoals} />
                 ) : (
                     <PhasesTab openPhaseId={openPhaseId} onOpened={clearOpenPhase} />
                 )}

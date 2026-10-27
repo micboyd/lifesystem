@@ -28,16 +28,6 @@ import { daysBetween, weeklyRate, type TrendPoint } from './weightTrend'
  */
 export const KCAL_PER_KG = 7700
 
-/**
- * A day's total calories out: the burned figure typed from a watch plus that
- * day's BMR (lib/bmr.ts). Without a BMR the burned figure is taken as the total.
- * Null when nothing was burned in — the day's out is unknown, not just BMR.
- */
-export function totalOut(burned: number | null, bmr?: number | null): number | null {
-    if (burned === null) return null
-    return burned + (bmr && bmr > 0 ? bmr : 0)
-}
-
 /** Below this, a day's imbalance is rounding rather than a deficit or surplus. */
 export const NEUTRAL_BAND = 50
 

@@ -44,13 +44,22 @@ export interface UserSettings {
     macroGoals?: MacroGoals
     /** Bodyweight target and intended rate of change. */
     bodyGoals?: BodyGoals
-    /**
-     * Height, date of birth and sex. With the trend weight they give each
-     * day's BMR (lib/bmr.ts), which is added to the burned figure from a watch.
-     */
+    /** Height, date of birth and sex — for the Timeline's projected burn (lib/bmr.ts). */
     bodyProfile?: BodyProfile
     /** Answers to the Timeline quiz (pages/Timeline.tsx). */
     timelineQuiz?: TimelineQuiz
+    /** What Your day counts towards a perfect day (lib/perfectDay.ts). */
+    perfectDay?: PerfectDaySelection
+}
+
+/**
+ * What makes a perfect day: the weekdays each thing counts on (0 = Sunday).
+ * Anything not listed counts every day; an item with no days never shows.
+ */
+export interface PerfectDaySelection {
+    items: { key: string; days: number[] }[]
+    /** Names (lowercase) of foods that never count — a flat white with breakfast. */
+    skipFoods: string[]
 }
 
 export const TRAINING_AGES = ['beginner', 'intermediate', 'advanced'] as const
@@ -155,7 +164,7 @@ export interface WeightLog extends BodyMeasurements {
 }
 
 /**
- * One day's total energy expenditure, entered by hand. Total for the whole day —
+ * One day's calories out, typed from a watch. Total for the whole day —
  * resting plus movement — not the active-only figure, so the day's balance is
  * intake minus this and nothing else.
  */

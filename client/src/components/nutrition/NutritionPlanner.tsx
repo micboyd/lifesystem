@@ -8,7 +8,6 @@ import { type MenuEntry, type MenuItem } from '../DropdownMenu'
 import ContextMenu from '../ContextMenu'
 import { StatStrip, NoteBlock } from '../session/SessionUI'
 import { useToast } from '../../context/ToastContext'
-import { Link } from 'react-router-dom'
 import {
     HeroShell,
     HeroIconButton,
@@ -74,7 +73,6 @@ import { DayNumbers } from './DayNumbers'
 import { WeighOutDrawer } from './WeighOutDrawer'
 import { AddDrawer, type AddTarget } from './AddDrawer'
 import { dayTotals, weekAverage } from '../../lib/dayTotals'
-import { totalOut } from '../../lib/energy'
 import type {
     DailyEnergy,
     Event,
@@ -160,7 +158,6 @@ export default function NutritionPlanner({
     meals,
     foods,
     settingsGoals,
-    bmrFor,
     onOpenPantry,
 }: {
     /** Switch to the Pantry tab. */
@@ -169,8 +166,6 @@ export default function NutritionPlanner({
     /** Boxes and plain foods, for weighing out plates. */
     foods: PlateFood[]
     settingsGoals?: MacroGoals
-    /** The BMR worked out for a day (lib/bmr.ts), or null until it can be. */
-    bmrFor: (date: string) => number | null
 }) {
     // Wide screens get the full-width week board; smaller ones a day feed (one
     // day at a time on a phone).
@@ -614,7 +609,6 @@ export default function NutritionPlanner({
                     projections={projections}
                     goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
                     outFor={(date) => energy.find((e) => e.date === date)?.caloriesOut ?? null}
-                    bmrFor={bmrFor}
                     onSelect={setAnchor}
                     // Days ahead are planned; today and before, what's added was eaten.
                     onAdd={(date, slot) => setPicker({ date, slot, eaten: date <= today })}
@@ -879,7 +873,6 @@ function WeekView({
     projections,
     goalsFor,
     outFor,
-    bmrFor,
     onSelect,
     onAdd,
     onOpen,
@@ -902,7 +895,6 @@ function WeekView({
     projections: Projections
     goalsFor: (date: string) => MacroGoals | null
     outFor: (date: string) => number | null
-    bmrFor: (date: string) => number | null
     onSelect: (date: string) => void
     onAdd: (date: string, slot: MealType) => void
     onOpen: (entry: MealPlanEntry) => void
@@ -975,7 +967,6 @@ function WeekView({
                     projections={projections}
                     goals={goalsFor(date)}
                     out={outFor(date)}
-                    bmr={bmrFor(date)}
                     onAdd={(slot) => onAdd(date, slot)}
                     onOpen={onOpen}
                     onToggle={onToggle}
@@ -1010,7 +1001,6 @@ function DayCard({
     projections,
     goals,
     out,
-    bmr,
     onAdd,
     onOpen,
     onToggle,
@@ -1038,9 +1028,8 @@ function DayCard({
     entries: MealPlanEntry[]
     projections: Projections
     goals: MacroGoals | null
+    /** The day's calories out, from a watch — the whole day's total. */
     out: number | null
-    /** That day's worked-out BMR, or null until the profile is filled in. */
-    bmr: number | null
     onAdd: (slot: MealType) => void
     onOpen: (entry: MealPlanEntry) => void
     onToggle: (entry: MealPlanEntry) => void
@@ -1156,7 +1145,6 @@ function DayCard({
                     key={out ?? 'none'}
                     eaten={totals.eaten.calories}
                     out={out}
-                    bmr={bmr}
                     onSaveOut={onSaveOut}
                 />
             )}
@@ -1381,25 +1369,21 @@ function PlannedRow({
 
 /**
  * Calories in against out, once the day has happened — folded away under one
- * line ("Balance −420 kcal", or a nudge to add what was burned). Burned is
- * typed from a watch; BMR comes from the body profile and trend weight.
+ * line ("Balance −420 kcal", or a nudge to add calories out). Calories out is
+ * the whole day's total, typed from a watch.
  */
 function DayEnergy({
     eaten,
     out,
-    bmr,
     onSaveOut,
 }: {
     /** Calories eaten that day. */
     eaten: number
     out: number | null
-    /** That day's worked-out BMR, or null until the profile is filled in. */
-    bmr: number | null
     onSaveOut: (value: number | null) => Promise<void>
 }) {
     const [open, setOpen] = useState(false)
-    const totalOutKcal = totalOut(out, bmr)
-    const net = totalOutKcal === null ? null : eaten - totalOutKcal
+    const net = out === null ? null : eaten - out
 
     return (
         <div className="rounded-2xl bg-neutral-50">
@@ -1424,7 +1408,7 @@ function DayEnergy({
                             kcal
                         </>
                     ) : (
-                        'Add calories burned'
+                        'Add calories out'
                     )}
                 </span>
                 <i
@@ -1433,35 +1417,17 @@ function DayEnergy({
                 />
             </button>
             {open && (
-                <div className="flex flex-col gap-1 border-t border-neutral-200/70 px-3 pb-2.5 pt-2">
+                // The balance is on the line above, so this is just the two figures.
+                <div className="flex flex-col gap-1 border-t border-neutral-200/70 px-3 pb-3 pt-2">
                     <EnergyRow label="Eaten">
                         {kcal(eaten)}
                         <Unit>kcal</Unit>
                     </EnergyRow>
-                    <EnergyRow label="Burned">
+                    {/* Label over the field, so it fits the narrowest day column. */}
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[13px] text-neutral-500">Calories out</span>
                         <OutField out={out} onSave={onSaveOut} />
-                        <Unit>kcal</Unit>
-                    </EnergyRow>
-                    <EnergyRow label="BMR">
-                        {bmr !== null ? (
-                            <>
-                                {kcal(bmr)}
-                                <Unit>kcal</Unit>
-                            </>
-                        ) : (
-                            <Link to="/profile" className="font-medium text-coral-600 hover:underline">
-                                Set up in Profile
-                            </Link>
-                        )}
-                    </EnergyRow>
-                    {net !== null && (
-                        <EnergyRow label="Balance">
-                            <span className={net < 0 ? 'text-emerald-700' : net > 0 ? 'text-amber-700' : ''}>
-                                {signedKcal(net)}
-                            </span>
-                            <Unit>kcal {net < 0 ? 'deficit' : net > 0 ? 'surplus' : 'even'}</Unit>
-                        </EnergyRow>
-                    )}
+                    </label>
                 </div>
             )}
         </div>
@@ -1485,16 +1451,11 @@ function Unit({ children }: { children: ReactNode }) {
     return <span className="ml-1 whitespace-nowrap font-normal text-neutral-500">{children}</span>
 }
 
-/** Calories out, typed straight into the figure — saved on blur or Enter, cleared by emptying it. */
-function OutField({
-    out,
-    onSave,
-    label = 'Calories out',
-}: {
-    out: number | null
-    onSave: (value: number | null) => Promise<void>
-    label?: string
-}) {
+/**
+ * Calories out, the whole day's total from a watch — typed straight in, saved
+ * on blur or Enter, cleared by emptying it.
+ */
+function OutField({ out, onSave }: { out: number | null; onSave: (value: number | null) => Promise<void> }) {
     const [value, setValue] = useState(out === null ? '' : String(out))
     const [saving, setSaving] = useState(false)
 
@@ -1517,21 +1478,28 @@ function OutField({
     }
 
     return (
-        <input
-            type="text"
-            inputMode="numeric"
-            enterKeyHint="done"
-            aria-label={label}
-            placeholder="0"
-            value={value}
-            disabled={saving}
-            onChange={(e) => setValue(e.target.value)}
-            onBlur={() => void commit()}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-            }}
-            className="h-8 w-20 rounded-lg bg-white px-2 align-middle text-right text-sm font-semibold tabular-nums text-neutral-900 outline-none ring-1 ring-inset ring-neutral-200 transition-shadow placeholder:font-normal placeholder:text-neutral-400 hover:ring-neutral-300 focus:ring-2 focus:ring-neutral-900"
-        />
+        <span className="relative block">
+            <input
+                type="text"
+                inputMode="numeric"
+                enterKeyHint="done"
+                placeholder="0"
+                value={value}
+                disabled={saving}
+                onChange={(e) => setValue(e.target.value)}
+                onBlur={() => void commit()}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                }}
+                className="h-9 w-full rounded-lg bg-white pl-2 pr-10 text-right text-sm font-semibold tabular-nums text-neutral-900 outline-none ring-1 ring-inset ring-neutral-200 transition-shadow placeholder:font-normal placeholder:text-neutral-400 hover:ring-neutral-300 focus:ring-2 focus:ring-neutral-900"
+            />
+            <span
+                className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm text-neutral-500"
+                aria-hidden="true"
+            >
+                kcal
+            </span>
+        </span>
     )
 }
 

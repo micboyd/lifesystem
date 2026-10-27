@@ -3,12 +3,8 @@ import { Schema, model, Document, Types } from 'mongoose'
 export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 /**
- * One day's energy expenditure, entered by hand from a watch or ring.
- *
- * `caloriesOut` is what the watch says was burned. Once the user's body profile
- * (height, date of birth, sex) and a weigh-in are in, the client works out that
- * day's BMR and reads this as the active figure, adding the BMR on top; until
- * then it's taken as the total.
+ * One day's calories out, entered by hand from a watch or ring — the whole
+ * day's total (resting plus movement), taken as it is.
  *
  * At most one per day per user, upserted on { user, date }, for the same reason
  * weigh-ins are: a second figure for a day is a correction, not a second day.
@@ -19,7 +15,7 @@ export interface IDailyEnergy extends Document {
     user: Types.ObjectId
     /** YYYY-MM-DD — the day the burn covers. */
     date: string
-    /** Calories burned — active once a BMR can be worked out, else the day's total. */
+    /** Total calories burned across the whole day. */
     caloriesOut: number
     notes?: string
     createdAt: Date

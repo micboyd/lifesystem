@@ -29,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
     { label: 'Fitness', to: '/fitness', icon: 'fa-dumbbell' },
     { label: 'Nutrition', to: '/nutrition', icon: 'fa-bowl-food' },
     { label: 'Timeline', to: '/timeline', icon: 'fa-route' },
+    { label: 'Consistency', to: '/consistency', icon: 'fa-gauge-high' },
     { label: 'Notes', to: '/notes', icon: 'fa-note-sticky' },
     { label: 'Lists', to: '/lists', icon: 'fa-list-check' },
     { label: 'Weather', to: '/weather', icon: 'fa-cloud-sun' },

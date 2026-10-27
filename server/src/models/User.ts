@@ -32,8 +32,8 @@ export const SEXES = ['male', 'female'] as const
 export type Sex = (typeof SEXES)[number]
 
 /**
- * The fixed facts BMR is worked out from (with the trend weight on the day).
- * Set once in Profile.
+ * The fixed facts the Timeline projects a resting burn from (with the projected
+ * weight). Set once in Profile.
  */
 export interface IBodyProfile {
     heightCm?: number
@@ -73,6 +73,23 @@ export interface ITimelineQuiz {
     answeredAt: string
 }
 
+/** One thing Your day can show, and the weekdays it counts on (0 = Sunday). */
+export interface IPerfectDayItem {
+    /** 'weigh', 'training', 'meal:breakfast', 'protein', 'habit:<id>', … */
+    key: string
+    days: number[]
+}
+
+/**
+ * What makes a perfect day. Anything not listed shows every day, so new
+ * habits count until they're switched off; an item with no days never shows.
+ */
+export interface IPerfectDay {
+    items: IPerfectDayItem[]
+    /** Names (lowercase) of foods that never count — a flat white with breakfast. */
+    skipFoods: string[]
+}
+
 export interface IUserSettings {
     wakeTime?: string
     bedTime?: string
@@ -90,10 +107,12 @@ export interface IUserSettings {
     macroGoals?: IMacroGoals
     /** Bodyweight and body fat targets, plus the intended rate of change. */
     bodyGoals?: IBodyGoals
-    /** Height, date of birth and sex — what BMR is calculated from. */
+    /** Height, date of birth and sex — for the Timeline's projection. */
     bodyProfile?: IBodyProfile
     /** Answers to the Timeline quiz. */
     timelineQuiz?: ITimelineQuiz
+    /** What Your day counts towards a perfect day. */
+    perfectDay?: IPerfectDay
 }
 
 export interface IUser extends Document {
@@ -160,6 +179,17 @@ const timelineQuizSchema = new Schema<ITimelineQuiz>(
     { _id: false }
 )
 
+const perfectDaySchema = new Schema<IPerfectDay>(
+    {
+        items: {
+            type: [new Schema<IPerfectDayItem>({ key: { type: String, required: true }, days: [Number] }, { _id: false })],
+            default: [],
+        },
+        skipFoods: { type: [String], default: [] },
+    },
+    { _id: false }
+)
+
 const settingsSchema = new Schema<IUserSettings>(
     {
         wakeTime: { type: String, match: TIME_PATTERN },
@@ -175,6 +205,7 @@ const settingsSchema = new Schema<IUserSettings>(
         bodyGoals: { type: bodyGoalsSchema, default: undefined },
         bodyProfile: { type: bodyProfileSchema, default: undefined },
         timelineQuiz: { type: timelineQuizSchema, default: undefined },
+        perfectDay: { type: perfectDaySchema, default: undefined },
     },
     { _id: false }
 )

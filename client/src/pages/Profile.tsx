@@ -233,6 +233,22 @@ export default function Profile() {
                         </CardHeader>
                         <CardBody>
                             <Link
+                                to="/perfect-day"
+                                className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-neutral-50"
+                            >
+                                <span className="grid h-9 w-9 place-items-center rounded-xl bg-coral-50 text-lg">
+                                    <i className="fa-solid fa-list-check text-coral-600" aria-hidden="true" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold text-neutral-900">Perfect day</p>
+                                    <p className="text-xs text-neutral-500">
+                                        Choose what counts on Your day, and on which days
+                                    </p>
+                                </div>
+                                <i className="fa-solid fa-chevron-right text-xs text-neutral-300" aria-hidden="true" />
+                            </Link>
+
+                            <Link
                                 to="/birthdays"
                                 className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-neutral-50"
                             >

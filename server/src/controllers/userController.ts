@@ -283,7 +283,35 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         set['settings.timelineQuiz'] = cleaned
     }
 
-    // The old typed-in BMR — calculated from the body profile now.
+    // Perfect day: { items: [{ key, days }], skipFoods: [names] }, or null to clear.
+    const perfect = req.body.perfectDay
+    if (perfect === null || perfect === '') {
+        unset['settings.perfectDay'] = 1
+    } else if (perfect && typeof perfect === 'object') {
+        const items = Array.isArray(perfect.items) ? perfect.items : []
+        const seen = new Set<string>()
+        const cleanedItems: { key: string; days: number[] }[] = []
+        for (const it of items) {
+            if (!it || typeof it.key !== 'string' || !it.key.trim() || it.key.length > 80 || seen.has(it.key)) continue
+            seen.add(it.key)
+            const days = Array.isArray(it.days)
+                ? [...new Set<number>(it.days.filter((d: unknown) => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 6))].sort()
+                : []
+            cleanedItems.push({ key: it.key, days })
+        }
+        const skipFoods = Array.isArray(perfect.skipFoods)
+            ? [
+                  ...new Set<string>(
+                      perfect.skipFoods
+                          .filter((n: unknown) => typeof n === 'string' && n.trim() && n.length <= 200)
+                          .map((n: string) => n.trim().toLowerCase())
+                  ),
+              ]
+            : []
+        set['settings.perfectDay'] = { items: cleanedItems, skipFoods }
+    }
+
+    // The old typed-in BMR — no longer used; calories out come from a watch.
     unset['settings.bmr'] = 1
 
     const user = await User.findByIdAndUpdate(

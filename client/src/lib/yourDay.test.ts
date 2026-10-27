@@ -178,13 +178,19 @@ describe('yourDay', () => {
         )
     })
 
-    it('judges protein at 90% and calories within 10% either side', () => {
+    it('judges protein from 5% under and calories within 5% either side', () => {
         const at = (calories: number, protein: number) =>
             yourDay(inputs({ goals: { calories: 2000, protein: 180 }, eaten: { ...ZERO, calories, protein } }))
         expect(step(at(1500, 150), 'protein')).toMatchObject({ state: 'todo', detail: '150 g so far · 30 g to go' })
-        expect(step(at(1500, 162), 'protein').state).toBe('done')
+        expect(step(at(1500, 170), 'protein').state).toBe('todo')
+        expect(step(at(1500, 171), 'protein').state).toBe('done')
+        // More protein is never a miss.
+        expect(step(at(1500, 250), 'protein').state).toBe('done')
         expect(step(at(1500, 150), 'calories')).toMatchObject({ state: 'todo', detail: '1,500 eaten · 500 left' })
+        expect(step(at(1899, 150), 'calories').state).toBe('todo')
         expect(step(at(1900, 150), 'calories')).toMatchObject({ state: 'done', detail: '1,900 eaten · on target' })
+        expect(step(at(2100, 150), 'calories').state).toBe('done')
+        expect(step(at(2101, 150), 'calories')).toMatchObject({ state: 'over', detail: '101 kcal over' })
         expect(step(at(2300, 150), 'calories')).toMatchObject({ state: 'over', detail: '300 kcal over' })
         // Over is a miss: the day can't be perfect.
         expect(at(2300, 180).perfect).toBe(false)
@@ -236,5 +242,83 @@ describe('yourDay', () => {
             })
         )
         expect(d).toMatchObject({ done: 3, total: 3, perfect: true, next: null })
+    })
+})
+
+describe('yourDay with a perfect-day selection', () => {
+    // TODAY, 2026-10-26, is a Monday.
+    const MON = 1
+    // Leaves out the rest-day note, which shows whenever no training is planned.
+    const tasks = (d: ReturnType<typeof yourDay>) => ids(d).filter((id) => id !== 'rest')
+
+    it('shows everything when nothing has been chosen', () => {
+        const d = yourDay(inputs({ meals: [meal('breakfast')], habits: [habit('h1')] }))
+        expect(tasks(d)).toEqual(['meal-breakfast', 'habit-h1'])
+    })
+
+    it('drops a thing switched off, and one not due on the weekday', () => {
+        const d = yourDay(
+            inputs({
+                meals: [meal('breakfast'), meal('lunch')],
+                habits: [habit('h1'), habit('h2')],
+                goals: { calories: 2100, protein: 180 },
+                selection: {
+                    items: [
+                        { key: 'meal:lunch', days: [] },
+                        { key: 'habit:h1', days: [2, 4] },
+                        { key: 'calories', days: [MON] },
+                    ],
+                    skipFoods: [],
+                },
+            })
+        )
+        expect(ids(d)).toEqual(['meal-breakfast', 'protein', 'calories', 'habit-h2'])
+    })
+
+    it('leaves a skipped food off without asking to plan meals', () => {
+        const d = yourDay(
+            inputs({
+                meals: [meal('breakfast', { name: 'Flat white' }), meal('breakfast', { name: 'Oats' })],
+                selection: { items: [], skipFoods: ['flat white'] },
+            })
+        )
+        expect(ids(d)).toEqual(['breakfast-Oats'])
+
+        const only = yourDay(
+            inputs({ meals: [meal('breakfast', { name: 'Flat White' })], selection: { items: [], skipFoods: ['flat white'] } })
+        )
+        expect(ids(only)).toEqual([])
+    })
+
+    it('skips a plate only when every food on it is skipped', () => {
+        const line = (name: string) => ({ name }) as NonNullable<MealPlanEntry['plate']>[number]
+        const sel = { items: [], skipFoods: ['flat white'] }
+        expect(ids(yourDay(inputs({ meals: [meal('breakfast', { plate: [line('Flat white')] })], selection: sel })))).toEqual([])
+        expect(
+            ids(yourDay(inputs({ meals: [meal('breakfast', { plate: [line('Flat white'), line('Eggs')] })], selection: sel })))
+        ).toEqual(['breakfast'])
+    })
+
+    it('makes the weigh-in a must on its chosen days, even without recent weigh-ins', () => {
+        const sel = (days: number[]) => ({ items: [{ key: 'weigh', days }], skipFoods: [] })
+        expect(ids(yourDay(inputs({ selection: sel([MON]) })))).toContain('weigh')
+        expect(ids(yourDay(inputs({ weightLogs: [weigh('2026-10-20')], selection: sel([3]) })))).not.toContain('weigh')
+    })
+
+    it('can hide the rest-day note, events and the plan-meals nudge', () => {
+        const d = yourDay(
+            inputs({
+                events: [{ id: 'e1', title: 'Dentist', part: 'morning' }],
+                selection: {
+                    items: [
+                        { key: 'rest', days: [] },
+                        { key: 'events', days: [] },
+                        { key: 'plan-meals', days: [] },
+                    ],
+                    skipFoods: [],
+                },
+            })
+        )
+        expect(d.steps).toEqual([])
     })
 })

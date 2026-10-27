@@ -8,6 +8,7 @@ import { listLogs as listWorkoutLogs } from '../../services/workoutLogs'
 import { listLogs as listConditioningLogs } from '../../services/conditioningLogs'
 import { listHabits, listLogs as listHabitLogs, checkHabit, uncheckHabit } from '../../services/habits'
 import { useDataVersion, useInvalidate } from '../../context/DataSyncContext'
+import { useAuth } from '../../context/AuthContext'
 import { PERIODS, WEEKDAYS_LONG, eventCoversAllDay, eventCoversSlot, parseDateKey, todayKey } from '../../lib/calendar'
 import { iconForHabit } from '../../lib/habitIcons'
 import {
@@ -117,6 +118,7 @@ export default function YourDayWidget({ date }: { date: string }) {
     const nutrition = useNutritionToday(date)
     const events = useDayEvents(date)
     const { records, setRecords } = useDayRecords(date)
+    const selection = useAuth().user?.settings?.perfectDay
 
     const day = useMemo<YourDay | null>(() => {
         if (!records || nutrition.loading || events.loading) return null
@@ -131,8 +133,9 @@ export default function YourDayWidget({ date }: { date: string }) {
             weightLogs: nutrition.weightLogs,
             weightRate: nutrition.ratePerWeek,
             events: events.events.map((e) => ({ id: e._id, title: e.title, part: eventPart(e, date), time: e.time })),
+            selection,
         })
-    }, [records, nutrition, events, date, today, nowMin])
+    }, [records, nutrition, events, date, today, nowMin, selection])
 
     async function toggleHabit(habitId: string) {
         if (!records) return
@@ -237,7 +240,17 @@ function Title({ summary }: { summary: string | null }) {
         <div className="flex min-w-0 items-center gap-3">
             <AreaIcon icon="fa-solid fa-list-check" tone="coral" />
             <div className="min-w-0">
-                <h2 className="text-xl font-semibold tracking-[-0.015em] text-neutral-900">Your day</h2>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-semibold tracking-[-0.015em] text-neutral-900">Your day</h2>
+                    <Link
+                        to="/perfect-day"
+                        className="grid h-7 w-7 place-items-center rounded-full text-[13px] text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                        aria-label="Choose what makes a perfect day"
+                        title="Choose what makes a perfect day"
+                    >
+                        <i className="fa-solid fa-sliders" aria-hidden="true" />
+                    </Link>
+                </div>
                 {summary && <p className="mt-0.5 truncate text-[13px] text-neutral-500">{summary}</p>}
             </div>
         </div>

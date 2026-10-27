@@ -1,5 +1,15 @@
-import type { FitnessPlanEntry, HabitDef, MacroGoals, Macros, MealPlanEntry, MealType, WeightLog } from '../types'
+import type {
+    FitnessPlanEntry,
+    HabitDef,
+    MacroGoals,
+    Macros,
+    MealPlanEntry,
+    MealType,
+    PerfectDaySelection,
+    WeightLog,
+} from '../types'
 import { daysBetween } from './weightTrend'
+import { countsOn, habitKey, isChosen, isSkippedMeal, mealKey } from './perfectDay'
 
 /**
  * Your day: everything that makes today a perfect one, in the order it
@@ -8,7 +18,8 @@ import { daysBetween } from './weightTrend'
  * thing to do next.
  *
  * Built from the records, never stored: a session is done when it's logged,
- * a meal when it's ticked eaten, a habit when it's ticked.
+ * a meal when it's ticked eaten, a habit when it's ticked. What counts, and on
+ * which weekdays, is the user's choice (lib/perfectDay.ts).
  */
 
 export type DayPart = 'morning' | 'afternoon' | 'evening'
@@ -70,6 +81,8 @@ export interface YourDayInputs {
     /** The weigh-in trend's weekly rate, kg — shown beside the weigh-in. */
     weightRate?: number | null
     events: { id: string; title: string; part: DayPart | null; time?: string }[]
+    /** What counts towards a perfect day; absent, everything does. */
+    selection?: PerfectDaySelection
 }
 
 /** Where each part of the day ends, in minutes since midnight. */
@@ -86,11 +99,12 @@ const SLOTS: { slot: MealType; label: string; part: DayPart | null }[] = [
 /** A weigh-in only becomes part of the day for someone who weighs in: one in the last month. */
 export const WEIGH_IN_HABIT_DAYS = 30
 
-/** Protein counts as hit from this share of the target. */
-export const PROTEIN_HIT = 0.9
-
-/** Calories count as on target within this share either side. */
-export const CALORIE_BAND = 0.1
+/**
+ * The leeway on a target, as a share of it: calories are on target within it
+ * either side, protein is hit from that far under. Not an exact science.
+ * Protein has no ceiling — eating more of it is never a miss.
+ */
+export const TARGET_BAND = 0.05
 
 /** Within a part of the day: the weigh-in first, then training, meals, habits, events. */
 const RANK: Record<StepKind, number> = {
@@ -120,9 +134,12 @@ function kcal(n: number): string {
     return Math.round(n).toLocaleString('en-GB')
 }
 
-function trainingSteps(entries: FitnessPlanEntry[], logged: Set<string>): DayStep[] {
+function trainingSteps(entries: FitnessPlanEntry[], logged: Set<string>, counts: (key: string) => boolean): DayStep[] {
     if (entries.length === 0)
-        return [{ id: 'rest', kind: 'rest', part: null, title: 'Rest day', detail: 'Recover well.', state: 'info' }]
+        return counts('rest')
+            ? [{ id: 'rest', kind: 'rest', part: null, title: 'Rest day', detail: 'Recover well.', state: 'info' }]
+            : []
+    if (!counts('training')) return []
     return [...entries]
         .sort((a, b) => DAY_PARTS.indexOf(a.part) - DAY_PARTS.indexOf(b.part) || a.order - b.order)
         .map((e) => {
@@ -158,10 +175,18 @@ function mealName(m: MealPlanEntry): string {
  * A step per meal, not per slot — each one ticks off on its own in the
  * planner, so it does here too. Two things at lunch are two lunch steps.
  */
-function mealSteps(meals: MealPlanEntry[], date: string, today: string): DayStep[] {
+function mealSteps(
+    meals: MealPlanEntry[],
+    date: string,
+    today: string,
+    counts: (key: string) => boolean,
+    selection: PerfectDaySelection | undefined
+): DayStep[] {
     const steps: DayStep[] = []
     for (const { slot, label, part } of SLOTS) {
-        for (const m of meals.filter((e) => e.slot === slot)) {
+        if (!counts(mealKey(slot))) continue
+        // A flat white with breakfast is food, not a task.
+        for (const m of meals.filter((e) => e.slot === slot && !isSkippedMeal(selection, e))) {
             // A box note has no amounts yet, so it adds no figure.
             const amount = m.box ? 'from the box' : m.macros.calories > 0 ? `${kcal(m.macros.calories)} kcal` : null
             steps.push({
@@ -174,7 +199,8 @@ function mealSteps(meals: MealPlanEntry[], date: string, today: string): DayStep
             })
         }
     }
-    if (steps.length === 0 && date >= today)
+    // Only when nothing at all is planned — skipped foods still mean the day's been thought about.
+    if (meals.length === 0 && date >= today && counts('plan-meals'))
         steps.push({
             id: 'plan-meals',
             kind: 'plan-meals',
@@ -191,9 +217,17 @@ function rateText(rate: number): string {
     return `${rate < 0 ? '−' : '+'}${Math.abs(rate).toFixed(2)} kg/wk`
 }
 
-function weighStep(logs: WeightLog[], date: string, rate: number | null | undefined): DayStep[] {
+function weighStep(
+    logs: WeightLog[],
+    date: string,
+    rate: number | null | undefined,
+    counts: (key: string) => boolean,
+    chosen: boolean
+): DayStep[] {
+    if (!counts('weigh')) return []
     const on = logs.find((l) => l.date === date)
-    const weighs = logs.some((l) => l.date < date && daysBetween(l.date, date) <= WEIGH_IN_HABIT_DAYS)
+    // Chosen days are a commitment; left alone, it only shows for someone who weighs in.
+    const weighs = chosen || logs.some((l) => l.date < date && daysBetween(l.date, date) <= WEIGH_IN_HABIT_DAYS)
     if (!on && !weighs) return []
     return [
         {
@@ -209,10 +243,10 @@ function weighStep(logs: WeightLog[], date: string, rate: number | null | undefi
     ]
 }
 
-function targetSteps(goals: MacroGoals | null, eaten: Macros): DayStep[] {
+function targetSteps(goals: MacroGoals | null, eaten: Macros, counts: (key: string) => boolean): DayStep[] {
     const steps: DayStep[] = []
     const protein = goals?.protein ?? 0
-    if (protein > 0) {
+    if (protein > 0 && counts('protein')) {
         const left = Math.max(0, Math.round(protein - eaten.protein))
         steps.push({
             id: 'protein',
@@ -220,13 +254,13 @@ function targetSteps(goals: MacroGoals | null, eaten: Macros): DayStep[] {
             part: null,
             title: `${Math.round(protein)} g protein`,
             detail: left > 0 ? `${Math.round(eaten.protein)} g so far · ${left} g to go` : `${Math.round(eaten.protein)} g · hit`,
-            state: eaten.protein >= protein * PROTEIN_HIT ? 'done' : 'todo',
+            state: eaten.protein >= protein * (1 - TARGET_BAND) ? 'done' : 'todo',
         })
     }
     const calories = goals?.calories ?? 0
-    if (calories > 0) {
-        const over = eaten.calories > calories * (1 + CALORIE_BAND)
-        const onTarget = !over && eaten.calories >= calories * (1 - CALORIE_BAND)
+    if (calories > 0 && counts('calories')) {
+        const over = eaten.calories > calories * (1 + TARGET_BAND)
+        const onTarget = !over && eaten.calories >= calories * (1 - TARGET_BAND)
         steps.push({
             id: 'calories',
             kind: 'calories',
@@ -258,8 +292,12 @@ function pickNext(steps: DayStep[], now: DayPart): DayStep | null {
 }
 
 export function yourDay(inputs: YourDayInputs): YourDay {
-    const { date, today } = inputs
-    const habits: DayStep[] = inputs.habits.map((h) => ({
+    const { date, today, selection } = inputs
+    const [y, mo, dd] = date.split('-').map(Number)
+    const weekday = new Date(y, mo - 1, dd).getDay()
+    const counts = (key: string) => countsOn(selection, key, weekday)
+
+    const habits: DayStep[] = inputs.habits.filter((h) => counts(habitKey(h._id))).map((h) => ({
         id: `habit-${h._id}`,
         kind: 'habit',
         part: h.part ?? null,
@@ -268,7 +306,7 @@ export function yourDay(inputs: YourDayInputs): YourDay {
         state: inputs.habitsDone.has(h._id) ? 'done' : 'todo',
         habitId: h._id,
     }))
-    const events: DayStep[] = inputs.events.map((e) => ({
+    const events: DayStep[] = (counts('events') ? inputs.events : []).map((e) => ({
         id: `event-${e.id}`,
         kind: 'event',
         part: e.part,
@@ -279,11 +317,11 @@ export function yourDay(inputs: YourDayInputs): YourDay {
     }))
 
     const steps = [
-        ...weighStep(inputs.weightLogs, date, inputs.weightRate),
-        ...trainingSteps(inputs.training, inputs.logged),
-        ...mealSteps(inputs.meals, date, today),
+        ...weighStep(inputs.weightLogs, date, inputs.weightRate, counts, isChosen(selection, 'weigh')),
+        ...trainingSteps(inputs.training, inputs.logged, counts),
+        ...mealSteps(inputs.meals, date, today, counts, selection),
         ...events,
-        ...targetSteps(inputs.goals, inputs.eaten),
+        ...targetSteps(inputs.goals, inputs.eaten, counts),
         ...habits,
     ]
         .map((s, i) => ({ s, i }))

@@ -24,6 +24,8 @@ import DaysUntil from './pages/DaysUntil'
 import Goals from './pages/Goals'
 import LifePlan from './pages/LifePlan'
 import Timeline from './pages/Timeline'
+import Consistency from './pages/Consistency'
+import PerfectDay from './pages/PerfectDay'
 import Notes from './pages/Notes'
 import Weather from './pages/Weather'
 import Login from './pages/Login'
@@ -95,6 +97,7 @@ export default function App() {
                     <Route path="spaces" element={<Spaces />} />
                 </Route>
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/perfect-day" element={<PerfectDay />} />
                 <Route path="/birthdays" element={<Birthdays />} />
                 <Route path="/days-since" element={<DaysSince />} />
                 <Route path="/days-until" element={<DaysUntil />} />
@@ -102,6 +105,7 @@ export default function App() {
                 <Route path="/goals" element={<Goals />} />
                 <Route path="/life-plan" element={<LifePlan />} />
                 <Route path="/timeline" element={<Timeline />} />
+                <Route path="/consistency" element={<Consistency />} />
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/lists" element={<Lists />} />
                 <Route path="/lists/:id" element={<Lists />} />

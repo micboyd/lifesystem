@@ -3,7 +3,6 @@ import {
     dailyIntake,
     measuredMaintenance,
     dayEnergy,
-    totalOut,
     targetVerdict,
     balanceVerdict,
     impliedWeeklyRate,
@@ -251,18 +250,5 @@ describe('impliedWeeklyRate', () => {
         expect(impliedWeeklyRate(-550)!).toBeCloseTo(-0.5, 2)
         expect(impliedWeeklyRate(0)).toBe(0)
         expect(impliedWeeklyRate(null)).toBeNull()
-    })
-})
-
-describe('totalOut', () => {
-    it('adds the BMR to the burned figure', () => {
-        expect(totalOut(1000, 1850)).toBe(2850)
-    })
-    it('takes burned as the total without a BMR', () => {
-        expect(totalOut(2600, undefined)).toBe(2600)
-        expect(totalOut(2600, 0)).toBe(2600)
-    })
-    it('stays unknown when nothing was burned in', () => {
-        expect(totalOut(null, 1850)).toBeNull()
     })
 })
