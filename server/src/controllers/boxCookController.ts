@@ -4,7 +4,7 @@ import { AuthRequest } from '../middleware/auth'
 import PlateFood from '../models/PlateFood'
 import BoxCook from '../models/BoxCook'
 import MealPlanEntry from '../models/MealPlanEntry'
-import { followCurrent, logCook } from '../lib/plateLines'
+import { followCurrent, gramsByBatch, logCook, pourEaten } from '../lib/plateLines'
 import { toIngredients } from './plateFoodController'
 
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
@@ -12,24 +12,14 @@ const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{
 /** How many finished batches the pantry shows below the open ones. */
 const FINISHED_SHOWN = 20
 
-/** Grams of each batch on plates with a given status, keyed by batch id. */
-async function gramsBy(userId: string, ids: Types.ObjectId[], status: 'eaten' | 'planned') {
-    if (ids.length === 0) return new Map<string, number>()
-    const rows = await MealPlanEntry.aggregate<{ _id: Types.ObjectId; grams: number }>([
-        { $match: { user: new Types.ObjectId(userId), status, 'plate.batch': { $in: ids } } },
-        { $unwind: '$plate' },
-        { $match: { 'plate.batch': { $in: ids } } },
-        { $group: { _id: '$plate.batch', grams: { $sum: '$plate.grams' } } },
-    ])
-    return new Map(rows.map((r) => [String(r._id), r.grams]))
-}
-
 /**
  * GET /api/box-cooks — the pantry: every open batch, newest first, then the
  * most recent finished ones. Each carries the grams eaten from it and the
- * grams still planned on plates.
+ * grams still planned on plates. Eaten plates are shared out oldest batch
+ * first before counting.
  */
 export async function listCooks(req: AuthRequest, res: Response) {
+    await pourEaten(req.userId!)
     const [open, finished] = await Promise.all([
         BoxCook.find({ user: req.userId, finished: false }).sort({ date: -1, createdAt: -1 }),
         BoxCook.find({ user: req.userId, finished: true })
@@ -38,8 +28,8 @@ export async function listCooks(req: AuthRequest, res: Response) {
     ])
     const ids = [...open, ...finished].map((c) => c._id as Types.ObjectId)
     const [eaten, planned] = await Promise.all([
-        gramsBy(req.userId!, ids, 'eaten'),
-        gramsBy(req.userId!, ids, 'planned'),
+        gramsByBatch(req.userId!, ids, 'eaten'),
+        gramsByBatch(req.userId!, ids, 'planned'),
     ])
     const withGrams = (c: (typeof open)[number]) => ({
         ...c.toObject(),

@@ -1,7 +1,8 @@
 import { Schema, model, Document, Types } from 'mongoose'
 import { MEAL_TYPES, MealType, IMacros, macrosSchema } from './Meal'
 
-export const ENTRY_STATUSES = ['planned', 'eaten'] as const
+/** `skipped`: the meal didn't happen — a miss on the day, not a plan change. */
+export const ENTRY_STATUSES = ['planned', 'eaten', 'skipped'] as const
 export type EntryStatus = (typeof ENTRY_STATUSES)[number]
 
 /**
@@ -23,6 +24,11 @@ export interface IPlateLine {
     grams: number
     /** The cook a box line draws from. Absent for plain foods. */
     batch?: Types.ObjectId
+    /**
+     * Set when an eaten line ran one batch out and spilled into the next: how
+     * many grams came from each, oldest first. `batch` is then the first.
+     */
+    takes?: { batch: Types.ObjectId; grams: number }[]
     per100: IMacros
 }
 
@@ -32,6 +38,18 @@ const plateLineSchema = new Schema<IPlateLine>(
         name: { type: String, required: true, trim: true },
         grams: { type: Number, default: 0, min: 0 },
         batch: { type: Schema.Types.ObjectId, ref: 'BoxCook' },
+        takes: {
+            type: [
+                new Schema(
+                    {
+                        batch: { type: Schema.Types.ObjectId, ref: 'BoxCook', required: true },
+                        grams: { type: Number, default: 0, min: 0 },
+                    },
+                    { _id: false }
+                ),
+            ],
+            default: undefined,
+        },
         per100: { type: macrosSchema, default: () => ({}) },
     },
     { _id: false }

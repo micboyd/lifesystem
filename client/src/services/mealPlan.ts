@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, EntryStatus, MealPlanEntry, MealType, PlateLineInput } from '../types'
+import type { ApiResponse, EntryStatus, Macros, MealPlanEntry, MealType, PlateLineInput } from '../types'
 
 /** Meals on days in [start, end] (inclusive, YYYY-MM-DD). */
 export async function listPlanEntries(start: string, end: string): Promise<MealPlanEntry[]> {
@@ -17,6 +17,18 @@ export async function addPlanEntry(
     eaten = false
 ): Promise<MealPlanEntry> {
     const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', { date, slot, meal, extra, eaten })
+    return res.data.data
+}
+
+/** A one-off on a day — just a name and its macros, not from the library. */
+export async function addQuickItem(
+    date: string,
+    slot: MealType,
+    name: string,
+    macros: Macros,
+    eaten = false
+): Promise<MealPlanEntry> {
+    const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', { date, slot, name, macros, eaten })
     return res.data.data
 }
 

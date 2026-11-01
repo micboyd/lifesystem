@@ -63,3 +63,22 @@ export function plateTotal(lines: { grams: number; per100: IMacros }[]): IMacros
 export function plateName(lines: { name: string }[]): string {
     return lines.map((l) => l.name).join(' · ') || 'Plate'
 }
+
+/**
+ * Grams eaten, taken from batches oldest first: each gives what it has left
+ * (`room`, which this uses up), and whatever's over once they're all empty
+ * comes from the last. Returns the grams from each batch it touched.
+ */
+export function shareOut(grams: number, batches: string[], room: Map<string, number>): { batch: string; grams: number }[] {
+    const takes: { batch: string; grams: number }[] = []
+    let left = grams
+    for (const [i, id] of batches.entries()) {
+        if (left <= 0) break
+        const g = i === batches.length - 1 ? left : Math.min(left, Math.max(0, room.get(id) ?? 0))
+        if (g <= 0) continue
+        room.set(id, (room.get(id) ?? 0) - g)
+        takes.push({ batch: id, grams: g })
+        left -= g
+    }
+    return takes
+}

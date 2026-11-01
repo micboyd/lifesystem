@@ -69,6 +69,15 @@ export function gramsLeft(cookedGrams: number, eatenGrams = 0): number {
     return Math.max(0, Math.round(cookedGrams - eatenGrams))
 }
 
+/**
+ * The batch a food's next plate comes out of: the oldest in use with some
+ * left, else the newest. `open` comes newest first. Mirrors the server, which
+ * shares eaten plates out oldest batch first.
+ */
+export function nextBatch<T extends { cookedGrams: number; eatenGrams?: number }>(open: T[]): T | null {
+    return [...open].reverse().find((c) => gramsLeft(c.cookedGrams, c.eatenGrams) > 0) ?? open[0] ?? null
+}
+
 /** The figures a box will plate at, and where they come from. */
 export interface ExpectedPer100 {
     per100: Macros

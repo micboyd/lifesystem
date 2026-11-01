@@ -13,7 +13,7 @@ import {
     suggestGrams,
     type BoxProjection,
 } from '../../lib/plateSuggest'
-import { expectedPer100, gramsLeft, lineMacros, plateTotal } from '../../lib/plates'
+import { expectedPer100, gramsLeft, lineMacros, nextBatch, plateTotal } from '../../lib/plates'
 import {
     addDays,
     eventCoversAllDay,
@@ -562,7 +562,7 @@ function FoodStep({
     const lines = ids.flatMap((id) => {
         const f = byId.get(id)
         if (!f) return []
-        const cook = f.open[0] ?? null
+        const cook = nextBatch(f.open)
         const per100 = f.kind === 'box' ? cook?.per100 : f.per100
         if (!per100) return []
         const left = f.open.length

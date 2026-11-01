@@ -6,8 +6,9 @@ import Switch from '../Switch'
 import PillToggle from '../PillToggle'
 import DatePicker, { type DateRange, type DatePickerValue } from '../DatePicker'
 import { FIELD_LABEL } from '../fieldStyles'
+import { formatMoney } from '../../lib/money'
 import type { AddScope } from '../../services/finances'
-import type { FinanceRow } from '../../types'
+import type { FinanceGroup, FinanceRow, StarlingSpace } from '../../types'
 import type { GroupType } from './MonthlySheet'
 
 /**
@@ -382,6 +383,87 @@ export function NameDrawer({ target, onClose }: { target: NameDrawerTarget | nul
             <form id="finance-name-form" onSubmit={submit}>
                 <Input label={shown?.label ?? 'Name'} autoFocus value={name} onChange={(e) => setName(e.target.value)} />
             </form>
+        </Drawer>
+    )
+}
+
+// ── Link a space ──────────────────────────────────────────────────────────────
+
+/** Pick the Starling space that pays a group. */
+export function SpaceDrawer({
+    group,
+    spaces,
+    error,
+    onClose,
+    onPick,
+}: {
+    group: FinanceGroup | null
+    /** null while loading. */
+    spaces: StarlingSpace[] | null
+    error: string | null
+    onClose: () => void
+    /** null unlinks. */
+    onPick: (group: FinanceGroup, spaceId: string | null) => void
+}) {
+    const shown = useLast(group)
+    const linked = shown?.starlingCategoryUid ?? null
+    return (
+        <Drawer
+            open={!!group}
+            onClose={onClose}
+            title="Link a space"
+            footer={
+                shown &&
+                linked && (
+                    <div className="flex w-full items-center justify-end">
+                        <Button variant="ghost" icon="fa-solid fa-link-slash" onClick={() => onPick(shown, null)}>
+                            Unlink
+                        </Button>
+                    </div>
+                )
+            }
+        >
+            {shown && (
+                <div className="flex flex-col gap-4">
+                    <p className="text-[13px] text-neutral-500">
+                        The space that pays {shown.name}. This month, its balance is checked against the rows you haven’t ticked yet.
+                    </p>
+                    {error ? (
+                        <p className="text-[13px] text-coral-600">{error}</p>
+                    ) : spaces === null ? (
+                        <p className="text-[13px] text-neutral-500">Loading your spaces…</p>
+                    ) : spaces.length === 0 ? (
+                        <p className="text-[13px] text-neutral-500">No spaces found.</p>
+                    ) : (
+                        <ul className="-mx-4 divide-y divide-neutral-100 sm:-mx-5">
+                            {spaces.map((s) => {
+                                const active = s.id === linked
+                                return (
+                                    <li key={s.id}>
+                                        <button
+                                            type="button"
+                                            onClick={() => onPick(shown, s.id)}
+                                            aria-pressed={active}
+                                            className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-neutral-50 sm:px-5"
+                                        >
+                                            <span
+                                                className={[
+                                                    'grid h-5 w-5 shrink-0 place-items-center rounded-full border-[1.5px]',
+                                                    active ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 text-transparent',
+                                                ].join(' ')}
+                                            >
+                                                <i className="fa-solid fa-check text-[9px]" aria-hidden="true" />
+                                            </span>
+                                            <span className="min-w-0 flex-1 truncate text-[15px] text-neutral-900">{s.name}</span>
+                                            <span className="shrink-0 text-[15px] tabular-nums text-neutral-700">{formatMoney(s.balance)}</span>
+                                        </button>
+                                    </li>
+                                )
+                            })}
+                        </ul>
+                    )}
+                </div>
+            )}
         </Drawer>
     )
 }

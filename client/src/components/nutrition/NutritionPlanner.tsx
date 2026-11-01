@@ -40,6 +40,7 @@ import { CATEGORY, MacroBar, MacroLegend } from './mealUi'
 import { fmt, kcal, signedKcal } from './format'
 import {
     addPlanEntry,
+    addQuickItem,
     addPlatePlanEntry,
     addBoxNotes,
     addAwayNote,
@@ -51,6 +52,7 @@ import {
     copyPlanWeek,
     clearPlanRange,
 } from '../../services/mealPlan'
+import { createMeal } from '../../services/meals'
 import { listDailyEnergy, saveDailyEnergy, deleteDailyEnergy } from '../../services/dailyEnergy'
 import { listNutritionPhases } from '../../services/nutritionPhases'
 import { listEvents } from '../../services/events'
@@ -69,14 +71,18 @@ import { PlateLinesEditor, plateGrams, plateTitle } from './PlateUI'
 import { projectBoxNotes, type BoxProjection } from '../../lib/plateSuggest'
 import { weekStock } from '../../lib/weekStock'
 import { WeekStock } from './WeekStock'
+import { WeekMacrosButton, WeekMacrosPanel } from './WeekMacros'
 import { DayNumbers } from './DayNumbers'
 import { WeighOutDrawer } from './WeighOutDrawer'
 import { AddDrawer, type AddTarget } from './AddDrawer'
-import { dayTotals, weekAverage } from '../../lib/dayTotals'
+import { QuickAddDrawer } from './QuickAddDrawer'
+import { dayTotals, weekAverage, weekMacros } from '../../lib/dayTotals'
 import type {
     DailyEnergy,
+    EntryStatus,
     Event,
     MacroGoals,
+    Macros,
     Meal,
     MealPlanEntry,
     MealType,
@@ -128,6 +134,9 @@ const clearable = (e: MealPlanEntry) => !e.extra && e.status === 'planned'
 
 const isEaten = (e: MealPlanEntry) => e.status === 'eaten'
 
+/** Didn't happen — a miss on the day, red on Your day. */
+const isSkipped = (e: MealPlanEntry) => e.status === 'skipped'
+
 /** "Eating from this box" planned ahead — no grams, no numbers, weighed out when eaten. */
 const isBoxNote = (e: MealPlanEntry) => !!e.box
 
@@ -142,6 +151,7 @@ type Projections = Map<string, BoxProjection>
 /** The one-line summary under a planned meal's name. */
 function plannedMeta(entry: MealPlanEntry, projection?: BoxProjection): string {
     if (isAwayNote(entry)) return 'Away · no meal here'
+    if (isSkipped(entry)) return 'Skipped'
     if (isBoxNote(entry)) {
         const grams = projection?.lines.map((l) => `${fmt(l.grams)} g`).join(' + ')
         return projection
@@ -159,9 +169,15 @@ export default function NutritionPlanner({
     foods,
     settingsGoals,
     onOpenPantry,
+    onShop,
+    onMealsChanged,
 }: {
     /** Switch to the Pantry tab. */
     onOpenPantry?: () => void
+    /** Put the week's boxes to cook on the shopping list and open it. */
+    onShop?: (items: { id: string; count: number }[]) => Promise<void>
+    /** A meal was saved to the library from here — reload it. */
+    onMealsChanged?: () => void
     meals: Meal[]
     /** Boxes and plain foods, for weighing out plates. */
     foods: PlateFood[]
@@ -180,6 +196,8 @@ export default function NutritionPlanner({
     const [loading, setLoading] = useState(true)
     // The day drawer: a day + slot to add to, or a day to "Log more" on.
     const [picker, setPicker] = useState<AddTarget | null>(null)
+    // The day the quick add (+ on a day) is open for.
+    const [quickDate, setQuickDate] = useState<string | null>(null)
     // A planned meal opened for a closer look.
     const [detail, setDetail] = useState<MealPlanEntry | null>(null)
     // A meal copied to paste into another slot or day, and an open right-click menu.
@@ -194,6 +212,8 @@ export default function NutritionPlanner({
     const [pasteConfirm, setPasteConfirm] = useState(false)
     // A pending "clear" awaiting confirmation: a single day, or the whole week.
     const [clearTarget, setClearTarget] = useState<{ type: 'day'; date: string } | { type: 'week' } | null>(null)
+    // The week's macros panel, open under the chips.
+    const [macrosOpen, setMacrosOpen] = useState(false)
 
     const today = todayKey()
     const toast = useToast()
@@ -258,25 +278,26 @@ export default function NutritionPlanner({
         [entries, foods, projections, today, range.start, range.end]
     )
 
-    // The week's average day against its target, for the hero.
-    const average = useMemo(
+    // Each day's numbers against its target — the hero's average day and the
+    // week's macros panel both read from these.
+    const weekDays = useMemo(
         () =>
-            weekAverage(
-                Array.from({ length: 7 }, (_, i) => {
-                    const date = addDays(range.start, i)
-                    return {
-                        totals: dayTotals(
-                            entries.filter((e) => e.date === date),
-                            (e) => projections.get(e._id)?.macros ?? null,
-                            date,
-                            today
-                        ),
-                        goals: targetsFor(date, phases, settingsGoals).goals,
-                    }
-                })
-            ),
+            Array.from({ length: 7 }, (_, i) => {
+                const date = addDays(range.start, i)
+                return {
+                    totals: dayTotals(
+                        entries.filter((e) => e.date === date),
+                        (e) => projections.get(e._id)?.macros ?? null,
+                        date,
+                        today
+                    ),
+                    goals: targetsFor(date, phases, settingsGoals).goals,
+                }
+            }),
         [entries, projections, range.start, today, phases, settingsGoals]
     )
+    const average = useMemo(() => weekAverage(weekDays), [weekDays])
+    const macros = useMemo(() => weekMacros(weekDays), [weekDays])
 
     // Keep an open detail drawer in step with the row it was opened from.
     const detailEntry = detail ? (entries.find((e) => e._id === detail._id) ?? null) : null
@@ -292,6 +313,28 @@ export default function NutritionPlanner({
             setEntries((prev) => [...prev.filter((e) => extra || !isAwayIn(e, date, slot)), entry])
         } catch {
             toast.show('Could not add that meal — please try again.', 'danger')
+        }
+    }
+
+    /**
+     * The + on a day. `save` puts it in the meal library too (for the slot it
+     * went in), and the day's entry then points at that meal; otherwise it's a
+     * one-off.
+     */
+    async function handleQuickAdd(date: string, slot: MealType, name: string, macros: Macros, save = false) {
+        try {
+            let entry: MealPlanEntry
+            if (save) {
+                const meal = await createMeal({ name, types: [slot], macros })
+                onMealsChanged?.()
+                entry = await addPlanEntry(date, slot, meal._id, false, date <= today)
+            } else {
+                entry = await addQuickItem(date, slot, name, macros, date <= today)
+            }
+            setEntries((prev) => [...prev.filter((e) => !isAwayIn(e, date, slot)), entry])
+        } catch {
+            toast.show('Could not add that — please try again.', 'danger')
+            throw new Error('quick add failed')
         }
     }
 
@@ -366,7 +409,8 @@ export default function NutritionPlanner({
             // Each line draws from whichever batch is current there.
             return handleAddPlate(date, slot, src.plate.map((l) => ({ food: l.food, grams: l.grams })), false, eaten)
         if (src.meal) return handleAdd(date, slot, src.meal, false, eaten)
-        toast.show('That meal has left your library, so it can’t be pasted.', 'danger')
+        // A one-off (or a meal since gone from the library) goes as its name and macros.
+        return handleQuickAdd(date, slot, src.name, src.macros).catch(() => {})
     }
 
     function openRowMenu(ev: { clientX: number; clientY: number }, entry: MealPlanEntry) {
@@ -376,6 +420,15 @@ export default function NutritionPlanner({
             items: [
                 { label: 'Copy', icon: 'fa-solid fa-copy', onClick: () => copyEntry(entry) },
                 { label: 'Open', icon: 'fa-solid fa-up-right-from-square', onClick: () => setDetail(entry) },
+                ...(entry.away || entry.extra || isEaten(entry)
+                    ? []
+                    : [
+                          {
+                              label: isSkipped(entry) ? 'Not skipped' : 'Skipped',
+                              icon: isSkipped(entry) ? 'fa-solid fa-rotate-left' : 'fa-solid fa-xmark',
+                              onClick: () => void handleSkip(entry),
+                          },
+                      ]),
                 { label: 'Remove', icon: 'fa-solid fa-trash-can', danger: true, onClick: () => void handleRemove(entry._id) },
             ],
         })
@@ -435,13 +488,22 @@ export default function NutritionPlanner({
             setWeighing(entry)
             return
         }
-        const next = entry.status === 'eaten' ? 'planned' : 'eaten'
+        await saveStatus(entry, entry.status === 'eaten' ? 'planned' : 'eaten')
+    }
+
+    // Skipped, or back to planned — a box note too, since it's never weighed out.
+    async function handleSkip(entry: MealPlanEntry) {
+        if (entry.away) return
+        await saveStatus(entry, entry.status === 'skipped' ? 'planned' : 'skipped')
+    }
+
+    async function saveStatus(entry: MealPlanEntry, next: EntryStatus) {
         setEntries((prev) => prev.map((e) => (e._id === entry._id ? { ...e, status: next } : e)))
         try {
             await setEntryStatus(entry._id, next)
         } catch {
             setEntries((prev) => prev.map((e) => (e._id === entry._id ? entry : e)))
-            toast.show('Could not save that tick — please try again.', 'danger')
+            toast.show('Could not save that — please try again.', 'danger')
         }
     }
 
@@ -587,7 +649,15 @@ export default function NutritionPlanner({
                 <CopiedBanner name={copied.name} forgetLabel="Forget the copied meal" onForget={() => setCopied(null)} />
             )}
 
-            {!loading && <WeekStock rows={stock} onOpenPantry={onOpenPantry} />}
+            {!loading && (
+                <div className="flex flex-col gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <WeekStock rows={stock} onOpenPantry={onOpenPantry} onShop={onShop} />
+                        <WeekMacrosButton open={macrosOpen} onToggle={() => setMacrosOpen((o) => !o)} />
+                    </div>
+                    {macrosOpen && <WeekMacrosPanel week={macros} />}
+                </div>
+            )}
 
             {loading ? (
                 <div className="grid place-items-center py-16">
@@ -617,6 +687,7 @@ export default function NutritionPlanner({
                     onRowMenu={openRowMenu}
                     onSlotMenu={openSlotMenu}
                     onAwayDay={(date) => setPicker({ date, slot: 'breakfast', eaten: false, awayDay: true })}
+                    onQuickAdd={setQuickDate}
                     onBackFromAway={(date) => void handleBackFromAway(date)}
                     onReorder={handleReorder}
                     onClearDay={(date) => setClearTarget({ type: 'day', date })}
@@ -642,6 +713,13 @@ export default function NutritionPlanner({
                 onPaste={pasteInto}
             />
 
+            <QuickAddDrawer
+                date={quickDate}
+                today={today}
+                onClose={() => setQuickDate(null)}
+                onAdd={handleQuickAdd}
+            />
+
             {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
 
             <PlannedMealDrawer
@@ -659,6 +737,7 @@ export default function NutritionPlanner({
                 }}
                 onClose={() => setDetail(null)}
                 onToggle={handleToggle}
+                onSkip={handleSkip}
                 onUpdatePlate={handleUpdatePlate}
                 onRemove={(id) => {
                     setDetail(null)
@@ -880,6 +959,7 @@ function WeekView({
     onRowMenu,
     onSlotMenu,
     onAwayDay,
+    onQuickAdd,
     onBackFromAway,
     onReorder,
     onClearDay,
@@ -902,6 +982,8 @@ function WeekView({
     onRowMenu: (ev: { clientX: number; clientY: number }, entry: MealPlanEntry) => void
     onSlotMenu: (ev: { clientX: number; clientY: number }, date: string, slot: MealType) => void
     onAwayDay: (date: string) => void
+    /** The + on a day: one item with its macros, in any slot. */
+    onQuickAdd: (date: string) => void
     onBackFromAway: (date: string) => void
     onReorder: (date: string, slot: MealType, ids: string[]) => void
     onClearDay: (date: string) => void
@@ -973,6 +1055,7 @@ function WeekView({
                     onRowMenu={onRowMenu}
                     onSlotMenu={(ev, slot) => onSlotMenu(ev, date, slot)}
                     onAwayDay={() => onAwayDay(date)}
+                    onQuickAdd={() => onQuickAdd(date)}
                     onBackFromAway={() => onBackFromAway(date)}
                     dragActive={dragId !== null}
                     draggedId={dragId}
@@ -1007,6 +1090,7 @@ function DayCard({
     onRowMenu,
     onSlotMenu,
     onAwayDay,
+    onQuickAdd,
     onBackFromAway,
     dragActive,
     draggedId,
@@ -1036,6 +1120,7 @@ function DayCard({
     onRowMenu: (ev: { clientX: number; clientY: number }, entry: MealPlanEntry) => void
     onSlotMenu: (ev: { clientX: number; clientY: number }, slot: MealType) => void
     onAwayDay: () => void
+    onQuickAdd: () => void
     onBackFromAway: () => void
     dragActive: boolean
     draggedId: string | null
@@ -1076,13 +1161,28 @@ function DayCard({
             date={date}
             compact={compact}
             isToday={isToday}
-            actions={<DayMenu label={`${weekday} options`} items={dayMenu} />}
+            actions={
+                <>
+                    {!awayAllDay && (
+                        <button
+                            type="button"
+                            onClick={onQuickAdd}
+                            aria-label={`Quick add to ${weekday}`}
+                            title="Quick add"
+                            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                        >
+                            <i className="fa-solid fa-plus text-[13px]" aria-hidden="true" />
+                        </button>
+                    )}
+                    <DayMenu label={`${weekday} options`} items={dayMenu} />
+                </>
+            }
         />
     )
 
     return (
         <DayCardShell id={dayCardId('meals', date)} isToday={isToday} compact={compact} className={className}>
-            <header className="flex flex-col gap-2">
+            <header className="flex flex-col gap-3">
                 {titleRow}
                 {awayAllDay ? (
                     <p className="text-[13px] text-neutral-500">Away all day — not counted</p>
@@ -1298,6 +1398,7 @@ function PlannedRow({
     dropEdge?: 'top' | 'bottom' | null
 }) {
     const done = isEaten(entry)
+    const skipped = isSkipped(entry)
     const size = rowButtonSize(compact)
 
     const trailing = isAwayNote(entry) ? (
@@ -1309,6 +1410,16 @@ function PlannedRow({
             aria-hidden="true"
         >
             <i className="fa-regular fa-calendar text-[11px]" />
+        </span>
+    ) : skipped ? (
+        <span
+            className={`grid shrink-0 place-items-center rounded-full bg-danger-bg text-danger ${
+                compact ? 'h-6 w-6' : onToggle ? size : 'h-6 w-6'
+            }`}
+            title="Skipped"
+            aria-label="Skipped"
+        >
+            <i className="fa-solid fa-xmark text-[11px]" />
         </span>
     ) : onToggle ? (
         isBoxNote(entry) ? (
@@ -1350,7 +1461,7 @@ function PlannedRow({
             compact={compact}
             bar={entry.extra || entry.away ? 'bg-neutral-300' : CATEGORY[entry.slot].solid}
             title={plateTitle(entry)}
-            titleTone={done && !entry.extra ? 'text-neutral-500' : 'text-neutral-900'}
+            titleTone={(done && !entry.extra) || skipped ? 'text-neutral-500' : 'text-neutral-900'}
             meta={plannedMeta(entry, projection)}
             name={entry.name}
             onOpen={onOpen}
@@ -1515,6 +1626,7 @@ function PlannedMealDrawer({
     onCopy,
     onClose,
     onToggle,
+    onSkip,
     onUpdatePlate,
     onRemove,
 }: {
@@ -1531,6 +1643,8 @@ function PlannedMealDrawer({
     meal: Meal | null
     onClose: () => void
     onToggle: (entry: MealPlanEntry) => void
+    /** Skipped, or back to planned. */
+    onSkip: (entry: MealPlanEntry) => void
     onUpdatePlate: (entry: MealPlanEntry, lines: PlateLine[]) => void
     onRemove: (id: string) => void
 }) {
@@ -1546,6 +1660,20 @@ function PlannedMealDrawer({
 
     const e = view
     const done = !!e && isEaten(e)
+    const skipped = !!e && isSkipped(e)
+    const skip =
+        e &&
+        !e.extra &&
+        !done &&
+        (skipped ? (
+            <Button variant="ghost" icon="fa-solid fa-rotate-left" onClick={() => onSkip(e)}>
+                Not skipped
+            </Button>
+        ) : (
+            <Button variant="ghost" icon="fa-solid fa-xmark" onClick={() => onSkip(e)}>
+                Skipped
+            </Button>
+        ))
 
     return (
         <Drawer
@@ -1564,10 +1692,13 @@ function PlannedMealDrawer({
                                 Copy
                             </Button>
                         </div>
+                        {!isAwayNote(e) && skip}
                         {isAwayNote(e) ? null : isBoxNote(e) ? (
-                            <Button icon="fa-solid fa-scale-balanced" onClick={() => onToggle(e)}>
-                                Weigh it out
-                            </Button>
+                            !skipped && (
+                                <Button icon="fa-solid fa-scale-balanced" onClick={() => onToggle(e)}>
+                                    Weigh it out
+                                </Button>
+                            )
                         ) : !e.extra &&
                             (done ? (
                                 <Button variant="ghost" icon="fa-solid fa-rotate-left" onClick={() => onToggle(e)}>
@@ -1672,6 +1803,7 @@ function PlannedMealDrawer({
 function PlannedContext({ entry }: { entry: MealPlanEntry }) {
     const c = CATEGORY[entry.slot]
     const done = isEaten(entry)
+    const skipped = isSkipped(entry)
     return (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold ${c.tile} ${c.text}`}>
@@ -1683,6 +1815,11 @@ function PlannedContext({ entry }: { entry: MealPlanEntry }) {
                 <span className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 text-xs font-semibold text-neutral-600">
                     <i className="fa-solid fa-plus" aria-hidden="true" />
                     Logged
+                </span>
+            ) : skipped ? (
+                <span className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-full bg-danger-bg px-2.5 text-xs font-semibold text-danger">
+                    <i className="fa-solid fa-circle-xmark" aria-hidden="true" />
+                    Skipped
                 </span>
             ) : (
                 done && (

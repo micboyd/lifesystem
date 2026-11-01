@@ -83,6 +83,8 @@ export async function updateGroup(req: AuthRequest, res: Response) {
         fields.startMonth = req.body.startMonth ?? null
     if (isValidMonth(req.body.endMonth) || req.body.endMonth === null)
         fields.endMonth = req.body.endMonth ?? null
+    if (typeof req.body.starlingCategoryUid === 'string' || req.body.starlingCategoryUid === null)
+        fields.starlingCategoryUid = req.body.starlingCategoryUid || null
 
     const group = await FinanceGroup.findOneAndUpdate(
         { _id: req.params.id, user: req.userId },

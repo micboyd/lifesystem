@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayTotals, weekAverage } from './dayTotals'
+import { dayTotals, weekAverage, weekMacros, type DayTotals } from './dayTotals'
 import type { Macros, MealPlanEntry } from '../types'
 
 const m = (calories: number, protein = 0): Macros => ({ calories, protein, carbs: 0, fat: 0 })
@@ -43,6 +43,17 @@ describe('dayTotals', () => {
         expect(t.estimated).toBe(false)
     })
 
+    it('keeps the whole plan on a past day, beside what was eaten', () => {
+        const t = dayTotals(day, estimate, '2026-11-02', '2026-11-05')
+        expect(t.plan).toEqual(m(1800, 125))
+        expect(t.planEstimated).toBe(true)
+        expect(t.eaten).toEqual(m(500, 30))
+    })
+
+    it('plans the same as the total on a day ahead', () => {
+        expect(dayTotals(day, estimate, '2026-11-02', '2026-11-01').plan).toEqual(m(1800, 125))
+    })
+
     it('is not approximate without box notes', () => {
         expect(dayTotals(day.slice(0, 2), estimate, '2026-11-02', '2026-11-01').estimated).toBe(
             false
@@ -56,6 +67,8 @@ describe('weekAverage', () => {
         planned: m(calories),
         total: m(calories),
         estimated,
+        plan: m(calories),
+        planEstimated: estimated,
         when: 'future' as const,
     })
 
@@ -71,5 +84,45 @@ describe('weekAverage', () => {
     it('has no target when a day has none, and nothing for an empty week', () => {
         expect(weekAverage([{ totals: t(2000), goals: null }])!.target).toBeNull()
         expect(weekAverage([{ totals: t(0), goals: null }])).toBeNull()
+    })
+})
+
+describe('weekMacros', () => {
+    const totals = (calories: number, when: 'past' | 'today' | 'future', eaten = calories) =>
+        ({
+            eaten: m(eaten, eaten / 10),
+            planned: m(calories - eaten, (calories - eaten) / 10),
+            total: m(calories, calories / 10),
+            estimated: false,
+            plan: m(calories, calories / 10),
+            planEstimated: false,
+            when,
+        }) as DayTotals
+    const goals = { calories: 2000, protein: 180 }
+
+    it('averages used days, adds eaten so far, and counts empty days at target', () => {
+        const w = weekMacros([
+            { totals: totals(1800, 'past'), goals },
+            { totals: totals(2200, 'today', 1000), goals },
+            { totals: totals(0, 'future'), goals },
+        ])!
+        expect(w.average.calories).toBe(2000)
+        expect(w.averageTarget.calories).toBe(2000)
+        expect(w.soFar.calories).toBe(2800)
+        expect(w.onTrack.calories).toBe(6000)
+        expect(w.onTrack.protein).toBe(400 + 180)
+        expect(w.weekTarget).toEqual({ calories: 6000, protein: 540 })
+        expect(w.usedDays).toBe(2)
+        expect(w.emptyDays).toBe(1)
+    })
+
+    it('leaves out a target any day is missing, and is null with nothing in', () => {
+        const w = weekMacros([
+            { totals: totals(1800, 'past'), goals },
+            { totals: totals(1500, 'past'), goals: { calories: 2000 } },
+        ])!
+        expect(w.weekTarget.protein).toBeUndefined()
+        expect(w.weekTarget.calories).toBe(4000)
+        expect(weekMacros([{ totals: totals(0, 'future'), goals }])).toBeNull()
     })
 })

@@ -5,7 +5,8 @@ import { IIngredient, ingredientSchema } from './PlateFood'
 /**
  * One cook of a box — a batch. What went in raw (copied from the box, with
  * any grams changed that day), what it weighed cooked, and so its macros per
- * 100 g. Open until marked finished; plates draw from the newest open batch.
+ * 100 g. Open until marked finished; plates draw from the oldest open batch
+ * with some left, spilling into the next (see pourEaten).
  * A frozen batch is in the pantry but not in use — it can't go on a plate
  * until it's taken out of the freezer.
  */

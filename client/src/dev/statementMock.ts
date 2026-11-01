@@ -7,21 +7,21 @@
 import type { StarlingSpendItem, Event } from '../types'
 
 let n = 0
-function tx(date: string, hhmm: string, amount: number, merchant: string, category: string): StarlingSpendItem {
+function tx(date: string, hhmm: string, amount: number, merchant: string, category: string, source = 'MASTER_CARD'): StarlingSpendItem {
     n++
-    return { id: `m${n}`, date, time: `${date}T${hhmm}:00`, amount, merchant, category, space: 'Main account' }
+    return { id: `m${n}`, date, time: `${date}T${hhmm}:00`, amount, merchant, category, space: 'Main account', source }
 }
 const d = (m: string, day: number) => `${m}-${String(day).padStart(2, '0')}`
 
 function month(m: string, heavier: boolean, dinners = 1): StarlingSpendItem[] {
     const out: StarlingSpendItem[] = [
-        tx(d(m, 1), '09:00', 1200, 'Landlord', 'PAYMENTS'),
-        tx(d(m, 5), '06:00', 45, 'EE', 'BILLS_AND_SERVICES'),
-        tx(d(m, 12), '06:00', 92, 'Octopus Energy', 'BILLS_AND_SERVICES'),
-        tx(d(m, 15), '06:00', 148, 'City of Edinburgh Council', 'BILLS_AND_SERVICES'),
+        tx(d(m, 1), '09:00', 1200, 'Landlord', 'PAYMENTS', 'STANDING_ORDER'),
+        tx(d(m, 5), '06:00', 45, 'EE', 'BILLS_AND_SERVICES', 'DIRECT_DEBIT'),
+        tx(d(m, 12), '06:00', 92, 'Octopus Energy', 'BILLS_AND_SERVICES', 'DIRECT_DEBIT'),
+        tx(d(m, 15), '06:00', 148, 'City of Edinburgh Council', 'BILLS_AND_SERVICES', 'DIRECT_DEBIT'),
         tx(d(m, 3), '06:00', 10.99, 'Netflix', 'ENTERTAINMENT'),
         tx(d(m, 9), '06:00', 11.99, 'Spotify', 'ENTERTAINMENT'),
-        tx(d(m, 20), '06:00', 24.99, 'PureGym', 'FITNESS'),
+        tx(d(m, 20), '06:00', 24.99, 'PureGym', 'FITNESS', 'DIRECT_DEBIT'),
     ]
     for (const day of [2, 9, 16, 23, 30]) out.push(tx(d(m, day), '18:00', heavier ? 68 : 61, 'Tesco', 'GROCERIES'))
     for (const day of [6, 7, 8, 13, 14, 15, 20, 21, 22, 27]) out.push(tx(d(m, day), '08:15', 3.4, 'Origin Coffee', 'EATING_OUT'))

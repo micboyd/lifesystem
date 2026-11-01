@@ -34,3 +34,20 @@ export const NAV_ITEMS: NavItem[] = [
     { label: 'Lists', to: '/lists', icon: 'fa-list-check' },
     { label: 'Weather', to: '/weather', icon: 'fa-cloud-sun' },
 ]
+
+export interface NavGroup {
+    label: string
+    /** Paths from NAV_ITEMS, in the order they appear in the group. */
+    paths: string[]
+}
+
+/**
+ * How the mobile menu groups NAV_ITEMS. The desktop rail keeps the flat order
+ * above; any item left out of every group lands in a trailing "More" group.
+ */
+export const NAV_GROUPS: NavGroup[] = [
+    { label: 'Day to day', paths: ['/', '/calendar', '/lists', '/notes', '/weather'] },
+    { label: 'Plan', paths: ['/life-plan', '/timebox', '/goals'] },
+    { label: 'Health', paths: ['/fitness', '/nutrition', '/timeline', '/consistency'] },
+    { label: 'Money', paths: ['/finances'] },
+]

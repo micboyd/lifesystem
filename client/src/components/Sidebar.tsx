@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, type TouchEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import Avatar from './Avatar'
 import { useAuth } from '../context/AuthContext'
-import { BRAND, NAV_ITEMS, type NavItem } from '../lib/workspace'
+import { BRAND, NAV_GROUPS, NAV_ITEMS, type NavItem } from '../lib/workspace'
 
 /** Shared row shape for nav links. */
 const rowBase =
@@ -38,7 +38,7 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
     )
 }
 
-/** The shared list of destination links, used by both the rail and the drawer. */
+/** The flat list of destination links in the desktop rail. */
 function NavLinks({
     pathname,
     items,
@@ -122,21 +122,7 @@ export default function Sidebar({
     onToggle?: () => void
 }) {
     const { pathname } = useLocation()
-    const [open, setOpen] = useState(false)
     const profileActive = isActive(pathname, '/profile')
-
-    // Close the mobile drawer on navigation.
-    useEffect(() => {
-        setOpen(false)
-    }, [pathname])
-
-    // Lock body scroll while the drawer is open.
-    useEffect(() => {
-        document.body.style.overflow = open ? 'hidden' : ''
-        return () => {
-            document.body.style.overflow = ''
-        }
-    }, [open])
 
     return (
         <>
@@ -167,48 +153,219 @@ export default function Sidebar({
                 </button>
             </aside>
 
-            {/* Mobile top bar */}
-            <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-black/[0.06] bg-white/90 px-4 backdrop-blur-md lg:hidden">
-                <button
-                    type="button"
-                    onClick={() => setOpen(true)}
-                    aria-label="Open menu"
-                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-neutral-100"
-                >
-                    <i className="fa-solid fa-bars text-sm" aria-hidden="true" />
-                </button>
-                <Brand />
+            <MobileNav pathname={pathname} />
+        </>
+    )
+}
+
+/** NAV_ITEMS split into NAV_GROUPS; anything ungrouped trails as "More". */
+function groupedNav(): { label: string; items: NavItem[] }[] {
+    const byPath = new Map(NAV_ITEMS.map((item) => [item.to, item]))
+    const groups = NAV_GROUPS.map((g) => ({
+        label: g.label,
+        items: g.paths.flatMap((p) => byPath.get(p) ?? []),
+    }))
+    const grouped = new Set(NAV_GROUPS.flatMap((g) => g.paths))
+    const rest = NAV_ITEMS.filter((item) => !grouped.has(item.to))
+    if (rest.length) groups.push({ label: 'More', items: rest })
+    return groups.filter((g) => g.items.length)
+}
+
+const NAV_GROUPED = groupedNav()
+
+/** The nav item whose section the current path sits in, for the top bar. */
+function currentItem(pathname: string): NavItem | undefined {
+    return NAV_ITEMS.find((item) => isActive(pathname, item.to))
+}
+
+/** How far (px) a left swipe must travel before the drawer closes. */
+const SWIPE_CLOSE = 72
+
+/** Phone top bar plus the slide-in menu it opens. */
+function MobileNav({ pathname }: { pathname: string }) {
+    const { user } = useAuth()
+    // Remember which page the menu was opened on, so navigating closes it.
+    const [openOn, setOpenOn] = useState<string | null>(null)
+    const open = openOn === pathname
+    const setOpen = (next: boolean) => setOpenOn(next ? pathname : null)
+    const [dragX, setDragX] = useState(0)
+    const [dragging, setDragging] = useState(false)
+    const touchStart = useRef<{ x: number; y: number } | null>(null)
+    const closeRef = useRef<HTMLButtonElement>(null)
+    const current = currentItem(pathname)
+    const profileActive = isActive(pathname, '/profile')
+
+    // While open: lock body scroll, close on Escape, focus the close button.
+    useEffect(() => {
+        if (!open) return
+        document.body.style.overflow = 'hidden'
+        closeRef.current?.focus({ preventScroll: true })
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setOpenOn(null)
+        }
+        window.addEventListener('keydown', onKey)
+        return () => {
+            document.body.style.overflow = ''
+            window.removeEventListener('keydown', onKey)
+        }
+    }, [open])
+
+    // Swipe left on the panel to close; vertical scrolls are left alone.
+    function onTouchStart(e: TouchEvent) {
+        const t = e.touches[0]
+        touchStart.current = { x: t.clientX, y: t.clientY }
+    }
+    function onTouchMove(e: TouchEvent) {
+        const start = touchStart.current
+        if (!start) return
+        const t = e.touches[0]
+        const dx = t.clientX - start.x
+        const dy = t.clientY - start.y
+        if (!dragging) {
+            if (Math.abs(dx) < 8) return
+            if (Math.abs(dy) > Math.abs(dx)) {
+                touchStart.current = null
+                return
+            }
+            setDragging(true)
+        }
+        setDragX(Math.min(0, dx))
+    }
+    function onTouchEnd() {
+        if (dragX < -SWIPE_CLOSE) setOpen(false)
+        touchStart.current = null
+        setDragging(false)
+        setDragX(0)
+    }
+
+    const panelTransform = open ? `translateX(${dragX}px)` : 'translateX(calc(-100% - 1rem))'
+
+    return (
+        <>
+            {/* Top bar */}
+            <div className="sticky top-0 z-40 border-b border-black/[0.06] bg-white/85 pt-[env(safe-area-inset-top)] backdrop-blur-md lg:hidden">
+                <div className="flex h-14 items-center gap-1 px-2">
+                    <button
+                        type="button"
+                        onClick={() => setOpen(true)}
+                        aria-label="Open menu"
+                        aria-expanded={open}
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] text-neutral-700 transition-colors hover:bg-neutral-100 active:bg-neutral-100"
+                    >
+                        <i className="fa-solid fa-bars-staggered text-[15px]" aria-hidden="true" />
+                    </button>
+                    <Link to="/" className="flex min-w-0 flex-1 items-center gap-2.5 px-1">
+                        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-[9px] ${BRAND.markClass}`}>
+                            <i className={`fa-solid ${BRAND.icon} text-[12px]`} aria-hidden="true" />
+                        </span>
+                        <span className="truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">
+                            {current && current.to !== '/' ? current.label : BRAND.name}
+                        </span>
+                    </Link>
+                    <Link
+                        to="/profile"
+                        aria-label="Your profile"
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-full"
+                    >
+                        <Avatar name={user?.name} size="sm" />
+                    </Link>
+                </div>
             </div>
 
-            {/* Mobile drawer */}
+            {/* Drawer */}
             {createPortal(
-                <div className={`fixed inset-0 z-50 lg:hidden ${open ? '' : 'pointer-events-none'}`}>
-                    {/* Backdrop */}
+                <div
+                    className={`fixed inset-0 z-50 lg:hidden ${open ? '' : 'pointer-events-none'}`}
+                    aria-hidden={!open}
+                >
                     <div
                         onClick={() => setOpen(false)}
-                        aria-hidden="true"
-                        className={`absolute inset-0 bg-neutral-900/50 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
+                        className={`absolute inset-0 bg-neutral-900/40 backdrop-blur-[2px] transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
                     />
 
-                    {/* Panel */}
                     <div
-                        className={`absolute inset-y-0 left-0 flex w-72 flex-col bg-white transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Menu"
+                        onTouchStart={onTouchStart}
+                        onTouchMove={onTouchMove}
+                        onTouchEnd={onTouchEnd}
+                        onTouchCancel={onTouchEnd}
+                        style={{ transform: panelTransform }}
+                        className={[
+                            'absolute bottom-[max(0.5rem,env(safe-area-inset-bottom))] left-2 top-[max(0.5rem,env(safe-area-inset-top))]',
+                            'flex w-[min(20rem,calc(100vw-3.5rem))] flex-col overflow-hidden rounded-[20px] bg-white shadow-2xl shadow-neutral-900/20',
+                            dragging ? '' : 'transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
+                        ].join(' ')}
                     >
-                        <div className="flex h-16 shrink-0 items-center justify-between px-5">
-                            <Brand />
+                        {/* Header: who's signed in, plus close */}
+                        <div className="flex shrink-0 items-center gap-2 p-3">
+                            <Link
+                                to="/profile"
+                                className={[
+                                    'flex min-w-0 flex-1 items-center gap-3 rounded-[14px] p-2 transition-colors',
+                                    profileActive ? BRAND.profileActiveClass : 'hover:bg-neutral-100 active:bg-neutral-100',
+                                ].join(' ')}
+                            >
+                                <Avatar name={user?.name} size="md" />
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-[15px] font-semibold text-neutral-900">
+                                        {user?.name ?? 'Your profile'}
+                                    </p>
+                                    <p className="truncate text-xs text-neutral-500">View profile</p>
+                                </div>
+                            </Link>
                             <button
+                                ref={closeRef}
                                 type="button"
                                 onClick={() => setOpen(false)}
                                 aria-label="Close menu"
-                                className="grid h-8 w-8 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                             >
-                                <i className="fa-solid fa-xmark" aria-hidden="true" />
+                                <i className="fa-solid fa-xmark text-base" aria-hidden="true" />
                             </button>
                         </div>
-                        <NavLinks pathname={pathname} items={NAV_ITEMS} />
-                        <div className="shrink-0 border-t border-black/[0.06] p-3">
-                            <ProfileChip active={profileActive} />
-                        </div>
+
+                        {/* Grouped destinations */}
+                        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
+                            {NAV_GROUPED.map((group) => (
+                                <section key={group.label} className="border-t border-neutral-100 pt-3 pb-2 first:border-t-0 first:pt-0">
+                                    <h3 className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                                        {group.label}
+                                    </h3>
+                                    <ul className="flex flex-col gap-0.5">
+                                        {group.items.map(({ label, to, icon }) => {
+                                            const active = isActive(pathname, to)
+                                            return (
+                                                <li key={to}>
+                                                    <Link
+                                                        to={to}
+                                                        aria-current={active ? 'page' : undefined}
+                                                        className={[
+                                                            'flex h-11 items-center gap-3 rounded-[12px] px-2 text-[15px] font-medium transition-colors',
+                                                            active
+                                                                ? 'bg-coral-50 text-coral-700'
+                                                                : 'text-neutral-800 hover:bg-neutral-100 active:bg-neutral-100',
+                                                        ].join(' ')}
+                                                    >
+                                                        <span
+                                                            className={[
+                                                                'grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-[13px]',
+                                                                active ? 'bg-coral-500 text-white' : 'bg-neutral-100 text-neutral-600',
+                                                            ].join(' ')}
+                                                        >
+                                                            <i className={`fa-solid ${icon}`} aria-hidden="true" />
+                                                        </span>
+                                                        <span className="flex-1 truncate">{label}</span>
+                                                        {active && <span className="h-1.5 w-1.5 rounded-full bg-coral-500" aria-hidden="true" />}
+                                                    </Link>
+                                                </li>
+                                            )
+                                        })}
+                                    </ul>
+                                </section>
+                            ))}
+                        </nav>
                     </div>
                 </div>,
                 document.body

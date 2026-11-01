@@ -2,9 +2,8 @@ import { useState } from 'react'
 import Button from '../Button'
 import { MACRO_DOT, MacroBar } from './mealUi'
 import { fmt, kcal } from './format'
-import { gramsLeft, lineMacros, plateTotal, ZERO } from '../../lib/plates'
+import { gramsLeft, lineMacros, nextBatch, plateTotal, ZERO } from '../../lib/plates'
 import { suggestGrams } from '../../lib/plateSuggest'
-import { shortDate } from './BoxLibrary'
 import type { BoxCook, Macros, MealPlanEntry, PlateFood, PlateLine, PlateLineInput } from '../../types'
 
 /**
@@ -113,7 +112,7 @@ export function AimCard({ aim, keys, slotLabel }: { aim: Macros; keys: (keyof Ma
 }
 
 /**
- * Something that can go on a new plate: a cooked batch still in the pantry, or
+ * Something that can go on a new plate: a cooked box still in the pantry, or
  * a plain food. A box that's never been cooked — or whose batches are all
  * finished — isn't offered: there's nothing in the fridge to weigh out.
  */
@@ -130,34 +129,38 @@ function sourcesFrom(foods: PlateFood[]): { batches: Source[]; plain: Source[] }
     const byOrder = [...foods].sort((a, b) => a.order - b.order)
     const batches = byOrder
         .filter((f) => f.kind === 'box')
-        .flatMap((f) =>
-            f.open.map((c) => ({
-                key: c._id,
-                food: f,
-                cook: c,
-                // Two open batches of one box are told apart by when they were cooked.
-                label: f.open.length > 1 ? `${f.name} · ${shortDate(c.date)}` : f.name,
-                per100: c.per100,
-                left: gramsLeft(c.cookedGrams, c.eatenGrams),
-            }))
-        )
+        .flatMap((f): Source[] => {
+            // One row per box, however many batches: a plate comes out of the
+            // oldest first and spills into the next, so what's left is their total.
+            const cook = nextBatch(f.open)
+            if (!cook) return []
+            return [
+                {
+                    key: f._id,
+                    food: f,
+                    cook,
+                    label: f.name,
+                    per100: cook.per100,
+                    left: f.open.reduce((sum, c) => sum + gramsLeft(c.cookedGrams, c.eatenGrams), 0),
+                },
+            ]
+        })
     // A plain food is always offered. With a batch out (a box of rice), it
     // draws from that, so the pantry knows what's left; it still counts at
     // the food's own figures.
     const plain = byOrder
         .filter((f) => f.kind === 'plain')
-        .flatMap((f): Source[] =>
-            f.open.length === 0
-                ? [{ key: f._id, food: f, cook: null, label: f.name, per100: f.per100 ?? ZERO, left: null }]
-                : f.open.map((c) => ({
-                      key: c._id,
-                      food: f,
-                      cook: c,
-                      label: f.open.length > 1 ? `${f.name} · ${shortDate(c.date)}` : f.name,
-                      per100: f.per100 ?? ZERO,
-                      left: gramsLeft(c.cookedGrams, c.eatenGrams),
-                  }))
-        )
+        .map((f): Source => {
+            const cook = nextBatch(f.open)
+            return {
+                key: f._id,
+                food: f,
+                cook,
+                label: f.name,
+                per100: f.per100 ?? ZERO,
+                left: cook ? f.open.reduce((sum, c) => sum + gramsLeft(c.cookedGrams, c.eatenGrams), 0) : null,
+            }
+        })
     return { batches, plain }
 }
 
@@ -182,7 +185,7 @@ export function PlateBuilder({
 }) {
     const { batches, plain } = sourcesFrom(foods)
     const [lines, setLines] = useState<Draft[]>(() => {
-        // A box's newest open batch, or a plain food. Anything not cooked yet is left off.
+        // A box (its next batch out), or a plain food. Anything not cooked yet is left off.
         return (start ?? []).flatMap((id) => {
             const src = batches.find((b) => b.food._id === id) ?? plain.find((p) => p.food._id === id)
             return src ? [{ key: src.key, grams: '' }] : []

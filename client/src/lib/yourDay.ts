@@ -32,10 +32,14 @@ export type StepKind = 'weigh' | 'training' | 'rest' | 'meal' | 'plan-meals' | '
  * - todo: still to do.
  * - done: done.
  * - handled: deliberately not happening — a skipped session, away for a meal. No longer a task.
- * - over: calories past the target, the one step that can go wrong.
+ * - over: calories past the target.
+ * - missed: a meal skipped — it was meant to happen and didn't.
  * - info: context, never a task (an event, a rest day).
  */
-export type StepState = 'todo' | 'done' | 'handled' | 'over' | 'info'
+export type StepState = 'todo' | 'done' | 'handled' | 'over' | 'missed' | 'info'
+
+/** Steps that count as tasks: everything but handled and info. */
+export const isTask = (s: DayStep) => s.state !== 'handled' && s.state !== 'info'
 
 export interface DayStep {
     id: string
@@ -194,8 +198,18 @@ function mealSteps(
                 kind: 'meal',
                 part,
                 title: label,
-                detail: m.away ? `Away · ${m.name}` : [mealName(m), amount].filter(Boolean).join(' · '),
-                state: m.away ? 'handled' : m.status === 'eaten' ? 'done' : 'todo',
+                detail: m.away
+                    ? `Away · ${m.name}`
+                    : m.status === 'skipped'
+                      ? `Skipped · ${mealName(m)}`
+                      : [mealName(m), amount].filter(Boolean).join(' · '),
+                state: m.away
+                    ? 'handled'
+                    : m.status === 'eaten'
+                      ? 'done'
+                      : m.status === 'skipped'
+                        ? 'missed'
+                        : 'todo',
             })
         }
     }
@@ -335,7 +349,7 @@ export function yourDay(inputs: YourDayInputs): YourDay {
         )
         .map(({ s }) => s)
 
-    const tasks = steps.filter((s) => s.state === 'todo' || s.state === 'done' || s.state === 'over')
+    const tasks = steps.filter(isTask)
     const done = tasks.filter((s) => s.state === 'done').length
     const isToday = date === today
     const nowPart = isToday ? partAt(inputs.nowMin) : null

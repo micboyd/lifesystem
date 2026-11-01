@@ -3,7 +3,7 @@ import Drawer from '../Drawer'
 import Button from '../Button'
 import { StatStrip } from '../session/SessionUI'
 import { fmt, kcal } from './format'
-import { lineMacros, plateTotal } from '../../lib/plates'
+import { lineMacros, nextBatch, plateTotal } from '../../lib/plates'
 import type { BoxProjection } from '../../lib/plateSuggest'
 import type { MealPlanEntry, PlateFood, PlateLineInput } from '../../types'
 
@@ -51,8 +51,8 @@ export function WeighOutDrawer({
     const lines = ids.flatMap((id) => {
         const food = foods.find((f) => f._id === id)
         if (!food) return []
-        // The newest batch in use — a plain food's too, so the pantry knows what's left.
-        const cook = food.open[0] ?? null
+        // The next batch out (oldest with some left) — a plain food's too, so the pantry knows what's left.
+        const cook = nextBatch(food.open)
         const per100 = food.kind === 'box' ? cook?.per100 : food.per100
         const g = Number(grams[id] ?? '')
         return [{ id, food, cook, per100, grams: Number.isFinite(g) && g > 0 ? g : 0 }]

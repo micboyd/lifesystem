@@ -56,7 +56,7 @@ export async function createGroup(
 export async function updateGroup(
     id: string,
     fields: Partial<
-        Pick<FinanceGroup, 'name' | 'type' | 'order' | 'currentBalance' | 'annualInterestRate'>
+        Pick<FinanceGroup, 'name' | 'type' | 'order' | 'currentBalance' | 'annualInterestRate' | 'starlingCategoryUid'>
     >
 ): Promise<FinanceGroup> {
     const res = await api.put<ApiResponse<FinanceGroup>>(`/finances/groups/${id}`, fields)

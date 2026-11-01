@@ -5,7 +5,7 @@ import { IMacros } from '../models/Meal'
 import PlateFood, { IIngredient, IPlateFood, PLATE_FOOD_KINDS, PlateFoodKind } from '../models/PlateFood'
 import BoxCook from '../models/BoxCook'
 import MealPlanEntry from '../models/MealPlanEntry'
-import { logCook, plateFields, repricePlanned } from '../lib/plateLines'
+import { gramsByBatch, logCook, plateFields, pourEaten, repricePlanned } from '../lib/plateLines'
 import { newBatchId, makeLastImportHandler, summarise } from '../lib/importBatch'
 import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
 import { round } from '../lib/plates'
@@ -60,19 +60,12 @@ function readFood(body: unknown) {
  * batches in the freezer, and its latest cook, open or not.
  */
 export async function listPlateFoods(req: AuthRequest, res: Response) {
+    await pourEaten(req.userId!)
     const foods = await PlateFood.find({ user: req.userId }).sort({ order: 1, createdAt: 1 })
     const cooks = await BoxCook.find({ user: req.userId }).sort({ date: -1, createdAt: -1 })
 
     const openIds = cooks.filter((c) => !c.finished).map((c) => c._id)
-    const eaten = openIds.length
-        ? await MealPlanEntry.aggregate<{ _id: Types.ObjectId; grams: number }>([
-              { $match: { user: new Types.ObjectId(req.userId), status: 'eaten', 'plate.batch': { $in: openIds } } },
-              { $unwind: '$plate' },
-              { $match: { 'plate.batch': { $in: openIds } } },
-              { $group: { _id: '$plate.batch', grams: { $sum: '$plate.grams' } } },
-          ])
-        : []
-    const eatenBy = new Map(eaten.map((e) => [String(e._id), e.grams]))
+    const eatenBy = await gramsByBatch(req.userId!, openIds as Types.ObjectId[], 'eaten')
 
     const data = foods.map((f) => {
         const mine = cooks.filter((c) => String(c.food) === String(f._id))

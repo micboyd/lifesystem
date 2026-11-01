@@ -13,6 +13,7 @@ import { PERIODS, WEEKDAYS_LONG, eventCoversAllDay, eventCoversSlot, parseDateKe
 import { iconForHabit } from '../../lib/habitIcons'
 import {
     DAY_PARTS,
+    isTask,
     sessionKey,
     yourDay,
     type DayPart,
@@ -232,6 +233,8 @@ function summaryOf(day: YourDay, date: string, today: string): string {
     if (day.perfect) return date === today ? 'A perfect day — everything’s done.' : 'A perfect day.'
     if (date > today) return `${day.total} ${day.total === 1 ? 'thing' : 'things'} planned`
     if (date < today) return `${day.done} of ${day.total} done`
+    const missed = day.steps.filter((s) => s.state === 'missed').length
+    if (missed) return `${missed} skipped · ${day.steps.filter((s) => s.state === 'todo').length} still to do`
     return `${day.total - day.done} to go for a perfect day`
 }
 
@@ -294,12 +297,12 @@ function Targets({ day, nutrition }: { day: YourDay; nutrition: NutritionToday }
     )
 }
 
-/** One segment per task: done, still to do, or over. */
+/** One segment per task: done, still to do, or over / missed. */
 function ScoreBar({ day }: { day: YourDay }) {
-    const tasks = day.steps.filter((s) => s.state === 'todo' || s.state === 'done' || s.state === 'over')
+    const tasks = day.steps.filter(isTask)
     if (tasks.length === 0) return null
     // Done first, so the bar fills from the left.
-    const order: Record<string, number> = { done: 0, over: 1, todo: 2 }
+    const order: Record<string, number> = { done: 0, over: 1, missed: 1, todo: 2 }
     const sorted = [...tasks].sort((a, b) => order[a.state] - order[b.state])
     return (
         <div className="flex gap-1" role="img" aria-label={`${day.done} of ${day.total} done`}>
@@ -307,7 +310,11 @@ function ScoreBar({ day }: { day: YourDay }) {
                 <span
                     key={s.id}
                     className={`h-1.5 min-w-0 flex-1 rounded-full ${
-                        s.state === 'done' ? 'bg-success' : s.state === 'over' ? 'bg-danger' : 'bg-neutral-200'
+                        s.state === 'done'
+                            ? 'bg-success'
+                            : s.state === 'over' || s.state === 'missed'
+                              ? 'bg-danger'
+                              : 'bg-neutral-200'
                     }`}
                 />
             ))}
@@ -358,16 +365,19 @@ function NextUp({
     const next = day.next
     if (!next) {
         const over = day.steps.some((s) => s.state === 'over')
+        const missed = day.steps.some((s) => s.state === 'missed')
         return (
             <div className={`${panel} bg-neutral-100`}>
                 <p className={`${overline} text-neutral-500`}>Next up</p>
                 <p className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-neutral-950">
-                    {over ? 'Nothing left to tick' : 'Nothing planned'}
+                    {over || missed ? 'Nothing left to tick' : 'Nothing planned'}
                 </p>
                 <p className="mt-1 text-[14px] leading-6 text-neutral-600">
                     {over
                         ? 'Calories ran over today — keep the rest of it light.'
-                        : 'Plan some training or meals and they’ll show here.'}
+                        : missed
+                          ? 'A meal was skipped, so not a perfect one — tomorrow’s a fresh start.'
+                          : 'Plan some training or meals and they’ll show here.'}
                 </p>
             </div>
         )
@@ -480,7 +490,7 @@ function StepRow({
     )
 }
 
-/** Done, to do (ringed in coral when it's next), over, not happening — or an icon for context. */
+/** Done, to do (ringed in coral when it's next), over, skipped, not happening — or an icon for context. */
 function StateMark({ step, isNext }: { step: DayStep; isNext: boolean }) {
     const box = 'mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px]'
     if (step.state === 'done')
@@ -493,6 +503,12 @@ function StateMark({ step, isNext }: { step: DayStep; isNext: boolean }) {
         return (
             <span className={`${box} bg-danger-bg text-danger`} aria-label="Over">
                 <i className="fa-solid fa-exclamation" aria-hidden="true" />
+            </span>
+        )
+    if (step.state === 'missed')
+        return (
+            <span className={`${box} bg-danger-bg text-danger`} aria-label="Skipped">
+                <i className="fa-solid fa-xmark" aria-hidden="true" />
             </span>
         )
     if (step.state === 'handled')

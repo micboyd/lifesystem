@@ -131,3 +131,23 @@ export function incomeForMonth(
     }
     return Math.round(total * 100) / 100
 }
+
+/** How a linked space's balance compares with what its group still has to pay. */
+export interface SpaceCover {
+    /** 'short' = not enough in the space, 'spare' = more than enough, 'exact' = to the penny. */
+    kind: 'short' | 'spare' | 'exact'
+    /** Pounds short or spare, always ≥ 0. */
+    amount: number
+}
+
+/**
+ * Compare a group's unpaid total with what's in its linked space. Unticked
+ * rows are taken as still to come out of the space, so a bill that's gone out
+ * but isn't ticked reads as owed twice — ticking keeps it right.
+ */
+export function spaceCover(stillToPay: number, balance: number): SpaceCover {
+    const diff = Math.round((balance - stillToPay) * 100) / 100
+    if (diff < 0) return { kind: 'short', amount: -diff }
+    if (diff > 0) return { kind: 'spare', amount: diff }
+    return { kind: 'exact', amount: 0 }
+}

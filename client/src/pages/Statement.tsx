@@ -6,7 +6,7 @@ import Input from '../components/Input'
 import PillToggle from '../components/PillToggle'
 import Pagination from '../components/Pagination'
 import { Card } from '../components/Card'
-import { getStarlingBalance, getStarlingHistory, listStarlingFlow } from '../services/finances'
+import { getStarlingHistory, listStarlingFlow } from '../services/finances'
 import { listEvents } from '../services/events'
 import { listCalendars } from '../services/calendars'
 import { colorsForEvent } from '../lib/eventColors'
@@ -36,22 +36,19 @@ import {
 import { buildDoh, type Doh } from '../lib/statementDoh'
 import { refineCategory, tagAll, tagText, TAGS, type Tag } from '../lib/spendTags'
 import { AHEAD_DAYS, buildMonthAhead, type MonthAhead } from '../lib/monthAhead'
+import { regularBills, type RegularBills } from '../lib/regularBills'
 import { buildSavingsPlan, goalPresets, type SavingsPlan } from '../lib/savingsPlan'
 import { incomeForMonth } from '../lib/finance'
 import { listEntries, listGroups, listRows } from '../services/finances'
 import { updateSettings } from '../services/users'
 import { useAuth } from '../context/AuthContext'
 import { matchSpendToEvents, upcomingPlans, type EventSpend, type UpcomingPlan } from '../lib/spendEvents'
-import { buildMoneyIn, INCOME_LABEL, type MoneyIn } from '../lib/moneyIn'
 import { goalProgress, type GoalProgress } from '../lib/goalProgress'
 import { buildWeekReview, type WeekReview } from '../lib/weekReview'
-import { findSubscriptions, type SubscriptionList } from '../lib/subscriptions'
-import { buildTrends, type Trends } from '../lib/trends'
 import {
     EVENT_TYPE_LABELS,
     type Calendar,
     type Event,
-    type StarlingBalance,
     type StarlingHistory,
     type StarlingSpendItem,
 } from '../types'
@@ -361,7 +358,7 @@ function Hero({
                         </div>
                     </div>
 
-                    <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-white/10 pt-5 sm:grid-cols-4">
+                    <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-white/10 pt-5">
                         <HeroFigure label="Per day" sub={`Over ${plural(s.dayOfMonth, 'day')}`}>
                             <M v={s.dailyAverage} />
                         </HeroFigure>
@@ -374,12 +371,6 @@ function Hero({
                                 <M v={s.prev.fullTotal} d={0} />
                             </HeroFigure>
                         )}
-                        <HeroFigure label="No-spend days" sub={`of ${s.dayOfMonth}`}>
-                            {s.noSpendDays}
-                        </HeroFigure>
-                        <HeroFigure label="Payments" sub={s.count ? <>Average <M v={s.total / s.count} /></> : undefined}>
-                            {s.count}
-                        </HeroFigure>
                     </div>
                 </>
             )}
@@ -723,162 +714,112 @@ function plain(copy: Copy): string {
     return copy.map((p) => (typeof p === 'string' ? p : formatMoney(p.money, 0))).join('')
 }
 
-/** The start of a month: what's coming, a budget to play to, and last month's lessons. */
-function MonthAheadSection({
-    a,
-    monthName,
-    prevName,
-    onOpen,
-    goal,
-    plan,
-}: {
-    a: MonthAhead
-    monthName: string
-    prevName: string
-    onOpen: (title: string, items: StarlingSpendItem[]) => void
-    goal: ReactNode
-    plan: SavingsPlan | null
-}) {
-    const biggestDoh = a.lastDoh.lines[0]
-    const vsBefore = a.lastMonth.before !== null ? compare(a.lastMonth.total, a.lastMonth.before) : null
-    const hasGoal = !!plan && plan.goal > 0
-    const options: { label: string; perDay: number; note: ReactNode; on?: boolean }[] = [
-        { label: `Match ${prevName}`, perDay: a.matchPerDay, note: <><M v={a.prevDayToDay} d={0} /> for the month</> },
-        { label: '10% under', perDay: a.trimPerDay, note: <>saves <M v={a.trimSaving} d={0} /></> },
-        ...(hasGoal ? [{ label: 'Your goal', perDay: plan!.perDay, note: <>keeps <M v={plan!.goal} d={0} /> back</>, on: true }] : []),
-    ]
-    const headline = hasGoal ? plan!.perDay : a.matchPerDay
-
+/** Direct debits and standing orders: last month's, ticked as this month's go out. */
+function RegularBillsCard({ r, monthName }: { r: RegularBills; monthName: string }) {
     return (
-        <section className="mb-8">
-            <div className="mb-4">
-                <h2 className={H2}>The month ahead</h2>
-                <p className="mt-0.5 text-[13px] text-neutral-500">What’s coming in {monthName}, going by how {prevName} went.</p>
-            </div>
-            {goal}
-
-            <div className="mb-4 grid items-start gap-4 lg:grid-cols-2">
-                {/* Your budget */}
-                <div className="rounded-[20px] bg-white p-5 ring-1 ring-neutral-900/[0.06] sm:p-6">
-                    <p className={OVERLINE}>Your day-to-day budget</p>
-                    <div className="mt-3 flex items-baseline gap-2">
-                        <M v={headline} className="text-[40px] font-medium leading-none tracking-[-0.04em] text-neutral-950" />
-                        <span className="text-[15px] text-neutral-600">a day</span>
-                    </div>
-                    <p className="mt-2 text-[13px] text-neutral-500">{hasGoal ? 'to hit your savings goal.' : `to match ${prevName}.`}</p>
-
-                    <ul className="mt-5 divide-y divide-neutral-100 border-y border-neutral-100">
-                        {options.map((o) => (
-                            <li key={o.label} className="flex items-center gap-3 py-3">
-                                <span className={`h-2 w-2 shrink-0 rounded-full ${o.on ? 'bg-success' : 'bg-neutral-300'}`} aria-hidden="true" />
-                                <span className={`min-w-0 flex-1 text-[15px] ${o.on ? 'font-medium text-neutral-900' : 'text-neutral-700'}`}>{o.label}</span>
-                                <span className="hidden text-[13px] text-neutral-500 sm:inline">{o.note}</span>
-                                <span className="w-24 shrink-0 text-right text-[15px] font-medium text-neutral-900">
-                                    <M v={o.perDay} />
-                                    <span className="text-[13px] font-normal text-neutral-500"> /day</span>
+        <section className="mb-6 rounded-[20px] bg-white p-5 ring-1 ring-neutral-900/[0.06] sm:p-6">
+            <p className={OVERLINE}>Regular bills</p>
+            <p className="mt-0.5 text-[13px] text-neutral-500">Direct debits and standing orders. Ticked once they’ve gone out in {monthName}.</p>
+            {r.bills.length === 0 ? (
+                <p className="mt-3 text-[15px] text-neutral-500">No direct debits or standing orders last month or this.</p>
+            ) : (
+                <>
+                    <ul className="mt-3 divide-y divide-neutral-100">
+                        {r.bills.map((b) => (
+                            <li key={b.name} className="flex items-center gap-3 py-3">
+                                <span
+                                    className={`grid h-9 w-11 shrink-0 place-items-center rounded-lg text-[13px] font-semibold ${
+                                        b.paid ? 'bg-success-bg text-success' : 'bg-neutral-100 text-neutral-700'
+                                    }`}
+                                >
+                                    {b.paid ? <i className="fa-solid fa-check" aria-label="Paid" /> : ordinal(b.day)}
                                 </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-[15px] text-neutral-900">{b.name}</span>
+                                    <span className="block text-xs text-neutral-500">
+                                        {b.kind}
+                                        {b.paid ? ` · paid on the ${ordinal(b.day)}` : ''}
+                                    </span>
+                                </span>
+                                <M v={b.amount} className="shrink-0 text-[15px] font-medium text-neutral-900" />
                             </li>
                         ))}
                     </ul>
-                    <p className="mt-4 text-xs leading-relaxed text-neutral-500">
-                        Day-to-day is everything except bills, rent and big one-offs. {prevName}’s came to <M v={a.prevDayToDay} d={0} />.
-                    </p>
-                </div>
-
-                {/* Bills coming */}
-                <div className="rounded-[20px] bg-white p-5 ring-1 ring-neutral-900/[0.06] sm:p-6">
-                    <p className={OVERLINE}>Bills coming</p>
-                    {a.bills.length === 0 ? (
-                        <p className="mt-3 text-[15px] text-neutral-500">No regular bills in {prevName} to go on.</p>
-                    ) : (
-                        <>
-                            <ul className="mt-3 divide-y divide-neutral-100">
-                                {a.bills.slice(0, 8).map((b) => (
-                                    <li key={b.merchant} className="flex items-center gap-3 py-3">
-                                        <span
-                                            className={`grid h-9 w-11 shrink-0 place-items-center rounded-lg text-[13px] font-semibold ${
-                                                b.paid ? 'bg-success-bg text-success' : 'bg-neutral-100 text-neutral-700'
-                                            }`}
-                                        >
-                                            {b.paid ? <i className="fa-solid fa-check" aria-label="Paid" /> : ordinal(b.day)}
-                                        </span>
-                                        <span className={`min-w-0 flex-1 truncate text-[15px] ${b.paid ? 'text-neutral-500 line-through' : 'text-neutral-900'}`}>
-                                            {b.merchant}
-                                        </span>
-                                        <M v={b.amount} className={`shrink-0 text-[15px] ${b.paid ? 'text-neutral-500' : 'font-medium text-neutral-900'}`} />
-                                    </li>
-                                ))}
-                            </ul>
-                            {a.bills.length > 8 && <p className="pt-1 text-xs text-neutral-500">and {a.bills.length - 8} more</p>}
-                            <div className="mt-2 flex items-baseline justify-between border-t border-neutral-200 pt-3">
-                                <span className="text-[13px] text-neutral-500">Still to go out</span>
-                                <M v={a.billsLeft} d={0} className="text-[17px] font-semibold text-neutral-900" />
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
-
-            {/* Lessons from last month */}
-            <div className="rounded-[20px] bg-neutral-100 p-4 sm:p-5">
-                <p className={`mb-3 px-1 ${OVERLINE}`}>Lessons from {prevName}</p>
-                <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-2xl bg-white p-4">
-                        <p className="text-[13px] text-neutral-500">{prevName} in total</p>
-                        <M v={a.lastMonth.total} d={0} className="mt-1 block text-[26px] font-medium leading-tight tracking-[-0.03em] text-neutral-950" />
-                        {vsBefore && vsBefore.tone !== 'neutral' && (
-                            <p className={`mt-1 text-[13px] ${vsBefore.tone === 'good' ? 'text-success' : 'text-danger'}`}>
-                                <Text copy={vsBefore.copy} />
-                            </p>
-                        )}
+                    <div className="mt-2 flex items-baseline justify-between border-t border-neutral-200 pt-3">
+                        <span className="text-[13px] text-neutral-500">
+                            In total · <M v={r.paid} d={0} /> paid so far
+                        </span>
+                        <M v={r.total} d={0} className="text-[17px] font-semibold text-neutral-900" />
                     </div>
-                    {biggestDoh ? (
-                        <button
-                            type="button"
-                            onClick={() => onOpen(biggestDoh.subject, biggestDoh.items)}
-                            className="rounded-2xl bg-white p-4 text-left transition-colors hover:bg-neutral-50"
-                        >
-                            <p className="text-[13px] text-neutral-500">
-                                <i className="fa-solid fa-face-grimace mr-1.5 text-coral-600" aria-hidden="true" />
-                                Down the drain
-                            </p>
-                            <M v={a.lastDoh.total} className="mt-1 block text-[26px] font-medium leading-tight tracking-[-0.03em] text-coral-700" />
-                            <p className="mt-1 text-[13px] leading-snug text-neutral-600">
-                                Biggest: <Text copy={biggestDoh.title} />
-                            </p>
-                        </button>
-                    ) : (
-                        <div className="rounded-2xl bg-white p-4">
-                            <p className="text-[13px] text-neutral-500">Down the drain</p>
-                            <p className="mt-1 text-[15px] text-neutral-900">Nothing. No doh moments in {prevName}.</p>
-                        </div>
-                    )}
-                    {a.tryThis ? (
-                        <button
-                            type="button"
-                            onClick={() => onOpen(a.tryThis!.subject, a.tryThis!.items)}
-                            className="rounded-2xl bg-white p-4 text-left transition-colors hover:bg-neutral-50"
-                        >
-                            <p className="text-[13px] text-neutral-500">
-                                <i className="fa-solid fa-lightbulb mr-1.5 text-warning" aria-hidden="true" />
-                                One thing to try
-                            </p>
-                            <p className="mt-1 text-[15px] font-medium leading-snug text-neutral-900">
-                                <Text copy={a.tryThis.title} />
-                            </p>
-                            {a.tryThis.saving ? (
-                                <p className="mt-1 text-[13px] text-success">
-                                    Worth about <M v={a.tryThis.saving} d={0} /> a month
-                                </p>
-                            ) : null}
-                        </button>
-                    ) : (
-                        <div className="rounded-2xl bg-white p-4">
-                            <p className="text-[13px] text-neutral-500">One thing to try</p>
-                            <p className="mt-1 text-[15px] text-neutral-900">Same again: nothing big stood out.</p>
-                        </div>
+                </>
+            )}
+        </section>
+    )
+}
+
+/** Last month in a line, what went down the drain, and the one thing to try. */
+function Lessons({ a, prevName, onOpen }: { a: MonthAhead; prevName: string; onOpen: (title: string, items: StarlingSpendItem[]) => void }) {
+    const biggestDoh = a.lastDoh.lines[0]
+    const vsBefore = a.lastMonth.before !== null ? compare(a.lastMonth.total, a.lastMonth.before) : null
+    return (
+        <section className="mb-6 rounded-[20px] bg-neutral-100 p-4 sm:p-5">
+            <p className={`mb-3 px-1 ${OVERLINE}`}>Lessons from {prevName}</p>
+            <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl bg-white p-4">
+                    <p className="text-[13px] text-neutral-500">{prevName} in total</p>
+                    <M v={a.lastMonth.total} d={0} className="mt-1 block text-[26px] font-medium leading-tight tracking-[-0.03em] text-neutral-950" />
+                    {vsBefore && vsBefore.tone !== 'neutral' && (
+                        <p className={`mt-1 text-[13px] ${vsBefore.tone === 'good' ? 'text-success' : 'text-danger'}`}>
+                            <Text copy={vsBefore.copy} />
+                        </p>
                     )}
                 </div>
+                {biggestDoh ? (
+                    <button
+                        type="button"
+                        onClick={() => onOpen(biggestDoh.subject, biggestDoh.items)}
+                        className="rounded-2xl bg-white p-4 text-left transition-colors hover:bg-neutral-50"
+                    >
+                        <p className="text-[13px] text-neutral-500">
+                            <i className="fa-solid fa-face-grimace mr-1.5 text-coral-600" aria-hidden="true" />
+                            Down the drain
+                        </p>
+                        <M v={a.lastDoh.total} className="mt-1 block text-[26px] font-medium leading-tight tracking-[-0.03em] text-coral-700" />
+                        <p className="mt-1 text-[13px] leading-snug text-neutral-600">
+                            Biggest: <Text copy={biggestDoh.title} />
+                        </p>
+                    </button>
+                ) : (
+                    <div className="rounded-2xl bg-white p-4">
+                        <p className="text-[13px] text-neutral-500">Down the drain</p>
+                        <p className="mt-1 text-[15px] text-neutral-900">Nothing. No doh moments in {prevName}.</p>
+                    </div>
+                )}
+                {a.tryThis ? (
+                    <button
+                        type="button"
+                        onClick={() => onOpen(a.tryThis!.subject, a.tryThis!.items)}
+                        className="rounded-2xl bg-white p-4 text-left transition-colors hover:bg-neutral-50"
+                    >
+                        <p className="text-[13px] text-neutral-500">
+                            <i className="fa-solid fa-lightbulb mr-1.5 text-warning" aria-hidden="true" />
+                            One thing to try
+                        </p>
+                        <p className="mt-1 text-[15px] font-medium leading-snug text-neutral-900">
+                            <Text copy={a.tryThis.title} />
+                        </p>
+                        {a.tryThis.saving ? (
+                            <p className="mt-1 text-[13px] text-success">
+                                Worth about <M v={a.tryThis.saving} d={0} /> a month
+                            </p>
+                        ) : null}
+                    </button>
+                ) : (
+                    <div className="rounded-2xl bg-white p-4">
+                        <p className="text-[13px] text-neutral-500">One thing to try</p>
+                        <p className="mt-1 text-[15px] text-neutral-900">Same again: nothing big stood out.</p>
+                    </div>
+                )}
             </div>
         </section>
     )
@@ -1252,71 +1193,6 @@ function Transactions({ s, eventOf }: { s: MonthStatement; eventOf: (id: string)
     )
 }
 
-// ── What's really yours ───────────────────────────────────────────────────────
-
-/** The balance, less what's already spoken for: the money that's actually free. */
-function ReallyYoursCard({
-    balance,
-    stillToCome,
-    goal,
-    payExpected,
-}: {
-    balance: StarlingBalance
-    stillToCome: number
-    goal: number | null
-    payExpected: MoneyIn['payExpected']
-}) {
-    const free = balance.total - stillToCome
-    const toLiveOn = goal ? free - goal : null
-    const rows: { label: ReactNode; value: ReactNode; strong?: boolean; tone?: string }[] = [
-        {
-            label: (
-                <>
-                    In the bank <span className="text-neutral-500">(main <M v={balance.main} d={0} /> + spaces <M v={balance.spaces} d={0} />)</span>
-                </>
-            ),
-            value: <M v={balance.total} />,
-        },
-        { label: 'Bills still to come this month', value: <>−<M v={stillToCome} /></> },
-        { label: 'Really yours', value: <M v={free} />, strong: true },
-        ...(goal && toLiveOn !== null
-            ? [
-                  { label: 'Your savings goal, put aside', value: <>−<M v={goal} /></> },
-                  { label: 'To live on', value: <M v={toLiveOn} />, strong: true, tone: toLiveOn < 0 ? 'text-danger' : 'text-success' },
-              ]
-            : []),
-    ]
-    return (
-        <div className="rounded-[20px] bg-white p-5 ring-1 ring-neutral-900/[0.06] sm:p-6">
-            <p className={OVERLINE}>What’s really yours</p>
-            <div className="mt-3 flex items-baseline gap-2">
-                <M v={toLiveOn ?? free} d={0} className={`text-[40px] font-medium leading-none tracking-[-0.04em] ${(toLiveOn ?? free) < 0 ? 'text-danger' : 'text-neutral-950'}`} />
-            </div>
-            <p className="mt-2 text-[13px] text-neutral-500">
-                {toLiveOn !== null ? 'to live on, once bills and your goal are covered.' : 'once the bills still to come are paid.'}
-            </p>
-            <ul className="mt-5 divide-y divide-neutral-100 border-y border-neutral-100">
-                {rows.map((r, i) => (
-                    <li key={i} className="flex items-baseline justify-between gap-3 py-2.5 text-[15px]">
-                        <span className={`min-w-0 ${r.strong ? 'font-medium text-neutral-900' : 'text-neutral-700'}`}>{r.label}</span>
-                        <span className={`shrink-0 ${r.strong ? `font-semibold ${r.tone ?? 'text-neutral-900'}` : 'text-neutral-700'}`}>{r.value}</span>
-                    </li>
-                ))}
-            </ul>
-            {free < 0 && (
-                <p className="mt-3 rounded-xl bg-danger-bg px-3 py-2.5 text-[13px] text-danger">
-                    The bills still to come are more than what’s in the bank. Move money in from savings, or talk to whoever’s due before it bounces.
-                </p>
-            )}
-            {payExpected && (
-                <p className="mt-3 text-xs text-neutral-500">
-                    Pay of about <M v={payExpected.amount} d={0} /> usually lands around the {ordinal(payExpected.day)}.
-                </p>
-            )}
-        </div>
-    )
-}
-
 // ── Goal progress ─────────────────────────────────────────────────────────────
 
 const GOAL_STATUS: Record<GoalProgress['status'], { label: string; tone: string; bar: string }> = {
@@ -1516,261 +1392,6 @@ function WeekCard({ week, onOpen }: { week: WeekReview; onOpen: (title: string, 
     )
 }
 
-// ── Money in ──────────────────────────────────────────────────────────────────
-
-function MoneyInCard({ m, prevName, onOpen }: { m: MoneyIn; prevName: string; onOpen: (title: string, items: StarlingSpendItem[]) => void }) {
-    const vs = m.prevTotal > 0 || m.total > 0 ? compare(m.total, m.prevTotal) : null
-    return (
-        <Card hover={false}>
-            <div className="mb-4 flex items-start gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-success-bg text-[13px] text-success">
-                    <i className="fa-solid fa-arrow-down" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                    <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-neutral-900">Money in</h2>
-                    <p className="text-[13px] text-neutral-500">Everything that arrived, not counting moves between your own pots.</p>
-                </div>
-            </div>
-            <div className="flex items-baseline gap-2">
-                <M v={m.total} d={0} className="text-[32px] font-medium leading-none tracking-[-0.03em] text-neutral-950" />
-                {vs && vs.tone !== 'neutral' && (
-                    <span className="text-[13px] text-neutral-500">
-                        vs <M v={m.prevTotal} d={0} /> in {prevName} by now
-                    </span>
-                )}
-            </div>
-            {m.groups.length === 0 ? (
-                <p className="mt-4 rounded-xl bg-neutral-50 px-4 py-3 text-[13px] text-neutral-500">Nothing in yet this month.</p>
-            ) : (
-                <ul className="-mx-2 mt-3">
-                    {m.groups.map((g) => (
-                        <li key={g.kind}>
-                            <button
-                                type="button"
-                                onClick={() => onOpen(INCOME_LABEL[g.kind].label, g.items)}
-                                className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-neutral-50"
-                            >
-                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-[13px] text-neutral-700">
-                                    <i className={`fa-solid ${INCOME_LABEL[g.kind].icon}`} aria-hidden="true" />
-                                </span>
-                                <span className="min-w-0 flex-1">
-                                    <span className="block text-[15px] text-neutral-900">{INCOME_LABEL[g.kind].label}</span>
-                                    <span className="block text-[13px] text-neutral-500">{plural(g.items.length, 'payment')}</span>
-                                </span>
-                                <M v={g.total} className="shrink-0 text-[15px] font-medium text-neutral-900" />
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
-            <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-neutral-200 pt-3 text-[15px]">
-                <span className="text-neutral-700">In minus out so far</span>
-                <span className={`font-semibold ${m.net >= 0 ? 'text-success' : 'text-danger'}`}>
-                    {m.net >= 0 ? '+' : ''}
-                    <M v={m.net} d={0} />
-                </span>
-            </div>
-            {m.payExpected && (
-                <p className="mt-2 text-xs text-neutral-500">
-                    No pay in yet. Last month it was <M v={m.payExpected.amount} d={0} /> on the {ordinal(m.payExpected.day)}.
-                </p>
-            )}
-        </Card>
-    )
-}
-
-// ── Subscriptions ─────────────────────────────────────────────────────────────
-
-function SubscriptionsCard({
-    list,
-    loading,
-    onOpen,
-}: {
-    list: SubscriptionList
-    loading: boolean
-    onOpen: (title: string, items: StarlingSpendItem[]) => void
-}) {
-    const dayMonth = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-    return (
-        <Card hover={false}>
-            <div className="mb-4 flex items-start gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-[13px] text-neutral-700">
-                    <i className="fa-solid fa-rotate" aria-hidden="true" />
-                </span>
-                <div className="min-w-0 flex-1">
-                    <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-neutral-900">Subscriptions</h2>
-                    <p className="text-[13px] text-neutral-500">
-                        {list.subs.length ? (
-                            <>
-                                <M v={list.monthly} className="font-medium text-neutral-900" /> a month,{' '}
-                                <M v={list.yearly} d={0} className="font-medium text-neutral-900" /> a year.
-                            </>
-                        ) : loading ? (
-                            'Reading your past months…'
-                        ) : (
-                            'Nothing that looks like a subscription.'
-                        )}
-                    </p>
-                </div>
-            </div>
-            {list.subs.length > 0 && (
-                <ul className="-mx-2">
-                    {list.subs.map((sub) => (
-                        <li key={sub.key}>
-                            <button
-                                type="button"
-                                onClick={() => onOpen(sub.name, sub.items)}
-                                className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-neutral-50"
-                            >
-                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neutral-100 text-[13px] font-semibold text-neutral-700">
-                                    {sub.name.charAt(0).toUpperCase()}
-                                </span>
-                                <span className="min-w-0 flex-1">
-                                    <span className="flex items-center gap-2">
-                                        <span className="truncate text-[15px] text-neutral-900">{sub.name}</span>
-                                        {sub.priceRise && (
-                                            <span className="shrink-0 rounded-full bg-warning-bg px-2 py-0.5 text-[11px] font-medium text-warning">
-                                                up from <M v={sub.priceRise.from} />
-                                            </span>
-                                        )}
-                                    </span>
-                                    <span className="block text-[13px] text-neutral-500">
-                                        <M v={sub.amount} /> a {sub.every} · next around {dayMonth(sub.nextDue)}
-                                    </span>
-                                </span>
-                                <span className="shrink-0 text-right">
-                                    <M v={sub.yearly} d={0} className="block text-[15px] font-medium text-neutral-900" />
-                                    <span className="text-[11px] text-neutral-500">a year</span>
-                                </span>
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
-            {list.subs.length > 1 && (
-                <p className="mt-3 text-xs leading-relaxed text-neutral-500">
-                    Not using one? Cancelling the cheapest still puts <M v={Math.min(...list.subs.map((x) => x.yearly))} d={0} /> a year back.
-                </p>
-            )}
-        </Card>
-    )
-}
-
-// ── The bigger picture ────────────────────────────────────────────────────────
-
-function TrendsSection({ t, loading }: { t: Trends; loading: boolean }) {
-    const shown = t.months.filter((m) => m.out > 0 || m.in > 0)
-    const top = Math.max(1, ...shown.map((m) => Math.max(m.out, m.in)))
-    const finished = shown.filter((m) => !m.partial).length
-    const label = (m: string) => new Date(`${m}-15T12:00:00`).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })
-    const tiles = [
-        { label: 'A typical month out', value: <M v={t.averageOut} d={0} />, sub: <>day-to-day <M v={t.averageDayToDay} d={0} /></> },
-        { label: 'A typical month in', value: <M v={t.averageIn} d={0} />, sub: 'pay, refunds and the rest' },
-        { label: 'Months you came out ahead', value: `${t.monthsAhead} of ${finished}`, sub: 'more in than out' },
-        {
-            label: 'Cheapest month',
-            value: t.best ? <M v={t.best.out} d={0} /> : '—',
-            sub: t.best ? `${label(t.best.month)}${t.worst ? `; dearest ${label(t.worst.month)}` : ''}` : '',
-        },
-    ]
-    return (
-        <section className="mb-6">
-            <div className="mb-3">
-                <h2 className={H2}>The bigger picture</h2>
-                <p className="mt-0.5 text-[13px] text-neutral-500">
-                    {finished ? `Your last ${finished} month${finished === 1 ? '' : 's'}${loading ? ', more on the way' : ''}.` : 'Reading your past months…'}
-                </p>
-            </div>
-            {finished > 0 && (
-                <>
-                    <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-                        {tiles.map((x) => (
-                            <div key={x.label} className="rounded-[20px] bg-white p-4 ring-1 ring-neutral-900/[0.06]">
-                                <p className="text-[13px] text-neutral-500">{x.label}</p>
-                                <p className="mt-1 text-[24px] font-medium tracking-[-0.03em] text-neutral-950">{x.value}</p>
-                                <p className="mt-0.5 truncate text-xs text-neutral-500">{x.sub}</p>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="grid items-start gap-4 lg:grid-cols-[1.4fr_1fr]">
-                        <Card hover={false}>
-                            <div className="mb-3 flex items-center justify-between gap-3">
-                                <p className={OVERLINE}>Month by month</p>
-                                <span className="flex items-center gap-3 text-xs text-neutral-500">
-                                    <span className="inline-flex items-center gap-1.5">
-                                        <span className="h-2 w-2 rounded-full bg-neutral-900" aria-hidden="true" /> Out
-                                    </span>
-                                    <span className="inline-flex items-center gap-1.5">
-                                        <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" /> In
-                                    </span>
-                                </span>
-                            </div>
-                            <ul className="flex flex-col gap-2.5">
-                                {[...shown].reverse().map((m) => (
-                                    <li key={m.month} className="grid grid-cols-[3.25rem_1fr_auto] items-center gap-3">
-                                        <span className="text-[13px] text-neutral-600">{label(m.month)}</span>
-                                        <span className="flex flex-col gap-1">
-                                            <span className="h-2 rounded-full bg-neutral-100">
-                                                <span className={`block h-full rounded-full ${m.partial ? 'bg-neutral-400' : 'bg-neutral-900'}`} style={{ width: `${(m.out / top) * 100}%` }} />
-                                            </span>
-                                            <span className="h-1.5 rounded-full bg-neutral-100">
-                                                <span className="block h-full rounded-full bg-success" style={{ width: `${(m.in / top) * 100}%` }} />
-                                            </span>
-                                        </span>
-                                        <span className="w-28 text-right text-[13px]">
-                                            <M v={m.out} d={0} className="font-medium text-neutral-900" />
-                                            <span className="text-neutral-500"> / </span>
-                                            <M v={m.in} d={0} className="text-success" />
-                                            {m.partial && <span className="block text-[11px] text-neutral-500">so far</span>}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </Card>
-                        <Card hover={false}>
-                            <p className={OVERLINE}>Creeping up</p>
-                            {t.creepingUp.length === 0 ? (
-                                <p className="mt-2 text-[15px] text-neutral-500">Nothing creeping up over the last three months. Nice.</p>
-                            ) : (
-                                <ul className="mt-2 divide-y divide-neutral-100">
-                                    {t.creepingUp.map((c) => (
-                                        <li key={c.key} className="py-2.5">
-                                            <div className="flex items-baseline justify-between gap-3 text-[15px]">
-                                                <span className="text-neutral-900">{c.label}</span>
-                                                <span className="font-medium text-danger">
-                                                    +<M v={c.change} d={0} /> a month
-                                                </span>
-                                            </div>
-                                            <p className="text-[13px] text-neutral-500">
-                                                <M v={c.before} d={0} /> → <M v={c.recent} d={0} /> a month, three months against the three before
-                                            </p>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                            {t.easingOff.length > 0 && (
-                                <>
-                                    <p className={`mt-5 ${OVERLINE}`}>Easing off</p>
-                                    <ul className="mt-2 divide-y divide-neutral-100">
-                                        {t.easingOff.map((c) => (
-                                            <li key={c.key} className="flex items-baseline justify-between gap-3 py-2.5 text-[15px]">
-                                                <span className="text-neutral-900">{c.label}</span>
-                                                <span className="font-medium text-success">
-                                                    −<M v={-c.change} d={0} /> a month
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </>
-                            )}
-                        </Card>
-                    </div>
-                </>
-            )}
-        </section>
-    )
-}
-
 // ── Drill-in ──────────────────────────────────────────────────────────────────
 
 interface Detail {
@@ -1904,9 +1525,9 @@ export default function Statement() {
         }
     }, [month, mock])
 
-    // Up to a year of finished months (stored server-side), for trends, subscriptions
-    // and the month before last. Filled a few months per request, so ask again
-    // while the server says some are pending.
+    // The last two finished months (stored server-side), for the month before last:
+    // last month's lessons are judged against it. Filled a few months per request,
+    // so ask again while the server says some are pending.
     const [history, setHistory] = useState<StarlingHistory | null>(null)
     useEffect(() => {
         let active = true
@@ -1918,7 +1539,7 @@ export default function Statement() {
         }
         let tries = 0
         const pull = () =>
-            getStarlingHistory(12)
+            getStarlingHistory(2)
                 .then((h) => {
                     if (!active) return
                     setHistory(h)
@@ -1930,23 +1551,6 @@ export default function Statement() {
             active = false
         }
     }, [mock, today])
-
-    // What's in the account right now (current month only).
-    const [balance, setBalance] = useState<StarlingBalance | null>(null)
-    useEffect(() => {
-        let active = true
-        if (month !== currentMonth) return
-        if (import.meta.env.DEV && mock) {
-            import('../dev/statementMock').then((m) => active && setBalance(m.balance))
-        } else {
-            getStarlingBalance()
-                .then((b) => active && setBalance(b))
-                .catch(() => {})
-        }
-        return () => {
-            active = false
-        }
-    }, [month, currentMonth, mock])
 
     // Fetch a month (and the one before it), then apply the result. Split in two so
     // effects only ever set state from a callback.
@@ -2051,41 +1655,25 @@ export default function Statement() {
             .filter((g) => g.total > 0)
             .sort((a, b) => b.total - a.total)
         const planned = spent.reduce((a, g) => a + g.total, 0)
+        // Last month's lessons show all month; the rest of the month ahead only early on.
+        const lessons = s.isCurrent ? buildMonthAhead(s, items, olderMonth) : null
         return {
             s,
             kinds: kindTotals(s),
             doh: buildDoh(s.categories.flatMap((c) => c.items)),
             tags,
             insights: buildInsights(s, items, prevName, olderMonth),
-            ahead: s.isCurrent && (s.dayOfMonth <= AHEAD_DAYS || s.count === 0) ? buildMonthAhead(s, items, olderMonth) : null,
+            lessons,
+            bills: s.isCurrent ? regularBills(items, month, s.asOf) : null,
+            ahead: lessons && (s.dayOfMonth <= AHEAD_DAYS || s.count === 0) ? lessons : null,
             spent,
             planned,
             everyday: s.total - planned,
             upcoming: s.isCurrent ? upcomingPlans(data.events, matched, today, `${month}-${String(s.daysInMonth).padStart(2, '0')}`) : [],
             byItem: matched.byItem,
             items,
-            moneyIn: buildMoneyIn(month, data.incoming, s.asOf, s.prev.month, s.total),
         }
     }, [data, month, today, history])
-
-    // The bigger picture: a year of months (history + this one), and subscriptions across it.
-    const bigPicture = useMemo(() => {
-        if (!view || !history || !data) return null
-        const past = history.months.filter((h) => h.month < month)
-        const pastOut = past.flatMap((h) => h.items.filter((t) => t.direction !== 'IN'))
-        const pastTags = tagAll(pastOut)
-        const out = [...pastOut.map((t) => refineCategory(t, pastTags.get(t.id))), ...view.s.categories.flatMap((c) => c.items)]
-        const incoming = [
-            ...past.flatMap((h) => h.items.filter((t) => t.direction === 'IN')),
-            ...data.incoming.filter((t) => t.date.startsWith(month) && t.date <= view.s.asOf),
-        ]
-        const months = [...past.map((h) => h.month), month].sort().slice(-12)
-        return {
-            trends: buildTrends(out, incoming, months, view.s.isCurrent ? month : ''),
-            subs: findSubscriptions(out, view.s.asOf),
-            loading: history.pending > 0,
-        }
-    }, [view, history, data, month])
 
     // The goal all month long, and the week's budget that follows from it.
     const progress = useMemo(() => {
@@ -2131,44 +1719,22 @@ export default function Statement() {
     const s = view?.s ?? null
     const prevName = s ? formatMonthKey(s.prev.month).split(' ')[0] : ''
 
-    const aheadEl =
-        view?.ahead && s ? (
-            <MonthAheadSection
-                a={view.ahead}
-                monthName={monthOnly(month)}
-                prevName={prevName}
-                onOpen={open}
-                plan={plan}
-                goal={
-                    <SavingsGoalCard
-                        plan={plan}
-                        goal={goal}
-                        presets={goalPresets(plan?.possible ?? 0)}
-                        possible={plan?.possible ?? 0}
-                        lastName={prevName}
-                        onGoal={saveGoal}
-                        onOpen={open}
-                    />
-                }
-            />
-        ) : null
-    const moneyInEl = view ? <MoneyInCard m={view.moneyIn} prevName={prevName} onOpen={open} /> : null
-    // Right now: what's really yours, beside the goal (or, early in the month when
-    // the goal sits in the month ahead, beside money in).
-    const reallyYours =
-        s?.isCurrent && balance && s.forecast ? (
-            <ReallyYoursCard balance={balance} stillToCome={s.forecast.stillToCome} goal={goal} payExpected={view?.moneyIn.payExpected ?? null} />
-        ) : null
-    const besideIt = view?.ahead ? moneyInEl : view ? <GoalProgressCard progress={progress} onGoal={saveGoal} /> : null
-    const nowRow =
-        reallyYours || besideIt ? (
-            <div className={`mb-6 grid items-start gap-4 ${reallyYours && besideIt ? 'lg:grid-cols-2' : ''}`}>
-                {reallyYours}
-                {besideIt}
-            </div>
-        ) : null
-    const subsEl = bigPicture ? <SubscriptionsCard list={bigPicture.subs} loading={bigPicture.loading} onOpen={open} /> : null
-    const trendsEl = bigPicture ? <TrendsSection t={bigPicture.trends} loading={bigPicture.loading} /> : null
+    // The savings goal: early in the month the card that helps pick one, then its progress.
+    const goalEl = !view ? null : view.ahead ? (
+        <SavingsGoalCard
+            plan={plan}
+            goal={goal}
+            presets={goalPresets(plan?.possible ?? 0)}
+            possible={plan?.possible ?? 0}
+            lastName={prevName}
+            onGoal={saveGoal}
+            onOpen={open}
+        />
+    ) : (
+        <GoalProgressCard progress={progress} onGoal={saveGoal} />
+    )
+    const lessonsEl = view?.lessons ? <Lessons a={view.lessons} prevName={prevName} onOpen={open} /> : null
+    const billsEl = view?.bills ? <RegularBillsCard r={view.bills} monthName={monthOnly(month)} /> : null
 
     return (
         <CalendarsContext.Provider value={calendars}>
@@ -2200,23 +1766,23 @@ export default function Statement() {
                     </div>
                 ) : s.count === 0 ? (
                     <>
-                        {aheadEl}
-                        {nowRow}
+                        {goalEl && <div className="mb-6">{goalEl}</div>}
+                        {billsEl}
+                        {lessonsEl}
                         {!s.isCurrent && (
                             <EmptyState icon="fa-regular fa-calendar" title="Nothing spent" description="Nothing went out this month." />
                         )}
-                        <div className="mb-6 grid items-start gap-6 lg:grid-cols-2">
-                            {s.isCurrent && (
+                        {s.isCurrent && (
+                            <div className="mb-6">
                                 <Plans spent={[]} upcoming={view.upcoming} planned={0} everyday={0} onOpen={(title, items) => open(title, items)} />
-                            )}
-                            {subsEl}
-                        </div>
-                        {trendsEl}
+                            </div>
+                        )}
                     </>
                 ) : (
                     <>
-                        {aheadEl}
-                        {nowRow}
+                        {goalEl && <div className="mb-6">{goalEl}</div>}
+                        {billsEl}
+                        {lessonsEl}
                         {week && <WeekCard week={week} onOpen={open} />}
                         <DohSection doh={view.doh} onOpen={open} />
                         <Insights insights={view.insights} onOpen={open} />
@@ -2230,11 +1796,6 @@ export default function Statement() {
                                 onOpen={(title, items) => open(title, items)}
                             />
                         </div>
-                        <div className={`mb-6 grid items-start gap-6 ${view.ahead ? '' : 'lg:grid-cols-2'}`}>
-                            {!view.ahead && moneyInEl}
-                            {subsEl}
-                        </div>
-                        {trendsEl}
                         <div id="statement-transactions" className="scroll-mt-6">
                             <Transactions key={s.month} s={s} eventOf={eventOf} />
                         </div>

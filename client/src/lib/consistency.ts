@@ -264,7 +264,9 @@ export function dayRecords(inputs: ConsistencyInputs): DayRecord[] {
         const entries = mealsByDate.get(date) ?? []
         const inSlots = entries.filter((m) => !m.extra && !m.away)
         const eatenInSlots = inSlots.filter((m) => m.status === 'eaten').length
-        const meals = { due: isToday ? eatenInSlots : inSlots.length, eaten: eatenInSlots }
+        // A skip is a miss straight away, even today.
+        const skippedInSlots = inSlots.filter((m) => m.status === 'skipped').length
+        const meals = { due: isToday ? eatenInSlots + skippedInSlots : inSlots.length, eaten: eatenInSlots }
         const extras = entries.filter((m) => m.extra).length
 
         let calories: CalorieDay | null = null

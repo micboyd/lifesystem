@@ -90,6 +90,10 @@ export default function Nutrition() {
                         foods={foods}
                         settingsGoals={user?.settings?.macroGoals}
                         onOpenPantry={() => setTab('Pantry')}
+                        onShop={async (items) => {
+                            if (await shopping.addAll(items)) setShoppingOpen(true)
+                        }}
+                        onMealsChanged={reloadMeals}
                     />
                 ) : tab === 'Pantry' ? (
                     <Pantry foods={foods} onChanged={reloadFoods} />

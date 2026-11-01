@@ -3,6 +3,7 @@ import {
     batchYield,
     expectedPer100,
     gramsLeft,
+    nextBatch,
     lineMacros,
     per100FromCook,
     plateName,
@@ -96,5 +97,22 @@ describe('batchYield', () => {
         expect(batchYield({ ingredients: [{ grams: 900 }], last: { cookedGrams: 700 } })).toBe(700)
         expect(batchYield({ ingredients: [{ grams: 900 }, { grams: 100 }], last: null })).toBe(1000)
         expect(batchYield({ ingredients: [], last: null })).toBeNull()
+    })
+})
+
+describe('nextBatch', () => {
+    // Newest first, as the server sends them.
+    const newer = { id: 'B', cookedGrams: 1000, eatenGrams: 0 }
+    const older = { id: 'A', cookedGrams: 1000, eatenGrams: 400 }
+
+    it('takes from the oldest batch that still has some left', () => {
+        expect(nextBatch([newer, older])?.id).toBe('A')
+    })
+    it('moves on to the next once the oldest is empty', () => {
+        expect(nextBatch([newer, { ...older, eatenGrams: 1000 }])?.id).toBe('B')
+    })
+    it('falls back to the newest when every batch is empty, and null with none', () => {
+        expect(nextBatch([{ ...newer, eatenGrams: 1200 }, { ...older, eatenGrams: 1000 }])?.id).toBe('B')
+        expect(nextBatch([])).toBeNull()
     })
 })

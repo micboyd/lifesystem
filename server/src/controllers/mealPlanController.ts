@@ -4,7 +4,7 @@ import { AuthRequest } from '../middleware/auth'
 import MealPlanEntry, { ENTRY_STATUSES, EntryStatus } from '../models/MealPlanEntry'
 import Meal, { MEAL_TYPES, MealType } from '../models/Meal'
 import PlateFood from '../models/PlateFood'
-import { plateFields, resolvePlate } from '../lib/plateLines'
+import { plateFields, pourEaten, resolvePlate } from '../lib/plateLines'
 
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
 const isSlot = (v: unknown): v is MealType => MEAL_TYPES.includes(v as MealType)
@@ -25,13 +25,13 @@ export async function listEntries(req: AuthRequest, res: Response) {
 }
 
 /**
- * POST /api/meal-plan { date, slot, meal | plate, extra?, eaten? } — puts a
- * library meal, or a plate of weighed foods (`[{ food, grams, batch? }]`), on
- * a day. A planned meal waits to be ticked; an extra ("Log more") is eaten.
+ * POST /api/meal-plan { date, slot, meal | plate | name + macros, extra?, eaten? } —
+ * puts a library meal, a plate of weighed foods (`[{ food, grams, batch? }]`),
+ * or a one-off (just a name and its macros) on a day. A planned meal waits to be ticked; an extra ("Log more") is eaten.
  * `eaten` is "Quick log": it lands in its slot already ticked.
  */
 export async function createEntry(req: AuthRequest, res: Response) {
-    const { date, slot, meal: mealId, plate, extra, eaten } = req.body ?? {}
+    const { date, slot, meal: mealId, plate, name, macros, extra, eaten } = req.body ?? {}
     if (!isDate(date) || !isSlot(slot)) {
         res.status(400).json({ message: 'date and slot are required' })
         return
@@ -59,6 +59,32 @@ export async function createEntry(req: AuthRequest, res: Response) {
             date,
             slot,
             box: { $in: lines.map((l) => l.food) },
+        })
+        if (extra !== true) await dropAwayNote(req.userId!, date, slot)
+        // Eaten straight away: it comes out of the oldest batch first.
+        if (status === 'eaten') await pourEaten(req.userId!)
+        res.status(201).json({ message: 'Created', data: (await MealPlanEntry.findById(entry._id)) ?? entry })
+        return
+    }
+    if (mealId === undefined && typeof name === 'string') {
+        // A one-off: just a name and its macros, not from the library.
+        const title = name.trim()
+        if (!title) {
+            res.status(400).json({ message: 'A name is required' })
+            return
+        }
+        const m = (macros ?? {}) as Record<string, unknown>
+        const figure = (v: unknown) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0)
+        const last = await MealPlanEntry.findOne({ user: req.userId, date, slot }).sort({ order: -1 })
+        const entry = await MealPlanEntry.create({
+            user: req.userId,
+            date,
+            slot,
+            name: title,
+            macros: { calories: figure(m.calories), protein: figure(m.protein), carbs: figure(m.carbs), fat: figure(m.fat) },
+            status,
+            extra: extra === true,
+            order: (last?.order ?? -1) + 1,
         })
         if (extra !== true) await dropAwayNote(req.userId!, date, slot)
         res.status(201).json({ message: 'Created', data: entry })
@@ -173,14 +199,14 @@ export async function createAwayNote(req: AuthRequest, res: Response) {
 }
 
 /**
- * PATCH /api/meal-plan/:id { status?, plate? } — the tick, and a plate's
+ * PATCH /api/meal-plan/:id { status?, plate? } — the tick (or a skip), and a plate's
  * grams (or batch) changed at the table. Each line keeps the batch figures it
  * was given, so an eaten plate never moves when a box is cooked again.
  */
 export async function updateEntry(req: AuthRequest, res: Response) {
     const { status, plate } = req.body ?? {}
     if (status !== undefined && !isStatus(status)) {
-        res.status(400).json({ message: 'status must be planned or eaten' })
+        res.status(400).json({ message: 'status must be planned, eaten or skipped' })
         return
     }
     if (status === undefined && plate === undefined) {
@@ -196,7 +222,7 @@ export async function updateEntry(req: AuthRequest, res: Response) {
         res.status(400).json({ message: 'A box note is weighed out, not ticked' })
         return
     }
-    if (entry.away && status === 'eaten') {
+    if (entry.away && status !== undefined && status !== 'planned') {
         res.status(400).json({ message: 'An away note is not ticked' })
         return
     }
@@ -212,9 +238,12 @@ export async function updateEntry(req: AuthRequest, res: Response) {
         }
         Object.assign(entry, plateFields(lines))
     }
+    const wasEaten = entry.status === 'eaten'
     if (status !== undefined) entry.status = status
     await entry.save()
-    res.json({ message: 'OK', data: entry })
+    // A plate eaten, un-ticked or re-weighed: share the pantry out again.
+    if (entry.plate?.length && (wasEaten || entry.status === 'eaten')) await pourEaten(req.userId!)
+    res.json({ message: 'OK', data: (await MealPlanEntry.findById(entry._id)) ?? entry })
 }
 
 /**
@@ -340,10 +369,12 @@ export async function clearRange(req: AuthRequest, res: Response) {
 
 /** DELETE /api/meal-plan/:id */
 export async function deleteEntry(req: AuthRequest, res: Response) {
-    const result = await MealPlanEntry.deleteOne({ _id: req.params.id, user: req.userId })
-    if (!result.deletedCount) {
+    const entry = await MealPlanEntry.findOneAndDelete({ _id: req.params.id, user: req.userId })
+    if (!entry) {
         res.status(404).json({ message: 'Entry not found' })
         return
     }
+    // What it took goes back, and later plates move up to fill it.
+    if (entry.status === 'eaten' && entry.plate?.length) await pourEaten(req.userId!)
     res.json({ message: 'Deleted' })
 }

@@ -10,6 +10,8 @@ export interface IFinanceGroup extends Document {
     startMonth?: string | null // YYYY-MM inclusive; null = active since forever
     endMonth?: string | null // YYYY-MM inclusive; null = open-ended
     skipMonths: string[] // months explicitly hidden ("this month only" deletes)
+    /** Starling Space categoryUid that pays this group's rows. */
+    starlingCategoryUid?: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -25,6 +27,7 @@ const financeGroupSchema = new Schema<IFinanceGroup>(
         startMonth: { type: String, default: null },
         endMonth: { type: String, default: null },
         skipMonths: { type: [String], default: [] },
+        starlingCategoryUid: { type: String, default: null },
     },
     { timestamps: true }
 )

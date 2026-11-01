@@ -53,7 +53,33 @@ export function useShopping() {
         [toast]
     )
 
-    return { list, setList, add }
+    /**
+     * Several boxes and foods at once, each at a batch count: one already on
+     * the list goes up to that count, never down.
+     */
+    const addAll = useCallback(
+        async (items: { id: string; count: number }[]) => {
+            try {
+                let next = list
+                for (const { id, count } of items) {
+                    let g = next.groups.find((x) => x.ref === id)
+                    if (!g) {
+                        next = await addToShopping('food', id)
+                        g = next.groups.find((x) => x.ref === id)
+                    }
+                    if (g && g.count < count) next = await setShoppingCount(g.id, count)
+                }
+                setList(next)
+                return true
+            } catch {
+                toast.show('Could not add that to the shopping list.', 'danger')
+                return false
+            }
+        },
+        [list, toast]
+    )
+
+    return { list, setList, add, addAll }
 }
 
 /** Lines still to get. */

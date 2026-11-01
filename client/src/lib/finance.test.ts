@@ -5,6 +5,7 @@ import {
     freeCashByMonth,
     visibleInMonth,
     rowVisibleInMonth,
+    spaceCover,
 } from './finance'
 import type { FinanceRow } from '../types'
 import { row, group } from './__fixtures'
@@ -188,5 +189,23 @@ describe('incomeForMonth', () => {
             { _id: 'r3', group: 'g2', name: 'Rent', recurringAmount: 1200 },
         ] as unknown as Parameters<typeof incomeForMonth>[1]
         expect(incomeForMonth(groups, rows, [{ row: 'r2', amount: 350 }], '2026-11')).toBe(3350)
+    })
+})
+
+describe('spaceCover', () => {
+    it('is short when the space holds less than is still to pay', () => {
+        expect(spaceCover(1900, 1800)).toEqual({ kind: 'short', amount: 100 })
+    })
+
+    it('is spare when the space holds more', () => {
+        expect(spaceCover(1750.5, 1800)).toEqual({ kind: 'spare', amount: 49.5 })
+    })
+
+    it('is exact to the penny, ignoring float dust', () => {
+        expect(spaceCover(0.1 + 0.2, 0.3)).toEqual({ kind: 'exact', amount: 0 })
+    })
+
+    it('counts everything ticked as nothing left to pay', () => {
+        expect(spaceCover(0, 120)).toEqual({ kind: 'spare', amount: 120 })
     })
 })

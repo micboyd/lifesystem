@@ -160,6 +160,16 @@ describe('yourDay', () => {
         expect(step(d, 'meal-dinner-Work do')).toMatchObject({ state: 'handled', detail: 'Away · Work do' })
     })
 
+    it('marks a skipped meal as missed — a task that keeps the day from being perfect', () => {
+        const d = yourDay(
+            inputs({
+                meals: [meal('lunch', { name: 'Wrap', status: 'eaten' }), meal('dinner', { name: 'Stew', status: 'skipped' })],
+            })
+        )
+        expect(step(d, 'meal-dinner-Stew')).toMatchObject({ state: 'missed', detail: 'Skipped · Stew' })
+        expect(d).toMatchObject({ done: 1, total: 2, perfect: false })
+    })
+
     it('asks for a plan when no meals are planned today or ahead, but not for a day gone', () => {
         expect(ids(yourDay(inputs()))).toContain('plan-meals')
         expect(ids(yourDay(inputs({ date: '2026-10-25' })))).not.toContain('plan-meals')

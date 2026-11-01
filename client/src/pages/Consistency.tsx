@@ -3,19 +3,20 @@ import { Link } from 'react-router-dom'
 import Container from '../components/Container'
 import Spinner from '../components/Spinner'
 import Alert from '../components/Alert'
+import Drawer from '../components/Drawer'
 import PillToggle from '../components/PillToggle'
 import { AreaIcon, type AreaTone } from '../components/dashboard/DashSection'
 import { OVERLINE, PANEL } from '../components/lifeplan/ui'
 import { fmtDate, fmtNum, kcal, signed } from '../components/timeline/format'
 import { useConsistency, type ConsistencyData } from '../components/consistency/useConsistency'
 import { addDays } from '../lib/calendar'
-import { impliedWeeklyRate } from '../lib/energy'
 import type { RateStatus } from '../lib/weightTrend'
 import {
     AREA_WEIGHTS,
     scoreBand,
     summarise,
     weekScores,
+    type AreaKey,
     type Consistency as Scores,
     type Ratio,
     type ScoreBand,
@@ -41,16 +42,48 @@ const PERIODS: { value: Period; label: string; long: string }[] = [
 
 const PERIOD_KEY = 'consistencyPeriod'
 
-const BAND: Record<ScoreBand, { label: string; text: string }> = {
-    good: { label: 'On track', text: 'text-success' },
-    fair: { label: 'Close', text: 'text-amber-600' },
-    low: { label: 'Off track', text: 'text-coral-600' },
+const BAND: Record<ScoreBand, { label: string; text: string; bar: string }> = {
+    good: { label: 'On track', text: 'text-success', bar: 'bg-success' },
+    fair: { label: 'Close', text: 'text-amber-600', bar: 'bg-amber-500' },
+    low: { label: 'Off track', text: 'text-coral-600', bar: 'bg-coral-500' },
 }
 
-const AREAS: { key: 'training' | 'nutrition' | 'body'; label: string; icon: string; tone: AreaTone }[] = [
-    { key: 'training', label: 'Training', icon: 'fa-solid fa-dumbbell', tone: 'coral' },
-    { key: 'nutrition', label: 'Nutrition', icon: 'fa-solid fa-bowl-food', tone: 'green' },
-    { key: 'body', label: 'Body', icon: 'fa-solid fa-weight-scale', tone: 'sky' },
+const AREAS: {
+    key: AreaKey
+    label: string
+    icon: string
+    tone: AreaTone
+    to: string
+    action: string
+    rule: string
+}[] = [
+    {
+        key: 'training',
+        label: 'Training',
+        icon: 'fa-solid fa-dumbbell',
+        tone: 'coral',
+        to: '/fitness',
+        action: 'Open the planner',
+        rule: 'Planned sessions logged, that day or a day either side. A skipped session counts as not done; extra sessions never count against you.',
+    },
+    {
+        key: 'nutrition',
+        label: 'Nutrition',
+        icon: 'fa-solid fa-bowl-food',
+        tone: 'green',
+        to: '/nutrition',
+        action: 'Open meals',
+        rule: 'The average of three: days on calories (as the planner judges them), days protein’s hit (from 95%), and planned meals ticked eaten. A day with nothing ticked is a miss; a day away isn’t judged; today waits until it’s over.',
+    },
+    {
+        key: 'body',
+        label: 'Body',
+        icon: 'fa-solid fa-weight-scale',
+        tone: 'sky',
+        to: '/fitness?tab=body',
+        action: 'Weigh in',
+        rule: 'At least one weigh-in a week: each day counts when there’s been one in the 7 days up to it. The weight trend is shown, not scored.',
+    },
 ]
 
 const RATE_COPY: Record<RateStatus, { label: string; band: ScoreBand | null }> = {
@@ -92,7 +125,9 @@ export default function Consistency() {
                     <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950 sm:text-[32px]">
                         Consistency
                     </h1>
-                    <p className="mt-1 text-sm text-neutral-500">How closely you’re sticking to the plan, in numbers.</p>
+                    <p className="mt-1 text-sm text-neutral-500">
+                        How closely you’re sticking to the plan, in numbers.
+                    </p>
                 </div>
                 <PillToggle
                     label="Period"
@@ -103,7 +138,9 @@ export default function Consistency() {
             </header>
 
             {error ? (
-                <Alert variant="danger">Couldn’t load your training and meals. Please try again shortly.</Alert>
+                <Alert variant="danger">
+                    Couldn’t load your training and meals. Please try again shortly.
+                </Alert>
             ) : !data ? (
                 <div className="grid place-items-center py-16">
                     <Spinner />
@@ -117,6 +154,7 @@ export default function Consistency() {
 
 function ConsistencyView({ data, period }: { data: ConsistencyData; period: Period }) {
     const { today, records } = data
+    const [open, setOpen] = useState<AreaKey | null>(null)
     const scores = useMemo(() => {
         const from = addDays(today, -(period - 1))
         return summarise(
@@ -125,7 +163,7 @@ function ConsistencyView({ data, period }: { data: ConsistencyData; period: Peri
         )
     }, [records, today, period])
     const weeks = useMemo(() => {
-        const all = weekScores(records, today, 8)
+        const all = weekScores(records, today, 6)
         // Drop the empty weeks from before there was anything to score.
         let end = all.length
         while (end > 1 && all[end - 1].overall === null) end -= 1
@@ -136,158 +174,251 @@ function ConsistencyView({ data, period }: { data: ConsistencyData; period: Peri
     if (scores.overall === null) return <NothingYet label={label} />
 
     return (
-        <div className="flex flex-col gap-6 sm:gap-8">
-            <Overview scores={scores} label={label} />
-            <div className="grid gap-4 sm:gap-5 lg:grid-cols-3">
-                <TrainingPanel scores={scores} />
-                <NutritionPanel scores={scores} />
-                <BodyPanel scores={scores} rate={data.rate} />
-            </div>
-            <WeekTable weeks={weeks} />
-            <HowItsScored />
+        <div className="flex flex-col gap-5 sm:gap-6">
+            <section className={PANEL}>
+                <Headline scores={scores} label={label} />
+                <ul className="divide-y divide-neutral-200 border-t border-neutral-200">
+                    {AREAS.map((a) => (
+                        <li key={a.key}>
+                            <AreaRow
+                                area={a}
+                                score={scores[a.key].score}
+                                line={summaryLine(a.key, scores)}
+                                onOpen={() => setOpen(a.key)}
+                            />
+                        </li>
+                    ))}
+                </ul>
+            </section>
+            {weeks.length > 1 && <RecentWeeks weeks={weeks} />}
+            <p className="px-1 text-[12px] leading-5 text-neutral-500">
+                Overall is training {pctOf(AREA_WEIGHTS.training)}, nutrition{' '}
+                {pctOf(AREA_WEIGHTS.nutrition)} and body {pctOf(AREA_WEIGHTS.body)}. 80% and up is
+                on track. Tap an area to see how it’s counted.
+            </p>
+
+            <AreaDrawer
+                area="training"
+                open={open === 'training'}
+                onClose={() => setOpen(null)}
+                score={scores.training.score}
+            >
+                <TrainingDetail scores={scores} />
+            </AreaDrawer>
+            <AreaDrawer
+                area="nutrition"
+                open={open === 'nutrition'}
+                onClose={() => setOpen(null)}
+                score={scores.nutrition.score}
+            >
+                <NutritionDetail scores={scores} />
+            </AreaDrawer>
+            <AreaDrawer
+                area="body"
+                open={open === 'body'}
+                onClose={() => setOpen(null)}
+                score={scores.body.score}
+            >
+                <BodyDetail scores={scores} rate={data.rate} />
+            </AreaDrawer>
         </div>
     )
 }
 
-// ── Overview ─────────────────────────────────────────────────────────────────
+const pctOf = (n: number) => `${fmtNum(n * 100, 0)}%`
 
-function Overview({ scores, label }: { scores: Scores; label: string }) {
+/** One plain sentence per area: the count that matters most. */
+function summaryLine(area: AreaKey, scores: Scores): string {
+    if (area === 'training') {
+        const s = scores.training.sessions
+        return s.of === 0 ? 'Nothing planned' : `${s.done} of ${s.of} sessions done`
+    }
+    if (area === 'nutrition') {
+        const n = scores.nutrition
+        if (n.calories.of > 0) {
+            const protein = n.protein.of > 0 ? `, protein ${n.protein.done} of ${n.protein.of}` : ''
+            return `Calories on target ${n.calories.done} of ${n.calories.of} days${protein}`
+        }
+        return n.meals.of > 0
+            ? `${n.meals.done} of ${n.meals.of} meals as planned`
+            : 'Not judged yet'
+    }
+    const w = scores.body.weighIns
+    if (w.of === 0) return 'No weigh-ins due'
+    return w.done === w.of ? 'Weighing in every week' : 'A weekly weigh-in was missed'
+}
+
+// ── Headline ─────────────────────────────────────────────────────────────────
+
+function Headline({ scores, label }: { scores: Scores; label: string }) {
     const overall = scores.overall!
     const band = BAND[scoreBand(overall)]
     const perfect = scores.perfectDays
 
     return (
-        <section className={`${PANEL} p-5 sm:p-7`}>
-            <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
-                <div className="min-w-0">
-                    <p className={OVERLINE}>{label}</p>
-                    <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                        <p className="nums text-[56px] font-semibold leading-none tracking-[-0.04em] text-neutral-950 sm:text-[64px]">
-                            {overall}
-                            <span className="ml-0.5 text-[28px] font-medium tracking-[-0.02em] text-neutral-400">%</span>
-                        </p>
-                        <p className={`text-[15px] font-medium ${band.text}`}>{band.label}</p>
-                    </div>
-                    {perfect.of > 0 && (
-                        <p className="nums mt-3 text-[13px] text-neutral-500">
-                            <span className="font-medium text-neutral-900">
-                                {perfect.done} of {perfect.of}
-                            </span>{' '}
-                            {perfect.of === 1 ? 'day' : 'days'} with everything done
-                        </p>
-                    )}
-                </div>
-                <div className="grid w-full grid-cols-3 gap-4 sm:w-auto sm:gap-0 sm:divide-x sm:divide-neutral-200">
-                    {AREAS.map((a) => (
-                        <div key={a.key} className="min-w-0 sm:px-6 sm:first:pl-0 sm:last:pr-0">
-                            <p className="flex items-center gap-1.5 text-[13px] text-neutral-500">
-                                <AreaIcon icon={a.icon} tone={a.tone} size="sm" />
-                                <span className="truncate">{a.label}</span>
-                            </p>
-                            <Score value={scores[a.key].score} className="mt-2 text-[28px]" />
-                        </div>
-                    ))}
-                </div>
+        <div className="p-5 sm:p-7">
+            <p className={OVERLINE}>{label}</p>
+            <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <p className="nums text-[56px] font-semibold leading-none tracking-[-0.04em] text-neutral-950 sm:text-[64px]">
+                    {overall}
+                    <span className="ml-0.5 text-[28px] font-medium tracking-[-0.02em] text-neutral-400">
+                        %
+                    </span>
+                </p>
+                <p className={`text-[15px] font-medium ${band.text}`}>{band.label}</p>
             </div>
-        </section>
+            <Bar value={overall} className="mt-4" />
+            {perfect.of > 0 && (
+                <p className="nums mt-3 text-[13px] text-neutral-500">
+                    <span className="font-medium text-neutral-900">
+                        {perfect.done} of {perfect.of}
+                    </span>{' '}
+                    {perfect.of === 1 ? 'day' : 'days'} with everything done
+                </p>
+            )}
+        </div>
+    )
+}
+
+/** A thin bar filled to the score, in its band's colour. */
+function Bar({ value, className = '' }: { value: number | null; className?: string }) {
+    return (
+        <div className={`h-1.5 overflow-hidden rounded-full bg-neutral-100 ${className}`}>
+            {value !== null && (
+                <div
+                    className={`h-full rounded-full ${BAND[scoreBand(value)].bar}`}
+                    style={{ width: `${Math.max(value, 2)}%` }}
+                />
+            )}
+        </div>
     )
 }
 
 /** A score in its band's colour, or a dash when there's nothing to score. */
 function Score({ value, className = '' }: { value: number | null; className?: string }) {
-    if (value === null) return <p className={`nums font-semibold leading-none text-neutral-300 ${className}`}>—</p>
+    if (value === null)
+        return <p className={`nums font-semibold leading-none text-neutral-300 ${className}`}>—</p>
     return (
-        <p className={`nums font-semibold leading-none tracking-[-0.03em] ${BAND[scoreBand(value)].text} ${className}`}>
+        <p
+            className={`nums font-semibold leading-none tracking-[-0.03em] ${BAND[scoreBand(value)].text} ${className}`}
+        >
             {value}
             <span className="text-[0.6em] font-medium">%</span>
         </p>
     )
 }
 
-// ── Area panels ──────────────────────────────────────────────────────────────
+// ── Areas ────────────────────────────────────────────────────────────────────
 
-function AreaPanel({
+function AreaRow({
     area,
     score,
-    to,
-    action,
+    line,
+    onOpen,
+}: {
+    area: (typeof AREAS)[number]
+    score: number | null
+    line: string
+    onOpen: () => void
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onOpen}
+            className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-neutral-50 sm:px-7"
+        >
+            <AreaIcon icon={area.icon} tone={area.tone} />
+            <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-medium text-neutral-900">{area.label}</p>
+                <p className="nums mt-0.5 truncate text-[13px] text-neutral-500">{line}</p>
+            </div>
+            <Score value={score} className="text-[22px]" />
+            <i
+                className="fa-solid fa-chevron-right text-[11px] text-neutral-400"
+                aria-hidden="true"
+            />
+        </button>
+    )
+}
+
+function AreaDrawer({
+    area,
+    open,
+    onClose,
+    score,
     children,
 }: {
-    area: (typeof AREAS)[number]['key']
+    area: AreaKey
+    open: boolean
+    onClose: () => void
     score: number | null
-    to: string
-    action: string
     children: ReactNode
 }) {
     const a = AREAS.find((x) => x.key === area)!
     return (
-        <section className={`${PANEL} flex min-w-0 flex-col p-5`}>
+        <Drawer open={open} onClose={onClose} title={a.label} size="lg">
             <div className="flex items-center gap-3">
-                <AreaIcon icon={a.icon} tone={a.tone} />
-                <h2 className="min-w-0 flex-1 text-[17px] font-semibold tracking-[-0.01em] text-neutral-900">
-                    {a.label}
-                </h2>
-                <Score value={score} className="text-[24px]" />
+                <Score value={score} className="text-[40px]" />
+                {score !== null && (
+                    <p className={`text-[15px] font-medium ${BAND[scoreBand(score)].text}`}>
+                        {BAND[scoreBand(score)].label}
+                    </p>
+                )}
             </div>
-            <dl className="mt-4 flex-1 divide-y divide-neutral-200 border-y border-neutral-200">{children}</dl>
+            <Bar value={score} className="mt-3" />
+            <dl className="mt-5 divide-y divide-neutral-200 border-y border-neutral-200">
+                {children}
+            </dl>
+            <p className={`${OVERLINE} mt-6`}>How it’s counted</p>
+            <p className="mt-1.5 text-[13px] leading-5 text-neutral-600">{a.rule}</p>
             <Link
-                to={to}
-                className="group mt-4 inline-flex items-center gap-1.5 self-start text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
+                to={a.to}
+                onClick={onClose}
+                className="group mt-5 inline-flex items-center gap-1.5 text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
             >
-                {action}
+                {a.action}
                 <i
                     className="fa-solid fa-arrow-right text-[10px] transition-transform duration-150 group-hover:translate-x-0.5"
                     aria-hidden="true"
                 />
             </Link>
-        </section>
+        </Drawer>
     )
 }
 
 /** One figure: a label on the left, the number on the right, an optional line under it. */
-function Row({ label, value, pct, sub }: { label: string; value: ReactNode; pct?: number | null; sub?: ReactNode }) {
+function Row({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
     return (
         <div className="flex items-start justify-between gap-4 py-3">
             <dt className="min-w-0 pt-px text-[13px] text-neutral-500">{label}</dt>
             <dd className="min-w-0 text-right">
-                <p className="nums flex items-baseline justify-end gap-2 text-[15px] text-neutral-900">
-                    <span>{value}</span>
-                    {pct !== undefined && (
-                        <span
-                            className={`w-10 shrink-0 text-[13px] font-medium ${pct === null ? 'text-neutral-300' : BAND[scoreBand(pct)].text}`}
-                        >
-                            {pct === null ? '—' : `${pct}%`}
-                        </span>
-                    )}
-                </p>
+                <p className="nums text-[15px] text-neutral-900">{value}</p>
                 {sub && <p className="nums mt-0.5 text-[12px] text-neutral-500">{sub}</p>}
             </dd>
         </div>
     )
 }
 
+/** "4 of 5", or what to say when there's nothing to count. */
 function RatioRow({
     label,
     ratio,
     unit,
     none,
-    noneSub,
     sub,
 }: {
     label: string
     ratio: Ratio
     unit?: string
-    /** What to say with nothing to count, and the line under it. */
     none: string
-    noneSub?: string
     sub?: ReactNode
 }) {
-    if (ratio.of === 0) return <Row label={label} value={<span className="text-neutral-400">{none}</span>} sub={noneSub} />
+    if (ratio.of === 0)
+        return <Row label={label} value={<span className="text-neutral-400">{none}</span>} />
     return (
         <Row
             label={label}
             value={`${ratio.done} of ${ratio.of}${unit ? ` ${unit}` : ''}`}
-            pct={ratio.pct}
             sub={sub}
         />
     )
@@ -299,10 +430,10 @@ function parts(list: [number, string][]): string | null {
     return kept.length ? kept.join(' · ') : null
 }
 
-function TrainingPanel({ scores }: { scores: Scores }) {
+function TrainingDetail({ scores }: { scores: Scores }) {
     const t = scores.training
     return (
-        <AreaPanel area="training" score={t.score} to="/fitness" action="Open the planner">
+        <>
             <RatioRow
                 label="Sessions done"
                 ratio={t.sessions}
@@ -312,191 +443,101 @@ function TrainingPanel({ scores }: { scores: Scores }) {
                     [t.missed, 'missed'],
                 ])}
             />
-            {t.strength.of > 0 && <RatioRow label="Strength" ratio={t.strength} none="" />}
-            {t.conditioning.of > 0 && <RatioRow label="Conditioning" ratio={t.conditioning} none="" />}
             {t.extra > 0 && (
-                <Row label="Extra sessions" value={`+${t.extra}`} sub="Logged, not on the plan" />
+                <Row
+                    label="Extra sessions"
+                    value={`+${t.extra}`}
+                    sub="Not on the plan, never counted against you"
+                />
             )}
-        </AreaPanel>
+        </>
     )
 }
 
-function NutritionPanel({ scores }: { scores: Scores }) {
+function NutritionDetail({ scores }: { scores: Scores }) {
     const n = scores.nutrition
     const avg = n.average
-    const implied = n.balance ? impliedWeeklyRate(n.balance.kcal) : null
     return (
-        <AreaPanel area="nutrition" score={n.score} to="/nutrition" action="Open meals">
+        <>
             <RatioRow
                 label="Calories on target"
                 ratio={n.calories}
                 unit="days"
                 none="Not judged yet"
-                noneSub="Once a logged day’s over"
                 sub={parts([
                     [n.calories.over, 'over'],
                     [n.calories.under, 'well under'],
                     [n.calories.unlogged, 'not logged'],
                 ])}
             />
-            <RatioRow
-                label="Protein hit"
-                ratio={n.protein}
-                unit="days"
-                none="Not judged yet"
-                sub={parts([[n.protein.unlogged, 'not logged']])}
-            />
-            <RatioRow label="Meals as planned" ratio={n.meals} none="Nothing planned" sub="Ticked eaten" />
+            <RatioRow label="Protein hit" ratio={n.protein} unit="days" none="Not judged yet" />
+            <RatioRow label="Meals eaten as planned" ratio={n.meals} none="Nothing planned" />
             {avg && (
                 <Row
                     label="Average day"
                     value={`${kcal(avg.calories)} kcal`}
-                    sub={`Target ${kcal(avg.target)} · ${signed(((avg.calories - avg.target) / avg.target) * 100)}%`}
+                    sub={`Target ${kcal(avg.target)}`}
                 />
             )}
-            {avg && (
-                <Row
-                    label="Average protein"
-                    value={`${avg.protein} g`}
-                    sub={avg.proteinTarget ? `Target ${avg.proteinTarget} g` : undefined}
-                />
-            )}
-            {n.balance && (
-                <Row
-                    label="Balance"
-                    value={`${signed(n.balance.kcal)} kcal a day`}
-                    sub={`${implied !== null ? `≈ ${signed(implied, 2)} kg/wk · ` : ''}${n.balance.days} ${n.balance.days === 1 ? 'day' : 'days'} with calories out`}
-                />
-            )}
-            {n.extras > 0 && <Row label="Off-plan extras" value={n.extras} sub="“Also ate”" />}
-        </AreaPanel>
+        </>
     )
 }
 
-function BodyPanel({ scores, rate }: { scores: Scores; rate: ConsistencyData['rate'] }) {
+function BodyDetail({ scores, rate }: { scores: Scores; rate: ConsistencyData['rate'] }) {
     const status = RATE_COPY[rate.status]
     return (
-        <AreaPanel area="body" score={scores.body.score} to="/fitness?tab=body" action="Weigh in">
+        <>
             <RatioRow
-                label="Weighed in weekly"
+                label="Weigh-in up to date"
                 ratio={scores.body.weighIns}
                 unit="days"
-                none="Not weighing in"
-                sub="Within a week of a weigh-in"
+                none="No weigh-ins due"
             />
             <Row
                 label="Weight trend"
-                value={rate.actual !== null ? `${signed(rate.actual, 2)} kg/wk` : <span className="text-neutral-400">—</span>}
-                sub="Last 4 weeks"
-            />
-            <Row
-                label="The plan"
-                value={rate.intended ? `${signed(rate.intended, 2)} kg/wk` : <span className="text-neutral-400">—</span>}
+                value={
+                    rate.actual !== null ? (
+                        `${signed(rate.actual, 2)} kg/wk`
+                    ) : (
+                        <span className="text-neutral-400">—</span>
+                    )
+                }
                 sub={
-                    <span className={status.band ? `font-medium ${BAND[status.band].text}` : undefined}>
+                    <span
+                        className={
+                            status.band ? `font-medium ${BAND[status.band].text}` : undefined
+                        }
+                    >
                         {status.label}
+                        {rate.intended ? ` · plan ${signed(rate.intended, 2)} kg/wk` : ''}
                     </span>
                 }
             />
-        </AreaPanel>
+        </>
     )
 }
 
-// ── Week by week ─────────────────────────────────────────────────────────────
+// ── Recent weeks ─────────────────────────────────────────────────────────────
 
-function WeekTable({ weeks }: { weeks: WeekScore[] }) {
-    const cell = (value: number | null) =>
-        value === null ? (
-            <span className="text-neutral-300">—</span>
-        ) : (
-            <span className={`font-medium ${BAND[scoreBand(value)].text}`}>{value}%</span>
-        )
-
+function RecentWeeks({ weeks }: { weeks: WeekScore[] }) {
     return (
-        <section className={PANEL}>
-            <div className="px-5 pt-5 sm:px-6 sm:pt-6">
-                <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-neutral-900">Week by week</h2>
-                <p className="mt-0.5 text-[13px] text-neutral-500">Monday to Sunday. This week counts what’s done so far.</p>
-            </div>
-            <div className="mt-3 overflow-x-auto pb-2">
-                <table className="nums w-full text-[13px]">
-                    <thead>
-                        <tr className="text-left text-neutral-500">
-                            <th scope="col" className="py-2.5 pl-4 pr-2 font-medium sm:pl-6 sm:pr-3">
-                                Week
-                            </th>
-                            {AREAS.map((a) => (
-                                <th key={a.key} scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3">
-                                    {/* The area's icon on a phone, where five worded columns won't fit. */}
-                                    <span className="inline-flex sm:hidden" title={a.label}>
-                                        <AreaIcon icon={a.icon} tone={a.tone} size="sm" />
-                                        <span className="sr-only">{a.label}</span>
-                                    </span>
-                                    <span className="hidden sm:inline">{a.label}</span>
-                                </th>
-                            ))}
-                            <th scope="col" className="py-2.5 pl-2 pr-4 text-right font-medium sm:pl-3 sm:pr-6">
-                                Overall
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-200 border-t border-neutral-200">
-                        {weeks.map((w) => (
-                            <tr key={w.start} className={w.current ? 'bg-neutral-50' : undefined}>
-                                <th scope="row" className="whitespace-nowrap py-3 pl-4 pr-2 text-left font-normal sm:pl-6 sm:pr-3">
-                                    <span className="text-[15px] text-neutral-900">
-                                        {w.current ? 'This week' : fmtDate(w.start)}
-                                    </span>
-                                    {w.current && <span className="ml-1.5 hidden text-neutral-500 sm:inline">so far</span>}
-                                </th>
-                                {AREAS.map((a) => (
-                                    <td key={a.key} className="px-2 py-3 text-right sm:px-3">
-                                        {cell(w[a.key])}
-                                    </td>
-                                ))}
-                                <td className="py-3 pl-2 pr-4 text-right text-[15px] sm:pl-3 sm:pr-6">{cell(w.overall)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </section>
-    )
-}
-
-// ── How it's scored ──────────────────────────────────────────────────────────
-
-function HowItsScored() {
-    const pct = (n: number) => `${fmtNum(n * 100, 0)}%`
-    const lines: [string, string][] = [
-        [
-            'Training',
-            'Planned sessions logged, that day or a day either side. A skipped session counts as not done; extra sessions never count against you.',
-        ],
-        [
-            'Nutrition',
-            'The average of three: days on calories (judged as the planner judges them), days protein’s hit (from 95%), and planned meals ticked eaten. A day with nothing ticked is a miss; a day away isn’t judged.',
-        ],
-        [
-            'Body',
-            'At least one weigh-in a week: each day counts when there’s been one in the 7 days up to it. Weight trend and the plan’s rate are shown, not scored.',
-        ],
-        [
-            'Overall',
-            `Training ${pct(AREA_WEIGHTS.training)}, nutrition ${pct(AREA_WEIGHTS.nutrition)}, body ${pct(AREA_WEIGHTS.body)}. Today counts what’s done; nothing today is a miss until it’s over.`,
-        ],
-    ]
-    return (
-        <section className="px-1">
-            <p className={OVERLINE}>How it’s scored</p>
-            <dl className="mt-3 grid gap-x-8 gap-y-3 text-[13px] leading-5 sm:grid-cols-2">
-                {lines.map(([term, text]) => (
-                    <div key={term}>
-                        <dt className="font-medium text-neutral-900">{term}</dt>
-                        <dd className="text-neutral-500">{text}</dd>
-                    </div>
+        <section className={`${PANEL} p-5 sm:p-7`}>
+            <h2 className="text-[15px] font-semibold text-neutral-900">Recent weeks</h2>
+            <ul className="mt-3 flex flex-col gap-3">
+                {weeks.map((w) => (
+                    <li key={w.start} className="flex items-center gap-3">
+                        <span className="nums w-20 shrink-0 text-[13px] text-neutral-500">
+                            {w.current ? 'This week' : fmtDate(w.start)}
+                        </span>
+                        <Bar value={w.overall} className="flex-1" />
+                        <span
+                            className={`nums w-10 shrink-0 text-right text-[13px] font-medium ${w.overall === null ? 'text-neutral-300' : BAND[scoreBand(w.overall)].text}`}
+                        >
+                            {w.overall === null ? '—' : `${w.overall}%`}
+                        </span>
+                    </li>
                 ))}
-            </dl>
+            </ul>
         </section>
     )
 }
@@ -509,10 +550,12 @@ function NothingYet({ label }: { label: string }) {
             <div className="flex justify-center">
                 <AreaIcon icon="fa-solid fa-gauge-high" tone="coral" />
             </div>
-            <h2 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-neutral-900">Nothing to score yet</h2>
+            <h2 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-neutral-900">
+                Nothing to score yet
+            </h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-neutral-600">
-                {label} had no sessions planned, no meals on the plan and no weigh-ins due. Plan a week and the numbers
-                start here.
+                {label} had no sessions planned, no meals on the plan and no weigh-ins due. Plan a
+                week and the numbers start here.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
                 {[

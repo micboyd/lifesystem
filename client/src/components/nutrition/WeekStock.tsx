@@ -37,8 +37,18 @@ function needLine(r: StockRow): string {
  * Sunday — a small chip ("2 to cook · 1 to defrost") that opens the detail,
  * with a way through to the Pantry.
  */
-export function WeekStock({ rows, onOpenPantry }: { rows: StockRow[]; onOpenPantry?: () => void }) {
+export function WeekStock({
+    rows,
+    onOpenPantry,
+    onShop,
+}: {
+    rows: StockRow[]
+    onOpenPantry?: () => void
+    /** Put what's short on the shopping list (a batch count each) and open it. */
+    onShop?: (items: { id: string; count: number }[]) => Promise<void>
+}) {
     const [open, setOpen] = useState(false)
+    const [adding, setAdding] = useState(false)
     if (rows.length === 0) return null
 
     const short = rows.filter((r) => r.status === 'short').length
@@ -49,6 +59,21 @@ export function WeekStock({ rows, onOpenPantry }: { rows: StockRow[]; onOpenPant
         : [short > 0 && `${short} to cook`, thaw > 0 && `${thaw} to defrost`]
               .filter(Boolean)
               .join(' · ')
+
+    const toBuy = rows
+        .filter((r) => r.status === 'short')
+        .map((r) => ({ id: r.food, count: r.batches ?? 1 }))
+
+    async function shop() {
+        if (!onShop) return
+        setAdding(true)
+        try {
+            await onShop(toBuy)
+            setOpen(false)
+        } finally {
+            setAdding(false)
+        }
+    }
 
     return (
         <>
@@ -78,17 +103,26 @@ export function WeekStock({ rows, onOpenPantry }: { rows: StockRow[]; onOpenPant
                 onClose={() => setOpen(false)}
                 title="Food for the week"
                 footer={
-                    onOpenPantry && (
-                        <Button
-                            variant="secondary"
-                            icon="fa-solid fa-box-open"
-                            onClick={() => {
-                                setOpen(false)
-                                onOpenPantry()
-                            }}
-                        >
-                            Open the Pantry
-                        </Button>
+                    (onOpenPantry || (onShop && toBuy.length > 0)) && (
+                        <>
+                            {onOpenPantry && (
+                                <Button
+                                    variant="secondary"
+                                    icon="fa-solid fa-box-open"
+                                    onClick={() => {
+                                        setOpen(false)
+                                        onOpenPantry()
+                                    }}
+                                >
+                                    Open the Pantry
+                                </Button>
+                            )}
+                            {onShop && toBuy.length > 0 && (
+                                <Button icon="fa-solid fa-cart-plus" disabled={adding} onClick={() => void shop()}>
+                                    Add to shopping list
+                                </Button>
+                            )}
+                        </>
                     )
                 }
             >

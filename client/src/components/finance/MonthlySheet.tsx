@@ -1,6 +1,7 @@
 import { Fragment, useRef, useState, type ReactNode } from 'react'
 import DropdownMenu, { type MenuEntry } from '../DropdownMenu'
 import { formatAmount, formatMoney } from '../../lib/money'
+import type { SpaceCover } from '../../lib/finance'
 import type { FinanceGroup, FinanceRow } from '../../types'
 
 /**
@@ -250,5 +251,49 @@ export function PotHeader({ name, total, menu }: { name: string; total: number; 
             <span className="shrink-0 text-[13px] font-medium tabular-nums text-neutral-700">{formatMoney(total)}</span>
             <MoreMenu label={`${name} options`} items={menu} />
         </div>
+    )
+}
+
+// ── Linked space ──────────────────────────────────────────────────────────────
+
+/** The space that pays a group: what's in it, and whether that covers what's unticked. */
+export function SpaceStrip({
+    spaceName,
+    balance,
+    cover,
+    onOpen,
+}: {
+    spaceName: string
+    balance: number
+    cover: SpaceCover
+    onOpen: () => void
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onOpen}
+            title="Change linked space"
+            className="flex w-full items-center gap-3 border-t border-neutral-100 px-4 py-2.5 text-left transition-colors hover:bg-neutral-50 sm:px-5"
+        >
+            <i className="fa-solid fa-building-columns w-6 shrink-0 text-center text-xs text-neutral-500" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-[13px] text-neutral-700">
+                <span className="font-medium tabular-nums text-neutral-900">{formatMoney(balance)}</span> in {spaceName}
+            </span>
+            {cover.kind === 'short' ? (
+                <span className="shrink-0 rounded-full bg-coral-50 px-2.5 py-0.5 text-[13px] font-medium text-coral-700">
+                    <span className="tabular-nums">{formatMoney(cover.amount)}</span> short
+                </span>
+            ) : (
+                <span className="shrink-0 text-[13px] text-neutral-500">
+                    {cover.kind === 'exact' ? (
+                        'Just enough'
+                    ) : (
+                        <>
+                            <span className="tabular-nums">{formatMoney(cover.amount)}</span> spare
+                        </>
+                    )}
+                </span>
+            )}
+        </button>
     )
 }

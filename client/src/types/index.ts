@@ -419,8 +419,8 @@ export interface ConditioningLog {
     updatedAt: string
 }
 
-export const ENTRY_STATUSES = ['planned', 'eaten'] as const
-/** Whether a planned meal was eaten. */
+export const ENTRY_STATUSES = ['planned', 'eaten', 'skipped'] as const
+/** Whether a planned meal was eaten — or skipped, a miss on the day (red on Your day). */
 export type EntryStatus = (typeof ENTRY_STATUSES)[number]
 
 /**
@@ -493,6 +493,8 @@ export interface PlateLine {
     grams: number
     /** The cook a box line draws from. */
     batch?: string
+    /** An eaten line that ran one batch out: grams from each, oldest first. */
+    takes?: { batch: string; grams: number }[]
     per100: Macros
 }
 
@@ -1434,6 +1436,8 @@ export interface FinanceGroup {
     startMonth?: string | null // YYYY-MM inclusive; null/absent = active since forever
     endMonth?: string | null // YYYY-MM inclusive; null/absent = open-ended
     skipMonths?: string[] // months explicitly hidden ("this month only" deletes)
+    /** Starling Space categoryUid that pays this group's rows. */
+    starlingCategoryUid?: string | null
     createdAt: string
     updatedAt: string
 }

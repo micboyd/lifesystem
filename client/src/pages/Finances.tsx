@@ -22,6 +22,7 @@ import {
     createPot,
     updatePot,
     deletePot,
+    listStarlingSpaces,
 } from '../services/finances'
 import { listSavingsTargets } from '../services/savingsTargets'
 import {
@@ -29,6 +30,7 @@ import {
     rowVisibleInMonth,
     groupVisibleInMonth,
     recurringAmountForMonth,
+    spaceCover,
     type DeleteMode,
     type AmountScope,
 } from '../lib/finance'
@@ -39,18 +41,19 @@ import { useInvalidate } from '../context/DataSyncContext'
 import { useAuth } from '../context/AuthContext'
 import DeleteScopeDialog from '../components/finance/DeleteScopeDialog'
 import AmountScopeDialog from '../components/finance/AmountScopeDialog'
-import { GroupHeader, PotHeader, SheetRow } from '../components/finance/MonthlySheet'
+import { GroupHeader, PotHeader, SheetRow, SpaceStrip } from '../components/finance/MonthlySheet'
 import {
     AddRowDrawer,
     NameDrawer,
     NewGroupDrawer,
     RowDrawer,
+    SpaceDrawer,
     type AddRowTarget,
     type NameDrawerTarget,
     type NewGroupValues,
     type RowDrawerTarget,
 } from '../components/finance/MonthlyDrawers'
-import type { FinanceGroup, FinancePot, FinanceRow, FinanceEntry, SavingsTarget } from '../types'
+import type { FinanceGroup, FinancePot, FinanceRow, FinanceEntry, SavingsTarget, StarlingSpace } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -125,6 +128,11 @@ export default function Finances() {
     const [addRowTarget, setAddRowTarget] = useState<AddRowTarget | null>(null)
     const [nameDrawer, setNameDrawer] = useState<NameDrawerTarget | null>(null)
     const [potToDelete, setPotToDelete] = useState<FinancePot | null>(null)
+    const [spaceGroup, setSpaceGroup] = useState<FinanceGroup | null>(null)
+
+    // Starling spaces, for groups linked to the space that pays them. null until loaded.
+    const [spaces, setSpaces] = useState<StarlingSpace[] | null>(null)
+    const [spacesError, setSpacesError] = useState<string | null>(null)
 
     // Delete confirmation / scope dialog
     const [pendingDelete, setPendingDelete] = useState<{
@@ -160,6 +168,22 @@ export default function Finances() {
             active = false
         }
     }, [])
+
+    // Balances only matter once a group is linked (or about to be).
+    const wantSpaces = !!spaceGroup || groups.some((g) => g.starlingCategoryUid)
+    useEffect(() => {
+        if (!wantSpaces || spaces !== null) return
+        let active = true
+        listStarlingSpaces()
+            .then((s) => active && setSpaces(s))
+            .catch((err: { response?: { status?: number } }) => {
+                if (!active) return
+                setSpacesError(err?.response?.status === 501 ? 'The bank isn’t connected.' : 'Couldn’t reach the bank. Try again in a minute.')
+            })
+        return () => {
+            active = false
+        }
+    }, [wantSpaces, spaces])
 
     useEffect(() => {
         let active = true
@@ -292,6 +316,16 @@ export default function Finances() {
             setNameDrawer(null)
         } catch {
             toast.error('Couldn’t rename the group.')
+        }
+    }
+
+    async function handleLinkSpace(group: FinanceGroup, spaceId: string | null) {
+        setSpaceGroup(null)
+        try {
+            const g = await updateGroup(group._id, { starlingCategoryUid: spaceId })
+            setGroups((prev) => prev.map((x) => (x._id === group._id ? g : x)))
+        } catch {
+            toast.error('Couldn’t link the space.')
         }
     }
 
@@ -673,6 +707,10 @@ export default function Finances() {
                         const groupPots = pots.filter((p) => p.group === group._id)
                         const potIds = new Set(groupPots.map((p) => p._id))
                         const looseRows = groupRows.filter((r) => !r.pot || !potIds.has(r.pot))
+                        // The space only says what's in it now, so it's only compared this month.
+                        const space = isCurrent && group.starlingCategoryUid
+                            ? spaces?.find((s) => s.id === group.starlingCategoryUid)
+                            : undefined
 
                         const menu: MenuEntry[] = [
                             ...(!isSavings
@@ -699,6 +737,13 @@ export default function Finances() {
                                           : isIncome ? 'Mark all received' : 'Mark all paid',
                                       icon: allPaid ? 'fa-regular fa-circle' : 'fa-solid fa-circle-check',
                                       onClick: () => setGroupAllPaid(groupRowIds, !allPaid),
+                                  }]
+                                : []),
+                            ...(!isIncome
+                                ? [{
+                                      label: group.starlingCategoryUid ? 'Change linked space' : 'Link a space',
+                                      icon: 'fa-solid fa-building-columns',
+                                      onClick: () => setSpaceGroup(group),
                                   }]
                                 : []),
                             {
@@ -731,6 +776,15 @@ export default function Finances() {
                                     showOutstanding={somePaid}
                                     menu={menu}
                                 />
+
+                                {space && (
+                                    <SpaceStrip
+                                        spaceName={space.name}
+                                        balance={space.balance}
+                                        cover={spaceCover(outstanding, space.balance)}
+                                        onOpen={() => setSpaceGroup(group)}
+                                    />
+                                )}
 
                                 {looseRows.length > 0 && (
                                     <div className="border-t border-neutral-100">{renderRows(looseRows, group)}</div>
@@ -827,6 +881,14 @@ export default function Finances() {
             />
 
             <NameDrawer target={nameDrawer} onClose={() => setNameDrawer(null)} />
+
+            <SpaceDrawer
+                group={spaceGroup}
+                spaces={spaces}
+                error={spacesError}
+                onClose={() => setSpaceGroup(null)}
+                onPick={handleLinkSpace}
+            />
 
             <ConfirmModal
                 open={!!potToDelete}
