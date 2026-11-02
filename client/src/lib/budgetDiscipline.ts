@@ -22,6 +22,8 @@ export interface MonthBudgetData {
     excluded: Set<string>
     /** Spending top-ups for the month (optional; used by safe-to-spend). */
     topUps?: BudgetTopUp[]
+    /** Carry each row rolls in from earlier months (carryInByRow); missing = 0. */
+    carryIn?: Map<string, number>
 }
 
 /** Daily-tracked, budgeted rows visible in `month`. */
@@ -163,7 +165,17 @@ export function weekDiscipline(
         const entry = data.entries.find((e) => e.row === row._id)
         const rowSpends = data.spends.filter((s) => s.row === row._id)
         const clampedStart = weekStartOf(weekEnd) < `${month}-01` ? `${month}-01` : weekStartOf(weekEnd)
-        const bw = computeBudgetWeek(row, entry, rowSpends, clampedStart, clampedEnd, today, data.excluded)
+        const bw = computeBudgetWeek(
+            row,
+            entry,
+            rowSpends,
+            clampedStart,
+            clampedEnd,
+            today,
+            data.excluded,
+            (data.topUps ?? []).filter((t) => t.row === row._id),
+            data.carryIn?.get(row._id) ?? 0
+        )
         totalTarget += bw.weeklyRate + bw.carry
         totalSpent += bw.spentThisWeek
     }
@@ -317,11 +329,12 @@ export function rowSpendSummary(
     rowSpends: BudgetSpend[],
     rowTopUps: BudgetTopUp[],
     date: string,
-    excluded: Set<string>
+    excluded: Set<string>,
+    carryIn = 0
 ): RowSpendSummary {
     const { weekStart, weekEnd } = clampedWeekRange(date)
-    const day = computeBudgetDay(row, entry, rowSpends, date, excluded, rowTopUps)
-    const weekMaths = computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, date, excluded, rowTopUps)
+    const day = computeBudgetDay(row, entry, rowSpends, date, excluded, rowTopUps, carryIn)
+    const weekMaths = computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, date, excluded, rowTopUps, carryIn)
 
     let todaySafe: number
     let todaySpent: number
@@ -392,7 +405,7 @@ export function spendSummary(
         const entry = data.entries.find((e) => e.row === row._id)
         const rowSpends = data.spends.filter((s) => s.row === row._id)
         const rowTopUps = topUps.filter((t) => t.row === row._id)
-        const r = rowSpendSummary(row, entry, rowSpends, rowTopUps, date, data.excluded)
+        const r = rowSpendSummary(row, entry, rowSpends, rowTopUps, date, data.excluded, data.carryIn?.get(row._id) ?? 0)
         today.safe += r.today.safe
         today.allowance += r.today.allowance
         today.spent += r.today.spent

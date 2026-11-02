@@ -1,5 +1,12 @@
 import type { FinanceRow, FinanceEntry, BudgetSpend, BudgetTopUp, ExclusionBudget } from '../types'
-import { recurringAmountForMonth } from './finance'
+import { recurringAmountForMonth, rowVisibleInMonth, addMonths } from './finance'
+
+/**
+ * Carry rolls on forever from this date — through weeks and across months —
+ * so what's left (or overspent) is always the live standing since this date.
+ * Days before it keep the old rule: each month starts clean on the 1st.
+ */
+export const ROLLING_CARRY_FROM = '2026-11-01'
 
 /** "YYYY-MM-DD" → "YYYY-MM". */
 export function monthOf(date: string): string {
@@ -79,15 +86,14 @@ export function activeDaysInMonth(month: string, excluded: Set<string>): number 
     return n
 }
 
-/** Count of non-excluded days strictly before `date` within its month. */
-function activeDaysBefore(date: string, excluded: Set<string>): number {
-    const month = monthOf(date)
-    const dayNum = dayNumOf(date)
-    let n = 0
-    for (let d = 1; d < dayNum; d++) {
-        if (!excluded.has(dateKey(month, d))) n++
-    }
-    return n
+/**
+ * Where `date`'s in-month carry starts counting: the 1st, or ROLLING_CARRY_FROM
+ * in the month it falls in once that day has come. Anything earlier in a later
+ * month arrives as `carryIn` (see carryIntoMonth).
+ */
+function carryWindowStart(date: string): string {
+    const monthStart = `${monthOf(date)}-01`
+    return ROLLING_CARRY_FROM > monthStart && date >= ROLLING_CARRY_FROM ? ROLLING_CARRY_FROM : monthStart
 }
 
 /**
@@ -153,7 +159,9 @@ export function computeBudgetDay(
     rowSpends: BudgetSpend[],
     date: string,
     excluded: Set<string> = new Set(),
-    allTopUps: BudgetTopUp[] = []
+    allTopUps: BudgetTopUp[] = [],
+    /** Carry rolled in from earlier months (carryIntoMonth); 0 before ROLLING_CARRY_FROM. */
+    carryIn = 0
 ): BudgetDay {
     const rowTopUps = budgetAdjustments(allTopUps)
     const month = monthOf(date)
@@ -169,7 +177,7 @@ export function computeBudgetDay(
         .filter((s) => !excluded.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
     const totalTopUpMonth = rowTopUps.reduce((sum, t) => sum + t.amount, 0)
-    const monthlyRemaining = monthlyAmount + totalTopUpMonth - totalSpentMonth
+    const monthlyRemaining = carryIn + monthlyAmount + totalTopUpMonth - totalSpentMonth
 
     // Excluded days have no allowance of their own.
     if (excluded.has(date)) {
@@ -183,18 +191,22 @@ export function computeBudgetDay(
         }
     }
 
+    const from = carryWindowStart(date)
     const totalSpentBefore = rowSpends
-        .filter((s) => s.date < date && !excluded.has(s.date))
+        .filter((s) => s.date >= from && s.date < date && !excluded.has(s.date))
         .reduce((sum, s) => sum + s.amount, 0)
     const totalTopUpBefore = rowTopUps
-        .filter((t) => t.date <= date)
+        .filter((t) => t.date >= from && t.date <= date)
         .reduce((sum, t) => sum + t.amount, 0)
-    const carry = activeDaysBefore(date, excluded) * straightDailyRate - totalSpentBefore + totalTopUpBefore
+    const rolledIn = date >= ROLLING_CARRY_FROM ? carryIn : 0
+    const carry =
+        rolledIn + activeDaysBetween(from, prevDay(date), excluded) * straightDailyRate - totalSpentBefore + totalTopUpBefore
     const todaysAllowance = straightDailyRate + carry
     const remaining = todaysAllowance - spentToday
 
     return { monthlyAmount, straightDailyRate, carry, spentToday, remaining, monthlyRemaining }
 }
+
 
 export interface BudgetWeek {
     /** Budget amount for the month (entry override, else the recurring amount). */
@@ -258,7 +270,9 @@ export function computeBudgetWeek(
     weekEnd: string,
     today: string,
     excluded: Set<string> = new Set(),
-    allTopUps: BudgetTopUp[] = []
+    allTopUps: BudgetTopUp[] = [],
+    /** Carry rolled in from earlier months (carryIntoMonth); 0 before ROLLING_CARRY_FROM. */
+    carryIn = 0
 ): BudgetWeek {
     const rowTopUps = budgetAdjustments(allTopUps)
     const month = weekStart.slice(0, 7)
@@ -271,12 +285,13 @@ export function computeBudgetWeek(
     // This week's allowance — daily rate × active days in the clamped slice.
     const weeklyRate = dailyRate * activeDaysBetween(weekStart, weekEnd, excluded)
 
-    // Walk prior weeks from the first day of the month up to weekStart.
-    let carry = 0
-    if (weekStart > monthStart) {
+    // Walk prior weeks from the first day of the month (or ROLLING_CARRY_FROM) up to weekStart.
+    const from = carryWindowStart(weekStart)
+    let carry = weekStart >= ROLLING_CARRY_FROM ? carryIn : 0
+    if (weekStart > from) {
         // First week of the month may start before day 1 (ISO Monday in prior month) — clamp.
-        let cursor = weekStartOf(monthStart)
-        if (cursor < monthStart) cursor = monthStart
+        let cursor = weekStartOf(from)
+        if (cursor < from) cursor = from
 
         while (cursor < weekStart) {
             // This prior week's slice: Mon–Sun clamped to [monthStart, weekStart-1]
@@ -314,7 +329,7 @@ export function computeBudgetWeek(
     const totalMonthTopUp = rowTopUps
         .filter((t) => t.date >= monthStart && t.date <= monthEnd)
         .reduce((sum, t) => sum + t.amount, 0)
-    const monthlyRemaining = monthlyAmount + totalMonthTopUp - totalMonthSpend
+    const monthlyRemaining = carryIn + monthlyAmount + totalMonthTopUp - totalMonthSpend
 
     const remaining = weeklyRate + carry + topUpThisWeek - spentThisWeek
 
@@ -329,6 +344,55 @@ export function computeBudgetWeek(
 // the other way round.
 
 /** Average-month equivalent of a weekly amount — what Finances and forecasts see. */
+/** One month's records, as the month-based maths needs them. */
+export interface BudgetMonthRecords {
+    entries: FinanceEntry[]
+    spends: BudgetSpend[]
+    excluded: Set<string>
+    topUps?: BudgetTopUp[]
+}
+
+/** Months from ROLLING_CARRY_FROM's month up to (not including) `month` — the history carryIntoMonth reads. */
+export function monthsBeforeSinceRollingStart(month: string): string[] {
+    const months: string[] = []
+    for (let m = monthOf(ROLLING_CARRY_FROM); m < month; m = addMonths(m, 1)) months.push(m)
+    return months
+}
+
+/**
+ * The carry `row` brings into the 1st of `month`: every active day's allowance
+ * since ROLLING_CARRY_FROM, less spend, plus top-ups/withdrawals — the live
+ * standing that never resets. Same rules as the in-month maths (days off have no
+ * allowance and their spend sits outside the budget; refills never count).
+ * `history` holds the records for each of monthsBeforeSinceRollingStart(month).
+ */
+export function carryIntoMonth(row: FinanceRow, month: string, history: Map<string, BudgetMonthRecords>): number {
+    let carry = 0
+    for (const m of monthsBeforeSinceRollingStart(month)) {
+        if (!rowVisibleInMonth(row, m)) continue
+        const data = history.get(m)
+        const excluded = data?.excluded ?? new Set<string>()
+        const entry = data?.entries.find((e) => e.row === row._id)
+        const monthlyAmount = entry?.amount ?? recurringAmountForMonth(row, m) ?? 0
+        const active = activeDaysInMonth(m, excluded)
+        const rate = active > 0 ? monthlyAmount / active : 0
+        const from = m === monthOf(ROLLING_CARRY_FROM) ? ROLLING_CARRY_FROM : `${m}-01`
+        const end = dateKey(m, daysInMonth(m))
+        const spends = data?.spends.filter((s) => s.row === row._id) ?? []
+        const adjustments = budgetAdjustments(data?.topUps?.filter((t) => t.row === row._id) ?? [])
+        carry +=
+            rate * activeDaysBetween(from, end, excluded) -
+            sumBetween(spends, from, end, excluded) +
+            sumBetween(adjustments, from, end)
+    }
+    return carry
+}
+
+/** carryIntoMonth for every row, keyed by row id. */
+export function carryInByRow(rows: FinanceRow[], month: string, history: Map<string, BudgetMonthRecords>): Map<string, number> {
+    return new Map(rows.map((r) => [r._id, carryIntoMonth(r, month, history)]))
+}
+
 export function monthlyFromWeekly(weekly: number): number {
     return (weekly * 52) / 12
 }

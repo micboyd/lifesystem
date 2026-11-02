@@ -22,6 +22,7 @@ import { readSteps } from '../lib/steps'
 import { readVideoUrl } from '../lib/videoUrl'
 import { readBringList } from '../lib/bringList'
 import { readHelpers } from '../lib/helpers'
+import { readWatchSteps } from '../lib/watchSteps'
 import { applyExerciseVideos } from '../lib/exerciseVideos'
 import { SESSION_PHASES, mapPhases, readPhased, toPhase } from '../lib/phases'
 import { buildPlanExport } from '../lib/planExport'
@@ -298,6 +299,15 @@ export async function importPlan(req: AuthRequest, res: Response) {
         res.status(400).json({ message: `Import failed. ${untimed.join('; ')}` })
         return
     }
+    // Optional watch steps must be well formed if written — checked up front too.
+    const badSteps = [
+        ...arr(conditioningDoc.existingRunPlan),
+        ...arr(conditioningDoc.post10KSessionLibrary),
+    ].flatMap((s) => readWatchSteps(s, `Session "${str(s.name) ?? '?'}"`).errors)
+    if (badSteps.length) {
+        res.status(400).json({ message: `Import failed. ${badSteps.join('; ')}` })
+        return
+    }
 
     const retired = [
         ...RETIRED_KEYS.filter((k) => doc[k] !== undefined),
@@ -407,6 +417,7 @@ export async function importPlan(req: AuthRequest, res: Response) {
         ...mapPhases(readPhased(s, 'parts'), toSessionParts),
         howToUse: str(s.howToUse),
         helpers: readHelpers(s),
+        ...readWatchSteps(s, '').value,
     })
     const runSpecs = toSpecs(runPlan, sessionFields)
     const postSpecs = toSpecs(postLibrary, sessionFields)

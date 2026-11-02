@@ -48,6 +48,7 @@ interface SessionLean extends Lean, Phased<ISessionPart> {
     purpose?: string
     howToUse?: string
     helpers?: string[]
+    watchSteps?: unknown[]
 }
 
 // ─── Small writers ──────────────────────────────────────────────────────────────
@@ -234,6 +235,7 @@ export async function buildPlanExport(plan: ITrainingPlan): Promise<PlanExport> 
             ),
             howToUse: doc.howToUse,
             helpers: doc.helpers?.length ? doc.helpers : undefined,
+            watchSteps: doc.watchSteps?.length ? doc.watchSteps : undefined,
         })
 
     // Each run is a one-off written for a specific day, so its date rides on the

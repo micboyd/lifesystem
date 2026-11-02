@@ -12,6 +12,8 @@ import {
     netBudgetAdjustment,
     refillTotal,
     computeBudgetDay,
+    carryIntoMonth,
+    ROLLING_CARRY_FROM,
     computeBudgetWeek,
     computeExclusionPot,
     computeWeeklyBudget,
@@ -172,6 +174,57 @@ describe('computeBudgetDay', () => {
         expect(after.carry).toBe(140) // 9 prior days × £10 + £50 top-up
         // The month figure reflects the top-up regardless of the date being viewed.
         expect(before.monthlyRemaining).toBe(360)
+    })
+})
+
+describe('rolling carry from ROLLING_CARRY_FROM', () => {
+    // £300 across a 30-day November = £10/day.
+    const row300 = dailyRow(300)
+    const spends = [spend('2026-11-01', 50), spend('2026-11-02', 4), spend('2026-11-03', 20)]
+
+    it('starts on 1 Nov 2026', () => {
+        expect(ROLLING_CARRY_FROM).toBe('2026-11-01')
+    })
+
+    it("carries the 1st's overspend into the days after", () => {
+        expect(computeBudgetDay(row300, undefined, spends, '2026-11-02').carry).toBe(-40) // £10 − £50
+        expect(computeBudgetDay(row300, undefined, spends, '2026-11-03').carry).toBe(-34) // £20 − £54
+    })
+
+    it('walks weeks from the start date', () => {
+        // 1 Nov: £10 − £50 = −£40; 2–8 Nov: £70 − £24 = £46 → £6 into 9 Nov.
+        const w = computeBudgetWeek(row300, undefined, spends, '2026-11-09', '2026-11-15', '2026-11-20')
+        expect(w.carry).toBe(6)
+    })
+
+    it('keeps rolling into every future week', () => {
+        // £800 over 30 days = £26.67 a day, £186.67 a week. Seen on 2 Nov with nothing
+        // spent: 9–15 Nov takes 1 Nov + 2–8 Nov, 16–22 takes those plus 9–15, and so on.
+        const row800 = dailyRow(800)
+        const week = (start: string, end: string) => computeBudgetWeek(row800, undefined, [], start, end, '2026-11-02')
+        expect(week('2026-11-02', '2026-11-08').carry).toBeCloseTo(26.67, 2)
+        expect(week('2026-11-09', '2026-11-15').carry).toBeCloseTo(213.33, 2)
+        expect(week('2026-11-16', '2026-11-22').carry).toBeCloseTo(400, 2)
+    })
+
+    it('rolls the whole standing into the next month', () => {
+        const history = new Map([['2026-11', { entries: [], spends, excluded: new Set<string>() }]])
+        // 30 days at £10 = £300, less £74 spent.
+        expect(carryIntoMonth(row300, '2026-12', history)).toBe(226)
+        expect(carryIntoMonth(row300, '2026-11', history)).toBe(0)
+    })
+
+    it('adds the rolled-in carry to the day, the week and the month', () => {
+        const row310 = dailyRow(310) // £10/day in December
+        const day = computeBudgetDay(row310, undefined, [spend('2026-12-01', 5)], '2026-12-02', new Set(), [], -40)
+        expect(day.carry).toBe(-35) // −£40 rolled in + £10 − £5
+        expect(day.monthlyRemaining).toBe(265) // −£40 + £310 − £5
+        const week = computeBudgetWeek(row310, undefined, [], '2026-12-07', '2026-12-13', '2026-12-07', new Set(), [], -40)
+        expect(week.carry).toBe(-40 + 60) // rolled in + 1–6 Dec unspent
+    })
+
+    it('leaves months before the start date resetting on the 1st', () => {
+        expect(computeBudgetDay(dailyRow(310), undefined, [], '2026-08-02', new Set(), [], 999).carry).toBe(10)
     })
 })
 

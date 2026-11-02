@@ -1,5 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose'
 import type { Phased } from '../lib/phases'
+import type { WatchStep } from '../lib/watchSteps'
 
 export const CONDITIONING_CATEGORIES = [
     'HIIT',
@@ -44,6 +45,11 @@ export interface IConditioningSession extends Document, Phased<ISessionPart> {
     howToUse?: string
     /** Setup to lay out before starting, one line each — e.g. where the cones go. */
     helpers: string[]
+    /**
+     * Optional steps for a watch workout, written by the plan. Without them the
+     * steps are derived from the parts (lib/watchSteps.ts). Validated on import.
+     */
+    watchSteps?: WatchStep[]
     /** Priority position in the library (lower = sooner). */
     order: number
     /** Import batch id if this record came from a bulk import (for undo). */
@@ -80,6 +86,7 @@ const conditioningSessionSchema = new Schema<IConditioningSession>(
         coolDown: { type: [partSchema], default: [] },
         howToUse: { type: String, trim: true },
         helpers: { type: [String], default: [] },
+        watchSteps: { type: Schema.Types.Mixed, default: undefined },
         order: { type: Number, default: 0 },
         importBatch: { type: String, default: null },
     },

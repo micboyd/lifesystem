@@ -1,4 +1,5 @@
 import api from './api'
+import { monthsBeforeSinceRollingStart, type BudgetMonthRecords } from '../lib/budget'
 import type {
     ApiResponse,
     FinanceGroup,
@@ -180,6 +181,26 @@ export async function listPaid(month: string): Promise<string[]> {
 
 export async function setPaid(rowId: string, month: string, paid: boolean): Promise<void> {
     await api.put(`/finances/paid/${rowId}/${month}`, { paid })
+}
+
+/**
+ * Budget records for every month between ROLLING_CARRY_FROM and `month` (not
+ * included) — what carryIntoMonth needs to roll the carry in. Empty while
+ * `month` is the start month itself.
+ */
+export async function listCarryHistory(month: string): Promise<Map<string, BudgetMonthRecords>> {
+    const months = monthsBeforeSinceRollingStart(month)
+    const loaded = await Promise.all(
+        months.map((m) =>
+            Promise.all([listEntries(m), listBudgetSpends({ month: m }), listBudgetExclusions(m), listBudgetTopUps(m)]).then(
+                ([entries, spends, exclusions, topUps]): [string, BudgetMonthRecords] => [
+                    m,
+                    { entries, spends, excluded: new Set(exclusions.map((x) => x.date)), topUps },
+                ]
+            )
+        )
+    )
+    return new Map(loaded)
 }
 
 export async function listEntries(month: string): Promise<FinanceEntry[]> {

@@ -13,9 +13,10 @@ import {
     listBudgetSpends,
     listBudgetExclusions,
     listBudgetTopUps,
+    listCarryHistory,
     createBudgetSpend,
 } from '../services/finances'
-import { monthOf } from '../lib/budget'
+import { monthOf, carryInByRow } from '../lib/budget'
 import { recurringAmountForMonth } from '../lib/finance'
 import { todayKey } from '../lib/calendar'
 import { formatMoney, formatAmount } from '../lib/money'
@@ -62,12 +63,19 @@ export default function QuickLog() {
             listBudgetSpends({ month }),
             listBudgetExclusions(month),
             listBudgetTopUps(month),
+            listCarryHistory(month),
         ])
-            .then(([g, r, e, s, x, t]) => {
+            .then(([g, r, e, s, x, t, history]) => {
                 if (!active) return
                 setGroups(g)
                 setRows(r)
-                setData({ entries: e, spends: s, excluded: new Set(x.map((d) => d.date)), topUps: t })
+                setData({
+                    entries: e,
+                    spends: s,
+                    excluded: new Set(x.map((d) => d.date)),
+                    topUps: t,
+                    carryIn: carryInByRow(r, month, history),
+                })
             })
             .finally(() => active && setLoadedKey(month))
         return () => {

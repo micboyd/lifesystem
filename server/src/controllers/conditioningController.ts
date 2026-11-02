@@ -12,6 +12,7 @@ import { toSessionParts } from '../lib/sessionParts'
 import { mapPhases, readPhased, sentPhases } from '../lib/phases'
 import { missingWindows } from '../lib/timeWindow'
 import { readHelpers } from '../lib/helpers'
+import { readWatchSteps } from '../lib/watchSteps'
 
 /** The warm-up, main and cool-down parts of a request body or imported item. */
 function toPhasedParts(doc: Record<string, unknown>) {
@@ -153,6 +154,11 @@ export async function importSessions(req: AuthRequest, res: Response) {
             return null
         }
         placements[i] = parsePlacements(item.plan, `Session ${i + 1}`, errors)
+        const watch = readWatchSteps(item, `Session "${name}"`)
+        if (watch.errors.length) {
+            errors.push(...watch.errors)
+            return null
+        }
         return {
             user: req.userId,
             name,
@@ -164,6 +170,7 @@ export async function importSessions(req: AuthRequest, res: Response) {
             howToUse:
                 typeof item.howToUse === 'string' ? item.howToUse.trim() || undefined : undefined,
             helpers: readHelpers(item),
+            ...watch.value,
         }
     })
 

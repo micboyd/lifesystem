@@ -64,6 +64,15 @@ const TEMPLATE = `{
   // reminder while you log. "whatToBring", "kit" or "homeEquipment" work as the
   // key too, and one comma-separated string is fine.
   //
+  // ── Worth adding: watch steps ────────────────────────────────────────────
+  // Every conditioning session can be sent to a Garmin watch as a structured
+  // workout. Steps are worked out from the parts on their own — run-walk lines
+  // like "5 x 400 m run at 8:30/km, then 150 m walk.", "5 km continuous at
+  // 8:00/km.", walks like "Walk 250 m easy, then 200 m brisk.", and timed reps
+  // from "rounds" + "roundSeconds". Anything else becomes a timed step from its
+  // "startMin"/"endMin". To say exactly what the watch should do instead, put
+  // "watchSteps" on the session — see the first session below.
+  //
   // Everything else below is optional. Comments like these are fine to leave
   // in — the importer ignores them.
 
@@ -215,6 +224,30 @@ const TEMPLATE = `{
         "notes": "Easy if the knee is sore.", // shown on that day in the plan's calendar
         "howToUse": "Leave a non-running day before the next run.",
         "helpers": ["Cones at 0, 5 and 10 m"], // optional: setup to lay out first, one line each
+        // Optional. The steps the watch runs, in order, instead of ones worked
+        // out from the parts below. Each step has a "type" (warmup | run | walk |
+        // recovery | cooldown | other), a "label" and an "end":
+        //   { "kind": "distance", "metres": 400 } | { "kind": "time", "seconds": 90 }
+        //   | { "kind": "lapButton" }  (the watch waits for you to press lap)
+        // Run steps can carry a "paceTarget" in seconds per km — the watch alerts
+        // outside it. { "type": "repeat", "times": 6, "steps": [...] } repeats a block.
+        "watchSteps": [
+          { "type": "warmup", "label": "Walk 4 min", "end": { "kind": "time", "seconds": 240 } },
+          {
+            "type": "repeat",
+            "times": 6,
+            "steps": [
+              {
+                "type": "run",
+                "label": "Jog 90 s",
+                "end": { "kind": "time", "seconds": 90 },
+                "paceTarget": { "fastestSecPerKm": 480, "slowestSecPerKm": 540 }
+              },
+              { "type": "walk", "label": "Walk 2 min", "end": { "kind": "time", "seconds": 120 } }
+            ]
+          },
+          { "type": "cooldown", "label": "Walk and stretch", "end": { "kind": "lapButton" } }
+        ],
         // Same three phases. Every part needs "startMin" and "endMin", in order, as above.
         "warmUp": [
           {

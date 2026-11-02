@@ -11,6 +11,7 @@ import {
     listBudgetExclusions,
     listBudgetSpends,
     listBudgetTopUps,
+    listCarryHistory,
     listEntries,
     listGroups,
     listRows,
@@ -27,6 +28,7 @@ import {
 import { rowVisibleInMonth, recurringAmountForMonth } from '../lib/finance'
 import {
     computeBudgetDay,
+    carryInByRow,
     computeBudgetWeek,
     daysInMonth,
     activeDaysInMonth,
@@ -122,6 +124,8 @@ interface WeekGroup {
     spent: number
     target: number
     remaining: number
+    /** Carry rolled into the week (− = earlier overspend taken off), already in `target`. */
+    carry: number
     allFuture: boolean
     hasExcluded: boolean
     /** True when all rows in view are weekly-tracked (no per-day amber/red). */
@@ -135,7 +139,8 @@ function groupByWeek(
     entries: FinanceEntry[],
     spends: BudgetSpend[],
     excludedDates: Set<string>,
-    topUps: BudgetTopUp[]
+    topUps: BudgetTopUp[],
+    carryIn: Map<string, number>
 ): WeekGroup[] {
     const weeklyRows = trackedRows.filter((r) => r.budgetType === 'weekly')
     const dailyRows = trackedRows.filter((r) => r.budgetType === 'daily')
@@ -147,7 +152,7 @@ function groupByWeek(
         const dow = d.getDay() === 0 ? 6 : d.getDay() - 1 // Mon=0…Sun=6
         const isMonday = dow === 0
         if (isMonday || weeks.length === 0) {
-            weeks.push({ label: '', days: [], spent: 0, target: 0, remaining: 0, allFuture: true, hasExcluded: false, isWeeklyOnly })
+            weeks.push({ label: '', days: [], spent: 0, target: 0, remaining: 0, carry: 0, allFuture: true, hasExcluded: false, isWeeklyOnly })
         }
         const w = weeks[weeks.length - 1]
         w.days.push(day)
@@ -159,32 +164,22 @@ function groupByWeek(
     }
 
     // For weekly-only mode: replace the summed target with the proper weekly allowance (includes carry).
+    // Carry rolls week to week as things stand: a future week takes everything
+    // left before it (nothing more spent unless it's logged ahead), and so on.
     if (isWeeklyOnly) {
         for (const w of weeks) {
-            const lastDay = w.days[w.days.length - 1]
-            const effectiveDate = lastDay.date > today ? today : lastDay.date
-            if (effectiveDate < w.days[0].date) {
-                // Entire week is future
-                let weeklyRate = 0
-                for (const row of weeklyRows) {
-                    const entry = entries.find((e) => e.row === row._id)
-                    const wStart = w.days[0].date
-                    const wEnd = w.days[w.days.length - 1].date
-                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), wStart, wEnd, today, excludedDates, topUps.filter((t) => t.row === row._id))
-                    weeklyRate += bw.weeklyRate
-                }
-                w.target = weeklyRate
-            } else {
-                let weeklyAllowance = 0
-                for (const row of weeklyRows) {
-                    const entry = entries.find((e) => e.row === row._id)
-                    const wStart = w.days[0].date
-                    const wEnd = w.days[w.days.length - 1].date
-                    const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), wStart, wEnd, today, excludedDates, topUps.filter((t) => t.row === row._id))
-                    weeklyAllowance += bw.weeklyRate + bw.carry
-                }
-                w.target = weeklyAllowance
+            const wStart = w.days[0].date
+            const wEnd = w.days[w.days.length - 1].date
+            let weeklyRate = 0
+            let carry = 0
+            for (const row of weeklyRows) {
+                const entry = entries.find((e) => e.row === row._id)
+                const bw = computeBudgetWeek(row, entry, spends.filter((s) => s.row === row._id), wStart, wEnd, today, excludedDates, topUps.filter((t) => t.row === row._id), carryIn.get(row._id) ?? 0)
+                weeklyRate += bw.weeklyRate
+                carry += bw.carry
             }
+            w.target = weeklyRate + carry
+            if (w.days.some((d) => !d.excluded)) w.carry = carry
         }
     }
 
@@ -203,7 +198,7 @@ function groupByWeek(
         }
         const [, lm, ld] = last.split('-').map(Number)
         const lastLabel = new Date(Number(last.split('-')[0]), lm - 1, ld).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-        w.label = `${fmt(first)} – ${lastLabel}`
+        w.label = first === last ? lastLabel : `${fmt(first)} – ${lastLabel}`
     }
     return weeks
 }
@@ -217,7 +212,7 @@ interface DayData {
     /** Spend from daily-tracked rows only — used for per-day over/under colouring. */
     dailyOnlySpent: number
     dailyRate: number // from daily-tracked rows; 0 for excluded days or if no daily rows
-    carry: number    // from daily-tracked rows
+    carry: number    // from daily-tracked rows; rolls day to day, future days included
     effectiveAllowance: number
     /** True when the visible rows are weekly-tracked (no daily rows in view). */
     isWeeklyOnly: boolean
@@ -233,7 +228,8 @@ function buildDayData(
     excludedDates: Set<string>,
     dateToGroup: Map<string, ExclusionBudget>,
     potByGroup: Map<string, ExclusionPot>,
-    topUps: BudgetTopUp[]
+    topUps: BudgetTopUp[],
+    carryIn: Map<string, number>
 ): DayData[] {
     const total = daysInMonth(month)
     const days: DayData[] = []
@@ -257,7 +253,9 @@ function buildDayData(
         for (const row of trackedRows) {
             const entry = entries.find((e) => e.row === row._id)
             const rowSpends = spends.filter((s) => s.row === row._id)
-            const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates, topUps.filter((t) => t.row === row._id))
+            const rowTopUps = topUps.filter((t) => t.row === row._id)
+            const rowCarryIn = carryIn.get(row._id) ?? 0
+            const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates, rowTopUps, rowCarryIn)
             dailyRate += bd.straightDailyRate
             carry += bd.carry
         }
@@ -400,10 +398,15 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                         )}
                     </div>
                 ) : isFuture ? (
-                    <div className="flex flex-1 items-center justify-end">
-                        {data.dailyRate > 0 && (
-                            <span className="text-xs font-semibold tabular-nums text-neutral-300">
-                                £{fmt(data.dailyRate)}/day
+                    <div className="flex flex-1 items-baseline justify-end gap-3">
+                        {data.carry !== 0 && (
+                            <span className={`text-xs font-semibold tabular-nums ${data.carry > 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                                {data.carry > 0 ? '+' : '-'}£{fmt(Math.abs(data.carry))} carry
+                            </span>
+                        )}
+                        {data.effectiveAllowance !== 0 && (
+                            <span className="text-xs font-semibold tabular-nums text-neutral-500">
+                                £{fmt(data.effectiveAllowance)}/day
                             </span>
                         )}
                     </div>
@@ -467,14 +470,7 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
 
                     {data.carry !== 0 && (
                         <span
-                            className={[
-                                'text-xs font-semibold leading-none',
-                                isFuture
-                                    ? 'text-neutral-300'
-                                    : data.carry > 0
-                                      ? 'text-emerald-500'
-                                      : 'text-red-400',
-                            ].join(' ')}
+                            className={`text-xs font-semibold leading-none ${data.carry > 0 ? 'text-emerald-500' : 'text-red-400'}`}
                         >
                             {data.carry > 0 ? '+' : '-'}£{fmt(Math.abs(data.carry))} carry
                         </span>
@@ -483,6 +479,15 @@ function DayCell({ data, isToday, isFuture, onClick }: DayCellProps) {
                     <div
                         className={`border-t mt-auto ${isFuture ? 'border-neutral-100' : 'border-neutral-200'}`}
                     />
+
+                    {isFuture && !hasSpend && data.effectiveAllowance !== 0 && (
+                        <div className="flex items-baseline justify-between gap-1">
+                            <span className="text-xs text-neutral-500">to spend</span>
+                            <span className="text-sm font-semibold tabular-nums text-neutral-500">
+                                {data.effectiveAllowance < 0 ? '-' : ''}£{fmt(Math.abs(data.effectiveAllowance))}
+                            </span>
+                        </div>
+                    )}
 
                     {(!isFuture || hasSpend) && (
                         <>
@@ -541,94 +546,135 @@ interface WeekCellProps {
     onClick: () => void
 }
 
+/** One labelled line of a week card's written sum. */
+function WeekLine({ label, amount, sign, tone = 'text-neutral-700', strong = false }: {
+    label: string
+    amount: number
+    sign?: '+' | '−'
+    tone?: string
+    strong?: boolean
+}) {
+    return (
+        <div className="flex items-baseline justify-between gap-3">
+            <span className={strong ? 'text-sm font-semibold text-neutral-900' : 'text-sm text-neutral-500'}>{label}</span>
+            <span className={`tabular-nums ${strong ? 'text-base font-bold' : 'text-sm font-semibold'} ${tone}`}>
+                {sign ? `${sign} ` : amount < 0 ? '−' : ''}£{fmt(Math.abs(amount))}
+            </span>
+        </div>
+    )
+}
+
 function WeekCell({ week, today, onClick }: WeekCellProps) {
+    const first = week.days[0].date
+    const last = week.days[week.days.length - 1].date
+    const isCurrent = first <= today && today <= last
+    const isPast = last < today
     const hasSpend = week.spent > 0
-    const overTarget = hasSpend && week.spent > week.target
-    const overBudget = hasSpend && week.remaining < 0
+    const base = week.target - week.carry
     const remaining = week.remaining
+    const over = remaining < -0.005
     const daysLogged = week.days.filter((d) => !d.excluded && d.date <= today && d.spent > 0).length
     const activeDays = week.days.filter((d) => !d.excluded && d.date <= today).length
     const excludedDays = week.days.filter((d) => d.excluded).length
     // Every day this week is a day off — there's no allowance to spend, so show
     // the day-off state instead of a bare £0 target.
     const allExcluded = week.days.length > 0 && excludedDays === week.days.length
+    const length = week.days.length === 7 ? null : `${week.days.length} day${week.days.length === 1 ? '' : 's'}`
+
+    const chip = isCurrent
+        ? { text: 'This week', cls: 'bg-neutral-950 text-white' }
+        : isPast
+          ? over
+              ? { text: 'Over', cls: 'bg-red-100 text-red-600' }
+              : { text: 'Done', cls: 'bg-emerald-100 text-emerald-700' }
+          : { text: 'Upcoming', cls: 'bg-neutral-100 text-neutral-500' }
+
+    const header = (
+        <div className="flex items-center justify-between gap-2">
+            <div className="flex items-baseline gap-1.5">
+                <span className="text-sm font-bold text-neutral-900">{week.label}</span>
+                {length && <span className="text-xs text-neutral-400">{length}</span>}
+            </div>
+            {!allExcluded && (
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${chip.cls}`}>{chip.text}</span>
+            )}
+        </div>
+    )
 
     if (allExcluded) {
         return (
             <button
                 type="button"
                 onClick={onClick}
-                className="flex w-full flex-col gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 text-left transition-all duration-150 hover:border-neutral-400"
+                className="flex w-full flex-col gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 text-left transition-colors hover:border-neutral-400"
             >
-                <div className="flex items-baseline gap-1.5">
-                    <span className="text-sm font-bold text-neutral-500">{week.label}</span>
-                    <span className="text-xs text-neutral-300">{week.days.length}d</span>
-                </div>
-                <div className="mt-1 flex items-center gap-2 text-neutral-500">
+                {header}
+                <div className="flex items-center gap-2 text-neutral-500">
                     <i className="fa-solid fa-plane-departure text-sm" aria-hidden="true" />
-                    <span className="text-sm font-semibold">Day off — whole week excluded</span>
+                    <span className="text-sm font-semibold">Day off — nothing to spend</span>
                 </div>
             </button>
         )
     }
 
-    let bg = 'bg-white'
-    if (!week.allFuture) {
-        if (overBudget) bg = 'bg-red-50'
-        else if (overTarget) bg = 'bg-amber-50'
-        else if (hasSpend) bg = 'bg-emerald-50'
-    }
-
-    const remainingColor = overBudget ? 'text-red-500' : overTarget ? 'text-amber-600' : 'text-emerald-600'
-    const weekPct = week.target > 0 ? (week.spent / week.target) * 100 : 0
-    const weekTone: BarTone = overBudget ? 'red' : overTarget ? 'amber' : 'emerald'
+    // Headline: what's left for weeks under way, what there is to spend for weeks ahead.
+    const headline = week.allFuture ? week.target : remaining
+    const headlineLabel = week.allFuture ? 'to spend' : over ? 'over' : 'left'
+    const headlineTone = week.allFuture ? 'text-neutral-900' : over ? 'text-red-600' : 'text-emerald-700'
+    const pct = week.target > 0 ? (week.spent / week.target) * 100 : hasSpend ? 100 : 0
 
     return (
         <button
             type="button"
             onClick={onClick}
             className={[
-                'flex flex-col gap-2 rounded-2xl border p-5 text-left w-full transition-all duration-150',
-                'border-neutral-200 hover:border-neutral-400',
-                bg,
+                'flex w-full flex-col gap-4 rounded-2xl border bg-white p-5 text-left transition-colors hover:border-neutral-400',
+                isCurrent ? 'border-neutral-950 ring-2 ring-neutral-950/10' : 'border-neutral-200',
             ].join(' ')}
         >
-            <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-bold text-neutral-500">{week.label}</span>
-                <span className="text-xs text-neutral-300">
-                    {week.days.length}d{excludedDays > 0 ? ` (${excludedDays} excl.)` : ''}
-                </span>
+            {header}
+
+            <div>
+                <div className="flex items-baseline gap-1.5">
+                    <span className={`text-2xl font-bold tabular-nums ${headlineTone}`}>£{fmt(Math.abs(headline))}</span>
+                    <span className="text-sm text-neutral-500">{headlineLabel}</span>
+                </div>
+                {!week.allFuture && (
+                    <CellBar pct={pct} tone={over ? 'red' : 'emerald'} className="mt-2" />
+                )}
             </div>
-            <div className="flex items-baseline gap-1">
-                <span className={`text-xl font-bold tabular-nums ${week.allFuture ? 'text-neutral-300' : 'text-neutral-700'}`}>
-                    £{fmt(week.target)}
-                </span>
-                <span className={`text-sm ${week.allFuture ? 'text-neutral-200' : 'text-neutral-500'}`}>/wk</span>
+
+            {/* The sum, written out line by line. */}
+            <div className="flex flex-col gap-1.5 rounded-xl bg-neutral-50 px-3.5 py-3">
+                <WeekLine label="This week's budget" amount={base} />
+                {week.carry > 0.005 && (
+                    <WeekLine label="Left over from earlier" amount={week.carry} sign="+" tone="text-emerald-700" />
+                )}
+                {week.carry < -0.005 && (
+                    <WeekLine label="Earlier overspend" amount={week.carry} sign="−" tone="text-red-600" />
+                )}
+                {(hasSpend || !week.allFuture) && (
+                    <WeekLine label={isPast ? 'Spent' : 'Spent so far'} amount={week.spent} sign="−" />
+                )}
+                <div className="my-0.5 border-t border-neutral-200" />
+                <WeekLine
+                    label={week.allFuture && !hasSpend ? 'To spend' : over ? 'Over by' : 'Left'}
+                    amount={week.allFuture && !hasSpend ? week.target : Math.abs(remaining)}
+                    tone={over ? 'text-red-600' : week.allFuture ? 'text-neutral-900' : 'text-emerald-700'}
+                    strong
+                />
             </div>
-            {(!week.allFuture || hasSpend) && (
-                <>
-                    <div className="mt-auto border-t border-neutral-200" />
-                    {!week.allFuture && week.target > 0 && <CellBar pct={weekPct} tone={weekTone} />}
-                    <div className="flex items-baseline justify-between gap-1">
-                        <span className="text-sm text-neutral-500">{week.allFuture ? 'planned' : 'spent'}</span>
-                        <span className={`text-base font-semibold tabular-nums ${hasSpend ? 'text-neutral-700' : 'text-neutral-300'}`}>
-                            {hasSpend ? `£${fmt(week.spent)}` : '—'}
-                        </span>
-                    </div>
-                    {hasSpend && (
-                        <div className="flex items-baseline justify-between gap-1">
-                            <span className="text-sm text-neutral-500">left</span>
-                            <span className={`text-base font-semibold tabular-nums ${remainingColor}`}>
-                                {remaining < 0 ? '-' : ''}£{fmt(Math.abs(remaining))}
-                            </span>
-                        </div>
-                    )}
-                    {!week.allFuture && (
-                        <span className="text-sm text-neutral-500">
-                            {daysLogged}/{activeDays} days logged
-                        </span>
-                    )}
-                </>
+
+            {!week.allFuture && (
+                <span className="text-xs text-neutral-500">
+                    {daysLogged} of {activeDays} day{activeDays === 1 ? '' : 's'} logged
+                    {excludedDays > 0 ? ` · ${excludedDays} day${excludedDays === 1 ? '' : 's'} off` : ''}
+                </span>
+            )}
+            {week.allFuture && excludedDays > 0 && (
+                <span className="text-xs text-neutral-500">
+                    {excludedDays} day{excludedDays === 1 ? '' : 's'} off
+                </span>
             )}
         </button>
     )
@@ -989,6 +1035,8 @@ interface DayModalProps {
     topUps: BudgetTopUp[]
     excluded: boolean
     excludedDates: Set<string>
+    /** Carry each row rolls in from earlier months. */
+    carryIn: Map<string, number>
     /** The exclusion-budget pot this day belongs to, if any. */
     potGroup?: ExclusionBudget
     pot?: ExclusionPot
@@ -1014,6 +1062,7 @@ function DayModal({
     topUps,
     excluded,
     excludedDates,
+    carryIn,
     potGroup,
     pot,
     potRow,
@@ -1048,7 +1097,9 @@ function DayModal({
         (acc, row) => {
             const entry = entries.find((e) => e.row === row._id)
             const rowSpends = spends.filter((s) => s.row === row._id)
-            const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates, topUps.filter((t) => t.row === row._id))
+            const rowTopUps = topUps.filter((t) => t.row === row._id)
+            const rowCarryIn = carryIn.get(row._id) ?? 0
+            const bd = computeBudgetDay(row, entry, rowSpends, date, excludedDates, rowTopUps, rowCarryIn)
             return { rate: acc.rate + bd.straightDailyRate, carry: acc.carry + bd.carry }
         },
         { rate: 0, carry: 0 }
@@ -1068,7 +1119,7 @@ function DayModal({
                   const rowSpends = spends.filter((s) => s.row === row._id)
                   return {
                       row,
-                      ...computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, todayKey(), excludedDates, topUps.filter((t) => t.row === row._id)),
+                      ...computeBudgetWeek(row, entry, rowSpends, weekStart, weekEnd, todayKey(), excludedDates, topUps.filter((t) => t.row === row._id), carryIn.get(row._id) ?? 0),
                   }
               })
           })()
@@ -1411,14 +1462,9 @@ function DayModal({
                                 {dailyOnlyRows.map((row) => {
                                     const entry = entries.find((e) => e.row === row._id)
                                     const rowSpends = spends.filter((s) => s.row === row._id)
-                                    const { straightDailyRate, carry } = computeBudgetDay(
-                                        row,
-                                        entry,
-                                        rowSpends,
-                                        date,
-                                        excludedDates,
-                                        topUps.filter((t) => t.row === row._id)
-                                    )
+                                    const rowTopUps = topUps.filter((t) => t.row === row._id)
+                                    const rowCarryIn = carryIn.get(row._id) ?? 0
+                                    const { straightDailyRate, carry } = computeBudgetDay(row, entry, rowSpends, date, excludedDates, rowTopUps, rowCarryIn)
                                     const rowSpent = dayTx
                                         .filter((t) => t.row === row._id)
                                         .reduce((s, t) => s + t.amount, 0)
@@ -1739,6 +1785,8 @@ export default function BudgetCalendar() {
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
     const [topUps, setTopUps] = useState<BudgetTopUp[]>([])
+    /** Carry each row rolls in from earlier months — the never-ending carry. */
+    const [carryIn, setCarryIn] = useState<Map<string, number>>(new Map())
     const [exclusions, setExclusions] = useState<BudgetExclusion[]>([])
     const [exclusionBudgets, setExclusionBudgets] = useState<ExclusionBudget[]>([])
     /** Other-month spends for pots that span a month boundary — pot math only. */
@@ -1762,9 +1810,11 @@ export default function BudgetCalendar() {
             listBudgetExclusions(month),
             listExclusionBudgets(month),
             listBudgetTopUps(month),
+            listCarryHistory(month),
         ])
-            .then(([g, r, e, s, x, eb, t]) => {
+            .then(([g, r, e, s, x, eb, t, history]) => {
                 if (!active) return
+                setCarryIn(carryInByRow(r, month, history))
                 setGroups(g)
                 setRows(r)
                 setEntries(e)
@@ -1933,9 +1983,9 @@ export default function BudgetCalendar() {
     const potRowOf = (g?: ExclusionBudget) =>
         g?.row ? rows.find((r) => r._id === g.row) : undefined
 
-    const dayData = buildDayData(month, dailyRows, entries, spends, excludedDates, dateToGroup, potByGroup, topUps)
+    const dayData = buildDayData(month, dailyRows, entries, spends, excludedDates, dateToGroup, potByGroup, topUps, carryIn)
     const offset = startOffset(month)
-    const weekGroups = groupByWeek(dayData, today, dailyRows, entries, spends, excludedDates, topUps)
+    const weekGroups = groupByWeek(dayData, today, dailyRows, entries, spends, excludedDates, topUps, carryIn)
 
     const pastDays = dayData.filter((d) => d.date <= today && !d.excluded)
     const totalSpent = pastDays.reduce((s, d) => s + d.spent, 0)
@@ -2080,7 +2130,8 @@ export default function BudgetCalendar() {
                         </div>
                     )}
 
-                    <div className="mt-4 flex items-center gap-5">
+                    {/* Colour key for the day grid — week cards say it in words instead. */}
+                    {view === 'daily' && <div className="mt-4 flex items-center gap-5">
                         {[
                             { color: 'bg-emerald-50', label: 'Under target' },
                             { color: 'bg-amber-50', label: 'Over target' },
@@ -2091,7 +2142,7 @@ export default function BudgetCalendar() {
                                 <span className="text-xs text-neutral-500">{label}</span>
                             </div>
                         ))}
-                    </div>
+                    </div>}
                 </>
             )}
 
@@ -2105,6 +2156,7 @@ export default function BudgetCalendar() {
                     topUps={topUps}
                     excluded={excludedDates.has(selectedDate)}
                     excludedDates={excludedDates}
+                    carryIn={carryIn}
                     potGroup={dateToGroup.get(selectedDate)}
                     pot={(() => {
                         const g = dateToGroup.get(selectedDate)

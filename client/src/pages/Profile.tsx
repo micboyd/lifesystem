@@ -9,6 +9,7 @@ import Button from '../components/Button'
 import Alert from '../components/Alert'
 import Switch from '../components/Switch'
 import SettingsCard from '../components/profile/SettingsCard'
+import GarminCard from '../components/profile/GarminCard'
 import { useMoneyHidden } from '../components/useMoneyHidden'
 import { setMoneyHidden } from '../lib/moneyVisibility'
 
@@ -204,6 +205,8 @@ export default function Profile() {
                 {/* Right column: Settings + quick links */}
                 <div className="flex flex-col gap-6">
                     <SettingsCard />
+
+                    <GarminCard />
 
                     {/* Privacy — instant, device-local toggle (not part of saved settings) */}
                     <Card>

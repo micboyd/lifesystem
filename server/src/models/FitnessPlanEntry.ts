@@ -1,9 +1,22 @@
-import { Schema, model, Document, Types } from 'mongoose'
+import { Schema, model, Document, Types, Query } from 'mongoose'
 
 export const FITNESS_PLAN_KINDS = ['workout', 'conditioning'] as const
 export type FitnessPlanKind = (typeof FITNESS_PLAN_KINDS)[number]
 
 /** Which slot of the day a planned item sits in. */
+/**
+ * Where a planned conditioning session stands on Garmin: the workout it was sent
+ * as, its placement on the Garmin calendar, the day that placement is for (the
+ * entry may have moved since) and a hash of the steps that were sent.
+ */
+export interface IPlanEntryGarmin {
+    workoutId: string
+    scheduleId: string
+    scheduledDate: string
+    stepsHash: string
+    lastSentAt: Date
+}
+
 export const FITNESS_PLAN_PARTS = ['morning', 'afternoon', 'evening'] as const
 export type FitnessPlanPart = (typeof FITNESS_PLAN_PARTS)[number]
 
@@ -51,6 +64,8 @@ export interface IFitnessPlanEntry extends Document {
      */
     skipped: boolean
     skipReason: string
+    /** Set once the session has been sent to Garmin. */
+    garmin?: IPlanEntryGarmin | null
     createdAt: Date
     updatedAt: Date
 }
@@ -69,9 +84,62 @@ const fitnessPlanEntrySchema = new Schema<IFitnessPlanEntry>(
         ignoreOverload: { type: Boolean, default: false },
         skipped: { type: Boolean, default: false },
         skipReason: { type: String, default: '', trim: true, maxlength: 280 },
+        garmin: {
+            type: new Schema<IPlanEntryGarmin>(
+                {
+                    workoutId: { type: String, required: true },
+                    scheduleId: { type: String, required: true },
+                    scheduledDate: { type: String, required: true },
+                    stepsHash: { type: String, required: true },
+                    lastSentAt: { type: Date, required: true },
+                },
+                { _id: false }
+            ),
+            default: null,
+        },
     },
     { timestamps: true }
 )
+
+/** An entry that was on the Garmin calendar when it was deleted. */
+export interface DeletedGarminEntry {
+    user: string
+    scheduleId: string
+}
+
+let onGarminEntriesDeleted: ((entries: DeletedGarminEntry[]) => void) | null = null
+
+/**
+ * Called after entries that were sent to Garmin are deleted, however they were
+ * deleted — one entry, a cleared week, an un-applied plan — so their Garmin
+ * calendar placements can be taken off too. Set by the Garmin module at boot;
+ * kept as a callback so this model doesn't import it.
+ */
+export function setGarminDeleteListener(fn: (entries: DeletedGarminEntry[]) => void) {
+    onGarminEntriesDeleted = fn
+}
+
+type DeleteQuery = Query<unknown, IFitnessPlanEntry> & { _garminDeleted?: DeletedGarminEntry[] }
+
+async function noteGarminEntries(this: DeleteQuery) {
+    if (!onGarminEntriesDeleted) return
+    const docs = await this.model
+        .find({ ...this.getFilter(), 'garmin.scheduleId': { $exists: true } })
+        .select('user garmin.scheduleId')
+        .lean<{ user: Types.ObjectId; garmin?: { scheduleId: string } | null }[]>()
+    this._garminDeleted = docs.flatMap((d) =>
+        d.garmin?.scheduleId ? [{ user: String(d.user), scheduleId: d.garmin.scheduleId }] : []
+    )
+}
+
+function releaseGarminEntries(this: DeleteQuery) {
+    if (this._garminDeleted?.length) onGarminEntriesDeleted?.(this._garminDeleted)
+}
+
+for (const op of ['deleteMany', 'deleteOne', 'findOneAndDelete'] as const) {
+    fitnessPlanEntrySchema.pre(op, { document: false, query: true }, noteGarminEntries)
+    fitnessPlanEntrySchema.post(op, { document: false, query: true }, releaseGarminEntries)
+}
 
 fitnessPlanEntrySchema.index({ user: 1, date: 1 })
 fitnessPlanEntrySchema.index({ user: 1, plan: 1 })

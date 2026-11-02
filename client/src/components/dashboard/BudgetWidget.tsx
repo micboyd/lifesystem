@@ -10,8 +10,9 @@ import {
     listBudgetSpends,
     listBudgetExclusions,
     listBudgetTopUps,
+    listCarryHistory,
 } from '../../services/finances'
-import { monthOf } from '../../lib/budget'
+import { monthOf, carryInByRow } from '../../lib/budget'
 import { spendSummary } from '../../lib/budgetDiscipline'
 import { rowVisibleInMonth, recurringAmountForMonth } from '../../lib/finance'
 import { formatAmount } from '../../lib/money'
@@ -56,6 +57,7 @@ export default function BudgetWidget({ date }: { date: string }) {
     const [spends, setSpends] = useState<BudgetSpend[]>([])
     const [topUps, setTopUps] = useState<BudgetTopUp[]>([])
     const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
+    const [carryIn, setCarryIn] = useState<Map<string, number>>(new Map())
     // Derive loading from which month finished loading — avoids a synchronous
     // setState inside the fetch effect (flagged as cascading renders).
     const [loadedMonth, setLoadedMonth] = useState<string | null>(null)
@@ -73,8 +75,9 @@ export default function BudgetWidget({ date }: { date: string }) {
             listBudgetSpends({ month }),
             listBudgetExclusions(month),
             listBudgetTopUps(month),
+            listCarryHistory(month),
         ])
-            .then(([g, r, e, s, x, t]) => {
+            .then(([g, r, e, s, x, t, history]) => {
                 if (!active) return
                 setGroups(g)
                 setRows(r)
@@ -82,6 +85,7 @@ export default function BudgetWidget({ date }: { date: string }) {
                 setSpends(s)
                 setExcludedDates(new Set(x.map((d) => d.date)))
                 setTopUps(t)
+                setCarryIn(carryInByRow(r, month, history))
             })
             .finally(() => {
                 if (active) setLoadedMonth(month)
@@ -112,7 +116,7 @@ export default function BudgetWidget({ date }: { date: string }) {
 
     // Pooled via the shared engine, so this widget agrees with the pill and the
     // insights strip.
-    const summary = spendSummary(groups, rows, { entries, spends, excluded: excludedDates, topUps }, date)
+    const summary = spendSummary(groups, rows, { entries, spends, excluded: excludedDates, topUps, carryIn }, date)
     const totals = summary.perRow.reduce(
         (acc, r) => {
             acc.allowance += r.today.allowance

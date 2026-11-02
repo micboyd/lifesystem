@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
@@ -33,7 +33,11 @@ import {
     deleteLog as deleteConditioningLog,
 } from '../services/conditioningLogs'
 import ConditioningLogDrawer, { type ConditioningLogTarget } from './ConditioningLogDrawer'
+import RouteCard from './route/RouteCard'
 import { ConditioningLogSummary } from './ConditioningSessionsLog'
+import GarminSendPanel from './garmin/GarminSendPanel'
+import GarminWeekDrawer from './garmin/GarminWeekDrawer'
+import { garminError, listGarminStates, sendToGarmin, type GarminEntryState } from '../services/garmin'
 import { clearTaps, EMPTY_TAPS } from '../lib/sessionPace'
 import { clearDraft } from '../lib/workoutLogDraft'
 import { useToast } from '../context/ToastContext'
@@ -64,6 +68,7 @@ import type {
     FitnessNoteScope,
     FitnessFlagColor,
     Event,
+    GarminState,
 } from '../types'
 import {
     todayKey,
@@ -494,6 +499,10 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     const [eventsDate, setEventsDate] = useState<string | null>(null)
     // The day whose overloaded slots are open in the overload modal, if any.
     const [overloadDate, setOverloadDate] = useState<string | null>(null)
+    // Where each of the week's conditioning sessions stands on Garmin, by entry id,
+    // and the "Send next 7 days" drawer.
+    const [garminStates, setGarminStates] = useState<Record<string, GarminEntryState>>({})
+    const [garminWeekOpen, setGarminWeekOpen] = useState(false)
 
     const today = todayKey()
     const toast = useToast()
@@ -628,6 +637,47 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         return m
     }, [exercises])
 
+    // Garmin states follow the entries — a moved or added session changes them.
+    // Quiet on failure: the rows just don't say.
+    useEffect(() => {
+        let active = true
+        listGarminStates(range.start, range.end)
+            .then((s) => {
+                if (active) setGarminStates(s)
+            })
+            .catch(() => {})
+        return () => {
+            active = false
+        }
+    }, [entries, range.start, range.end])
+
+    function noteGarminSent(entryId: string, state: GarminState) {
+        setGarminStates((prev) => ({
+            ...prev,
+            [entryId]: {
+                lastSentAt: prev[entryId]?.lastSentAt ?? null,
+                scheduledDate: prev[entryId]?.scheduledDate ?? null,
+                state,
+            },
+        }))
+    }
+
+    // "Send to Garmin" on a row. The first send opens the session so its steps
+    // are seen first; after that it just goes.
+    async function quickSendToGarmin(entry: FitnessPlanEntry) {
+        if ((garminStates[entry._id]?.state ?? 'not_sent') === 'not_sent') {
+            setDetail(entry)
+            return
+        }
+        try {
+            const r = await sendToGarmin(entry._id)
+            noteGarminSent(entry._id, 'sent')
+            toast.show(r.message, r.pushed ? 'success' : 'info')
+        } catch (err) {
+            toast.show(garminError(err).message, 'danger')
+        }
+    }
+
     useEffect(() => {
         // Refetch silently on range change — the grid keeps the previous items
         // until the new ones arrive, so navigation never flashes a spinner.
@@ -717,6 +767,15 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
             items: [
                 { label: 'Copy', icon: 'fa-solid fa-copy', onClick: () => copyEntry(entry) },
                 { label: 'Open', icon: 'fa-solid fa-up-right-from-square', onClick: () => setDetail(entry) },
+                ...(entry.kind === 'conditioning' && entry.session
+                    ? [
+                          {
+                              label: 'Send to Garmin',
+                              icon: 'fa-solid fa-paper-plane',
+                              onClick: () => void quickSendToGarmin(entry),
+                          },
+                      ]
+                    : []),
                 {
                     label: 'Remove',
                     icon: 'fa-solid fa-trash-can',
@@ -1023,6 +1082,11 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
             onClick: () => setFlagTarget({ scope: 'week', date: range.start }),
         },
         { label: 'Export…', icon: 'fa-solid fa-file-export', onClick: () => setExportOpen(true) },
+        {
+            label: 'Send next 7 days to Garmin…',
+            icon: 'fa-solid fa-paper-plane',
+            onClick: () => setGarminWeekOpen(true),
+        },
         ...(weekHasClearable
             ? [
                   'divider' as const,
@@ -1085,6 +1149,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     description="Build some workouts or conditioning sessions first, then drop them into the plan."
                 />
             ) : (
+                <GarminStatesContext.Provider value={garminStates}>
                 <WeekView
                     board={board}
                     weekStart={range.start}
@@ -1110,6 +1175,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     calendarByDate={calendarByDate}
                     onShowEvents={setEventsDate}
                 />
+                </GarminStatesContext.Provider>
             )}
 
             <AddDrawer
@@ -1133,6 +1199,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 onMarkDone={markDone}
                 onUnlog={unmarkDone}
                 onSkip={handleSkip}
+                onGarminSent={noteGarminSent}
                 onCopy={(e) => {
                     setDetail(null)
                     copyEntry(e)
@@ -1290,6 +1357,13 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 open={exportOpen}
                 onClose={() => setExportOpen(false)}
                 weekStart={range.start}
+            />
+
+            <GarminWeekDrawer
+                open={garminWeekOpen}
+                today={today}
+                onClose={() => setGarminWeekOpen(false)}
+                onSent={noteGarminSent}
             />
         </div>
     )
@@ -2550,6 +2624,17 @@ function SlotSection({
     )
 }
 
+/** The week's Garmin states by entry id, for each conditioning row to read. */
+const GarminStatesContext = createContext<Record<string, GarminEntryState>>({})
+
+/** What a row adds about Garmin — nothing until it's been sent. */
+const GARMIN_ROW_NOTE: Record<GarminState, string | null> = {
+    not_sent: null,
+    sent: 'On Garmin',
+    out_of_date: 'Garmin out of date',
+    moved: 'Moved — resend to Garmin',
+}
+
 /** The one-line summary under a planned item's name. */
 function plannedMeta(entry: FitnessPlanEntry): string {
     if (entry.kind === 'workout' && entry.workout) {
@@ -2593,6 +2678,8 @@ function PlannedRow({
     const name = planItemName(entry) ?? KIND_META[entry.kind].noun
     // A logged session counts as done even if it was skipped first.
     const skipped = !done && entry.skipped === true
+    const garminState = useContext(GarminStatesContext)[entry._id]?.state
+    const garminNote = garminState ? GARMIN_ROW_NOTE[garminState] : null
 
     const trailing = skipped ? (
         <span
@@ -2629,7 +2716,9 @@ function PlannedRow({
                     ? entry.skipReason
                         ? `Skipped · ${entry.skipReason}`
                         : 'Skipped'
-                    : plannedMeta(entry)
+                    : garminNote
+                      ? `${plannedMeta(entry)} · ${garminNote}`
+                      : plannedMeta(entry)
             }
             name={name}
             onOpen={onOpen}
@@ -2894,6 +2983,7 @@ function PlannedDetailDrawer({
     onRemove,
     onLogWeights,
     onStartSession,
+    onGarminSent,
 }: {
     entry: FitnessPlanEntry | null
     exercisesById: Map<string, Exercise>
@@ -2917,6 +3007,8 @@ function PlannedDetailDrawer({
     /** Open the session logger for a planned conditioning session — fresh, or
      *  picking its log back up. */
     onStartSession: (entry: FitnessPlanEntry, logId: string | null, notes?: string) => void
+    /** A conditioning session went to Garmin, so its row can say so. */
+    onGarminSent: (entryId: string, state: GarminState) => void
 }) {
     // Retain the last entry while the drawer animates closed.
     const [view, setView] = useState<FitnessPlanEntry | null>(entry)
@@ -3164,6 +3256,7 @@ function PlannedDetailDrawer({
                 {e && (
                     <div className="flex flex-col gap-6">
                         <PlannedContext entry={e} done={done} />
+                        {isSession && <GarminSendPanel entryId={e._id} onSent={onGarminSent} />}
                         {skipping && (
                             <div className="flex flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
                                 <Textarea
@@ -3231,7 +3324,10 @@ function PlannedDetailDrawer({
                                 onToggleStep={steps.toggle}
                             />
                         ) : e.kind === 'conditioning' && e.session ? (
-                            <ConditioningSessionDetail session={e.session} overview />
+                            <>
+                                <RouteCard entry={e} />
+                                <ConditioningSessionDetail session={e.session} overview />
+                            </>
                         ) : null}
                     </div>
                 )}

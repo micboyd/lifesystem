@@ -388,10 +388,28 @@ export interface ConditioningSession extends Phased<SessionPart> {
     howToUse?: string
     /** Setup to lay out before starting, one line each — e.g. where the cones go. */
     helpers?: string[]
+    /** Steps for a watch workout, when the plan wrote them; otherwise derived on the server. */
+    watchSteps?: WatchStep[]
     order: number
     createdAt: string
     updatedAt: string
 }
+
+/** One step of a watch workout — see server/src/lib/watchSteps.ts. */
+export type WatchStep =
+    | {
+          type: 'warmup' | 'run' | 'walk' | 'recovery' | 'cooldown' | 'other'
+          label: string
+          end:
+              | { kind: 'distance'; metres: number }
+              | { kind: 'time'; seconds: number }
+              | { kind: 'lapButton' }
+          paceTarget?: { fastestSecPerKm: number; slowestSecPerKm: number }
+      }
+    | { type: 'repeat'; times: number; steps: WatchStep[] }
+
+/** Where a planned conditioning session stands on Garmin. */
+export type GarminState = 'not_sent' | 'sent' | 'out_of_date' | 'moved'
 
 /** How many rounds of one counted part were completed, snapshotted at log time. */
 export interface RoundProgress {

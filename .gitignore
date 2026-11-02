@@ -5,3 +5,5 @@ dist/
 *.log
 fitness-cleanup-backup-*.json
 backups/
+garmin-service/.venv/
+__pycache__/

@@ -23,11 +23,12 @@ import {
     recoverStarlingExclusion,
     archiveStarlingExclusions,
     listBudgetTopUps,
+    listCarryHistory,
     createBudgetTopUp,
     deleteBudgetTopUp,
 } from '../services/finances'
 import { rowVisibleInMonth, recurringAmountForMonth } from '../lib/finance'
-import { computeBudgetDay, computeBudgetWeek, daysInMonth, clampedWeekRange, netBudgetAdjustment, refillTotal } from '../lib/budget'
+import { computeBudgetDay, computeBudgetWeek, carryInByRow, daysInMonth, clampedWeekRange, netBudgetAdjustment, refillTotal } from '../lib/budget'
 import { diagnoseGap, type ExplainedMovement } from '../lib/reconcile'
 import { formatAmount } from '../lib/money'
 import { useMoneyHidden } from '../components/useMoneyHidden'
@@ -1125,6 +1126,8 @@ interface BudgetCardProps {
     spends: BudgetSpend[]
     topUps: BudgetTopUp[]
     excludedDates: Set<string>
+    /** Carry this row rolls in from earlier months. */
+    carryIn: number
     weekStart: string
     weekEnd: string
     starlingEnabled: boolean
@@ -1244,7 +1247,7 @@ function LedgerRow({ title, date, caption, amount, sign = '', tone = 'neutral', 
 }
 
 function BudgetCard({
-    row, group, entry, spends, topUps, excludedDates,
+    row, group, entry, spends, topUps, excludedDates, carryIn,
     weekStart, weekEnd,
     starlingEnabled, linkedSpace, syncing,
     onToggleDailySpend, onOpenLink, onSync, onOpenReconcile, onOpenTransactions,
@@ -1261,7 +1264,7 @@ function BudgetCard({
 
     // Monthly overview — always based on the month the week sits in.
     // computeBudgetDay gives monthlyAmount / monthlyRemaining regardless of the day param.
-    const monthRef = computeBudgetDay(row, entry, spends, weekStart, excludedDates, topUps)
+    const monthRef = computeBudgetDay(row, entry, spends, weekStart, excludedDates, topUps, carryIn)
     const { monthlyAmount, monthlyRemaining } = monthRef
 
     // This row's net budget adjustments so far this month (already scoped to the
@@ -1301,7 +1304,7 @@ function BudgetCard({
 
     // ── Weekly row maths ────────────────────────────────────────────────────
     const weeklyBudget = isWeeklySpend
-        ? computeBudgetWeek(row, entry, spends, weekStart, weekEnd, today, excludedDates, topUps)
+        ? computeBudgetWeek(row, entry, spends, weekStart, weekEnd, today, excludedDates, topUps, carryIn)
         : null
     // remaining + spent = the total allowance for the week, including any top-up added this week.
     const weeklyAllowance = weeklyBudget ? weeklyBudget.remaining + weeklyBudget.spentThisWeek : 0
@@ -1560,6 +1563,8 @@ export default function Budgets() {
     const [entries, setEntries] = useState<FinanceEntry[]>([])
     const [spends, setSpends] = useState<BudgetSpend[]>([])
     const [topUps, setTopUps] = useState<BudgetTopUp[]>([])
+    /** Carry each row rolls in from earlier months — the never-ending carry. */
+    const [carryIn, setCarryIn] = useState<Map<string, number>>(new Map())
     const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set())
     // Navigate by week — anchor is any date in the desired week
     const [weekAnchor, setWeekAnchor] = useState(todayKey())
@@ -1616,9 +1621,11 @@ export default function Budgets() {
             listBudgetSpends({ month }),
             listBudgetExclusions(month),
             listBudgetTopUps(month),
+            listCarryHistory(month),
         ])
-            .then(([g, r, e, s, x, t]) => {
+            .then(([g, r, e, s, x, t, history]) => {
                 if (!active) return
+                setCarryIn(carryInByRow(r, month, history))
                 setGroups(g)
                 setRows(r)
                 setEntries(e)
@@ -1965,6 +1972,7 @@ export default function Budgets() {
                                 spends={rowSpends}
                                 topUps={rowTopUps}
                                 excludedDates={excludedDates}
+                                carryIn={carryIn.get(row._id) ?? 0}
                                 weekStart={weekStart}
                                 weekEnd={weekEnd}
                                 starlingEnabled={starlingEnabled}
@@ -2001,7 +2009,8 @@ export default function Budgets() {
                     spends.filter((s) => s.row === reconcileRow._id),
                     weekStart,
                     excludedDates,
-                    rowTopUps
+                    rowTopUps,
+                    carryIn.get(reconcileRow._id) ?? 0
                 )
                 return (
                     <ReconcileDrawer

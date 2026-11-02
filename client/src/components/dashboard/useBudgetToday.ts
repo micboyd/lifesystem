@@ -7,8 +7,9 @@ import {
     listBudgetSpends,
     listBudgetExclusions,
     listBudgetTopUps,
+    listCarryHistory,
 } from '../../services/finances'
-import { monthOf } from '../../lib/budget'
+import { monthOf, carryInByRow } from '../../lib/budget'
 import { spendSummary, type MonthBudgetData, type SpendSummary } from '../../lib/budgetDiscipline'
 import type { FinanceGroup, FinanceRow } from '../../types'
 
@@ -42,12 +43,19 @@ export function useBudgetToday(date: string): BudgetToday {
             listBudgetSpends({ month }),
             listBudgetExclusions(month),
             listBudgetTopUps(month),
+            listCarryHistory(month),
         ])
-            .then(([g, r, e, s, x, t]) => {
+            .then(([g, r, e, s, x, t, history]) => {
                 if (!active) return
                 setGroups(g)
                 setRows(r)
-                setData({ entries: e, spends: s, excluded: new Set(x.map((d) => d.date)), topUps: t })
+                setData({
+                    entries: e,
+                    spends: s,
+                    excluded: new Set(x.map((d) => d.date)),
+                    topUps: t,
+                    carryIn: carryInByRow(r, month, history),
+                })
             })
             .finally(() => active && setLoadedKey(key))
         return () => {

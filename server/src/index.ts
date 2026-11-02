@@ -22,6 +22,8 @@ import exerciseRoutes from './routes/exerciseRoutes'
 import express from 'express'
 import financeRoutes from './routes/financeRoutes'
 import fitnessPlanRoutes from './routes/fitnessPlanRoutes'
+import garminRoutes from './routes/garminRoutes'
+import { registerGarminCleanup } from './garmin/account'
 import habitRoutes from './routes/habitRoutes'
 import lifePlanRoutes from './routes/lifePlanRoutes'
 import listRoutes from './routes/listRoutes'
@@ -33,6 +35,7 @@ import noteRoutes from './routes/noteRoutes'
 import nutritionPhaseRoutes from './routes/nutritionPhaseRoutes'
 import path from 'path'
 import reminderRoutes from './routes/reminderRoutes'
+import routeRoutes from './routes/routeRoutes'
 import savingsTargetRoutes from './routes/savingsTargetRoutes'
 import taskRoutes from './routes/taskRoutes'
 import timeboxRoutes from './routes/timeboxRoutes'
@@ -56,6 +59,9 @@ if (missingEnv.length > 0) {
     console.error(`Missing required environment variables: ${missingEnv.join(', ')}`)
     process.exit(1)
 }
+
+// Planner entries deleted anywhere also come off the Garmin calendar.
+registerGarminCleanup()
 
 const app = express()
 const PORT = process.env.PORT ?? 5000
@@ -97,12 +103,14 @@ app.use('/api/meals', mealRoutes)
 app.use('/api/meal-plan', mealPlanRoutes)
 app.use('/api/shopping', shoppingRoutes)
 app.use('/api/fitness-plan', fitnessPlanRoutes)
+app.use('/api/garmin', garminRoutes)
 app.use('/api/plans', trainingPlanRoutes)
 app.use('/api/notes', noteRoutes)
 app.use('/api/lists', listRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
 app.use('/api/life-plans', lifePlanRoutes)
 app.use('/api/nutrition-phases', nutritionPhaseRoutes)
+app.use('/api/routes', routeRoutes)
 
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })
