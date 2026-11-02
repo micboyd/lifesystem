@@ -1,4 +1,4 @@
-import type { MacroGoals, Macros, MealType } from '../types'
+import type { BoxPart, MacroGoals, Macros, MealType } from '../types'
 import { MEAL_TYPES } from '../types'
 
 /**
@@ -161,4 +161,36 @@ export function suggestPortions(
         }
     }
     return best
+}
+
+/**
+ * Roast chicken and veg come out of the oven at about 70% of their raw
+ * weight. Only used to guess a box's share of the tray until it's weighed.
+ */
+export const COOKED_YIELD = 0.7
+
+const to5 = (g: number) => Math.round(g / 5) * 5
+
+/**
+ * What to weigh into each box: a share of the tray, plus each thing kept
+ * apart (cooked rice) as entered. The tray's share comes from its cooked
+ * weight, or — not weighed — an estimate from the raw grams.
+ */
+export function boxParts(
+    ingredients: { name: string; grams: number; apart?: boolean }[],
+    boxes: number,
+    cookedGrams: number | null
+): BoxPart[] {
+    const n = Math.max(1, Math.round(boxes))
+    const tray = ingredients.filter((i) => !i.apart).reduce((a, i) => a + i.grams, 0)
+    const parts: BoxPart[] = []
+    if (tray > 0)
+        parts.push(
+            cookedGrams && cookedGrams > 0
+                ? { name: 'Tray, cooked', grams: to5(cookedGrams / n) }
+                : { name: 'Tray, cooked', grams: to5((tray * COOKED_YIELD) / n), approx: true }
+        )
+    for (const i of ingredients)
+        if (i.apart && i.grams > 0) parts.push({ name: i.name, grams: to5(i.grams / n) })
+    return parts.filter((p) => p.grams > 0)
 }

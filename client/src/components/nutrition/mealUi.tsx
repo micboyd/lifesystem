@@ -1,4 +1,4 @@
-import type { Macros, MealType } from '../../types'
+import type { BoxPart, Macros, MealType } from '../../types'
 import { fmt } from './format'
 
 /**
@@ -122,4 +122,41 @@ export const MACRO_DOT = {
     protein: MACRO_STYLE.protein.dot,
     carbs: MACRO_STYLE.carbs.dot,
     fat: MACRO_STYLE.fat.dot,
+}
+
+/** What to weigh into one box, part by part, biggest numbers first in the eye line. */
+export function BoxParts({ parts, weighHint }: { parts: BoxPart[]; weighHint?: string }) {
+    const total = parts.reduce((a, p) => a + p.grams, 0)
+    const approx = parts.some((p) => p.approx)
+    return (
+        <section className="flex flex-col gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">In each box</p>
+            <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                {parts.map((p, n) => (
+                    <li key={n} className="flex items-baseline gap-3 px-4 py-3">
+                        <span className="w-20 shrink-0 text-right text-lg font-semibold tabular-nums text-neutral-950">
+                            {p.approx ? '~' : ''}
+                            {fmt(p.grams)} g
+                        </span>
+                        <span className="min-w-0 text-sm text-neutral-800">{p.name}</span>
+                    </li>
+                ))}
+                {parts.length > 1 && (
+                    <li className="flex items-baseline gap-3 bg-neutral-50 px-4 py-2.5">
+                        <span className="w-20 shrink-0 text-right text-sm font-medium tabular-nums text-neutral-600">
+                            {approx ? '~' : ''}
+                            {fmt(total)} g
+                        </span>
+                        <span className="text-xs text-neutral-500">the whole box</span>
+                    </li>
+                )}
+            </ul>
+            {approx && (
+                <p className="text-xs text-neutral-500">
+                    {weighHint ??
+                        '~ is an estimate from the raw weights. Weigh the cooked tray once, divide by the boxes, and put the real figure in with Edit.'}
+                </p>
+            )}
+        </section>
+    )
 }

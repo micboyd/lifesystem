@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { batchTotal, fitCost, mealSize, perPortion, slotBudget, suggestPortions } from './mealAim'
+import { batchTotal, boxParts, fitCost, mealSize, perPortion, slotBudget, suggestPortions } from './mealAim'
 import type { Macros } from '../types'
 
 const goals = { calories: 2000, protein: 160, carbs: 200, fat: 60 }
@@ -108,5 +108,28 @@ describe('batches', () => {
     it('has no suggestion without targets or food', () => {
         expect(suggestPortions(m(1000, 80, 100, 30), mealSize(null, 'lunch'))).toBeNull()
         expect(suggestPortions(m(0, 0, 0, 0), mealSize(goals, 'lunch'))).toBeNull()
+    })
+})
+
+describe('boxParts', () => {
+    const ings = [
+        { name: 'Chicken breast', grams: 1000 },
+        { name: 'Peppers', grams: 500 },
+        { name: 'Rice (cooked)', grams: 1250, apart: true },
+    ]
+
+    it('shares out the weighed tray and each thing kept apart', () => {
+        expect(boxParts(ings, 5, 1200)).toEqual([
+            { name: 'Tray, cooked', grams: 240 },
+            { name: 'Rice (cooked)', grams: 250 },
+        ])
+    })
+
+    it('estimates the tray from raw grams when it was not weighed', () => {
+        expect(boxParts(ings, 5, null)[0]).toEqual({ name: 'Tray, cooked', grams: 210, approx: true })
+    })
+
+    it('has no tray part when everything is kept apart', () => {
+        expect(boxParts([{ name: 'Rice', grams: 500, apart: true }], 4, null)).toEqual([{ name: 'Rice', grams: 125 }])
     })
 })

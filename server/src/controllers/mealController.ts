@@ -1,7 +1,7 @@
 import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
-import Meal, { MAX_BATCH, MEAL_TYPES, MealType, IMacros, IMealIngredient } from '../models/Meal'
+import Meal, { MAX_BATCH, MEAL_TYPES, MealType, IMacros, IMealIngredient, IBoxPart } from '../models/Meal'
 import MealPlanEntry from '../models/MealPlanEntry'
 import { newBatchId, makeLastImportHandler, summarise } from '../lib/importBatch'
 import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
@@ -36,6 +36,17 @@ function toIngredients(raw: unknown): IMealIngredient[] {
     })
 }
 
+/** A tray's box parts: named, with grams above 0. */
+function toBox(raw: unknown): IBoxPart[] {
+    if (!Array.isArray(raw)) return []
+    return raw.flatMap((r) => {
+        const i = (r && typeof r === 'object' ? r : {}) as Record<string, unknown>
+        const name = typeof i.name === 'string' ? i.name.trim() : ''
+        const grams = Math.round(toNumber(i.grams))
+        return name && grams > 0 ? [{ name, grams, ...(i.approx === true ? { approx: true } : {}) }] : []
+    })
+}
+
 /** A tray's box count (2 to MAX_BATCH), or null for a single meal. */
 function toBatchOf(raw: unknown): number | null {
     const n = Math.round(toNumber(raw))
@@ -50,6 +61,7 @@ function readMeal(body: unknown):
           macros: IMacros
           ingredients: IMealIngredient[]
           batchOf: number | null
+          box: IBoxPart[]
           notes?: string
       }
     | string {
@@ -62,6 +74,7 @@ function readMeal(body: unknown):
         macros: toMacros(b.macros),
         ingredients: toIngredients(b.ingredients),
         batchOf: toBatchOf(b.batchOf),
+        box: toBatchOf(b.batchOf) ? toBox(b.box) : [],
         notes: typeof b.notes === 'string' ? b.notes.trim() || undefined : undefined,
     }
 }
@@ -189,6 +202,8 @@ export async function importMeals(req: AuthRequest, res: Response) {
         }
         if (item.batchOf !== undefined && item.batchOf !== null && !isAmount(item.batchOf))
             errors.push(`${named}: batchOf must be the number of boxes a tray makes`)
+        if (item.box !== undefined && !Array.isArray(item.box))
+            errors.push(`${named}: box must be a list like [{ "name": "Rice (cooked)", "grams": 250 }]`)
         const fields = readMeal(raw)
         if (typeof fields === 'string') {
             errors.push(`${label}: "name" is required`)

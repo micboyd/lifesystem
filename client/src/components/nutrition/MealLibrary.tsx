@@ -15,14 +15,14 @@ import ConfirmModal from '../ConfirmModal'
 import JsonImportPanel from '../JsonImportPanel'
 import { StatStrip, NoteBlock } from '../session/SessionUI'
 import { FIELD_LABEL } from '../fieldStyles'
-import { CATEGORY, MacroBar, MacroLegend, caloriesFromMacros, isHighProtein } from './mealUi'
+import { BoxParts, CATEGORY, MacroBar, MacroLegend, caloriesFromMacros, isHighProtein } from './mealUi'
 import { fmt, kcal } from './format'
 import { ShopButton, type ShopKind } from './ShoppingList'
 import { BatchDrawer } from './BatchDrawer'
 import { Segmented } from '../planner/PlannerParts'
 import { ingredientAmount } from '../../lib/shopping'
 import { createMeal, deleteAllMeals, deleteMeal, importMeals, updateMeal } from '../../services/meals'
-import { MEAL_TYPES, type MacroGoals, type Macros, type Meal, type MealIngredient, type MealInput, type MealType } from '../../types'
+import { MEAL_TYPES, type MacroGoals, type Macros, type BoxPart, type Meal, type MealIngredient, type MealInput, type MealType } from '../../types'
 
 type Filter = MealType | 'all' | 'trays'
 
@@ -122,6 +122,7 @@ export default function MealLibrary({
             macros: meal.macros,
             ingredients: meal.ingredients,
             batchOf: meal.batchOf,
+            box: meal.box,
             notes: meal.notes,
         })
         await onChanged()
@@ -484,7 +485,7 @@ function MealViewDrawer({
 }
 
 /** A meal's chips, numbers, macro split and notes. A tray's ingredients switch between one box and the whole tray. */
-function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'ingredients' | 'batchOf' | 'notes'> }) {
+function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'ingredients' | 'batchOf' | 'box' | 'notes'> }) {
     const tray = isTray(meal) ? meal.batchOf! : null
     const [whole, setWhole] = useState(true)
     const share = tray && !whole ? tray : 1
@@ -504,6 +505,7 @@ function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'ingredien
                     ))}
                 </div>
             )}
+            {tray && (meal.box?.length ?? 0) > 0 && <BoxParts parts={meal.box!} />}
             <StatStrip
                 stats={[
                     { icon: 'fa-solid fa-fire', label: 'Calories', value: `${kcal(macros.calories)} kcal` },
@@ -572,6 +574,10 @@ const toDraft = (i: MealIngredient): IngredientDraft => ({
     items: i.items ? String(i.items) : '',
 })
 
+type PartDraft = { name: string; grams: string; approx?: boolean }
+const blankPart = (): PartDraft => ({ name: '', grams: '' })
+const toPartDraft = (p: BoxPart): PartDraft => ({ name: p.name, grams: String(p.grams), approx: p.approx })
+
 function MealFormDrawer({
     form,
     onClose,
@@ -598,6 +604,7 @@ function MealFormDrawer({
     const [fat, setFat] = useState('')
     const [rows, setRows] = useState<IngredientDraft[]>([])
     const [boxes, setBoxes] = useState('')
+    const [parts, setParts] = useState<PartDraft[]>([])
     const [notes, setNotes] = useState('')
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
@@ -612,6 +619,7 @@ function MealFormDrawer({
         setFat(editing ? String(editing.macros.fat) : '')
         setRows(editing?.ingredients?.length ? editing.ingredients.map(toDraft) : [blankIngredient()])
         setBoxes(editing?.batchOf ? String(editing.batchOf) : '')
+        setParts(editing?.box?.length ? editing.box.map(toPartDraft) : [blankPart()])
         setNotes(editing?.notes ?? '')
         setSaving(false)
         setError('')
@@ -631,8 +639,17 @@ function MealFormDrawer({
     // Two boxes or more makes it a tray; blank (or 1) is a single meal.
     const batchOf = Math.round(num(boxes)) >= 2 ? Math.min(20, Math.round(num(boxes))) : null
 
+    const box: BoxPart[] = parts
+        .filter((p) => p.name.trim() && num(p.grams) > 0)
+        .map((p) => ({ name: p.name.trim(), grams: Math.round(num(p.grams)), ...(p.approx ? { approx: true } : {}) }))
+
     function patchRow(i: number, patch: Partial<IngredientDraft>) {
         setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+    }
+
+    // Typing a new weight means it's been weighed, so it stops being an estimate.
+    function patchPart(i: number, patch: Partial<PartDraft>) {
+        setParts((prev) => prev.map((p, j) => (j === i ? { ...p, ...patch, approx: 'grams' in patch ? false : p.approx } : p)))
     }
 
     function toggleType(t: MealType) {
@@ -647,6 +664,7 @@ function MealFormDrawer({
             macros,
             ingredients,
             batchOf: batchOf ?? null,
+            box: batchOf ? box : [],
             notes: notes.trim() || undefined,
         }
         setSaving(true)
@@ -731,6 +749,59 @@ function MealFormDrawer({
                         onChange={(e) => setBoxes(e.target.value)}
                     />
                 </div>
+
+                {batchOf && (
+                    <div className="flex flex-col gap-3">
+                        <div>
+                            <p className={FIELD_LABEL}>In each box</p>
+                            <p className="mt-0.5 text-xs text-neutral-500">
+                                What to weigh into a box when you fill them — e.g. 330 g of the tray, 250 g rice.
+                            </p>
+                        </div>
+                        {parts.map((p, i) => (
+                            <div key={i} className="flex items-end gap-2">
+                                <div className="min-w-0 flex-1">
+                                    <Input
+                                        aria-label="Part of the box"
+                                        placeholder="e.g. Rice (cooked)"
+                                        value={p.name}
+                                        onChange={(e) => patchPart(i, { name: e.target.value })}
+                                    />
+                                </div>
+                                <div className="w-24 shrink-0">
+                                    <Input
+                                        aria-label="Grams in each box"
+                                        type="number"
+                                        min={0}
+                                        step="any"
+                                        inputMode="decimal"
+                                        placeholder={p.approx ? '~g' : 'g'}
+                                        value={p.grams}
+                                        onChange={(e) => patchPart(i, { grams: e.target.value })}
+                                    />
+                                </div>
+                                {parts.length > 1 && (
+                                    <button
+                                        type="button"
+                                        aria-label="Remove part"
+                                        onClick={() => setParts((prev) => prev.filter((_, j) => j !== i))}
+                                        className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                    >
+                                        <i className="fa-solid fa-xmark" aria-hidden="true" />
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => setParts((prev) => [...prev, blankPart()])}
+                            className="inline-flex h-10 items-center gap-1.5 self-start rounded-[10px] px-3 text-sm font-semibold text-coral-600 transition-colors hover:bg-coral-50"
+                        >
+                            <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                            Add part
+                        </button>
+                    </div>
+                )}
 
                 <div className="flex flex-col gap-2">
                     {batchOf && <p className={FIELD_LABEL}>One box</p>}
@@ -905,6 +976,11 @@ function ImportNotes() {
                 as bought) and/or {f('items')} — a count, for things you buy by number (3 eggs, not 180 g). With
                 {' '}{f('items')} the shopping list buys the count; otherwise the grams. Add a meal to the shopping list and it buys these — merged with the same ingredient from your trays
                 and other meals, so use the same names. Leave it out and the meal goes on the list as itself.
+            </p>
+            <p>
+                {f('batchOf')} makes it a tray: how many boxes one cook makes. Then {f('macros')} are one box’s,{' '}
+                {f('ingredients')} the whole tray’s, and {f('box')} is what to weigh into each box — a list of{' '}
+                {f('name')} with {f('grams')}, like 330 g of the tray and 250 g rice.
             </p>
             <p>{f('notes')} is free text — where it’s from, how to make it.</p>
             <p>A meal with the same name as one already in your library lets you choose to update it or keep both.</p>

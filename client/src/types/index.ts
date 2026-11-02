@@ -200,6 +200,8 @@ export interface Meal {
     ingredients: MealIngredient[]
     /** A tray: cooked in one go and split into this many boxes. `macros` are one box's. */
     batchOf?: number | null
+    /** A tray: what to weigh into each box, part by part. */
+    box?: BoxPart[]
     notes?: string
     order: number
     createdAt: string
@@ -213,9 +215,18 @@ export interface MealIngredient {
     items?: number
 }
 
+/** One thing weighed into a box when it's assembled: 300 g of the tray, 250 g rice. */
+export interface BoxPart {
+    name: string
+    grams: number
+    /** An estimate until it's been weighed. */
+    approx?: boolean
+}
+
 export type MealInput = Pick<Meal, 'name' | 'types' | 'macros' | 'notes'> & {
     ingredients?: MealIngredient[]
     batchOf?: number | null
+    box?: BoxPart[]
 }
 
 export interface Exercise {

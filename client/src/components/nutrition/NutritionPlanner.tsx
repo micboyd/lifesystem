@@ -36,7 +36,7 @@ import {
     CopiedBanner,
     CopyWeekDrawer,
 } from '../planner/PlannerParts'
-import { CATEGORY, MacroBar, MacroLegend } from './mealUi'
+import { BoxParts, CATEGORY, MacroBar, MacroLegend } from './mealUi'
 import { fmt, kcal, signedKcal } from './format'
 import {
     addPlanEntry,
@@ -1532,6 +1532,9 @@ function PlannedMealDrawer({
                         <MacroLegend macros={e.macros} />
                     </div>
                     </>
+                    )}
+                    {!isAwayNote(e) && (viewMeal?.batchOf ?? 0) > 1 && (viewMeal?.box?.length ?? 0) > 0 && (
+                        <BoxParts parts={viewMeal!.box!} />
                     )}
                     {viewMeal?.notes && (
                         <NoteBlock icon="fa-regular fa-note-sticky" title="Notes">

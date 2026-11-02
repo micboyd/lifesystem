@@ -17,6 +17,14 @@ export interface IMealIngredient {
     items?: number
 }
 
+/** One thing that goes into a box when it's assembled: 300 g of the tray, 250 g rice. */
+export interface IBoxPart {
+    name: string
+    grams: number
+    /** An estimate (raw weights × a typical roasting loss) until it's been weighed. */
+    approx?: boolean
+}
+
 /** The most boxes a tray (a batch) is split into. */
 export const MAX_BATCH = 20
 
@@ -35,6 +43,8 @@ export interface IMeal extends Document {
     ingredients: IMealIngredient[]
     /** A tray: how many boxes one makes. Null for a single meal. */
     batchOf?: number | null
+    /** A tray: what to weigh into each box, part by part. Empty for a single meal. */
+    box: IBoxPart[]
     notes?: string
     order: number
     /** Set on meals added by a JSON import, so the last import can be undone. */
@@ -69,6 +79,19 @@ const mealSchema = new Schema<IMeal>(
             default: [],
         },
         batchOf: { type: Number, min: 2, max: MAX_BATCH, default: null },
+        box: {
+            type: [
+                new Schema<IBoxPart>(
+                    {
+                        name: { type: String, trim: true },
+                        grams: { type: Number, default: 0, min: 0 },
+                        approx: Boolean,
+                    },
+                    { _id: false }
+                ),
+            ],
+            default: [],
+        },
         notes: { type: String, trim: true },
         order: { type: Number, default: 0 },
         importBatch: { type: String, default: null },

@@ -4,9 +4,9 @@ import Button from '../Button'
 import Input from '../Input'
 import Textarea from '../Textarea'
 import { FIELD_LABEL } from '../fieldStyles'
-import { CATEGORY, MacroBar, MacroLegend } from './mealUi'
+import { BoxParts, CATEGORY, MacroBar, MacroLegend } from './mealUi'
 import { fmt, kcal } from './format'
-import { batchTotal, MAX_PORTIONS, mealSize, perPortion, suggestPortions } from '../../lib/mealAim'
+import { batchTotal, boxParts, MAX_PORTIONS, mealSize, perPortion, suggestPortions } from '../../lib/mealAim'
 import { targetsFor } from '../../lib/nutrition'
 import { addDays, MONTHS, parseDateKey, todayKey } from '../../lib/calendar'
 import { listNutritionPhases } from '../../services/nutritionPhases'
@@ -35,8 +35,10 @@ type Row = {
     protein: string
     carbs: string
     fat: string
+    /** Cooked and weighed into the boxes on its own, like rice — not part of the tray. */
+    apart: boolean
 }
-const blankRow = (): Row => ({ name: '', grams: '', calories: '', protein: '', carbs: '', fat: '' })
+const blankRow = (): Row => ({ name: '', grams: '', calories: '', protein: '', carbs: '', fat: '', apart: false })
 
 const num = (v: string) => Math.max(0, Number(v) || 0)
 const str = (n: unknown) => (typeof n === 'number' && n > 0 ? String(n) : '')
@@ -61,6 +63,7 @@ function parsePasted(text: string): Row[] | null {
                 protein: str(i.per100?.protein),
                 carbs: str(i.per100?.carbs),
                 fat: str(i.per100?.fat),
+                apart: i.apart === true,
             }))
         return rows.length ? rows : null
     } catch {
@@ -109,6 +112,7 @@ export function BatchDrawer({
         .map((r) => ({
             name: r.name.trim(),
             grams: num(r.grams),
+            apart: r.apart,
             per100: {
                 calories: num(r.calories),
                 protein: num(r.protein),
@@ -128,7 +132,8 @@ export function BatchDrawer({
     const count = portions ?? suggested ?? 4
     const portion = perPortion(total, count)
     const cookedGrams = num(cooked)
-    const boxGrams = cookedGrams > 0 ? Math.round(cookedGrams / count / 5) * 5 : null
+    const parts = count >= 2 ? boxParts(ingredients, count, cookedGrams) : []
+    const hasApart = ingredients.some((i) => i.apart)
 
     const valid = ingredients.length > 0 && total.calories > 0
     const fallbackName = `Batch · ${shortDay(today)}`
@@ -161,12 +166,7 @@ export function BatchDrawer({
         if (!valid) return
         // The whole tray's ingredients — the shopping list shares them out by the box.
         const trayIngredients: MealIngredient[] = ingredients.map((i) => ({ name: i.name, grams: i.grams }))
-        const made = [
-            `Tray made ${shortDay(today)}`,
-            boxGrams ? `~${fmt(boxGrams)} g per box` : null,
-        ]
-            .filter(Boolean)
-            .join(' · ')
+        const made = `Tray made ${shortDay(today)}`
         setSaving(true)
         setError('')
         try {
@@ -176,6 +176,7 @@ export function BatchDrawer({
                 macros: portion,
                 ingredients: trayIngredients,
                 batchOf: count >= 2 ? count : null,
+                box: parts,
                 notes: [made, notes.trim()].filter(Boolean).join('\n\n'),
             })
             onClose()
@@ -249,7 +250,8 @@ export function BatchDrawer({
                             <p className={FIELD_LABEL}>What went in</p>
                             <p className="mt-0.5 text-xs text-neutral-500">
                                 Raw grams, with the packet’s figures per 100 g. Rice and sides too,
-                                if they’re in the boxes.
+                                if they’re in the boxes — tick “Kept apart” on those and put them in
+                                cooked, so each box gets its own weight of them.
                             </p>
                         </div>
                         <button
@@ -349,9 +351,20 @@ export function BatchDrawer({
                                     />
                                 ))}
                             </div>
-                            <p className="text-[11px] text-neutral-400">
-                                per 100 g · kcal, protein, carbs, fat
-                            </p>
+                            <div className="flex items-center justify-between gap-3">
+                                <p className="text-[11px] text-neutral-400">
+                                    per 100 g · kcal, protein, carbs, fat
+                                </p>
+                                <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 text-xs font-medium text-neutral-600">
+                                    <input
+                                        type="checkbox"
+                                        checked={r.apart}
+                                        onChange={(e) => patchRow(i, { apart: e.target.checked })}
+                                        className="h-4 w-4 rounded border-neutral-300 accent-coral-500"
+                                    />
+                                    Kept apart
+                                </label>
+                            </div>
                         </div>
                     ))}
                     <button
@@ -365,8 +378,12 @@ export function BatchDrawer({
                 </div>
 
                 <Input
-                    label="Cooked weight (g)"
-                    hint="Optional. Weigh the whole lot once it’s cooked, and you get grams per box."
+                    label="Cooked weight of the tray (g)"
+                    hint={
+                        hasApart
+                            ? 'Optional. Weigh the tray once it’s cooked, without the things kept apart, for exact grams per box.'
+                            : 'Optional. Weigh the tray once it’s cooked for exact grams per box.'
+                    }
                     type="number"
                     min={0}
                     step="any"
@@ -430,16 +447,14 @@ export function BatchDrawer({
                                     </p>
                                 )}
                             </div>
-                            {boxGrams && (
-                                <p className="text-sm font-medium text-neutral-800">
-                                    <i
-                                        className="fa-solid fa-scale-balanced mr-1.5 text-xs text-neutral-400"
-                                        aria-hidden="true"
-                                    />
-                                    About {fmt(boxGrams)} g in each box
-                                </p>
-                            )}
                         </div>
+
+                        {parts.length > 0 && (
+                            <BoxParts
+                                parts={parts}
+                                weighHint="~ is an estimate from the raw weights. Put in the tray’s cooked weight above for exact grams."
+                            />
+                        )}
 
                         <Figures label="Each box" macros={portion} strong />
 
