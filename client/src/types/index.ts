@@ -196,8 +196,10 @@ export interface Meal {
     /** Breakfast / lunch / dinner / snack — a meal can be more than one. */
     types: MealType[]
     macros: Macros
-    /** What goes into one serving — what the shopping list buys. */
+    /** What goes into one serving — or, for a tray, the whole tray. What the shopping list buys. */
     ingredients: MealIngredient[]
+    /** A tray: cooked in one go and split into this many boxes. `macros` are one box's. */
+    batchOf?: number | null
     notes?: string
     order: number
     createdAt: string
@@ -211,7 +213,10 @@ export interface MealIngredient {
     items?: number
 }
 
-export type MealInput = Pick<Meal, 'name' | 'types' | 'macros' | 'notes'> & { ingredients?: MealIngredient[] }
+export type MealInput = Pick<Meal, 'name' | 'types' | 'macros' | 'notes'> & {
+    ingredients?: MealIngredient[]
+    batchOf?: number | null
+}
 
 export interface Exercise {
     _id: string
@@ -432,79 +437,6 @@ export type EntryStatus = (typeof ENTRY_STATUSES)[number]
  * A raw ingredient in a box: how much goes in, and its packet macros per
  * 100 g. `items` is how many, for things bought by count (5 eggs).
  */
-export interface Ingredient {
-    name: string
-    grams: number
-    items?: number
-    per100: Macros
-}
-
-export type PlateFoodKind = 'box' | 'plain'
-
-/** One cook of a box — a batch, with its macros per 100 g of cooked food. */
-export interface BoxCook {
-    _id: string
-    food: string
-    name: string
-    /** "YYYY-MM-DD". */
-    date: string
-    ingredients: Ingredient[]
-    raw: Macros
-    cookedGrams: number
-    per100: Macros
-    finished: boolean
-    /** In the freezer — in the pantry, but can't go on a plate until taken out. */
-    frozen?: boolean
-    /** "YYYY-MM-DD" it came out of the freezer; its fridge age counts from here. */
-    thawed?: string
-    /** Grams eaten from it so far (open batches only). */
-    eatenGrams?: number
-    /** Grams on plates still planned (pantry list only). */
-    plannedGrams?: number
-    createdAt: string
-}
-
-/**
- * Something weighed onto a plate: a box cooked from raw ingredients, or a
- * plain food (cooked rice, say) with fixed macros per 100 g.
- */
-export interface PlateFood {
-    _id: string
-    kind: PlateFoodKind
-    name: string
-    ingredients: Ingredient[]
-    per100?: Macros
-    notes?: string
-    order: number
-    /** A box's batches in use (not finished, not frozen), newest first. */
-    open: BoxCook[]
-    /** A box's batches in the freezer, newest first. */
-    frozen: BoxCook[]
-    /** A box's latest cook, finished or not. */
-    last: BoxCook | null
-}
-
-export type PlateFoodInput = Pick<PlateFood, 'kind' | 'name' | 'ingredients' | 'per100' | 'notes'>
-
-/** One line of a plate: grams of a food, with the per-100 g figures it counts at. */
-export interface PlateLine {
-    food: string
-    name: string
-    grams: number
-    /** The cook a box line draws from. */
-    batch?: string
-    /** An eaten line that ran one batch out: grams from each, oldest first. */
-    takes?: { batch: string; grams: number }[]
-    per100: Macros
-}
-
-/** A plate line as sent to the server — it fills in the figures. */
-export interface PlateLineInput {
-    food: string
-    grams: number
-    batch?: string
-}
-
 export interface MealPlanEntry {
     _id: string
     /** "YYYY-MM-DD". */
@@ -512,15 +444,6 @@ export interface MealPlanEntry {
     slot: MealType
     /** The library meal's id, if it still exists. */
     meal?: string
-    /** Set on a plate: foods weighed by the gram. `macros` is their total. */
-    plate?: PlateLine[]
-    /**
-     * Set on a box note: "eating from this box" planned ahead with no amounts.
-     * No macros, never ticked — weighing that box into the slot replaces it.
-     */
-    box?: string
-    /** A box note's sides (plain foods or other boxes) — one meal with the box. */
-    sides?: string[]
     /**
      * Set on an away note: at an event, so no meal in this slot. `name` is the
      * event's title. No macros, never ticked; a meal added to the slot replaces it.
@@ -1954,8 +1877,10 @@ export interface ShoppingGroup {
     ref?: string
     name: string
     count: number
-    /** A box's ingredients for one batch, or a meal's for one serving. */
+    /** A box's ingredients for one batch, or a meal's for one serving (a tray's: the whole tray). */
     ingredients: { name: string; grams: number; items?: number }[]
+    /** A tray meal: how many boxes its ingredients make. `count` is in boxes. */
+    batchOf?: number | null
 }
 
 export interface ShoppingList {

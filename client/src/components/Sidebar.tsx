@@ -238,7 +238,7 @@ function MobileNav({ pathname }: { pathname: string }) {
         setDragX(0)
     }
 
-    const panelTransform = open ? `translateX(${dragX}px)` : 'translateX(calc(-100% - 1rem))'
+    const panelTransform = open ? `translateX(${dragX}px)` : 'translateX(-100%)'
 
     return (
         <>
@@ -293,26 +293,25 @@ function MobileNav({ pathname }: { pathname: string }) {
                         onTouchCancel={onTouchEnd}
                         style={{ transform: panelTransform }}
                         className={[
-                            'absolute bottom-[max(0.5rem,env(safe-area-inset-bottom))] left-2 top-[max(0.5rem,env(safe-area-inset-top))]',
-                            'flex w-[min(20rem,calc(100vw-3.5rem))] flex-col overflow-hidden rounded-[20px] bg-white shadow-2xl shadow-neutral-900/20',
+                            'absolute inset-0 flex flex-col bg-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]',
                             dragging ? '' : 'transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
                         ].join(' ')}
                     >
                         {/* Header: who's signed in, plus close */}
-                        <div className="flex shrink-0 items-center gap-2 p-3">
+                        <div className="flex shrink-0 items-center gap-2 border-b border-neutral-100 px-3 py-3">
                             <Link
                                 to="/profile"
                                 className={[
-                                    'flex min-w-0 flex-1 items-center gap-3 rounded-[14px] p-2 transition-colors',
+                                    'flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-[14px] p-2 transition-colors',
                                     profileActive ? BRAND.profileActiveClass : 'hover:bg-neutral-100 active:bg-neutral-100',
                                 ].join(' ')}
                             >
                                 <Avatar name={user?.name} size="md" />
                                 <div className="min-w-0 flex-1">
-                                    <p className="truncate text-[15px] font-semibold text-neutral-900">
+                                    <p className="truncate text-base font-semibold text-neutral-900">
                                         {user?.name ?? 'Your profile'}
                                     </p>
-                                    <p className="truncate text-xs text-neutral-500">View profile</p>
+                                    <p className="truncate text-[13px] text-neutral-500">View profile</p>
                                 </div>
                             </Link>
                             <button
@@ -320,20 +319,20 @@ function MobileNav({ pathname }: { pathname: string }) {
                                 type="button"
                                 onClick={() => setOpen(false)}
                                 aria-label="Close menu"
-                                className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                                className="grid h-12 w-12 shrink-0 place-items-center rounded-[12px] bg-neutral-100 text-neutral-700 transition-colors hover:bg-neutral-200 active:bg-neutral-200"
                             >
-                                <i className="fa-solid fa-xmark text-base" aria-hidden="true" />
+                                <i className="fa-solid fa-xmark text-lg" aria-hidden="true" />
                             </button>
                         </div>
 
                         {/* Grouped destinations */}
-                        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
+                        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-6 pt-4">
                             {NAV_GROUPED.map((group) => (
-                                <section key={group.label} className="border-t border-neutral-100 pt-3 pb-2 first:border-t-0 first:pt-0">
-                                    <h3 className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                                <section key={group.label} className="pb-5 last:pb-0">
+                                    <h3 className="px-3 pb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
                                         {group.label}
                                     </h3>
-                                    <ul className="flex flex-col gap-0.5">
+                                    <ul className="flex flex-col gap-1">
                                         {group.items.map(({ label, to, icon }) => {
                                             const active = isActive(pathname, to)
                                             return (
@@ -342,7 +341,7 @@ function MobileNav({ pathname }: { pathname: string }) {
                                                         to={to}
                                                         aria-current={active ? 'page' : undefined}
                                                         className={[
-                                                            'flex h-11 items-center gap-3 rounded-[12px] px-2 text-[15px] font-medium transition-colors',
+                                                            'flex h-14 items-center gap-3.5 rounded-[14px] px-2.5 text-[17px] font-medium transition-colors',
                                                             active
                                                                 ? 'bg-coral-50 text-coral-700'
                                                                 : 'text-neutral-800 hover:bg-neutral-100 active:bg-neutral-100',
@@ -350,14 +349,18 @@ function MobileNav({ pathname }: { pathname: string }) {
                                                     >
                                                         <span
                                                             className={[
-                                                                'grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-[13px]',
+                                                                'grid h-10 w-10 shrink-0 place-items-center rounded-[12px] text-[15px]',
                                                                 active ? 'bg-coral-500 text-white' : 'bg-neutral-100 text-neutral-600',
                                                             ].join(' ')}
                                                         >
                                                             <i className={`fa-solid ${icon}`} aria-hidden="true" />
                                                         </span>
                                                         <span className="flex-1 truncate">{label}</span>
-                                                        {active && <span className="h-1.5 w-1.5 rounded-full bg-coral-500" aria-hidden="true" />}
+                                                        {active ? (
+                                                            <span className="h-2 w-2 rounded-full bg-coral-500" aria-hidden="true" />
+                                                        ) : (
+                                                            <i className="fa-solid fa-chevron-right text-xs text-neutral-300" aria-hidden="true" />
+                                                        )}
                                                     </Link>
                                                 </li>
                                             )

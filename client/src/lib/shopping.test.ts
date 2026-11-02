@@ -77,6 +77,47 @@ describe('mergeLines', () => {
     })
 })
 
+describe('mergeLines with trays', () => {
+    // A tray of 5 boxes; its ingredients are the whole tray's. Count is in boxes.
+    const tray = (count: number): ShoppingGroup => ({
+        id: 't',
+        kind: 'meal',
+        name: 'BBQ chicken',
+        count,
+        batchOf: 5,
+        ingredients: [
+            { name: 'Chicken breast', grams: 1000 },
+            { name: 'Limes', grams: 0, items: 2 },
+        ],
+    })
+    const get = (lines: ReturnType<typeof mergeLines>, key: string) => lines.find((l) => l.key === key)!
+
+    it('buys a share of the tray by servings', () => {
+        const lines = mergeLines([tray(2)], 'servings')
+        expect(get(lines, 'chicken breast').grams).toBe(400)
+        // 0.8 of a lime is still one lime.
+        expect(get(lines, 'limes').qty).toBe(1)
+    })
+
+    it('buys whole trays by batch, enough to cover the boxes', () => {
+        expect(get(mergeLines([tray(5)], 'batch'), 'chicken breast').grams).toBe(1000)
+        expect(get(mergeLines([tray(7)], 'batch'), 'chicken breast').grams).toBe(2000)
+        expect(get(mergeLines([tray(2)], 'batch'), 'limes').qty).toBe(2)
+    })
+
+    it('leaves single meals alone either way', () => {
+        const meal: ShoppingGroup = {
+            id: 'm',
+            kind: 'meal',
+            name: 'Eggs on toast',
+            count: 2,
+            ingredients: [{ name: 'Eggs', grams: 0, items: 3 }],
+        }
+        expect(get(mergeLines([meal], 'batch'), 'eggs').qty).toBe(6)
+        expect(get(mergeLines([meal], 'servings'), 'eggs').qty).toBe(6)
+    })
+})
+
 describe('lineAmount', () => {
     it('reads naturally', () => {
         expect(lineAmount({ key: 'a', name: 'a', grams: 1250, qty: 0, from: [] })).toBe('1.3 kg')

@@ -12,6 +12,7 @@
         "conditioning:wipe": "tsx src/scripts/wipeConditioning.ts",
         "nutrition:seed-recomp": "tsx src/scripts/seedRecompPhase.ts",
         "nutrition:backup": "tsx src/scripts/backupNutrition.ts",
+        "nutrition:drop-box-notes": "tsx src/scripts/dropBoxNotes.ts",
         "retire:study": "tsx src/scripts/retireStudyModules.ts",
         "retire:mobility": "tsx src/scripts/retireMobilityRecovery.ts",
         "nutrition:simplify": "tsx src/scripts/simplifyNutrition.ts",

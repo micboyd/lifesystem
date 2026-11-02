@@ -1,7 +1,7 @@
 import { Response } from 'express'
 import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
-import Meal, { MEAL_TYPES, MealType, IMacros, IMealIngredient } from '../models/Meal'
+import Meal, { MAX_BATCH, MEAL_TYPES, MealType, IMacros, IMealIngredient } from '../models/Meal'
 import MealPlanEntry from '../models/MealPlanEntry'
 import { newBatchId, makeLastImportHandler, summarise } from '../lib/importBatch'
 import { nameKey, extractList, extractOverwrite } from '../lib/importReconcile'
@@ -36,10 +36,23 @@ function toIngredients(raw: unknown): IMealIngredient[] {
     })
 }
 
+/** A tray's box count (2 to MAX_BATCH), or null for a single meal. */
+function toBatchOf(raw: unknown): number | null {
+    const n = Math.round(toNumber(raw))
+    return n >= 2 ? Math.min(n, MAX_BATCH) : null
+}
+
 /** A meal from a request body, or an error message. */
-function readMeal(
-    body: unknown
-): { name: string; types: MealType[]; macros: IMacros; ingredients: IMealIngredient[]; notes?: string } | string {
+function readMeal(body: unknown):
+    | {
+          name: string
+          types: MealType[]
+          macros: IMacros
+          ingredients: IMealIngredient[]
+          batchOf: number | null
+          notes?: string
+      }
+    | string {
     const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>
     const name = typeof b.name === 'string' ? b.name.trim() : ''
     if (!name) return 'A meal needs a name'
@@ -48,6 +61,7 @@ function readMeal(
         types: toTypes(b.types),
         macros: toMacros(b.macros),
         ingredients: toIngredients(b.ingredients),
+        batchOf: toBatchOf(b.batchOf),
         notes: typeof b.notes === 'string' ? b.notes.trim() || undefined : undefined,
     }
 }
@@ -173,6 +187,8 @@ export async function importMeals(req: AuthRequest, res: Response) {
                         errors.push(`${at} needs "grams" or "items" above 0`)
                 })
         }
+        if (item.batchOf !== undefined && item.batchOf !== null && !isAmount(item.batchOf))
+            errors.push(`${named}: batchOf must be the number of boxes a tray makes`)
         const fields = readMeal(raw)
         if (typeof fields === 'string') {
             errors.push(`${label}: "name" is required`)

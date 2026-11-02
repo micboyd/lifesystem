@@ -6,16 +6,8 @@ import Pagination from '../Pagination'
 import { PickRow, PICK_LABEL, Segmented } from '../planner/PlannerParts'
 import { CATEGORY } from './mealUi'
 import { fmt, kcal } from './format'
+import { fitCost, slotBudget } from '../../lib/mealAim'
 import {
-    fitCost,
-    projectBoxNotes,
-    slotBudget,
-    suggestGrams,
-    type BoxProjection,
-} from '../../lib/plateSuggest'
-import { expectedPer100, gramsLeft, lineMacros, nextBatch, plateTotal } from '../../lib/plates'
-import {
-    addDays,
     eventCoversAllDay,
     eventCoversSlot,
     MONTHS,
@@ -31,19 +23,13 @@ import type {
     Meal,
     MealPlanEntry,
     MealType,
-    PlateFood,
-    PlateLineInput,
 } from '../../types'
 
 /**
  * Adding to a day, one way for everything. A Planned / Eaten switch at the
  * top (planned for days ahead, eaten today and before), the slot, and the
- * slot's aim. Then one list: the saved meals that best fit the aim, your
- * boxes and foods (cooked or not), every saved meal, and "away".
- *
- * Picking a box or food opens one step: add sides, then —
- *   planned: an estimated portion, and the days to plan it for;
- *   eaten:   the grams, with the suggested ones a tap away.
+ * slot's aim. Then one list: the saved meals that best fit the aim, every
+ * saved meal, and "away".
  */
 
 export type AddTarget = {
@@ -63,31 +49,14 @@ function dayLabel(date: string): string {
     return `${WEEKDAYS_LONG[new Date(year, month, day).getDay()].slice(0, 3)} ${day} ${MONTHS[month].slice(0, 3)}`
 }
 
-/** What a box or food has in the pantry, in a few words. */
-function stockLine(f: PlateFood): string {
-    const left = f.open.reduce((sum, c) => sum + gramsLeft(c.cookedGrams, c.eatenGrams), 0)
-    if (f.open.length > 0) return `~${fmt(left)} g in the fridge`
-    if (f.frozen.length > 0) return 'In the freezer'
-    if (f.kind === 'plain')
-        return f.per100 ? `${kcal(f.per100.calories)} kcal / 100 g` : 'No figures yet'
-    return 'Not cooked yet'
-}
-
-/** Whether it can go on a plate now: a box needs a batch out, a plain food just its figures. */
-const plateable = (f: PlateFood) => (f.kind === 'box' ? f.open.length > 0 : !!f.per100)
-
 export function AddDrawer({
     target,
     meals,
-    foods,
     entries,
-    projections,
     events,
     goalsFor,
     onClose,
     onAddMeal,
-    onAddPlate,
-    onAddBox,
     onAddAway,
     onAddAwayDay,
     copied,
@@ -99,22 +68,13 @@ export function AddDrawer({
     onPaste?: (date: string, slot: MealType) => Promise<void>
     target: AddTarget | null
     meals: Meal[]
-    foods: PlateFood[]
     /** Everything on the target day. */
     entries: MealPlanEntry[]
-    projections: Map<string, BoxProjection>
     /** Calendar events touching the day, offered for "away". */
     events: Event[]
     goalsFor: (date: string) => MacroGoals | null
     onClose: () => void
     onAddMeal: (date: string, slot: MealType, mealId: string, eaten: boolean) => Promise<void>
-    onAddPlate: (
-        date: string,
-        slot: MealType,
-        plate: PlateLineInput[],
-        eaten: boolean
-    ) => Promise<void>
-    onAddBox: (box: string, slot: MealType, dates: string[], sides: string[]) => Promise<void>
     onAddAway: (date: string, slot: MealType, name: string) => Promise<void>
 }) {
     const [view, setView] = useState<AddTarget | null>(target)
@@ -122,12 +82,8 @@ export function AddDrawer({
     const [slot, setSlot] = useState<MealType>('breakfast')
     const [query, setQuery] = useState('')
     const [page, setPage] = useState(1)
-    // The list, a box or food being set up, or "away".
-    const [step, setStep] = useState<
-        { kind: 'list' } | { kind: 'food'; id: string } | { kind: 'away' }
-    >({
-        kind: 'list',
-    })
+    // The list, or "away".
+    const [step, setStep] = useState<{ kind: 'list' } | { kind: 'away' }>({ kind: 'list' })
     const [busy, setBusy] = useState(false)
 
     // Opened on a slot: start fresh from it. (The last target stays on show
@@ -144,11 +100,8 @@ export function AddDrawer({
 
     const date = view?.date ?? todayKey()
     const goals = goalsFor(date)
-    // This slot's share of what's left of the day; box notes elsewhere count at their estimate.
-    const dayEntries = entries.map((e) =>
-        e.box ? { ...e, macros: projections.get(e._id)?.macros ?? e.macros } : e
-    )
-    const aim = slotBudget(goals, slot, dayEntries)
+    // This slot's share of what's left of the day.
+    const aim = slotBudget(goals, slot, entries)
     const aimOpen = !!aim && aim.keys.some((k) => aim.budget[k] >= (k === 'calories' ? 25 : 2))
 
     async function run(fn: () => Promise<void>) {
@@ -226,30 +179,10 @@ export function AddDrawer({
                             onBack={() => setStep({ kind: 'list' })}
                             onPick={(name) => run(() => onAddAway(date, slot, name))}
                         />
-                    ) : step.kind === 'food' ? (
-                        <FoodStep
-                            key={`${step.id}|${eaten}`}
-                            main={step.id}
-                            foods={foods}
-                            date={date}
-                            slot={slot}
-                            eaten={eaten}
-                            entries={entries}
-                            aim={aim}
-                            goals={goals}
-                            busy={busy}
-                            onBack={() => setStep({ kind: 'list' })}
-                            onPlan={(dates, sides) =>
-                                run(() => onAddBox(step.id, slot, dates, sides))
-                            }
-                            onLog={(plate) => run(() => onAddPlate(date, slot, plate, true))}
-                        />
                     ) : (
                         <ListStep
                             meals={meals}
-                            foods={foods}
                             slot={slot}
-                            eaten={eaten}
                             aim={aimOpen ? aim : null}
                             query={query}
                             page={page}
@@ -260,7 +193,6 @@ export function AddDrawer({
                             }}
                             onPage={setPage}
                             onMeal={(m) => run(() => onAddMeal(date, slot, m._id, eaten))}
-                            onFood={(id) => setStep({ kind: 'food', id })}
                             onAway={() => setStep({ kind: 'away' })}
                             copied={copied ?? null}
                             onPaste={onPaste ? () => run(() => onPaste(date, slot)) : undefined}
@@ -317,9 +249,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 
 function ListStep({
     meals,
-    foods,
     slot,
-    eaten,
     aim,
     query,
     page,
@@ -327,7 +257,6 @@ function ListStep({
     onQuery,
     onPage,
     onMeal,
-    onFood,
     onAway,
     copied,
     onPaste,
@@ -335,9 +264,7 @@ function ListStep({
     copied: MealPlanEntry | null
     onPaste?: () => void
     meals: Meal[]
-    foods: PlateFood[]
     slot: MealType
-    eaten: boolean
     aim: ReturnType<typeof slotBudget>
     query: string
     page: number
@@ -345,20 +272,10 @@ function ListStep({
     onQuery: (q: string) => void
     onPage: (p: number) => void
     onMeal: (m: Meal) => void
-    onFood: (id: string) => void
     onAway: () => void
 }) {
     const q = query.trim().toLowerCase()
     const match = (name: string) => !q || name.toLowerCase().includes(q)
-
-    const sortedFoods = useMemo(
-        () =>
-            [...foods].sort((a, b) =>
-                a.kind === b.kind ? a.order - b.order : a.kind === 'box' ? -1 : 1
-            ),
-        [foods]
-    )
-    const shownFoods = sortedFoods.filter((f) => match(f.name))
 
     // Saved meals tagged for the slot, or — searching — the whole library.
     const shownMeals = useMemo(() => {
@@ -390,7 +307,7 @@ function ListStep({
             <Input
                 icon="fa-solid fa-magnifying-glass"
                 type="search"
-                placeholder="Search meals, boxes and foods…"
+                placeholder="Search meals…"
                 value={query}
                 onChange={(e) => onQuery(e.target.value)}
             />
@@ -419,28 +336,6 @@ function ListStep({
                                 icon="fa-solid fa-plus"
                                 disabled={busy}
                                 onClick={() => onMeal(m)}
-                            />
-                        ))}
-                    </ul>
-                </section>
-            )}
-
-            {shownFoods.length > 0 && (
-                <section className="flex flex-col gap-2">
-                    <p className={LABEL}>Boxes & foods</p>
-                    <ul className="flex flex-col gap-1.5">
-                        {shownFoods.map((f) => (
-                            <PickRow
-                                key={f._id}
-                                title={f.name}
-                                detail={
-                                    eaten && !plateable(f)
-                                        ? `${stockLine(f)} — can’t log it yet`
-                                        : stockLine(f)
-                                }
-                                icon="fa-solid fa-chevron-right"
-                                disabled={busy || (eaten && !plateable(f))}
-                                onClick={() => onFood(f._id)}
                             />
                         ))}
                     </ul>
@@ -488,315 +383,6 @@ function ListStep({
                         onClick={onAway}
                     />
                 </ul>
-            )}
-        </div>
-    )
-}
-
-// ─── A box or food ─────────────────────────────────────────────────────────────
-
-function FoodStep({
-    main,
-    foods,
-    date,
-    slot,
-    eaten,
-    entries,
-    aim,
-    goals,
-    busy,
-    onBack,
-    onPlan,
-    onLog,
-}: {
-    main: string
-    foods: PlateFood[]
-    date: string
-    slot: MealType
-    eaten: boolean
-    entries: MealPlanEntry[]
-    aim: ReturnType<typeof slotBudget>
-    goals: MacroGoals | null
-    busy: boolean
-    onBack: () => void
-    onPlan: (dates: string[], sides: string[]) => void
-    onLog: (plate: PlateLineInput[]) => void
-}) {
-    const [sides, setSides] = useState<string[]>([])
-    const [days, setDays] = useState<string[]>([date])
-    const [grams, setGrams] = useState<Record<string, string>>({})
-    const food = foods.find((f) => f._id === main)
-    const today = todayKey()
-
-    const sideOptions = foods
-        .filter((f) => f._id !== main && (!eaten || plateable(f)))
-        .sort((a, b) => (a.kind === b.kind ? a.order - b.order : a.kind === 'plain' ? -1 : 1))
-    const ids = [main, ...sides]
-    const byId = new Map(foods.map((f) => [f._id, f]))
-
-    // Planned: the estimate the day will show for it.
-    const estimate = useMemo(() => {
-        if (eaten) return null
-        const note = {
-            _id: '__new',
-            slot,
-            macros: { calories: 0, protein: 0, carbs: 0, fat: 0 },
-            box: main,
-            sides,
-        }
-        const per100For = (id: string) => {
-            const f = byId.get(id)
-            return (f && expectedPer100(f)?.per100) ?? null
-        }
-        return (
-            projectBoxNotes(
-                [...entries.filter((e) => e.slot !== slot || !e.box), note],
-                goals,
-                per100For
-            ).get('__new') ?? null
-        )
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [eaten, slot, main, sides, entries, goals, foods])
-
-    // Eaten: each line's figures, and the grams the aim suggests.
-    const lines = ids.flatMap((id) => {
-        const f = byId.get(id)
-        if (!f) return []
-        const cook = nextBatch(f.open)
-        const per100 = f.kind === 'box' ? cook?.per100 : f.per100
-        if (!per100) return []
-        const left = f.open.length
-            ? f.open.reduce((sum, c) => sum + gramsLeft(c.cookedGrams, c.eatenGrams), 0)
-            : null
-        return [{ id, f, cook, per100, left }]
-    })
-    const typed = (id: string) => {
-        const g = Number(grams[id] ?? '')
-        return Number.isFinite(g) && g > 0 ? g : null
-    }
-    const suggested =
-        eaten && aim
-            ? suggestGrams(
-                  lines.map((l) => ({ per100: l.per100, fixed: typed(l.id), max: l.left })),
-                  aim.budget,
-                  aim.keys,
-                  aim.size
-              )
-            : null
-    // A blank line counts at its suggested grams — so the suggestion logs in one tap.
-    const plate = lines.map((l, i) => ({ ...l, grams: typed(l.id) ?? suggested?.[i] ?? 0 }))
-    const total = plateTotal(plate.map((l) => ({ grams: l.grams, per100: l.per100 })))
-
-    if (!food) return <BackButton onClick={onBack} />
-
-    const toggleSide = (id: string) =>
-        setSides((prev) =>
-            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id].slice(-4)
-        )
-    const toggleDay = (d: string) =>
-        setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()))
-
-    return (
-        <div className="flex flex-col gap-5">
-            <BackButton onClick={onBack} />
-            <div>
-                <p className="text-lg font-semibold tracking-tight text-neutral-900">{food.name}</p>
-                <p className="text-xs text-neutral-500">{stockLine(food)}</p>
-            </div>
-
-            {sideOptions.length > 0 && (
-                <section className="flex flex-col gap-2">
-                    <p className={LABEL}>With a side? · optional</p>
-                    <div className="flex flex-wrap gap-1.5">
-                        {sideOptions.map((f) => {
-                            const on = sides.includes(f._id)
-                            return (
-                                <button
-                                    key={f._id}
-                                    type="button"
-                                    aria-pressed={on}
-                                    onClick={() => toggleSide(f._id)}
-                                    className={`flex min-h-9 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors ${
-                                        on
-                                            ? 'bg-neutral-900 text-white'
-                                            : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                                    }`}
-                                >
-                                    {on && (
-                                        <i
-                                            className="fa-solid fa-check text-[10px]"
-                                            aria-hidden="true"
-                                        />
-                                    )}
-                                    {f.name}
-                                </button>
-                            )
-                        })}
-                    </div>
-                </section>
-            )}
-
-            {eaten ? (
-                <>
-                    <section className="flex flex-col gap-2">
-                        <p className={LABEL}>How much</p>
-                        {suggested && (
-                            <p className="-mt-1 text-xs text-neutral-500">
-                                Filled in with what fits the aim — weigh it and change any that
-                                differ.
-                            </p>
-                        )}
-                        <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
-                            {plate.map((l) => {
-                                const m = lineMacros(l.grams, l.per100)
-                                const over = l.left != null && l.grams > l.left
-                                return (
-                                    <li key={l.id} className="flex items-center gap-3 px-3 py-2.5">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-semibold text-neutral-900">
-                                                {l.f.name}
-                                            </p>
-                                            <p
-                                                className={`truncate text-xs tabular-nums ${over ? 'text-amber-700' : 'text-neutral-500'}`}
-                                            >
-                                                {over
-                                                    ? `Only ~${fmt(l.left!)} g left`
-                                                    : `${kcal(m.calories)} kcal · ${fmt(Math.round(m.protein))} g protein`}
-                                            </p>
-                                        </div>
-                                        <label className="relative shrink-0">
-                                            <input
-                                                type="number"
-                                                inputMode="decimal"
-                                                min={0}
-                                                step="any"
-                                                enterKeyHint="done"
-                                                aria-label={`${l.f.name} grams`}
-                                                placeholder={suggested ? String(l.grams) : '0'}
-                                                value={grams[l.id] ?? ''}
-                                                onChange={(e) =>
-                                                    setGrams((prev) => ({
-                                                        ...prev,
-                                                        [l.id]: e.target.value,
-                                                    }))
-                                                }
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter')
-                                                        (e.target as HTMLInputElement).blur()
-                                                }}
-                                                className="h-11 w-24 rounded-xl bg-white pl-3 pr-7 text-right text-sm font-semibold tabular-nums text-neutral-900 outline-none ring-1 ring-inset ring-neutral-200 placeholder:font-normal placeholder:text-neutral-400 focus:ring-2 focus:ring-neutral-900"
-                                            />
-                                            <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm text-neutral-500">
-                                                g
-                                            </span>
-                                        </label>
-                                    </li>
-                                )
-                            })}
-                        </ul>
-                        <p className="text-[13px] tabular-nums text-neutral-600">
-                            <span className="font-semibold text-neutral-900">
-                                {kcal(total.calories)} kcal
-                            </span>{' '}
-                            · {fmt(Math.round(total.protein))} g protein ·{' '}
-                            {fmt(Math.round(total.carbs))} g carbs · {fmt(Math.round(total.fat))} g
-                            fat
-                        </p>
-                    </section>
-                    <Button
-                        icon="fa-solid fa-check"
-                        disabled={busy || plate.every((l) => l.grams === 0)}
-                        onClick={() =>
-                            onLog(
-                                plate
-                                    .filter((l) => l.grams > 0)
-                                    .map((l) => ({
-                                        food: l.id,
-                                        grams: l.grams,
-                                        ...(l.cook ? { batch: l.cook._id } : {}),
-                                    }))
-                            )
-                        }
-                        className="w-full justify-center"
-                    >
-                        Log it
-                    </Button>
-                </>
-            ) : (
-                <>
-                    <section className="flex flex-col gap-2">
-                        <p className={LABEL}>Estimated portion</p>
-                        {estimate ? (
-                            <div className="rounded-2xl bg-neutral-50 px-3 py-2.5">
-                                <p className="text-sm tabular-nums text-neutral-800">
-                                    {estimate.lines
-                                        .map(
-                                            (l) =>
-                                                `~${fmt(l.grams)} g ${byId.get(l.food)?.name ?? ''}`
-                                        )
-                                        .join(' + ')}
-                                </p>
-                                <p className="mt-0.5 text-xs tabular-nums text-neutral-500">
-                                    ~{kcal(estimate.macros.calories)} kcal ·{' '}
-                                    {fmt(Math.round(estimate.macros.protein))} g protein ·{' '}
-                                    {fmt(Math.round(estimate.macros.carbs))} g carbs ·{' '}
-                                    {fmt(Math.round(estimate.macros.fat))} g fat
-                                </p>
-                            </div>
-                        ) : (
-                            <p className="text-xs text-neutral-500">
-                                No estimate — the day has no targets, or there are no figures for it
-                                yet.
-                            </p>
-                        )}
-                        <p className="text-xs text-neutral-500">
-                            No amounts are saved — you’ll confirm the grams when you eat it.
-                        </p>
-                    </section>
-
-                    <section className="flex flex-col gap-2">
-                        <p className={LABEL}>Which days · {CATEGORY[slot].label}</p>
-                        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
-                            {Array.from({ length: 7 }, (_, i) => addDays(date, i)).map((d) => {
-                                const on = days.includes(d)
-                                const { year, month, day } = parseDateKey(d)
-                                return (
-                                    <button
-                                        key={d}
-                                        type="button"
-                                        aria-pressed={on}
-                                        disabled={d < today}
-                                        onClick={() => toggleDay(d)}
-                                        className={`flex h-14 flex-col items-center justify-center rounded-xl text-[13px] font-semibold transition-colors disabled:opacity-40 ${
-                                            on
-                                                ? 'bg-neutral-900 text-white'
-                                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                                        }`}
-                                    >
-                                        <span>
-                                            {WEEKDAYS_LONG[
-                                                new Date(year, month, day).getDay()
-                                            ].slice(0, 3)}
-                                        </span>
-                                        <span
-                                            className={`text-xs font-medium ${on ? 'text-white/70' : 'text-neutral-500'}`}
-                                        >
-                                            {day}
-                                        </span>
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </section>
-                    <Button
-                        icon="fa-solid fa-calendar-plus"
-                        disabled={busy || days.length === 0}
-                        onClick={() => onPlan(days, sides)}
-                        className="w-full justify-center"
-                    >
-                        {days.length <= 1 ? 'Plan it' : `Plan for ${days.length} days`}
-                    </Button>
-                </>
             )}
         </div>
     )

@@ -5,7 +5,27 @@ import type { ShoppingGroup } from '../types'
  * per name. A box (or a meal with ingredients) adds each ingredient's grams ×
  * batches (or servings) — or its items, for things bought by count; a food, a typed-in thing or a meal without
  * ingredients adds itself, counted. Mirrors the server's line names.
+ *
+ * A tray meal's ingredients are the whole tray's and its count is in boxes.
+ * Shopping by servings buys exactly that many boxes' worth; shopping by batch
+ * buys whole trays — enough of them to cover the boxes.
  */
+
+export type ShopMode = 'servings' | 'batch'
+
+/** A tray meal on the list: how many boxes one tray makes. */
+export const trayOf = (g: ShoppingGroup): number | null =>
+    g.kind === 'meal' && (g.batchOf ?? 0) > 1 ? g.batchOf! : null
+
+/** Whole trays to cook for `boxes`. */
+export const traysFor = (boxes: number, batchOf: number) => Math.max(1, Math.ceil(boxes / batchOf))
+
+/** How many times over a group's ingredients are bought. */
+function times(g: ShoppingGroup, mode: ShopMode): number {
+    const tray = trayOf(g)
+    if (!tray) return g.count
+    return mode === 'batch' ? traysFor(g.count, tray) : g.count / tray
+}
 
 export interface ShoppingLine {
     /** Lower-cased name — what ticks are kept by. */
@@ -21,7 +41,7 @@ export interface ShoppingLine {
 
 export const lineKey = (name: string) => name.trim().toLowerCase()
 
-export function mergeLines(groups: ShoppingGroup[]): ShoppingLine[] {
+export function mergeLines(groups: ShoppingGroup[], mode: ShopMode = 'servings'): ShoppingLine[] {
     const lines = new Map<string, ShoppingLine>()
     const line = (name: string) => {
         const key = lineKey(name)
@@ -34,10 +54,12 @@ export function mergeLines(groups: ShoppingGroup[]): ShoppingLine[] {
     }
     for (const g of groups) {
         if ((g.kind === 'box' || g.kind === 'meal') && g.ingredients.length > 0) {
+            const n = times(g, mode)
             for (const i of g.ingredients) {
                 const l = line(i.name)
-                if (i.items) l.qty += i.items * g.count
-                else l.grams += i.grams * g.count
+                // Counted things come in whole ones, even for a share of a tray.
+                if (i.items) l.qty += Math.ceil(i.items * n - 1e-9)
+                else l.grams += i.grams * n
                 if (!l.from.includes(g.name)) l.from.push(g.name)
             }
         } else {

@@ -18,8 +18,8 @@ const MACROS = [
  * planned" for what's still to come. One bar beneath: eaten solid, still
  * planned lighter. Protein, carbs and fat sit behind a "Macros" tap, each
  * read the same way. A
- * figure more than 5% over its target turns amber; "~" marks a plan with a
- * box note's estimate in it. Only the figures are in the number font.
+ * figure more than 5% over its target turns amber. Only the figures are in
+ * the number font.
  */
 export function DayNumbers({
     totals,
@@ -31,8 +31,7 @@ export function DayNumbers({
     compact?: boolean
 }) {
     const [open, setOpen] = useState(false)
-    const { eaten, planned, plan, planEstimated, when } = totals
-    const approx = planEstimated ? '~' : ''
+    const { eaten, planned, plan, when } = totals
     const target = goals?.calories ?? 0
     const pct = (v: number) => (target > 0 ? Math.min(100, (v / target) * 100) : 0)
     const eatenPct = pct(eaten.calories)
@@ -60,7 +59,6 @@ export function DayNumbers({
             <>
                 +
                 <span className={fig}>
-                    {approx}
                     {fmt(Math.round(v))}
                 </span>{' '}
                 planned
@@ -70,7 +68,6 @@ export function DayNumbers({
     const ofTarget = (v: number, goal: number | undefined, unit: string, strong: string) => (
         <>
             <span className={`${fig} font-semibold ${over(v, goal) ? 'text-amber-700' : strong}`}>
-                {ahead ? approx : ''}
                 {unit === 'kcal' ? kcal(v) : fmt(Math.round(v))}
             </span>
             {goal ? (

@@ -9,12 +9,13 @@ async function list(req: Promise<{ data: ApiResponse<ShoppingList> }>): Promise<
 
 export const getShopping = () => list(api.get('/shopping'))
 
-/** Adds it — or one more of it (a batch more, for a box) if it's already on. */
-export const addToShopping = (kind: 'meal' | 'food', id: string) => list(api.post('/shopping/add', { kind, id }))
+/** Adds it — or `count` more servings of it (a tray's boxes, shopping by batch) if it's already on. */
+export const addToShopping = (kind: 'meal', id: string, count = 1) =>
+    list(api.post('/shopping/add', { kind, id, count }))
 
 export const addShoppingItem = (name: string) => list(api.post('/shopping/items', { name }))
 
-/** How many batches of a box (or meals, or of a food). */
+/** How many of it — boxes, for a tray meal. */
 export const setShoppingCount = (id: string, count: number) => list(api.patch(`/shopping/groups/${id}`, { count }))
 
 export const deleteShoppingGroup = (id: string) => list(api.delete(`/shopping/groups/${id}`))

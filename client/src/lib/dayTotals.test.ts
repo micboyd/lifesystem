@@ -17,58 +17,46 @@ const entry = (over: Partial<MealPlanEntry>): MealPlanEntry =>
 const day = [
     entry({ _id: 'b', slot: 'breakfast', status: 'eaten', macros: m(500, 30) }),
     entry({ _id: 'l', slot: 'lunch', macros: m(600, 40) }),
-    entry({ _id: 'd', slot: 'dinner', box: 'chilli' }),
+    entry({ _id: 'd', slot: 'dinner', macros: m(700, 55) }),
     entry({ _id: 'a', slot: 'snack', away: true }),
 ]
-const estimate = (e: MealPlanEntry) => (e._id === 'd' ? m(700, 55) : null)
 
 describe('dayTotals', () => {
-    it('adds eaten, planned and box estimates on a day ahead', () => {
-        const t = dayTotals(day, estimate, '2026-11-02', '2026-11-01')
+    it('adds eaten and planned on a day ahead', () => {
+        const t = dayTotals(day, '2026-11-02', '2026-11-01')
         expect(t.when).toBe('future')
         expect(t.total).toEqual(m(1800, 125))
         expect(t.planned).toEqual(m(1300, 95))
-        expect(t.estimated).toBe(true)
     })
 
     it('splits eaten from still planned today', () => {
-        const t = dayTotals(day, estimate, '2026-11-02', '2026-11-02')
+        const t = dayTotals(day, '2026-11-02', '2026-11-02')
         expect(t.eaten).toEqual(m(500, 30))
         expect(t.planned.calories).toBe(1300)
     })
 
     it('counts only what was eaten on a past day', () => {
-        const t = dayTotals(day, estimate, '2026-11-02', '2026-11-05')
+        const t = dayTotals(day, '2026-11-02', '2026-11-05')
         expect(t.total).toEqual(m(500, 30))
-        expect(t.estimated).toBe(false)
     })
 
     it('keeps the whole plan on a past day, beside what was eaten', () => {
-        const t = dayTotals(day, estimate, '2026-11-02', '2026-11-05')
+        const t = dayTotals(day, '2026-11-02', '2026-11-05')
         expect(t.plan).toEqual(m(1800, 125))
-        expect(t.planEstimated).toBe(true)
         expect(t.eaten).toEqual(m(500, 30))
     })
 
     it('plans the same as the total on a day ahead', () => {
-        expect(dayTotals(day, estimate, '2026-11-02', '2026-11-01').plan).toEqual(m(1800, 125))
-    })
-
-    it('is not approximate without box notes', () => {
-        expect(dayTotals(day.slice(0, 2), estimate, '2026-11-02', '2026-11-01').estimated).toBe(
-            false
-        )
+        expect(dayTotals(day, '2026-11-02', '2026-11-01').plan).toEqual(m(1800, 125))
     })
 })
 
 describe('weekAverage', () => {
-    const t = (calories: number, estimated = false) => ({
+    const t = (calories: number) => ({
         eaten: m(0),
         planned: m(calories),
         total: m(calories),
-        estimated,
         plan: m(calories),
-        planEstimated: estimated,
         when: 'future' as const,
     })
 
@@ -76,9 +64,9 @@ describe('weekAverage', () => {
         const avg = weekAverage([
             { totals: t(2000), goals: { calories: 2400 } },
             { totals: t(0), goals: { calories: 2400 } },
-            { totals: t(2400, true), goals: { calories: 2200 } },
+            { totals: t(2400), goals: { calories: 2200 } },
         ])
-        expect(avg).toEqual({ calories: 2200, target: 2300, estimated: true })
+        expect(avg).toEqual({ calories: 2200, target: 2300 })
     })
 
     it('has no target when a day has none, and nothing for an empty week', () => {
@@ -93,9 +81,7 @@ describe('weekMacros', () => {
             eaten: m(eaten, eaten / 10),
             planned: m(calories - eaten, (calories - eaten) / 10),
             total: m(calories, calories / 10),
-            estimated: false,
             plan: m(calories, calories / 10),
-            planEstimated: false,
             when,
         }) as DayTotals
     const goals = { calories: 2000, protein: 180 }

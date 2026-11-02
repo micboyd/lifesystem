@@ -30,7 +30,6 @@ const RESOURCE_KEYS: Record<ImportResource, string[]> = {
     exercises: ['exercises'],
     workouts: ['workouts'],
     meals: ['meals'],
-    'plate-foods': ['trays', 'boxes'],
     'nutrition-phases': ['phases'],
 }
 

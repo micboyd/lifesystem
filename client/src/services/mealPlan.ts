@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, EntryStatus, Macros, MealPlanEntry, MealType, PlateLineInput } from '../types'
+import type { ApiResponse, EntryStatus, Macros, MealPlanEntry, MealType } from '../types'
 
 /** Meals on days in [start, end] (inclusive, YYYY-MM-DD). */
 export async function listPlanEntries(start: string, end: string): Promise<MealPlanEntry[]> {
@@ -32,29 +32,6 @@ export async function addQuickItem(
     return res.data.data
 }
 
-/** Put a plate of weighed foods on a day — or, with `extra`, log it as eaten. */
-export async function addPlatePlanEntry(
-    date: string,
-    slot: MealType,
-    plate: PlateLineInput[],
-    extra = false,
-    eaten = false
-): Promise<MealPlanEntry> {
-    const res = await api.post<ApiResponse<MealPlanEntry>>('/meal-plan', { date, slot, plate, extra, eaten })
-    return res.data.data
-}
-
-/** "Eating from this box" (with any sides) on each of `dates` — light notes with no grams or macros. */
-export async function addBoxNotes(
-    box: string,
-    slot: MealType,
-    dates: string[],
-    sides: string[] = []
-): Promise<MealPlanEntry[]> {
-    const res = await api.post<ApiResponse<MealPlanEntry[]>>('/meal-plan/box', { box, sides, slot, dates })
-    return res.data.data
-}
-
 /**
  * "At an event, so no meal here" — fills the slot with a note named after the
  * event. The slot's still-planned meals make way; their ids come back.
@@ -69,12 +46,6 @@ export async function addAwayNote(
         slot,
         name,
     })
-    return res.data.data
-}
-
-/** Change a plate's grams. Lines that name a batch keep it. */
-export async function updatePlate(id: string, plate: PlateLineInput[]): Promise<MealPlanEntry> {
-    const res = await api.patch<ApiResponse<MealPlanEntry>>(`/meal-plan/${id}`, { plate })
     return res.data.data
 }
 

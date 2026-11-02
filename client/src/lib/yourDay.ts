@@ -170,11 +170,6 @@ function trainingSteps(entries: FitnessPlanEntry[], logged: Set<string>, counts:
         })
 }
 
-/** "Chicken box + Rice" for a plate, as the planner shows it; the meal's name otherwise. */
-function mealName(m: MealPlanEntry): string {
-    return m.plate?.length ? m.plate.map((l) => l.name).join(' + ') : m.name
-}
-
 /**
  * A step per meal, not per slot — each one ticks off on its own in the
  * planner, so it does here too. Two things at lunch are two lunch steps.
@@ -191,8 +186,7 @@ function mealSteps(
         if (!counts(mealKey(slot))) continue
         // A flat white with breakfast is food, not a task.
         for (const m of meals.filter((e) => e.slot === slot && !isSkippedMeal(selection, e))) {
-            // A box note has no amounts yet, so it adds no figure.
-            const amount = m.box ? 'from the box' : m.macros.calories > 0 ? `${kcal(m.macros.calories)} kcal` : null
+            const amount = m.macros.calories > 0 ? `${kcal(m.macros.calories)} kcal` : null
             steps.push({
                 id: `meal-${m._id}`,
                 kind: 'meal',
@@ -201,8 +195,8 @@ function mealSteps(
                 detail: m.away
                     ? `Away · ${m.name}`
                     : m.status === 'skipped'
-                      ? `Skipped · ${mealName(m)}`
-                      : [mealName(m), amount].filter(Boolean).join(' · '),
+                      ? `Skipped · ${m.name}`
+                      : [m.name, amount].filter(Boolean).join(' · '),
                 state: m.away
                     ? 'handled'
                     : m.status === 'eaten'

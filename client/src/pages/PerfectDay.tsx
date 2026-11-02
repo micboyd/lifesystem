@@ -11,7 +11,6 @@ import { useAuth } from '../context/AuthContext'
 import { updateSettings } from '../services/users'
 import { listHabits } from '../services/habits'
 import { listMeals } from '../services/meals'
-import { listPlateFoods } from '../services/plateFoods'
 import { iconForHabit } from '../lib/habitIcons'
 import { ALL_DAYS, WEEK_ORDER, daysFor, habitKey, mealKey, normFood } from '../lib/perfectDay'
 import type { HabitDef, PerfectDaySelection } from '../types'
@@ -84,7 +83,7 @@ const FIXED_GROUPS: { title: string; rows: Row[] }[] = [
 
 interface Food {
     name: string
-    kind: 'Meal' | 'Box' | 'Food'
+    kind: 'Meal' | 'Food'
 }
 
 function errorMessage(err: unknown, fallback: string): string {
@@ -108,8 +107,7 @@ export default function PerfectDay() {
         Promise.all([
             listHabits().catch(() => [] as HabitDef[]),
             listMeals().catch(() => []),
-            listPlateFoods().catch(() => []),
-        ]).then(([h, meals, plateFoods]) => {
+        ]).then(([h, meals]) => {
             if (!active) return
             setHabits(h.filter((x) => x.active).sort((a, b) => a.order - b.order))
             const seen = new Set<string>()
@@ -121,7 +119,6 @@ export default function PerfectDay() {
                 list.push({ name, kind })
             }
             for (const m of meals) add(m.name, 'Meal')
-            for (const f of plateFoods) add(f.name, f.kind === 'box' ? 'Box' : 'Food')
             // A skipped food no longer in a library still shows, so it can be counted again.
             for (const n of saved?.skipFoods ?? []) add(n, 'Food')
             setFoods(list.sort((a, b) => a.name.localeCompare(b.name)))

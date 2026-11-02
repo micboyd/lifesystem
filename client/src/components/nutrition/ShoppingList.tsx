@@ -12,85 +12,91 @@ import {
     setShoppingCount,
     tickShopping,
 } from '../../services/shopping'
-import { lineAmount, mergeLines } from '../../lib/shopping'
+import { Segmented } from '../planner/PlannerParts'
+import { lineAmount, mergeLines, trayOf, traysFor, type ShopMode } from '../../lib/shopping'
 import { useToast } from '../../context/ToastContext'
 import type { ShoppingGroup, ShoppingList } from '../../types'
 
 /**
- * The shopping list: built by tapping the cart on a meal, box or food card,
- * and opened from the pill in the module header. What you've added sits at
- * the top with a − / + for how many (batches, for a box); below is one list
+ * The shopping list: built by tapping the cart on a meal card, and opened
+ * from the pill in the module header. What you've added sits at the top with
+ * a − / + for how many servings; below is one list
  * with a single line per ingredient, adding up everything that needs it.
  */
 
-export type ShopKind = 'meal' | 'food'
+export type ShopKind = 'meal'
 
 const EMPTY: ShoppingList = { groups: [], ticked: [] }
 
-/** The list, and adding to it from any card. */
+const MODE_KEY = 'nutrition.shopMode'
+
+function readMode(): ShopMode {
+    try {
+        return localStorage.getItem(MODE_KEY) === 'batch' ? 'batch' : 'servings'
+    } catch {
+        return 'servings'
+    }
+}
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+/** The list, adding to it from any card, and whether trays are shopped by the box or by the tray. */
 export function useShopping() {
     const toast = useToast()
     const [list, setList] = useState<ShoppingList>(EMPTY)
+    const [mode, setModeState] = useState<ShopMode>(readMode)
+    const setMode = useCallback((m: ShopMode) => {
+        setModeState(m)
+        try {
+            localStorage.setItem(MODE_KEY, m)
+        } catch {
+            // Remembering it is only a convenience.
+        }
+    }, [])
     useEffect(() => {
         getShopping()
             .then(setList)
             .catch(() => {})
     }, [])
 
+    // A tray goes on a whole tray at a time when shopping by batch, a box at a time otherwise.
     const add = useCallback(
-        async (kind: ShopKind, id: string, name: string) => {
+        async (kind: ShopKind, id: string, name: string, batchOf?: number | null) => {
+            const tray = batchOf && batchOf > 1 ? batchOf : null
             try {
-                const next = await addToShopping(kind, id)
+                const next = await addToShopping(kind, id, tray && mode === 'batch' ? tray : 1)
                 setList(next)
                 const g = next.groups.find((x) => x.ref === id)
-                toast.show(
-                    g && g.count > 1 ? `${name} ×${g.count} on the shopping list.` : `Added ${name} to the shopping list.`
-                )
+                const amount = g && (tray ? countLabel(g, mode) : g.count > 1 ? `×${g.count}` : '')
+                toast.show(amount ? `${name}: ${amount} on the shopping list.` : `Added ${name} to the shopping list.`)
             } catch {
                 toast.show('Could not add that to the shopping list.', 'danger')
             }
         },
-        [toast]
+        [toast, mode]
     )
 
-    /**
-     * Several boxes and foods at once, each at a batch count: one already on
-     * the list goes up to that count, never down.
-     */
-    const addAll = useCallback(
-        async (items: { id: string; count: number }[]) => {
-            try {
-                let next = list
-                for (const { id, count } of items) {
-                    let g = next.groups.find((x) => x.ref === id)
-                    if (!g) {
-                        next = await addToShopping('food', id)
-                        g = next.groups.find((x) => x.ref === id)
-                    }
-                    if (g && g.count < count) next = await setShoppingCount(g.id, count)
-                }
-                setList(next)
-                return true
-            } catch {
-                toast.show('Could not add that to the shopping list.', 'danger')
-                return false
-            }
-        },
-        [list, toast]
-    )
+    return { list, setList, add, mode, setMode }
+}
 
-    return { list, setList, add, addAll }
+/** "2 trays · 10 boxes" or "3 boxes" for a tray, "2 servings" for a meal. */
+function countLabel(g: ShoppingGroup, mode: ShopMode): string {
+    const tray = trayOf(g)
+    if (!tray) return plural(g.count, 'serving')
+    if (mode === 'servings') return plural(g.count, 'box', 'boxes')
+    const trays = traysFor(g.count, tray)
+    return `${plural(trays, 'tray')} · ${plural(trays * tray, 'box', 'boxes')}`
 }
 
 /** Lines still to get. */
-function leftToGet(list: ShoppingList): number {
+function leftToGet(list: ShoppingList, mode: ShopMode): number {
     const ticked = new Set(list.ticked)
-    return mergeLines(list.groups).filter((l) => !ticked.has(l.key)).length
+    return mergeLines(list.groups, mode).filter((l) => !ticked.has(l.key)).length
 }
 
 /** The header pill: how many things are left to buy. */
-export function ShoppingPill({ list, onOpen }: { list: ShoppingList; onOpen: () => void }) {
-    const left = leftToGet(list)
+export function ShoppingPill({ list, mode, onOpen }: { list: ShoppingList; mode: ShopMode; onOpen: () => void }) {
+    const left = leftToGet(list, mode)
     return (
         <button
             type="button"
@@ -108,7 +114,7 @@ export function ShoppingPill({ list, onOpen }: { list: ShoppingList; onOpen: () 
     )
 }
 
-/** The cart button on a meal, box or food card. */
+/** The cart button on a meal card. */
 export function ShopButton({ name, onClick }: { name: string; onClick: () => void }) {
     return (
         <button
@@ -224,11 +230,15 @@ export function ShoppingDrawer({
     onClose,
     list,
     onChange,
+    mode,
+    onMode,
 }: {
     open: boolean
     onClose: () => void
     list: ShoppingList
     onChange: (list: ShoppingList) => void
+    mode: ShopMode
+    onMode: (mode: ShopMode) => void
 }) {
     const toast = useToast()
     const [text, setText] = useState('')
@@ -250,7 +260,8 @@ export function ShoppingDrawer({
 
     const added = list.groups.filter((g) => g.kind !== 'item')
     const ticked = new Set(list.ticked)
-    const lines = mergeLines(list.groups)
+    const lines = mergeLines(list.groups, mode)
+    const hasTrays = added.some((g) => trayOf(g))
     // Still to get first, then what's in the basket.
     const sorted = [...lines.filter((l) => !ticked.has(l.key)), ...lines.filter((l) => ticked.has(l.key))]
     const left = lines.filter((l) => !ticked.has(l.key)).length
@@ -302,11 +313,29 @@ export function ShoppingDrawer({
                     </Button>
                 </form>
 
+                {hasTrays && (
+                    <div className="flex flex-col gap-1.5">
+                        <Segmented
+                            value={mode}
+                            options={[
+                                ['servings', 'Servings'],
+                                ['batch', 'Batch amounts'],
+                            ]}
+                            onChange={onMode}
+                        />
+                        <p className="text-xs text-neutral-500">
+                            {mode === 'batch'
+                                ? 'Trays are bought whole — enough trays to cover the boxes.'
+                                : 'Trays are bought by the box — just the share you need.'}
+                        </p>
+                    </div>
+                )}
+
                 {list.groups.length === 0 && (
                     <EmptyState
                         icon="fa-solid fa-cart-shopping"
                         title="Nothing on the list"
-                        description="Tap the cart on a meal, box or food in the Library. A box or meal adds its ingredients."
+                        description="Tap the cart on a meal in the Library. A meal with ingredients adds them; a tray adds a box’s worth, or a whole tray with Batch amounts on."
                     />
                 )}
 
@@ -315,7 +344,11 @@ export function ShoppingDrawer({
                         <SectionTitle>Shopping for</SectionTitle>
                         <ul className="divide-y divide-neutral-100 overflow-hidden rounded-2xl ring-1 ring-neutral-900/[0.06]">
                             {added.map((g) => {
-                                const look = ADDED[g.kind as keyof typeof ADDED]
+                                const tray = trayOf(g)
+                                const look = tray ? ADDED.box : ADDED[g.kind as keyof typeof ADDED]
+                                // By batch, a tray steps a whole tray at a time.
+                                const byTray = tray && mode === 'batch' ? tray : null
+                                const shown = byTray ? traysFor(g.count, byTray) : g.count
                                 return (
                                     <li key={g.id} className="flex min-h-14 items-center gap-3 py-2 pl-3 pr-2">
                                         <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${look.tone}`}>
@@ -325,16 +358,18 @@ export function ShoppingDrawer({
                                             <p className="truncate text-sm font-semibold text-neutral-900">{g.name}</p>
                                             <p className="text-xs text-neutral-500">
                                                 {g.kind === 'box'
-                                                    ? `${g.count} ${g.count === 1 ? 'batch' : 'batches'}`
-                                                    : g.kind === 'meal' && g.ingredients.length > 0
-                                                      ? `${g.count} ${g.count === 1 ? 'serving' : 'servings'}`
+                                                    ? plural(g.count, 'batch', 'batches')
+                                                    : g.kind === 'meal' && (tray || g.ingredients.length > 0)
+                                                      ? countLabel(g, mode)
                                                       : look.label}
                                             </p>
                                         </div>
                                         <Stepper
                                             name={g.name}
-                                            count={g.count}
-                                            onChange={(n) => void run(() => setShoppingCount(g.id, n))}
+                                            count={shown}
+                                            onChange={(n) =>
+                                                void run(() => setShoppingCount(g.id, byTray ? n * byTray : n))
+                                            }
                                             onRemove={() => void run(() => deleteShoppingGroup(g.id))}
                                         />
                                     </li>

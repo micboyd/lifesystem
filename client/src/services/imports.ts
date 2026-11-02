@@ -10,7 +10,6 @@ export type ImportResource =
     | 'exercises'
     | 'workouts'
     | 'meals'
-    | 'plate-foods'
     | 'nutrition-phases'
 
 /** Chosen name-clash overwrites: `{ "<lowercased name>": "<existing id>" }`. */

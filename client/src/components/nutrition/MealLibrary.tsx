@@ -18,11 +18,16 @@ import { FIELD_LABEL } from '../fieldStyles'
 import { CATEGORY, MacroBar, MacroLegend, caloriesFromMacros, isHighProtein } from './mealUi'
 import { fmt, kcal } from './format'
 import { ShopButton, type ShopKind } from './ShoppingList'
+import { BatchDrawer } from './BatchDrawer'
+import { Segmented } from '../planner/PlannerParts'
 import { ingredientAmount } from '../../lib/shopping'
 import { createMeal, deleteAllMeals, deleteMeal, importMeals, updateMeal } from '../../services/meals'
-import { MEAL_TYPES, type Macros, type Meal, type MealIngredient, type MealInput, type MealType } from '../../types'
+import { MEAL_TYPES, type MacroGoals, type Macros, type Meal, type MealIngredient, type MealInput, type MealType } from '../../types'
 
-type Filter = MealType | 'all'
+type Filter = MealType | 'all' | 'trays'
+
+/** A tray: cooked in one go and split into `batchOf` boxes. */
+const isTray = (m: Pick<Meal, 'batchOf'>) => (m.batchOf ?? 0) > 1
 type Sort = 'library' | 'protein' | 'lightest' | 'name'
 
 const SORTS: { value: Sort; label: string }[] = [
@@ -58,13 +63,19 @@ export default function MealLibrary({
     meals,
     onChanged,
     onShop,
+    settingsGoals,
 }: {
     meals: Meal[]
     onChanged: () => Promise<void>
-    onShop: (kind: ShopKind, id: string, name: string) => void
+    onShop: (kind: ShopKind, id: string, name: string, batchOf?: number | null) => void
+    /** Targets from Settings, for sizing a batch when no phase has any. */
+    settingsGoals?: MacroGoals | null
 }) {
     const [drawer, setDrawer] = useState<Drawered>(null)
     const [importing, setImporting] = useState(false)
+    const [batching, setBatching] = useState(false)
+    // Bumped each time, so every batch starts from a blank form.
+    const [batchKey, setBatchKey] = useState(0)
     const [clearing, setClearing] = useState(false)
     const [deleting, setDeleting] = useState<Meal | null>(null)
     const [search, setSearch] = useState('')
@@ -77,7 +88,7 @@ export default function MealLibrary({
         return sortMeals(
             meals.filter(
                 (m) =>
-                    (filter === 'all' || m.types.includes(filter)) &&
+                    (filter === 'all' || (filter === 'trays' ? isTray(m) : m.types.includes(filter))) &&
                     (!q || m.name.toLowerCase().includes(q) || (m.notes ?? '').toLowerCase().includes(q))
             ),
             sort
@@ -110,6 +121,7 @@ export default function MealLibrary({
             types: meal.types,
             macros: meal.macros,
             ingredients: meal.ingredients,
+            batchOf: meal.batchOf,
             notes: meal.notes,
         })
         await onChanged()
@@ -142,7 +154,7 @@ export default function MealLibrary({
         )
     }
 
-    const newMeal = () => setDrawer({ mode: 'create', type: filter === 'all' ? null : filter })
+    const newMeal = () => setDrawer({ mode: 'create', type: filter === 'all' || filter === 'trays' ? null : filter })
 
     return (
         <>
@@ -159,27 +171,41 @@ export default function MealLibrary({
                 newLabel="New meal"
                 onNew={newMeal}
                 menu={
-                    meals.length > 0 && (
-                        <DropdownMenu
-                            align="right"
-                            trigger={
-                                <span
-                                    aria-label="More library actions"
-                                    className="grid h-10 w-10 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                                >
-                                    <LineIcon name="more" className="h-4 w-4" />
-                                </span>
-                            }
-                            items={[
-                                {
-                                    label: 'Delete all meals',
-                                    icon: 'fa-solid fa-trash-can',
-                                    danger: true,
-                                    onClick: () => setClearing(true),
-                                },
-                            ]}
-                        />
-                    )
+                    <>
+                        <Button
+                            variant="secondary"
+                            icon="fa-solid fa-kitchen-set"
+                            onClick={() => {
+                                setBatchKey((k) => k + 1)
+                                setBatching(true)
+                            }}
+                            aria-label="Make a batch"
+                            className="px-3.5 sm:px-[18px]"
+                        >
+                            <span className="hidden sm:inline">Make a batch</span>
+                        </Button>
+                        {meals.length > 0 && (
+                            <DropdownMenu
+                                align="right"
+                                trigger={
+                                    <span
+                                        aria-label="More library actions"
+                                        className="grid h-10 w-10 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                    >
+                                        <LineIcon name="more" className="h-4 w-4" />
+                                    </span>
+                                }
+                                items={[
+                                    {
+                                        label: 'Delete all meals',
+                                        icon: 'fa-solid fa-trash-can',
+                                        danger: true,
+                                        onClick: () => setClearing(true),
+                                    },
+                                ]}
+                            />
+                        )}
+                    </>
                 }
             >
                 {meals.length > 0 && (
@@ -194,6 +220,9 @@ export default function MealLibrary({
                             options={[
                                 { value: 'all' as Filter, label: `All ${meals.length}` },
                                 ...MEAL_TYPES.map((t) => ({ value: t as Filter, label: `${CATEGORY[t].label} ${count(t)}` })),
+                                ...(meals.some(isTray)
+                                    ? [{ value: 'trays' as Filter, label: `Trays ${meals.filter(isTray).length}` }]
+                                    : []),
                             ]}
                         />
                         <Select
@@ -225,7 +254,9 @@ export default function MealLibrary({
                         description={
                             search.trim()
                                 ? `No meals match “${search.trim()}”.`
-                                : `No ${filter === 'all' ? '' : CATEGORY[filter].label.toLowerCase()} meals yet.`
+                                : filter === 'trays'
+                                  ? 'No trays yet.'
+                                  : `No ${filter === 'all' ? '' : CATEGORY[filter].label.toLowerCase()} meals yet.`
                         }
                     />
                 ) : (
@@ -239,7 +270,7 @@ export default function MealLibrary({
                                     onEdit={() => setDrawer({ mode: 'edit', meal })}
                                     onDuplicate={() => void handleDuplicate(meal)}
                                     onDelete={() => setDeleting(meal)}
-                                    onShop={() => onShop('meal', meal._id, meal.name)}
+                                    onShop={() => onShop('meal', meal._id, meal.name, meal.batchOf)}
                                 />
                             ))}
                         </div>
@@ -257,6 +288,14 @@ export default function MealLibrary({
                     setDrawer(null)
                 }}
                 onDelete={setDeleting}
+            />
+
+            <BatchDrawer
+                key={batchKey}
+                open={batching}
+                settingsGoals={settingsGoals}
+                onClose={() => setBatching(false)}
+                onAdd={handleAdd}
             />
 
             <MealFormDrawer
@@ -310,6 +349,16 @@ function TypeChip({ type }: { type: MealType }) {
     )
 }
 
+/** "Tray · 5 boxes". */
+function TrayChip({ boxes }: { boxes: number }) {
+    return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+            <i className="fa-solid fa-box text-[10px]" aria-hidden="true" />
+            Tray · {boxes} boxes
+        </span>
+    )
+}
+
 function MealCard({
     meal,
     onOpen,
@@ -340,6 +389,7 @@ function MealCard({
                     <p className="truncate font-semibold text-neutral-900">{meal.name}</p>
                     <p className="mt-0.5 text-xs tabular-nums text-neutral-500">
                         {kcal(macros.calories)} kcal · {fmt(Math.round(macros.protein))} g protein
+                        {isTray(meal) && ' a box'}
                     </p>
                 </div>
                 <ShopButton name={meal.name} onClick={onShop} />
@@ -362,8 +412,9 @@ function MealCard({
                 />
             </div>
 
-            {(meal.types.length > 0 || isHighProtein(macros)) && (
+            {(meal.types.length > 0 || isHighProtein(macros) || isTray(meal)) && (
                 <div className="flex flex-wrap gap-1.5">
+                    {isTray(meal) && <TrayChip boxes={meal.batchOf!} />}
                     {meal.types.map((t) => (
                         <TypeChip key={t} type={t} />
                     ))}
@@ -432,14 +483,22 @@ function MealViewDrawer({
     )
 }
 
-/** A meal's chips, numbers, macro split and notes. */
-function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'ingredients' | 'notes'> }) {
-    const ingredients = meal.ingredients ?? []
+/** A meal's chips, numbers, macro split and notes. A tray's ingredients switch between one box and the whole tray. */
+function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'ingredients' | 'batchOf' | 'notes'> }) {
+    const tray = isTray(meal) ? meal.batchOf! : null
+    const [whole, setWhole] = useState(true)
+    const share = tray && !whole ? tray : 1
+    const ingredients = (meal.ingredients ?? []).map((i) => ({
+        ...i,
+        grams: i.grams / share,
+        items: i.items ? Math.round((i.items / share) * 10) / 10 : i.items,
+    }))
     const { macros } = meal
     return (
         <div className="flex flex-col gap-6">
-            {meal.types.length > 0 && (
+            {(meal.types.length > 0 || tray) && (
                 <div className="flex flex-wrap gap-1.5">
+                    {tray && <TrayChip boxes={tray} />}
                     {meal.types.map((t) => (
                         <TypeChip key={t} type={t} />
                     ))}
@@ -457,11 +516,29 @@ function MealDetail({ meal }: { meal: Pick<Meal, 'types' | 'macros' | 'ingredien
                 <MacroBar macros={macros} thick />
                 <MacroLegend macros={macros} />
             </div>
+            {tray && (
+                <p className="-mt-3 text-xs text-neutral-500">
+                    Figures are for one box. A tray is {kcal(macros.calories * tray)} kcal ·{' '}
+                    {fmt(Math.round(macros.protein * tray))} g protein.
+                </p>
+            )}
             {ingredients.length > 0 && (
                 <section className="flex flex-col gap-3">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                        Ingredients · one serving
-                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
+                            Ingredients · {tray ? (whole ? 'whole tray' : 'one box') : 'one serving'}
+                        </p>
+                        {tray && (
+                            <Segmented
+                                value={whole ? 'tray' : 'box'}
+                                options={[
+                                    ['box', 'One box'],
+                                    ['tray', 'Whole tray'],
+                                ]}
+                                onChange={(v) => setWhole(v === 'tray')}
+                            />
+                        )}
+                    </div>
                     <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
                         {ingredients.map((i, n) => (
                             <li key={n} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
@@ -520,6 +597,7 @@ function MealFormDrawer({
     const [carbs, setCarbs] = useState('')
     const [fat, setFat] = useState('')
     const [rows, setRows] = useState<IngredientDraft[]>([])
+    const [boxes, setBoxes] = useState('')
     const [notes, setNotes] = useState('')
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
@@ -533,6 +611,7 @@ function MealFormDrawer({
         setCarbs(editing ? String(editing.macros.carbs) : '')
         setFat(editing ? String(editing.macros.fat) : '')
         setRows(editing?.ingredients?.length ? editing.ingredients.map(toDraft) : [blankIngredient()])
+        setBoxes(editing?.batchOf ? String(editing.batchOf) : '')
         setNotes(editing?.notes ?? '')
         setSaving(false)
         setError('')
@@ -549,6 +628,8 @@ function MealFormDrawer({
         .filter((r) => r.name.trim())
         .map((r) => ({ name: r.name.trim(), grams: num(r.grams), items: num(r.items) || undefined }))
     const valid = name.trim() !== ''
+    // Two boxes or more makes it a tray; blank (or 1) is a single meal.
+    const batchOf = Math.round(num(boxes)) >= 2 ? Math.min(20, Math.round(num(boxes))) : null
 
     function patchRow(i: number, patch: Partial<IngredientDraft>) {
         setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)))
@@ -560,7 +641,14 @@ function MealFormDrawer({
 
     async function submit() {
         if (!view || !valid) return
-        const fields: MealInput = { name: name.trim(), types, macros, ingredients, notes: notes.trim() || undefined }
+        const fields: MealInput = {
+            name: name.trim(),
+            types,
+            macros,
+            ingredients,
+            batchOf: batchOf ?? null,
+            notes: notes.trim() || undefined,
+        }
         setSaving(true)
         setError('')
         try {
@@ -625,7 +713,27 @@ function MealFormDrawer({
                     </div>
                 </div>
 
+                <div className="w-full sm:w-56">
+                    <Input
+                        label="Boxes per tray"
+                        type="number"
+                        min={0}
+                        max={20}
+                        step={1}
+                        inputMode="numeric"
+                        placeholder="Single meal"
+                        hint={
+                            batchOf
+                                ? 'A tray: macros below are one box, ingredients the whole tray.'
+                                : 'Batch-cooked? Put how many boxes one tray makes.'
+                        }
+                        value={boxes}
+                        onChange={(e) => setBoxes(e.target.value)}
+                    />
+                </div>
+
                 <div className="flex flex-col gap-2">
+                    {batchOf && <p className={FIELD_LABEL}>One box</p>}
                     <div className="grid grid-cols-2 gap-3">
                         <Input label="Protein (g)" type="number" min={0} step="any" inputMode="decimal" placeholder="0" value={protein} onChange={(e) => setProtein(e.target.value)} />
                         <Input label="Carbs (g)" type="number" min={0} step="any" inputMode="decimal" placeholder="0" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
@@ -650,7 +758,9 @@ function MealFormDrawer({
 
                 <div className="flex flex-col gap-3">
                     <div>
-                        <p className={FIELD_LABEL}>Ingredients for one serving</p>
+                        <p className={FIELD_LABEL}>
+                            {batchOf ? `Ingredients for the whole tray (${batchOf} boxes)` : 'Ingredients for one serving'}
+                        </p>
                         <p className="mt-0.5 text-xs text-neutral-500">
                             Optional. With these, the shopping list buys the ingredients instead of the meal. Use
                             items for things you buy by count — 2 eggs, not 120 g.

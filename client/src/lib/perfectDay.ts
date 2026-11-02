@@ -32,10 +32,9 @@ export function normFood(name: string): string {
     return name.trim().toLowerCase()
 }
 
-/** A meal that never counts: its name is skipped, or every food on its plate is. */
+/** A meal that never counts: its name is skipped. */
 export function isSkippedMeal(selection: PerfectDaySelection | undefined, m: MealPlanEntry): boolean {
     const skip = selection?.skipFoods
     if (!skip?.length) return false
-    if (m.plate?.length) return m.plate.every((l) => skip.includes(normFood(l.name)))
     return skip.includes(normFood(m.name))
 }

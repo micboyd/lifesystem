@@ -3,13 +3,13 @@ import { randomUUID } from 'crypto'
 import { AuthRequest } from '../middleware/auth'
 import ShoppingList, { IShoppingGroup, IShoppingList } from '../models/ShoppingList'
 import Meal from '../models/Meal'
-import PlateFood from '../models/PlateFood'
 
 /**
- * The nutrition shopping list — one per user. What's been added (boxes with a
- * batch count, meals, foods, typed-in things) sits at the top; the client
- * merges it into one line per ingredient name, so two boxes that both need
- * chicken make one chicken line. Ticks are kept by line name.
+ * The nutrition shopping list — one per user. What's been added (meals with a
+ * serving count, typed-in things) sits at the top; the client merges it into
+ * one line per ingredient name, so two meals that both need chicken make one
+ * chicken line. Ticks are kept by line name. (Older lists may still hold
+ * "box" and "food" groups; they keep the ingredients they were added with.)
  */
 
 type List = IShoppingList
@@ -33,34 +33,23 @@ function untick(list: List, g: IShoppingGroup) {
     list.ticked = list.ticked.filter((t) => !names.has(t))
 }
 
-/**
- * Boxes and meals take their ingredients as they are now (a deleted one keeps
- * what it had).
- */
-async function refreshBoxes(userId: string, list: List) {
-    const ids = (kind: IShoppingGroup['kind']) => list.groups.filter((g) => g.kind === kind && g.ref).map((g) => g.ref)
-    const boxIds = ids('box')
-    const mealIds = ids('meal')
-    const [foods, meals] = await Promise.all([
-        boxIds.length ? PlateFood.find({ user: userId, _id: { $in: boxIds } }) : [],
-        mealIds.length ? Meal.find({ user: userId, _id: { $in: mealIds } }) : [],
-    ])
+/** Meals take their ingredients as they are now (a deleted one keeps what it had). */
+async function refreshMeals(userId: string, list: List) {
+    const mealIds = list.groups.filter((g) => g.kind === 'meal' && g.ref).map((g) => g.ref)
+    if (mealIds.length === 0) return
+    const meals = await Meal.find({ user: userId, _id: { $in: mealIds } })
     for (const g of list.groups) {
-        const source =
-            g.kind === 'box'
-                ? foods.find((f) => String(f._id) === String(g.ref))
-                : g.kind === 'meal'
-                  ? meals.find((m) => String(m._id) === String(g.ref))
-                  : undefined
+        const source = g.kind === 'meal' ? meals.find((m) => String(m._id) === String(g.ref)) : undefined
         if (!source) continue
         g.name = source.name
         g.ingredients = (source.ingredients ?? []).map((i) => ({ name: i.name, grams: i.grams, items: i.items }))
+        g.batchOf = source.batchOf ?? null
     }
 }
 
 /** Save, dropping ticks for lines no longer on the list, and answer with it. */
 async function send(userId: string, res: Response, list: List) {
-    await refreshBoxes(userId, list)
+    await refreshMeals(userId, list)
     const present = new Set(list.groups.flatMap(linesOf))
     list.ticked = [...new Set(list.ticked)].filter((t) => present.has(t))
     list.markModified('groups')
@@ -74,11 +63,13 @@ export async function getShopping(req: AuthRequest, res: Response) {
 }
 
 /**
- * POST /api/shopping/add { kind: 'meal' | 'food', id } — adds it, or one more
- * of it if it's already on the list (a batch more, for a box).
+ * POST /api/shopping/add { kind: 'meal', id, count? } — adds it, or `count`
+ * more servings (default 1; a whole tray's worth when shopping by batch) if
+ * it's already on the list.
  */
 export async function addToShopping(req: AuthRequest, res: Response) {
     const { kind, id } = req.body ?? {}
+    const more = Math.min(99, Math.max(1, Math.round(Number(req.body?.count) || 1)))
     const list = await listFor(req.userId!)
     let entry: Omit<IShoppingGroup, 'id' | 'count'>
     if (kind === 'meal') {
@@ -92,27 +83,16 @@ export async function addToShopping(req: AuthRequest, res: Response) {
             ref: meal._id as IShoppingGroup['ref'],
             name: meal.name,
             ingredients: (meal.ingredients ?? []).map((i) => ({ name: i.name, grams: i.grams, items: i.items })),
-        }
-    } else if (kind === 'food') {
-        const food = await PlateFood.findOne({ _id: id, user: req.userId })
-        if (!food) {
-            res.status(404).json({ message: 'Food not found' })
-            return
-        }
-        entry = {
-            kind: food.kind === 'box' ? 'box' : 'food',
-            ref: food._id as IShoppingGroup['ref'],
-            name: food.name,
-            ingredients: food.kind === 'box' ? food.ingredients.map((i) => ({ name: i.name, grams: i.grams, items: i.items })) : [],
+            batchOf: meal.batchOf ?? null,
         }
     } else {
-        res.status(400).json({ message: "kind must be 'meal' or 'food'" })
+        res.status(400).json({ message: "kind must be 'meal'" })
         return
     }
     let group = list.groups.find((g) => g.kind === entry.kind && String(g.ref) === String(entry.ref))
-    if (group) group.count += 1
+    if (group) group.count += more
     else {
-        group = { id: randomUUID(), ...entry, count: 1 }
+        group = { id: randomUUID(), ...entry, count: more }
         list.groups.push(group)
     }
     untick(list, group)
@@ -183,7 +163,7 @@ export async function tickShopping(req: AuthRequest, res: Response) {
 export async function clearShopping(req: AuthRequest, res: Response) {
     const list = await listFor(req.userId!)
     if (req.body?.onlyDone === true) {
-        await refreshBoxes(req.userId!, list)
+        await refreshMeals(req.userId!, list)
         const ticked = new Set(list.ticked)
         list.groups = list.groups.filter((g) => !linesOf(g).every((l) => ticked.has(l)))
     } else {

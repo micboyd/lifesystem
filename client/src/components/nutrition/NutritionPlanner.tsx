@@ -41,10 +41,7 @@ import { fmt, kcal, signedKcal } from './format'
 import {
     addPlanEntry,
     addQuickItem,
-    addPlatePlanEntry,
-    addBoxNotes,
     addAwayNote,
-    updatePlate,
     deletePlanEntry,
     listPlanEntries,
     setEntryStatus,
@@ -66,14 +63,8 @@ import {
 } from '../../lib/calendar'
 import { targetsFor } from '../../lib/nutrition'
 import { MEAL_TYPES } from '../../types'
-import { expectedPer100, plateTotal } from '../../lib/plates'
-import { PlateLinesEditor, plateGrams, plateTitle } from './PlateUI'
-import { projectBoxNotes, type BoxProjection } from '../../lib/plateSuggest'
-import { weekStock } from '../../lib/weekStock'
-import { WeekStock } from './WeekStock'
 import { WeekMacrosButton, WeekMacrosPanel } from './WeekMacros'
 import { DayNumbers } from './DayNumbers'
-import { WeighOutDrawer } from './WeighOutDrawer'
 import { AddDrawer, type AddTarget } from './AddDrawer'
 import { QuickAddDrawer } from './QuickAddDrawer'
 import { dayTotals, weekAverage, weekMacros } from '../../lib/dayTotals'
@@ -87,9 +78,6 @@ import type {
     MealPlanEntry,
     MealType,
     NutritionPhase,
-    PlateFood,
-    PlateLine,
-    PlateLineInput,
 } from '../../types'
 
 /**
@@ -137,50 +125,28 @@ const isEaten = (e: MealPlanEntry) => e.status === 'eaten'
 /** Didn't happen — a miss on the day, red on Your day. */
 const isSkipped = (e: MealPlanEntry) => e.status === 'skipped'
 
-/** "Eating from this box" planned ahead — no grams, no numbers, weighed out when eaten. */
-const isBoxNote = (e: MealPlanEntry) => !!e.box
-
 /** "At an event, so no meal here" — no numbers, never ticked. */
 const isAwayNote = (e: MealPlanEntry) => !!e.away
 
 const isAwayIn = (e: MealPlanEntry, date: string, slot: MealType) => !!e.away && e.date === date && e.slot === slot
 
-/** Box notes' projected plates, by entry id — estimates only, never counted as planned. */
-type Projections = Map<string, BoxProjection>
-
 /** The one-line summary under a planned meal's name. */
-function plannedMeta(entry: MealPlanEntry, projection?: BoxProjection): string {
+function plannedMeta(entry: MealPlanEntry): string {
     if (isAwayNote(entry)) return 'Away · no meal here'
     if (isSkipped(entry)) return 'Skipped'
-    if (isBoxNote(entry)) {
-        const grams = projection?.lines.map((l) => `${fmt(l.grams)} g`).join(' + ')
-        return projection
-            ? `~${grams} · ~${kcal(projection.macros.calories)} kcal · ~${fmt(Math.round(projection.macros.protein))} g protein`
-            : 'From the box · weigh it when you eat'
-    }
-    const grams = plateGrams(entry)
-    return `${kcal(entry.macros.calories)} kcal · ${fmt(Math.round(entry.macros.protein))} g protein${grams ? ` · ${grams}` : ''}`
+    return `${kcal(entry.macros.calories)} kcal · ${fmt(Math.round(entry.macros.protein))} g protein`
 }
 
 // ─── Planner ────────────────────────────────────────────────────────────────────
 
 export default function NutritionPlanner({
     meals,
-    foods,
     settingsGoals,
-    onOpenPantry,
-    onShop,
     onMealsChanged,
 }: {
-    /** Switch to the Pantry tab. */
-    onOpenPantry?: () => void
-    /** Put the week's boxes to cook on the shopping list and open it. */
-    onShop?: (items: { id: string; count: number }[]) => Promise<void>
     /** A meal was saved to the library from here — reload it. */
     onMealsChanged?: () => void
     meals: Meal[]
-    /** Boxes and plain foods, for weighing out plates. */
-    foods: PlateFood[]
     settingsGoals?: MacroGoals
 }) {
     // Wide screens get the full-width week board; smaller ones a day feed (one
@@ -203,8 +169,6 @@ export default function NutritionPlanner({
     // A meal copied to paste into another slot or day, and an open right-click menu.
     const [copied, setCopied] = useState<MealPlanEntry | null>(null)
     const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null)
-    // A box meal being eaten: its suggested grams, ready to confirm.
-    const [weighing, setWeighing] = useState<MealPlanEntry | null>(null)
     // A copied week held for pasting elsewhere: its Monday and which slots.
     const [clipboard, setClipboard] = useState<{ from: string; slots: MealType[] } | null>(null)
     // Choosing which slots to copy, and confirming a paste that would replace meals.
@@ -246,38 +210,6 @@ export default function NutritionPlanner({
         }
     }, [range.start, range.end])
 
-    // What each box note would come to at the suggested grams: the newest open
-    // batch's figures, else the last cook's (frozen or finished), else — never
-    // cooked — the recipe's, so a box can be planned before it's made.
-    const projections = useMemo<Projections>(() => {
-        const per100For = (id: string) => {
-            const f = foods.find((x) => x._id === id)
-            return (f && expectedPer100(f)?.per100) ?? null
-        }
-        const all: Projections = new Map()
-        if (!entries.some(isBoxNote)) return all
-        for (let i = 0; i < 7; i++) {
-            const date = addDays(range.start, i)
-            const day = entries.filter((e) => e.date === date)
-            if (!day.some(isBoxNote)) continue
-            const goals = targetsFor(date, phases, settingsGoals).goals
-            for (const [id, p] of projectBoxNotes(day, goals, per100For)) all.set(id, p)
-        }
-        return all
-    }, [entries, foods, phases, settingsGoals, range.start])
-
-    // Whether the pantry covers what's still to eat this week, today onwards.
-    const stock = useMemo(
-        () =>
-            weekStock(
-                entries.filter((e) => e.date <= range.end),
-                foods,
-                (id) => projections.get(id)?.lines ?? null,
-                today > range.start ? today : range.start
-            ),
-        [entries, foods, projections, today, range.start, range.end]
-    )
-
     // Each day's numbers against its target — the hero's average day and the
     // week's macros panel both read from these.
     const weekDays = useMemo(
@@ -285,16 +217,11 @@ export default function NutritionPlanner({
             Array.from({ length: 7 }, (_, i) => {
                 const date = addDays(range.start, i)
                 return {
-                    totals: dayTotals(
-                        entries.filter((e) => e.date === date),
-                        (e) => projections.get(e._id)?.macros ?? null,
-                        date,
-                        today
-                    ),
+                    totals: dayTotals(entries.filter((e) => e.date === date), date, today),
                     goals: targetsFor(date, phases, settingsGoals).goals,
                 }
             }),
-        [entries, projections, range.start, today, phases, settingsGoals]
+        [entries, range.start, today, phases, settingsGoals]
     )
     const average = useMemo(() => weekAverage(weekDays), [weekDays])
     const macros = useMemo(() => weekMacros(weekDays), [weekDays])
@@ -338,40 +265,6 @@ export default function NutritionPlanner({
         }
     }
 
-    async function handleAddPlate(
-        date: string,
-        slot: MealType,
-        plate: PlateLineInput[],
-        extra: boolean,
-        eaten = false
-    ) {
-        try {
-            const entry = await addPlatePlanEntry(date, slot, plate, extra, eaten)
-            // The server drops a box note once that box is weighed into its slot.
-            const plated = new Set(plate.map((l) => l.food))
-            // Likewise an away note, once anything is put in the slot after all.
-            setEntries((prev) => [
-                ...prev.filter(
-                    (e) =>
-                        !(e.box && e.date === date && e.slot === slot && plated.has(e.box)) &&
-                        (extra || !isAwayIn(e, date, slot))
-                ),
-                entry,
-            ])
-        } catch {
-            toast.show('Could not add that plate — please try again.', 'danger')
-        }
-    }
-
-    async function handleAddBox(box: string, slot: MealType, dates: string[], sides: string[]) {
-        try {
-            const created = await addBoxNotes(box, slot, dates, sides)
-            setEntries((prev) => [...prev, ...created])
-        } catch {
-            toast.show('Could not plan that box — please try again.', 'danger')
-        }
-    }
-
     async function handleAddAway(date: string, slot: MealType, name: string) {
         try {
             const { entry, removed } = await addAwayNote(date, slot, name)
@@ -398,16 +291,12 @@ export default function NutritionPlanner({
     }
 
     // A copied meal into another slot or day — planned ahead, eaten today and
-    // before, as the + would. Box meals and away notes paste as notes.
+    // before, as the + would. Away notes paste as notes.
     async function pasteInto(date: string, slot: MealType) {
         const src = copied
         if (!src) return
         const eaten = date <= today
         if (src.away) return handleAddAway(date, slot, src.name)
-        if (src.box) return handleAddBox(src.box, slot, [date], src.sides ?? [])
-        if (src.plate?.length)
-            // Each line draws from whichever batch is current there.
-            return handleAddPlate(date, slot, src.plate.map((l) => ({ food: l.food, grams: l.grams })), false, eaten)
         if (src.meal) return handleAdd(date, slot, src.meal, false, eaten)
         // A one-off (or a meal since gone from the library) goes as its name and macros.
         return handleQuickAdd(date, slot, src.name, src.macros).catch(() => {})
@@ -451,24 +340,6 @@ export default function NutritionPlanner({
         })
     }
 
-    // A plate's grams changed at the table. Lines keep their batch, so an eaten
-    // plate stays on the cook it came from. Optimistic, reverting on failure.
-    async function handleUpdatePlate(entry: MealPlanEntry, lines: PlateLine[]) {
-        setEntries((prev) =>
-            prev.map((e) => (e._id === entry._id ? { ...e, plate: lines, macros: plateTotal(lines) } : e))
-        )
-        try {
-            const saved = await updatePlate(
-                entry._id,
-                lines.map((l) => ({ food: l.food, grams: l.grams, ...(l.batch ? { batch: l.batch } : {}) }))
-            )
-            setEntries((prev) => prev.map((e) => (e._id === saved._id ? { ...saved, status: e.status } : e)))
-        } catch {
-            setEntries((prev) => prev.map((e) => (e._id === entry._id ? entry : e)))
-            toast.show('Could not save those grams — please try again.', 'danger')
-        }
-    }
-
     async function handleRemove(id: string) {
         const removed = entries.find((e) => e._id === id)
         setEntries((prev) => prev.filter((e) => e._id !== id))
@@ -482,16 +353,10 @@ export default function NutritionPlanner({
     // The tick: eaten, or back to planned. Optimistic, reverting on failure.
     async function handleToggle(entry: MealPlanEntry) {
         if (entry.away) return
-        // A box note is eaten by confirming its grams — suggested ones filled in.
-        if (entry.box) {
-            setDetail(null)
-            setWeighing(entry)
-            return
-        }
         await saveStatus(entry, entry.status === 'eaten' ? 'planned' : 'eaten')
     }
 
-    // Skipped, or back to planned — a box note too, since it's never weighed out.
+    // Skipped, or back to planned.
     async function handleSkip(entry: MealPlanEntry) {
         if (entry.away) return
         await saveStatus(entry, entry.status === 'skipped' ? 'planned' : 'skipped')
@@ -579,8 +444,7 @@ export default function NutritionPlanner({
         return { count, where: formatWeekRange(range.start, range.end), scope: 'week' as const }
     }, [clearTarget, entries, range.start, range.end])
 
-    // Boxes and foods plan just as well as saved meals — plates are weighed from them.
-    const libraryEmpty = meals.length === 0 && foods.length === 0
+    const libraryEmpty = meals.length === 0
     const weekHasClearable = entries.some(clearable)
 
     // Picking a day focuses it; on wide screens it also scrolls there.
@@ -652,7 +516,6 @@ export default function NutritionPlanner({
             {!loading && (
                 <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center gap-2">
-                        <WeekStock rows={stock} onOpenPantry={onOpenPantry} onShop={onShop} />
                         <WeekMacrosButton open={macrosOpen} onToggle={() => setMacrosOpen((o) => !o)} />
                     </div>
                     {macrosOpen && <WeekMacrosPanel week={macros} />}
@@ -667,7 +530,7 @@ export default function NutritionPlanner({
                 <EmptyState
                     icon="fa-solid fa-calendar-week"
                     title="Nothing to plan with yet"
-                    description="Add a meal or a box to your library first, then drop it into the plan."
+                    description="Add a meal (or make a batch) in your library first, then drop it into the plan."
                 />
             ) : (
                 <WeekView
@@ -676,7 +539,6 @@ export default function NutritionPlanner({
                     selected={anchor}
                     today={today}
                     entries={entries}
-                    projections={projections}
                     goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
                     outFor={(date) => energy.find((e) => e.date === date)?.caloriesOut ?? null}
                     onSelect={setAnchor}
@@ -698,15 +560,11 @@ export default function NutritionPlanner({
             <AddDrawer
                 target={picker}
                 meals={meals}
-                foods={foods}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
-                projections={projections}
                 events={picker ? events.filter((ev) => picker.date >= ev.startDate && picker.date <= ev.endDate) : []}
                 goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
                 onClose={() => setPicker(null)}
                 onAddMeal={(date, slot, id, eaten) => handleAdd(date, slot, id, false, eaten)}
-                onAddPlate={(date, slot, plate, eaten) => handleAddPlate(date, slot, plate, false, eaten)}
-                onAddBox={handleAddBox}
                 onAddAway={handleAddAway}
                 onAddAwayDay={handleAddAwayDay}
                 copied={copied}
@@ -724,12 +582,6 @@ export default function NutritionPlanner({
 
             <PlannedMealDrawer
                 entry={detailEntry}
-                projection={detailEntry ? projections.get(detailEntry._id) : undefined}
-                foodName={(id) => foods.find((f) => f._id === id)?.name ?? 'Food'}
-                fromRecipe={(() => {
-                    const f = detailEntry?.box ? foods.find((x) => x._id === detailEntry.box) : undefined
-                    return !!(f && expectedPer100(f)?.fromRecipe)
-                })()}
                 meal={detailEntry?.meal ? (mealsById.get(detailEntry.meal) ?? null) : null}
                 onCopy={(e) => {
                     setDetail(null)
@@ -738,7 +590,6 @@ export default function NutritionPlanner({
                 onClose={() => setDetail(null)}
                 onToggle={handleToggle}
                 onSkip={handleSkip}
-                onUpdatePlate={handleUpdatePlate}
                 onRemove={(id) => {
                     setDetail(null)
                     void handleRemove(id)
@@ -777,21 +628,6 @@ export default function NutritionPlanner({
                 }
                 onConfirm={() => void handlePasteWeek()}
                 onClose={() => setPasteConfirm(false)}
-            />
-
-            <WeighOutDrawer
-                entry={weighing}
-                projection={weighing ? projections.get(weighing._id) : undefined}
-                foods={foods}
-                onClose={() => setWeighing(null)}
-                onLog={(plate) =>
-                    weighing ? handleAddPlate(weighing.date, weighing.slot, plate, false, true) : Promise.resolve()
-                }
-                onMore={() => {
-                    const e = weighing
-                    setWeighing(null)
-                    if (e) setPicker({ date: e.date, slot: e.slot, eaten: true })
-                }}
             />
 
             <ConfirmModal
@@ -877,7 +713,7 @@ function NutritionWeekHero({
         ready && planned.length > 0 && `${eaten} of ${planned.length} eaten`,
         ready &&
             average &&
-            `${average.estimated ? '~' : ''}${kcal(average.calories)}${
+            `${kcal(average.calories)}${
                 average.target ? ` / ${kcal(average.target)}` : ''
             } kcal a day`,
         ready && entries.length === 0 && 'nothing planned yet',
@@ -949,7 +785,6 @@ function WeekView({
     selected,
     today,
     entries,
-    projections,
     goalsFor,
     outFor,
     onSelect,
@@ -972,7 +807,6 @@ function WeekView({
     selected: string
     today: string
     entries: MealPlanEntry[]
-    projections: Projections
     goalsFor: (date: string) => MacroGoals | null
     outFor: (date: string) => number | null
     onSelect: (date: string) => void
@@ -1046,7 +880,6 @@ function WeekView({
                     // Calories out only make sense once the day has happened.
                     hasHappened={date <= today}
                     entries={entries.filter((e) => e.date === date)}
-                    projections={projections}
                     goals={goalsFor(date)}
                     out={outFor(date)}
                     onAdd={(slot) => onAdd(date, slot)}
@@ -1081,7 +914,6 @@ function DayCard({
     isToday,
     hasHappened,
     entries,
-    projections,
     goals,
     out,
     onAdd,
@@ -1110,7 +942,6 @@ function DayCard({
     /** Today or earlier — the day gets its calories-out line. */
     hasHappened: boolean
     entries: MealPlanEntry[]
-    projections: Projections
     goals: MacroGoals | null
     /** The day's calories out, from a watch — the whole day's total. */
     out: number | null
@@ -1137,7 +968,7 @@ function DayCard({
     const weekday = WEEKDAYS_LONG[new Date(year, month, day).getDay()]
     const planned = entries.filter((e) => !e.extra)
     const extras = entries.filter((e) => e.extra).sort((a, b) => a.order - b.order)
-    const totals = dayTotals(entries, (e) => projections.get(e._id)?.macros ?? null, date, todayKey())
+    const totals = dayTotals(entries, date, todayKey())
 
     const slotItems = (slot: MealType) => planned.filter((e) => e.slot === slot).sort((a, b) => a.order - b.order)
 
@@ -1218,7 +1049,6 @@ function DayCard({
                             compact={compact}
                             slot={slot}
                             entries={slotItems(slot)}
-                            projections={projections}
                             onAdd={() => onAdd(slot)}
                             onOpen={onOpen}
                             onToggle={onToggle}
@@ -1262,7 +1092,6 @@ function SlotSection({
     compact = false,
     slot,
     entries,
-    projections,
     onAdd,
     onOpen,
     onToggle,
@@ -1280,7 +1109,6 @@ function SlotSection({
     compact?: boolean
     slot: MealType
     entries: MealPlanEntry[]
-    projections: Projections
     onAdd: () => void
     onOpen: (entry: MealPlanEntry) => void
     onToggle: (entry: MealPlanEntry) => void
@@ -1318,7 +1146,6 @@ function SlotSection({
                     key={e._id}
                     compact={compact}
                     entry={e}
-                    projection={projections.get(e._id)}
                     dropId={e._id}
                     onOpen={() => onOpen(e)}
                     onToggle={() => onToggle(e)}
@@ -1371,7 +1198,6 @@ function ExtrasSection({
 function PlannedRow({
     compact = false,
     entry,
-    projection,
     onOpen,
     onToggle,
     draggable = false,
@@ -1385,8 +1211,6 @@ function PlannedRow({
     onContextMenu?: (ev: MouseEvent) => void
     compact?: boolean
     entry: MealPlanEntry
-    /** A box note's projected plate, when its box has figures and the day has targets. */
-    projection?: BoxProjection
     onOpen?: () => void
     /** The tick that marks the meal eaten, or back to planned. */
     onToggle?: () => void
@@ -1422,25 +1246,13 @@ function PlannedRow({
             <i className="fa-solid fa-xmark text-[11px]" />
         </span>
     ) : onToggle ? (
-        isBoxNote(entry) ? (
-            <button
-                type="button"
-                aria-label={`Weigh out ${entry.name}`}
-                title="Weigh it out"
-                onClick={onToggle}
-                className={`grid shrink-0 place-items-center rounded-full bg-white text-neutral-400 ring-1 ring-inset ring-neutral-200 transition-colors hover:text-neutral-900 hover:ring-neutral-400 ${size}`}
-            >
-                <i className="fa-solid fa-scale-balanced text-[11px]" aria-hidden="true" />
-            </button>
-        ) : (
-            <RowTick
-                done={done}
-                compact={compact}
-                label={done ? `Mark ${entry.name} as not eaten` : `Mark ${entry.name} as eaten`}
-                title={done ? 'Eaten' : 'Mark as eaten'}
-                onClick={onToggle}
-            />
-        )
+        <RowTick
+            done={done}
+            compact={compact}
+            label={done ? `Mark ${entry.name} as not eaten` : `Mark ${entry.name} as eaten`}
+            title={done ? 'Eaten' : 'Mark as eaten'}
+            onClick={onToggle}
+        />
     ) : (
         done &&
         !entry.extra && (
@@ -1460,9 +1272,9 @@ function PlannedRow({
         <PlanRow
             compact={compact}
             bar={entry.extra || entry.away ? 'bg-neutral-300' : CATEGORY[entry.slot].solid}
-            title={plateTitle(entry)}
+            title={entry.name}
             titleTone={(done && !entry.extra) || skipped ? 'text-neutral-500' : 'text-neutral-900'}
-            meta={plannedMeta(entry, projection)}
+            meta={plannedMeta(entry)}
             name={entry.name}
             onOpen={onOpen}
             trailing={trailing}
@@ -1619,33 +1431,22 @@ function OutField({ out, onSave }: { out: number | null; onSave: (value: number 
 /** A planned meal opened from its row: its numbers, its notes, and the tick. */
 function PlannedMealDrawer({
     entry,
-    projection,
-    foodName,
-    fromRecipe,
     meal,
     onCopy,
     onClose,
     onToggle,
     onSkip,
-    onUpdatePlate,
     onRemove,
 }: {
     /** Copy it, to paste into another slot or day. */
     onCopy: (entry: MealPlanEntry) => void
     entry: MealPlanEntry | null
-    /** A box note's projected plate at the suggested grams. */
-    projection?: BoxProjection
-    /** A food's name, for a projection's lines. */
-    foodName: (id: string) => string
-    /** The box hasn't been cooked yet, so the projection is off its raw recipe. */
-    fromRecipe?: boolean
     /** The library meal it came from, for its notes — gone if it's been deleted. */
     meal: Meal | null
     onClose: () => void
     onToggle: (entry: MealPlanEntry) => void
     /** Skipped, or back to planned. */
     onSkip: (entry: MealPlanEntry) => void
-    onUpdatePlate: (entry: MealPlanEntry, lines: PlateLine[]) => void
     onRemove: (id: string) => void
 }) {
     // Retain the last entry while the drawer animates closed.
@@ -1693,13 +1494,8 @@ function PlannedMealDrawer({
                             </Button>
                         </div>
                         {!isAwayNote(e) && skip}
-                        {isAwayNote(e) ? null : isBoxNote(e) ? (
-                            !skipped && (
-                                <Button icon="fa-solid fa-scale-balanced" onClick={() => onToggle(e)}>
-                                    Weigh it out
-                                </Button>
-                            )
-                        ) : !e.extra &&
+                        {!isAwayNote(e) &&
+                            !e.extra &&
                             (done ? (
                                 <Button variant="ghost" icon="fa-solid fa-rotate-left" onClick={() => onToggle(e)}>
                                     Mark as not eaten
@@ -1721,54 +1517,8 @@ function PlannedMealDrawer({
                             No {CATEGORY[e.slot].label.toLowerCase()} here. It doesn’t count towards the day’s numbers,
                             and the day’s aim is shared over the other slots. Add a meal to the slot and this note goes.
                         </NoteBlock>
-                    ) : isBoxNote(e) ? (
-                        <>
-                            {projection && (
-                                <div className="flex flex-col gap-3">
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">
-                                        Projected at ~{fmt(projection.grams)} g
-                                    </p>
-                                    <StatStrip
-                                        stats={[
-                                            { icon: 'fa-solid fa-fire', label: 'Calories', value: `~${kcal(projection.macros.calories)} kcal` },
-                                            { icon: 'fa-solid fa-drumstick-bite', label: 'Protein', value: `~${fmt(Math.round(projection.macros.protein))} g` },
-                                            { icon: 'fa-solid fa-wheat-awn', label: 'Carbs', value: `~${fmt(Math.round(projection.macros.carbs))} g` },
-                                            { icon: 'fa-solid fa-droplet', label: 'Fat', value: `~${fmt(Math.round(projection.macros.fat))} g` },
-                                        ]}
-                                    />
-                                    {projection.lines.length > 1 && (
-                                        <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
-                                            {projection.lines.map((l) => (
-                                                <li key={l.food} className="flex items-center gap-3 px-3 py-2 text-sm">
-                                                    <span className="min-w-0 flex-1 truncate text-neutral-800">
-                                                        {foodName(l.food)}
-                                                    </span>
-                                                    <span className="shrink-0 tabular-nums text-neutral-500">
-                                                        ~{fmt(l.grams)} g
-                                                    </span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                    {fromRecipe && (
-                                        <p className="text-xs text-neutral-500">
-                                            Not cooked yet, so this is worked out from the recipe. It firms up once
-                                            you’ve cooked and weighed a batch.
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-                            <NoteBlock icon="fa-solid fa-box" title="Eating from the box">
-                                {projection
-                                    ? 'An estimate: a portion that fills this slot’s share of the day until the first macro (usually protein) reaches it — anything left is room for sides. Lunch and dinner get the same. It shows in the day’s projection but not in its planned numbers. When you eat, weigh it out and the plate takes its place.'
-                                    : 'Planned without amounts, so it doesn’t count towards the day’s numbers. When you eat, weigh it out and the plate takes its place.'}
-                            </NoteBlock>
-                        </>
                     ) : (
                     <>
-                    {e.plate?.length ? (
-                        <PlateLinesEditor key={e._id} lines={e.plate} onChange={(lines) => onUpdatePlate(e, lines)} />
-                    ) : null}
                     <StatStrip
                         stats={[
                             { icon: 'fa-solid fa-fire', label: 'Calories', value: `${kcal(e.macros.calories)} kcal` },

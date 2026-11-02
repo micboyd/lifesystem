@@ -48,7 +48,6 @@ export function WeekMacrosPanel({ week }: { week: WeekMacros | null }) {
             </p>
         )
     }
-    const approx = week.estimated ? '~' : ''
 
     return (
         <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 p-4">
@@ -69,7 +68,6 @@ export function WeekMacrosPanel({ week }: { week: WeekMacros | null }) {
                                     <span
                                         className={`tabular-nums font-semibold ${gap > 0 && !near ? 'text-amber-700' : 'text-neutral-900'}`}
                                     >
-                                        {approx}
                                         {num(track, unit)}
                                     </span>
                                     {target ? (
@@ -91,7 +89,7 @@ export function WeekMacrosPanel({ week }: { week: WeekMacros | null }) {
                             ) : null}
                             <div className="flex items-baseline justify-between gap-2 text-xs text-neutral-500">
                                 <span className="min-w-0 truncate">
-                                    avg <span className="tabular-nums text-neutral-700">{approx}{num(week.average[key], unit)}</span>
+                                    avg <span className="tabular-nums text-neutral-700">{num(week.average[key], unit)}</span>
                                     {avgTarget ? <span className="tabular-nums"> / {num(avgTarget, unit)}</span> : null} a day
                                     {' · '}
                                     <span className="tabular-nums text-neutral-700">{num(week.soFar[key], unit)}</span> eaten
@@ -109,15 +107,9 @@ export function WeekMacrosPanel({ week }: { week: WeekMacros | null }) {
                     )
                 })}
             </div>
-            {(week.emptyDays > 0 || week.estimated) && (
+            {week.emptyDays > 0 && (
                 <p className="border-t border-neutral-100 pt-3 text-xs text-neutral-500">
-                    {[
-                        week.emptyDays > 0 &&
-                            `${week.emptyDays} day${week.emptyDays === 1 ? '' : 's'} with nothing in, counted at target.`,
-                        week.estimated && '~ includes box estimates.',
-                    ]
-                        .filter(Boolean)
-                        .join(' ')}
+                    {week.emptyDays} day{week.emptyDays === 1 ? '' : 's'} with nothing in, counted at target.
                 </p>
             )}
         </div>

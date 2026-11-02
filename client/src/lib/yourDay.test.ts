@@ -140,23 +140,8 @@ describe('yourDay', () => {
         expect(d.next?.id).toBe('meal-lunch')
     })
 
-    it('names a plate by its foods, as the planner does', () => {
-        const plate = [{ name: 'Chilli box' }, { name: 'Rice' }] as MealPlanEntry['plate']
-        const d = yourDay(inputs({ meals: [meal('lunch', { name: 'Chilli box · Rice', plate })] }))
-        expect(ids(d)).toContain('meal-lunch-Chilli box · Rice')
-        expect(step(d, 'meal-lunch-Chilli box · Rice').detail).toBe('Chilli box + Rice · 600 kcal')
-    })
-
-    it('shows a box note without a figure, and an away slot as handled', () => {
-        const d = yourDay(
-            inputs({
-                meals: [
-                    meal('lunch', { name: 'Chilli box + rice', box: 'box1', macros: { ...ZERO } }),
-                    meal('dinner', { name: 'Work do', away: true }),
-                ],
-            })
-        )
-        expect(step(d, 'meal-lunch-Chilli box + rice').detail).toBe('Chilli box + rice · from the box')
+    it('shows an away slot as handled', () => {
+        const d = yourDay(inputs({ meals: [meal('dinner', { name: 'Work do', away: true })] }))
         expect(step(d, 'meal-dinner-Work do')).toMatchObject({ state: 'handled', detail: 'Away · Work do' })
     })
 
@@ -298,15 +283,6 @@ describe('yourDay with a perfect-day selection', () => {
             inputs({ meals: [meal('breakfast', { name: 'Flat White' })], selection: { items: [], skipFoods: ['flat white'] } })
         )
         expect(ids(only)).toEqual([])
-    })
-
-    it('skips a plate only when every food on it is skipped', () => {
-        const line = (name: string) => ({ name }) as NonNullable<MealPlanEntry['plate']>[number]
-        const sel = { items: [], skipFoods: ['flat white'] }
-        expect(ids(yourDay(inputs({ meals: [meal('breakfast', { plate: [line('Flat white')] })], selection: sel })))).toEqual([])
-        expect(
-            ids(yourDay(inputs({ meals: [meal('breakfast', { plate: [line('Flat white'), line('Eggs')] })], selection: sel })))
-        ).toEqual(['breakfast'])
     })
 
     it('makes the weigh-in a must on its chosen days, even without recent weigh-ins', () => {

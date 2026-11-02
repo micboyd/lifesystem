@@ -17,15 +17,24 @@ export interface IMealIngredient {
     items?: number
 }
 
-/** A meal in the library: a name, which meals of the day it's for, and its macros. */
+/** The most boxes a tray (a batch) is split into. */
+export const MAX_BATCH = 20
+
+/**
+ * A meal in the library: a name, which meals of the day it's for, and its
+ * macros. A tray (`batchOf` set) is cooked in one go and split into that many
+ * boxes: its macros are one box's, its ingredients the whole tray's.
+ */
 export interface IMeal extends Document {
     user: Types.ObjectId
     name: string
     /** Breakfast / lunch / dinner / snack — a meal can be more than one. */
     types: MealType[]
     macros: IMacros
-    /** What goes into one serving — what the shopping list buys. */
+    /** What goes into one serving — or, for a tray, the whole tray. What the shopping list buys. */
     ingredients: IMealIngredient[]
+    /** A tray: how many boxes one makes. Null for a single meal. */
+    batchOf?: number | null
     notes?: string
     order: number
     /** Set on meals added by a JSON import, so the last import can be undone. */
@@ -59,6 +68,7 @@ const mealSchema = new Schema<IMeal>(
             ],
             default: [],
         },
+        batchOf: { type: Number, min: 2, max: MAX_BATCH, default: null },
         notes: { type: String, trim: true },
         order: { type: Number, default: 0 },
         importBatch: { type: String, default: null },

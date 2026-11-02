@@ -17,8 +17,10 @@ export interface IShoppingGroup {
     ref?: Types.ObjectId
     name: string
     count: number
-    /** A box's ingredients for one batch, or a meal's for one serving, as last seen. */
+    /** A box's ingredients for one batch, or a meal's for one serving (a tray's: the whole tray), as last seen. */
     ingredients: { name: string; grams: number; items?: number }[]
+    /** A tray meal: how many boxes its ingredients make. `count` is always in boxes. */
+    batchOf?: number | null
 }
 
 /** The user's one shopping list. */
@@ -42,6 +44,7 @@ const groupSchema = new Schema<IShoppingGroup>(
             type: [new Schema({ name: String, grams: Number, items: Number }, { _id: false })],
             default: [],
         },
+        batchOf: { type: Number, default: null },
     },
     { _id: false }
 )

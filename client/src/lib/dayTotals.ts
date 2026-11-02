@@ -3,59 +3,39 @@ import { addMacros, sumEatenMacros, ZERO_MACROS } from './nutrition'
 
 /**
  * One set of numbers for a day, always read against its target. What's been
- * eaten, plus — on today and days ahead — what's still planned, with box
- * notes at their estimated portion. A past day is what was eaten: anything
- * left planned there didn't happen.
+ * eaten, plus — on today and days ahead — what's still planned. A past day
+ * is what was eaten: anything left planned there didn't happen.
  */
 export interface DayTotals {
     eaten: Macros
-    /** Still planned, estimates included. Zero on a past day. */
+    /** Still planned. Zero on a past day. */
     planned: Macros
     /** eaten + planned — the figure shown against the target. */
     total: Macros
-    /** Some of `planned` is a box note's estimate, so the total is approximate. */
-    estimated: boolean
     /**
      * The whole day's plan: eaten plus everything still planned — on a past
      * day too, so it can be set against what was actually eaten.
      */
     plan: Macros
-    /** Some of `plan` is a box note's estimate. */
-    planEstimated: boolean
     when: 'past' | 'today' | 'future'
 }
 
 export function dayTotals(
     entries: MealPlanEntry[],
-    estimateFor: (entry: MealPlanEntry) => Macros | null,
     date: string,
     today: string
 ): DayTotals {
     const when = date < today ? 'past' : date === today ? 'today' : 'future'
     const eaten = sumEatenMacros(entries)
     let pending = { ...ZERO_MACROS }
-    let fromEstimate = false
-    for (const e of entries) {
-        if (e.status !== 'planned' || e.away) continue
-        if (e.box) {
-            const est = estimateFor(e)
-            if (est) {
-                pending = addMacros(pending, est)
-                fromEstimate = true
-            }
-        } else {
-            pending = addMacros(pending, e.macros)
-        }
-    }
+    for (const e of entries) if (e.status === 'planned' && !e.away) pending = addMacros(pending, e.macros)
     // A past day is what was eaten: anything left planned there didn't happen.
     const planned = when === 'past' ? { ...ZERO_MACROS } : pending
     return {
         eaten,
         planned,
         total: addMacros(eaten, planned),
-        estimated: when !== 'past' && fromEstimate,
         plan: addMacros(eaten, pending),
-        planEstimated: fromEstimate,
         when,
     }
 }
@@ -66,7 +46,7 @@ export function dayTotals(
  */
 export function weekAverage(
     days: { totals: DayTotals; goals: MacroGoals | null }[]
-): { calories: number; target: number | null; estimated: boolean } | null {
+): { calories: number; target: number | null } | null {
     const used = days.filter((d) => d.totals.total.calories > 0)
     if (used.length === 0) return null
     const calories = used.reduce((sum, d) => sum + d.totals.total.calories, 0) / used.length
@@ -77,7 +57,6 @@ export function weekAverage(
             targets.length === used.length
                 ? targets.reduce((a, b) => a + b, 0) / targets.length
                 : null,
-        estimated: used.some((d) => d.totals.estimated),
     }
 }
 
@@ -98,8 +77,6 @@ export interface WeekMacros {
     onTrack: Macros
     /** The seven days' targets added up; a macro missing on any day is left out. */
     weekTarget: MacroGoals
-    /** Some of the figures lean on a box note's estimate. */
-    estimated: boolean
     /** Days with anything on them, and days with nothing (counted at target). */
     usedDays: number
     emptyDays: number
@@ -141,7 +118,6 @@ export function weekMacros(
         soFar,
         onTrack,
         weekTarget,
-        estimated: used.some((d) => d.totals.estimated),
         usedDays: used.length,
         emptyDays: empty.length,
     }
