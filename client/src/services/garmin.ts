@@ -13,6 +13,86 @@ export interface GarminEntryState {
     state: GarminState
     lastSentAt: string | null
     scheduledDate: string | null
+    /** The run linked to the entry, when there is one. */
+    activity?: { distanceM: number | null; durationS: number | null } | null
+}
+
+/** A planned watch step as it stood when the run was linked. */
+export type PlannedStep = Exclude<WatchStep, { type: 'repeat' }>
+
+export interface GarminRunSummary {
+    activityId: string
+    name: string
+    typeKey: string
+    startLocal: string
+    distanceM: number | null
+    durationS: number | null
+    movingS: number | null
+    elapsedS: number | null
+    avgSpeed: number | null
+    maxSpeed: number | null
+    avgHr: number | null
+    maxHr: number | null
+    elevGainM: number | null
+    elevLossM: number | null
+    cadence: number | null
+    calories: number | null
+    aerobicTE: number | null
+    anaerobicTE: number | null
+    teLabel: string | null
+    deviceName: string | null
+}
+
+export interface GarminRunLap {
+    index: number
+    distanceM: number | null
+    durationS: number | null
+    movingS: number | null
+    avgSpeed: number | null
+    avgHr: number | null
+    maxHr: number | null
+    elevGainM: number | null
+    intensity: string | null
+    stepIndex: number | null
+}
+
+/** A finished run pulled from Garmin and linked to a planned entry. */
+export interface GarminRun {
+    activityId: string
+    date: string
+    entry: string | null
+    log: string | null
+    linkedBy: 'workout' | 'day' | 'manual' | null
+    summary: GarminRunSummary
+    laps: GarminRunLap[]
+    zones: { zone: number; seconds: number; lowBpm: number | null }[]
+    /** [lng, lat] */
+    track: number[][]
+    chart: {
+        t?: (number | null)[]
+        d?: (number | null)[]
+        hr?: (number | null)[]
+        speed?: (number | null)[]
+        elev?: (number | null)[]
+    }
+    planned: PlannedStep[]
+}
+
+/** An activity on Garmin that could be picked as a day's run. */
+export interface GarminRunCandidate {
+    activityId: string
+    name: string
+    typeKey: string
+    startLocal: string
+    distanceM: number | null
+    durationS: number | null
+    avgHr: number | null
+}
+
+export interface GarminRunCheck {
+    linked: { entryId: string; activityId: string; logId: string; by: 'workout' | 'day' }[]
+    candidates: Record<string, GarminRunCandidate[]>
+    asked: boolean
 }
 
 export interface GarminPreview extends GarminEntryState {
@@ -90,4 +170,55 @@ export async function getGarminPreview(entryId: string): Promise<GarminPreview> 
 export async function sendToGarmin(entryId: string): Promise<GarminSendResult> {
     const res = await api.post<ApiResponse<Omit<GarminSendResult, 'message'>>>(`/garmin/entries/${entryId}/send`)
     return { ...res.data.data, message: res.data.message }
+}
+
+/**
+ * Look for finished runs on [from, to] and link what matches. `force` asks
+ * Garmin again even if it was asked a few minutes ago.
+ */
+export async function checkGarminRuns(from: string, to: string, force = false): Promise<GarminRunCheck> {
+    const res = await api.post<ApiResponse<GarminRunCheck>>('/garmin/activities/check', { from, to, force })
+    return res.data.data
+}
+
+export async function getEntryRun(entryId: string): Promise<GarminRun | null> {
+    return (await api.get<ApiResponse<GarminRun | null>>(`/garmin/activities/entry/${entryId}`)).data.data
+}
+
+export async function linkEntryRun(entryId: string, activityId: string): Promise<GarminRun> {
+    const res = await api.post<ApiResponse<GarminRun>>(`/garmin/activities/entry/${entryId}/link`, { activityId })
+    return res.data.data
+}
+
+export async function unlinkEntryRun(entryId: string): Promise<void> {
+    await api.post(`/garmin/activities/entry/${entryId}/unlink`)
+}
+
+/** Fired on window when runs were linked, so screens showing done state reload. */
+export const GARMIN_RUNS_LINKED = 'garmin-runs-linked'
+
+let quietFor: string | null = null
+/**
+ * The background check screens make on open: never throws, never shows an
+ * error, and skips when Garmin isn't connected. Once per range per page load;
+ * the server keeps its own cooldown too.
+ */
+export async function checkGarminRunsQuietly(from: string, to: string): Promise<GarminRunCheck | null> {
+    const key = `${from}|${to}`
+    if (quietFor === key) return null
+    quietFor = key
+    try {
+        const status = await getGarminStatus()
+        if (status.status !== 'connected') return null
+        const result = await checkGarminRuns(from, to)
+        if (result.linked.length) window.dispatchEvent(new CustomEvent(GARMIN_RUNS_LINKED, { detail: result.linked }))
+        return result
+    } catch {
+        return null
+    } finally {
+        // Allow the same range again later in the session (the server decides if it's too soon).
+        setTimeout(() => {
+            if (quietFor === key) quietFor = null
+        }, 60_000)
+    }
 }

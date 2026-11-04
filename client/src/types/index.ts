@@ -449,6 +449,10 @@ export interface ConditioningLog {
     /** Each part's slot against when it was tapped completed. */
     checkpoints?: Checkpoint[]
     notes?: string
+    /** The Garmin run linked to this log, if any. */
+    garminActivity?: string | null
+    /** Logged in the app, or made from a Garmin run when nothing was logged. */
+    source?: 'manual' | 'garmin'
     createdAt: string
     updatedAt: string
 }

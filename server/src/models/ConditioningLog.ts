@@ -39,6 +39,10 @@ export interface IConditioningLog extends Document {
     /** Each part's slot against when it was tapped completed. */
     checkpoints?: ICheckpoint[]
     notes?: string
+    /** The Garmin activity this was run as, once one is linked. */
+    garminActivity?: Types.ObjectId | null
+    /** Logged in the app, or made from a Garmin activity when nothing was logged. */
+    source?: 'manual' | 'garmin'
     createdAt: Date
     updatedAt: Date
 }
@@ -74,6 +78,8 @@ const conditioningLogSchema = new Schema<IConditioningLog>(
         rounds: { type: [roundProgressSchema], default: undefined },
         checkpoints: { type: [checkpointSchema], default: undefined },
         notes: { type: String, trim: true },
+        garminActivity: { type: Schema.Types.ObjectId, ref: 'GarminActivity', default: null },
+        source: { type: String, enum: ['manual', 'garmin'], default: 'manual' },
     },
     { timestamps: true }
 )

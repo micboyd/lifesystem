@@ -12,6 +12,8 @@ import {
 } from '../garmin/account'
 import { GARMIN_ERROR_STATUS, GarminError, isGarminError } from '../garmin/provider'
 import { entryGarminState, previewSession, sendEntry, type SyncSession } from '../garmin/sync'
+import GarminActivity, { type IGarminActivity } from '../models/GarminActivity'
+import { checkActivities, linkByHand, rangeIsValid, unlinkActivity } from '../garmin/activities'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -108,7 +110,20 @@ export const entryStates = handle(async (req, res) => {
     }).populate<{ session: IConditioningSession | null }>('session')
     // One preview per session, however many days it's on.
     const hashes = new Map<string, string>()
-    const data: Record<string, { state: string; lastSentAt: Date | null; scheduledDate: string | null }> = {}
+    // Runs linked to these entries, for the row to say how far.
+    const runs = await GarminActivity.find({ user: req.userId, entry: { $in: entries.map((e) => e._id) } })
+        .select('entry summary.distanceM summary.movingS summary.durationS')
+        .lean()
+    const runByEntry = new Map(runs.map((r) => [String(r.entry), r.summary]))
+    const data: Record<
+        string,
+        {
+            state: string
+            lastSentAt: Date | null
+            scheduledDate: string | null
+            activity: { distanceM: number | null; durationS: number | null } | null
+        }
+    > = {}
     for (const e of entries) {
         if (!e.session) continue
         const sid = String(e.session._id)
@@ -117,6 +132,12 @@ export const entryStates = handle(async (req, res) => {
             state: entryGarminState({ _id: String(e._id), date: e.date, garmin: e.garmin }, hashes.get(sid)!),
             lastSentAt: e.garmin?.lastSentAt ?? null,
             scheduledDate: e.garmin?.scheduledDate ?? null,
+            activity: runByEntry.has(String(e._id))
+                ? {
+                      distanceM: runByEntry.get(String(e._id))!.distanceM ?? null,
+                      durationS: runByEntry.get(String(e._id))!.movingS ?? runByEntry.get(String(e._id))!.durationS ?? null,
+                  }
+                : null,
         }
     }
     res.json({ message: 'OK', data })
@@ -159,4 +180,55 @@ export const send = handle(async (req, res) => {
             scheduledDate: result.garmin.scheduledDate,
         },
     })
+})
+
+// ─── Finished runs ────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/garmin/activities/check — { from, to, force? } → links made, and
+ * what could be picked by hand for days still unlinked.
+ */
+export const checkRuns = handle(async (req, res) => {
+    const { from, to, force } = req.body ?? {}
+    if (typeof from !== 'string' || typeof to !== 'string' || !DATE_RE.test(from) || !DATE_RE.test(to) || !rangeIsValid(from, to)) {
+        res.status(400).json({ message: 'from and to (YYYY-MM-DD, up to 14 days) are required', code: 'bad_request' })
+        return
+    }
+    res.json({ message: 'OK', data: await checkActivities(req.userId!, from, to, { force: force === true }) })
+})
+
+/** The stored run for the browser — everything but the owner and Mongo's own fields. */
+function activityView(r: IGarminActivity) {
+    return {
+        activityId: r.activityId,
+        date: r.date,
+        entry: r.entry ? String(r.entry) : null,
+        log: r.log ? String(r.log) : null,
+        linkedBy: r.linkedBy,
+        summary: r.summary,
+        laps: r.laps,
+        zones: r.zones,
+        track: r.track,
+        chart: r.chart,
+        planned: r.planned,
+    }
+}
+
+/** GET /api/garmin/activities/entry/:id — the run linked to a planned entry, or null. */
+export const entryRun = handle(async (req, res) => {
+    const r = await GarminActivity.findOne({ user: req.userId, entry: req.params.id })
+    res.json({ message: 'OK', data: r ? activityView(r) : null })
+})
+
+/** POST /api/garmin/activities/entry/:id/link — { activityId } */
+export const linkRun = handle(async (req, res) => {
+    const activityId = typeof req.body?.activityId === 'string' ? req.body.activityId : ''
+    const r = await linkByHand(req.userId!, String(req.params.id), activityId)
+    res.json({ message: 'Linked', data: activityView(r) })
+})
+
+/** POST /api/garmin/activities/entry/:id/unlink */
+export const unlinkRun = handle(async (req, res) => {
+    await unlinkActivity(req.userId!, String(req.params.id))
+    res.json({ message: 'Unlinked' })
 })

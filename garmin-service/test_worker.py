@@ -60,6 +60,47 @@ class FakeGarmin:
     def push_workout_to_device(self, workout_id, device_id):
         FakeGarmin.pushed_to.append(device_id)
 
+    activities: list = []
+    splits_error: Exception | None = None
+
+    def get_activities_by_date(self, start, end=None):
+        FakeGarmin.asked_range = (start, end)
+        return FakeGarmin.activities
+
+    def get_activity(self, activity_id):
+        return {
+            "activityId": int(activity_id),
+            "activityName": "Morning Run",
+            "activityTypeDTO": {"typeKey": "running"},
+            "metadataDTO": {"associatedWorkoutId": 42, "deviceMetaDataDTO": {"deviceName": "fenix 7X"}},
+            "summaryDTO": {
+                "startTimeLocal": "2026-11-04T07:01:00.0",
+                "distance": 5012.4,
+                "duration": 1800.2,
+                "movingDuration": 1790.0,
+                "averageSpeed": 2.78,
+                "averageHR": 151.0,
+                "elevationGain": 34.0,
+                "averageRunCadence": 168.0,
+                "trainingEffect": 3.1,
+            },
+        }
+
+    def get_activity_splits(self, activity_id):
+        if FakeGarmin.splits_error:
+            raise FakeGarmin.splits_error
+        return {"lapDTOs": [{"distance": 1000.0, "duration": 360.0, "averageSpeed": 2.77, "wktStepIndex": 0, "intensityType": "WARMUP"}]}
+
+    def get_activity_hr_in_timezones(self, activity_id):
+        return [{"zoneNumber": 2, "secsInZone": 600.0, "zoneLowBoundary": 120}, {"zoneNumber": 1, "secsInZone": 60.0}]
+
+    def get_activity_details(self, activity_id, maxchart, maxpoly):
+        return {
+            "geoPolylineDTO": {"polyline": [{"lat": 51.5, "lon": -0.1}, {"lat": 0, "lon": 0}, {"lat": 51.51, "lon": -0.11}]},
+            "metricDescriptors": [{"key": "sumElapsedDuration", "metricsIndex": 0}, {"key": "directHeartRate", "metricsIndex": 1}],
+            "activityDetailMetrics": [{"metrics": [0.0, 100.0]}, {"metrics": [5.0, None]}, {"metrics": [10.0, 140.0]}],
+        }
+
 
 class WorkerTest(unittest.TestCase):
     def setUp(self):
@@ -69,6 +110,8 @@ class WorkerTest(unittest.TestCase):
         FakeGarmin.devices = []
         FakeGarmin.primary = None
         FakeGarmin.pushed_to = []
+        FakeGarmin.activities = []
+        FakeGarmin.splits_error = None
         patcher = mock.patch.object(worker.garminconnect, "Garmin", FakeGarmin)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -142,6 +185,42 @@ class WorkerTest(unittest.TestCase):
         FakeGarmin.primary = 1
         self.assertEqual(self.run_op({"op": "push", "tokens": TOKENS, "workoutId": "42"})["code"], "no_device")
         self.assertEqual(FakeGarmin.pushed_to, [])
+
+    def test_list_activities_is_reduced_to_briefs(self):
+        FakeGarmin.activities = [
+            {"activityId": 7, "activityName": "Run", "activityType": {"typeKey": "running"}, "startTimeLocal": "2026-11-04 07:01:00",
+             "distance": 5000.0, "duration": 1800.0, "workoutId": 42, "ownerFullName": SECRET},
+            {"no": "id"},
+        ]
+        reply = self.run_op({"op": "list_activities", "tokens": TOKENS, "from": "2026-11-03", "to": "2026-11-04"})
+        acts = reply["result"]["activities"]
+        self.assertEqual(len(acts), 1)
+        self.assertEqual(acts[0]["activityId"], "7")
+        self.assertEqual(acts[0]["typeKey"], "running")
+        self.assertEqual(acts[0]["workoutId"], "42")
+        self.assertEqual(FakeGarmin.asked_range, ("2026-11-03", "2026-11-04"))
+
+    def test_list_activities_needs_dates(self):
+        reply = self.run_op({"op": "list_activities", "tokens": TOKENS, "from": "yesterday", "to": "2026-11-04"})
+        self.assertEqual(reply["code"], "bad_request")
+
+    def test_get_activity_collects_summary_laps_zones_track_and_chart(self):
+        r = self.run_op({"op": "get_activity", "tokens": TOKENS, "activityId": "7"})["result"]
+        self.assertEqual(r["summary"]["workoutId"], "42")
+        self.assertEqual(r["summary"]["distanceM"], 5012.4)
+        self.assertEqual(r["summary"]["cadence"], 168.0)
+        self.assertEqual(r["summary"]["deviceName"], "fenix 7X")
+        self.assertEqual(r["laps"][0]["stepIndex"], 0)
+        self.assertEqual([z["zone"] for z in r["zones"]], [1, 2])
+        self.assertEqual(r["track"], [[-0.1, 51.5], [-0.11, 51.51]])
+        self.assertEqual(r["chart"]["t"], [0.0, 5.0, 10.0])
+        self.assertEqual(r["chart"]["hr"], [100.0, None, 140.0])
+
+    def test_get_activity_survives_a_missing_extra(self):
+        FakeGarmin.splits_error = garminconnect.GarminConnectConnectionError("boom")
+        r = self.run_op({"op": "get_activity", "tokens": TOKENS, "activityId": "7"})
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["result"]["laps"], [])
 
     def test_unknown_op(self):
         self.assertEqual(self.run_op({"op": "rm -rf"})["code"], "bad_request")

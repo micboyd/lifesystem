@@ -14,6 +14,79 @@ export interface WorkoutSpec {
     estimatedSeconds: number
 }
 
+/** One activity from Garmin's list — just enough to match it to a plan entry. */
+export interface ActivityBrief {
+    activityId: string
+    name: string
+    /** Garmin's type key: running, treadmill_running, walking, hiking… */
+    typeKey: string
+    /** "YYYY-MM-DD HH:MM:SS" in the watch's local time — its first 10 characters are the day. */
+    startLocal: string
+    startGMT: string
+    distanceM: number | null
+    durationS: number | null
+    movingS: number | null
+    avgHr: number | null
+    /** The Garmin workout it was run from, when it was started from one. */
+    workoutId: string | null
+}
+
+export interface ActivitySummary extends ActivityBrief {
+    elapsedS: number | null
+    /** Metres per second. */
+    avgSpeed: number | null
+    maxSpeed: number | null
+    maxHr: number | null
+    elevGainM: number | null
+    elevLossM: number | null
+    /** Steps per minute. */
+    cadence: number | null
+    calories: number | null
+    aerobicTE: number | null
+    anaerobicTE: number | null
+    teLabel: string | null
+    deviceName: string | null
+}
+
+export interface ActivityLap {
+    index: number
+    distanceM: number | null
+    durationS: number | null
+    movingS: number | null
+    avgSpeed: number | null
+    avgHr: number | null
+    maxHr: number | null
+    elevGainM: number | null
+    /** WARMUP, ACTIVE, INTERVAL, RECOVERY, REST, COOLDOWN… */
+    intensity: string | null
+    /** Which workout step the lap was, when run from a workout. */
+    stepIndex: number | null
+}
+
+export interface ActivityZone {
+    zone: number
+    seconds: number
+    lowBpm: number | null
+}
+
+/** Series sampled together: elapsed seconds, metres, bpm, m/s, metres. */
+export interface ActivityChart {
+    t?: (number | null)[]
+    d?: (number | null)[]
+    hr?: (number | null)[]
+    speed?: (number | null)[]
+    elev?: (number | null)[]
+}
+
+export interface ActivityDetail {
+    summary: ActivitySummary
+    laps: ActivityLap[]
+    zones: ActivityZone[]
+    /** [lng, lat] pairs; empty without GPS. */
+    track: number[][]
+    chart: ActivityChart
+}
+
 export interface GarminWorkoutProvider {
     createWorkout(workout: WorkoutSpec): Promise<{ workoutId: string }>
     /** Replace a workout in place, keeping its id — schedules pointing at it follow. */
@@ -24,6 +97,10 @@ export interface GarminWorkoutProvider {
     unscheduleWorkout(scheduleId: string): Promise<void>
     /** Push a workout straight to the watch. */
     sendToDevice(workoutId: string): Promise<{ deviceName?: string }>
+    /** Activities that started on the days from–to ("YYYY-MM-DD", inclusive). */
+    listActivities(from: string, to: string): Promise<ActivityBrief[]>
+    /** One activity in full: summary, laps, HR zones, track and charts. */
+    getActivity(activityId: string): Promise<ActivityDetail>
 }
 
 export const GARMIN_ERROR_CODES = [
@@ -48,7 +125,7 @@ export const GARMIN_ERROR_MESSAGES: Record<GarminErrorCode, string> = {
     session_expired: 'Your Garmin session has expired. Reconnect Garmin to carry on.',
     unavailable: 'Garmin Connect isn’t responding right now.',
     rate_limited: 'Garmin is limiting requests. Try again in a few minutes.',
-    not_found: 'Garmin couldn’t find that workout.',
+    not_found: 'Garmin couldn’t find that.',
     no_device: 'No Garmin device was found on your account.',
     bad_request: 'Something went wrong preparing the request to Garmin.',
     error: 'Something went wrong talking to Garmin.',

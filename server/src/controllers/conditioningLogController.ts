@@ -3,6 +3,7 @@ import { Types } from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import { dateRangeFilter } from '../lib/dateRange'
 import ConditioningLog from '../models/ConditioningLog'
+import { releaseLogActivity } from '../garmin/activities'
 import { toMinutes, toTimestamp } from '../lib/timeWindow'
 import ConditioningSession, {
     CONDITIONING_CATEGORIES,
@@ -163,5 +164,7 @@ export async function deleteLog(req: AuthRequest, res: Response) {
         res.status(404).json({ message: 'Log not found' })
         return
     }
+    // Its Garmin run, if any, stops counting for the entry — and isn't re-linked on its own.
+    await releaseLogActivity(String(req.userId), String(log._id))
     res.json({ message: 'Deleted', data: log })
 }

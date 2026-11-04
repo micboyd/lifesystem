@@ -7,6 +7,10 @@ import {
     entryStates,
     preview,
     send,
+    checkRuns,
+    entryRun,
+    linkRun,
+    unlinkRun,
 } from '../controllers/garminController'
 import { requireAuth } from '../middleware/auth'
 
@@ -21,5 +25,10 @@ router.delete('/connect', disconnect)
 router.get('/entries', entryStates)
 router.get('/entries/:id/preview', preview)
 router.post('/entries/:id/send', send)
+
+router.post('/activities/check', checkRuns)
+router.get('/activities/entry/:id', entryRun)
+router.post('/activities/entry/:id/link', linkRun)
+router.post('/activities/entry/:id/unlink', unlinkRun)
 
 export default router

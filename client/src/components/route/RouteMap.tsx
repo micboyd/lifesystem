@@ -43,6 +43,7 @@ export default function RouteMap({
     loop,
     start,
     steps = [],
+    planned = null,
     hoverM,
     onHover,
     onPick,
@@ -53,6 +54,8 @@ export default function RouteMap({
     /** Shown when there's no route yet. */
     start: LatLng | null
     steps?: StepMarker[]
+    /** A second line under the main one — the planned route, behind the run as done. */
+    planned?: number[][] | null
     hoverM: number | null
     onHover?: (atM: number | null) => void
     /** Set when the map is in "drop a start point" mode. */
@@ -139,6 +142,13 @@ export default function RouteMap({
         g.clearLayers()
         hoverMarker.current = null
         bounds.current = null
+        const plannedLine =
+            planned && planned.length > 1
+                ? L.polyline(
+                      planned.map((c) => [c[1], c[0]] as [number, number]),
+                      { color: '#737373', weight: 4, opacity: 0.7, dashArray: '6 8', interactive: false }
+                  ).addTo(g)
+                : null
         if (coords && coords.length > 1) {
             const cum = cumulative(coords)
             const latlngs = coords.map((c) => [c[1], c[0]] as [number, number])
@@ -182,12 +192,13 @@ export default function RouteMap({
                 zIndexOffset: 1000,
             }).addTo(g)
             bounds.current = line.getBounds()
+            if (plannedLine) bounds.current.extend(plannedLine.getBounds())
             m.fitBounds(bounds.current, { padding: [24, 24] })
         } else if (start) {
             L.marker([start.lat, start.lng], { icon: dot(pill('S', '#10b981'), 26), title: 'Start' }).addTo(g)
             m.setView([start.lat, start.lng], Math.max(m.getZoom(), 14))
         }
-    }, [coords, loop, start, steps])
+    }, [coords, loop, start, steps, planned])
 
     // The point the chart is pointing at.
     useEffect(() => {

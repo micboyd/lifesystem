@@ -45,6 +45,10 @@ function fakeGarmin() {
             calendar.delete(id)
         }),
         sendToDevice: vi.fn(async () => ({ deviceName: 'Forerunner 265' })),
+        listActivities: vi.fn(async () => []),
+        getActivity: vi.fn(async () => {
+            throw new GarminError('not_found')
+        }),
     }
     return { provider, workouts, calendar }
 }

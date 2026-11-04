@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import Spinner from './Spinner'
 import Button from './Button'
 import Input from './Input'
@@ -37,7 +37,17 @@ import RouteCard from './route/RouteCard'
 import { ConditioningLogSummary } from './ConditioningSessionsLog'
 import GarminSendPanel from './garmin/GarminSendPanel'
 import GarminWeekDrawer from './garmin/GarminWeekDrawer'
-import { garminError, listGarminStates, sendToGarmin, type GarminEntryState } from '../services/garmin'
+import {
+    checkGarminRunsQuietly,
+    garminError,
+    GARMIN_RUNS_LINKED,
+    listGarminStates,
+    sendToGarmin,
+    type GarminEntryState,
+    type GarminRunCheck,
+} from '../services/garmin'
+import GarminRunPanel from './garmin/GarminRunPanel'
+import { runDistance } from '../lib/garminRun'
 import { clearTaps, EMPTY_TAPS } from '../lib/sessionPace'
 import { clearDraft } from '../lib/workoutLogDraft'
 import { useToast } from '../context/ToastContext'
@@ -637,6 +647,46 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         return m
     }, [exercises])
 
+    // Bumped when runs are linked, so the rows re-read their Garmin state.
+    const [runsVersion, setRunsVersion] = useState(0)
+
+    // Runs linked from Garmin tick their entries off — from this screen's own
+    // check, or a drawer, or another screen on the page.
+    const entriesRef = useRef(entries)
+    useEffect(() => {
+        entriesRef.current = entries
+    }, [entries])
+    useEffect(() => {
+        const onLinked = (ev: globalThis.Event) => {
+            const links = (ev as CustomEvent<GarminRunCheck['linked']>).detail ?? []
+            for (const l of links) {
+                const entry = entriesRef.current.find((e) => e._id === l.entryId)
+                if (entry?.session) markDoneKey('conditioning', entry.session._id, entry.date, l.logId)
+            }
+            if (links.length) setRunsVersion((v) => v + 1)
+        }
+        window.addEventListener(GARMIN_RUNS_LINKED, onLinked)
+        return () => window.removeEventListener(GARMIN_RUNS_LINKED, onLinked)
+    }, [])
+
+    // Looking for finished runs: the last three days that fall in the week shown,
+    // only when one of them has a conditioning session not yet done.
+    const runCheckKey = useMemo(() => {
+        const from = range.start > addDays(today, -2) ? range.start : addDays(today, -2)
+        const to = range.end < today ? range.end : today
+        if (from > to) return null
+        const waiting = entries.some(
+            (e) => e.kind === 'conditioning' && e.session && !e.skipped && e.date >= from && e.date <= to && !isDone(e)
+        )
+        return waiting ? `${from}|${to}` : null
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [entries, doneLogs, range.start, range.end, today])
+    useEffect(() => {
+        if (!runCheckKey) return
+        const [from, to] = runCheckKey.split('|')
+        void checkGarminRunsQuietly(from, to)
+    }, [runCheckKey])
+
     // Garmin states follow the entries — a moved or added session changes them.
     // Quiet on failure: the rows just don't say.
     useEffect(() => {
@@ -649,7 +699,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
         return () => {
             active = false
         }
-    }, [entries, range.start, range.end])
+    }, [entries, range.start, range.end, runsVersion])
 
     function noteGarminSent(entryId: string, state: GarminState) {
         setGarminStates((prev) => ({
@@ -1200,6 +1250,10 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 onUnlog={unmarkDone}
                 onSkip={handleSkip}
                 onGarminSent={noteGarminSent}
+                onRunLinked={(entry, logId) => {
+                    if (entry.session) markDoneKey('conditioning', entry.session._id, entry.date, logId)
+                    setRunsVersion((v) => v + 1)
+                }}
                 onCopy={(e) => {
                     setDetail(null)
                     copyEntry(e)
@@ -2678,8 +2732,14 @@ function PlannedRow({
     const name = planItemName(entry) ?? KIND_META[entry.kind].noun
     // A logged session counts as done even if it was skipped first.
     const skipped = !done && entry.skipped === true
-    const garminState = useContext(GarminStatesContext)[entry._id]?.state
-    const garminNote = garminState ? GARMIN_ROW_NOTE[garminState] : null
+    const garmin = useContext(GarminStatesContext)[entry._id]
+    const garminNote = garmin?.activity
+        ? garmin.activity.distanceM
+            ? `${runDistance(garmin.activity.distanceM)} on Garmin`
+            : 'Run on Garmin'
+        : garmin?.state
+          ? GARMIN_ROW_NOTE[garmin.state]
+          : null
 
     const trailing = skipped ? (
         <span
@@ -2984,6 +3044,7 @@ function PlannedDetailDrawer({
     onLogWeights,
     onStartSession,
     onGarminSent,
+    onRunLinked,
 }: {
     entry: FitnessPlanEntry | null
     exercisesById: Map<string, Exercise>
@@ -3009,6 +3070,8 @@ function PlannedDetailDrawer({
     onStartSession: (entry: FitnessPlanEntry, logId: string | null, notes?: string) => void
     /** A conditioning session went to Garmin, so its row can say so. */
     onGarminSent: (entryId: string, state: GarminState) => void
+    /** A finished run from Garmin was linked, writing or attaching this log. */
+    onRunLinked: (entry: FitnessPlanEntry, logId: string) => void
 }) {
     // Retain the last entry while the drawer animates closed.
     const [view, setView] = useState<FitnessPlanEntry | null>(entry)
@@ -3256,7 +3319,10 @@ function PlannedDetailDrawer({
                 {e && (
                     <div className="flex flex-col gap-6">
                         <PlannedContext entry={e} done={done} />
-                        {isSession && <GarminSendPanel entryId={e._id} onSent={onGarminSent} />}
+                        {isSession && !skipped && (
+                            <GarminRunPanel entry={e} done={done} onLinked={(logId) => onRunLinked(e, logId)} />
+                        )}
+                        {isSession && !done && <GarminSendPanel entryId={e._id} onSent={onGarminSent} />}
                         {skipping && (
                             <div className="flex flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
                                 <Textarea

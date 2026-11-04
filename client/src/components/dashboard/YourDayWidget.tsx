@@ -6,6 +6,7 @@ import { useDayEvents } from './useDayEvents'
 import { listPlanEntries } from '../../services/fitnessPlan'
 import { listLogs as listWorkoutLogs } from '../../services/workoutLogs'
 import { listLogs as listConditioningLogs } from '../../services/conditioningLogs'
+import { checkGarminRunsQuietly, GARMIN_RUNS_LINKED } from '../../services/garmin'
 import { listHabits, listLogs as listHabitLogs, checkHabit, uncheckHabit } from '../../services/habits'
 import { useDataVersion, useInvalidate } from '../../context/DataSyncContext'
 import { useAuth } from '../../context/AuthContext'
@@ -64,6 +65,13 @@ interface DayRecords {
 function useDayRecords(date: string) {
     // Refetched when habits change elsewhere — keeping what's shown meanwhile, so a tick doesn't flash.
     const habitsVersion = useDataVersion('habits')
+    // Bumped when a finished run is linked from Garmin and ticks a session off.
+    const [runsVersion, setRunsVersion] = useState(0)
+    useEffect(() => {
+        const bump = () => setRunsVersion((v) => v + 1)
+        window.addEventListener(GARMIN_RUNS_LINKED, bump)
+        return () => window.removeEventListener(GARMIN_RUNS_LINKED, bump)
+    }, [])
     const [state, setState] = useState<{ date: string; records: DayRecords } | null>(null)
 
     useEffect(() => {
@@ -80,6 +88,11 @@ function useDayRecords(date: string) {
             const logged = new Set<string>()
             for (const l of workouts) if (l.workout && l.date === date) logged.add(sessionKey('workout', l.workout))
             for (const l of sessions) if (l.session && l.date === date) logged.add(sessionKey('conditioning', l.session))
+            // A session still to tick off today or earlier: see if its run is on Garmin yet.
+            const waiting = training.some(
+                (e) => e.kind === 'conditioning' && e.session && !e.skipped && !logged.has(sessionKey('conditioning', e.session._id))
+            )
+            if (waiting && date <= todayKey()) void checkGarminRunsQuietly(date, date)
             setState({
                 date,
                 records: {
@@ -93,7 +106,7 @@ function useDayRecords(date: string) {
         return () => {
             active = false
         }
-    }, [date, habitsVersion])
+    }, [date, habitsVersion, runsVersion])
 
     const current = state?.date === date ? state.records : null
     return { records: current, setRecords: setState }
