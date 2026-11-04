@@ -22,7 +22,7 @@ type RowResult =
     | { kind: 'skipped'; message: string }
 
 /** An account problem stops the run: every send after it would fail the same way. */
-const STOPS: GarminErrorCode[] = ['not_configured', 'not_connected', 'session_expired']
+const STOPS: GarminErrorCode[] = ['not_configured', 'worker_unavailable', 'not_connected', 'session_expired']
 
 /**
  * Send the next 7 days of conditioning to Garmin, one at a time so each gets

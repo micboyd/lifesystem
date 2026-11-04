@@ -105,6 +105,7 @@ export interface GarminWorkoutProvider {
 
 export const GARMIN_ERROR_CODES = [
     'not_configured',
+    'worker_unavailable',
     'not_connected',
     'auth_failed',
     'session_expired',
@@ -119,7 +120,8 @@ export type GarminErrorCode = (typeof GARMIN_ERROR_CODES)[number]
 
 /** What the person sees for each failure — never anything from Garmin itself. */
 export const GARMIN_ERROR_MESSAGES: Record<GarminErrorCode, string> = {
-    not_configured: 'Garmin isn’t set up on the server yet.',
+    not_configured: 'Garmin isn’t set up on the server yet: GARMIN_TOKEN_KEY is missing or isn’t a 32-byte key.',
+    worker_unavailable: 'The server couldn’t start its Garmin helper (Python). Check the server logs for “[garmin]”.',
     not_connected: 'Connect your Garmin account first.',
     auth_failed: 'Garmin didn’t accept those details.',
     session_expired: 'Your Garmin session has expired. Reconnect Garmin to carry on.',
@@ -137,6 +139,7 @@ export const GARMIN_ERROR_MESSAGES: Record<GarminErrorCode, string> = {
  */
 export const GARMIN_ERROR_STATUS: Record<GarminErrorCode, number> = {
     not_configured: 503,
+    worker_unavailable: 503,
     not_connected: 409,
     auth_failed: 422,
     session_expired: 409,

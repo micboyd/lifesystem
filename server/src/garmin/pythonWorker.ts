@@ -55,7 +55,7 @@ export const runWorker: WorkerRun = <T>(request: Record<string, unknown>) =>
         child.on('error', (e) => {
             clearTimeout(timer)
             console.error(`[garmin] could not start ${bin}: ${e.message}`)
-            reject(new GarminError('not_configured'))
+            reject(new GarminError('worker_unavailable'))
         })
         child.on('close', (exitCode) => {
             clearTimeout(timer)
@@ -65,7 +65,7 @@ export const runWorker: WorkerRun = <T>(request: Record<string, unknown>) =>
             } catch {
                 const lastLine = err.trim().split('\n').pop() ?? ''
                 console.error(`[garmin] worker (${bin}) exited ${exitCode} without a reply: ${lastLine}`)
-                reject(new GarminError('not_configured'))
+                reject(new GarminError('worker_unavailable'))
                 return
             }
             if (reply.ok) {

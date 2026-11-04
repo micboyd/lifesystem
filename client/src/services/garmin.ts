@@ -115,6 +115,7 @@ export interface GarminSendResult {
 /** The failure codes the Garmin routes answer with. */
 export type GarminErrorCode =
     | 'not_configured'
+    | 'worker_unavailable'
     | 'not_connected'
     | 'auth_failed'
     | 'session_expired'
