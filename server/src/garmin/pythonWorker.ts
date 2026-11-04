@@ -1,5 +1,5 @@
 /**
- * Runs garmin-service/worker.py for one operation: one JSON request on stdin,
+ * Runs server/garmin-service/worker.py for one operation: one JSON request on stdin,
  * one JSON reply on stdout. Requests carry tokens and, on connect, the password,
  * so they go over stdin (never argv, which other processes can read) and are
  * never logged. Python 3.12+ comes from GARMIN_PYTHON, else the service's venv.
@@ -9,7 +9,7 @@ import { existsSync } from 'fs'
 import path from 'path'
 import { GARMIN_ERROR_CODES, GarminError, type GarminErrorCode } from './provider'
 
-const SERVICE_DIR = path.resolve(__dirname, '../../../garmin-service')
+const SERVICE_DIR = path.resolve(__dirname, '../../garmin-service')
 const WORKER = path.join(SERVICE_DIR, 'worker.py')
 /** Under Heroku's 30 s request cap, with room for the rest of the request. */
 const TIMEOUT_MS = 25_000

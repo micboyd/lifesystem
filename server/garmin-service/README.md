@@ -14,12 +14,16 @@ Training API without touching the UI.
 ## Setup (Python 3.12+)
 
 ```bash
-python3.12 -m venv garmin-service/.venv
-garmin-service/.venv/bin/pip install -r garmin-service/requirements.txt
+python3.12 -m venv server/garmin-service/.venv
+server/garmin-service/.venv/bin/pip install -r server/garmin-service/requirements.txt
 ```
 
-The server uses `garmin-service/.venv/bin/python` when it exists, else
-`GARMIN_PYTHON`, else `python3`.
+The server uses `GARMIN_PYTHON` when set, else `server/garmin-service/.venv/bin/python`,
+else Heroku's `~/.heroku/python/bin/python3`, else `python3`.
+
+On Heroku only `server/` is deployed (subdir buildpack, `PROJECT_PATH=server`), so
+`server/requirements.txt` and `server/.python-version` are what `heroku/python`
+reads. Buildpack order: subdir, then `heroku/python`, then `heroku/nodejs`.
 
 ## Environment
 
@@ -31,7 +35,7 @@ The server uses `garmin-service/.venv/bin/python` when it exists, else
 ## Tests
 
 ```bash
-cd garmin-service && .venv/bin/python -m unittest -v test_worker
+cd server/garmin-service && .venv/bin/python -m unittest -v test_worker
 ```
 
 Garmin is faked in these and in the server's tests (`npm test --prefix server`).
