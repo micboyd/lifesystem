@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { cumulative, kmMarkers, pointAt, toLatLng, type LatLng } from '../../lib/routeTrack'
+import { cumulative, haversine, kmMarkers, placeArrows, pointAt, toLatLng, type LatLng } from '../../lib/routeTrack'
 import type { StepKind } from '../../lib/routeDistance'
 
 /**
@@ -10,6 +10,14 @@ import type { StepKind } from '../../lib/routeDistance'
  * km and where each planned run and walk starts. With no route it's a map to
  * drop a start point on. `hoverM` (from the elevation chart) shows where that
  * distance is; tapping the line reports a distance back the other way.
+ *
+ * Chevrons along the line show which way it goes (recomputed on zoom so they
+ * stay evenly spaced on screen); where the route runs back over itself they sit
+ * either side of the line, one side per direction.
+ *
+ * "Show my location" starts watching the device position only when tapped,
+ * then draws a blue dot with its accuracy circle; tapping again re-centres on
+ * it. The watch stops when the map is closed (`active` false) or unmounts.
  *
  * The expand button takes the map full screen. Leaflet's element is moved
  * between the inline frame and a full-screen frame rather than rebuilt, so the
@@ -29,6 +37,25 @@ const CORAL = '#e0294a'
 const dot = (html: string, size: number) =>
     L.divIcon({ html, className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2] })
 
+const BLUE = '#2563eb'
+
+// A chevron pointing right, turned to the direction of travel. White under-stroke so
+// it reads both on the coral line and beside it on the tiles.
+const chevron = (angle: number) =>
+    L.divIcon({
+        html: `<div style="width:16px;height:16px;transform:rotate(${angle.toFixed(1)}deg)"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="#7f1d1d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`,
+        className: '',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+    })
+
+type Locate = 'off' | 'finding' | 'on' | 'denied' | 'unavailable'
+
+const LOCATE_TEXT: Partial<Record<Locate, string>> = {
+    denied: 'Location is blocked for this site — allow it in your browser settings to see where you are.',
+    unavailable: 'Can’t find your location right now.',
+}
+
 const pill = (text: string, bg: string, fg = '#fff') =>
     `<div style="display:grid;place-items:center;height:100%;border-radius:999px;background:${bg};color:${fg};font:600 11px/1 Geist,system-ui,sans-serif;box-shadow:0 0 0 2px #fff,0 1px 3px rgba(0,0,0,.3)">${text}</div>`
 
@@ -47,6 +74,7 @@ export default function RouteMap({
     hoverM,
     onHover,
     onPick,
+    active = true,
     className = '',
 }: {
     coords: number[][] | null
@@ -60,6 +88,8 @@ export default function RouteMap({
     onHover?: (atM: number | null) => void
     /** Set when the map is in "drop a start point" mode. */
     onPick?: (p: LatLng) => void
+    /** False while the map's drawer is shut (it stays mounted) — stops watching location. */
+    active?: boolean
     className?: string
 }) {
     const inlineSlot = useRef<HTMLDivElement>(null)
@@ -71,6 +101,14 @@ export default function RouteMap({
     const map = useRef<L.Map | null>(null)
     const layer = useRef<L.LayerGroup | null>(null)
     const hoverMarker = useRef<L.CircleMarker | null>(null)
+    const arrowLayer = useRef<L.LayerGroup | null>(null)
+    const youLayer = useRef<L.LayerGroup | null>(null)
+    // Redraws the chevrons for the current zoom; set by the route effect.
+    const drawArrows = useRef<() => void>(() => {})
+    const [locate, setLocate] = useState<Locate>('off')
+    const watchId = useRef<number | null>(null)
+    const you = useRef<{ lat: number; lng: number; acc: number } | null>(null)
+    const centreOnFix = useRef(false)
     // Leaflet's handlers are bound once; these keep them calling the latest props.
     const pickRef = useRef(onPick)
     const hoverRef = useRef(onHover)
@@ -92,6 +130,11 @@ export default function RouteMap({
         m.attributionControl.setPrefix(false)
         m.on('click', (e: L.LeafletMouseEvent) => pickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng }))
         layer.current = L.layerGroup().addTo(m)
+        arrowLayer.current = L.layerGroup().addTo(m)
+        // Your dot sits above the route line and its markers.
+        m.createPane('you').style.zIndex = '640'
+        youLayer.current = L.layerGroup().addTo(m)
+        m.on('zoomend', () => drawArrows.current())
         map.current = m
         // The drawer slides in; measure again once it has.
         const t = window.setTimeout(() => m.invalidateSize(), 350)
@@ -103,6 +146,8 @@ export default function RouteMap({
             m.remove()
             node.remove()
             map.current = null
+            arrowLayer.current = null
+            youLayer.current = null
             holder.current = null
         }
     }, [])
@@ -140,6 +185,8 @@ export default function RouteMap({
         const g = layer.current
         if (!m || !g) return
         g.clearLayers()
+        arrowLayer.current?.clearLayers()
+        drawArrows.current = () => {}
         hoverMarker.current = null
         bounds.current = null
         const plannedLine =
@@ -183,17 +230,38 @@ export default function RouteMap({
             for (const k of kmMarkers(coords, cum)) {
                 L.marker([k.lat, k.lng], { icon: dot(pill(String(k.km), '#fff', INK), 22), title: `${k.km} km`, keyboard: false }).addTo(g)
             }
+            // Chevrons every ~80 px on screen, kept clear of the km and run/walk markers.
+            const clearOfM = [...kmMarkers(coords, cum).map((k) => k.km * 1000), ...steps.filter((s) => s.atM > 0).map((s) => s.atM)]
+            drawArrows.current = () => {
+                const a = arrowLayer.current
+                if (!a || !map.current) return
+                a.clearLayers()
+                const z = map.current.getZoom()
+                const pts = latlngs.map((ll) => map.current!.project(ll, z))
+                for (const arrow of placeArrows(pts, cum, { clearOfM })) {
+                    L.marker(map.current.unproject(L.point(arrow.x, arrow.y), z), {
+                        icon: chevron(arrow.angle),
+                        interactive: false,
+                        keyboard: false,
+                        zIndexOffset: -1000,
+                    }).addTo(a)
+                }
+            }
+
             const s = toLatLng(coords[0])
             const f = toLatLng(coords[coords.length - 1])
-            if (!loop) L.marker([f.lat, f.lng], { icon: dot(pill('F', INK), 26), title: 'Finish' }).addTo(g)
+            // An out-and-back finishes where it started: one S/F marker, like a loop.
+            const closed = loop || haversine(s, f) < 40
+            if (!closed) L.marker([f.lat, f.lng], { icon: dot(pill('F', INK), 26), title: 'Finish' }).addTo(g)
             L.marker([s.lat, s.lng], {
-                icon: dot(pill(loop ? 'S/F' : 'S', '#10b981'), loop ? 32 : 26),
-                title: loop ? 'Start and finish' : 'Start',
+                icon: dot(pill(closed ? 'S/F' : 'S', '#10b981'), closed ? 32 : 26),
+                title: closed ? 'Start and finish' : 'Start',
                 zIndexOffset: 1000,
             }).addTo(g)
             bounds.current = line.getBounds()
             if (plannedLine) bounds.current.extend(plannedLine.getBounds())
             m.fitBounds(bounds.current, { padding: [24, 24] })
+            drawArrows.current()
         } else if (start) {
             L.marker([start.lat, start.lng], { icon: dot(pill('S', '#10b981'), 26), title: 'Start' }).addTo(g)
             m.setView([start.lat, start.lng], Math.max(m.getZoom(), 14))
@@ -222,9 +290,93 @@ export default function RouteMap({
         } else hoverMarker.current.setLatLng([p.lat, p.lng])
     }, [hoverM, coords])
 
-    const label = onPick ? 'Map — tap to set the start point' : 'Route map'
     const frameButton =
         'absolute z-[1001] grid h-11 w-11 place-items-center rounded-xl bg-white text-neutral-800 shadow-md ring-1 ring-neutral-900/10 hover:bg-neutral-50 active:bg-neutral-100'
+
+    // ── Your location ──
+    const stopWatching = () => {
+        if (watchId.current !== null) navigator.geolocation?.clearWatch(watchId.current)
+        watchId.current = null
+        you.current = null
+        youLayer.current?.clearLayers()
+    }
+    useEffect(() => stopWatching, [])
+    // Drawer shut: stop watching, and start from "Show my location" next time.
+    const [wasActive, setWasActive] = useState(active)
+    if (active !== wasActive) {
+        setWasActive(active)
+        if (!active) setLocate('off')
+    }
+    useEffect(() => {
+        if (!active) stopWatching()
+    }, [active])
+
+    const centreOnYou = () => {
+        const m = map.current
+        const p = you.current
+        if (!m || !p) return
+        m.setView([p.lat, p.lng], Math.max(m.getZoom(), 16))
+    }
+
+    const showYou = () => {
+        const m = map.current
+        const g = youLayer.current
+        const p = you.current
+        if (!m || !g || !p) return
+        g.clearLayers()
+        L.circle([p.lat, p.lng], { pane: 'you', radius: p.acc, color: BLUE, weight: 1, opacity: 0.4, fillColor: BLUE, fillOpacity: 0.12, interactive: false }).addTo(g)
+        L.circleMarker([p.lat, p.lng], { pane: 'you', radius: 7, color: '#fff', weight: 3, fillColor: BLUE, fillOpacity: 1, interactive: false }).addTo(g)
+    }
+
+    const onLocateTap = () => {
+        if (watchId.current !== null) {
+            if (you.current) centreOnYou()
+            else centreOnFix.current = true
+            return
+        }
+        if (!('geolocation' in navigator) || !window.isSecureContext) {
+            setLocate('unavailable')
+            return
+        }
+        setLocate('finding')
+        centreOnFix.current = true
+        watchId.current = navigator.geolocation.watchPosition(
+            (pos) => {
+                you.current = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy }
+                showYou()
+                setLocate('on')
+                if (centreOnFix.current) {
+                    centreOnFix.current = false
+                    centreOnYou()
+                }
+            },
+            (err) => {
+                if (err.code === err.PERMISSION_DENIED) {
+                    stopWatching()
+                    setLocate('denied')
+                } else if (!you.current) {
+                    // Keep watching — a fix may still come; the dot stays put meanwhile.
+                    setLocate('unavailable')
+                }
+            },
+            { enableHighAccuracy: true, maximumAge: 5000 }
+        )
+    }
+
+    const locateMessage = LOCATE_TEXT[locate]
+    const locateButton = (top: string) => (
+        <button
+            type="button"
+            onClick={onLocateTap}
+            className={`${frameButton} right-3 ${top} ${locate === 'on' ? 'text-blue-600' : ''}`}
+            aria-label={locate === 'on' ? 'Centre the map on me' : 'Show my location'}
+            title={locate === 'on' ? 'Centre on me' : 'Show my location'}
+        >
+            <i className={`fa-solid ${locate === 'finding' ? 'fa-spinner fa-spin' : 'fa-location-crosshairs'}`} aria-hidden="true" />
+        </button>
+    )
+
+    const label = onPick ? 'Map — tap to set the start point' : 'Route map'
 
     return (
         <>
@@ -240,7 +392,9 @@ export default function RouteMap({
                         <i className="fa-solid fa-expand" aria-hidden="true" />
                     </button>
                 )}
+                {!full && locateButton('top-16')}
             </div>
+            {!full && locateMessage && <p className="mt-2 text-sm text-neutral-500">{locateMessage}</p>}
             {full &&
                 createPortal(
                     <div className="fixed inset-0 z-[60] bg-white" role="dialog" aria-modal="true" aria-label="Route map, full screen">
@@ -254,6 +408,12 @@ export default function RouteMap({
                         >
                             <i className="fa-solid fa-compress" aria-hidden="true" />
                         </button>
+                        {locateButton('top-[calc(max(0.75rem,env(safe-area-inset-top))+3.5rem)]')}
+                        {locateMessage && (
+                            <p className="absolute inset-x-3 bottom-[max(1.75rem,calc(env(safe-area-inset-bottom)+1.25rem))] z-[1001] mx-auto w-fit max-w-full rounded-xl bg-white px-3 py-2 text-sm text-neutral-700 shadow-md ring-1 ring-neutral-900/10">
+                                {locateMessage}
+                            </p>
+                        )}
                     </div>,
                     document.body
                 )}

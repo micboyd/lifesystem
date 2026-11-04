@@ -93,3 +93,113 @@ export function formatDuration(sec: number): string {
     if (min < 60) return `${min} min`
     return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} min`
 }
+
+/** A point in screen pixels (Leaflet's projected layer points, y pointing down). */
+export interface Px {
+    x: number
+    y: number
+}
+
+export interface ArrowMark {
+    x: number
+    y: number
+    /** Screen angle of travel in degrees: 0 = right, 90 = down. */
+    angle: number
+    /** Metres from the start. */
+    atM: number
+    /** Moved off the line because another part of the route runs over the same ground. */
+    beside: boolean
+}
+
+/**
+ * Chevrons along a route drawn on screen: one every `spacing` pixels, pointing
+ * the way it goes. Where the route runs back over itself (an out-and-back, or a
+ * loop that shares a stretch) each chevron moves `besidePx` to the right of its
+ * own direction of travel, so the two directions sit side by side rather than
+ * on top of each other. Chevrons too close to the ends, or to the metre marks in
+ * `clearOfM` (km markers, run/walk starts), are left out.
+ */
+export function placeArrows(
+    pts: Px[],
+    cum: number[],
+    {
+        spacing = 80,
+        edge = 28,
+        clearOfM = [],
+        clearPx = 16,
+        overlapPx = 6,
+        besidePx = 9,
+    }: { spacing?: number; edge?: number; clearOfM?: number[]; clearPx?: number; overlapPx?: number; besidePx?: number } = {}
+): ArrowMark[] {
+    const n = pts.length
+    if (n < 2) return []
+    const pc = [0]
+    for (let i = 1; i < n; i++) pc.push(pc[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y))
+    const total = pc[n - 1]
+    if (total < 12) return []
+
+    // Index of the segment holding `d` along an increasing array.
+    const seg = (arr: number[], d: number) => {
+        let lo = 0
+        let hi = arr.length - 1
+        while (hi - lo > 1) {
+            const mid = (lo + hi) >> 1
+            if (arr[mid] <= d) lo = mid
+            else hi = mid
+        }
+        return lo
+    }
+    const at = (d: number) => {
+        const c = Math.min(Math.max(d, 0), total)
+        const i = seg(pc, c)
+        const span = pc[i + 1] - pc[i] || 1
+        const t = (c - pc[i]) / span
+        return {
+            x: pts[i].x + (pts[i + 1].x - pts[i].x) * t,
+            y: pts[i].y + (pts[i + 1].y - pts[i].y) * t,
+            m: cum[i] + (cum[i + 1] - cum[i]) * t,
+        }
+    }
+    const pxOfM = (m: number) => {
+        const i = seg(cum, m)
+        const span = cum[i + 1] - cum[i] || 1
+        return pc[i] + (pc[i + 1] - pc[i]) * Math.min(Math.max((m - cum[i]) / span, 0), 1)
+    }
+    const clear = clearOfM.map(pxOfM)
+
+    const spots: number[] = []
+    for (let d = edge + spacing / 2; d <= total - edge; d += spacing) spots.push(d)
+    if (spots.length === 0) spots.push(total / 2)
+
+    const distToSeg = (p: Px, a: Px, b: Px) => {
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const len2 = dx * dx + dy * dy
+        const t = len2 === 0 ? 0 : Math.min(Math.max(((p.x - a.x) * dx + (p.y - a.y) * dy) / len2, 0), 1)
+        return Math.hypot(p.x - (a.x + dx * t), p.y - (a.y + dy * t))
+    }
+
+    const out: ArrowMark[] = []
+    for (const d of spots) {
+        if (clear.some((c) => Math.abs(c - d) < clearPx)) continue
+        const p = at(d)
+        const a = at(d - 6)
+        const b = at(d + 6)
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const len = Math.hypot(dx, dy)
+        if (len === 0) continue
+        // Any part of the route well away along it but close on screen?
+        const near = overlapPx * 4
+        let beside = false
+        for (let j = 0; j < n - 1 && !beside; j++) {
+            if (pc[j + 1] > d - near && pc[j] < d + near) continue
+            if (distToSeg(p, pts[j], pts[j + 1]) < overlapPx) beside = true
+        }
+        // Right of travel on screen (y down): (dx, dy) → (−dy, dx).
+        const ox = beside ? (-dy / len) * besidePx : 0
+        const oy = beside ? (dx / len) * besidePx : 0
+        out.push({ x: p.x + ox, y: p.y + oy, angle: (Math.atan2(dy, dx) * 180) / Math.PI, atM: p.m, beside })
+    }
+    return out
+}

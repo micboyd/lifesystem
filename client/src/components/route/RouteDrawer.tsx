@@ -458,6 +458,7 @@ export default function RouteDrawer({
                                 steps={showingRoute ? drawn?.steps : undefined}
                                 hoverM={hoverM}
                                 onHover={setHoverM}
+                                active={!!entry}
                                 onPick={
                                     mode === 'map' && picking
                                         ? (p) => {
