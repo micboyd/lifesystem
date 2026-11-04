@@ -23,6 +23,7 @@ import {
     createExclusionBudget,
     updateExclusionBudget,
     deleteExclusionBudget,
+    syncStarlingSpace,
     type ExclusionBudgetPayload,
 } from '../services/finances'
 import { rowVisibleInMonth, recurringAmountForMonth } from '../lib/finance'
@@ -40,7 +41,7 @@ import { useMoneyHidden } from '../components/useMoneyHidden'
 import { useToast } from '../context/ToastContext'
 import { useInvalidate } from '../context/DataSyncContext'
 import { useAuth } from '../context/AuthContext'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 
 import Button from '../components/Button'
 import Input from '../components/Input'
@@ -1842,6 +1843,46 @@ export default function BudgetCalendar() {
             active = false
         }
     }, [month])
+
+    // Pull fresh Starling transactions for every linked budget once per month view,
+    // so the log is current without first visiting the Budgets tab. Quiet unless a
+    // sync actually fails; a 501 just means Starling isn't set up on this server.
+    const autoSyncedMonthRef = useRef<string | null>(null)
+    useEffect(() => {
+        if (loading) return
+        if (autoSyncedMonthRef.current === month) return
+        autoSyncedMonthRef.current = month
+
+        const linkedRows = rows.filter((r) => r.budgeted && r.starlingCategoryUid)
+        if (linkedRows.length === 0) return
+
+        let active = true
+        ;(async () => {
+            let failed = 0
+            for (const row of linkedRows) {
+                if (!active) return
+                try {
+                    await syncStarlingSpace(row._id, month)
+                } catch (err) {
+                    if ((err as { response?: { status?: number } })?.response?.status === 501) return
+                    failed++
+                }
+            }
+            if (!active) return
+            if (failed > 0) toast.error("Couldn't refresh some transactions from Starling.")
+            try {
+                const fresh = await listBudgetSpends({ month })
+                if (active) {
+                    setSpends(fresh)
+                    invalidate('budget')
+                }
+            } catch {
+                // Keep what was loaded; the next open tries again.
+            }
+        })()
+
+        return () => { active = false }
+    }, [month, loading, rows])
 
     async function handleAddSpend(rowId: string, date: string, amount: number, note?: string) {
         try {
