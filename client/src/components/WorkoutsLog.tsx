@@ -16,6 +16,9 @@ import LogFilterBar, { useLogFilters } from './LogFilterBar'
 import { todayKey } from '../lib/calendar'
 import { formatLogDate, weekStartMonday } from '../lib/logFilters'
 import { listWorkouts } from '../services/workouts'
+import { listExercises } from '../services/exercises'
+import WorkoutLogWeightsDrawer from './WorkoutLogWeightsDrawer'
+import { seedFromLog } from '../lib/workoutLogEdit'
 import {
     listLogs,
     createLog,
@@ -23,7 +26,7 @@ import {
     deleteLog,
     type WorkoutLogInput,
 } from '../services/workoutLogs'
-import type { LoggedSet, Workout, WorkoutLog, WorkoutLogExercise } from '../types'
+import type { Exercise, LoggedSet, Workout, WorkoutLog, WorkoutLogExercise } from '../types'
 import { isMainWork, phaseOf } from '../lib/phases'
 import { driftLabel, driftTone, paceOf, type DriftTone } from '../lib/sessionPace'
 
@@ -106,16 +109,33 @@ export default function WorkoutsLog() {
     const [drawer, setDrawer] = useState<Drawered>(null)
     /** The logged workout open in the read-out. */
     const [viewing, setViewing] = useState<WorkoutLog | null>(null)
+    const [exercises, setExercises] = useState<Exercise[]>([])
+    /** A log reopened in the strength logger to edit, with the workout it came from. */
+    const [editing, setEditing] = useState<{ workout: Workout; log: WorkoutLog } | null>(null)
+
+    const exercisesById = useMemo(() => new Map(exercises.map((e) => [e._id, e])), [exercises])
+
+    /**
+     * Edit a log in the logger it was recorded in — sets, swaps, skips and added
+     * exercises all as they were. A log whose workout has gone, or changed so its
+     * lines no longer match, falls back to the plain form.
+     */
+    function editLog(log: WorkoutLog) {
+        const workout = log.workout ? workouts.find((w) => w._id === log.workout) : undefined
+        if (workout && seedFromLog(workout, log, exercisesById)) setEditing({ workout, log })
+        else setDrawer({ mode: 'edit', log })
+    }
 
     const controls = useLogFilters(logs, {
         haystack: (l) => [l.notes, ...l.exercises.map((e) => e.name)],
     })
 
     useEffect(() => {
-        Promise.all([listLogs(), listWorkouts()])
-            .then(([lg, wk]) => {
+        Promise.all([listLogs(), listWorkouts(), listExercises()])
+            .then(([lg, wk, ex]) => {
                 setLogs(lg)
                 setWorkouts(wk)
+                setExercises(ex)
             })
             .finally(() => setLoading(false))
     }, [])
@@ -254,7 +274,7 @@ export default function WorkoutsLog() {
                                                     key={log._id}
                                                     log={log}
                                                     onOpen={() => setViewing(log)}
-                                                    onEdit={() => setDrawer({ mode: 'edit', log })}
+                                                    onEdit={() => editLog(log)}
                                                     onDelete={() => handleDelete(log._id)}
                                                 />
                                             ))}
@@ -279,12 +299,35 @@ export default function WorkoutsLog() {
                 onClose={() => setViewing(null)}
                 onEdit={(log) => {
                     setViewing(null)
-                    setDrawer({ mode: 'edit', log })
+                    editLog(log)
                 }}
                 onDelete={(log) => {
                     setViewing(null)
                     void handleDelete(log._id)
                 }}
+            />
+
+            <WorkoutLogWeightsDrawer
+                workout={editing?.workout ?? null}
+                log={editing?.log}
+                byId={exercisesById}
+                onClose={() => setEditing(null)}
+                onExerciseCreated={(exercise) => setExercises((prev) => [...prev, exercise])}
+                onSubmit={async (_workout, fields) => {
+                    // Only reached if the log was deleted while open — record it afresh.
+                    const log = await createLog(fields)
+                    setLogs((prev) => sortLogs([log, ...prev]))
+                    return log
+                }}
+                onSaved={(saved) =>
+                    setLogs((prev) =>
+                        sortLogs(
+                            prev.some((l) => l._id === saved._id)
+                                ? prev.map((l) => (l._id === saved._id ? saved : l))
+                                : [saved, ...prev]
+                        )
+                    )
+                }
             />
 
             <LogFormDrawer

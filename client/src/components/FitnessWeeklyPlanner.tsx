@@ -52,6 +52,7 @@ import GarminRunPanel from './garmin/GarminRunPanel'
 import { runDistance } from '../lib/garminRun'
 import { clearTaps, EMPTY_TAPS } from '../lib/sessionPace'
 import { clearDraft } from '../lib/workoutLogDraft'
+import { seedFromLog } from '../lib/workoutLogEdit'
 import { useToast } from '../context/ToastContext'
 import { listEvents } from '../services/events'
 import {
@@ -483,7 +484,12 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
     const [detail, setDetail] = useState<FitnessPlanEntry | null>(null)
     // A planned strength workout being logged with per-set weights, and the day
     // it's dated to (opened from the detail drawer).
-    const [logTarget, setLogTarget] = useState<{ workout: Workout; date: string } | null>(null)
+    const [logTarget, setLogTarget] = useState<{
+        workout: Workout
+        date: string
+        /** The saved log, when reopening a done workout to edit it. */
+        log?: WorkoutLog
+    } | null>(null)
     // A planned conditioning session open in the session logger.
     const [sessionTarget, setSessionTarget] = useState<ConditioningLogTarget | null>(null)
     // The planner export drawer — writes the weeks out as JSON, as they stand.
@@ -1264,9 +1270,18 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                     setDetail(null)
                     void handleRemove(id)
                 }}
-                onLogWeights={(workout, date) => {
+                onLogWeights={(workout, date, log) => {
+                    // A saved log reopens in the logger only when its lines still
+                    // match the workout — otherwise saving would rebuild it wrong.
+                    if (log && !seedFromLog(workout, log, exercisesById)) {
+                        toast.show(
+                            'This workout has changed since it was logged — edit this log from the Workouts log instead.',
+                            'danger'
+                        )
+                        return
+                    }
                     setDetail(null)
-                    setLogTarget({ workout, date })
+                    setLogTarget({ workout, date, log })
                 }}
                 onStartSession={(entry, logId, notes) => {
                     if (!entry.session) return
@@ -1299,6 +1314,15 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                 workout={logTarget?.workout ?? null}
                 byId={exercisesById}
                 defaultDate={logTarget?.date}
+                log={logTarget?.log}
+                onSaved={(saved) => {
+                    // Re-dated in the wrap-up: the planner's tick moves with it.
+                    const prev = logTarget?.log?.date ?? logTarget?.date
+                    if (!logTarget || saved.date === prev) return
+                    clearDoneKey('workout', logTarget.workout._id, prev!)
+                    markDoneKey('workout', logTarget.workout._id, saved.date, saved._id)
+                    setLogTarget({ ...logTarget, log: saved })
+                }}
                 onClose={() => setLogTarget(null)}
                 onExerciseCreated={(exercise) => setExercises((prev) => [...prev, exercise])}
                 onSubmit={handleLogWeights}
@@ -3066,7 +3090,7 @@ function PlannedDetailDrawer({
     /** Take it off the plan. Any log it wrote stays in the history. */
     onRemove: (id: string) => void
     /** Open the per-set weight logger for a planned workout, dated to its day. */
-    onLogWeights: (workout: Workout, date: string) => void
+    onLogWeights: (workout: Workout, date: string, log?: WorkoutLog) => void
     /** Open the session logger for a planned conditioning session — fresh, or
      *  picking its log back up. */
     onStartSession: (entry: FitnessPlanEntry, logId: string | null, notes?: string) => void
@@ -3301,10 +3325,17 @@ function PlannedDetailDrawer({
                                             variant={done ? 'secondary' : 'primary'}
                                             icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
                                             className="grow"
-                                            disabled={logging}
+                                            disabled={logging || (done && loadingLog)}
                                             onClick={() => {
                                                 if (e.kind === 'workout') {
-                                                    if (e.workout) onLogWeights(e.workout, e.date)
+                                                    if (e.workout)
+                                                        onLogWeights(
+                                                            e.workout,
+                                                            e.date,
+                                                            done && doneLog?.kind === 'workout'
+                                                                ? doneLog.log
+                                                                : undefined
+                                                        )
                                                     return
                                                 }
                                                 onStartSession(
@@ -3316,7 +3347,7 @@ function PlannedDetailDrawer({
                                                 )
                                             }}
                                         >
-                                            {done ? 'Open log' : 'Start'}
+                                            {done ? (e.kind === 'workout' ? 'Edit log' : 'Open log') : 'Start'}
                                         </Button>
                                     )}
                                 </div>

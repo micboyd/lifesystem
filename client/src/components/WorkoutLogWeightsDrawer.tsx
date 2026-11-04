@@ -47,6 +47,7 @@ import {
     writeDraft,
     type DraftExercise,
 } from '../lib/workoutLogDraft'
+import { seedDrafts, seedFromLog } from '../lib/workoutLogEdit'
 
 function todayISO(): string {
     const d = new Date()
@@ -71,46 +72,6 @@ type SetDraft = ExerciseDraft['sets'][number]
 
 /** Where the stepper is: on one exercise (its row index), or the wrap-up. */
 type Step = number | 'summary'
-
-/**
- * Seed a set's reps from the prescription when it's a plain number (e.g. "8"),
- * leaving ranges/AMRAP (e.g. "8-12") blank for the user to fill in.
- */
-function seedReps(reps?: string): string {
-    const r = reps?.trim() ?? ''
-    return /^\d+$/.test(r) ? r : ''
-}
-
-/** Compact "3 × 8-12" / "3 sets" / "8-12 reps" label, or '' when neither is set. */
-function formatPrescription(e: WorkoutExercise): string {
-    const sets = e.sets && e.sets > 0 ? e.sets : undefined
-    const reps = e.reps?.trim() || undefined
-    if (sets && reps) return `${sets} × ${reps}`
-    if (sets) return `${sets} ${sets === 1 ? 'set' : 'sets'}`
-    if (reps) return `${reps} reps`
-    return ''
-}
-
-/** Build the initial drafts for a workout: one row per resolved exercise —
- *  warm-up, main, then cool-down, the order the server snapshots the log in —
- *  seeded with as many blank sets as the prescription calls for (at least one). */
-function seedDrafts(workout: Workout, byId: Map<string, Exercise>): ExerciseDraft[] {
-    return flattenPhases(workout)
-        .map(({ phase, item }) => ({ phase, item, ex: byId.get(item.exercise) }))
-        .filter((r): r is { phase: SessionPhase; item: WorkoutExercise; ex: Exercise } => !!r.ex)
-        .map(({ phase, item, ex }) => {
-            const warmUp = phase === 'warmUp'
-            const count = warmUp ? 1 : Math.max(1, item.sets && item.sets > 0 ? item.sets : 1)
-            const reps = warmUp ? '' : seedReps(item.reps)
-            return {
-                exerciseId: ex._id,
-                name: ex.name,
-                ...(phase !== 'main' ? { phase } : {}),
-                prescription: formatPrescription(item),
-                sets: Array.from({ length: count }, () => ({ weight: '', reps })),
-            }
-        })
-}
 
 /**
  * Identify the workout's line-up for the draft store: the exercises it resolves
@@ -222,8 +183,18 @@ export default function WorkoutLogWeightsDrawer({
     onClose,
     onExerciseCreated,
     onSubmit,
+    log,
+    onSaved,
 }: {
     workout: Workout | null
+    /**
+     * A log of this workout that's already been saved, to reopen for editing.
+     * The logger opens on its wrap-up with everything as it was recorded, and
+     * every change saves back into that same log.
+     */
+    log?: WorkoutLog | null
+    /** The log was written — handed the saved record, e.g. to follow a change of date. */
+    onSaved?: (log: WorkoutLog) => void
     /** The whole exercise library, keyed by id — it resolves the workout's lines
      *  and doubles as the pool the swap picker draws alternatives from. */
     byId: Map<string, Exercise>
@@ -305,25 +276,31 @@ export default function WorkoutLogWeightsDrawer({
 
     useEffect(() => {
         if (!workout) return
-        const seeded = seedDrafts(workout, byId)
-        const draft = readDraft(workout._id, signatureOf(workout, byId))
-        const rows = draft?.exercises ?? seeded
+        const found = readDraft(workout._id, signatureOf(workout, byId))
+        // Reopening a saved log: a device copy is only this session if it was
+        // writing to that same log; otherwise the rows come from the log itself.
+        const draft = log ? (found?.logId === log._id ? found : null) : found
+        const fromLog = log && !draft ? seedFromLog(workout, log, byId) : null
+        const rows = draft?.exercises ?? fromLog ?? seedDrafts(workout, byId)
         setView(workout)
-        setDate(draft?.date ?? defaultDate ?? todayISO())
-        setNotes(draft?.notes ?? '')
+        setDate(draft?.date ?? (fromLog ? log!.date : undefined) ?? defaultDate ?? todayISO())
+        setNotes(draft?.notes ?? (fromLog ? (log!.notes ?? '') : ''))
         setDrafts(rows)
-        setStep(resumeStep(rows))
+        // A finished session opens on its wrap-up: everything at a glance, tap to change.
+        setStep(log ? 'summary' : resumeStep(rows))
         setSwapping(false)
         setFinishing(false)
         // A restored draft is already on the device — keep saving over it. If it
         // carries a log id, this session is already in the record and every save
         // from here updates it.
         dirty.current = !!draft
-        setRestoredFrom(draft?.savedAt ?? null)
-        setLogId(draft?.logId ?? null)
+        setRestoredFrom(draft && !log ? draft.savedAt : null)
+        setLogId(draft?.logId ?? (fromLog ? log!._id : null))
         setUnsaved(false)
-        setSaveState(draft ? (draft.logId ? 'saved' : 'local') : 'idle')
+        setSaveState(draft ? (draft.logId ? 'saved' : 'local') : fromLog ? 'saved' : 'idle')
         setServerSavedAt(null)
+        // `log` is read once, as the drawer opens on a workout.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [workout, byId, defaultDate])
 
     /** Everything on screen as one draft, for the device copy. */
@@ -398,7 +375,7 @@ export default function WorkoutLogWeightsDrawer({
             let written = false
             if (id) {
                 try {
-                    await updateLog(id, { ...fields, rebuild: true })
+                    onSaved?.(await updateLog(id, { ...fields, rebuild: true }))
                     written = true
                 } catch (err) {
                     // The log was deleted while the session was open (unlogged
@@ -409,8 +386,9 @@ export default function WorkoutLogWeightsDrawer({
                 }
             }
             if (!written) {
-                const log = await onSubmit(view, fields)
-                id = log._id
+                const created = await onSubmit(view, fields)
+                onSaved?.(created)
+                id = created._id
                 setLogId(id)
                 // Keep the device copy pointing at the log, so reopening the
                 // workout carries on writing to it instead of logging twice.
@@ -429,7 +407,7 @@ export default function WorkoutLogWeightsDrawer({
             setSaveState('error')
             return false
         }
-    }, [view, drafts, date, notes, logId, onSubmit, draftOf])
+    }, [view, drafts, date, notes, logId, onSubmit, onSaved, draftOf])
 
     /** One save at a time: a second waits for the first rather than racing it. */
     const save = useCallback(async (): Promise<boolean> => {
@@ -824,7 +802,7 @@ export default function WorkoutLogWeightsDrawer({
                             onClick={finish}
                             disabled={finishing}
                         >
-                            {finishing ? 'Saving…' : 'Finish workout'}
+                            {finishing ? 'Saving…' : log ? 'Done' : 'Finish workout'}
                         </Button>
                     ) : (
                         <Button onClick={goNext}>
@@ -921,6 +899,7 @@ export default function WorkoutLogWeightsDrawer({
                                     onRestore={restoreExercise}
                                     adding={adding}
                                     onAdd={() => setAdding(true)}
+                                    editing={!!log}
                                 />
                             ) : (
                                 <ExerciseStep
@@ -1617,6 +1596,7 @@ function WrapUp({
     onRestore,
     adding,
     onAdd,
+    editing,
 }: {
     drafts: ExerciseDraft[]
     active: number[]
@@ -1632,15 +1612,19 @@ function WrapUp({
     onRestore: (i: number) => void
     adding: boolean
     onAdd: () => void
+    /** Reopened from a saved log, rather than at the end of a session. */
+    editing?: boolean
 }) {
     return (
         <div className="flex flex-col gap-7">
             <header>
                 <h3 className="text-2xl font-semibold tracking-[-0.02em] text-neutral-900">
-                    Wrap up
+                    {editing ? 'Edit log' : 'Wrap up'}
                 </h3>
                 <p className="mt-1 text-sm text-neutral-500">
-                    Check it over, add a note, and finish.
+                    {editing
+                        ? 'Tap an exercise to change it. Changes save as you go.'
+                        : 'Check it over, add a note, and finish.'}
                 </p>
             </header>
 
