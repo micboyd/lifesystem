@@ -54,8 +54,11 @@ export default function GarminRunPanel({
     entry,
     done,
     onLinked,
+    framed = false,
 }: {
     entry: FitnessPlanEntry
+    /** Draw its own border — when it isn't a row of a divided list. */
+    framed?: boolean
     /** Whether the entry is ticked off — re-read when it changes (a log deleted takes its run off too). */
     done: boolean
     /** A run was linked and its log written or attached — the entry is done. */
@@ -146,28 +149,29 @@ export default function GarminRunPanel({
     if (phase.kind === 'run') return <RunView run={phase.run} entry={entry} onUnlink={unlink} unlinking={busy === 'unlink'} />
 
     return (
-        <section className="flex flex-col gap-3 rounded-2xl ring-1 ring-inset ring-neutral-900/[0.06] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-600">
-                        <i className="fa-solid fa-person-running text-sm" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0">
-                        <p className="text-sm font-semibold text-neutral-900">Run from Garmin</p>
-                        <p className="text-[13px] text-neutral-500">
-                            {phase.kind === 'looking'
-                                ? 'Looking on Garmin…'
-                                : phase.kind === 'none' && phase.candidates.length
-                                  ? 'Which one was this session?'
-                                  : 'Nothing on Garmin for this day yet. Sync your watch, then check.'}
-                        </p>
-                    </div>
+        <div className={`flex flex-col gap-3 px-4 py-3.5 ${framed ? 'rounded-2xl border border-neutral-200' : ''}`}>
+            <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-neutral-900">Run from Garmin</p>
+                    <p className="mt-0.5 text-[13px] text-neutral-500">
+                        {phase.kind === 'looking'
+                            ? 'Looking on Garmin…'
+                            : phase.kind === 'none' && phase.candidates.length
+                              ? 'Which one was this session?'
+                              : 'Nothing for this day yet. Sync your watch, then check.'}
+                    </p>
                 </div>
                 {phase.kind === 'looking' ? (
-                    <Spinner />
+                    <Spinner size="sm" />
                 ) : (
-                    <Button variant="secondary" size="sm" icon="fa-solid fa-rotate" onClick={() => void look(true)}>
-                        Check Garmin
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        icon="fa-solid fa-rotate"
+                        onClick={() => void look(true)}
+                        className="shrink-0"
+                    >
+                        Check
                     </Button>
                 )}
             </div>
@@ -198,7 +202,7 @@ export default function GarminRunPanel({
                     ))}
                 </ul>
             )}
-        </section>
+        </div>
     )
 }
 

@@ -62,6 +62,7 @@ export default function ConditioningSessionDetail({
     onUndo,
     stepTicks,
     onToggleStep,
+    stats = true,
 }: {
     session: ConditioningSession
     counts?: Record<number, number>
@@ -74,6 +75,9 @@ export default function ConditioningSessionDetail({
     onUndo?: (index: number) => void
     stepTicks?: Record<number, number[]>
     onToggleStep?: (index: number, step: number) => void
+    /** The headline tiles (duration · parts · type). Off where the drawer already
+     *  says them, as the planner's meta line does. */
+    stats?: boolean
 }) {
     const indexed = flattenPhases(session).map((r, index) => ({ ...r, index }))
     const slots = indexed.map(({ item }) => ({ startMin: item.startMin, endMin: item.endMin }))
@@ -110,7 +114,9 @@ export default function ConditioningSessionDetail({
                 />
             )}
 
+            {(stats || session.purpose) && (
             <div className="flex flex-col gap-5">
+                {stats && (
                 <StatStrip
                     stats={[
                         {
@@ -130,8 +136,10 @@ export default function ConditioningSessionDetail({
                         },
                     ]}
                 />
+                )}
                 <LeadText>{session.purpose}</LeadText>
             </div>
+            )}
 
             {!!session.helpers?.length && (
                 <section className="rounded-2xl border border-amber-200 bg-amber-50/50 px-4 py-4">

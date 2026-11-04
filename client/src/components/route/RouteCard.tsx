@@ -7,7 +7,8 @@ import { formatKm } from '../../lib/routeTrack'
 
 /**
  * The route row on a planned conditioning item: its chosen route at a glance,
- * or the button to generate one. Opens the route drawer either way.
+ * or the button to generate one. Opens the route drawer either way. The parent
+ * draws the frame (a divided list), so it sits with the Garmin row.
  */
 export default function RouteCard({ entry }: { entry: FitnessPlanEntry }) {
     const [open, setOpen] = useState(false)
@@ -27,22 +28,25 @@ export default function RouteCard({ entry }: { entry: FitnessPlanEntry }) {
 
     return (
         <>
-            <section className="flex items-center gap-3 rounded-2xl bg-neutral-50 px-4 py-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-neutral-700 ring-1 ring-inset ring-neutral-900/[0.06]">
-                    <i className="fa-solid fa-route text-sm" aria-hidden="true" />
-                </span>
+            <div className="flex items-center gap-3 px-4 py-3.5">
                 <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-neutral-900">Outdoor route</p>
-                    <p className="truncate text-sm tabular-nums text-neutral-500">
+                    <p className="mt-0.5 truncate text-[13px] tabular-nums text-neutral-500">
                         {chosen
                             ? `${formatKm(chosen.distanceM)} ${chosen.kind === 'loop' ? 'loop' : 'out and back'} · ↑${chosen.ascentM} m`
-                            : 'No route chosen yet'}
+                            : 'None chosen yet'}
                     </p>
                 </div>
-                <Button variant="secondary" icon={chosen ? 'fa-solid fa-map' : 'fa-solid fa-route'} onClick={() => setOpen(true)}>
-                    {chosen ? 'View route' : 'Generate route'}
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={chosen ? 'fa-solid fa-map' : 'fa-solid fa-route'}
+                    onClick={() => setOpen(true)}
+                    className="shrink-0"
+                >
+                    {chosen ? 'View' : 'Generate'}
                 </Button>
-            </section>
+            </div>
             <RouteDrawer entry={open ? entry : null} onClose={() => setOpen(false)} onChanged={load} />
         </>
     )

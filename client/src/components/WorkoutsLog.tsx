@@ -430,7 +430,14 @@ function LogRow({
  * sets done, notes. Shared by the log's drawer and the planner's drawer for a
  * planned workout that's been done.
  */
-export function WorkoutLogSummary({ log: l }: { log: WorkoutLog }) {
+export function WorkoutLogSummary({
+    log: l,
+    showDate = true,
+}: {
+    log: WorkoutLog
+    /** The day as a heading. Off where the drawer already says the day. */
+    showDate?: boolean
+}) {
     const rows: SummaryRow[] = l.exercises.map((ex, i) => {
         const sets = (ex.loggedSets ?? []).map(formatSet).filter(Boolean)
         const main = isMainWork(ex)
@@ -455,16 +462,21 @@ export function WorkoutLogSummary({ log: l }: { log: WorkoutLog }) {
 
     return (
         <div className="flex flex-col gap-7">
-            <header>
-                <h3 className="text-2xl font-semibold tracking-[-0.02em] text-neutral-900">
-                    {formatLogDate(l.date, todayISO())}
-                </h3>
-                <p className="mt-1 text-sm text-neutral-500">
-                    {l.exercises.length}{' '}
-                    {l.exercises.length === 1 ? 'exercise' : 'exercises'}
-                    {l.durationMin ? ` · ${l.durationMin} min` : ''}
-                </p>
-            </header>
+            {/* The exercise count is in the strip below; the header adds the day and time taken. */}
+            {(showDate || !!l.durationMin) && (
+                <header>
+                    {showDate && (
+                        <h3 className="text-2xl font-semibold tracking-[-0.02em] text-neutral-900">
+                            {formatLogDate(l.date, todayISO())}
+                        </h3>
+                    )}
+                    {!!l.durationMin && (
+                        <p className={`${showDate ? 'mt-1 ' : ''}text-sm text-neutral-500`}>
+                            {l.durationMin} min
+                        </p>
+                    )}
+                </header>
+            )}
 
             <SummaryStats
                 items={[

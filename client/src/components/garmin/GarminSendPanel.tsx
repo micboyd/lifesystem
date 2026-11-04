@@ -13,19 +13,21 @@ import { countSteps } from '../../lib/garminSteps'
 import { formatDateShort } from '../../lib/calendar'
 import { GarminErrorBlock, GarminStateBadge, WatchStepList, type GarminUiState } from './GarminParts'
 
+// Short, so the button sits beside its row on a phone; the row says "Garmin watch".
 const SEND_LABEL: Record<GarminState, string> = {
-    not_sent: 'Send to Garmin',
-    sent: 'Send again',
-    out_of_date: 'Update on Garmin',
-    moved: 'Reschedule on Garmin',
+    not_sent: 'Send',
+    sent: 'Resend',
+    out_of_date: 'Update',
+    moved: 'Reschedule',
 }
 
 /**
- * Send to Garmin, inside a planned conditioning session's drawer. Before the
- * first send it shows the steps the watch will run — with any that are a best
- * guess marked — so they're seen before anything goes; after, they fold away
- * behind "Show steps". The state reads not sent, sending, on Garmin, out of
- * date (the session changed since), moved (the day changed since) or failed.
+ * Send to Garmin, as one row of a planned conditioning session's drawer: a
+ * state badge (not sent, sending, on Garmin, out of date, moved or failed), one
+ * detail line and a small send button. The steps the watch will run fold away
+ * behind "Show watch steps", since the session's parts are already on show;
+ * any that are a best guess are counted on the detail line so they get checked.
+ * The parent draws the frame (a divided list), so it sits with the route row.
  */
 export default function GarminSendPanel({
     entryId,
@@ -56,7 +58,8 @@ export default function GarminSendPanel({
         return getGarminPreview(entryId)
             .then((p) => {
                 setPreview(p)
-                setShowSteps(p.state === 'not_sent')
+                // Folded away: the session's own parts are already on show above.
+                setShowSteps(false)
             })
             .catch((err) => setLoadError(garminError(err)))
     }
@@ -89,46 +92,50 @@ export default function GarminSendPanel({
     }
 
     const uiState: GarminUiState = sending ? 'sending' : sendError ? 'failed' : (preview?.state ?? 'not_sent')
+    const guessed = preview?.approximated.length ?? 0
 
     return (
-        <section className="flex flex-col gap-3 rounded-2xl ring-1 ring-inset ring-neutral-900/[0.06] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-neutral-100 text-neutral-600">
-                        <i className="fa-solid fa-stopwatch text-sm" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0">
-                        <p className="text-sm font-semibold text-neutral-900">Garmin watch</p>
-                        <p className="text-[13px] text-neutral-500">
-                            {preview
-                                ? stateLine(preview)
-                                : loadError
-                                  ? 'Couldn’t load the workout.'
-                                  : 'Working out the steps…'}
-                        </p>
-                    </div>
+        <div className="flex flex-col gap-3 px-4 py-3.5">
+            <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-neutral-900">
+                        Garmin watch
+                        {preview && <GarminStateBadge state={uiState} />}
+                    </p>
+                    <p className="mt-0.5 text-[13px] text-neutral-500">
+                        {preview ? (
+                            <>
+                                {stateLine(preview)}
+                                {guessed > 0 && (
+                                    <span className="text-amber-700">
+                                        {' '}
+                                        · {guessed} approximated
+                                    </span>
+                                )}
+                            </>
+                        ) : loadError ? (
+                            'Couldn’t load the workout.'
+                        ) : (
+                            'Working out the steps…'
+                        )}
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    {preview && <GarminStateBadge state={uiState} />}
-                    {preview && (
-                        <Button
-                            size="sm"
-                            variant={preview.state === 'sent' ? 'secondary' : 'strong'}
-                            icon={sending ? undefined : 'fa-solid fa-paper-plane'}
-                            onClick={send}
-                            disabled={sending}
-                        >
-                            {sending ? 'Sending…' : SEND_LABEL[preview.state]}
-                        </Button>
-                    )}
-                </div>
+                {preview ? (
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        icon={sending ? undefined : 'fa-solid fa-paper-plane'}
+                        onClick={send}
+                        disabled={sending}
+                        className="shrink-0"
+                    >
+                        {sending ? 'Sending…' : SEND_LABEL[preview.state]}
+                    </Button>
+                ) : (
+                    !loadError && <Spinner size="sm" />
+                )}
             </div>
 
-            {!preview && !loadError && (
-                <div className="grid place-items-center py-4">
-                    <Spinner size="sm" />
-                </div>
-            )}
             {loadError && <GarminErrorBlock {...loadError} onRetry={load} />}
             {sendError && <GarminErrorBlock {...sendError} onRetry={send} />}
             {result && (
@@ -145,32 +152,34 @@ export default function GarminSendPanel({
 
             {preview && (
                 <>
-                    {preview.approximated.length > 0 && showSteps && (
+                    {showSteps && guessed > 0 && (
                         <p className="rounded-xl bg-warning-bg px-3 py-2.5 text-[13px] text-amber-800">
-                            {preview.approximated.length === 1 ? 'One step is' : `${preview.approximated.length} steps are`}{' '}
-                            approximated from the plan’s timings: {preview.approximated.join(', ')}.
+                            {guessed === 1 ? 'One step is' : `${guessed} steps are`} approximated from the
+                            plan’s timings: {preview.approximated.join(', ')}.
                         </p>
                     )}
-                    {showSteps ? (
-                        <WatchStepList steps={preview.steps} approximated={preview.approximated} />
-                    ) : null}
+                    {showSteps && <WatchStepList steps={preview.steps} approximated={preview.approximated} />}
                     <button
                         type="button"
                         onClick={() => setShowSteps((v) => !v)}
-                        className="self-start text-[13px] font-medium text-neutral-600 hover:text-neutral-900"
+                        aria-expanded={showSteps}
+                        className="flex items-center gap-1.5 self-start text-[13px] font-medium text-neutral-600 hover:text-neutral-900"
                     >
-                        {showSteps ? 'Hide steps' : `Show steps (${countSteps(preview.steps)})`}
+                        <i className={`fa-solid fa-chevron-${showSteps ? 'up' : 'down'} text-[10px]`} aria-hidden="true" />
+                        {showSteps ? 'Hide watch steps' : 'Show watch steps'}
                     </button>
                 </>
             )}
-        </section>
+        </div>
     )
 }
 
+/** The one detail the badge doesn't already say. */
 function stateLine(p: GarminPreview): string {
-    if (p.state === 'not_sent') return `${countSteps(p.steps)} steps, ready to send.`
-    if (p.state === 'moved' && p.scheduledDate)
-        return `Moved since it was sent — Garmin has it on ${formatDateShort(p.scheduledDate)}.`
-    if (p.state === 'out_of_date') return 'The session has changed since it was sent.'
-    return p.lastSentAt ? `Sent ${new Date(p.lastSentAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}.` : 'On your Garmin calendar.'
+    if (p.state === 'not_sent') return `${countSteps(p.steps)} steps`
+    if (p.state === 'moved' && p.scheduledDate) return `Garmin has it on ${formatDateShort(p.scheduledDate)}`
+    if (p.state === 'out_of_date') return 'The session changed since it was sent'
+    return p.lastSentAt
+        ? `Sent ${new Date(p.lastSentAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`
+        : 'On your Garmin calendar'
 }

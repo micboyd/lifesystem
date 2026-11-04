@@ -443,10 +443,13 @@ function RoundChips({
 export function ConditioningLogSummary({
     log,
     session: source,
+    showDate = true,
 }: {
     log: ConditioningLog
     /** The library session behind the log, or null once it's been deleted. */
     session: ConditioningSession | null
+    /** The day as a heading. Off where the drawer already says the day. */
+    showDate?: boolean
 }) {
     // Map the snapshotted tallies back onto the session's parts by name, so the
     // recap shows which reps were ticked off against each part.
@@ -461,20 +464,30 @@ export function ConditioningLogSummary({
     }, [source, log])
 
     const completedAt = source ? checkpointTimes(source, log.checkpoints) : undefined
-    const parts = source ? allInPhases(source).length : 0
 
     return (
         <div className="flex flex-col gap-7">
-            <header>
-                <h3 className="text-2xl font-semibold tracking-[-0.02em] text-neutral-900">
-                    {formatLogDate(log.date, todayISO())}
-                </h3>
-                <p className="mt-1 text-sm text-neutral-500">
-                    {source ? `${parts} ${parts === 1 ? 'part' : 'parts'} · ` : ''}
-                    {log.duration} min
-                    {log.rpe != null ? ` · RPE ${log.rpe}` : ''}
-                </p>
-            </header>
+            {/* Parts and minutes are in the summary's strip when the session is known;
+                the header adds only what the strip doesn't. */}
+            {(() => {
+                const sub = [
+                    ...(source ? [] : [`${log.duration} min`]),
+                    ...(log.rpe != null ? [`RPE ${log.rpe}`] : []),
+                ].join(' · ')
+                if (!showDate && !sub) return null
+                return (
+                    <header>
+                        {showDate && (
+                            <h3 className="text-2xl font-semibold tracking-[-0.02em] text-neutral-900">
+                                {formatLogDate(log.date, todayISO())}
+                            </h3>
+                        )}
+                        {sub && (
+                            <p className={`${showDate ? 'mt-1 ' : ''}text-sm text-neutral-500`}>{sub}</p>
+                        )}
+                    </header>
+                )
+            })()}
 
             {source ? (
                 <ConditioningSummary

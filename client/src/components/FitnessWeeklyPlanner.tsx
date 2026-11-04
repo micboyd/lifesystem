@@ -10,7 +10,9 @@ import Textarea from './Textarea'
 import ConfirmModal from './ConfirmModal'
 import Modal from './Modal'
 import ContextMenu from './ContextMenu'
-import { type MenuEntry, type MenuItem } from './DropdownMenu'
+import DropdownMenu, { type MenuEntry, type MenuItem } from './DropdownMenu'
+import LineIcon from './LineIcon'
+import Badge from './Badge'
 import ConditioningSessionDetail from './ConditioningSessionDetail'
 import { clearTicks, useStepTicks, workoutStepsKey } from './session/SessionUI'
 import WorkoutDetail from './session/WorkoutDetail'
@@ -3211,7 +3213,7 @@ function PlannedDetailDrawer({
                 title={title}
                 footer={
                     skipping ? (
-                        <div className="flex w-full flex-wrap items-center justify-end gap-3">
+                        <div className="flex w-full items-center justify-end gap-3">
                             <Button
                                 variant="ghost"
                                 onClick={() => setSkipping(false)}
@@ -3230,99 +3232,102 @@ function PlannedDetailDrawer({
                         </div>
                     ) : (
                         e && (
-                        <div className="flex w-full flex-wrap items-center justify-end gap-3">
-                            <div className="mr-auto flex items-center gap-1">
-                                <Button
-                                    variant="ghost"
-                                    icon="fa-solid fa-trash-can"
-                                    onClick={() => onRemove(e._id)}
-                                    disabled={logging}
-                                >
-                                    Remove
-                                </Button>
-                                <Button variant="ghost" icon="fa-solid fa-copy" onClick={() => onCopy(e)}>
-                                    Copy
-                                </Button>
-                                {canMarkDone && (
-                                    <Button
-                                        variant="ghost"
-                                        icon="fa-solid fa-ban"
-                                        onClick={() => {
-                                            setSkipReason('')
-                                            setSkipping(true)
-                                        }}
-                                        disabled={logging}
-                                    >
-                                        Skip
-                                    </Button>
-                                )}
-                            </div>
-                            {skipped && (
-                                <Button
-                                    variant="secondary"
-                                    icon="fa-solid fa-rotate-left"
-                                    onClick={unskip}
-                                    disabled={logging}
-                                >
-                                    {logging ? 'Saving…' : 'Unskip'}
-                                </Button>
-                            )}
-                            {done && doneLogId && (
-                                <Button
-                                    variant="ghost"
-                                    icon="fa-solid fa-rotate-left"
-                                    onClick={() => setConfirmUndo(true)}
-                                    disabled={logging}
-                                >
-                                    Mark as not done
-                                </Button>
-                            )}
-                            {canMarkDone && (
-                                <Button
-                                    variant="secondary"
-                                    icon="fa-solid fa-check"
-                                    onClick={markDone}
-                                    disabled={logging}
-                                >
-                                    {logging ? 'Logging…' : 'Mark as done'}
-                                </Button>
-                            )}
-                            {!skipped && e.kind === 'workout' && e.workout && (
-                                <Button
-                                    icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
-                                    onClick={() => e.workout && onLogWeights(e.workout, e.date)}
-                                >
-                                    {done ? 'Open log' : 'Start workout'}
-                                </Button>
-                            )}
-                            {!skipped && isSession && (
-                                <Button
-                                    icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
-                                    onClick={() =>
-                                        onStartSession(
-                                            e,
-                                            done ? doneLogId : null,
-                                            doneLog?.kind === 'conditioning'
-                                                ? doneLog.log.notes
-                                                : undefined
-                                        )
+                            // One main action on the right, one beside it, the rest
+                            // behind More — so it stays on one row at phone width.
+                            <div className="flex w-full items-center gap-2">
+                                <DropdownMenu
+                                    align="left"
+                                    className="shrink-0"
+                                    items={[
+                                        ...(done && doneLogId
+                                            ? [
+                                                  {
+                                                      label: 'Mark as not done',
+                                                      icon: 'fa-solid fa-rotate-left',
+                                                      onClick: () => setConfirmUndo(true),
+                                                  },
+                                              ]
+                                            : []),
+                                        { label: 'Copy', icon: 'fa-solid fa-copy', onClick: () => onCopy(e) },
+                                        ...(canMarkDone
+                                            ? [
+                                                  {
+                                                      label: 'Skip',
+                                                      icon: 'fa-solid fa-ban',
+                                                      onClick: () => {
+                                                          setSkipReason('')
+                                                          setSkipping(true)
+                                                      },
+                                                  },
+                                              ]
+                                            : []),
+                                        'divider' as const,
+                                        {
+                                            label: 'Remove from plan',
+                                            icon: 'fa-solid fa-trash-can',
+                                            danger: true,
+                                            onClick: () => onRemove(e._id),
+                                        },
+                                    ]}
+                                    trigger={
+                                        <button
+                                            type="button"
+                                            aria-label="More actions"
+                                            disabled={logging}
+                                            className="grid h-11 w-11 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-50"
+                                        >
+                                            <LineIcon name="more" className="h-4 w-4" />
+                                        </button>
                                     }
-                                >
-                                    {done ? 'Open log' : 'Start session'}
-                                </Button>
-                            )}
-                        </div>
+                                />
+                                <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+                                    {skipped && (
+                                        <Button
+                                            variant="secondary"
+                                            icon="fa-solid fa-rotate-left"
+                                            onClick={unskip}
+                                            disabled={logging}
+                                        >
+                                            {logging ? 'Saving…' : 'Unskip'}
+                                        </Button>
+                                    )}
+                                    {canMarkDone && (
+                                        <Button variant="secondary" onClick={markDone} disabled={logging}>
+                                            {logging ? 'Logging…' : 'Mark as done'}
+                                        </Button>
+                                    )}
+                                    {!skipped && (e.kind === 'workout' ? !!e.workout : isSession) && (
+                                        <Button
+                                            variant={done ? 'secondary' : 'primary'}
+                                            icon={done ? 'fa-solid fa-pen' : 'fa-solid fa-play'}
+                                            className="grow"
+                                            disabled={logging}
+                                            onClick={() => {
+                                                if (e.kind === 'workout') {
+                                                    if (e.workout) onLogWeights(e.workout, e.date)
+                                                    return
+                                                }
+                                                onStartSession(
+                                                    e,
+                                                    done ? doneLogId : null,
+                                                    doneLog?.kind === 'conditioning'
+                                                        ? doneLog.log.notes
+                                                        : undefined
+                                                )
+                                            }}
+                                        >
+                                            {done ? 'Open log' : 'Start'}
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
                         )
                     )
                 }
             >
                 {e && (
                     <div className="flex flex-col gap-6">
-                        <PlannedContext entry={e} done={done} />
-                        {isSession && !skipped && (
-                            <GarminRunPanel entry={e} done={done} onLinked={(logId) => onRunLinked(e, logId)} />
-                        )}
-                        {isSession && !done && <GarminSendPanel entryId={e._id} onSent={onGarminSent} />}
+                        <PlannedMeta entry={e} done={done} />
                         {skipping && (
                             <div className="flex flex-col gap-3 rounded-2xl bg-neutral-50 p-4">
                                 <Textarea
@@ -3354,27 +3359,28 @@ function PlannedDetailDrawer({
                             </div>
                         )}
                         {skipped && !skipping && (
-                            <div className="flex items-start gap-3 rounded-2xl bg-red-50/60 p-4">
-                                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-red-50 text-red-500 ring-1 ring-inset ring-red-500/15">
-                                    <i className="fa-solid fa-ban text-sm" aria-hidden="true" />
-                                </span>
-                                <div className="min-w-0 pt-1">
-                                    <p className="text-sm font-semibold text-neutral-900">
-                                        Skipped
-                                    </p>
-                                    <p className="mt-0.5 whitespace-pre-line text-sm text-neutral-600">
-                                        {e.skipReason || 'No reason given.'}
-                                    </p>
-                                </div>
+                            // The meta line's badge already says Skipped; this is the why.
+                            <p className="whitespace-pre-line rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+                                {e.skipReason || 'No reason given.'}
+                            </p>
+                        )}
+                        {isSession && !done && !skipped && (
+                            // Getting ready: the watch, the route, and the run once
+                            // it's synced — one list, one row each.
+                            <div className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200">
+                                <GarminRunPanel entry={e} done={done} onLinked={(logId) => onRunLinked(e, logId)} />
+                                <GarminSendPanel entryId={e._id} onSent={onGarminSent} />
+                                <RouteCard entry={e} />
                             </div>
                         )}
                         {showLog && doneLog ? (
                             doneLog.kind === 'workout' ? (
-                                <WorkoutLogSummary log={doneLog.log} />
+                                <WorkoutLogSummary log={doneLog.log} showDate={false} />
                             ) : (
                                 <ConditioningLogSummary
                                     log={doneLog.log}
                                     session={e.session ?? null}
+                                    showDate={false}
                                 />
                             )
                         ) : loadingLog ? (
@@ -3388,13 +3394,19 @@ function PlannedDetailDrawer({
                                 packKey={e._id}
                                 stepTicks={steps.ticks}
                                 onToggleStep={steps.toggle}
+                                stats={false}
                             />
                         ) : e.kind === 'conditioning' && e.session ? (
-                            <>
-                                <RouteCard entry={e} />
-                                <ConditioningSessionDetail session={e.session} overview />
-                            </>
+                            <ConditioningSessionDetail session={e.session} overview stats={false} />
                         ) : null}
+                        {isSession && done && (
+                            <GarminRunPanel
+                                entry={e}
+                                done={done}
+                                framed
+                                onLinked={(logId) => onRunLinked(e, logId)}
+                            />
+                        )}
                     </div>
                 )}
             </Drawer>
@@ -3420,32 +3432,25 @@ function stepTicksKey(entry: FitnessPlanEntry | null): string | null {
     return `entry:${entry._id}`
 }
 
-/** The kind, day and slot a planned item sits in, and whether it's done. */
-function PlannedContext({ entry, done }: { entry: FitnessPlanEntry; done: boolean }) {
-    const tone = KIND_TONE[entry.kind]
+/**
+ * The one line under the title: what it is (the session's type and length, or
+ * Strength), its day and slot, and a badge when it's done or skipped. It stands
+ * in for the stat tiles, so each fact shows once.
+ */
+function PlannedMeta({ entry, done }: { entry: FitnessPlanEntry; done: boolean }) {
+    const what =
+        entry.kind === 'conditioning' && entry.session
+            ? [entry.session.category, `${entry.session.duration} min`]
+            : [KIND_META[entry.kind].label]
     return (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span
-                className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold ${tone.chip}`}
-            >
-                <i className={`${KIND_META[entry.kind].icon} text-[11px]`} aria-hidden="true" />
-                {KIND_META[entry.kind].label}
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-sm text-neutral-500">
-                <i className={`${PART_META[entry.part].icon} text-[11px]`} aria-hidden="true" />
-                {shortDayLabel(entry.date)} · {PART_META[entry.part].label}
-            </span>
-            {done && (
-                <span className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700">
-                    <i className="fa-solid fa-circle-check" aria-hidden="true" />
-                    Done
-                </span>
-            )}
-            {!done && entry.skipped && (
-                <span className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-full bg-red-50 px-2.5 text-xs font-semibold text-red-600">
-                    <i className="fa-solid fa-ban" aria-hidden="true" />
-                    Skipped
-                </span>
+            <p className="min-w-0 flex-1 text-sm text-neutral-500">
+                {[...what, shortDayLabel(entry.date), PART_META[entry.part].label].join(' · ')}
+            </p>
+            {done ? (
+                <Badge variant="success">Done</Badge>
+            ) : (
+                entry.skipped && <Badge variant="danger">Skipped</Badge>
             )}
         </div>
     )

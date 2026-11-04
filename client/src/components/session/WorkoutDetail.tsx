@@ -27,6 +27,7 @@ export default function WorkoutDetail({
     packKey,
     stepTicks,
     onToggleStep,
+    stats = true,
 }: {
     workout: Workout
     exercisesById: Map<string, Exercise>
@@ -35,6 +36,9 @@ export default function WorkoutDetail({
     /** Ticked sub-list steps, by the line's position across all three phases. */
     stepTicks: Record<number, number[]>
     onToggleStep: (index: number, step: number) => void
+    /** The headline tiles. Off, the working-set total moves onto the main
+     *  phase's heading, beside its exercise count, so nothing shows twice. */
+    stats?: boolean
 }) {
     // Pair each workout line with its resolved library exercise and its position
     // across the phases (the index step ticks are kept under, the same one the
@@ -50,7 +54,9 @@ export default function WorkoutDetail({
 
     return (
         <div className="flex flex-col gap-8">
+            {(stats || workout.description) && (
             <div className="flex flex-col gap-5">
+                {stats && (
                 <StatStrip
                     stats={[
                         { icon: 'fa-solid fa-dumbbell', label: 'Exercises', value: main.length },
@@ -59,8 +65,10 @@ export default function WorkoutDetail({
                             : []),
                     ]}
                 />
+                )}
                 <LeadText>{workout.description}</LeadText>
             </div>
+            )}
 
             <BringChecklist items={workout.bring} packKey={packKey} />
 
@@ -73,7 +81,11 @@ export default function WorkoutDetail({
                             phase={phase}
                             meta={
                                 rows.length
-                                    ? `${rows.length} ${rows.length === 1 ? 'exercise' : 'exercises'}`
+                                    ? `${rows.length} ${rows.length === 1 ? 'exercise' : 'exercises'}${
+                                          !stats && phase === 'main' && sets > 0
+                                              ? ` · ${sets} ${sets === 1 ? 'set' : 'sets'}`
+                                              : ''
+                                      }`
                                     : undefined
                             }
                         />
