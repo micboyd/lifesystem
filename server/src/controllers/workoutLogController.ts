@@ -117,6 +117,52 @@ function applyOmissions(lines: IWorkoutLogExercise[], raw: unknown): IWorkoutLog
     return lines.filter((_, i) => !drop.has(i))
 }
 
+/**
+ * Append the exercises added in the gym for this one session — not part of the
+ * workout, so not in the snapshot. Each entry is `{ exercise, reps?, loggedSets? }`
+ * with `exercise` a library id; its current name is written into the line. They
+ * go in after the main work, ahead of any cool-down, which is where they were
+ * done. An id that doesn't resolve (deleted since) is dropped.
+ */
+async function applyAdditions(
+    lines: IWorkoutLogExercise[],
+    raw: unknown,
+    userId: unknown
+): Promise<IWorkoutLogExercise[]> {
+    if (!Array.isArray(raw) || raw.length === 0) return lines
+    const entries = raw.filter(
+        (a): a is Record<string, unknown> =>
+            !!a &&
+            typeof a === 'object' &&
+            typeof (a as Record<string, unknown>).exercise === 'string' &&
+            Types.ObjectId.isValid((a as Record<string, unknown>).exercise as string)
+    )
+    if (entries.length === 0) return lines
+    const found = await Exercise.find({
+        _id: { $in: entries.map((a) => a.exercise as string) },
+        user: userId,
+    }).select('_id name')
+    const nameById = new Map(found.map((e) => [String(e._id), e.name]))
+    const sets = sanitizeLoggedSets(entries.map((a) => a.loggedSets))
+
+    const extra: IWorkoutLogExercise[] = []
+    entries.forEach((a, i) => {
+        const name = nameById.get(a.exercise as string)
+        if (!name) return
+        const reps = typeof a.reps === 'string' && a.reps.trim() ? a.reps.trim() : undefined
+        extra.push({
+            name,
+            added: true,
+            ...(reps ? { reps } : {}),
+            ...(sets[i] ? { loggedSets: sets[i] } : {}),
+        })
+    })
+    if (extra.length === 0) return lines
+    const coolDown = lines.findIndex((l) => l.phase === 'coolDown')
+    const at = coolDown === -1 ? lines.length : coolDown
+    return [...lines.slice(0, at), ...extra, ...lines.slice(at)]
+}
+
 /** Validate a YYYY-MM-DD date string. */
 function isValidDate(raw: unknown): raw is string {
     return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)
@@ -200,19 +246,23 @@ export async function createLog(req: AuthRequest, res: Response) {
         date: b.date,
         // Snapshot, then overlay swaps and sets by index, then drop the skipped
         // lines — omission comes last so every index above means the same thing.
-        exercises: applyOmissions(
-            applyCompleted(
-                applyLoggedSets(
-                    await applySubstitutions(
-                        await snapshotExercises(src, req.userId),
-                        b.substitutions,
-                        req.userId
+        exercises: await applyAdditions(
+            applyOmissions(
+                applyCompleted(
+                    applyLoggedSets(
+                        await applySubstitutions(
+                            await snapshotExercises(src, req.userId),
+                            b.substitutions,
+                            req.userId
+                        ),
+                        b.loggedSets
                     ),
-                    b.loggedSets
+                    b.completedAt
                 ),
-                b.completedAt
+                b.omitted
             ),
-            b.omitted
+            b.added,
+            req.userId
         ),
         durationMin: toDuration(b.durationMin),
         notes: typeof b.notes === 'string' ? b.notes.trim() || undefined : undefined,
@@ -249,19 +299,23 @@ export async function updateLog(req: AuthRequest, res: Response) {
                 : null
 
         fields.exercises = src
-            ? applyOmissions(
-                  applyCompleted(
-                      applyLoggedSets(
-                          await applySubstitutions(
-                              await snapshotExercises(src, req.userId),
-                              b.substitutions,
-                              req.userId
+            ? await applyAdditions(
+                  applyOmissions(
+                      applyCompleted(
+                          applyLoggedSets(
+                              await applySubstitutions(
+                                  await snapshotExercises(src, req.userId),
+                                  b.substitutions,
+                                  req.userId
+                              ),
+                              b.loggedSets
                           ),
-                          b.loggedSets
+                          b.completedAt
                       ),
-                      b.completedAt
+                      b.omitted
                   ),
-                  b.omitted
+                  b.added,
+                  req.userId
               )
             : // Otherwise overlay edited weights onto the log's existing
               // (already-snapshotted) lines, aligned by index — the edit drawer
@@ -273,6 +327,7 @@ export async function updateLog(req: AuthRequest, res: Response) {
                       sets: e.sets,
                       reps: e.reps,
                       ...(e.substitutedFor ? { substitutedFor: e.substitutedFor } : {}),
+                      ...(e.added ? { added: true } : {}),
                       ...(e.startMin !== undefined ? { startMin: e.startMin } : {}),
                       ...(e.endMin !== undefined ? { endMin: e.endMin } : {}),
                       ...(e.completedAt ? { completedAt: e.completedAt } : {}),

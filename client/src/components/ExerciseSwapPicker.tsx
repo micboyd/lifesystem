@@ -119,8 +119,11 @@ export default function ExerciseSwapPicker({
     onCreate,
     onCancel,
 }: {
-    /** The exercise that isn't available. */
-    target: Exercise
+    /**
+     * The exercise that isn't available. Left out, the picker adds an exercise
+     * to the session instead of swapping one: no ranked stand-ins, just search.
+     */
+    target?: Exercise
     library: Exercise[]
     /** Exercises already in this session — offering them back is no help. */
     excludeIds?: string[]
@@ -151,10 +154,14 @@ export default function ExerciseSwapPicker({
         inputRef.current?.focus()
     }, [])
 
-    const targetTags = useMemo(() => resolveTags(target), [target])
+    const adding = !target
+    const targetTags = useMemo(
+        () => (target ? resolveTags(target) : { muscleGroup: undefined }),
+        [target]
+    )
 
     const suggestions = useMemo(
-        () => rankSwaps(target, library, { excludeIds, limit: SUGGESTION_LIMIT }),
+        () => (target ? rankSwaps(target, library, { excludeIds, limit: SUGGESTION_LIMIT }) : []),
         [target, library, excludeIds]
     )
 
@@ -164,7 +171,7 @@ export default function ExerciseSwapPicker({
         if (words.length === 0) return []
         const excluded = new Set(excludeIds ?? [])
         return library
-            .filter((e) => e._id !== target._id && !excluded.has(e._id))
+            .filter((e) => e._id !== target?._id && !excluded.has(e._id))
             .filter((e) => {
                 const hay = tokenise(`${e.name} ${e.description ?? ''}`).join(' ')
                 return words.every((w) => hay.includes(w))
@@ -205,7 +212,7 @@ export default function ExerciseSwapPicker({
         return library.find((e) => e.name.trim().toLowerCase() === key)
     }, [name, library])
 
-    const isTarget = duplicate?._id === target._id
+    const isTarget = !!target && duplicate?._id === target._id
 
     function openCreate() {
         setName(query.trim())
@@ -258,13 +265,17 @@ export default function ExerciseSwapPicker({
                         </button>
                     )}
                     <span className="truncate">
-                        {mode === 'create' ? 'New exercise' : `Swap ${target.name}`}
+                        {mode === 'create'
+                            ? 'New exercise'
+                            : target
+                              ? `Swap ${target.name}`
+                              : 'Add an exercise'}
                     </span>
                 </p>
                 <button
                     type="button"
                     onClick={onCancel}
-                    aria-label="Cancel swap"
+                    aria-label={adding ? 'Cancel adding' : 'Cancel swap'}
                     className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
                 >
                     <i className="fa-solid fa-xmark text-xs" aria-hidden="true" />
@@ -291,7 +302,9 @@ export default function ExerciseSwapPicker({
                         <p className="px-1 text-xs text-neutral-500">
                             {searching
                                 ? `Nothing in your library matches “${query.trim()}”.`
-                                : onCreate
+                                : adding
+                                  ? 'Search your library for the exercise to add.'
+                                  : onCreate
                                   ? 'No related exercises in your library yet — add what you’re actually doing below, or tag your exercises with a muscle group so swaps have something to match on.'
                                   : 'No related exercises in your library yet. Search above, or tag your exercises with a muscle group so swaps have something to match on.'}
                         </p>
@@ -373,7 +386,9 @@ export default function ExerciseSwapPicker({
                     {error && <p className="px-1 text-[11px] text-red-500">{error}</p>}
 
                     <p className="px-1 text-[11px] text-neutral-500">
-                        Saved to your exercise library and swapped into this session.
+                        {adding
+                            ? 'Saved to your exercise library and added to this session.'
+                            : 'Saved to your exercise library and swapped into this session.'}
                     </p>
 
                     {/* Primary fills the row: at arm's length on a phone, the tap
@@ -391,7 +406,9 @@ export default function ExerciseSwapPicker({
                                 ? 'Saving…'
                                 : duplicate && !isTarget
                                   ? 'Use it instead'
-                                  : 'Create & swap in'}
+                                  : adding
+                                    ? 'Create & add'
+                                    : 'Create & swap in'}
                         </Button>
                     </div>
                 </div>

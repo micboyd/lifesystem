@@ -33,6 +33,12 @@ export interface WorkoutLogInput {
      */
     omitted?: number[]
     /**
+     * Exercises added in the gym for this session only — not in the workout, so
+     * not part of the index-aligned arrays above. Each is a library exercise id,
+     * the target reps if any, and the sets done.
+     */
+    added?: { exercise: string; reps?: string; loggedSets: LoggedSet[] }[]
+    /**
      * Update only: re-derive the exercise lines from the linked workout instead of
      * overlaying onto the ones already stored. The in-session logger sends the whole
      * picture on every save, so a row skipped — or put back — after the first save

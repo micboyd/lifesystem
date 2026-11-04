@@ -451,7 +451,11 @@ export function WorkoutLogSummary({
             detail: main
                   ? formatSetsReps(ex) || 'No sets recorded'
                   : 'Done',
-            note: ex.substitutedFor ? `Swapped in for ${ex.substitutedFor}` : undefined,
+            note: ex.substitutedFor
+                ? `Swapped in for ${ex.substitutedFor}`
+                : ex.added
+                  ? 'Added on the day'
+                  : undefined,
         }
     })
     const mainRows = l.exercises.filter(isMainWork)

@@ -176,6 +176,29 @@ function resumeStep(drafts: ExerciseDraft[]): Step {
     return i !== -1 ? i : 'summary'
 }
 
+/** The ticked sets of a row as numbers, for the log. Warm-ups and skipped rows send none. */
+function loggedSetsOf(ex: ExerciseDraft): LoggedSet[] {
+    if (ex.removed || isWarmUp(ex)) return []
+    return ex.sets
+        .filter((s) => s.done)
+        .map((s): LoggedSet => {
+            const weight = toNum(s.weight)
+            const reps = toNum(s.reps)
+            return {
+                ...(weight !== undefined ? { weight } : {}),
+                ...(reps !== undefined ? { reps } : {}),
+            }
+        })
+        .filter((s) => s.weight !== undefined || s.reps !== undefined)
+}
+
+/** Stepper order: warm-up, main, cool-down. Added rows are main work, so they
+ *  slot in after the workout's main exercises and ahead of its cool-down. */
+const PHASE_RANK: Record<SessionPhase, number> = { warmUp: 0, main: 1, coolDown: 2 }
+
+/** How many blank sets an added exercise starts with when there's no history. */
+const ADDED_SETS = 3
+
 /** How long after the last edit the session saves itself to the log. */
 const AUTOSAVE_MS = 2000
 
@@ -339,31 +362,23 @@ export default function WorkoutLogWeightsDrawer({
     const saveToLog = useCallback(async (): Promise<boolean> => {
         if (!view) return false
         const edit = edits.current
+        // The workout's own rows come first and line up one-to-one with the lines
+        // the server snapshots; rows added today sit after them and go separately.
+        const own = drafts.filter((ex) => !ex.added)
         // Align one entry per row, in the order the server snapshots. Skipped
         // rows keep their slot — the indices all have to agree — and send
         // nothing; `omitted` is what actually drops them. Only ticked sets count.
-        const loggedSets: LoggedSet[][] = drafts.map((ex) =>
-            ex.removed || isWarmUp(ex)
-                ? []
-                : ex.sets
-                      .filter((s) => s.done)
-                      .map((s): LoggedSet => {
-                          const weight = toNum(s.weight)
-                          const reps = toNum(s.reps)
-                          return {
-                              ...(weight !== undefined ? { weight } : {}),
-                              ...(reps !== undefined ? { reps } : {}),
-                          }
-                      })
-                      .filter((s) => s.weight !== undefined || s.reps !== undefined)
-        )
+        const loggedSets: LoggedSet[][] = own.map(loggedSetsOf)
         // The exercise actually performed, or null when the row went as
         // prescribed. Omitted entirely when nothing was swapped.
-        const substitutions = drafts.map((ex) =>
+        const substitutions = own.map((ex) =>
             ex.swappedFrom && !ex.removed ? ex.exerciseId : null
         )
         const swapped = substitutions.some(Boolean)
-        const omitted = drafts.flatMap((ex, i) => (ex.removed ? [i] : []))
+        const omitted = own.flatMap((ex, i) => (ex.removed ? [i] : []))
+        const added = drafts
+            .filter((ex) => ex.added && !ex.removed)
+            .map((ex) => ({ exercise: ex.exerciseId, loggedSets: loggedSetsOf(ex) }))
 
         const fields: WorkoutLogInput = {
             workout: view._id,
@@ -373,6 +388,8 @@ export default function WorkoutLogWeightsDrawer({
             loggedSets,
             ...(swapped ? { substitutions } : {}),
             ...(omitted.length ? { omitted } : {}),
+            // Always sent, so removing the last added exercise clears it from the log.
+            added,
         }
 
         setSaveState('saving')
@@ -504,7 +521,16 @@ export default function WorkoutLogWeightsDrawer({
     )
 
     /** The exercises being done today, in order — the steps of the stepper. */
-    const active = useMemo(() => drafts.flatMap((d, i) => (d.removed ? [] : [i])), [drafts])
+    const active = useMemo(
+        () =>
+            drafts
+                .flatMap((d, i) => (d.removed ? [] : [i]))
+                .sort(
+                    (a, b) =>
+                        PHASE_RANK[phaseOf(drafts[a])] - PHASE_RANK[phaseOf(drafts[b])] || a - b
+                ),
+        [drafts]
+    )
 
     /** Rows skipped today, with the index each one sits at. */
     const skipped = useMemo(
@@ -538,6 +564,7 @@ export default function WorkoutLogWeightsDrawer({
     function goTo(next: Step) {
         setStep(next)
         setSwapping(false)
+        setAdding(false)
         setTimeout(() => top.current?.scrollIntoView({ block: 'start' }), 0)
     }
 
@@ -679,7 +706,46 @@ export default function WorkoutLogWeightsDrawer({
     /** Put a skipped exercise back, and go to it. */
     function restoreExercise(ei: number) {
         patchRow(ei, { removed: undefined })
+        setAdding(false)
         goTo(ei)
+    }
+
+    /** The add-an-exercise picker is open. */
+    const [adding, setAdding] = useState(false)
+
+    /**
+     * Add an exercise to this session only — the workout itself is left alone.
+     * It starts with as many blank sets as last time (or three), and the stepper
+     * goes straight to it.
+     */
+    function addExercise(exercise: Exercise) {
+        const count = lastSetsFor(history, exercise.name, logId)?.sets.length || ADDED_SETS
+        const at = drafts.length
+        markDirty()
+        setDrafts((prev) => [
+            ...prev,
+            {
+                exerciseId: exercise._id,
+                name: exercise.name,
+                prescription: '',
+                added: true,
+                sets: Array.from({ length: count }, () => ({ weight: '', reps: '' })),
+            },
+        ])
+        setAdding(false)
+        goTo(at)
+    }
+
+    /**
+     * Take an added exercise back out. Nothing of the workout's to keep in step
+     * with, so it goes entirely rather than sitting in the skipped list. Added
+     * rows are last in the array, so removing one shifts only the added rows after it.
+     */
+    function removeAdded(ei: number) {
+        const next = active[active.indexOf(ei) + 1]
+        markDirty()
+        setDrafts((prev) => prev.filter((_, i) => i !== ei))
+        goTo(next === undefined ? 'summary' : next > ei ? next - 1 : next)
     }
 
     /**
@@ -693,6 +759,8 @@ export default function WorkoutLogWeightsDrawer({
         setDrafts((prev) =>
             prev.map((ex, i) => {
                 if (i !== ei) return ex
+                // An added row has no prescription to stand in for — just change it.
+                if (ex.added) return { ...ex, exerciseId: exercise._id, name: exercise.name }
                 const origin = ex.swappedFrom ?? { id: ex.exerciseId, name: ex.name }
                 // Swapping back to the original is an undo, not a substitution.
                 if (exercise._id === origin.id) {
@@ -808,7 +876,26 @@ export default function WorkoutLogWeightsDrawer({
                                 active={active}
                                 step={onSummary ? 'summary' : step}
                                 onGo={goTo}
+                                adding={adding}
+                                onAdd={() => {
+                                    setSwapping(false)
+                                    setAdding((v) => !v)
+                                }}
                             />
+
+                            {adding && (
+                                <ExerciseSwapPicker
+                                    library={library}
+                                    excludeIds={inSession}
+                                    onPick={addExercise}
+                                    onCreate={handleCreateExercise}
+                                    onCancel={() => setAdding(false)}
+                                />
+                            )}
+
+                            {!onSummary && skipped.length > 0 && (
+                                <SkippedStrip skipped={skipped} onRestore={restoreExercise} />
+                            )}
 
                             {pos === 0 && <BringChips items={w.bring} />}
 
@@ -832,6 +919,8 @@ export default function WorkoutLogWeightsDrawer({
                                     }}
                                     onGo={goTo}
                                     onRestore={restoreExercise}
+                                    adding={adding}
+                                    onAdd={() => setAdding(true)}
                                 />
                             ) : (
                                 <ExerciseStep
@@ -866,7 +955,9 @@ export default function WorkoutLogWeightsDrawer({
                                     onWarmUpDone={(d) => setWarmUpDone(step, d)}
                                     onSwap={() => setSwapping((v) => !v)}
                                     onUndoSwap={() => undoSwap(step)}
-                                    onSkip={() => skipExercise(step)}
+                                    onSkip={() =>
+                                        current!.added ? removeAdded(step) : skipExercise(step)
+                                    }
                                     onSet={(si, patch) => updateSet(step, si, patch)}
                                     onToggleSet={(si) => toggleSet(step, si)}
                                     onAddSet={() => addSet(step)}
@@ -893,11 +984,15 @@ function StepperBar({
     active,
     step,
     onGo,
+    adding,
+    onAdd,
 }: {
     drafts: ExerciseDraft[]
     active: number[]
     step: Step
     onGo: (step: Step) => void
+    adding: boolean
+    onAdd: () => void
 }) {
     return (
         <nav aria-label="Exercises" className="flex items-center gap-1">
@@ -928,6 +1023,20 @@ function StepperBar({
                     </button>
                 )
             })}
+            <button
+                type="button"
+                onClick={onAdd}
+                aria-label="Add an exercise to this session"
+                aria-pressed={adding}
+                title="Add an exercise to this session"
+                className={`ml-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] transition-colors ${
+                    adding
+                        ? 'bg-neutral-900 text-white'
+                        : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                }`}
+            >
+                <i className="fa-solid fa-plus" aria-hidden="true" />
+            </button>
             <button
                 type="button"
                 onClick={() => onGo('summary')}
@@ -1044,8 +1153,14 @@ function ExerciseStep({
                                 : 'Tick it off when you’re warm.'}
                         </p>
                     ) : (
-                        <p className="mt-1.5 text-[15px] font-medium text-coral-600">
-                            {ex.prescription ? `Target ${ex.prescription}` : 'No target set'}
+                        <p
+                            className={`mt-1.5 text-[15px] font-medium ${ex.added ? 'text-neutral-500' : 'text-coral-600'}`}
+                        >
+                            {ex.prescription
+                                ? `Target ${ex.prescription}`
+                                : ex.added
+                                  ? 'Added for today'
+                                  : 'No target set'}
                             {rest && (
                                 <span className="font-normal text-neutral-500"> · rest {rest}</span>
                             )}
@@ -1074,15 +1189,24 @@ function ExerciseStep({
                         icon="fa-solid fa-right-left"
                         label="Swap"
                         pressed={swapping}
-                        title="Machine taken? Swap this out"
+                        title={ex.added ? 'Change this exercise' : 'Machine taken? Swap this out'}
                         onClick={onSwap}
                     />
-                    <StepAction
-                        icon="fa-solid fa-forward"
-                        label="Skip"
-                        title="Skip this exercise today"
-                        onClick={onSkip}
-                    />
+                    {ex.added ? (
+                        <StepAction
+                            icon="fa-solid fa-trash-can"
+                            label="Remove"
+                            title="Take this added exercise back out"
+                            onClick={onSkip}
+                        />
+                    ) : (
+                        <StepAction
+                            icon="fa-solid fa-forward"
+                            label="Skip"
+                            title="Skip this exercise today"
+                            onClick={onSkip}
+                        />
+                    )}
                     <VideoButton url={videoUrl} title={ex.name} />
                 </div>
             </header>
@@ -1441,6 +1565,41 @@ function StepAction({
     )
 }
 
+/**
+ * What's been skipped so far, on every exercise — so changing your mind (the
+ * machine came free) is one tap, not a trip to the wrap-up.
+ */
+function SkippedStrip({
+    skipped,
+    onRestore,
+}: {
+    skipped: { ex: ExerciseDraft; i: number }[]
+    onRestore: (i: number) => void
+}) {
+    return (
+        <div className="-mt-3 flex flex-col divide-y divide-neutral-100 rounded-2xl bg-neutral-50 px-4">
+            {skipped.map(({ ex, i }) => (
+                <div key={i} className="flex items-center gap-3 py-1.5">
+                    <i
+                        className="fa-solid fa-forward w-3 text-center text-[10px] text-neutral-400"
+                        aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm text-neutral-500">
+                        Skipped <span className="text-neutral-700">{ex.name}</span>
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => onRestore(i)}
+                        className="h-9 shrink-0 px-1 text-xs font-semibold text-coral-600 transition-colors hover:text-coral-700"
+                    >
+                        Put back
+                    </button>
+                </div>
+            ))}
+        </div>
+    )
+}
+
 // ─── Wrap-up ────────────────────────────────────────────────────────────────────
 
 function WrapUp({
@@ -1456,6 +1615,8 @@ function WrapUp({
     onDate,
     onGo,
     onRestore,
+    adding,
+    onAdd,
 }: {
     drafts: ExerciseDraft[]
     active: number[]
@@ -1469,6 +1630,8 @@ function WrapUp({
     onDate: (v: string) => void
     onGo: (step: Step) => void
     onRestore: (i: number) => void
+    adding: boolean
+    onAdd: () => void
 }) {
     return (
         <div className="flex flex-col gap-7">
@@ -1509,6 +1672,17 @@ function WrapUp({
                     }
                 })}
             />
+
+            {!adding && (
+                <button
+                    type="button"
+                    onClick={onAdd}
+                    className="-mt-4 inline-flex h-10 items-center gap-1.5 self-start rounded-[10px] px-3 text-sm font-semibold text-coral-600 transition-colors hover:bg-coral-50"
+                >
+                    <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
+                    Add exercise
+                </button>
+            )}
 
             {skipped.length > 0 && (
                 <div className="flex flex-col gap-1 rounded-2xl bg-neutral-50 px-4 py-3">

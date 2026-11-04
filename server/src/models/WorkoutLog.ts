@@ -17,6 +17,8 @@ export interface IWorkoutLogExercise {
      * (the machine was taken). Absent when the workout was performed as written.
      */
     substitutedFor?: string
+    /** Added in the gym for this session only — not part of the workout. */
+    added?: boolean
     sets?: number
     reps?: string
     /** The sets actually performed, with per-set weight and reps. */
@@ -62,6 +64,7 @@ const workoutLogExerciseSchema = new Schema<IWorkoutLogExercise>(
         name: { type: String, required: true, trim: true },
         phase: { type: String, enum: SESSION_PHASES },
         substitutedFor: { type: String, trim: true },
+        added: { type: Boolean },
         sets: { type: Number, min: 0 },
         reps: { type: String, trim: true },
         loggedSets: { type: [loggedSetSchema], default: undefined },

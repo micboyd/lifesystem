@@ -308,6 +308,7 @@ function shapeWorkoutLog(log: WorkoutLog) {
             name: x.name,
             ...(x.phase && x.phase !== 'main' ? { phase: x.phase } : {}),
             ...(x.substitutedFor ? { substitutedFor: x.substitutedFor } : {}),
+            ...(x.added ? { added: true } : {}),
             ...(x.sets != null ? { sets: x.sets } : {}),
             ...(x.reps ? { reps: x.reps } : {}),
             ...(x.loggedSets?.length

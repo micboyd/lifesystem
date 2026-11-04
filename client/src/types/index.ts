@@ -311,6 +311,8 @@ export interface WorkoutLogExercise {
     phase?: SessionPhase
     /** When this line was swapped mid-session, the exercise originally prescribed. */
     substitutedFor?: string
+    /** Added in the gym for this session only — not part of the workout. */
+    added?: boolean
     /** Prescribed sets count, snapshotted from the library workout. */
     sets?: number
     /** Prescribed reps, snapshotted from the library workout (free-form). */

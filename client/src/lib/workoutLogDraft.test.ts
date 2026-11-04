@@ -100,6 +100,24 @@ describe('readDraft / writeDraft', () => {
         expect(draft?.exercises[1].removed).toBe(true)
     })
 
+    it('keeps exercises added for the session', () => {
+        const exercises = [
+            ...rows(),
+            {
+                exerciseId: 'x',
+                name: 'Cable curl',
+                prescription: '',
+                added: true,
+                sets: [{ weight: '20', reps: '12', done: true }],
+            },
+        ]
+        save({ exercises })
+        const draft = readDraft('w1', SIG, NOW)
+        expect(draft?.exercises).toHaveLength(3)
+        expect(draft?.exercises[2].added).toBe(true)
+        expect(draft?.exercises[0].added).toBeUndefined()
+    })
+
     it('keeps when each exercise was completed', () => {
         const exercises = rows()
         exercises[0].completedAt = NOW - 60000
