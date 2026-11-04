@@ -99,12 +99,13 @@ export async function sendEntry(
             saved = null
         }
     }
-    if (!saved) {
+    const create = async () => {
         const { workoutId } = await provider.createWorkout(spec)
         await store.saveWorkout(session._id, workoutId, preview.hash)
-        saved = { workoutId, stepsHash: preview.hash }
+        return { workoutId, stepsHash: preview.hash }
     }
-    const workoutId = saved.workoutId
+    if (!saved) saved = await create()
+    let workoutId = saved.workoutId
 
     // ── This day's placement on the Garmin calendar ───────────────────────────
     const prior = entry.garmin
@@ -113,7 +114,15 @@ export async function sendEntry(
         scheduleId = prior.scheduleId
     } else {
         if (prior?.scheduleId) await provider.unscheduleWorkout(prior.scheduleId)
-        scheduleId = (await provider.scheduleWorkout(workoutId, entry.date)).scheduleId
+        try {
+            scheduleId = (await provider.scheduleWorkout(workoutId, entry.date)).scheduleId
+        } catch (err) {
+            // The steps hadn't changed, so the workout wasn't touched above — but
+            // it was deleted on Garmin's side. Make it again and place that.
+            if (!isGarminError(err, 'not_found')) throw err
+            workoutId = (await create()).workoutId
+            scheduleId = (await provider.scheduleWorkout(workoutId, entry.date)).scheduleId
+        }
     }
 
     const garmin: IPlanEntryGarmin = {

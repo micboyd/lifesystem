@@ -36,6 +36,7 @@ function fakeGarmin() {
             workouts.set(id, { name: w.name, steps: w.steps })
         }),
         scheduleWorkout: vi.fn(async (workoutId, date) => {
+            if (!workouts.has(workoutId)) throw new GarminError('not_found')
             const id = String(next++)
             calendar.set(id, { workoutId, date })
             return { scheduleId: id }
@@ -136,6 +137,18 @@ describe('sendEntry', () => {
         await sendEntry({ _id: 'e2', date: '2026-11-04' }, { ...session, name: 'Changed' }, g.provider, s.store)
         expect(g.provider.createWorkout).toHaveBeenCalledTimes(2)
         expect(g.workouts.size).toBe(1)
+    })
+
+    it('rescheduling a moved entry makes the workout again if it was deleted on Garmin', async () => {
+        const g = fakeGarmin()
+        const s = memoryStore()
+        await sendEntry({ _id: 'e1', date: '2026-11-03' }, session, g.provider, s.store)
+        g.workouts.clear()
+        const moved: SyncEntry = { _id: 'e1', date: '2026-11-02', garmin: s.entries.get('e1') }
+        const r = await sendEntry(moved, session, g.provider, s.store)
+        expect(g.provider.createWorkout).toHaveBeenCalledTimes(2)
+        expect([...g.calendar.values()]).toEqual([{ workoutId: r.garmin.workoutId, date: '2026-11-02' }])
+        expect((await s.store.getWorkout('sess1'))?.workoutId).toBe(r.garmin.workoutId)
     })
 
     it('a failed push still counts: scheduled, sync the watch', async () => {
