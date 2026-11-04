@@ -14,10 +14,23 @@ const WORKER = path.join(SERVICE_DIR, 'worker.py')
 /** Under Heroku's 30 s request cap, with room for the rest of the request. */
 const TIMEOUT_MS = 25_000
 
+/** Where heroku/python installs itself; its bin isn't always on the app's PATH. */
+const HEROKU_PYTHON = path.join(process.env.HOME ?? '/app', '.heroku', 'python')
+
 function python(): string {
     if (process.env.GARMIN_PYTHON) return process.env.GARMIN_PYTHON
     const venv = path.join(SERVICE_DIR, '.venv', 'bin', 'python')
-    return existsSync(venv) ? venv : 'python3'
+    if (existsSync(venv)) return venv
+    const heroku = path.join(HEROKU_PYTHON, 'bin', 'python3')
+    return existsSync(heroku) ? heroku : 'python3'
+}
+
+/** Heroku's Python links a shared libpython, found via LD_LIBRARY_PATH. */
+function libraryPath(): string {
+    const lib = path.join(HEROKU_PYTHON, 'lib')
+    const current = process.env.LD_LIBRARY_PATH ?? ''
+    if (!existsSync(lib) || current.split(':').includes(lib)) return current
+    return current ? `${lib}:${current}` : lib
 }
 
 export interface WorkerReply<T> {
@@ -34,11 +47,10 @@ export const runWorker: WorkerRun = <T>(request: Record<string, unknown>) =>
         const child = spawn(bin, ['-I', WORKER], {
             cwd: SERVICE_DIR,
             stdio: ['pipe', 'pipe', 'pipe'],
-            // Heroku's Python links a shared libpython found via LD_LIBRARY_PATH.
             env: {
                 PATH: process.env.PATH ?? '',
                 HOME: process.env.HOME ?? '',
-                LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH ?? '',
+                LD_LIBRARY_PATH: libraryPath(),
                 LANG: process.env.LANG ?? 'C.UTF-8',
             },
         })
@@ -52,13 +64,19 @@ export const runWorker: WorkerRun = <T>(request: Record<string, unknown>) =>
         }, TIMEOUT_MS)
         child.stdout.on('data', (chunk) => (out += chunk))
         child.stderr.on('data', (chunk) => (err = (err + chunk).slice(-2000)))
+        let failedToStart = false
         child.on('error', (e) => {
+            failedToStart = true
             clearTimeout(timer)
-            console.error(`[garmin] could not start ${bin}: ${e.message}`)
+            console.error(
+                `[garmin] could not start ${bin}: ${e.message} ` +
+                    `(${HEROKU_PYTHON} ${existsSync(HEROKU_PYTHON) ? 'exists' : 'missing'}; PATH=${process.env.PATH ?? ''})`
+            )
             reject(new GarminError('worker_unavailable'))
         })
         child.on('close', (exitCode) => {
             clearTimeout(timer)
+            if (failedToStart) return
             let reply: { ok?: boolean; code?: string; result?: T; tokens?: string }
             try {
                 reply = JSON.parse(out)
