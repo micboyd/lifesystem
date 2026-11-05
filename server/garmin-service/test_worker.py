@@ -63,6 +63,14 @@ class FakeGarmin:
     activities: list = []
     splits_error: Exception | None = None
 
+    summaries: dict = {}
+
+    def get_user_summary(self, cdate):
+        value = FakeGarmin.summaries.get(cdate)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
     def get_activities_by_date(self, start, end=None):
         FakeGarmin.asked_range = (start, end)
         return FakeGarmin.activities
@@ -199,6 +207,25 @@ class WorkerTest(unittest.TestCase):
         self.assertEqual(acts[0]["typeKey"], "running")
         self.assertEqual(acts[0]["workoutId"], "42")
         self.assertEqual(FakeGarmin.asked_range, ("2026-11-03", "2026-11-04"))
+
+    def test_daily_calories_reads_each_days_total(self):
+        FakeGarmin.summaries = {
+            "2026-11-02": {"totalKilocalories": 3448.4, "activeKilocalories": 1200},
+            "2026-11-03": {"totalKilocalories": None},
+            "2026-11-04": RuntimeError("one bad day"),
+        }
+        reply = self.run_op({"op": "daily_calories", "tokens": TOKENS, "dates": ["2026-11-02", "2026-11-03", "2026-11-04"]})
+        self.assertTrue(reply["ok"])
+        self.assertEqual(reply["result"]["days"], [{"date": "2026-11-02", "kcal": 3448}])
+
+    def test_daily_calories_needs_dates(self):
+        self.assertEqual(self.run_op({"op": "daily_calories", "tokens": TOKENS, "dates": []})["code"], "bad_request")
+        self.assertEqual(self.run_op({"op": "daily_calories", "tokens": TOKENS, "dates": ["soon"]})["code"], "bad_request")
+
+    def test_daily_calories_expired_session(self):
+        FakeGarmin.summaries = {"2026-11-02": garminconnect.GarminConnectAuthenticationError("nope")}
+        reply = self.run_op({"op": "daily_calories", "tokens": TOKENS, "dates": ["2026-11-02"]})
+        self.assertEqual(reply["code"], "session_expired")
 
     def test_list_activities_needs_dates(self):
         reply = self.run_op({"op": "list_activities", "tokens": TOKENS, "from": "yesterday", "to": "2026-11-04"})

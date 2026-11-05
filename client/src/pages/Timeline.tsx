@@ -856,6 +856,19 @@ function HowItWorks({ timeline }: { timeline: TimelineData }) {
                 {Math.abs(off) >= 20 ? `, so each day carries a ${signed(off)} kcal correction.` : ' — close enough to leave alone.'}
             </>
         )
+    } else if (burn.deficit && burn.rateKg !== null) {
+        const perDay = Math.round(Math.abs((burn.rateKg * 7700) / 7) / 10) * 10
+        items.push(
+            <>
+                Each day is planned the way it's scored: what you burn{' '}
+                {burn.rateKg < 0 ? `less ${kcal(perDay)}` : burn.rateKg > 0 ? `plus ${kcal(perDay)}` : ''} kcal
+                {burn.phaseName ? ` (${burn.phaseName}'s ${fmtNum(Math.abs(burn.rateKg), 2)} kg a week)` : ''}. So a
+                training day plans more food and the deficit holds whatever the day burns — how far the burn formula is
+                off doesn't change where the plan lands.
+                {burn.goalReachable === false &&
+                    ' At that rate the plan falls short of its goal by the date, so the changes above are what close it.'}
+            </>
+        )
     } else if (burn.source === 'goal' && burn.planKcal) {
         items.push(
             <>

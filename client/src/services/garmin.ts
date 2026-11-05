@@ -223,3 +223,38 @@ export async function checkGarminRunsQuietly(from: string, to: string): Promise<
         }, 60_000)
     }
 }
+
+// ── Calories out ─────────────────────────────────────────────────────────────
+
+/** Fired on window when Garmin filled in or changed days' calories out. */
+export const GARMIN_CALORIES_PULLED = 'garmin-calories-pulled'
+
+export interface GarminCaloriesPull {
+    updated: { date: string; kcal: number }[]
+    asked: boolean
+}
+
+const pulling = new Set<string>()
+/**
+ * Fill finished days' calories out from Garmin, in the background: never
+ * throws, skips when Garmin isn't connected, and only asks about days before
+ * `today` (the server skips typed figures and days it asked about recently).
+ * Screens listen for GARMIN_CALORIES_PULLED to reload.
+ */
+export async function pullGarminCaloriesQuietly(from: string, to: string, today: string): Promise<void> {
+    if (from > to) return
+    const key = `${from}|${to}|${today}`
+    if (pulling.has(key)) return
+    pulling.add(key)
+    try {
+        const status = await getGarminStatus()
+        if (status.status !== 'connected') return
+        const res = await api.post<ApiResponse<GarminCaloriesPull>>('/garmin/daily-energy/pull', { from, to, today })
+        if (res.data.data.updated.length)
+            window.dispatchEvent(new CustomEvent(GARMIN_CALORIES_PULLED, { detail: res.data.data.updated }))
+    } catch {
+        // Quiet by design: the day just keeps its forecast.
+    } finally {
+        setTimeout(() => pulling.delete(key), 60_000)
+    }
+}

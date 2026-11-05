@@ -77,6 +77,16 @@ export interface YourDayInputs {
     logged: Set<string>
     meals: MealPlanEntry[]
     goals: MacroGoals | null
+    /**
+     * The day's logged calories out, when the calorie target was built from it
+     * (lib/nutritionTargets.ts targetsFromOut). Shown beside the target so the
+     * figure reads as what you burned less the planned deficit.
+     */
+    caloriesOut?: number | null
+    /** Whether `caloriesOut` is a forecast (lib/burnForecast.ts) rather than the logged figure. */
+    caloriesOutExpected?: boolean
+    /** Whether `caloriesOut` carries the watch's correction (lib/watchCalibration.ts). */
+    caloriesOutAdjusted?: boolean
     eaten: Macros
     habits: HabitDef[]
     /** Ids of the habits ticked on the date. */
@@ -251,7 +261,14 @@ function weighStep(
     ]
 }
 
-function targetSteps(goals: MacroGoals | null, eaten: Macros, counts: (key: string) => boolean): DayStep[] {
+function targetSteps(
+    goals: MacroGoals | null,
+    eaten: Macros,
+    counts: (key: string) => boolean,
+    out?: number | null,
+    outExpected = false,
+    outAdjusted = false
+): DayStep[] {
     const steps: DayStep[] = []
     const protein = goals?.protein ?? 0
     if (protein > 0 && counts('protein')) {
@@ -269,20 +286,31 @@ function targetSteps(goals: MacroGoals | null, eaten: Macros, counts: (key: stri
     if (calories > 0 && counts('calories')) {
         const over = eaten.calories > calories * (1 + TARGET_BAND)
         const onTarget = !over && eaten.calories >= calories * (1 - TARGET_BAND)
+        const status = over
+            ? `${kcal(eaten.calories - calories)} kcal over`
+            : onTarget
+              ? `${kcal(eaten.calories)} eaten · on target`
+              : `${kcal(eaten.calories)} eaten · ${kcal(calories - eaten.calories)} left`
         steps.push({
             id: 'calories',
             kind: 'calories',
             part: null,
             title: `${kcal(calories)} kcal`,
-            detail: over
-                ? `${kcal(eaten.calories - calories)} kcal over`
-                : onTarget
-                  ? `${kcal(eaten.calories)} eaten · on target`
-                  : `${kcal(eaten.calories)} eaten · ${kcal(calories - eaten.calories)} left`,
+            detail: !out
+                ? status
+                : outExpected
+                  ? `${status} · ~${kcal(out)} expected out${outAdjusted ? ', watch-adjusted' : ''}`
+                  : `${status} · ${balanceText(eaten.calories - out)} vs ${kcal(out)} out${outAdjusted ? ', watch-adjusted' : ''}`,
             state: over ? 'over' : onTarget ? 'done' : 'todo',
         })
     }
     return steps
+}
+
+/** A day's balance as a signed figure: "−498", "+120". */
+function balanceText(balance: number): string {
+    const r = Math.round(balance)
+    return `${r < 0 ? '−' : '+'}${kcal(Math.abs(r))}`
 }
 
 /** The next thing to do: now, then later today, then anything missed earlier, then all day. */
@@ -329,7 +357,14 @@ export function yourDay(inputs: YourDayInputs): YourDay {
         ...trainingSteps(inputs.training, inputs.logged, counts),
         ...mealSteps(inputs.meals, date, today, counts, selection),
         ...events,
-        ...targetSteps(inputs.goals, inputs.eaten, counts),
+        ...targetSteps(
+            inputs.goals,
+            inputs.eaten,
+            counts,
+            inputs.caloriesOut,
+            inputs.caloriesOutExpected,
+            inputs.caloriesOutAdjusted
+        ),
         ...habits,
     ]
         .map((s, i) => ({ s, i }))

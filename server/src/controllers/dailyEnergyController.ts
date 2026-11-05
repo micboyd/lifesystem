@@ -48,7 +48,8 @@ export async function upsertDailyEnergy(req: AuthRequest, res: Response) {
     }
 
     const note = typeof notes === 'string' ? notes.trim() : ''
-    const set: Record<string, unknown> = { caloriesOut: kcal }
+    // A typed figure wins over the watch from here on.
+    const set: Record<string, unknown> = { caloriesOut: kcal, source: 'manual' }
     const unset: Record<string, 1> = {}
     if (note) set.notes = note
     else unset.notes = 1

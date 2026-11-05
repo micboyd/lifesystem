@@ -11,6 +11,7 @@ import {
     entryRun,
     linkRun,
     unlinkRun,
+    pullCalories,
 } from '../controllers/garminController'
 import { requireAuth } from '../middleware/auth'
 
@@ -30,5 +31,7 @@ router.post('/activities/check', checkRuns)
 router.get('/activities/entry/:id', entryRun)
 router.post('/activities/entry/:id/link', linkRun)
 router.post('/activities/entry/:id/unlink', unlinkRun)
+
+router.post('/daily-energy/pull', pullCalories)
 
 export default router

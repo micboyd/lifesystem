@@ -14,6 +14,7 @@ import { GARMIN_ERROR_STATUS, GarminError, isGarminError } from '../garmin/provi
 import { entryGarminState, previewSession, sendEntry, type SyncSession } from '../garmin/sync'
 import GarminActivity, { type IGarminActivity } from '../models/GarminActivity'
 import { checkActivities, linkByHand, rangeIsValid, unlinkActivity } from '../garmin/activities'
+import { pullDailyCalories } from '../garmin/dailyCalories'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -195,6 +196,21 @@ export const checkRuns = handle(async (req, res) => {
         return
     }
     res.json({ message: 'OK', data: await checkActivities(req.userId!, from, to, { force: force === true }) })
+})
+
+/**
+ * POST /api/garmin/daily-energy/pull { from, to, today } — fill finished days'
+ * calories out from Garmin. `today` is the browser's, since the server can't
+ * know the user's time zone; nothing on or after it is pulled.
+ */
+export const pullCalories = handle(async (req, res) => {
+    const { from, to, today } = req.body ?? {}
+    const dates = [from, to, today]
+    if (!dates.every((d) => typeof d === 'string' && DATE_RE.test(d)) || !rangeIsValid(from, to)) {
+        res.status(400).json({ message: 'from, to and today (YYYY-MM-DD, up to 14 days) are required', code: 'bad_request' })
+        return
+    }
+    res.json({ message: 'OK', data: await pullDailyCalories(req.userId!, from, to, today) })
 })
 
 /** The stored run for the browser — everything but the owner and Mongo's own fields. */

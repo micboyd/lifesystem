@@ -412,7 +412,36 @@ def op_get_activity(req: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+MAX_CALORIE_DAYS = 14
+
+
+def op_daily_calories(req: dict[str, Any]) -> dict[str, Any]:
+    """
+    Each day's total calories burned (resting plus active) from Garmin's daily
+    summary. A day Garmin has no figure for is left out rather than sent as zero.
+    One day failing doesn't sink the rest; a rejected session still does.
+    """
+    raw = req.get("dates")
+    if not isinstance(raw, list) or not raw or len(raw) > MAX_CALORIE_DAYS:
+        raise fail("bad_request")
+    dates = [_date(d) for d in raw]
+    api = _client(req)
+    days = []
+    for d in dates:
+        try:
+            summary = api.get_user_summary(d) or {}
+        except GarminConnectAuthenticationError:
+            raise
+        except Exception:
+            continue
+        kcal = _num(summary.get("totalKilocalories")) if isinstance(summary, dict) else None
+        if kcal is not None and kcal > 0:
+            days.append({"date": d, "kcal": round(kcal)})
+    return {"result": {"days": days}, "tokens": _dump(api)}
+
+
 OPS = {
+    "daily_calories": op_daily_calories,
     "list_activities": op_list_activities,
     "get_activity": op_get_activity,
     "login": op_login,

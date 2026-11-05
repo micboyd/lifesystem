@@ -14,6 +14,7 @@ import {
 } from './timeline'
 import type {
     ConditioningLog,
+    DailyEnergy,
     MealPlanEntry,
     NutritionPhase,
     NutritionPhaseKind,
@@ -517,6 +518,17 @@ describe('measured adherence', () => {
         expect(r.weight).toBeCloseTo(12 / 28)
     })
 
+    it('holds a day with calories out to what it burned less the planned deficit', () => {
+        // 0.5 kg/week = −550 a day. A 3,400 day is on target at 2,850, not 2,000.
+        const cut = { ...phase(START, addDays(TODAY, 83), 'cut', 2000), weeklyRate: -0.5 }
+        const mealEntries = [ate(addDays(START, 0), 2850), ate(addDays(START, 1), 2850)]
+        const energy = [{ _id: 'e', date: addDays(START, 0), caloriesOut: 3400 } as DailyEnergy]
+        const r = measureNutrition(inputs({ phases: [cut], mealEntries, energy }))
+        expect(r.total).toBe(2)
+        // The day with a burn is on target; the one without is judged against 2,000.
+        expect(r.hit).toBe(1)
+    })
+
     it('projects with the blend, and says so in the suggestions', () => {
         const cut = phase(START, addDays(TODAY, 83), 'cut', 2100)
         const stated = buildTimeline(inputs({ plans: running(), phases: [cut], quiz: { ...QUIZ, trainingAdherence: 1, nutritionAdherence: 1 } }))
@@ -535,5 +547,50 @@ describe('measured adherence', () => {
         expect(measured.final.weight.mid).toBeGreaterThan(stated.final.weight.mid)
         const training = measured.suggestions.find((s) => s.key === 'training')
         expect(training?.detail).toContain('10 of 20 sessions')
+    })
+})
+
+describe('a phase planned in deficits', () => {
+    // −0.5 kg/week: each day planned at its burn less 550 kcal.
+    const deficitCut = (over: Partial<NutritionPhase> = {}) => ({
+        ...phase(TODAY, addDays(TODAY, 83), 'cut', 2100),
+        weeklyRate: -0.5,
+        ...over,
+    })
+    const allIn: TimelineQuiz = { ...QUIZ, trainingAdherence: 1, nutritionAdherence: 1 }
+
+    it('loses at about the planned rate, however much the day burns', () => {
+        const t = buildTimeline(inputs({ phases: [deficitCut()], quiz: allIn }))
+        // 12 weeks at 0.5 kg/week, before water and lean changes.
+        const fatAndLean = t.final.fatChange + t.final.leanChange
+        expect(fatAndLean).toBeLessThan(-5)
+        expect(fatAndLean).toBeGreaterThan(-7.5)
+        expect(t.burn.deficit).toBe(true)
+        // More burn would only raise the target, so nothing is solved for.
+        expect(t.burn.source).toBe('plan')
+    })
+
+    it("doesn't change with the burn formula's guess", () => {
+        const low = buildTimeline(inputs({ phases: [deficitCut()], quiz: { ...allIn, activity: 'low' } }))
+        const high = buildTimeline(inputs({ phases: [deficitCut()], quiz: { ...allIn, activity: 'very' } }))
+        expect(Math.abs(low.final.fatChange - high.final.fatChange)).toBeLessThan(0.5)
+    })
+
+    it('says when the rate falls short of the goal, rather than inventing a burn', () => {
+        const t = buildTimeline(
+            inputs({
+                phases: [deficitCut({ goal: { targetBodyFatPct: 10, targetDate: addDays(TODAY, 83) } })],
+                quiz: allIn,
+            })
+        )
+        expect(t.burn.goalReachable).toBe(false)
+        expect(t.burn.source).toBe('plan')
+    })
+
+    it("offers trimming calories but not extra steps, which the target would eat back", () => {
+        const t = buildTimeline(inputs({ phases: [deficitCut()] }))
+        const keys = t.suggestions.map((s) => s.key)
+        expect(keys).not.toContain('steps')
+        expect(keys).toContain('calories')
     })
 })

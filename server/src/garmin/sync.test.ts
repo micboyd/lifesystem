@@ -49,6 +49,7 @@ function fakeGarmin() {
         getActivity: vi.fn(async () => {
             throw new GarminError('not_found')
         }),
+        dailyCalories: vi.fn(async () => []),
     }
     return { provider, workouts, calendar }
 }

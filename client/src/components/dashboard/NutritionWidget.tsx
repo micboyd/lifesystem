@@ -5,10 +5,13 @@ import { listPlanEntries } from '../../services/mealPlan'
 import { listNutritionPhases } from '../../services/nutritionPhases'
 import { listWeightLogs } from '../../services/weightLogs'
 import { listPlanEntries as listFitnessEntries } from '../../services/fitnessPlan'
-import { addDays } from '../../lib/calendar'
+import { addDays, todayKey } from '../../lib/calendar'
 import { MEAL_TYPES } from '../../types'
 import { entryMacros, entryName, sumEatenMacros } from '../../lib/nutrition'
 import { effectiveTargetsFor } from '../../lib/nutritionTargets'
+import { outForTarget } from '../../lib/burnForecast'
+import { factorOf } from '../../lib/watchCalibration'
+import { useBurnHistory } from '../nutrition/useBurnHistory'
 import { weightTrend, usableRate } from '../../lib/nutritionTrend'
 import { goalProgress, GOAL_STATUS_LABELS } from '../../lib/nutritionGoal'
 import { measurementTrend } from '../../lib/bodyMeasurements'
@@ -78,16 +81,23 @@ export function useNutritionToday(date: string): NutritionToday {
         }
     }, [date])
 
+    // The day's burn: logged, else expected from recent days that trained the same way.
+    const today = todayKey()
+    const history = useBurnHistory(date, date, today)
+    const out = useMemo(
+        () => outForTarget(date, history.energy, history.fitness, today, factorOf(history.calibration)),
+        [date, history.energy, history.fitness, history.calibration, today]
+    )
     const targets = useMemo(
-        () => effectiveTargetsFor(date, phases, settingsGoals, fitness),
-        [date, phases, settingsGoals, fitness]
+        () => effectiveTargetsFor(date, phases, settingsGoals, fitness, undefined, out?.kcal),
+        [date, phases, settingsGoals, fitness, out]
     )
     const trend = useMemo(() => weightTrend(logs, date), [logs, date])
     const progress = useMemo(() => goalProgress(targets.phase, trend, date), [targets.phase, trend, date])
     const waist = useMemo(() => measurementTrend(logs, 'waist', date), [logs, date])
 
     return {
-        loading: loadedDate !== date,
+        loading: loadedDate !== date || history.loading,
         entries,
         eaten: sumEatenMacros(entries),
         goals: targets.goals,

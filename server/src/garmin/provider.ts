@@ -101,6 +101,14 @@ export interface GarminWorkoutProvider {
     listActivities(from: string, to: string): Promise<ActivityBrief[]>
     /** One activity in full: summary, laps, HR zones, track and charts. */
     getActivity(activityId: string): Promise<ActivityDetail>
+    /** Each day's total calories burned. Days Garmin has no figure for are left out. */
+    dailyCalories(dates: string[]): Promise<DayCalories[]>
+}
+
+/** A day's whole total — resting plus active — as Garmin's daily summary has it. */
+export interface DayCalories {
+    date: string
+    kcal: number
 }
 
 export const GARMIN_ERROR_CODES = [

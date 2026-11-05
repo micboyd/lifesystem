@@ -10,8 +10,11 @@ import { listDailyEnergy } from '../../services/dailyEnergy'
 import { addDays, todayKey } from '../../lib/calendar'
 import { phaseFor } from '../../lib/nutrition'
 import { effectiveTargetsFor } from '../../lib/nutritionTargets'
+import { FORECAST_WINDOW_DAYS, outForTarget } from '../../lib/burnForecast'
+import { factorOf, watchCalibration } from '../../lib/watchCalibration'
+import { dailyIntake } from '../../lib/energy'
 import { usableRate, weightTrend } from '../../lib/nutritionTrend'
-import { rateStatus, type RateStatus } from '../../lib/weightTrend'
+import { rateStatus, trendSeries, type RateStatus } from '../../lib/weightTrend'
 import { WEIGH_IN_HABIT_DAYS } from '../../lib/yourDay'
 import { dayRecords, type DayRecord } from '../../lib/consistency'
 
@@ -52,6 +55,8 @@ export function useConsistency(): { data: ConsistencyData | null; error: boolean
 
     const data = useMemo<ConsistencyData | null>(() => {
         if (!raw) return null
+        // The watch's correction as of today, applied to every day's burn.
+        const factor = factorOf(watchCalibration(dailyIntake(raw.meals), raw.energy, trendSeries(raw.weightLogs), today))
         const records = dayRecords({
             from: addDays(today, -(MAX_PERIOD_DAYS - 1)),
             today,
@@ -60,7 +65,9 @@ export function useConsistency(): { data: ConsistencyData | null; error: boolean
             conditioningLogs: raw.conditioningLogs,
             meals: raw.meals,
             targetsOn: (date) => {
-                const t = effectiveTargetsFor(date, raw.phases, settingsGoals, raw.training)
+                // Logged burn, else what days like it burned (lib/burnForecast.ts).
+                const out = outForTarget(date, raw.energy, raw.training, today, factor)
+                const t = effectiveTargetsFor(date, raw.phases, settingsGoals, raw.training, undefined, out?.kcal)
                 return { goals: t.goals, kind: t.phase?.kind ?? null }
             },
             weightLogs: raw.weightLogs,
@@ -78,15 +85,18 @@ async function load(today: string) {
     const from = addDays(today, -(MAX_PERIOD_DAYS - 1))
     // Sessions can be logged a day either side of the plan.
     const logs = { from: addDays(from, -1), to: today }
+    // Burns and training reach four weeks further back, so the first days in
+    // range have history to forecast a missing calories out from.
+    const history = addDays(from, -FORECAST_WINDOW_DAYS)
     const [training, workoutLogs, conditioningLogs, meals, phases, weightLogs, energy] = await Promise.all([
-        listFitnessEntries(from, today),
+        listFitnessEntries(history, today),
         listWorkoutLogs(logs),
         listConditioningLogs(logs),
         listMealEntries(from, today),
         listNutritionPhases(from, today),
         // A weigh-in is due after one in the 30 days before.
         listWeightLogs(addDays(from, -WEIGH_IN_HABIT_DAYS)),
-        listDailyEnergy(from, today),
+        listDailyEnergy(history, today),
     ])
     return { training, workoutLogs, conditioningLogs, meals, phases, weightLogs, energy }
 }

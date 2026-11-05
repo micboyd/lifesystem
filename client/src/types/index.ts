@@ -174,6 +174,8 @@ export interface DailyEnergy {
     date: string
     /** Total calories burned across the whole day. */
     caloriesOut: number
+    /** 'garmin' when pulled from the watch; typed figures are 'manual' (or unset on older rows). */
+    source?: 'manual' | 'garmin'
     notes?: string
     createdAt: string
     updatedAt: string
