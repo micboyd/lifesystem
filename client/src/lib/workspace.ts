@@ -22,16 +22,13 @@ export const BRAND = {
 export const NAV_ITEMS: NavItem[] = [
     { label: 'Home', to: '/', icon: 'fa-house' },
     { label: 'Calendar', to: '/calendar', icon: 'fa-calendar-days' },
-    { label: 'Life Plan', to: '/life-plan', icon: 'fa-compass' },
     { label: 'Finances', to: '/finances', icon: 'fa-wallet' },
-    { label: 'Timebox', to: '/timebox', icon: 'fa-table-cells-large' },
     { label: 'Habits & goals', to: '/goals', icon: 'fa-bullseye' },
     { label: 'Fitness', to: '/fitness', icon: 'fa-dumbbell' },
     { label: 'Nutrition', to: '/nutrition', icon: 'fa-bowl-food' },
     { label: 'Timeline', to: '/timeline', icon: 'fa-route' },
     { label: 'Consistency', to: '/consistency', icon: 'fa-gauge-high' },
     { label: 'Notes', to: '/notes', icon: 'fa-note-sticky' },
-    { label: 'Lists', to: '/lists', icon: 'fa-list-check' },
     { label: 'Weather', to: '/weather', icon: 'fa-cloud-sun' },
 ]
 
@@ -46,8 +43,8 @@ export interface NavGroup {
  * above; any item left out of every group lands in a trailing "More" group.
  */
 export const NAV_GROUPS: NavGroup[] = [
-    { label: 'Day to day', paths: ['/', '/calendar', '/lists', '/notes', '/weather'] },
-    { label: 'Plan', paths: ['/life-plan', '/timebox', '/goals'] },
+    { label: 'Day to day', paths: ['/', '/calendar', '/notes', '/weather'] },
+    { label: 'Plan', paths: ['/goals'] },
     { label: 'Health', paths: ['/fitness', '/nutrition', '/timeline', '/consistency'] },
     { label: 'Money', paths: ['/finances'] },
 ]

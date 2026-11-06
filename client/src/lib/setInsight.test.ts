@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { lastSetsFor, setInsight, type LastSets } from './setInsight'
+import { lastSetsFor, setDelta, setInsight, shortSet, type LastSets } from './setInsight'
 import type { WorkoutLog } from '../types'
 
 const last: LastSets = {
@@ -100,5 +100,36 @@ describe('setInsight', () => {
         expect(i.volume?.text).toBe('Total reps so far: 10% fewer than last time')
         expect(i.volume?.tone).toBe('down')
         expect(i.sets?.text).toBe('Same number of sets as last time — 2')
+    })
+})
+
+describe('setDelta', () => {
+    it('weighs kg and reps against the same set last time', () => {
+        expect(setDelta({ weight: 65, reps: 7 }, { weight: 60, reps: 8 })).toEqual({ weight: 5, reps: -1 })
+    })
+
+    it('waits for reps, and for a weight when last time had one', () => {
+        expect(setDelta({ weight: 65 }, { weight: 60, reps: 8 })).toBeNull()
+        expect(setDelta({ reps: 8 }, { weight: 60, reps: 8 })).toBeNull()
+    })
+
+    it('handles bodyweight work on reps alone', () => {
+        expect(setDelta({ reps: 12 }, { reps: 10 })).toEqual({ weight: 0, reps: 2 })
+    })
+
+    it('is null with no set to compare to', () => {
+        expect(setDelta({ weight: 60, reps: 8 }, undefined)).toBeNull()
+    })
+
+    it('drops float noise', () => {
+        expect(setDelta({ weight: 62.6, reps: 8 }, { weight: 60.1, reps: 8 })).toEqual({ weight: 2.5, reps: 0 })
+    })
+})
+
+describe('shortSet', () => {
+    it('fits a set into a narrow column', () => {
+        expect(shortSet({ weight: 80, reps: 8 })).toBe('80×8')
+        expect(shortSet({ weight: 80 })).toBe('80kg')
+        expect(shortSet({ reps: 1 })).toBe('1 rep')
     })
 })

@@ -12,7 +12,6 @@ import type { ReactNode } from 'react'
  */
 export type SyncTopic =
     | 'habits'
-    | 'timeboxes'
     | 'budget'
     | 'events'
     | 'dayStatus'

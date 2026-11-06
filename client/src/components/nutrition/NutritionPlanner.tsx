@@ -22,6 +22,7 @@ import {
     relativeWeekLabel,
     useDaySlider,
     useMediaQuery,
+    BOARD_GRID,
     LARGE_QUERY,
 } from '../planner/WeekPlannerUI'
 import {
@@ -51,6 +52,7 @@ import {
 } from '../../services/mealPlan'
 import { createMeal } from '../../services/meals'
 import { listDailyEnergy, saveDailyEnergy, deleteDailyEnergy } from '../../services/dailyEnergy'
+import { GARMIN_CALORIES_PULLED, pullGarminCaloriesQuietly } from '../../services/garmin'
 import { listNutritionPhases } from '../../services/nutritionPhases'
 import { listEvents } from '../../services/events'
 import {
@@ -61,13 +63,7 @@ import {
     WEEKDAYS_LONG,
     MONTHS,
 } from '../../lib/calendar'
-import { phaseFor, targetsFor } from '../../lib/nutrition'
-import { plannedBalanceOf, targetsFromOut } from '../../lib/nutritionTargets'
-import { weekBalance } from '../../lib/energy'
-import { forecastBurn, outForTarget } from '../../lib/burnForecast'
-import { factorOf } from '../../lib/watchCalibration'
-import { useBurnHistory } from './useBurnHistory'
-import { GARMIN_CALORIES_PULLED } from '../../services/garmin'
+import { targetsFor } from '../../lib/nutrition'
 import { MEAL_TYPES } from '../../types'
 import { WeekMacrosButton, WeekMacrosPanel } from './WeekMacros'
 import { DayNumbers } from './DayNumbers'
@@ -128,6 +124,9 @@ const clearable = (e: MealPlanEntry) => !e.extra && e.status === 'planned'
 
 const isEaten = (e: MealPlanEntry) => e.status === 'eaten'
 
+/** Every real meal on the day — eaten, skipped and logged extras too. What "clear everything" removes. */
+const anyMeal = (e: MealPlanEntry) => !e.away
+
 /** Didn't happen — a miss on the day, red on Your day. */
 const isSkipped = (e: MealPlanEntry) => e.status === 'skipped'
 
@@ -182,6 +181,8 @@ export default function NutritionPlanner({
     const [pasteConfirm, setPasteConfirm] = useState(false)
     // A pending "clear" awaiting confirmation: a single day, or the whole week.
     const [clearTarget, setClearTarget] = useState<{ type: 'day'; date: string } | { type: 'week' } | null>(null)
+    // Whether that clear also takes eaten and logged meals.
+    const [clearAll, setClearAll] = useState(false)
     // The week's macros panel, open under the chips.
     const [macrosOpen, setMacrosOpen] = useState(false)
 
@@ -192,6 +193,16 @@ export default function NutritionPlanner({
         const start = mondayOf(anchor)
         return { start, end: addDays(start, 6) }
     }, [anchor])
+
+    // Garmin fills in the last week's calories out in the background; the
+    // week's figures reload when it has.
+    const [garminPulls, setGarminPulls] = useState(0)
+    useEffect(() => {
+        const reload = () => setGarminPulls((n) => n + 1)
+        window.addEventListener(GARMIN_CALORIES_PULLED, reload)
+        void pullGarminCaloriesQuietly(addDays(today, -7), addDays(today, -1), today)
+        return () => window.removeEventListener(GARMIN_CALORIES_PULLED, reload)
+    }, [today])
 
     useEffect(() => {
         // Refetch silently on a week change — the days keep the previous meals
@@ -214,43 +225,7 @@ export default function NutritionPlanner({
         return () => {
             active = false
         }
-    }, [range.start, range.end])
-
-    // Garmin filling in calories out reloads the week's own figures too.
-    useEffect(() => {
-        const reload = () => {
-            listDailyEnergy(range.start, range.end)
-                .then(setEnergy)
-                .catch(() => undefined)
-        }
-        window.addEventListener(GARMIN_CALORIES_PULLED, reload)
-        return () => window.removeEventListener(GARMIN_CALORIES_PULLED, reload)
-    }, [range.start, range.end])
-
-    // Four weeks of logged burns before the week, for the days not logged yet.
-    const history = useBurnHistory(range.start, range.end, today)
-    // The week's own figures win over the history's copy — they're the ones
-    // kept fresh as calories out is typed in.
-    const allEnergy = useMemo(
-        () => [...history.energy.filter((e) => e.date < range.start || e.date > range.end), ...energy],
-        [history.energy, energy, range.start, range.end]
-    )
-
-    // A day's target: what it burned — logged, else expected from days like it
-    // (lib/burnForecast.ts) — plus the phase's planned balance. With neither,
-    // the phase's fixed figure (lib/nutritionTargets.ts).
-    const goalsOn = useMemo(() => {
-        return (date: string) => {
-            const resolved = targetsFor(date, phases, settingsGoals)
-            const out = outForTarget(date, allEnergy, history.fitness, today, factorOf(history.calibration))
-            return targetsFromOut(resolved.goals, resolved.phase, out?.kcal).goals
-        }
-    }, [allEnergy, history.fitness, history.calibration, phases, settingsGoals, today])
-
-    /** What a day not logged yet is expected to burn. */
-    const expectedOutFor = useMemo(() => {
-        return (date: string) => forecastBurn(date, allEnergy, history.fitness, today)?.kcal ?? null
-    }, [allEnergy, history.fitness, today])
+    }, [range.start, range.end, garminPulls])
 
     // Each day's numbers against its target — the hero's average day and the
     // week's macros panel both read from these.
@@ -260,28 +235,12 @@ export default function NutritionPlanner({
                 const date = addDays(range.start, i)
                 return {
                     totals: dayTotals(entries.filter((e) => e.date === date), date, today),
-                    goals: goalsOn(date),
+                    goals: targetsFor(date, phases, settingsGoals).goals,
                 }
             }),
-        [entries, range.start, today, goalsOn]
+        [entries, range.start, today, phases, settingsGoals]
     )
     const average = useMemo(() => weekAverage(weekDays), [weekDays])
-    // The week's deficit so far against what its phases planned, over days with
-    // both food and a logged (watch-corrected) burn.
-    const balance = useMemo(() => {
-        const factor = factorOf(history.calibration)
-        return weekBalance(
-            weekDays.map((d, i) => {
-                const date = addDays(range.start, i)
-                const out = energy.find((e) => e.date === date)?.caloriesOut ?? null
-                return {
-                    eaten: d.totals.eaten.calories,
-                    out: out === null ? null : out * factor,
-                    planned: plannedBalanceOf(phaseFor(date, phases)),
-                }
-            })
-        )
-    }, [weekDays, energy, history.calibration, phases, range.start])
     const macros = useMemo(() => weekMacros(weekDays), [weekDays])
 
     // Keep an open detail drawer in step with the row it was opened from.
@@ -461,14 +420,16 @@ export default function NutritionPlanner({
         }
     }
 
-    // Clear the planned, uneaten meals from a span of days. Optimistic.
-    async function clearDays(start: string, end: string) {
-        const removed = entries.filter((e) => e.date >= start && e.date <= end && clearable(e))
+    // Clear the planned, uneaten meals from a span of days — or, with `all`,
+    // every meal including eaten and logged ones. Optimistic.
+    async function clearDays(start: string, end: string, all: boolean) {
+        const match = all ? anyMeal : clearable
+        const removed = entries.filter((e) => e.date >= start && e.date <= end && match(e))
         if (removed.length === 0) return
         const ids = new Set(removed.map((e) => e._id))
         setEntries((prev) => prev.filter((e) => !ids.has(e._id)))
         try {
-            await clearPlanRange(start, end)
+            await clearPlanRange(start, end, all)
         } catch {
             setEntries((prev) => [...prev, ...removed])
         }
@@ -494,16 +455,27 @@ export default function NutritionPlanner({
 
     const clearInfo = useMemo(() => {
         if (!clearTarget) return null
-        if (clearTarget.type === 'day') {
-            const count = entries.filter((e) => e.date === clearTarget.date && clearable(e)).length
-            return { count, where: shortDayLabel(clearTarget.date), scope: 'day' as const }
-        }
-        const count = entries.filter((e) => e.date >= range.start && e.date <= range.end && clearable(e)).length
-        return { count, where: formatWeekRange(range.start, range.end), scope: 'week' as const }
+        const inSpan =
+            clearTarget.type === 'day'
+                ? entries.filter((e) => e.date === clearTarget.date)
+                : entries.filter((e) => e.date >= range.start && e.date <= range.end)
+        const planned = inSpan.filter(clearable).length
+        // Eaten, skipped and logged meals — only gone when "everything" is ticked.
+        const logged = inSpan.filter((e) => anyMeal(e) && !clearable(e)).length
+        const where = clearTarget.type === 'day' ? shortDayLabel(clearTarget.date) : formatWeekRange(range.start, range.end)
+        return { planned, logged, where, scope: clearTarget.type }
     }, [clearTarget, entries, range.start, range.end])
+    const clearCount = clearInfo ? clearInfo.planned + (clearAll ? clearInfo.logged : 0) : 0
+    function openClear(target: { type: 'day'; date: string } | { type: 'week' }) {
+        // Nothing planned left to clear: the only clear that does anything is "everything".
+        const inSpan = (e: MealPlanEntry) =>
+            target.type === 'day' ? e.date === target.date : e.date >= range.start && e.date <= range.end
+        setClearAll(!entries.some((e) => inSpan(e) && clearable(e)))
+        setClearTarget(target)
+    }
 
     const libraryEmpty = meals.length === 0
-    const weekHasClearable = entries.some(clearable)
+    const weekHasClearable = entries.some(anyMeal)
 
     // Picking a day focuses it; on wide screens it also scrolls there.
     function selectDay(date: string) {
@@ -525,7 +497,6 @@ export default function NutritionPlanner({
                 onPick={setAnchor}
                 board={board}
                 average={average}
-                balance={balance}
                 menu={[
                     { label: 'Copy week…', icon: 'fa-solid fa-copy', onClick: () => setCopying(true) },
                     ...(clipboard && clipboard.from !== range.start
@@ -547,7 +518,7 @@ export default function NutritionPlanner({
                                   label: 'Clear week',
                                   icon: 'fa-solid fa-broom',
                                   danger: true,
-                                  onClick: () => setClearTarget({ type: 'week' }),
+                                  onClick: () => openClear({ type: 'week' }),
                               },
                           ]
                         : []),
@@ -598,9 +569,9 @@ export default function NutritionPlanner({
                     selected={anchor}
                     today={today}
                     entries={entries}
-                    goalsFor={goalsOn}
+                    goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
                     outFor={(date) => energy.find((e) => e.date === date)?.caloriesOut ?? null}
-                    expectedOutFor={expectedOutFor}
+                    outFromGarminFor={(date) => energy.find((e) => e.date === date)?.source === 'garmin'}
                     onSelect={setAnchor}
                     // Days ahead are planned; today and before, what's added was eaten.
                     onAdd={(date, slot) => setPicker({ date, slot, eaten: date <= today })}
@@ -612,7 +583,7 @@ export default function NutritionPlanner({
                     onQuickAdd={setQuickDate}
                     onBackFromAway={(date) => void handleBackFromAway(date)}
                     onReorder={handleReorder}
-                    onClearDay={(date) => setClearTarget({ type: 'day', date })}
+                    onClearDay={(date) => openClear({ type: 'day', date })}
                     onSaveOut={saveOut}
                 />
             )}
@@ -622,7 +593,7 @@ export default function NutritionPlanner({
                 meals={meals}
                 entries={picker ? entries.filter((e) => e.date === picker.date) : []}
                 events={picker ? events.filter((ev) => picker.date >= ev.startDate && picker.date <= ev.endDate) : []}
-                goalsFor={goalsOn}
+                goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
                 onClose={() => setPicker(null)}
                 onAddMeal={(date, slot, id, eaten) => handleAdd(date, slot, id, false, eaten)}
                 onAddAway={handleAddAway}
@@ -699,10 +670,29 @@ export default function NutritionPlanner({
                         <>
                             Remove{' '}
                             <span className="font-semibold">
-                                {clearInfo.count} planned meal{clearInfo.count !== 1 ? 's' : ''}
+                                {clearCount} {clearAll ? '' : 'planned '}meal{clearCount !== 1 ? 's' : ''}
                             </span>{' '}
-                            from <span className="font-semibold">{clearInfo.where}</span>? Meals you’ve
-                            eaten and anything you logged stay.
+                            from <span className="font-semibold">{clearInfo.where}</span>?
+                            {clearAll
+                                ? ' That includes meals you’ve eaten and anything you logged.'
+                                : ' Meals you’ve eaten and anything you logged stay.'}
+                            {clearInfo.logged > 0 && (
+                                <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-neutral-700">
+                                    <input
+                                        type="checkbox"
+                                        className="mt-0.5"
+                                        checked={clearAll}
+                                        onChange={(e) => setClearAll(e.target.checked)}
+                                    />
+                                    <span>
+                                        Also clear eaten and logged meals
+                                        <span className="block text-xs text-neutral-500">
+                                            {clearInfo.logged} meal{clearInfo.logged !== 1 ? 's' : ''} you’ve
+                                            ticked off or logged. Away notes stay.
+                                        </span>
+                                    </span>
+                                </label>
+                            )}
                         </>
                     ) : (
                         ''
@@ -711,8 +701,8 @@ export default function NutritionPlanner({
                 confirmLabel="Clear"
                 onConfirm={() => {
                     if (!clearTarget) return
-                    if (clearTarget.type === 'week') void clearDays(range.start, range.end)
-                    else void clearDays(clearTarget.date, clearTarget.date)
+                    if (clearTarget.type === 'week') void clearDays(range.start, range.end, clearAll)
+                    else void clearDays(clearTarget.date, clearTarget.date, clearAll)
                     setClearTarget(null)
                 }}
                 onClose={() => setClearTarget(null)}
@@ -746,11 +736,8 @@ function NutritionWeekHero({
     onPick,
     board,
     average,
-    balance,
     menu,
 }: {
-    /** The week's balance so far against the planned one (lib/energy.ts weekBalance). */
-    balance: ReturnType<typeof weekBalance>
     /** The week's options: copy, paste, clear. */
     menu: MenuEntry[]
     /** The average day against the average target (lib/dayTotals). */
@@ -779,11 +766,6 @@ function NutritionWeekHero({
             `${kcal(average.calories)}${
                 average.target ? ` / ${kcal(average.target)}` : ''
             } kcal a day`,
-        ready &&
-            balance &&
-            `balance ${signedKcal(balance.actual)} of ${signedKcal(balance.planned)} planned over ${balance.days} day${
-                balance.days === 1 ? '' : 's'
-            }`,
         ready && entries.length === 0 && 'nothing planned yet',
     ].filter(Boolean)
 
@@ -855,7 +837,7 @@ function WeekView({
     entries,
     goalsFor,
     outFor,
-    expectedOutFor,
+    outFromGarminFor,
     onSelect,
     onAdd,
     onOpen,
@@ -878,8 +860,8 @@ function WeekView({
     entries: MealPlanEntry[]
     goalsFor: (date: string) => MacroGoals | null
     outFor: (date: string) => number | null
-    /** What a day not logged yet is expected to burn, from days like it. */
-    expectedOutFor: (date: string) => number | null
+    /** Whether that day's calories out was pulled from Garmin rather than typed. */
+    outFromGarminFor: (date: string) => boolean
     onSelect: (date: string) => void
     onAdd: (date: string, slot: MealType) => void
     onOpen: (entry: MealPlanEntry) => void
@@ -939,7 +921,7 @@ function WeekView({
     return (
         <div
             {...(board ? {} : sliderProps)}
-            className={board ? 'grid grid-cols-7 items-stretch gap-2 xl:gap-3' : 'day-slider flex flex-col gap-3 md:gap-4'}
+            className={board ? BOARD_GRID : 'day-slider flex flex-col gap-3 md:gap-4'}
         >
             {days.map((date) => (
                 <DayCard
@@ -953,7 +935,7 @@ function WeekView({
                     entries={entries.filter((e) => e.date === date)}
                     goals={goalsFor(date)}
                     out={outFor(date)}
-                    expectedOut={expectedOutFor(date)}
+                    outFromGarmin={outFromGarminFor(date)}
                     onAdd={(slot) => onAdd(date, slot)}
                     onOpen={onOpen}
                     onToggle={onToggle}
@@ -988,7 +970,7 @@ function DayCard({
     entries,
     goals,
     out,
-    expectedOut,
+    outFromGarmin = false,
     onAdd,
     onOpen,
     onToggle,
@@ -1018,8 +1000,8 @@ function DayCard({
     goals: MacroGoals | null
     /** The day's calories out, from a watch — the whole day's total. */
     out: number | null
-    /** What the day is expected to burn until its own figure is in. */
-    expectedOut: number | null
+    /** That figure was pulled from Garmin, not typed. */
+    outFromGarmin?: boolean
     onAdd: (slot: MealType) => void
     onOpen: (entry: MealPlanEntry) => void
     onToggle: (entry: MealPlanEntry) => void
@@ -1050,7 +1032,7 @@ function DayCard({
     // One set of numbers: the day against its target.
     const summary = <DayNumbers totals={totals} goals={goals} compact={compact} />
 
-    const canClear = planned.some((e) => clearable(e) && !e.away)
+    const canClear = entries.some(anyMeal)
     // Every slot marked away: the day is off the plan, and out of the numbers.
     const awayAllDay = MEAL_TYPES.every((s) => planned.some((e) => e.slot === s && e.away))
     const awayName = awayAllDay ? (planned.find((e) => e.away)?.name ?? 'Away') : null
@@ -1150,7 +1132,7 @@ function DayCard({
                     key={out ?? 'none'}
                     eaten={totals.eaten.calories}
                     out={out}
-                    expectedOut={expectedOut}
+                    fromGarmin={outFromGarmin}
                     onSaveOut={onSaveOut}
                 />
             )}
@@ -1374,14 +1356,14 @@ function PlannedRow({
 function DayEnergy({
     eaten,
     out,
-    expectedOut,
+    fromGarmin = false,
     onSaveOut,
 }: {
     /** Calories eaten that day. */
     eaten: number
     out: number | null
-    /** What the day is expected to burn until its own figure is in. */
-    expectedOut: number | null
+    /** `out` was pulled from Garmin — marked so it's clear it wasn't typed. */
+    fromGarmin?: boolean
     onSaveOut: (value: number | null) => Promise<void>
 }) {
     const [open, setOpen] = useState(false)
@@ -1408,11 +1390,7 @@ function DayEnergy({
                                 {signedKcal(net)}
                             </span>{' '}
                             kcal
-                        </>
-                    ) : expectedOut !== null ? (
-                        <>
-                            Add calories out{' '}
-                            <span className="text-neutral-400">· ~{kcal(expectedOut)} expected</span>
+                            {fromGarmin && <span className="text-neutral-400"> · Garmin</span>}
                         </>
                     ) : (
                         'Add calories out'
@@ -1432,8 +1410,16 @@ function DayEnergy({
                     </EnergyRow>
                     {/* Label over the field, so it fits the narrowest day column. */}
                     <label className="flex flex-col gap-1">
-                        <span className="text-[13px] text-neutral-500">Calories out</span>
-                        <OutField out={out} placeholder={expectedOut} onSave={onSaveOut} />
+                        <span className="flex items-center justify-between gap-2 text-[13px] text-neutral-500">
+                            Calories out
+                            {fromGarmin && (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-neutral-400">
+                                    <i className="fa-solid fa-clock text-[10px]" aria-hidden="true" />
+                                    From Garmin
+                                </span>
+                            )}
+                        </span>
+                        <OutField out={out} onSave={onSaveOut} />
                     </label>
                 </div>
             )}
@@ -1462,16 +1448,7 @@ function Unit({ children }: { children: ReactNode }) {
  * Calories out, the whole day's total from a watch — typed straight in, saved
  * on blur or Enter, cleared by emptying it.
  */
-function OutField({
-    out,
-    placeholder,
-    onSave,
-}: {
-    out: number | null
-    /** The expected burn, shown greyed until a real figure is typed. */
-    placeholder?: number | null
-    onSave: (value: number | null) => Promise<void>
-}) {
+function OutField({ out, onSave }: { out: number | null; onSave: (value: number | null) => Promise<void> }) {
     const [value, setValue] = useState(out === null ? '' : String(out))
     const [saving, setSaving] = useState(false)
 
@@ -1499,7 +1476,7 @@ function OutField({
                 type="text"
                 inputMode="numeric"
                 enterKeyHint="done"
-                placeholder={placeholder ? String(placeholder) : '0'}
+                placeholder="0"
                 value={value}
                 disabled={saving}
                 onChange={(e) => setValue(e.target.value)}

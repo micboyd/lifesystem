@@ -25,8 +25,16 @@ import { parseDateKey, WEEKDAYS_LONG, MONTHS } from '../../lib/calendar'
 const WIDE_QUERY = '(min-width: 768px)'
 export const isWide = () => typeof window !== 'undefined' && window.matchMedia(WIDE_QUERY).matches
 
-/** From `lg` up there's room for the whole week side by side. */
+/** From `lg` up every day shows at once as a compact card in a week board. */
 export const LARGE_QUERY = '(min-width: 1024px)'
+
+/**
+ * The week board's grid. Seven columns only once each day gets ~15rem (big
+ * monitors); laptops and landscape tablets wrap the week into rows of three or
+ * four roomy cards instead of seven squashed ones.
+ */
+export const BOARD_GRID =
+    'grid items-stretch gap-3 grid-cols-3 xl:grid-cols-4 3xl:grid-cols-7'
 
 /** Whether a media query matches, kept live as the window resizes. */
 export function useMediaQuery(query: string): boolean {

@@ -7,7 +7,6 @@ import {
     balanceVerdict,
     impliedWeeklyRate,
     targetTolerance,
-    weekBalance,
     KCAL_PER_KG,
     MIN_INTAKE_DAYS,
 } from './energy'
@@ -251,23 +250,5 @@ describe('impliedWeeklyRate', () => {
         expect(impliedWeeklyRate(-550)!).toBeCloseTo(-0.5, 2)
         expect(impliedWeeklyRate(0)).toBe(0)
         expect(impliedWeeklyRate(null)).toBeNull()
-    })
-})
-
-describe('weekBalance', () => {
-    it('adds up the days with food and a burn, against their planned balance', () => {
-        const b = weekBalance([
-            { eaten: 2950, out: 3448, planned: -715 },
-            { eaten: 2000, out: 2600, planned: -715 },
-            // No burn logged, no plan, or nothing eaten: left out of both sides.
-            { eaten: 2400, out: null, planned: -715 },
-            { eaten: 2400, out: 3000, planned: null },
-            { eaten: 0, out: 3000, planned: -715 },
-        ])
-        expect(b).toEqual({ actual: -1098, planned: -1430, days: 2 })
-    })
-
-    it('is null with nothing to count', () => {
-        expect(weekBalance([{ eaten: 2000, out: null, planned: -500 }])).toBeNull()
     })
 })

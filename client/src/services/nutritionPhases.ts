@@ -43,6 +43,11 @@ export async function importNutritionPhases(
     return importResult(res.data.data, res.data)
 }
 
+/** Delete every phase. */
+export async function deleteAllNutritionPhases(): Promise<void> {
+    await api.delete('/nutrition-phases')
+}
+
 export async function deleteNutritionPhase(id: string): Promise<void> {
     await api.delete(`/nutrition-phases/${id}`)
 }

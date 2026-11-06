@@ -21,8 +21,9 @@ import { resolveTags } from '../lib/exerciseSwap'
 import {
     describeSet,
     lastSetsFor,
+    setDelta,
     setInsight,
-    type InsightLine,
+    shortSet,
     type LastSets,
     type TodaySet,
 } from '../lib/setInsight'
@@ -1048,7 +1049,6 @@ function ExerciseStep({
     swapPicker,
     ticks,
     onToggleStep,
-    lastTime,
     lastSets,
     suggestion,
     onUseSuggestion,
@@ -1087,33 +1087,23 @@ function ExerciseStep({
     onRemoveSet: () => void
 }) {
     const done = ex.sets.filter((s) => s.done).length
+    const allDone = done === ex.sets.length
     // The set you're on: the first not ticked.
     const nextSet = ex.sets.findIndex((s) => !s.done)
     const rest = line?.rest?.trim()
     const warmUp = isWarmUp(ex)
     const warmedUp = warmUp && !!ex.sets[0]?.done
     const settled = useSettledSets(ex.sets, `${number}:${ex.exerciseId}`)
-    // The insight follows the set you last typed into, until a tick (or another
-    // exercise) moves things on; before that, the set you're up to.
-    const shape = `${number}:${ex.exerciseId}|${ex.sets.map((s) => (s.done ? 1 : 0)).join('')}`
-    const [editing, setEditing] = useState<{ shape: string; si: number } | null>(null)
-    const focusSet =
-        editing && editing.shape === shape && editing.si < settled.length
-            ? editing.si
-            : settled.findIndex((s) => !s.done)
-    const insight = warmUp ? {} : liveInsight(settled, focusSet, lastSets)
-    function edit(si: number, patch: Partial<SetDraft>) {
-        setEditing({ shape, si })
-        onSet(si, patch)
-    }
-    /** A new set takes the focus, so the read-out turns straight to it. */
-    function add() {
-        setEditing({ shape: `${shape}0`, si: ex.sets.length })
-        onAddSet()
-    }
+    const volume = warmUp ? undefined : liveInsight(settled, lastSets).volume
+    const prev = lastSets?.sets ?? []
+    const hasLast = prev.length > 0
+    const cols = hasLast
+        ? 'grid-cols-[1.75rem_3.5rem_minmax(0,1fr)_minmax(0,1fr)_3rem]'
+        : 'grid-cols-[1.75rem_minmax(0,1fr)_minmax(0,1fr)_3rem]'
+    const moreLastTime = prev.length - ex.sets.length
 
     return (
-        <div className="flex flex-col gap-7">
+        <div className="flex flex-col gap-6">
             <header className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-3">
                     <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
@@ -1126,22 +1116,24 @@ function ExerciseStep({
                         {ex.name}
                     </h3>
                     {warmUp ? (
-                        <p className="mt-1.5 text-[15px] font-medium text-neutral-500">
+                        <p className="mt-1.5 text-[15px] text-neutral-500">
                             {line?.steps?.length
                                 ? 'Work through the checklist, then move on.'
                                 : 'Tick it off when you’re warm.'}
                         </p>
                     ) : (
-                        <p
-                            className={`mt-1.5 text-[15px] font-medium ${ex.added ? 'text-neutral-500' : 'text-coral-600'}`}
-                        >
-                            {ex.prescription
-                                ? `Target ${ex.prescription}`
-                                : ex.added
-                                  ? 'Added for today'
-                                  : 'No target set'}
+                        <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[15px] text-neutral-500">
+                            <span className="font-medium tabular-nums text-neutral-800">
+                                {ex.prescription ||
+                                    (ex.added ? 'Added for today' : 'No target set')}
+                            </span>
                             {rest && (
-                                <span className="font-normal text-neutral-500"> · rest {rest}</span>
+                                <>
+                                    <span aria-hidden="true" className="text-neutral-300">
+                                        ·
+                                    </span>
+                                    <span>Rest {rest}</span>
+                                </>
                             )}
                         </p>
                     )}
@@ -1192,12 +1184,14 @@ function ExerciseStep({
 
             {swapPicker}
 
-            {!warmUp && (
-                <LastTimeNote
-                    last={lastTime}
-                    lastSets={lastSets}
+            {!warmUp && suggestion && (
+                <TargetCard
                     suggestion={suggestion}
-                    onUse={onUseSuggestion}
+                    filled={
+                        nextSet !== -1 &&
+                        ex.sets.every((s) => s.done || s.weight.trim() === String(suggestion.weight))
+                    }
+                    onUse={() => onUseSuggestion(suggestion)}
                 />
             )}
 
@@ -1223,22 +1217,34 @@ function ExerciseStep({
                     {warmedUp ? 'Warm-up done' : 'Mark warm-up done'}
                 </button>
             ) : (
-                <section className="flex flex-col gap-2">
-                    <InsightStrip insight={insight} />
-                    <div className="flex items-center justify-between px-1">
-                        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                <section className="flex flex-col gap-2" aria-label="Sets">
+                    <div className="flex items-baseline justify-between gap-3 px-2 pb-1">
+                        <h4 className="text-[15px] font-semibold text-neutral-900">
                             Sets
-                        </span>
+                            <span className="ml-2 text-[13px] font-normal text-neutral-500">
+                                {lastSets
+                                    ? `vs ${formatLogDate(lastSets.date, todayISO()).toLowerCase()}`
+                                    : 'first time logging this'}
+                            </span>
+                        </h4>
                         <span
-                            className={`text-xs font-semibold tabular-nums ${done === ex.sets.length ? 'text-emerald-700' : 'text-neutral-500'}`}
+                            className={`text-[13px] font-semibold tabular-nums ${allDone ? 'text-emerald-700' : 'text-neutral-500'}`}
                         >
-                            {done === ex.sets.length
-                                ? 'All done'
-                                : `${done}/${ex.sets.length} done`}
+                            {allDone ? (
+                                <>
+                                    <i className="fa-solid fa-check mr-1 text-[11px]" aria-hidden="true" />
+                                    All done
+                                </>
+                            ) : (
+                                `${done} of ${ex.sets.length}`
+                            )}
                         </span>
                     </div>
-                    <div className="grid grid-cols-[2.25rem_1fr_1fr_3rem] items-center gap-2 px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400">
-                        <span />
+                    <div
+                        className={`grid ${cols} items-center gap-x-2 px-2 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400`}
+                    >
+                        <span className="text-center">Set</span>
+                        {hasLast && <span className="text-center">Last</span>}
                         <span className="text-center">kg</span>
                         <span className="text-center">Reps</span>
                         <span />
@@ -1246,15 +1252,21 @@ function ExerciseStep({
                     {ex.sets.map((s, si) => {
                         const here = si === nextSet
                         const prevWeight = si > 0 ? ex.sets[si - 1].weight : ''
+                        const was = prev[si]
+                        const delta = setDelta(toTodaySet(s), was)
                         return (
                             <div
                                 key={si}
-                                className={`grid grid-cols-[2.25rem_1fr_1fr_3rem] items-center gap-2 rounded-2xl p-1 transition-colors ${
-                                    s.done ? 'bg-emerald-50' : here ? 'bg-neutral-50' : ''
+                                className={`grid ${cols} items-center gap-x-2 rounded-2xl px-2 py-2 ring-1 ring-inset transition-colors ${
+                                    s.done
+                                        ? 'bg-emerald-50 ring-emerald-100'
+                                        : here
+                                          ? 'bg-neutral-50 ring-neutral-200'
+                                          : 'ring-transparent'
                                 }`}
                             >
                                 <span
-                                    className={`grid h-9 w-9 place-items-center text-sm font-semibold tabular-nums ${
+                                    className={`text-center text-sm font-semibold tabular-nums ${
                                         s.done
                                             ? 'text-emerald-700'
                                             : here
@@ -1264,6 +1276,29 @@ function ExerciseStep({
                                 >
                                     {si + 1}
                                 </span>
+                                {hasLast &&
+                                    (was && !s.done ? (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                onSet(si, {
+                                                    weight: was.weight != null ? String(was.weight) : s.weight,
+                                                    reps: was.reps != null ? String(was.reps) : s.reps,
+                                                })
+                                            }
+                                            aria-label={`Copy last time’s ${describeSet(was)} into set ${si + 1}`}
+                                            title="Copy into this set"
+                                            className="h-12 truncate rounded-xl text-center text-xs font-medium tabular-nums text-neutral-500 transition-colors hover:text-neutral-900 active:text-neutral-900"
+                                        >
+                                            {shortSet(was)}
+                                        </button>
+                                    ) : (
+                                        <span
+                                            className={`truncate text-center text-xs tabular-nums ${s.done ? 'text-emerald-700/70' : 'text-neutral-300'}`}
+                                        >
+                                            {was ? shortSet(was) : '—'}
+                                        </span>
+                                    ))}
                                 <input
                                     type="number"
                                     inputMode="decimal"
@@ -1272,7 +1307,7 @@ function ExerciseStep({
                                     placeholder={prevWeight || '—'}
                                     aria-label={`Set ${si + 1} weight`}
                                     value={s.weight}
-                                    onChange={(e) => edit(si, { weight: e.target.value })}
+                                    onChange={(e) => onSet(si, { weight: e.target.value })}
                                     className={`${inputCls} ${s.done ? 'border-emerald-200' : 'border-neutral-200'}`}
                                 />
                                 <input
@@ -1283,7 +1318,7 @@ function ExerciseStep({
                                     placeholder="—"
                                     aria-label={`Set ${si + 1} reps`}
                                     value={s.reps}
-                                    onChange={(e) => edit(si, { reps: e.target.value })}
+                                    onChange={(e) => onSet(si, { reps: e.target.value })}
                                     className={`${inputCls} ${s.done ? 'border-emerald-200' : 'border-neutral-200'}`}
                                 />
                                 <button
@@ -1303,14 +1338,24 @@ function ExerciseStep({
                                 >
                                     <i className="fa-solid fa-check" aria-hidden="true" />
                                 </button>
+                                {delta && (delta.weight !== 0 || delta.reps !== 0) && (
+                                    <>
+                                        <span className="col-start-3">
+                                            <DeltaTag n={delta.weight} unit="kg" />
+                                        </span>
+                                        <span>
+                                            <DeltaTag n={delta.reps} unit="rep" />
+                                        </span>
+                                    </>
+                                )}
                             </div>
                         )
                     })}
                     <div className="flex items-center gap-1 pt-1">
                         <button
                             type="button"
-                            onClick={add}
-                            className="inline-flex h-10 items-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-coral-600 transition-colors hover:bg-coral-50"
+                            onClick={onAddSet}
+                            className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-coral-600 transition-colors hover:bg-coral-50"
                         >
                             <i className="fa-solid fa-plus text-xs" aria-hidden="true" />
                             Add set
@@ -1319,109 +1364,126 @@ function ExerciseStep({
                             <button
                                 type="button"
                                 onClick={onRemoveSet}
-                                className="inline-flex h-10 items-center rounded-[10px] px-3 text-sm font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
+                                className="inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800"
                             >
                                 Remove last
                             </button>
                         )}
+                        {moreLastTime > 0 && (
+                            <span className="ml-auto pr-1 text-xs text-neutral-500">
+                                Last time: {prev.length} sets
+                            </span>
+                        )}
                     </div>
+                    {volume && (
+                        <p
+                            className="mt-1 flex items-center gap-2.5 rounded-xl bg-neutral-50 px-3 py-2.5 text-[13px] text-neutral-600"
+                            aria-live="polite"
+                        >
+                            <i
+                                className={`fa-solid ${volume.tone === 'up' ? 'fa-arrow-trend-up text-emerald-600' : volume.tone === 'down' ? 'fa-arrow-trend-down text-neutral-400' : 'fa-equals text-neutral-400'} text-xs`}
+                                aria-hidden="true"
+                            />
+                            <span className="min-w-0">
+                                {volume.parts.map((p, j) =>
+                                    typeof p === 'string' ? (
+                                        p
+                                    ) : (
+                                        <span key={j} className="font-semibold tabular-nums text-neutral-900">
+                                            {p.v}
+                                        </span>
+                                    )
+                                )}
+                            </span>
+                        </p>
+                    )}
                 </section>
             )}
         </div>
     )
+
 }
 
-/** A quiet grey note of what you lifted last time, to aim off while you're under the bar. */
-function LastTimeNote({
-    last,
-    lastSets,
+/** "+5 kg" / "−2 reps" under an input — green when it's up, quiet grey when it's down. */
+function DeltaTag({ n, unit }: { n: number; unit: 'kg' | 'rep' }) {
+    if (n === 0) return null
+    const abs = Math.abs(n)
+    const label = unit === 'kg' ? `${abs} kg` : `${abs} rep${abs === 1 ? '' : 's'}`
+    return (
+        <span
+            className={`block pt-1.5 text-center text-[11px] leading-none font-semibold tabular-nums ${n > 0 ? 'text-emerald-700' : 'text-neutral-400'}`}
+        >
+            {n > 0 ? '+' : '−'}
+            {label}
+        </span>
+    )
+}
+
+/**
+ * Today's aim, worked out from last time: one big number to read under the
+ * bar, why it's that, and one tap to put it on every set still to do.
+ */
+function TargetCard({
     suggestion,
+    filled,
     onUse,
 }: {
-    last: LastTime | null
-    lastSets: LastSets | null
-    suggestion: Suggestion | null
-    onUse: (s: Suggestion) => void
+    suggestion: Suggestion
+    /** Every set still to do already carries the suggested weight. */
+    filled: boolean
+    onUse: () => void
 }) {
     return (
-        <div className="flex flex-col divide-y divide-neutral-200 rounded-2xl bg-neutral-100 px-4">
-            <div className="flex items-center gap-3 py-3">
-                <i
-                    className="fa-solid fa-clock-rotate-left w-3 text-center text-xs text-neutral-400"
-                    aria-hidden="true"
-                />
-                {lastSets && lastSets.sets.length > 1 ? (
-                    <p className="min-w-0 text-sm text-neutral-600">
-                        Last time{' '}
-                        <span className="text-neutral-500">
-                            ({formatLogDate(lastSets.date, todayISO())})
-                        </span>
-                        {lastSets.sets.map((s, i) => (
-                            <span key={i} className="tabular-nums">
-                                {' · '}
-                                <span className="font-semibold text-neutral-900">
-                                    {describeSet(s)}
-                                </span>
-                            </span>
-                        ))}
-                    </p>
-                ) : last ? (
-                    <p className="min-w-0 text-sm text-neutral-600">
-                        Last time{' '}
-                        <span className="text-neutral-500">
-                            ({formatLogDate(last.date, todayISO())})
-                        </span>
-                        {' · '}max{' '}
-                        <span className="font-semibold tabular-nums text-neutral-900">
-                            {last.weight}kg
-                        </span>
-                        {last.reps != null && (
-                            <span className="tabular-nums text-neutral-500"> × {last.reps}</span>
-                        )}
-                    </p>
-                ) : (
-                    <p className="text-sm text-neutral-500">No weight logged for this one yet.</p>
-                )}
-            </div>
-            {suggestion && (
-                <div className="flex items-center gap-3 py-3">
+        <div className="flex items-center gap-4 rounded-2xl bg-white p-4 ring-1 ring-inset ring-neutral-900/[0.08]">
+            <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
                     <i
-                        className={`fa-solid ${suggestion.kind === 'up' ? 'fa-arrow-trend-up' : 'fa-repeat'} w-3 text-center text-xs text-neutral-400`}
+                        className={`fa-solid ${suggestion.kind === 'up' ? 'fa-arrow-trend-up text-emerald-600' : 'fa-repeat text-neutral-400'} text-[10px]`}
                         aria-hidden="true"
                     />
-                    <p className="min-w-0 flex-1 text-sm text-neutral-700">
-                        Try{' '}
-                        <span className="font-semibold tabular-nums text-neutral-900">
-                            {suggestion.weight}kg
-                        </span>
-                        {suggestion.reps != null && (
-                            <span className="font-semibold tabular-nums text-neutral-900">
-                                {' '}
-                                × {suggestion.reps}
-                            </span>
-                        )}{' '}
-                        today
-                        <span className="block text-xs text-neutral-500">{suggestion.why}</span>
-                    </p>
-                    <button
-                        type="button"
-                        onClick={() => onUse(suggestion)}
-                        className="h-9 shrink-0 rounded-[10px] bg-white px-3 text-[13px] font-semibold text-neutral-900 ring-1 ring-inset ring-neutral-900/[0.08] transition-colors hover:bg-neutral-50"
-                    >
-                        Use
-                    </button>
-                </div>
-            )}
+                    {suggestion.kind === 'up' ? 'Go heavier today' : 'Same weight, more reps'}
+                </p>
+                <p className="mt-1 text-[26px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-neutral-900">
+                    {suggestion.weight}
+                    <span className="ml-0.5 text-base font-medium text-neutral-500">kg</span>
+                    {suggestion.reps != null && (
+                        <>
+                            <span className="mx-1.5 text-lg font-normal text-neutral-300">×</span>
+                            {suggestion.reps}
+                        </>
+                    )}
+                </p>
+                <p className="mt-1.5 text-[13px] leading-snug text-neutral-500">{suggestion.why}</p>
+            </div>
+            <button
+                type="button"
+                onClick={onUse}
+                disabled={filled}
+                className={`h-11 shrink-0 rounded-xl px-4 text-sm font-semibold transition-colors ${
+                    filled
+                        ? 'bg-neutral-100 text-neutral-500'
+                        : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                }`}
+            >
+                {filled ? (
+                    <>
+                        <i className="fa-solid fa-check mr-1.5 text-xs" aria-hidden="true" />
+                        Filled
+                    </>
+                ) : (
+                    'Fill sets'
+                )}
+            </button>
         </div>
     )
 }
 
-/** How long typing has to pause before the insight strip rewrites. */
+/** How long typing has to pause before the volume read-out rewrites. */
 const INSIGHT_SETTLE_MS = 600
 
 /**
- * The sets as the insight strip should read them: typed weights and reps land
- * once you stop typing, so the read-out isn't rewriting on every keystroke.
+ * The sets as the volume read-out should read them: typed weights and reps
+ * land once you stop typing, so it isn't rewriting on every keystroke.
  * Ticking, adding or removing a set, or moving to another exercise (`key`)
  * lands at once.
  */
@@ -1447,11 +1509,8 @@ function toTodaySet(s: SetDraft): TodaySet {
     return { weight: toNum(s.weight), reps: toNum(s.reps) }
 }
 
-/**
- * Today against last time: the sets so far, plus the set in focus — the one
- * being typed into, or just added.
- */
-function liveInsight(sets: SetDraft[], focusSet: number, lastSets: LastSets | null) {
+/** Today's sets so far against the same sets last time. */
+function liveInsight(sets: SetDraft[], lastSets: LastSets | null) {
     // A set counts once it's ticked, or once it has a weight in — so adding a
     // set (which copies the last one's weight) registers straight away.
     // Bodyweight work goes on ticks alone, as its reps come pre-filled.
@@ -1460,57 +1519,7 @@ function liveInsight(sets: SetDraft[], focusSet: number, lastSets: LastSets | nu
         .filter((s) => s.done || (weighted && toNum(s.weight) != null))
         .map(toTodaySet)
         .filter((s) => s.weight != null || s.reps != null)
-    const current = focusSet === -1 ? null : { index: focusSet, set: toTodaySet(sets[focusSet]) }
-    return setInsight(lastSets, done, current)
-}
-
-const toneIcon: Record<InsightLine['tone'], string> = {
-    up: 'fa-arrow-up text-emerald-600',
-    down: 'fa-arrow-down text-neutral-400',
-    same: 'fa-equals text-neutral-400',
-    mixed: 'fa-right-left text-neutral-400',
-}
-
-/**
- * A quiet live read-out pinned to the top while you log: this set against the
- * same set last time, then sets and volume so far. Only ups get a colour —
- * being down on last time is information, not a telling-off.
- */
-function InsightStrip({ insight }: { insight: ReturnType<typeof setInsight> }) {
-    const lines = [insight.current, insight.sets, insight.volume].filter(
-        (l): l is InsightLine => !!l
-    )
-    if (lines.length === 0) return null
-    return (
-        <div className="sticky -top-5 z-10 -mx-1 -mt-5 bg-white px-1 pb-2 pt-5" aria-live="polite">
-            <ul className="flex flex-col gap-1 rounded-2xl bg-neutral-100 px-4 py-2.5">
-                {lines.map((l, i) => (
-                    <li key={i} className="flex items-center gap-3 text-[13px]">
-                        <i
-                            className={`fa-solid ${toneIcon[l.tone]} w-3 text-center text-[10px]`}
-                            aria-hidden="true"
-                        />
-                        <span
-                            className={`min-w-0 ${i === 0 ? 'text-neutral-800' : 'text-neutral-600'}`}
-                        >
-                            {l.parts.map((p, j) =>
-                                typeof p === 'string' ? (
-                                    p
-                                ) : (
-                                    <span
-                                        key={j}
-                                        className="font-semibold tabular-nums text-neutral-900"
-                                    >
-                                        {p.v}
-                                    </span>
-                                )
-                            )}
-                        </span>
-                    </li>
-                ))}
-            </ul>
-        </div>
-    )
+    return setInsight(lastSets, done, null)
 }
 
 function StepAction({

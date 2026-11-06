@@ -13,27 +13,28 @@ import { useAuth } from '../context/AuthContext'
 import { listMeals } from '../services/meals'
 import type { Meal } from '../types'
 
-const TABS = ['Planner', 'Library', 'Stats', 'Phases'] as const
+const TABS = ['Planner', 'Library', 'Plans', 'Stats'] as const
 type Tab = (typeof TABS)[number]
 
 const SUBTITLE: Record<Tab, string> = {
     Planner: 'Plan your meals — drop them into each day, then tick them off as you eat.',
     Library: 'Your meals and their macros. Made a batch? It splits it into meals for you.',
-    Stats: 'Calories in and out over a week, a month or a phase.',
-    Phases: 'Dated cuts, bulks and maintenance stretches, with their targets.',
+    Plans: 'Dated cuts, bulks and maintenance stretches — each plan sets the daily targets the planner judges against.',
+    Stats: 'Calories in and out over a week, a month or a plan.',
 }
 
 export default function Nutrition() {
     const { user } = useAuth()
 
-    // `?tab=phases&phase=<id>` is how the Life Plan timeline hands off a phase
-    // to edit. Read once on arrival, then dropped from the URL.
+    // `?tab=plans&plan=<id>` is how the Timeline page hands off a nutrition
+    // plan to edit (the old `phases`/`phase` names still work). Read once on
+    // arrival, then dropped from the URL.
     const [searchParams, setSearchParams] = useSearchParams()
-    const [tab, setTab] = useState<Tab>(() => (searchParams.get('tab') === 'phases' ? 'Phases' : 'Planner'))
-    const [openPhaseId, setOpenPhaseId] = useState<string | null>(() => searchParams.get('phase'))
+    const [tab, setTab] = useState<Tab>(() => (['plans', 'phases'].includes(searchParams.get('tab') ?? '') ? 'Plans' : 'Planner'))
+    const [openPhaseId, setOpenPhaseId] = useState<string | null>(() => searchParams.get('plan') ?? searchParams.get('phase'))
     const clearOpenPhase = useCallback(() => setOpenPhaseId(null), [])
     useEffect(() => {
-        if (searchParams.has('tab') || searchParams.has('phase')) setSearchParams({}, { replace: true })
+        if (searchParams.has('tab') || searchParams.has('plan') || searchParams.has('phase')) setSearchParams({}, { replace: true })
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 

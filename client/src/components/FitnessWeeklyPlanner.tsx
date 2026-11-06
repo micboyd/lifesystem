@@ -108,6 +108,7 @@ import {
     relativeWeekLabel,
     useDaySlider,
     useMediaQuery,
+    BOARD_GRID,
     LARGE_QUERY,
 } from './planner/WeekPlannerUI'
 import {
@@ -2257,7 +2258,7 @@ function WeekView({
             {...(board ? {} : sliderProps)}
             className={
                 board
-                    ? 'grid grid-cols-7 items-stretch gap-2 xl:gap-3'
+                    ? BOARD_GRID
                     : 'day-slider flex flex-col gap-3 md:gap-4'
             }
         >

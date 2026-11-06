@@ -15,16 +15,16 @@ function errorMessage(err: unknown, fallback: string): string {
 }
 
 /**
- * Phases tab: the one place nutrition phases are created, edited and deleted.
+ * Plans tab: the one place nutrition plans (NutritionPhase in the data) are created, edited and deleted.
  *
- * Life Plan draws them on its timeline and links them into seasons, but only
- * reads them — the same arrangement as training plans in Fitness.
+ * Other screens (Timeline, Stats, the planner) only read them — the same
+ * arrangement as training plans in Fitness.
  */
 export default function PhasesTab({
     openPhaseId,
     onOpened,
 }: {
-    /** A phase to open for editing on arrival — set when coming from the Life Plan timeline. */
+    /** A phase to open for editing on arrival — set when coming from the Timeline page. */
     openPhaseId?: string | null
     onOpened?: () => void
 }) {
@@ -34,6 +34,7 @@ export default function PhasesTab({
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [deleting, setDeleting] = useState<NutritionPhase | null>(null)
+    const [deletingAll, setDeletingAll] = useState(false)
     const [importing, setImporting] = useState(false)
     const [exporting, setExporting] = useState(false)
 
@@ -41,7 +42,7 @@ export default function PhasesTab({
         return phaseService
             .listNutritionPhases()
             .then(setPhases)
-            .catch((err) => setLoadError(errorMessage(err, 'Could not load your phases.')))
+            .catch((err) => setLoadError(errorMessage(err, 'Could not load your plans.')))
             .finally(() => setLoading(false))
     }
 
@@ -63,7 +64,7 @@ export default function PhasesTab({
             )
             return true
         } catch (err) {
-            setError(errorMessage(err, 'Could not save the phase.'))
+            setError(errorMessage(err, 'Could not save the plan.'))
             return false
         } finally {
             setSaving(false)
@@ -76,9 +77,21 @@ export default function PhasesTab({
             await phaseService.deleteNutritionPhase(deleting._id)
             setPhases((prev) => prev.filter((p) => p._id !== deleting._id))
         } catch (err) {
-            setError(errorMessage(err, 'Could not delete the phase.'))
+            setError(errorMessage(err, 'Could not delete the plan.'))
         } finally {
             setDeleting(null)
+        }
+    }
+
+    async function confirmDeleteAll() {
+        try {
+            await phaseService.deleteAllNutritionPhases()
+            setPhases([])
+        } catch (err) {
+            setError(errorMessage(err, 'Could not delete the plans.'))
+            void reload()
+        } finally {
+            setDeletingAll(false)
         }
     }
 
@@ -94,11 +107,11 @@ export default function PhasesTab({
     if (importing) {
         return (
             <JsonImportPanel
-                heading="Import phases"
-                description="Paste one or many phases — dates, direction and daily targets, plus a goal if you want the adaptive review to steer towards it."
+                heading="Import plans"
+                description="Paste one or many plans — dates, direction and daily targets, plus a goal if you want the adaptive review to steer towards it."
                 template={PHASE_TEMPLATE}
                 notes={<PhaseImportNotes />}
-                itemNoun="phase"
+                itemNoun="plan"
                 onBack={() => setImporting(false)}
                 doImport={phaseService.importNutritionPhases}
                 resource="nutrition-phases"
@@ -120,6 +133,7 @@ export default function PhasesTab({
                 error={error}
                 onSave={save}
                 onDelete={setDeleting}
+                onDeleteAll={() => setDeletingAll(true)}
                 onImport={() => setImporting(true)}
                 onExport={() => setExporting(true)}
                 // Only handed over once phases have loaded, so the request can't be
@@ -134,17 +148,33 @@ export default function PhasesTab({
             />
             <ConfirmModal
                 open={!!deleting}
-                title="Delete phase"
+                title="Delete plan"
                 message={
                     <>
-                        Delete <strong>{deleting?.name}</strong>? Any Life Plan season linking it
-                        will simply stop showing it.
+                        Delete <strong>{deleting?.name}</strong>? This can’t be undone.
                     </>
                 }
                 confirmLabel="Delete"
                 danger
                 onConfirm={confirmDelete}
                 onClose={() => setDeleting(null)}
+            />
+            <ConfirmModal
+                open={deletingAll}
+                title="Delete all plans?"
+                message={
+                    <>
+                        Delete all{' '}
+                        <strong>
+                            {phases.length} plan{phases.length !== 1 ? 's' : ''}
+                        </strong>
+                        ? This can’t be undone.
+                    </>
+                }
+                confirmLabel="Delete all"
+                danger
+                onConfirm={confirmDeleteAll}
+                onClose={() => setDeletingAll(false)}
             />
         </>
     )
@@ -154,7 +184,7 @@ export default function PhasesTab({
 
 /** The phase import format, annotated. Comments are ignored on import. */
 const PHASE_TEMPLATE = `[
-  // One object per phase. "name", "startDate" and "endDate" are required.
+  // One object per plan. "name", "startDate" and "endDate" are required.
   {
     "name": "Winter cut",
     "startDate": "2026-11-02",                      // YYYY-MM-DD, inclusive
@@ -165,7 +195,7 @@ const PHASE_TEMPLATE = `[
     "goalMode": "weight-loss",                      // weight-loss | recomposition | maintenance | weight-gain
     "notes": "Diet break over Christmas week",     // optional
 
-    // Optional: what the phase is aiming at. Turns on progress + the adaptive review.
+    // Optional: what the plan is aiming at. Turns on progress + the adaptive review.
     "goal": {
       "startWeightKg": 86,
       "startBodyFatPct": 20,
@@ -212,12 +242,12 @@ function PhaseImportNotes() {
                 positive for a gain. In {f('acceptableWeeklyRateKg')}, min is the smaller number.
             </p>
             <p>
-                {f('goal')}, {f('macroPolicy')}, {f('strategy')} and {f('notes')} are all optional — a phase
+                {f('goal')}, {f('macroPolicy')}, {f('strategy')} and {f('notes')} are all optional — a plan
                 without them works exactly like one made by hand with the extras left blank.
             </p>
             <p>
-                Every phase is checked before any are saved, so one mistake won&apos;t leave a half import. A
-                phase with the same name as one you have lets you choose to update it or keep both.
+                Every plan is checked before any are saved, so one mistake won&apos;t leave a half import. A
+                plan with the same name as one you have lets you choose to update it or keep both.
             </p>
         </>
     )

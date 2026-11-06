@@ -237,21 +237,22 @@ export async function copyWeek(req: AuthRequest, res: Response) {
 }
 
 /**
- * POST /api/meal-plan/clear { start, end } — removes the planned meals not yet
- * eaten from those days. Eaten meals and anything logged stay.
+ * POST /api/meal-plan/clear { start, end, all? } — removes the planned meals not
+ * yet eaten from those days. Eaten meals and anything logged stay, unless `all`
+ * is set: then every meal goes (eaten, skipped and logged extras too). Away
+ * notes always stay — they mark an event, not a meal.
  */
 export async function clearRange(req: AuthRequest, res: Response) {
-    const { start, end } = req.body ?? {}
+    const { start, end, all } = req.body ?? {}
     if (!isDate(start) || !isDate(end) || end < start) {
         res.status(400).json({ message: 'start and end (YYYY-MM-DD) are required' })
         return
     }
-    const { deletedCount } = await MealPlanEntry.deleteMany({
-        user: req.userId,
-        date: { $gte: start, $lte: end },
-        extra: false,
-        status: 'planned',
-    })
+    const { deletedCount } = await MealPlanEntry.deleteMany(
+        all === true
+            ? { user: req.userId, date: { $gte: start, $lte: end }, away: { $ne: true } }
+            : { user: req.userId, date: { $gte: start, $lte: end }, extra: false, status: 'planned' },
+    )
     res.json({ message: 'OK', data: { cleared: deletedCount ?? 0 } })
 }
 

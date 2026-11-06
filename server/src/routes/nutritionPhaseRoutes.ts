@@ -4,6 +4,7 @@ import {
     createNutritionPhase,
     updateNutritionPhase,
     deleteNutritionPhase,
+    deleteAllNutritionPhases,
     addNutritionPhaseAdjustment,
     importNutritionPhases,
     lastImport,
@@ -21,6 +22,7 @@ router.get('/import/last', lastImport)
 router.delete('/import/last', undoImport)
 router.put('/:id', updateNutritionPhase)
 router.post('/:id/adjustments', addNutritionPhaseAdjustment)
+router.delete('/', deleteAllNutritionPhases)
 router.delete('/:id', deleteNutritionPhase)
 
 export default router

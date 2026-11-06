@@ -1,5 +1,4 @@
 import type {
-    DailyEnergy,
     BodyGoals,
     BodyProfile,
     ConditioningLog,
@@ -18,8 +17,6 @@ import { dailyIntake, targetVerdict } from './energy'
 import { phaseFor, phaseTargetsOn, targetsFor } from './nutrition'
 import { KEY_LIFTS, liftTrend, sessionBests, type LiftKey, type SessionBest } from './strengthTrend'
 import { bodyFatSeries, daysBetween, trendSeries } from './weightTrend'
-import { plannedBalanceOf, targetsFromOut } from './nutritionTargets'
-import { factorOf, watchCalibration } from './watchCalibration'
 
 /**
  * The Timeline: where the plans could take you, week by week, until the last
@@ -121,12 +118,6 @@ export interface TimelineInputs {
     conditioningLogs?: ConditioningLog[]
     /** The meal plan over at least the last four weeks, for measured nutrition adherence. */
     mealEntries?: MealPlanEntry[]
-    /**
-     * Logged calories out over the same weeks. A day with one is judged against
-     * its out-based target (lib/nutritionTargets.ts targetsFromOut), the same as
-     * the planner and Consistency judge it.
-     */
-    energy?: DailyEnergy[]
     profile: BodyProfile | undefined
     quiz: TimelineQuiz
     bodyGoals?: BodyGoals
@@ -274,7 +265,7 @@ export interface PastWeek {
 }
 
 export interface Timeline {
-    /** Today — where the projection starts. */
+    /** Where the projection starts: today, or the first plan's first day if none has started yet. */
     start: string
     /** The first day of the earliest plan still running; the timeline is drawn from here. */
     chainStart: string
@@ -501,24 +492,8 @@ export function cutRuns(phases: NutritionPhase[]): { start: string; end: string;
     return runs
 }
 
-/**
- * Whether a phase plans in deficits: it has a rate, so each day's target is
- * that day's burn plus the planned balance (lib/nutritionTargets.ts), the same
- * as the planner and Consistency hold real days to.
- */
-export function deficitBased(phase: NutritionPhase): boolean {
-    return plannedBalanceOf(phase) !== null
-}
-
-/**
- * A phase's daily calorie target on a date. With a rate, it's the day's burn
- * plus the planned balance — so a training day plans more food, and the deficit
- * is what the plan holds, not the intake. Without one, the phase's own fixed
- * calories, or failing that what a default rate implies.
- */
+/** A phase's daily calorie target on a date, or what its rate implies. */
 function targetOn(phase: NutritionPhase, date: string, burn: number): number {
-    const planned = plannedBalanceOf(phase)
-    if (planned !== null) return burn + planned
     const kcal = phaseTargetsOn(phase, date).calories
     if (kcal && kcal > 0) return kcal
     const rate =
@@ -700,18 +675,8 @@ export interface BurnAnchor {
     source: 'goal' | 'plan' | 'formula'
     /** For 'goal': which target it was solved against. */
     goalBasis?: 'bodyFat' | 'weight'
-    /**
-     * False when the plan can't reach its goal by its date: on a deficit-based
-     * phase, when its rate is too slow; otherwise when even a generous
-     * maintenance can't get there on its calories.
-     */
+    /** False when even a generous maintenance can't reach the goal on these calories. */
     goalReachable?: boolean
-    /**
-     * Whether the phase plans in deficits (see `deficitBased`). The burn then
-     * doesn't change what the plan delivers — a higher burn is a higher target —
-     * so nothing is solved for, and the goal is reached at the plan's rate or not.
-     */
-    deficit?: boolean
     /** Daily maintenance the formula predicts at the start, kcal. */
     formulaKcal: number
     /** Daily maintenance the plan implies, kcal. Null when no phase sets calories. */
@@ -769,7 +734,7 @@ export function anchorBurn(inputs: TimelineInputs, weight: number): BurnAnchor {
     const rateKg = plannedRate(phase, weight, from)
     const planKcal = phaseTargetsOn(phase, from).calories! - (rateKg * 7700) / 7
     const scale = Math.max(0.8, Math.min(1.35, planKcal / formulaKcal))
-    return { source: 'plan', formulaKcal, planKcal, phaseName: phase.name, rateKg, scale, deficit: deficitBased(phase) }
+    return { source: 'plan', formulaKcal, planKcal, phaseName: phase.name, rateKg, scale }
 }
 
 // ── Starting point ───────────────────────────────────────────────────────────
@@ -943,25 +908,16 @@ export function measureTraining(inputs: TimelineInputs): AdherenceReading {
  * Nutrition: each of the last four weeks' days with food marked eaten and a
  * phase calorie target, judged the way the planner judges it (lib/energy.ts
  * targetVerdict): within tolerance of the target, or a little under on a cut and
- * a little over on a build. A day with calories out logged is held to what it
- * burned (watch-corrected) plus the phase's planned balance, as everywhere else.
- * Days with nothing logged are left out, not failed.
+ * a little over on a build. Days with nothing logged are left out, not failed.
  */
 export function measureNutrition(inputs: TimelineInputs): AdherenceReading {
     const { today, phases, quiz } = inputs
     const from = addDays(today, -ADHERENCE_WINDOW_DAYS)
-    const intake = dailyIntake(inputs.mealEntries ?? [])
-    const energy = inputs.energy ?? []
-    const outBy = new Map(energy.map((e) => [e.date, e.caloriesOut]))
-    const factor = factorOf(watchCalibration(intake, energy, trendSeries(inputs.weightLogs), today))
     let hit = 0
     let total = 0
-    for (const [date, eaten] of intake) {
+    for (const [date, eaten] of dailyIntake(inputs.mealEntries ?? [])) {
         if (date < from || date >= today || eaten <= 0) continue
-        const resolved = targetsFor(date, phases)
-        const out = outBy.get(date)
-        const { goals } = targetsFromOut(resolved.goals, resolved.phase, out ? out * factor : null)
-        const phase = resolved.phase
+        const { goals, phase } = targetsFor(date, phases)
         if (!goals?.calories) continue
         total += 1
         if (targetVerdict(eaten, goals.calories, phase?.kind ?? null) === 'good') hit += 1
@@ -1010,7 +966,7 @@ interface RunResult {
 export function buildTimeline(given: TimelineInputs): Timeline {
     // Everything downstream reads adherence off the quiz, so the blend goes in there.
     const adherence = measureAdherence(given)
-    const inputs: TimelineInputs = {
+    const measured: TimelineInputs = {
         ...given,
         quiz: {
             ...given.quiz,
@@ -1018,20 +974,26 @@ export function buildTimeline(given: TimelineInputs): Timeline {
             nutritionAdherence: adherence.nutrition.used,
         },
     }
-    const { today } = inputs
-    const plans = livePlans(inputs.plans, today)
-    const phases = livePhases(inputs.phases, today)
+    const today = measured.today
+    const plans = livePlans(measured.plans, today)
+    const phases = livePhases(measured.phases, today)
+
+    // The starting body is read off today's weigh-ins, but the projection starts on
+    // the first day a plan does: until then nothing is assumed to change.
+    const firstPlanDay = [...plans.map((p) => p.planStart), ...phases.map((p) => p.startDate)].sort()[0]
+    const from = firstPlanDay && firstPlanDay > today ? firstPlanDay : today
+    const inputs: TimelineInputs = from === today ? measured : { ...measured, today: from }
     const end = windowEnd(inputs)
 
-    const initial = startingPoint(inputs)
-    const burn = solveForGoal(inputs, initial, end, anchorBurn(inputs, initial.weight))
-    const calibration = calibrate(inputs, initial.bodyFat, burn.scale)
+    const initial = startingPoint(measured)
+    const burn = solveForGoal(inputs, initial, end, anchorBurn(measured, initial.weight))
+    const calibration = calibrate(measured, initial.bodyFat, burn.scale)
     const offset = calibration?.offsetKcal ?? 0
     const burnError =
         BURN_ERROR.uncalibrated * (1 - (calibration?.weight ?? 0)) + BURN_ERROR.calibrated * (calibration?.weight ?? 0)
 
     // The whole chain stays on screen: it starts at the earliest plan still running.
-    const chainStart = [today, ...plans.map((p) => p.planStart), ...phases.map((p) => p.startDate)].sort()[0]
+    const chainStart = [from, ...plans.map((p) => p.planStart), ...phases.map((p) => p.startDate)].sort()[0]
     const main = run(inputs, initial, end, makeContext(inputs, offset, burn.scale), burnError, true, chainStart)
     const imperfect = inputs.quiz.trainingAdherence < 1 || inputs.quiz.nutritionAdherence < 1
     const perfect = imperfect
@@ -1051,7 +1013,7 @@ export function buildTimeline(given: TimelineInputs): Timeline {
     )
 
     return {
-        start: today,
+        start: from,
         chainStart,
         past: pastWeeks(inputs, chainStart, initial),
         since: progressSince(inputs, chainStart, initial),
@@ -1065,7 +1027,7 @@ export function buildTimeline(given: TimelineInputs): Timeline {
         suggestions,
         combined,
         burn,
-        trainingGaps: trainingGaps(plans, today, end),
+        trainingGaps: trainingGaps(plans, from, end),
         goal,
         plans: [
             ...plans.map((p) => ({
@@ -1125,10 +1087,6 @@ function solveForGoal(inputs: TimelineInputs, initial: TimelineStart, end: strin
         return basis === 'bodyFat' ? week.bodyFat.mid : week.weight.mid
     }
     const reaches = (scale: number) => (dir < 0 ? valueAt(scale) <= target : valueAt(scale) >= target)
-
-    // Planned in deficits, a higher burn only raises the target: the plan lands
-    // where its rate takes it, and the page says plainly if that's short.
-    if (deficitBased(phase)) return { ...base, goalBasis: basis, goalReachable: reaches(base.scale) }
 
     if (reaches(base.scale)) return base
     // More burn helps a cut; less helps a build.
@@ -1191,10 +1149,6 @@ function suggest(
         shift?: number
         burn?: number
     }
-    // Extra steps only help when the target doesn't rise to meet them. On a
-    // deficit-planned cut the watch adds them to calories out and the target
-    // follows, so they're eaten back by design — that lever is "trim calories".
-    const deficitCut = livePhases(inputs.phases, inputs.today).some((p) => p.kind === 'cut' && deficitBased(p))
     const levers: Lever[] = []
     if (quiz.nutritionAdherence < 1)
         levers.push({
@@ -1214,7 +1168,7 @@ function suggest(
         cutting
             ? {
                   key: 'calories',
-                  title: deficitCut ? 'Eat 150 kcal under your target' : 'Trim 150 kcal a day',
+                  title: 'Trim 150 kcal a day',
                   detail: 'A slice of toast or one snack. Keep protein where it is and take it from carbs or fat.',
                   shift: -150,
               }
@@ -1225,7 +1179,7 @@ function suggest(
                   shift: 150,
               }
     )
-    if (cutting && !deficitCut && quiz.activity !== 'very') {
+    if (cutting && quiz.activity !== 'very') {
         const burn = Math.round(3000 * KCAL_PER_STEP_KG * initial.weight)
         levers.push({
             key: 'steps',

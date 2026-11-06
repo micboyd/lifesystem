@@ -36,12 +36,6 @@ const paths: Record<string, ReactNode> = {
             <path d="M21 10v4h-4a2 2 0 0 1 0-4z" />
         </>
     ),
-    timebox: (
-        <>
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 7v5l3.5 2" />
-        </>
-    ),
     habits: (
         <>
             <path d="M17 2.5 20.5 6 17 9.5" />

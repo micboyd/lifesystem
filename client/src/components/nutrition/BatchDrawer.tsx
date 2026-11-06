@@ -470,7 +470,7 @@ export function BatchDrawer({
                             />
                         ) : (
                             <p className="text-xs text-neutral-500">
-                                Set targets in a phase or in Settings to get a suggested split.
+                                Set targets in a plan or in Settings to get a suggested split.
                             </p>
                         )}
                     </div>

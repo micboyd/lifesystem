@@ -12,9 +12,6 @@ import { listDailyEnergy } from '../../services/dailyEnergy'
 import { listNutritionPhases } from '../../services/nutritionPhases'
 import { addDays, addMonths, formatMonthYear, formatWeekRange, parseDateKey, todayKey, MONTHS } from '../../lib/calendar'
 import { sumEatenMacros, targetsFor } from '../../lib/nutrition'
-import { targetsFromOut } from '../../lib/nutritionTargets'
-import { factorOf, type CalibrationGap, type WatchCalibration } from '../../lib/watchCalibration'
-import { useBurnHistory } from './useBurnHistory'
 import type { DailyEnergy, MacroGoals, Macros, MealPlanEntry, NutritionPhase } from '../../types'
 
 type Range = 'week' | 'month' | 'phase'
@@ -66,9 +63,6 @@ export default function NutritionStats({
     const [phaseId, setPhaseId] = useState('')
     const [entries, setEntries] = useState<MealPlanEntry[]>([])
     const [energy, setEnergy] = useState<DailyEnergy[]>([])
-    // Only for the watch's correction, which always reads the last four weeks.
-    const { calibration } = useBurnHistory(today, today, today)
-    const factor = factorOf(calibration)
 
     useEffect(() => {
         listNutritionPhases()
@@ -114,17 +108,15 @@ export default function NutritionStats({
         const out: Day[] = []
         for (let d = start; d <= last; d = addDays(d, 1)) {
             const eatenList = entries.filter((e) => e.date === d && e.status === 'eaten')
-            const burned = energy.find((x) => x.date === d)?.caloriesOut ?? null
-            const resolved = targetsFor(d, phases, settingsGoals)
             out.push({
                 date: d,
                 eaten: eatenList.length ? sumEatenMacros(eatenList) : null,
-                out: burned,
-                goals: targetsFromOut(resolved.goals, resolved.phase, burned === null ? null : burned * factor).goals,
+                out: energy.find((x) => x.date === d)?.caloriesOut ?? null,
+                goals: targetsFor(d, phases, settingsGoals).goals,
             })
         }
         return out
-    }, [start, last, entries, energy, phases, settingsGoals, factor])
+    }, [start, last, entries, energy, phases, settingsGoals])
 
     const logged = days.filter((d) => d.eaten)
     const withOut = days.filter((d) => d.out !== null)
@@ -134,7 +126,7 @@ export default function NutritionStats({
     const totalNet = both.length ? both.reduce((a, d) => a + d.eaten!.calories - d.out!, 0) : null
 
     const title =
-        range === 'week' ? formatWeekRange(start, end) : range === 'month' ? formatMonthYear(start) : (phase?.name ?? 'No phases yet')
+        range === 'week' ? formatWeekRange(start, end) : range === 'month' ? formatMonthYear(start) : (phase?.name ?? 'No plans yet')
 
     function step(dir: -1 | 1) {
         setAnchor(range === 'week' ? addDays(anchor, dir * 7) : addMonths(anchor, dir))
@@ -150,7 +142,7 @@ export default function NutritionStats({
                     options={[
                         { value: 'week', label: 'Week' },
                         { value: 'month', label: 'Month' },
-                        { value: 'phase', label: 'Phase' },
+                        { value: 'phase', label: 'Plan' },
                     ]}
                 />
                 {range === 'phase' ? (
@@ -179,8 +171,8 @@ export default function NutritionStats({
             {range === 'phase' && !phase ? (
                 <EmptyState
                     icon="fa-solid fa-flag"
-                    title="No phases yet"
-                    description="Set one up in the Phases tab to see how a cut or a bulk is going."
+                    title="No plans yet"
+                    description="Set one up in the Plans tab to see how a cut or a bulk is going."
                 />
             ) : start > last ? (
                 <EmptyState
@@ -202,7 +194,6 @@ export default function NutritionStats({
                         logged={logged.length}
                         outDays={withOut.length}
                         total={days.length}
-                        calibration={calibration}
                     />
                     <DailyChart days={days} />
                     <MacroAverages logged={logged} />
@@ -245,7 +236,6 @@ function Summary({
     logged,
     outDays,
     total,
-    calibration,
 }: {
     totalNet: number | null
     bothDays: number
@@ -254,11 +244,10 @@ function Summary({
     logged: number
     outDays: number
     total: number
-    calibration: WatchCalibration | CalibrationGap | null
 }) {
     const deficit = totalNet !== null && totalNet < 0
     return (
-        <Surface className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <Surface className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
                 <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-600">Balance</p>
                 {totalNet === null ? (
@@ -292,32 +281,8 @@ function Summary({
                 <MiniStat label="In / day" value={avgIn === null ? '—' : kcal(avgIn)} sub={`${logged} of ${total} days logged`} />
                 <MiniStat label="Out / day" value={avgOut === null ? '—' : kcal(avgOut)} sub={`${outDays} of ${total} days entered`} />
             </dl>
-            <WatchNote calibration={calibration} />
         </Surface>
     )
-}
-
-/**
- * How far the watch's calories out is trusted, read off the scale
- * (lib/watchCalibration.ts). Targets built from calories out use the
- * corrected figure; the balances on this page are the watch's own.
- */
-function WatchNote({ calibration }: { calibration: WatchCalibration | CalibrationGap | null }) {
-    if (!calibration) return null
-    let text: string
-    if (typeof calibration === 'string') {
-        text =
-            calibration === 'not-enough-weight'
-                ? 'Watch check: needs a few more weigh-ins to compare your watch against the scale.'
-                : 'Watch check: needs two weeks of days with both food and calories out logged.'
-    } else if (calibration.factor === 1) {
-        text = `Watch check: your watch matches the scale (${kcal(calibration.avgOut)} vs ${kcal(calibration.maintenance)} a day), so calories out is used as it is.`
-    } else {
-        const pct = Math.round(Math.abs(1 - calibration.factor) * 100)
-        const way = calibration.factor < 1 ? 'high' : 'low'
-        text = `Watch check: your watch reads about ${pct}% ${way} against the scale (${kcal(calibration.avgOut)} vs ${kcal(calibration.maintenance)} a day over ${calibration.days} days), so calorie targets use calories out × ${calibration.factor.toFixed(2)}.`
-    }
-    return <p className="w-full text-xs text-neutral-500 sm:basis-full">{text}</p>
 }
 
 function MiniStat({ label, value, sub }: { label: string; value: string; sub: string }) {

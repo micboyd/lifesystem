@@ -68,7 +68,7 @@ describe('phaseExportFileName', () => {
     it('names a single phase after itself and a set after the day', () => {
         expect(phaseExportFileName([phase()], '2026-10-25')).toBe('winter-cut.json')
         expect(phaseExportFileName([phase(), phase()], '2026-10-25')).toBe(
-            'nutrition-phases-2026-10-25.json'
+            'nutrition-plans-2026-10-25.json'
         )
     })
 })

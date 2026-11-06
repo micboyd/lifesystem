@@ -274,34 +274,3 @@ export function impliedWeeklyRate(balance: number | null): number | null {
     if (balance === null) return null
     return (balance * 7) / KCAL_PER_KG
 }
-
-/** The week's balance against the one its phases plan for, over the days that can say. */
-export interface WeekBalance {
-    /** Sum of eaten − out, signed. Negative is a deficit. */
-    actual: number
-    /** Sum of each of those days' planned balance. */
-    planned: number
-    /** Days counted: food logged, calories out logged, and a planned balance. */
-    days: number
-}
-
-/**
- * Where the week's deficit stands. A day under one day and over the next is
- * the same week as two days on target; only the total moves the scale, so
- * that's what this adds up. Only days with both food and calories out logged
- * count, on both sides — a forecast burn isn't evidence of anything yet.
- */
-export function weekBalance(
-    days: { eaten: number | null; out: number | null; planned: number | null }[]
-): WeekBalance | null {
-    let actual = 0
-    let planned = 0
-    let count = 0
-    for (const d of days) {
-        if (!d.eaten || d.eaten <= 0 || !d.out || d.out <= 0 || d.planned === null) continue
-        actual += d.eaten - d.out
-        planned += d.planned
-        count += 1
-    }
-    return count ? { actual: Math.round(actual), planned: Math.round(planned), days: count } : null
-}

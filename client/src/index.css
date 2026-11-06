@@ -15,6 +15,9 @@
     --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
+    /* Big monitors (1800px): the week planners lay all seven days side by side. */
+    --breakpoint-3xl: 112.5rem;
+
     /* Headings soften from 700 to 600; nothing in 2.0 is heavier. */
     --font-weight-bold: 600;
     --font-weight-extrabold: 600;

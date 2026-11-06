@@ -40,7 +40,7 @@ import { byClosest } from '../../lib/phaseOrder'
  *
  * Phases live in Nutrition because this module is what runs on them — Today reads
  * the live targets and appends dated adjustments, Progress and the planner judge
- * against them. Life Plan only reads them for its timeline and season links.
+ * against them. Timeline only reads them for its projection.
  * Day-precise on purpose: a cut rarely starts on the 1st of a month.
  */
 
@@ -236,6 +236,7 @@ export default function PhaseLibrary({
     error,
     onSave,
     onDelete,
+    onDeleteAll,
     onImport,
     onExport,
     openPhaseId,
@@ -246,11 +247,13 @@ export default function PhaseLibrary({
     error: string | null
     onSave: (input: NutritionPhaseInput, id?: string) => Promise<boolean>
     onDelete: (phase: NutritionPhase) => void
+    /** Ask to delete every phase — behind the header's ⋯ menu. */
+    onDeleteAll: () => void
     /** Switch to the paste-JSON importer. */
     onImport: () => void
     /** Open the exporter, where phases are ticked and exported as one set. */
     onExport: () => void
-    /** A phase to open for editing on arrival — set when coming from the Life Plan timeline. */
+    /** A phase to open for editing on arrival — set when coming from the Timeline page. */
     openPhaseId?: string | null
     /** Called once that request has been honoured, so it fires only once. */
     onOpened?: () => void
@@ -285,7 +288,7 @@ export default function PhaseLibrary({
         setForm(editing ? formFrom(editing) : blankForm())
     }, [open, editing])
 
-    // Arriving from the Life Plan timeline drawer with a phase to edit. Cleared through
+    // Arriving from the Timeline plan drawer with a phase to edit. Cleared through
     // `onOpened` so re-rendering can't reopen the editor after it is dismissed.
     useEffect(() => {
         if (!openPhaseId) return
@@ -361,7 +364,7 @@ export default function PhaseLibrary({
         <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <p className="max-w-xl text-sm text-neutral-500">
-                    A phase is a dated stretch of eating — a cut, a bulk or maintenance — with the
+                    A nutrition plan is a dated stretch of eating — a cut, a bulk or maintenance — with the
                     targets the planner and stats judge each day against.
                 </p>
                 <div className="flex gap-2">
@@ -378,19 +381,40 @@ export default function PhaseLibrary({
                         Import
                     </Button>
                     <Button icon="fa-solid fa-plus" onClick={startNew}>
-                        New phase
+                        New plan
                     </Button>
+                    {phases.length > 0 && (
+                        <DropdownMenu
+                            align="right"
+                            trigger={
+                                <span
+                                    aria-label="More plan options"
+                                    className="grid h-11 w-11 place-items-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                                >
+                                    <LineIcon name="more" className="h-4 w-4" />
+                                </span>
+                            }
+                            items={[
+                                {
+                                    label: 'Delete all plans',
+                                    icon: 'fa-solid fa-trash-can',
+                                    danger: true,
+                                    onClick: onDeleteAll,
+                                },
+                            ]}
+                        />
+                    )}
                 </div>
             </div>
 
             {phases.length === 0 ? (
                 <EmptyState
                     icon="fa-solid fa-flag"
-                    title="No phases yet"
-                    description="A phase is a stretch of eating with its own calorie and protein targets."
+                    title="No plans yet"
+                    description="A plan is a stretch of eating with its own calorie and protein targets."
                     action={
                         <Button icon="fa-solid fa-plus" onClick={startNew}>
-                            New phase
+                            New plan
                         </Button>
                     }
                 />
@@ -411,7 +435,7 @@ export default function PhaseLibrary({
                 size="xl"
                 open={open}
                 onClose={() => setOpen(false)}
-                title={editing ? 'Edit phase' : 'New phase'}
+                title={editing ? 'Edit plan' : 'New plan'}
                 footer={
                     <div className="flex gap-3">
                         <Button variant="secondary" onClick={() => setOpen(false)} fullWidth>
@@ -422,7 +446,7 @@ export default function PhaseLibrary({
                             disabled={saving || !form.name.trim() || rangeInvalid}
                             fullWidth
                         >
-                            {saving ? 'Saving…' : 'Save phase'}
+                            {saving ? 'Saving…' : 'Save plan'}
                         </Button>
                     </div>
                 }
@@ -906,7 +930,7 @@ function PhaseCard({
                     className="relative z-20 -mr-1 -mt-1 shrink-0"
                     trigger={
                         <span
-                            aria-label="Phase actions"
+                            aria-label="Plan actions"
                             className="grid h-8 w-8 place-items-center rounded-[10px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                         >
                             <LineIcon name="more" className="h-4 w-4" />

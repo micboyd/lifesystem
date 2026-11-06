@@ -26,7 +26,6 @@ import garminRoutes from './routes/garminRoutes'
 import { registerGarminCleanup } from './garmin/account'
 import habitRoutes from './routes/habitRoutes'
 import lifePlanRoutes from './routes/lifePlanRoutes'
-import listRoutes from './routes/listRoutes'
 import mealRoutes from './routes/mealRoutes'
 import mealPlanRoutes from './routes/mealPlanRoutes'
 import shoppingRoutes from './routes/shoppingRoutes'
@@ -38,7 +37,6 @@ import reminderRoutes from './routes/reminderRoutes'
 import routeRoutes from './routes/routeRoutes'
 import savingsTargetRoutes from './routes/savingsTargetRoutes'
 import taskRoutes from './routes/taskRoutes'
-import timeboxRoutes from './routes/timeboxRoutes'
 import totalsRoutes from './routes/totalsRoutes'
 import trainingPlanRoutes from './routes/trainingPlanRoutes'
 import userRoutes from './routes/userRoutes'
@@ -85,7 +83,6 @@ app.use('/api/day-status', dayStatusRoutes)
 app.use('/api/month-notes', monthNoteRoutes)
 app.use('/api/reminders', reminderRoutes)
 app.use('/api/tasks', taskRoutes)
-app.use('/api/timeboxes', timeboxRoutes)
 app.use('/api/totals', totalsRoutes)
 app.use('/api/finances', financeRoutes)
 app.use('/api/birthdays', birthdayRoutes)
@@ -106,7 +103,6 @@ app.use('/api/fitness-plan', fitnessPlanRoutes)
 app.use('/api/garmin', garminRoutes)
 app.use('/api/plans', trainingPlanRoutes)
 app.use('/api/notes', noteRoutes)
-app.use('/api/lists', listRoutes)
 app.use('/api/savings-targets', savingsTargetRoutes)
 app.use('/api/life-plans', lifePlanRoutes)
 app.use('/api/nutrition-phases', nutritionPhaseRoutes)

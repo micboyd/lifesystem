@@ -77,7 +77,7 @@ export default function PhaseExportDrawer({
             size="xl"
             open={open}
             onClose={close}
-            title="Export phases"
+            title="Export plans"
             footer={
                 <>
                     <Button variant="ghost" onClick={close}>
@@ -99,9 +99,9 @@ export default function PhaseExportDrawer({
         >
             <div className="flex flex-col gap-5">
                 <p className="text-sm text-neutral-500">
-                    The ticked phases as one data set, in the same shape the importer takes. Each
+                    The ticked plans as one data set, in the same shape the importer takes. Each
                     phase&apos;s target changes come along under <code>adjustments</code> for the
-                    record; the importer ignores them, so pasting this back starts each phase from
+                    record; the importer ignores them, so pasting this back starts each plan from
                     its opening targets.
                 </p>
 
@@ -152,7 +152,7 @@ export default function PhaseExportDrawer({
                     </pre>
                 ) : (
                     <p className="rounded-xl bg-neutral-50 p-4 text-center text-sm text-neutral-500">
-                        Tick at least one phase to export.
+                        Tick at least one plan to export.
                     </p>
                 )}
             </div>

@@ -19,11 +19,12 @@ import {
     signed,
 } from '../components/timeline/format'
 import { AreaIcon, type AreaTone } from '../components/dashboard/DashSection'
-import { OVERLINE, PANEL } from '../components/lifeplan/ui'
+import { OVERLINE, PANEL } from '../components/surfaceStyles'
 import { useTimeline, type TimelineSources } from '../components/timeline/useTimeline'
 import { useAuth } from '../context/AuthContext'
 import { updateSettings } from '../services/users'
 import { daysBetween } from '../lib/weightTrend'
+import { todayKey } from '../lib/calendar'
 import { planDirection } from '../lib/timelineHint'
 import {
     type AdherenceReading,
@@ -56,9 +57,9 @@ const GAP_COPY: Record<TimelineGap, { title: string; detail: string; to: string;
     },
     'nutrition-plan': {
         title: 'A nutrition plan',
-        detail: 'Add a phase — cut, maintenance or build — with its calories in Nutrition → Phases.',
-        to: '/nutrition?tab=phases',
-        action: 'Go to Phases',
+        detail: 'Add one — cut, maintenance or build — with its calories in Nutrition → Plans.',
+        to: '/nutrition?tab=plans',
+        action: 'Go to Plans',
     },
     'body-profile': {
         title: 'Height, date of birth and sex',
@@ -586,7 +587,7 @@ function chartFor(
             return v === null ? [] : [{ date: w.end, label: label(w), range: flat(v), milestones: [], logged: true }]
         })
     const series = (pick: (w: TimelineWeek) => Range, start: number): ChartPoint[] => [
-        { date: timeline.start, label: `Today · ${fmtDate(timeline.start)}`, range: flat(start), milestones: [] },
+        { date: timeline.start, label: `${timeline.start > todayKey() ? 'Plan starts' : 'Today'} · ${fmtDate(timeline.start)}`, range: flat(start), milestones: [] },
         ...weeks.map((w) => ({ date: w.end, label: label(w), range: pick(w), milestones: w.milestones })),
     ]
 
@@ -854,19 +855,6 @@ function HowItWorks({ timeline }: { timeline: TimelineData }) {
                 Calibrated on {calibration.spanDays} days of weigh-ins: your trend is{' '}
                 {signed(calibration.observedRate, 2)} kg a week against {signed(calibration.predictedRate, 2)} predicted
                 {Math.abs(off) >= 20 ? `, so each day carries a ${signed(off)} kcal correction.` : ' — close enough to leave alone.'}
-            </>
-        )
-    } else if (burn.deficit && burn.rateKg !== null) {
-        const perDay = Math.round(Math.abs((burn.rateKg * 7700) / 7) / 10) * 10
-        items.push(
-            <>
-                Each day is planned the way it's scored: what you burn{' '}
-                {burn.rateKg < 0 ? `less ${kcal(perDay)}` : burn.rateKg > 0 ? `plus ${kcal(perDay)}` : ''} kcal
-                {burn.phaseName ? ` (${burn.phaseName}'s ${fmtNum(Math.abs(burn.rateKg), 2)} kg a week)` : ''}. So a
-                training day plans more food and the deficit holds whatever the day burns — how far the burn formula is
-                off doesn't change where the plan lands.
-                {burn.goalReachable === false &&
-                    ' At that rate the plan falls short of its goal by the date, so the changes above are what close it.'}
             </>
         )
     } else if (burn.source === 'goal' && burn.planKcal) {

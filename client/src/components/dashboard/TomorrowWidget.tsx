@@ -127,7 +127,7 @@ function prepChecklist(
     }
 
     // An early first commitment is the one thing that changes tonight's alarm —
-    // "early" being before your timebox day-start (wakeTime), the time you'd
+    // "early" being before your day-start (wakeTime), the time you'd
     // otherwise be up.
     if (firstTimed?.time && timeToMinutes(firstTimed.time) < metrics.dayStartMin) {
         items.push({
@@ -444,7 +444,7 @@ function TomorrowBrief({
  * its layout — otherwise the brief's column leaves a gap when it's hidden.
  *
  * Shows from {@link EVENING_HOUR} in the evening right through midnight until the
- * timebox day-start time (the user's `wakeTime`), so it stays useful in the
+ * day-start time (the user's `wakeTime`), so it stays useful in the
  * small hours. Only appears while viewing today.
  */
 export function useTomorrowVisible(
@@ -452,7 +452,7 @@ export function useTomorrowVisible(
 ): { show: boolean; target: string; isPreDawn: boolean } {
     const { user } = useAuth()
 
-    // The day "begins" at the timebox wake time; until then, an evening that ran
+    // The day "begins" at the wake time; until then, an evening that ran
     // past midnight is still winding down toward the day about to start. Bounded
     // by EVENING_HOUR so a misconfigured wake time can't reveal it mid-afternoon.
     const eveningMin = EVENING_HOUR * 60
@@ -522,7 +522,7 @@ export default function TomorrowWidget({ date = todayKey() }: { date?: string })
 
     if (!show) return null
 
-    // The timebox day-start decides what counts as an "early" alarm.
+    // The day-start (wakeTime) decides what counts as an "early" alarm.
     const dayStartMin = timeToMinutes(user?.settings?.wakeTime ?? DEFAULT_WAKE)
 
     return (

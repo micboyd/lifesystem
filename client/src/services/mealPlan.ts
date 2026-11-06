@@ -73,6 +73,7 @@ export async function copyPlanWeek(from: string, to: string, slots: MealType[]):
 }
 
 /** Remove the planned meals not yet eaten from [start, end]. */
-export async function clearPlanRange(start: string, end: string): Promise<void> {
-    await api.post('/meal-plan/clear', { start, end })
+/** Clears planned, uneaten meals — or, with `all`, every meal (eaten and logged too). Away notes stay. */
+export async function clearPlanRange(start: string, end: string, all = false): Promise<void> {
+    await api.post('/meal-plan/clear', { start, end, all })
 }

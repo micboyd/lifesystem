@@ -62,7 +62,7 @@ export function phaseExportDocument(phases: NutritionPhase[]): PhaseExportItem[]
         .map(phaseExportItem)
 }
 
-/** "nutrition-phases-2026-10-25.json", or the phase's own name when only one is chosen. */
+/** "nutrition-plans-2026-10-25.json", or the phase's own name when only one is chosen. */
 export function phaseExportFileName(phases: NutritionPhase[], today: string): string {
     if (phases.length === 1) {
         const slug = phases[0].name
@@ -72,5 +72,5 @@ export function phaseExportFileName(phases: NutritionPhase[], today: string): st
             .replace(/^-|-$/g, '')
         if (slug) return `${slug}.json`
     }
-    return `nutrition-phases-${today}.json`
+    return `nutrition-plans-${today}.json`
 }

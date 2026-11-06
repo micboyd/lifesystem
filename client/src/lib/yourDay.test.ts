@@ -53,7 +53,6 @@ function inputs(over: Partial<YourDayInputs> = {}): YourDayInputs {
         habits: [],
         habitsDone: new Set(),
         weightLogs: [],
-        events: [],
         ...over,
     }
 }
@@ -78,7 +77,6 @@ describe('yourDay', () => {
                 goals: { calories: 2100, protein: 180 },
                 habits: [habit('h1'), habit('h2', 'morning'), habit('h3', 'evening')],
                 weightLogs: [weigh('2026-10-20')],
-                events: [{ id: 'e1', title: 'Dentist', part: 'afternoon', time: '15:00' }],
             })
         )
         expect(ids(d)).toEqual([
@@ -87,7 +85,6 @@ describe('yourDay', () => {
             'meal-breakfast',
             'habit-h2',
             'meal-lunch',
-            'event-e1',
             'training-entry-b',
             'meal-dinner',
             'habit-h3',
@@ -191,29 +188,6 @@ describe('yourDay', () => {
         expect(at(2300, 180).perfect).toBe(false)
     })
 
-    it('shows the balance against calories out when the target came from it', () => {
-        const d = yourDay(
-            inputs({ goals: { calories: 2898, protein: 210 }, caloriesOut: 3448, eaten: { ...ZERO, calories: 2950, protein: 215 } })
-        )
-        expect(step(d, 'calories')).toMatchObject({
-            state: 'done',
-            title: '2,898 kcal',
-            detail: '2,950 eaten · on target · −498 vs 3,448 out',
-        })
-    })
-
-    it('marks an expected burn as expected rather than a balance', () => {
-        const d = yourDay(
-            inputs({
-                goals: { calories: 2733 },
-                caloriesOut: 3448,
-                caloriesOutExpected: true,
-                eaten: { ...ZERO, calories: 1200 },
-            })
-        )
-        expect(step(d, 'calories').detail).toBe('1,200 eaten · 1,533 left · ~3,448 expected out')
-    })
-
     it('puts a habit with a time of day in that part, and counts it there for next', () => {
         const d = yourDay(inputs({ nowMin: 20 * 60, habits: [habit('h1', 'evening')], date: TODAY, meals: [meal('dinner', { status: 'eaten' })] }))
         expect(step(d, 'habit-h1').part).toBe('evening')
@@ -314,14 +288,12 @@ describe('yourDay with a perfect-day selection', () => {
         expect(ids(yourDay(inputs({ weightLogs: [weigh('2026-10-20')], selection: sel([3]) })))).not.toContain('weigh')
     })
 
-    it('can hide the rest-day note, events and the plan-meals nudge', () => {
+    it('can hide the rest-day note and the plan-meals nudge', () => {
         const d = yourDay(
             inputs({
-                events: [{ id: 'e1', title: 'Dentist', part: 'morning' }],
                 selection: {
                     items: [
                         { key: 'rest', days: [] },
-                        { key: 'events', days: [] },
                         { key: 'plan-meals', days: [] },
                     ],
                     skipFoods: [],

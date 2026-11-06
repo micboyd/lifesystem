@@ -7,8 +7,6 @@ import {
     activityModifier,
     effectiveTargetsFor,
     proteinFloorOf,
-    plannedBalanceOf,
-    targetsFromOut,
     DEFAULT_HARD_KCAL,
     DEFAULT_REST_KCAL,
 } from './nutritionTargets'
@@ -318,58 +316,5 @@ describe('proteinFloorOf', () => {
 
     it('is undefined without a phase', () => {
         expect(proteinFloorOf(null)).toBeUndefined()
-    })
-})
-
-describe('targets from calories out', () => {
-    // Half a kilo a week: 0.5 × 7,700 / 7 = 550 kcal a day.
-    const cut = phase({ weeklyRate: -0.5 })
-
-    it('reads the planned balance from the goal rate, then the phase rate', () => {
-        expect(plannedBalanceOf(cut)).toBe(-550)
-        expect(plannedBalanceOf(phase({ weeklyRate: -0.5, goal: { targetWeeklyRateKg: -0.25 } }))).toBe(-275)
-        expect(plannedBalanceOf(phase({ kind: 'gain', weeklyRate: 0.25 }))).toBe(275)
-        expect(plannedBalanceOf(phase({ kind: 'maintain' }))).toBe(0)
-        // A cut with no rate has no deficit to plan from: it stays a fixed target.
-        expect(plannedBalanceOf(phase())).toBeNull()
-        expect(plannedBalanceOf(null)).toBeNull()
-    })
-
-    it('holds a big day to what was burned less the planned deficit', () => {
-        const r = targetsFromOut(cut.targets, cut, 3448)
-        expect(r.fromOut).toBe(true)
-        expect(r.goals?.calories).toBe(2898)
-        // Carbohydrate takes the change; protein and fat hold.
-        expect(r.goals?.protein).toBe(210)
-        expect(r.goals?.fat).toBe(90)
-        expect(r.goals?.carbs).toBe(Math.round((2898 - 210 * 4 - 90 * 9) / 4))
-    })
-
-    it('lowers the target on a quiet day too', () => {
-        expect(targetsFromOut(cut.targets, cut, 2600).goals?.calories).toBe(2050)
-    })
-
-    it('keeps the fixed target with no burn logged or no rate', () => {
-        expect(targetsFromOut(cut.targets, cut, null)).toEqual({ goals: cut.targets, fromOut: false })
-        expect(targetsFromOut(cut.targets, cut, 0).fromOut).toBe(false)
-        expect(targetsFromOut(phase().targets, phase(), 3448).fromOut).toBe(false)
-    })
-
-    it('never goes below what protein and fat already cost', () => {
-        expect(targetsFromOut(cut.targets, cut, 1000).goals?.calories).toBe(210 * 4 + 90 * 9)
-    })
-
-    it('replaces the day-type shift in effectiveTargetsFor', () => {
-        const cycling = phase({ weeklyRate: -0.5, strategy: { type: 'activity', hardKcal: 100, restKcal: 150 } })
-        const r = effectiveTargetsFor('2026-09-01', [cycling], null, [], 'hard', 3448)
-        expect(r.goals?.calories).toBe(2898)
-        expect(r.modifier).toBe(0)
-        expect(r.fromOut).toBe(true)
-        expect(r.baseGoals?.calories).toBe(2950)
-        expect(r.plannedBalance).toBe(-550)
-
-        const noOut = effectiveTargetsFor('2026-09-01', [cycling], null, [], 'hard')
-        expect(noOut.goals?.calories).toBe(3050)
-        expect(noOut.fromOut).toBe(false)
     })
 })

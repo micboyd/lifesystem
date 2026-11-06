@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import Drawer from '../Drawer'
 import { PlanDetail } from '../PlanLibrary'
 import { AreaIcon } from '../dashboard/DashSection'
-import { OVERLINE } from '../lifeplan/ui'
+import { OVERLINE } from '../surfaceStyles'
 import { daysBetween } from '../../lib/weightTrend'
 import { phaseTargetsOn } from '../../lib/nutrition'
 import type { Milestone, Timeline, TimelineStart, TimelineWeek } from '../../lib/timeline'
@@ -49,7 +49,7 @@ export default function PlanDrawer({
                             to={
                                 open.type === 'training'
                                     ? '/fitness?tab=plans'
-                                    : `/nutrition?tab=phases&phase=${open.phase._id}`
+                                    : `/nutrition?tab=plans&plan=${open.phase._id}`
                             }
                             className="inline-flex h-11 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-[18px] text-sm font-medium text-neutral-900 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
                         >
@@ -119,7 +119,7 @@ function InTimeline({
     return (
         <section className="rounded-2xl bg-neutral-50 p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className={OVERLINE}>Your timeline in this {kind ? 'phase' : 'plan'}</p>
+                <p className={OVERLINE}>Your timeline in this plan</p>
                 <p className="nums text-[13px] text-neutral-500">
                     {fmtDate(start)} – {fmtDate(end, true)} · {status}
                 </p>

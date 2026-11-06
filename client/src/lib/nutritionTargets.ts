@@ -1,7 +1,6 @@
 import { currentPhaseTargets, normGoals, targetsFor, type ResolvedTargets } from './nutrition'
 import { isHardSession } from './overload'
 import { DEFAULT_MACRO_POLICY } from './nutritionConfig'
-import { dailyDeficitFor } from './nutritionGoal'
 import type { FitnessPlanEntry, MacroGoals, MacroPolicy, MacroRole, NutritionPhase } from '../types'
 
 /**
@@ -211,10 +210,6 @@ export interface EffectiveTargets extends ResolvedTargets {
     modifier: number
     /** The targets before the modifier — what the phase prescribes on an average day. */
     baseGoals: MacroGoals | null
-    /** Whether the calorie figure came from the day's logged calories out. */
-    fromOut: boolean
-    /** The daily balance the phase plans for, signed (negative is a deficit), when it has a rate. */
-    plannedBalance: number | null
 }
 
 /**
@@ -232,85 +227,30 @@ export function effectiveTargetsFor(
     phases: NutritionPhase[],
     settingsGoals?: MacroGoals | null,
     fitness: FitnessPlanEntry[] = [],
-    override?: DayType,
-    caloriesOut?: number | null
+    override?: DayType
 ): EffectiveTargets {
     const resolved = targetsFor(date, phases, settingsGoals)
     const dayType = classifyDay(date, fitness, override)
-    const plannedBalance = plannedBalanceOf(resolved.phase)
-
-    // A logged burn already carries how hard the day was, so it replaces the
-    // day-type shift rather than stacking on it.
-    const fromOut = targetsFromOut(resolved.goals, resolved.phase, caloriesOut)
-    if (fromOut.fromOut) {
-        return { ...resolved, goals: fromOut.goals, dayType, modifier: 0, baseGoals: resolved.goals, fromOut: true, plannedBalance }
-    }
-
     const modifier = resolved.source === 'phase' ? activityModifier(resolved.phase, dayType) : 0
 
     if (modifier === 0 || !resolved.goals?.calories) {
-        return { ...resolved, dayType, modifier: 0, baseGoals: resolved.goals, fromOut: false, plannedBalance }
+        return { ...resolved, dayType, modifier: 0, baseGoals: resolved.goals }
     }
 
     const base = resolved.goals
-    const goals = resplit(base, base.calories! + modifier)
-    return { ...resolved, goals, dayType, modifier, baseGoals: base, fromOut: false, plannedBalance }
-}
-
-/**
- * A target moved to a new calorie figure, protein and fat held, carbohydrate
- * taking the difference. Only the macros the target actually set are reported
- * back, so one that targets calories alone doesn't sprout invented protein and
- * fat figures.
- */
-function resplit(base: MacroGoals, calories: number): MacroGoals | null {
-    const shifted = macrosForCalories(calories, base.protein ?? 0, base.fat ?? 0)
+    const shifted = macrosForCalories(
+        base.calories! + modifier,
+        base.protein ?? 0,
+        base.fat ?? 0
+    )
+    // Only the macros the phase actually set are reported back, so a phase that
+    // targets calories alone doesn't sprout invented protein and fat figures.
     const goals: MacroGoals = { calories: shifted.calories }
     if (base.protein !== undefined) goals.protein = shifted.protein
     if (base.carbs !== undefined) goals.carbs = shifted.carbs
     if (base.fat !== undefined) goals.fat = shifted.fat
-    return normGoals(goals)
-}
 
-// ── Targets from calories out ────────────────────────────────────────────────
-
-/**
- * The daily balance a phase plans for, in kcal, signed: −550 for a cut losing
- * half a kilo a week. Read from its goal's rate, else its own, the same order
- * the config resolver uses. A maintenance phase with no rate plans for zero.
- * Null when there's no rate to read — the phase is then a fixed target.
- */
-export function plannedBalanceOf(phase: NutritionPhase | null): number | null {
-    if (!phase) return null
-    const rate = phase.goal?.targetWeeklyRateKg ?? phase.weeklyRate
-    if (typeof rate === 'number' && Number.isFinite(rate)) return Math.round(dailyDeficitFor(rate))
-    return phase.kind === 'maintain' ? 0 : null
-}
-
-/**
- * A day's targets once its calories out is known: what you burned plus the
- * balance the phase plans for.
- *
- * A fixed figure only works if every day burns about the same. A 3,400 kcal
- * day held to a 2,400 target asks for a 1,000 kcal deficit nobody planned, and
- * marks a day that ran exactly at the planned deficit as a big overshoot. The
- * deficit is what the phase is really asking for, so once the burn is in, the
- * day is held to that. Days with no burn logged keep the phase's fixed figure.
- *
- * The figure never drops below what the held protein and fat already cost.
- */
-export function targetsFromOut(
-    goals: MacroGoals | null,
-    phase: NutritionPhase | null,
-    caloriesOut: number | null | undefined
-): { goals: MacroGoals | null; fromOut: boolean } {
-    const planned = plannedBalanceOf(phase)
-    if (!goals?.calories || !caloriesOut || caloriesOut <= 0 || planned === null) {
-        return { goals, fromOut: false }
-    }
-    const floor = (goals.protein ?? 0) * KCAL_PER_G.protein + (goals.fat ?? 0) * KCAL_PER_G.fat
-    const calories = Math.max(floor, Math.round(caloriesOut + planned))
-    return { goals: resplit(goals, calories), fromOut: true }
+    return { ...resolved, goals: normGoals(goals), dayType, modifier, baseGoals: base }
 }
 
 /**

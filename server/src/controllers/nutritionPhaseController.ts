@@ -325,7 +325,7 @@ export async function createNutritionPhase(req: AuthRequest, res: Response) {
  */
 export async function updateNutritionPhase(req: AuthRequest, res: Response) {
     if (!isId(req.params.id)) {
-        res.status(404).json({ message: 'Phase not found' })
+        res.status(404).json({ message: 'Plan not found' })
         return
     }
     const parsed = readBody(req.body)
@@ -336,12 +336,12 @@ export async function updateNutritionPhase(req: AuthRequest, res: Response) {
 
     const existing = await NutritionPhase.findOne({ _id: req.params.id, user: req.userId })
     if (!existing) {
-        res.status(404).json({ message: 'Phase not found' })
+        res.status(404).json({ message: 'Plan not found' })
         return
     }
     const phase = await applyUpdate(existing, parsed, req.userId)
     if (!phase) {
-        res.status(404).json({ message: 'Phase not found' })
+        res.status(404).json({ message: 'Plan not found' })
         return
     }
     res.json({ message: 'Saved', data: phase })
@@ -443,16 +443,16 @@ async function applyUpdate(
  */
 export async function importNutritionPhases(req: AuthRequest, res: Response) {
     const body = req.body as unknown
-    const list = extractList(body, 'phases')
+    const list = extractList(body, 'plans') ?? extractList(body, 'phases')
     const overwrite = extractOverwrite(body)
     if (!list) {
         res.status(400).json({
-            message: 'Expected a JSON array of phases, or an object with a "phases" array.',
+            message: 'Expected a JSON array of plans, or an object with a "plans" array.',
         })
         return
     }
     if (list.length === 0) {
-        res.status(400).json({ message: 'No phases found to import.' })
+        res.status(400).json({ message: 'No plans found to import.' })
         return
     }
 
@@ -462,7 +462,7 @@ export async function importNutritionPhases(req: AuthRequest, res: Response) {
         const name =
             raw && typeof raw === 'object' && typeof (raw as { name?: unknown }).name === 'string'
                 ? `"${((raw as { name: string }).name).trim()}"`
-                : `Phase ${i + 1}`
+                : `Plan ${i + 1}`
         const result = readBody(raw)
         if ('error' in result) errors.push(`${name}: ${result.error}`)
         else parsed.push(result)
@@ -508,7 +508,7 @@ export const undoImport = makeUndoImportHandler(NutritionPhase)
  */
 export async function addNutritionPhaseAdjustment(req: AuthRequest, res: Response) {
     if (!isId(req.params.id)) {
-        res.status(404).json({ message: 'Phase not found' })
+        res.status(404).json({ message: 'Plan not found' })
         return
     }
     if (!isObjectBody(req.body)) {
@@ -535,7 +535,7 @@ export async function addNutritionPhaseAdjustment(req: AuthRequest, res: Respons
 
     const phase = await NutritionPhase.findOne({ _id: req.params.id, user: req.userId })
     if (!phase) {
-        res.status(404).json({ message: 'Phase not found' })
+        res.status(404).json({ message: 'Plan not found' })
         return
     }
 
@@ -556,15 +556,21 @@ export async function addNutritionPhaseAdjustment(req: AuthRequest, res: Respons
 /** DELETE /api/nutrition-phases/:id — remove a phase. */
 export async function deleteNutritionPhase(req: AuthRequest, res: Response) {
     if (!isId(req.params.id)) {
-        res.status(404).json({ message: 'Phase not found' })
+        res.status(404).json({ message: 'Plan not found' })
         return
     }
     const phase = await NutritionPhase.findOneAndDelete({ _id: req.params.id, user: req.userId })
     if (!phase) {
-        res.status(404).json({ message: 'Phase not found' })
+        res.status(404).json({ message: 'Plan not found' })
         return
     }
     res.json({ message: 'Deleted' })
+}
+
+/** DELETE /api/nutrition-phases — removes every phase the user has. */
+export async function deleteAllNutritionPhases(req: AuthRequest, res: Response) {
+    const { deletedCount } = await NutritionPhase.deleteMany({ user: req.userId })
+    res.json({ message: 'Deleted', data: { deleted: deletedCount ?? 0 } })
 }
 
 /**

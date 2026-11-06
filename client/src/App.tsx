@@ -6,8 +6,6 @@ import ProtectedRoute from './components/ProtectedRoute'
 import QuickLog from './components/QuickLog'
 import Home from './pages/Home'
 import Calendar from './pages/Calendar'
-import Lists from './pages/Lists'
-import Timebox from './pages/Timebox'
 import Fitness from './pages/Fitness'
 import Nutrition from './pages/Nutrition'
 import FinanceLayout from './pages/FinanceLayout'
@@ -22,7 +20,6 @@ import Birthdays from './pages/Birthdays'
 import DaysSince from './pages/DaysSince'
 import DaysUntil from './pages/DaysUntil'
 import Goals from './pages/Goals'
-import LifePlan from './pages/LifePlan'
 import Timeline from './pages/Timeline'
 import Consistency from './pages/Consistency'
 import PerfectDay from './pages/PerfectDay'
@@ -83,7 +80,6 @@ export default function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/calendar" element={<Calendar />} />
                 <Route path="/day/:date" element={<DayRedirect />} />
-                <Route path="/timebox" element={<Timebox />} />
                 <Route path="/habits" element={<Navigate to="/goals" replace />} />
                 <Route path="/fitness" element={<Fitness />} />
                 <Route path="/nutrition" element={<Nutrition />} />
@@ -103,12 +99,9 @@ export default function App() {
                 <Route path="/days-until" element={<DaysUntil />} />
                 <Route path="/weather" element={<Weather />} />
                 <Route path="/goals" element={<Goals />} />
-                <Route path="/life-plan" element={<LifePlan />} />
                 <Route path="/timeline" element={<Timeline />} />
                 <Route path="/consistency" element={<Consistency />} />
                 <Route path="/notes" element={<Notes />} />
-                <Route path="/lists" element={<Lists />} />
-                <Route path="/lists/:id" element={<Lists />} />
                 <Route path="/styleguide" element={<StyleGuide />} />
 
                 <Route path="*" element={<NotFound />} />

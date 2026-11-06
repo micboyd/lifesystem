@@ -202,3 +202,28 @@ export function setInsight(
     }
     return out
 }
+
+/** Today's set against the same set last time: kg and reps up (+) or down (−). */
+export interface SetDelta {
+    weight: number
+    reps: number
+}
+
+/**
+ * One set against the same set last time, for the little +/− under each row.
+ * Only once today's set is filled in enough to weigh: reps in, and a weight
+ * too when last time had one. Null when there's nothing to weigh against.
+ */
+export function setDelta(today: TodaySet, last: LoggedSet | undefined): SetDelta | null {
+    if (!last || today.reps == null || last.reps == null) return null
+    if (last.weight != null && today.weight == null) return null
+    const weight = last.weight != null && today.weight != null ? today.weight - last.weight : 0
+    return { weight: Math.round(weight * 100) / 100, reps: today.reps - last.reps }
+}
+
+/** "80×8" / "80kg" / "8 reps" — last time's set squeezed into a narrow column. */
+export function shortSet(s: LoggedSet): string {
+    if (s.weight != null && s.reps != null) return `${s.weight}×${s.reps}`
+    if (s.weight != null) return `${s.weight}kg`
+    return plural(s.reps ?? 0, 'rep')
+}

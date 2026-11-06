@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { AreaIcon, DASH, SectionLoading } from './DashSection'
 import { useNutritionToday, type NutritionToday } from './useNutritionToday'
-import { useDayEvents } from './useDayEvents'
 import { listPlanEntries } from '../../services/fitnessPlan'
 import { listLogs as listWorkoutLogs } from '../../services/workoutLogs'
 import { listLogs as listConditioningLogs } from '../../services/conditioningLogs'
@@ -10,7 +9,7 @@ import { checkGarminRunsQuietly, GARMIN_RUNS_LINKED } from '../../services/garmi
 import { listHabits, listLogs as listHabitLogs, checkHabit, uncheckHabit } from '../../services/habits'
 import { useDataVersion, useInvalidate } from '../../context/DataSyncContext'
 import { useAuth } from '../../context/AuthContext'
-import { PERIODS, WEEKDAYS_LONG, eventCoversAllDay, eventCoversSlot, parseDateKey, todayKey } from '../../lib/calendar'
+import { WEEKDAYS_LONG, parseDateKey, todayKey } from '../../lib/calendar'
 import { iconForHabit } from '../../lib/habitIcons'
 import {
     DAY_PARTS,
@@ -22,7 +21,7 @@ import {
     type StepKind,
     type YourDay,
 } from '../../lib/yourDay'
-import type { Event, FitnessPlanEntry, HabitDef } from '../../types'
+import type { FitnessPlanEntry, HabitDef } from '../../types'
 
 const PART_LABEL: Record<DayPart, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' }
 
@@ -35,7 +34,6 @@ const ACTION: Record<StepKind, { to: string; label: string }> = {
     'plan-meals': { to: '/nutrition', label: 'Plan meals' },
     protein: { to: '/nutrition', label: 'Open meals' },
     calories: { to: '/nutrition', label: 'Open meals' },
-    event: { to: '/calendar', label: 'Open the calendar' },
     habit: { to: '/goals', label: 'Tick it off' },
 }
 
@@ -112,12 +110,6 @@ function useDayRecords(date: string) {
     return { records: current, setRecords: setState }
 }
 
-/** Which part of the day an event sits in; null when it runs all day. */
-function eventPart(event: Event, date: string): DayPart | null {
-    if (eventCoversAllDay(event, date)) return null
-    return (PERIODS.find((p) => eventCoversSlot(event, date, p.key))?.key as DayPart | undefined) ?? null
-}
-
 /**
  * Your day: what to do to make today a perfect one, across the whole width at
  * the top of the dashboard — the one place today lives. The next thing to do
@@ -130,12 +122,11 @@ export default function YourDayWidget({ date }: { date: string }) {
     const nowMin = useMinutes()
     const invalidate = useInvalidate()
     const nutrition = useNutritionToday(date)
-    const events = useDayEvents(date)
     const { records, setRecords } = useDayRecords(date)
     const selection = useAuth().user?.settings?.perfectDay
 
     const day = useMemo<YourDay | null>(() => {
-        if (!records || nutrition.loading || events.loading) return null
+        if (!records || nutrition.loading) return null
         return yourDay({
             date,
             today,
@@ -143,16 +134,12 @@ export default function YourDayWidget({ date }: { date: string }) {
             ...records,
             meals: nutrition.entries,
             goals: nutrition.goals,
-            caloriesOut: nutrition.caloriesOut?.kcal ?? null,
-            caloriesOutExpected: nutrition.caloriesOut?.expected ?? false,
-            caloriesOutAdjusted: nutrition.caloriesOut?.adjusted ?? false,
             eaten: nutrition.eaten,
             weightLogs: nutrition.weightLogs,
             weightRate: nutrition.ratePerWeek,
-            events: events.events.map((e) => ({ id: e._id, title: e.title, part: eventPart(e, date), time: e.time })),
             selection,
         })
-    }, [records, nutrition, events, date, today, nowMin, selection])
+    }, [records, nutrition, date, today, nowMin, selection])
 
     async function toggleHabit(habitId: string) {
         if (!records) return
@@ -194,7 +181,6 @@ export default function YourDayWidget({ date }: { date: string }) {
         <StepRow
             key={s.id}
             step={s}
-            date={date}
             isNext={day.next?.id === s.id}
             icon={s.habitId ? habitIcons.get(s.habitId) : undefined}
             onTick={toggleHabit}
@@ -453,13 +439,11 @@ function PartColumn({ part, day, children }: { part: DayPart; day: YourDay; chil
 /** One step. A habit ticks where it stands; anything else opens the page where it's done. */
 function StepRow({
     step,
-    date,
     isNext,
     icon,
     onTick,
 }: {
     step: DayStep
-    date: string
     isNext: boolean
     /** A habit's own icon, shown quietly so habits read apart from meals and training. */
     icon?: string
@@ -477,11 +461,10 @@ function StepRow({
                 >
                     {step.title}
                 </p>
-                {step.detail && step.kind !== 'event' && (
+                {step.detail && (
                     <p className="mt-0.5 truncate text-[13px] text-neutral-500">{step.detail}</p>
                 )}
             </div>
-            {step.time && <span className="nums shrink-0 pt-0.5 text-[13px] text-neutral-500">{step.time}</span>}
             {icon && <i className={`${icon} shrink-0 pt-1 text-xs text-neutral-300`} aria-hidden="true" />}
         </>
     )
@@ -498,7 +481,7 @@ function StepRow({
                     {body}
                 </button>
             ) : (
-                <Link to={step.kind === 'event' ? `/calendar?date=${date}` : ACTION[step.kind].to} className={cls}>
+                <Link to={ACTION[step.kind].to} className={cls}>
                     {body}
                 </Link>
             )}
@@ -536,7 +519,7 @@ function StateMark({ step, isNext }: { step: DayStep; isNext: boolean }) {
     if (step.state === 'info')
         return (
             <span className={`${box} text-neutral-400`} aria-hidden="true">
-                <i className={step.kind === 'rest' ? 'fa-solid fa-mug-hot' : 'fa-regular fa-calendar'} />
+                <i className={'fa-solid fa-mug-hot'} />
             </span>
         )
     return (

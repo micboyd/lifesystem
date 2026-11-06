@@ -6,7 +6,7 @@ import Checkbox from '../components/Checkbox'
 import Input from '../components/Input'
 import Alert from '../components/Alert'
 import { SectionLoading } from '../components/dashboard/DashSection'
-import { PANEL } from '../components/lifeplan/ui'
+import { PANEL } from '../components/surfaceStyles'
 import { useAuth } from '../context/AuthContext'
 import { updateSettings } from '../services/users'
 import { listHabits } from '../services/habits'
@@ -74,10 +74,6 @@ const FIXED_GROUPS: { title: string; rows: Row[] }[] = [
             { key: 'protein', label: 'Protein target', detail: 'Hit from 95% of the goal.', icon: 'fa-solid fa-drumstick-bite' },
             { key: 'calories', label: 'Calorie target', detail: 'On target within 5% either side.', icon: 'fa-solid fa-fire' },
         ],
-    },
-    {
-        title: 'Calendar',
-        rows: [{ key: 'events', label: 'Events', detail: 'The day’s events, for context. Never a task.', icon: 'fa-regular fa-calendar' }],
     },
 ]
 

@@ -6,10 +6,9 @@ import { listWeightLogs } from '../../services/weightLogs'
 import { listLogs } from '../../services/workoutLogs'
 import { listLogs as listConditioningLogs } from '../../services/conditioningLogs'
 import { listPlanEntries as listMealEntries } from '../../services/mealPlan'
-import { listDailyEnergy } from '../../services/dailyEnergy'
 import { addDays, todayKey } from '../../lib/calendar'
 import { ADHERENCE_WINDOW_DAYS, buildTimeline, timelineGaps, type Timeline, type TimelineGap } from '../../lib/timeline'
-import type { ConditioningLog, DailyEnergy, MealPlanEntry, NutritionPhase, TrainingPlan, WeightLog, WorkoutLog } from '../../types'
+import type { ConditioningLog, MealPlanEntry, NutritionPhase, TrainingPlan, WeightLog, WorkoutLog } from '../../types'
 
 /** Everything the timeline is built from. */
 export interface TimelineSources {
@@ -19,8 +18,6 @@ export interface TimelineSources {
     workoutLogs: WorkoutLog[]
     conditioningLogs: ConditioningLog[]
     mealEntries: MealPlanEntry[]
-    /** Calories out over the same four weeks, so adherence reads days as the planner does. */
-    energy: DailyEnergy[]
 }
 
 export interface TimelineState {
@@ -58,10 +55,9 @@ export function useTimeline(): TimelineState {
             listConditioningLogs(),
             // Measured nutrition adherence looks back four weeks (lib/timeline.ts).
             listMealEntries(addDays(today, -ADHERENCE_WINDOW_DAYS), addDays(today, -1)),
-            listDailyEnergy(addDays(today, -ADHERENCE_WINDOW_DAYS), addDays(today, -1)).catch(() => [] as DailyEnergy[]),
         ])
-            .then(([plans, phases, weightLogs, workoutLogs, conditioningLogs, mealEntries, energy]) => {
-                if (active) setData({ plans, phases, weightLogs, workoutLogs, conditioningLogs, mealEntries, energy })
+            .then(([plans, phases, weightLogs, workoutLogs, conditioningLogs, mealEntries]) => {
+                if (active) setData({ plans, phases, weightLogs, workoutLogs, conditioningLogs, mealEntries })
             })
             .catch(() => active && setError(true))
         return () => {
