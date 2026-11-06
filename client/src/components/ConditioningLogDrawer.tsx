@@ -8,7 +8,7 @@ import { SaveStatus } from './SessionPace'
 import { useStepTicks } from './session/SessionUI'
 import { SummaryExerciseList, SummaryStats, type SummaryRow } from './session/WorkoutSummary'
 import { conditioningPayload, useConditioningLog } from './useConditioningLog'
-import LiveRouteMap from './route/LiveRouteMap'
+import LiveRouteMap, { type LiveProgress } from './route/LiveRouteMap'
 import { listRoutes, type RunRoute } from '../services/routes'
 import { routeStepMarkers, sessionDistance } from '../lib/routeDistance'
 import { useToast } from '../context/ToastContext'
@@ -23,6 +23,12 @@ import {
     type DriftTone,
 } from '../lib/sessionPace'
 import type { ConditioningSession } from '../types'
+
+const PHASE_NAME: Record<string, string> = {
+    warmUp: 'Warm-up',
+    main: 'Main',
+    coolDown: 'Cool-down',
+}
 
 const DELTA_TONE: Record<DriftTone, string> = {
     on: 'bg-emerald-50 text-emerald-700',
@@ -122,6 +128,36 @@ export default function ConditioningLogDrawer({
         return planned.steps.length ? routeStepMarkers(planned.steps, liveRoute.distanceM) : []
     }, [liveRoute, session])
 
+    // A rep counted: the last one finishes the part — no separate Completed press.
+    function count(i: number, n: number) {
+        if (!session) return
+        logger.count(i, n)
+        const rounds = flattenPhases(session)[i]?.item.rounds ?? 0
+        if (rounds > 0 && n >= rounds && logger.taps.completedAt[i] == null) logger.complete(i)
+    }
+
+    // The part you're on (the first not completed), for the full-screen map.
+    const progress = useMemo((): LiveProgress | undefined => {
+        if (!liveRoute || !session) return undefined
+        const parts = flattenPhases(session)
+        const i = parts.findIndex((_, k) => logger.taps.completedAt[k] == null)
+        if (i < 0) return { part: null, where: `${parts.length} of ${parts.length} parts done` }
+        const { phase, item } = parts[i]
+        const done = logger.taps.counts[i] ?? 0
+        const rounds = item.rounds ?? 0
+        const label = item.roundLabel ? item.roundLabel.replace(/s$/, '') : 'Round'
+        return {
+            part: item.name,
+            where: `${PHASE_NAME[phase] ?? phase} · part ${i + 1} of ${parts.length}`,
+            round: rounds > 0 ? `${label} ${Math.min(done + 1, rounds)}/${rounds}` : undefined,
+            action:
+                rounds > 0
+                    ? { label: `${label} done`, onPress: () => count(i, done + 1) }
+                    : { label: 'Completed', onPress: () => logger.complete(i) },
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [liveRoute, session, logger.taps])
+
     useEffect(() => {
         top.current?.scrollIntoView({ block: 'start' })
     }, [step])
@@ -191,23 +227,13 @@ export default function ConditioningLogDrawer({
                                     key={liveRoute._id}
                                     route={liveRoute}
                                     steps={routeSteps}
+                                    progress={progress}
                                 />
                             )}
                             <ConditioningSessionDetail
                                 session={session}
                                 counts={logger.taps.counts}
-                                onCount={(i, n) => {
-                                    logger.count(i, n)
-                                    // The last rep finishes the part — no separate
-                                    // Completed press needed.
-                                    const target = flattenPhases(session)[i]?.item.rounds ?? 0
-                                    if (
-                                        target > 0 &&
-                                        n >= target &&
-                                        logger.taps.completedAt[i] == null
-                                    )
-                                        logger.complete(i)
-                                }}
+                                onCount={count}
                                 completedAt={logger.taps.completedAt}
                                 onComplete={logger.complete}
                                 onUndo={logger.undo}

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import L from 'leaflet'
+import Button from '../Button'
 import 'leaflet/dist/leaflet.css'
 import type { RunRoute } from '../../services/routes'
 import type { StepMarker } from './RouteMap'
@@ -25,11 +27,15 @@ import {
 /**
  * The chosen route, live, at the top of the conditioning logger: the map
  * follows your blue dot (with an arrow the way you're moving; chevrons on the
- * line show the route's way), the part you've done greys out, and a strip shows
- * distance done and to go, pace, and the next run/walk change. A banner warns
- * when you're off the line. GPS starts when the logger opens and stops when it
+ * line show the route's way) and the part you've done greys out. A banner
+ * warns when you're off the line. GPS starts when the logger opens and stops when it
  * moves on to the wrap-up or closes — the session's own Completed buttons and
  * Wrap up are the only controls, so there's no second clock or End button.
+ *
+ * Inline it's just the map. Expanded it goes full screen with the live stats:
+ * the part you're on and its round, km to go and done, pace, the next run/walk
+ * change, and the part's one button (round done / completed), so you needn't
+ * come out of full screen mid-run.
  *
  * It's a web page, so the phone only feeds it GPS while the screen is on and
  * this page is in front — it holds a screen wake lock for that.
@@ -73,21 +79,45 @@ const chevron = (angle: number) =>
 
 type Gps = 'finding' | 'on' | 'denied' | 'unavailable'
 
+/** Where you are in the session, for the full-screen view. */
+export interface LiveProgress {
+    /** The part you're on, e.g. "Run intervals"; null once every part is done. */
+    part: string | null
+    /** "Main · part 3 of 7". */
+    where?: string
+    /** "Round 2/5". */
+    round?: string
+    /** The one press the part needs next — "Round done" or "Completed". */
+    action?: { label: string; onPress: () => void }
+}
+
 /** Two rough fixes in a row off the line before warning, so one GPS wobble doesn't. */
 const OFF_ROUTE_FIXES = 2
 
-export default function LiveRouteMap({ route, steps }: { route: RunRoute; steps: StepMarker[] }) {
+export default function LiveRouteMap({
+    route,
+    steps,
+    progress,
+}: {
+    route: RunRoute
+    steps: StepMarker[]
+    progress?: LiveProgress
+}) {
     const coords = route.coords
     const cum = useMemo(() => cumulative(coords), [coords])
     const totalM = cum[cum.length - 1] ?? route.distanceM
 
-    const mapEl = useRef<HTMLDivElement>(null)
+    const inlineSlot = useRef<HTMLDivElement>(null)
+    const fullSlot = useRef<HTMLDivElement>(null)
+    // Leaflet's own element — made here, not by React, so it can move between
+    // the inline frame and the full-screen one without rebuilding the map.
+    const holder = useRef<HTMLDivElement | null>(null)
     const map = useRef<L.Map | null>(null)
     const doneLine = useRef<L.Polyline | null>(null)
     const youLayer = useRef<L.LayerGroup | null>(null)
     const follow = useRef(true)
     const [following, setFollowing] = useState(true)
-    const [tall, setTall] = useState(false)
+    const [full, setFull] = useState(false)
 
     const [gps, setGps] = useState<Gps>(() =>
         'geolocation' in navigator && window.isSecureContext ? 'finding' : 'unavailable'
@@ -106,8 +136,13 @@ export default function LiveRouteMap({ route, steps }: { route: RunRoute; steps:
 
     // ── Map ──
     useEffect(() => {
-        if (!mapEl.current) return
-        const m = L.map(mapEl.current, { zoomControl: false, attributionControl: true })
+        if (!inlineSlot.current) return
+        const node = document.createElement('div')
+        node.style.width = '100%'
+        node.style.height = '100%'
+        inlineSlot.current.appendChild(node)
+        holder.current = node
+        const m = L.map(node, { zoomControl: false, attributionControl: true })
         L.tileLayer(TILE_URL, { maxZoom: 19, attribution: ATTRIBUTION }).addTo(m)
         m.attributionControl.setPrefix(false)
         const latlngs = coords.map((c) => [c[1], c[0]] as [number, number])
@@ -168,14 +203,38 @@ export default function LiveRouteMap({ route, steps }: { route: RunRoute; steps:
         // The drawer slides in; measure again once it has, and on every resize.
         const t = window.setTimeout(() => m.invalidateSize(), 350)
         const ro = new ResizeObserver(() => m.invalidateSize())
-        ro.observe(mapEl.current)
+        ro.observe(node)
         return () => {
             window.clearTimeout(t)
             ro.disconnect()
             m.remove()
+            node.remove()
             map.current = null
+            holder.current = null
         }
     }, [coords, cum, steps])
+
+    // Move the map into whichever frame is showing.
+    useEffect(() => {
+        const node = holder.current
+        const target = full ? fullSlot.current : inlineSlot.current
+        if (!node || !target || node.parentElement === target) return
+        target.appendChild(node)
+        const raf = requestAnimationFrame(() => map.current?.invalidateSize())
+        return () => cancelAnimationFrame(raf)
+    }, [full])
+
+    // Escape leaves full screen without also closing the logger underneath.
+    useEffect(() => {
+        if (!full) return
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return
+            e.stopPropagation()
+            setFull(false)
+        }
+        window.addEventListener('keydown', onKey, true)
+        return () => window.removeEventListener('keydown', onKey, true)
+    }, [full])
 
     // ── GPS ──
     useEffect(() => {
@@ -305,95 +364,168 @@ export default function LiveRouteMap({ route, steps }: { route: RunRoute; steps:
     const frameButton =
         'grid h-11 w-11 place-items-center rounded-xl bg-white text-neutral-800 shadow-md ring-1 ring-neutral-900/10 hover:bg-neutral-50 active:bg-neutral-100'
 
+    const banner = (status || offM !== null) && (
+        <p
+            role="status"
+            className={`mx-auto w-fit max-w-full rounded-xl px-3 py-2 text-sm font-medium shadow-md ${
+                offM !== null
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-white text-neutral-700 ring-1 ring-neutral-900/10'
+            }`}
+        >
+            {offM !== null ? `Off the route by ${Math.round(offM)} m` : status}
+        </p>
+    )
+
+    const recentreButton = fix && (
+        <button
+            type="button"
+            onClick={recentre}
+            className={`${frameButton} ${following ? 'text-blue-600' : ''}`}
+            aria-label="Centre the map on me"
+        >
+            <i className="fa-solid fa-location-crosshairs" aria-hidden="true" />
+        </button>
+    )
+
     return (
         <section className="flex flex-col gap-2" aria-label="Your route, live">
-            <div
-                className={`relative overflow-hidden rounded-2xl bg-neutral-100 transition-[height] duration-200 ${tall ? 'h-[70svh]' : 'h-[42svh] min-h-[260px]'}`}
-            >
+            <div className="relative h-[42svh] min-h-[260px] overflow-hidden rounded-2xl bg-neutral-100">
                 <div
-                    ref={mapEl}
+                    ref={inlineSlot}
                     className="isolate h-full w-full"
                     role="application"
                     aria-label="Live route map"
                 />
-
-                <div className="absolute right-3 top-3 z-[1001] flex flex-col gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setTall((v) => !v)}
-                        className={frameButton}
-                        aria-label={tall ? 'Make the map smaller' : 'Make the map bigger'}
-                    >
-                        <i
-                            className={`fa-solid ${tall ? 'fa-compress' : 'fa-expand'}`}
-                            aria-hidden="true"
-                        />
-                    </button>
-                    {fix && (
-                        <button
-                            type="button"
-                            onClick={recentre}
-                            className={`${frameButton} ${following ? 'text-blue-600' : ''}`}
-                            aria-label="Centre the map on me"
-                        >
-                            <i className="fa-solid fa-location-crosshairs" aria-hidden="true" />
-                        </button>
-                    )}
-                </div>
-
-                {(status || offM !== null) && (
-                    <p
-                        role="status"
-                        className={`absolute inset-x-3 bottom-3 z-[1000] mx-auto w-fit max-w-[calc(100%-1.5rem)] rounded-xl px-3 py-2 text-sm font-medium shadow-md ${
-                            offM !== null
-                                ? 'bg-amber-500 text-white'
-                                : 'bg-white text-neutral-700 ring-1 ring-neutral-900/10'
-                        }`}
-                    >
-                        {offM !== null ? `Off the route by ${Math.round(offM)} m` : status}
-                    </p>
+                {!full && (
+                    <>
+                        <div className="absolute right-3 top-3 z-[1001] flex flex-col gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setFull(true)}
+                                className={frameButton}
+                                aria-label="Full screen, with live stats"
+                            >
+                                <i className="fa-solid fa-expand" aria-hidden="true" />
+                            </button>
+                            {recentreButton}
+                        </div>
+                        {banner && (
+                            <div className="absolute inset-x-3 bottom-3 z-[1000]">{banner}</div>
+                        )}
+                    </>
                 )}
             </div>
 
-            <div className="grid grid-cols-3 gap-2 rounded-2xl bg-neutral-50 px-3 py-2.5 text-center">
-                {[
-                    { label: 'Done', value: formatKm(atM) },
-                    { label: 'To go', value: formatKm(toGoM) },
-                    { label: 'Pace', value: formatPace(pace) },
-                ].map((s) => (
-                    <div key={s.label} className="min-w-0">
-                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
-                            {s.label}
-                        </p>
-                        <p className="truncate text-lg font-semibold tabular-nums text-neutral-900">
-                            {s.value}
-                        </p>
-                    </div>
-                ))}
-            </div>
-
-            {finished ? (
-                <p className="rounded-xl bg-emerald-50 px-3 py-2 text-center text-sm font-semibold text-emerald-800">
-                    Route done.
-                </p>
-            ) : next ? (
-                <p className="rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-700">
-                    <span
-                        className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${next.kind === 'run' ? 'bg-neutral-900' : 'bg-neutral-400'}`}
-                    />
-                    {next.kind === 'run' ? 'Run' : 'Walk'} starts in{' '}
-                    <strong className="tabular-nums">{formatKm(next.atM - atM)}</strong>
-                    <span className="text-neutral-500"> — {next.label}</span>
-                </p>
-            ) : null}
-
             <p className="text-xs leading-relaxed text-neutral-500">
-                {formatKm(route.distanceM)} · ↑{route.ascentM} m
-                {fix && gps === 'on' && ` · GPS ±${Math.round(fix.accuracy)} m`}. Keep this screen
-                open — phones stop GPS for web pages when the screen locks.
+                {formatKm(route.distanceM)} · ↑{route.ascentM} m. Expand the map for live stats.
+                Keep this screen open — phones stop GPS for web pages when the screen locks.
                 {wakeLockOk === false &&
                     " This browser can't keep the screen awake, so turn auto-lock off for the run."}
             </p>
+
+            {full &&
+                createPortal(
+                    <div
+                        className="fixed inset-0 z-[60] flex flex-col bg-white"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Route, full screen"
+                    >
+                        {/* Where you are in the session */}
+                        <div className="flex items-center gap-3 border-b border-neutral-100 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+                            <div className="min-w-0 flex-1">
+                                {progress?.where && (
+                                    <p className="truncate text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                                        {progress.where}
+                                    </p>
+                                )}
+                                <p className="truncate text-xl font-semibold tracking-[-0.01em] text-neutral-900">
+                                    {progress
+                                        ? (progress.part ?? 'Every part done')
+                                        : formatKm(toGoM) + ' to go'}
+                                </p>
+                            </div>
+                            {progress?.round && (
+                                <p className="shrink-0 rounded-xl bg-neutral-900 px-3 py-1.5 text-lg font-semibold tabular-nums text-white">
+                                    {progress.round}
+                                </p>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setFull(false)}
+                                className={`${frameButton} shrink-0`}
+                                aria-label="Exit full screen"
+                                autoFocus
+                            >
+                                <i className="fa-solid fa-compress" aria-hidden="true" />
+                            </button>
+                        </div>
+
+                        <div className="relative min-h-0 flex-1">
+                            <div
+                                ref={fullSlot}
+                                className="isolate h-full w-full"
+                                role="application"
+                                aria-label="Live route map"
+                            />
+                            {recentreButton && (
+                                <div className="absolute right-3 top-3 z-[1001]">
+                                    {recentreButton}
+                                </div>
+                            )}
+                            {banner && (
+                                <div className="absolute inset-x-3 bottom-3 z-[1000]">{banner}</div>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col gap-3 border-t border-neutral-100 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                                {[
+                                    { label: 'To go', value: formatKm(toGoM) },
+                                    { label: 'Done', value: formatKm(atM) },
+                                    { label: 'Pace', value: formatPace(pace).replace(' /km', '') },
+                                ].map((st) => (
+                                    <div key={st.label} className="min-w-0">
+                                        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-500">
+                                            {st.label}
+                                        </p>
+                                        <p className="truncate text-2xl font-semibold tabular-nums text-neutral-900">
+                                            {st.value}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                            {finished ? (
+                                <p className="rounded-xl bg-emerald-50 px-3 py-2 text-center text-sm font-semibold text-emerald-800">
+                                    Route done.
+                                </p>
+                            ) : next ? (
+                                <p className="rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-700">
+                                    <span
+                                        className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${next.kind === 'run' ? 'bg-neutral-900' : 'bg-neutral-400'}`}
+                                    />
+                                    {next.kind === 'run' ? 'Run' : 'Walk'} starts in{' '}
+                                    <strong className="tabular-nums">
+                                        {formatKm(next.atM - atM)}
+                                    </strong>
+                                    <span className="text-neutral-500"> — {next.label}</span>
+                                </p>
+                            ) : null}
+                            {progress?.action && (
+                                <Button
+                                    size="lg"
+                                    fullWidth
+                                    icon="fa-solid fa-check"
+                                    onClick={progress.action.onPress}
+                                >
+                                    {progress.action.label}
+                                </Button>
+                            )}
+                        </div>
+                    </div>,
+                    document.body
+                )}
         </section>
     )
 }
