@@ -125,3 +125,37 @@ export function repeatedShare(coords: Coord[]): number {
     })
     return repeated / cells.length
 }
+
+/** The elevation `atM` metres along a line, or undefined where it has none. */
+export function elevationAt(coords: Coord[], atM: number): number | undefined {
+    let walked = 0
+    for (let i = 1; i < coords.length; i++) {
+        const a = coords[i - 1]
+        const b = coords[i]
+        const seg = haversine(toLatLng(a), toLatLng(b))
+        if (walked + seg >= atM) {
+            if (a[2] === undefined || b[2] === undefined) return b[2] ?? a[2]
+            const t = seg === 0 ? 0 : (atM - walked) / seg
+            return a[2] + (b[2] - a[2]) * t
+        }
+        walked += seg
+    }
+    return coords[coords.length - 1]?.[2]
+}
+
+/** How far in "the start" of a run reaches: a quarter of it, between 400 m and 1.5 km. */
+export function openingLength(distanceM: number): number {
+    return Math.min(1500, Math.max(400, distanceM * 0.25))
+}
+
+/**
+ * Net climb (positive) or drop (negative) over the opening of a line, in
+ * metres — what "starts uphill" or "starts downhill" is judged on. Zero when
+ * the line carries no elevation.
+ */
+export function openingClimb(coords: Coord[], distanceM = pathLength(coords)): number {
+    const from = coords[0]?.[2]
+    const to = elevationAt(coords, openingLength(distanceM))
+    if (from === undefined || to === undefined) return 0
+    return Math.round(to - from)
+}

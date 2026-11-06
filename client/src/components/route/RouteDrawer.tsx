@@ -27,7 +27,10 @@ import {
     type RouteFailure,
     type RouteSettings,
     type RunRoute,
+    type StartPref,
 } from '../../services/routes'
+import { openingText } from '../../lib/routeProgress'
+import RouteRun from './RouteRun'
 
 /**
  * "Generate route" for an outdoor conditioning session: a loop (or out-and-back)
@@ -98,6 +101,8 @@ export default function RouteDrawer({
     const [gps, setGps] = useState<LatLng | null>(null)
     const [picking, setPicking] = useState(false)
     const [kind, setKind] = useState<Kind>('loop')
+    const [startPref, setStartPref] = useState<StartPref>('any')
+    const [running, setRunning] = useState(false)
 
     const [busy, setBusy] = useState(false)
     const [failure, setFailure] = useState<RouteFailure | null>(null)
@@ -217,7 +222,7 @@ export default function RouteDrawer({
         setCooldownUntil(Date.now() + (settings?.cooldownMs ?? 8000))
         setNow(Date.now())
         try {
-            const out = await generateRoute({ session: session._id, targetM, kind, start: from })
+            const out = await generateRoute({ session: session._id, targetM, kind, startPref, start: from })
             setRoutes((rs) => [out.route, ...rs])
             setViewId(out.route._id)
             setPicking(false)
@@ -408,6 +413,27 @@ export default function RouteDrawer({
                                     ]}
                                 />
                             </div>
+                            <div className="flex flex-col gap-1.5">
+                                <span className={FIELD_LABEL}>Start the run</span>
+                                <PillToggle
+                                    label="Start uphill or downhill"
+                                    value={startPref}
+                                    onChange={setStartPref}
+                                    options={[
+                                        { value: 'any', label: 'Either' },
+                                        { value: 'uphill', label: 'Uphill' },
+                                        { value: 'downhill', label: 'Downhill' },
+                                    ]}
+                                />
+                                {startPref !== 'any' && (
+                                    <p className={FIELD_HINT}>
+                                        {kind === 'loop'
+                                            ? `Loops are run the way round that starts ${startPref}.`
+                                            : `Picks a direction out whose first stretch goes ${startPref === 'uphill' ? 'up' : 'down'}.`}{' '}
+                                        Flat areas may not have one.
+                                    </p>
+                                )}
+                            </div>
                         </section>
 
                         <div className="flex flex-col gap-2">
@@ -504,6 +530,25 @@ export default function RouteDrawer({
                                             },
                                         ]}
                                     />
+                                    {view.openingM !== undefined && (
+                                        <p
+                                            className={`text-sm ${
+                                                view.startPref && view.startPref !== 'any' && Math.sign(view.openingM) !== (view.startPref === 'uphill' ? 1 : -1)
+                                                    ? 'text-amber-800'
+                                                    : 'text-neutral-600'
+                                            }`}
+                                        >
+                                            <i
+                                                className={`fa-solid ${view.openingM >= 3 ? 'fa-arrow-trend-up' : view.openingM <= -3 ? 'fa-arrow-trend-down' : 'fa-minus'} mr-1.5 text-xs`}
+                                                aria-hidden="true"
+                                            />
+                                            {openingText(view.openingM, view.distanceM)}
+                                            {view.startPref &&
+                                                view.startPref !== 'any' &&
+                                                Math.sign(view.openingM) !== (view.startPref === 'uphill' ? 1 : -1) &&
+                                                ` — no ${view.startPref} start found nearby`}
+                                        </p>
+                                    )}
                                     <ElevationChart profile={drawn.profile} totalM={view.distanceM} hoverM={hoverM} onHover={setHoverM} />
                                     <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500" aria-label="Map key">
                                         <li className="inline-flex items-center gap-1.5">
@@ -525,6 +570,15 @@ export default function RouteDrawer({
                                         )}
                                     </ul>
 
+                                    <Button
+                                        size="lg"
+                                        fullWidth
+                                        icon="fa-solid fa-person-running"
+                                        onClick={() => setRunning(true)}
+                                        disabled={view.reported}
+                                    >
+                                        Start run with live GPS
+                                    </Button>
                                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                         <Button
                                             variant={chosenId === view._id ? 'secondary' : 'strong'}
@@ -606,6 +660,9 @@ export default function RouteDrawer({
                 )}
             </Drawer>
 
+            {running && view && (
+                <RouteRun route={view} name={session?.name ?? 'Run'} steps={drawn?.steps ?? []} onClose={() => setRunning(false)} />
+            )}
             <ConfirmModal
                 open={confirmMaps}
                 title="Open in Google Maps"

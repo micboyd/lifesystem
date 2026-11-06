@@ -94,4 +94,32 @@ describe('generateRoute', () => {
             generateRoute({ start: START, targetM: 3600, kind: 'loop', used: new Set(), seen: [], bad: [], client: client({ roundTrip }) })
         ).rejects.toMatchObject({ code: 'no_route' })
     })
+
+    // Up for the first quarter, down through the middle, up again to finish —
+    // so run forwards it starts uphill and run backwards it starts downhill.
+    const hillyLoop = async (s: LatLng, len: number, seed: number): Promise<OrsRoute> => {
+        const r = fakeLoop(s, len, seed)
+        return { ...r, coords: r.coords.map((c, i) => [c[0], c[1], 20 + 30 * Math.sin((2 * Math.PI * i) / 72)] as Coord), ascentM: 60, descentM: 60 }
+    }
+
+    it('keeps a loop that already starts uphill as it is', async () => {
+        const out = await generateRoute({ start: START, targetM: 3600, kind: 'loop', startPref: 'uphill', used: new Set(), seen: [], bad: [], client: client({ roundTrip: hillyLoop }) })
+        expect(out.route!.openingM).toBeGreaterThan(20)
+    })
+
+    it('turns a loop round to start downhill', async () => {
+        const out = await generateRoute({ start: START, targetM: 3600, kind: 'loop', startPref: 'downhill', used: new Set(), seen: [], bad: [], client: client({ roundTrip: hillyLoop }) })
+        expect(out.route!.openingM).toBeLessThan(-20)
+        expect(out.route!.coords[1][2]!).toBeLessThan(out.route!.coords[0][2]!)
+    })
+
+    it('prefers an out-and-back whose leg starts the way asked', async () => {
+        // Even seeds head uphill, odd ones downhill.
+        const oneWay = vi.fn(async (s: LatLng, e: LatLng): Promise<OrsRoute> => {
+            const up = oneWay.mock.calls.length % 2 === 0
+            return { coords: [[s.lng, s.lat, 20], [e.lng, e.lat, up ? 40 : 0]], distanceM: 1800, ascentM: up ? 20 : 0, descentM: up ? 0 : 20 }
+        })
+        const out = await generateRoute({ start: START, targetM: 3600, kind: 'outback', startPref: 'downhill', used: new Set(), seen: [], bad: [], client: client({ oneWay }) })
+        expect(out.route!.openingM).toBeLessThan(0)
+    })
 })

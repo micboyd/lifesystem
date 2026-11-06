@@ -2,13 +2,23 @@ import { RouteError, type OrsRoute } from './openroute'
 import {
     destinationPoint,
     elevationStats,
+    openingClimb,
     pathLength,
     repeatedShare,
     routeCells,
     type Coord,
     type LatLng,
 } from './routeGeo'
-import { freshSeeds, pickRoute, scaledLength, withinTolerance, type Candidate, type Pick } from './routeSelect'
+import {
+    freshSeeds,
+    matchesStart,
+    pickRoute,
+    scaledLength,
+    withinTolerance,
+    type Candidate,
+    type Pick,
+    type StartPref,
+} from './routeSelect'
 
 /**
  * One press of "Generate route": up to five candidates from openrouteservice,
@@ -28,6 +38,8 @@ export interface GenerateInput {
     start: LatLng
     targetM: number
     kind: RouteKind
+    /** Start uphill, downhill, or either. Loops are turned round to suit. */
+    startPref?: StartPref
     /** Seed keys already used for this session. */
     used: Set<string>
     /** Fingerprints of routes already shown for this session. */
@@ -42,6 +54,7 @@ export interface BuiltCandidate extends Candidate {
     points: number
     coords: Coord[]
     descentM: number
+    openingM: number
 }
 
 export interface GenerateResult {
@@ -64,18 +77,32 @@ function build(
     seed: number,
     points: number,
     key: string,
-    kind: RouteKind
+    kind: RouteKind,
+    pref: StartPref = 'any'
 ): BuiltCandidate {
     // An out-and-back is the leg, then the same leg home (the turn point once).
-    const coords: Coord[] = kind === 'outback' ? [...raw.coords, ...[...raw.coords].reverse().slice(1)] : raw.coords
+    let coords: Coord[] = kind === 'outback' ? [...raw.coords, ...[...raw.coords].reverse().slice(1)] : raw.coords
     const legM = raw.distanceM || pathLength(raw.coords)
     const distanceM = Math.round(kind === 'outback' ? legM * 2 : legM)
     const measured = elevationStats(coords)
     const up = raw.ascentM ?? undefined
     const down = raw.descentM ?? undefined
-    const ascentM = up !== undefined && down !== undefined ? (kind === 'outback' ? up + down : up) : measured.ascent
-    const descentM =
+    let ascentM = up !== undefined && down !== undefined ? (kind === 'outback' ? up + down : up) : measured.ascent
+    let descentM =
         up !== undefined && down !== undefined ? (kind === 'outback' ? up + down : down) : measured.descent
+    let openingM = openingClimb(coords, distanceM)
+    // A loop run the other way round starts with the other end's hill. An
+    // out-and-back reads the same both ways, so only the seed can change it.
+    if (kind === 'loop' && pref !== 'any' && !matchesStart(openingM, pref)) {
+        const reversed = [...coords].reverse()
+        const flipped = openingClimb(reversed, distanceM)
+        const better = pref === 'uphill' ? flipped > openingM : flipped < openingM
+        if (better) {
+            coords = reversed
+            openingM = flipped
+            ;[ascentM, descentM] = [descentM, ascentM]
+        }
+    }
     return {
         key,
         seed,
@@ -84,6 +111,7 @@ function build(
         distanceM,
         ascentM: Math.round(ascentM),
         descentM: Math.round(descentM),
+        openingM,
         repeatedShare: repeatedShare(coords),
         cells: routeCells(coords),
     }
@@ -109,7 +137,7 @@ async function wave(
     const built: BuiltCandidate[] = []
     const errors: RouteError[] = []
     settled.forEach((r, i) => {
-        if (r.status === 'fulfilled') built.push(build(r.value, seeds[i].seed, seeds[i].points, seeds[i].key, input.kind))
+        if (r.status === 'fulfilled') built.push(build(r.value, seeds[i].seed, seeds[i].points, seeds[i].key, input.kind, input.startPref))
         else errors.push(r.reason instanceof RouteError ? r.reason : new RouteError('down', 'The routing service failed.'))
     })
     return { built, tried: seeds.map((s) => s.key), errors }
@@ -131,10 +159,14 @@ export async function generateRoute(input: GenerateInput): Promise<GenerateResul
     const errors = [...one.errors]
     let calls = one.tried.length
 
-    const firstPick = pickRoute(built, input.targetM, input.seen, input.bad)
+    const firstPick = pickRoute(built, input.targetM, input.seen, input.bad, input.startPref)
     const validCount = built.filter((c) => withinTolerance(c.distanceM, input.targetM)).length
+    // With a start asked for, a real choice means one that also starts that way.
+    const matching = built.filter(
+        (c) => withinTolerance(c.distanceM, input.targetM) && matchesStart(c.openingM, input.startPref ?? 'any')
+    ).length
     const stopEarly =
-        (firstPick.kind === 'valid' && validCount >= 2) || errors.some((e) => e.code === 'quota' || e.code === 'config')
+        (firstPick.kind === 'valid' && validCount >= 2 && matching >= 1) || errors.some((e) => e.code === 'quota' || e.code === 'config')
 
     if (!stopEarly) {
         const next = scaledLength(
@@ -151,7 +183,7 @@ export async function generateRoute(input: GenerateInput): Promise<GenerateResul
 
     if (built.length === 0) throw errors.length ? worstError(errors) : new RouteError('down', 'No routes came back.')
 
-    const pick = pickRoute(built, input.targetM, input.seen, input.bad)
+    const pick = pickRoute(built, input.targetM, input.seen, input.bad, input.startPref)
     const route = pick.kind === 'none' ? null : (built.find((b) => b.key === pick.route.key) ?? null)
     return { pick, route, tried, calls }
 }

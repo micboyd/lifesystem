@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
     freshSeeds,
     historyToPrune,
+    matchesStart,
     pickRoute,
     rankValid,
     scaledLength,
@@ -113,3 +114,21 @@ describe('historyToPrune', () => {
         expect(historyToPrune(routes, 2)).toEqual(['r2'])
     })
 })
+
+describe('start preference', () => {
+    const withOpening = (key: string, openingM: number, ascentM = 10): Candidate => ({ ...cand(key, 3600, ascentM), openingM })
+    it('ranks a route that starts the way asked above a flatter one that does not', () => {
+        const flatDown = withOpening('a', -8, 5)
+        const hillyUp = withOpening('b', 12, 40)
+        expect(rankValid([flatDown, hillyUp], 3600, 'uphill')[0].key).toBe('b')
+        expect(rankValid([flatDown, hillyUp], 3600, 'downhill')[0].key).toBe('a')
+        expect(rankValid([flatDown, hillyUp], 3600)[0].key).toBe('a')
+    })
+    it('treats a couple of metres as flat', () => {
+        expect(matchesStart(2, 'uphill')).toBe(false)
+        expect(matchesStart(3, 'uphill')).toBe(true)
+        expect(matchesStart(-3, 'downhill')).toBe(true)
+        expect(matchesStart(undefined, 'any')).toBe(true)
+    })
+})
+

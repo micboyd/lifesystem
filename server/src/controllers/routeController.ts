@@ -8,7 +8,7 @@ import RouteMemory, { type IRouteMemory } from '../models/RouteMemory'
 import { RouteError, roundTrip, oneWay } from '../lib/openroute'
 import { generateRoute, MAX_CANDIDATES } from '../lib/routeGenerate'
 import { haversine, routeCells, type Coord, type LatLng } from '../lib/routeGeo'
-import { historyToPrune } from '../lib/routeSelect'
+import { historyToPrune, START_PREFS, type StartPref } from '../lib/routeSelect'
 import { dailyLimit, recordCalls, usage, usedToday } from '../lib/routeUsage'
 
 /** Unchosen routes kept per session; chosen ones are always kept. */
@@ -74,6 +74,7 @@ export async function generate(req: AuthRequest, res: Response) {
     const sessionId = String(req.body.session ?? '')
     const targetM = Number(req.body.targetM)
     const kind: RunRouteKind = ROUTE_KINDS.includes(req.body.kind) ? req.body.kind : 'loop'
+    const startPref: StartPref = START_PREFS.includes(req.body.startPref) ? req.body.startPref : 'any'
 
     if (!Types.ObjectId.isValid(sessionId) || !(await ConditioningSession.exists({ _id: sessionId, user: userId }))) {
         res.status(404).json({ message: 'Session not found' })
@@ -128,6 +129,7 @@ export async function generate(req: AuthRequest, res: Response) {
             start,
             targetM,
             kind,
+            startPref,
             used: new Set(memSession.keys),
             seen: memSession.seen,
             bad,
@@ -164,6 +166,8 @@ export async function generate(req: AuthRequest, res: Response) {
         distanceM: result.route.distanceM,
         ascentM: result.route.ascentM,
         descentM: result.route.descentM,
+        startPref,
+        openingM: result.route.openingM,
         seed: result.route.seed,
         points: result.route.points,
         offTarget: result.pick.kind === 'closest',

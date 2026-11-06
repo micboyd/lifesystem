@@ -16,6 +16,21 @@ export interface Candidate {
     /** 0–1 share of the route over ground it already ran. */
     repeatedShare: number
     cells: string[]
+    /** Net climb (+) or drop (−) over the opening stretch, in metres. */
+    openingM?: number
+}
+
+/** How the user wants the run to begin. */
+export type StartPref = 'any' | 'uphill' | 'downhill'
+export const START_PREFS: readonly StartPref[] = ['any', 'uphill', 'downhill']
+
+/** Under this net change the opening counts as flat — DEM noise, not a hill. */
+export const START_MIN_M = 3
+
+export function matchesStart(openingM: number | undefined, pref: StartPref): boolean {
+    if (pref === 'any') return true
+    const m = openingM ?? 0
+    return pref === 'uphill' ? m >= START_MIN_M : m <= -START_MIN_M
 }
 
 /** Within 5% or 250 m of the target, whichever is larger. */
@@ -44,10 +59,15 @@ export function looksBad(cells: string[], bad: string[][]): boolean {
 // outrank a route with half the doubling back.
 const climbBand = (m: number) => Math.round(m / 5)
 
-/** Lowest climb first, then the least doubling back, then closest to target. */
-export function rankValid(cands: Candidate[], targetM: number): Candidate[] {
+/**
+ * Routes that start the way asked first (when a way was asked), then lowest
+ * climb, then the least doubling back, then closest to target.
+ */
+export function rankValid(cands: Candidate[], targetM: number, pref: StartPref = 'any'): Candidate[] {
+    const miss = (c: Candidate) => (matchesStart(c.openingM, pref) ? 0 : 1)
     return [...cands].sort(
         (a, b) =>
+            miss(a) - miss(b) ||
             climbBand(a.ascentM) - climbBand(b.ascentM) ||
             a.repeatedShare - b.repeatedShare ||
             Math.abs(a.distanceM - targetM) - Math.abs(b.distanceM - targetM)
@@ -68,11 +88,12 @@ export function pickRoute(
     cands: Candidate[],
     targetM: number,
     seen: string[][],
-    bad: string[][]
+    bad: string[][],
+    pref: StartPref = 'any'
 ): Pick {
     const fresh = cands.filter((c) => !looksSeen(c.cells, seen) && !looksBad(c.cells, bad))
     const valid = fresh.filter((c) => withinTolerance(c.distanceM, targetM))
-    if (valid.length > 0) return { kind: 'valid', route: rankValid(valid, targetM)[0] }
+    if (valid.length > 0) return { kind: 'valid', route: rankValid(valid, targetM, pref)[0] }
     if (fresh.length === 0) return { kind: 'none' }
     const closest = [...fresh].sort(
         (a, b) => Math.abs(a.distanceM - targetM) - Math.abs(b.distanceM - targetM)

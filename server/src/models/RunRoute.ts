@@ -19,6 +19,10 @@ export interface IRunRoute extends Document {
     distanceM: number
     ascentM: number
     descentM: number
+    /** What was asked for: start uphill, downhill or either. */
+    startPref: 'any' | 'uphill' | 'downhill'
+    /** Net climb (+) or drop (−) over the opening stretch, in metres. */
+    openingM: number
     seed: number
     points: number
     /** True when no candidate was within tolerance and this was the closest. */
@@ -40,6 +44,8 @@ const runRouteSchema = new Schema<IRunRoute>(
         distanceM: { type: Number, required: true, min: 0 },
         ascentM: { type: Number, default: 0 },
         descentM: { type: Number, default: 0 },
+        startPref: { type: String, enum: ['any', 'uphill', 'downhill'], default: 'any' },
+        openingM: { type: Number, default: 0 },
         seed: { type: Number, required: true },
         points: { type: Number, default: 3 },
         offTarget: { type: Boolean, default: false },

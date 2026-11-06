@@ -2,6 +2,8 @@ import api from './api'
 import type { ApiResponse } from '../types'
 
 /** A generated route saved against a conditioning session. */
+export type StartPref = 'any' | 'uphill' | 'downhill'
+
 export interface RunRoute {
     _id: string
     session: string
@@ -12,6 +14,9 @@ export interface RunRoute {
     distanceM: number
     ascentM: number
     descentM: number
+    startPref?: StartPref
+    /** Net climb (+) or drop (−) over the opening stretch, in metres. */
+    openingM?: number
     seed: number
     points: number
     /** No candidate was within tolerance; this was the closest. */
@@ -70,6 +75,7 @@ export async function generateRoute(body: {
     session: string
     targetM: number
     kind: 'loop' | 'outback'
+    startPref: StartPref
     start: RouteStart
 }): Promise<{ route: RunRoute; diffM: number; usage: RouteUsage }> {
     const res = await api.post<ApiResponse<RunRoute> & { diffM: number; usage: RouteUsage }>('/routes/generate', body)
