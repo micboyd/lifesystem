@@ -1294,6 +1294,7 @@ export default function FitnessWeeklyPlanner({ startOn }: { startOn?: string }) 
                         stepsKey: stepTicksKey(entry)!,
                         existingLogId: logId,
                         notes,
+                        entryId: entry._id,
                     })
                 }}
             />

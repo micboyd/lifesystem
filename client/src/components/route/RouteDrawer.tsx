@@ -9,7 +9,7 @@ import { FIELD_BASE, FIELD_HINT, FIELD_IDLE, FIELD_LABEL } from '../fieldStyles'
 import RouteMap from './RouteMap'
 import ElevationChart from './ElevationChart'
 import type { FitnessPlanEntry } from '../../types'
-import { plannedSeconds, sessionDistance, stepStarts } from '../../lib/routeDistance'
+import { plannedSeconds, routeStepMarkers, sessionDistance } from '../../lib/routeDistance'
 import { cumulative, elevationProfile, formatDiff, formatDuration, formatKm, type LatLng } from '../../lib/routeTrack'
 import { googleMapsUrl, MAPS_WARNING } from '../../lib/routeMaps'
 import { gpxFileName, routeGpx } from '../../lib/routeGpx'
@@ -30,7 +30,6 @@ import {
     type StartPref,
 } from '../../services/routes'
 import { openingText } from '../../lib/routeProgress'
-import RouteRun from './RouteRun'
 
 /**
  * "Generate route" for an outdoor conditioning session: a loop (or out-and-back)
@@ -102,7 +101,6 @@ export default function RouteDrawer({
     const [picking, setPicking] = useState(false)
     const [kind, setKind] = useState<Kind>('loop')
     const [startPref, setStartPref] = useState<StartPref>('any')
-    const [running, setRunning] = useState(false)
 
     const [busy, setBusy] = useState(false)
     const [failure, setFailure] = useState<RouteFailure | null>(null)
@@ -182,9 +180,7 @@ export default function RouteDrawer({
         const totalPlanned = planned?.steps.reduce((t, s) => t + s.distanceM, 0) ?? 0
         // Planned steps stretched to the route as it came out.
         const scale = totalPlanned > 0 ? view.distanceM / totalPlanned : 1
-        const steps = planned?.steps.length
-            ? stepStarts(planned.steps).map((s) => ({ ...s, atM: s.atM * scale }))
-            : []
+        const steps = planned?.steps.length ? routeStepMarkers(planned.steps, view.distanceM) : []
         const seconds = planned?.steps.length ? plannedSeconds(planned.steps) * scale : null
         return { profile: elevationProfile(view.coords, cum), steps, seconds }
     }, [view, planned])
@@ -570,15 +566,12 @@ export default function RouteDrawer({
                                         )}
                                     </ul>
 
-                                    <Button
-                                        size="lg"
-                                        fullWidth
-                                        icon="fa-solid fa-person-running"
-                                        onClick={() => setRunning(true)}
-                                        disabled={view.reported}
-                                    >
-                                        Start run with live GPS
-                                    </Button>
+                                    {chosenId === view._id && (
+                                        <p className="flex items-start gap-2.5 rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+                                            <i className="fa-solid fa-location-arrow mt-0.5 text-blue-600" aria-hidden="true" />
+                                            When you press Start on this session, this route shows at the top with your live GPS position.
+                                        </p>
+                                    )}
                                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                         <Button
                                             variant={chosenId === view._id ? 'secondary' : 'strong'}
@@ -660,9 +653,6 @@ export default function RouteDrawer({
                 )}
             </Drawer>
 
-            {running && view && (
-                <RouteRun route={view} name={session?.name ?? 'Run'} steps={drawn?.steps ?? []} onClose={() => setRunning(false)} />
-            )}
             <ConfirmModal
                 open={confirmMaps}
                 title="Open in Google Maps"

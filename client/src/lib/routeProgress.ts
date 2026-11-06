@@ -110,3 +110,33 @@ export function openingText(openingM: number, distanceM: number): string {
     if (Math.abs(openingM) < 3) return `Starts flat over the first ${over} m`
     return `Starts ${openingM > 0 ? 'uphill' : 'downhill'} · ${openingM > 0 ? '+' : '−'}${Math.abs(openingM)} m over the first ${over} m`
 }
+
+/** Compass bearing from `a` to `b`, degrees clockwise from north (0–360). */
+export function bearing(a: LatLng, b: LatLng): number {
+    const r = Math.PI / 180
+    const y = Math.sin((b.lng - a.lng) * r) * Math.cos(b.lat * r)
+    const x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos((b.lng - a.lng) * r)
+    return ((Math.atan2(y, x) / r) % 360 + 360) % 360
+}
+
+/** You need to have moved this far for the direction of travel to mean anything. */
+export const HEADING_MIN_M = 12
+
+/**
+ * Which way you're heading, in compass degrees, or null when you're standing
+ * still. Uses the device's own heading when it gives one while moving;
+ * otherwise the line from the latest good fix back to one at least
+ * HEADING_MIN_M behind it (within the last 30 s).
+ */
+export function travelHeading(fixes: Fix[], deviceHeading?: number | null, speed?: number | null): number | null {
+    if (deviceHeading != null && Number.isFinite(deviceHeading) && (speed ?? 0) > 0.7) return deviceHeading
+    const good = fixes.filter((f) => f.accuracy <= MAX_ACCURACY_M)
+    const last = good[good.length - 1]
+    if (!last) return null
+    for (let i = good.length - 2; i >= 0; i--) {
+        const f = good[i]
+        if (last.t - f.t > 30_000) break
+        if (haversine(f, last) >= HEADING_MIN_M) return bearing(f, last)
+    }
+    return null
+}

@@ -162,3 +162,13 @@ export function stepStarts(steps: RouteStep[]): { atM: number; kind: StepKind; l
     }
     return out
 }
+
+/**
+ * Where each run/walk change falls on a generated route: the planned steps
+ * stretched to the route's actual length.
+ */
+export function routeStepMarkers(steps: RouteStep[], routeM: number): { atM: number; kind: StepKind; label: string }[] {
+    const total = steps.reduce((t, s) => t + s.distanceM, 0)
+    const scale = total > 0 ? routeM / total : 1
+    return stepStarts(steps).map((s) => ({ ...s, atM: s.atM * scale }))
+}

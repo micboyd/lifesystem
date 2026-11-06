@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cumulative } from './routeTrack'
-import { formatClock, formatPace, openingText, recentPace, snapToRoute, type Fix } from './routeProgress'
+import { bearing, formatClock, formatPace, openingText, recentPace, snapToRoute, travelHeading, type Fix } from './routeProgress'
 
 // A straight 1 km leg east, then back again — an out-and-back over the same ground.
 const LAT = 51.5
@@ -60,5 +60,25 @@ describe('formatting', () => {
         expect(openingText(18, 3600)).toBe('Starts uphill · +18 m over the first 900 m')
         expect(openingText(-9, 8000)).toBe('Starts downhill · −9 m over the first 1500 m')
         expect(openingText(1, 3600)).toBe('Starts flat over the first 900 m')
+    })
+})
+
+describe('travelHeading', () => {
+    const at = (m: number, t: number, accuracy = 5): Fix => ({ lat: LAT, lng: east(m), t, accuracy })
+    it('points east when running east', () => {
+        expect(travelHeading([at(0, 0), at(20, 6000)])).toBeCloseTo(90, 0)
+    })
+    it('points west on the way back', () => {
+        expect(travelHeading([at(40, 0), at(20, 6000)])).toBeCloseTo(270, 0)
+    })
+    it('is null when standing still', () => {
+        expect(travelHeading([at(0, 0), at(3, 6000)])).toBeNull()
+    })
+    it("trusts the device's heading only while moving", () => {
+        expect(travelHeading([at(0, 0), at(20, 6000)], 10, 3)).toBe(10)
+        expect(travelHeading([at(0, 0), at(20, 6000)], 10, 0)).toBeCloseTo(90, 0)
+    })
+    it('reads north as 0', () => {
+        expect(bearing({ lat: 51, lng: 0 }, { lat: 51.01, lng: 0 })).toBeCloseTo(0, 5)
     })
 })

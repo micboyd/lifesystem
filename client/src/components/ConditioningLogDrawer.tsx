@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Drawer from './Drawer'
 import Button from './Button'
 import DatePicker from './DatePicker'
@@ -8,6 +8,9 @@ import { SaveStatus } from './SessionPace'
 import { useStepTicks } from './session/SessionUI'
 import { SummaryExerciseList, SummaryStats, type SummaryRow } from './session/WorkoutSummary'
 import { conditioningPayload, useConditioningLog } from './useConditioningLog'
+import LiveRouteMap from './route/LiveRouteMap'
+import { listRoutes, type RunRoute } from '../services/routes'
+import { routeStepMarkers, sessionDistance } from '../lib/routeDistance'
 import { useToast } from '../context/ToastContext'
 import { todayKey } from '../lib/calendar'
 import { flattenPhases } from '../lib/phases'
@@ -40,6 +43,8 @@ export interface ConditioningLogTarget {
     existingLogId: string | null
     /** That log's notes, so the wrap-up starts from them. */
     notes?: string
+    /** The planned entry, when logging from the planner — its chosen route shows live. */
+    entryId?: string
 }
 
 /**
@@ -93,6 +98,30 @@ export default function ConditioningLogDrawer({
     })
     const steps = useStepTicks(view ? view.stepsKey : null)
 
+    // The planned entry's chosen route, shown live at the top while logging today.
+    const [route, setRoute] = useState<{ entryId: string; route: RunRoute } | null>(null)
+    const entryId = target?.entryId
+    const sessionId = target?.session._id
+    useEffect(() => {
+        if (!entryId || !sessionId) return
+        let live = true
+        listRoutes(sessionId)
+            .then((rs) => {
+                const chosen = rs.find((r) => r.chosenFor.includes(entryId) && !r.reported)
+                if (live) setRoute(chosen ? { entryId, route: chosen } : null)
+            })
+            .catch(() => live && setRoute(null))
+        return () => {
+            live = false
+        }
+    }, [entryId, sessionId])
+    const liveRoute = route && route.entryId === entryId && date === todayKey() ? route.route : null
+    const routeSteps = useMemo(() => {
+        if (!liveRoute || !session) return []
+        const planned = sessionDistance(session)
+        return planned.steps.length ? routeStepMarkers(planned.steps, liveRoute.distanceM) : []
+    }, [liveRoute, session])
+
     useEffect(() => {
         top.current?.scrollIntoView({ block: 'start' })
     }, [step])
@@ -144,7 +173,10 @@ export default function ConditioningLogDrawer({
                     ) : (
                         <Button onClick={() => setStep('wrap')}>
                             Wrap up
-                            <i className="fa-solid fa-arrow-right ml-2 text-xs" aria-hidden="true" />
+                            <i
+                                className="fa-solid fa-arrow-right ml-2 text-xs"
+                                aria-hidden="true"
+                            />
                         </Button>
                     )}
                 </div>
@@ -153,23 +185,36 @@ export default function ConditioningLogDrawer({
             {session && (
                 <div ref={top} className="scroll-mt-5">
                     {step === 'log' ? (
-                        <ConditioningSessionDetail
-                            session={session}
-                            counts={logger.taps.counts}
-                            onCount={(i, n) => {
-                                logger.count(i, n)
-                                // The last rep finishes the part — no separate
-                                // Completed press needed.
-                                const target = flattenPhases(session)[i]?.item.rounds ?? 0
-                                if (target > 0 && n >= target && logger.taps.completedAt[i] == null)
-                                    logger.complete(i)
-                            }}
-                            completedAt={logger.taps.completedAt}
-                            onComplete={logger.complete}
-                            onUndo={logger.undo}
-                            stepTicks={steps.ticks}
-                            onToggleStep={steps.toggle}
-                        />
+                        <div className="flex flex-col gap-6">
+                            {liveRoute && (
+                                <LiveRouteMap
+                                    key={liveRoute._id}
+                                    route={liveRoute}
+                                    steps={routeSteps}
+                                />
+                            )}
+                            <ConditioningSessionDetail
+                                session={session}
+                                counts={logger.taps.counts}
+                                onCount={(i, n) => {
+                                    logger.count(i, n)
+                                    // The last rep finishes the part — no separate
+                                    // Completed press needed.
+                                    const target = flattenPhases(session)[i]?.item.rounds ?? 0
+                                    if (
+                                        target > 0 &&
+                                        n >= target &&
+                                        logger.taps.completedAt[i] == null
+                                    )
+                                        logger.complete(i)
+                                }}
+                                completedAt={logger.taps.completedAt}
+                                onComplete={logger.complete}
+                                onUndo={logger.undo}
+                                stepTicks={steps.ticks}
+                                onToggleStep={steps.toggle}
+                            />
+                        </div>
                     ) : (
                         <WrapUp
                             session={session}
@@ -299,7 +344,9 @@ export function ConditioningSummary({
         const t = times[i]
         const delta = pace.delta[i]
         const chips = [
-            ...(item.rounds ? [`${counts[i] ?? 0}/${item.rounds} ${item.roundLabel || 'rounds'}`] : []),
+            ...(item.rounds
+                ? [`${counts[i] ?? 0}/${item.rounds} ${item.roundLabel || 'rounds'}`]
+                : []),
             ...(t !== null ? [timeOfDay(t)] : []),
             ...(t !== null && delta != null ? [driftLabel(delta)] : []),
         ]
