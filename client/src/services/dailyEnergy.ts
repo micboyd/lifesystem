@@ -23,7 +23,11 @@ export async function saveDailyEnergy(
     return res.data.data
 }
 
-/** Clear a day's figure, putting it back to unknown rather than zero. */
-export async function deleteDailyEnergy(date: string): Promise<void> {
-    await api.delete(`/daily-energy/${date}`)
+/**
+ * Clear a day's typed figure. Returns the row as it now stands — back on
+ * Garmin's figure — or null when there's no Garmin figure and the day is unknown.
+ */
+export async function deleteDailyEnergy(date: string): Promise<DailyEnergy | null> {
+    const res = await api.delete<ApiResponse<DailyEnergy | null>>(`/daily-energy/${date}`)
+    return res.data.data ?? null
 }

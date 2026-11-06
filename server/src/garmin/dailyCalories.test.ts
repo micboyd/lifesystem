@@ -9,9 +9,19 @@ describe('daysToAsk', () => {
         expect(daysToAsk('2026-11-02', '2026-11-06', TODAY, [], never)).toEqual(['2026-11-02', '2026-11-03'])
     })
 
-    it('never touches a typed figure, old or new', () => {
-        const stored = [{ date: '2026-11-02', source: 'manual' as const }, { date: '2026-11-03' }]
-        expect(daysToAsk('2026-11-01', '2026-11-03', TODAY, stored, never)).toEqual(['2026-11-01'])
+    it('still asks for Garmin\'s figure under a typed override, until it has a settled one', () => {
+        const stored = [
+            { date: '2026-10-30', source: 'manual' as const, garminCaloriesOut: 2600 },
+            { date: '2026-10-31', source: 'manual' as const },
+            { date: '2026-11-01' },
+            { date: '2026-11-03', source: 'manual' as const, garminCaloriesOut: 2700 },
+        ]
+        expect(daysToAsk('2026-10-30', '2026-11-03', TODAY, stored, never)).toEqual([
+            '2026-10-31',
+            '2026-11-01',
+            '2026-11-02',
+            '2026-11-03',
+        ])
     })
 
     it('refreshes a pulled figure while it may still change, then leaves it', () => {

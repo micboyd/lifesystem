@@ -48,8 +48,10 @@ export async function upsertDailyEnergy(req: AuthRequest, res: Response) {
     }
 
     const note = typeof notes === 'string' ? notes.trim() : ''
-    // A typed figure wins over the watch from here on.
-    const set: Record<string, unknown> = { caloriesOut: kcal, source: 'manual' }
+    // A typed figure overrides the watch's — unless it's the watch's own figure.
+    const existing = await DailyEnergy.findOne({ user: req.userId, date }).select('garminCaloriesOut').lean()
+    const source = existing?.garminCaloriesOut === kcal ? 'garmin' : 'manual'
+    const set: Record<string, unknown> = { caloriesOut: kcal, source }
     const unset: Record<string, 1> = {}
     if (note) set.notes = note
     else unset.notes = 1
@@ -64,9 +66,10 @@ export async function upsertDailyEnergy(req: AuthRequest, res: Response) {
 }
 
 /**
- * DELETE /api/daily-energy/:date — clear a day's figure. Keyed by date rather
- * than id: the client knows which day it's looking at, and never needs to have
- * loaded the row to be able to clear it.
+ * DELETE /api/daily-energy/:date — clear a day's typed figure. When Garmin has
+ * a figure for the day the row falls back to it (and comes back as `data`);
+ * otherwise the row goes and `data` is null. Keyed by date rather than id: the
+ * client knows which day it's looking at.
  */
 export async function deleteDailyEnergy(req: AuthRequest, res: Response) {
     const { date } = req.params
@@ -75,10 +78,20 @@ export async function deleteDailyEnergy(req: AuthRequest, res: Response) {
         return
     }
 
+    const reverted = await DailyEnergy.findOneAndUpdate(
+        { user: req.userId, date, garminCaloriesOut: { $exists: true } },
+        [{ $set: { caloriesOut: '$garminCaloriesOut', source: 'garmin' } }],
+        { new: true }
+    )
+    if (reverted) {
+        res.json({ message: 'Back to Garmin', data: reverted })
+        return
+    }
+
     const entry = await DailyEnergy.findOneAndDelete({ user: req.userId, date })
     if (!entry) {
         res.status(404).json({ message: 'No entry for that day' })
         return
     }
-    res.json({ message: 'Deleted', data: entry })
+    res.json({ message: 'Deleted', data: null })
 }

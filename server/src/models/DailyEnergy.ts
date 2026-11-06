@@ -15,14 +15,19 @@ export interface IDailyEnergy extends Document {
     user: Types.ObjectId
     /** YYYY-MM-DD — the day the burn covers. */
     date: string
-    /** Total calories burned across the whole day. */
+    /** Total calories burned across the whole day — the figure everything reads. */
     caloriesOut: number
     /**
-     * Where the figure came from. 'garmin' rows were pulled from the watch and
-     * may be refreshed by the next pull; a typed figure ('manual', or none on
-     * older rows) is never overwritten by one.
+     * Where `caloriesOut` came from. 'garmin' is the watch's figure, refreshed
+     * by the next pull; a typed figure ('manual', or none on older rows) is an
+     * override the pull never replaces.
      */
     source?: 'manual' | 'garmin'
+    /**
+     * Garmin's figure for the day, kept even under a typed override, so
+     * clearing the override falls back to it.
+     */
+    garminCaloriesOut?: number
     notes?: string
     createdAt: Date
     updatedAt: Date
@@ -34,6 +39,7 @@ const dailyEnergySchema = new Schema<IDailyEnergy>(
         date: { type: String, required: true, match: ISO_DATE_PATTERN },
         caloriesOut: { type: Number, required: true, min: 0 },
         source: { type: String, enum: ['manual', 'garmin'] },
+        garminCaloriesOut: { type: Number, min: 0 },
         notes: { type: String, trim: true },
     },
     { timestamps: true }

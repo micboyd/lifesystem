@@ -4,9 +4,12 @@
  *
  * Only days before the user's today: a day still under way has a total that
  * is still climbing, and the target for it runs on the forecast until then.
- * A figure typed by hand is never overwritten — it's a correction. A pulled
- * figure is refreshed for a couple of days, while Garmin may still be syncing
- * the watch; after that it's final and Garmin isn't asked again.
+ * Garmin's figure is the day's default. A figure typed over it is an override:
+ * the pull stores Garmin's figure beside it (so clearing the override falls
+ * back to it) but never replaces it. A figure typed before Garmin had one for
+ * the day overrode nothing, so Garmin's replaces it. A pulled figure is refreshed for a couple
+ * of days, while Garmin may still be syncing the watch; after that it's final
+ * and Garmin isn't asked again.
  */
 import DailyEnergy from '../models/DailyEnergy'
 import { providerFor } from './account'
@@ -32,11 +35,13 @@ export function addDays(date: string, n: number): string {
 export interface StoredDay {
     date: string
     source?: 'manual' | 'garmin'
+    garminCaloriesOut?: number
 }
 
 /**
- * The days worth asking Garmin about: in range, before today, not typed by
- * hand, not already pulled and settled, and not asked about recently.
+ * The days worth asking Garmin about: in range, before today, without a
+ * settled Garmin figure, and not asked about recently. A typed override still
+ * gets Garmin's figure stored beside it.
  */
 export function daysToAsk(
     from: string,
@@ -50,8 +55,8 @@ export function daysToAsk(
     const out: string[] = []
     for (let d = from; d <= to && d < today && out.length < MAX_PULL_DAYS; d = addDays(d, 1)) {
         const row = byDate.get(d)
-        if (row && row.source !== 'garmin') continue
-        if (row && d < settledBefore) continue
+        const hasGarmin = row !== undefined && (row.source === 'garmin' || row.garminCaloriesOut !== undefined)
+        if (hasGarmin && d < settledBefore) continue
         if (recentlyAsked(d)) continue
         out.push(d)
     }
@@ -73,7 +78,7 @@ export async function pullDailyCalories(
 ): Promise<PullResult> {
     const now = opts.now ?? Date.now()
     const stored = await DailyEnergy.find({ user: userId, date: { $gte: from, $lte: to } })
-        .select('date source caloriesOut')
+        .select('date source caloriesOut garminCaloriesOut')
         .lean()
     const dates = daysToAsk(from, to, today, stored, (d) => {
         const at = asked.get(key(userId, d))
@@ -89,12 +94,27 @@ export async function pullDailyCalories(
     for (const day of days) {
         if (!dates.includes(day.date)) continue
         const row = stored.find((s) => s.date === day.date)
-        if (row?.caloriesOut === day.kcal) continue
-        // Only ever a pulled row: one typed in the meantime doesn't match, and
-        // the upsert then collides with it on { user, date } and is dropped.
+        if (row?.garminCaloriesOut === day.kcal) continue
+        // A figure typed over Garmin's keeps its figure; Garmin's is refreshed beside it.
+        const typed = await DailyEnergy.updateOne(
+            { user: userId, date: day.date, source: { $ne: 'garmin' }, garminCaloriesOut: { $exists: true } },
+            { $set: { garminCaloriesOut: day.kcal } }
+        ).catch(() => null)
+        if (typed?.matchedCount) {
+            if (typed.modifiedCount) updated.push(day)
+            continue
+        }
+        // Otherwise Garmin's figure is the day's — including over a figure typed
+        // before Garmin had one, which wasn't overriding anything. A row typed
+        // over Garmin's in the meantime doesn't match, and the upsert then
+        // collides on { user, date } and is dropped.
         const res = await DailyEnergy.updateOne(
-            { user: userId, date: day.date, source: 'garmin' },
-            { $set: { caloriesOut: day.kcal } },
+            {
+                user: userId,
+                date: day.date,
+                $or: [{ source: 'garmin' }, { garminCaloriesOut: { $exists: false } }],
+            },
+            { $set: { caloriesOut: day.kcal, garminCaloriesOut: day.kcal, source: 'garmin' } },
             { upsert: true }
         ).catch(() => null)
         if (res && (res.modifiedCount || res.upsertedCount)) updated.push(day)

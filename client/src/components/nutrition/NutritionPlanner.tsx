@@ -204,6 +204,13 @@ export default function NutritionPlanner({
         return () => window.removeEventListener(GARMIN_CALORIES_PULLED, reload)
     }, [today])
 
+    // …and the finished days of whichever week is open, so an older week shows
+    // Garmin's figures too.
+    useEffect(() => {
+        const lastDone = addDays(today, -1)
+        void pullGarminCaloriesQuietly(range.start, range.end < lastDone ? range.end : lastDone, today)
+    }, [range.start, range.end, today])
+
     useEffect(() => {
         // Refetch silently on a week change — the days keep the previous meals
         // until the new ones arrive, so navigation never flashes a spinner.
@@ -437,8 +444,8 @@ export default function NutritionPlanner({
 
     async function saveOut(date: string, value: number | null) {
         if (value === null) {
-            await deleteDailyEnergy(date)
-            setEnergy((prev) => prev.filter((e) => e.date !== date))
+            const kept = await deleteDailyEnergy(date)
+            setEnergy((prev) => [...prev.filter((e) => e.date !== date), ...(kept ? [kept] : [])])
         } else {
             const saved = await saveDailyEnergy(date, value)
             setEnergy((prev) => [...prev.filter((e) => e.date !== date), saved])
@@ -571,7 +578,7 @@ export default function NutritionPlanner({
                     entries={entries}
                     goalsFor={(date) => targetsFor(date, phases, settingsGoals).goals}
                     outFor={(date) => energy.find((e) => e.date === date)?.caloriesOut ?? null}
-                    outFromGarminFor={(date) => energy.find((e) => e.date === date)?.source === 'garmin'}
+                    garminOutFor={(date) => garminOut(energy.find((e) => e.date === date))}
                     onSelect={setAnchor}
                     // Days ahead are planned; today and before, what's added was eaten.
                     onAdd={(date, slot) => setPicker({ date, slot, eaten: date <= today })}
@@ -837,7 +844,7 @@ function WeekView({
     entries,
     goalsFor,
     outFor,
-    outFromGarminFor,
+    garminOutFor,
     onSelect,
     onAdd,
     onOpen,
@@ -860,8 +867,8 @@ function WeekView({
     entries: MealPlanEntry[]
     goalsFor: (date: string) => MacroGoals | null
     outFor: (date: string) => number | null
-    /** Whether that day's calories out was pulled from Garmin rather than typed. */
-    outFromGarminFor: (date: string) => boolean
+    /** Garmin's calories out for that day, typed over or not — null when it has none. */
+    garminOutFor: (date: string) => number | null
     onSelect: (date: string) => void
     onAdd: (date: string, slot: MealType) => void
     onOpen: (entry: MealPlanEntry) => void
@@ -935,7 +942,7 @@ function WeekView({
                     entries={entries.filter((e) => e.date === date)}
                     goals={goalsFor(date)}
                     out={outFor(date)}
-                    outFromGarmin={outFromGarminFor(date)}
+                    garminOut={garminOutFor(date)}
                     onAdd={(slot) => onAdd(date, slot)}
                     onOpen={onOpen}
                     onToggle={onToggle}
@@ -970,7 +977,7 @@ function DayCard({
     entries,
     goals,
     out,
-    outFromGarmin = false,
+    garminOut = null,
     onAdd,
     onOpen,
     onToggle,
@@ -1000,8 +1007,8 @@ function DayCard({
     goals: MacroGoals | null
     /** The day's calories out, from a watch — the whole day's total. */
     out: number | null
-    /** That figure was pulled from Garmin, not typed. */
-    outFromGarmin?: boolean
+    /** Garmin's figure for the day — `out` unless it's been typed over. */
+    garminOut?: number | null
     onAdd: (slot: MealType) => void
     onOpen: (entry: MealPlanEntry) => void
     onToggle: (entry: MealPlanEntry) => void
@@ -1132,7 +1139,7 @@ function DayCard({
                     key={out ?? 'none'}
                     eaten={totals.eaten.calories}
                     out={out}
-                    fromGarmin={outFromGarmin}
+                    garminOut={garminOut}
                     onSaveOut={onSaveOut}
                 />
             )}
@@ -1348,26 +1355,55 @@ function PlannedRow({
 
 // ─── Calories in and out ─────────────────────────────────────────────────────
 
+/** Garmin's figure for a stored day — older pulled rows only carry it as caloriesOut. */
+function garminOut(row: DailyEnergy | undefined): number | null {
+    if (!row) return null
+    if (row.garminCaloriesOut !== undefined) return row.garminCaloriesOut
+    return row.source === 'garmin' ? row.caloriesOut : null
+}
+
+/** A small wristwatch, marking a figure that came from Garmin. */
+function WatchIcon({ className = '' }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`inline-block h-3 w-3 shrink-0 ${className}`}
+            aria-hidden="true"
+        >
+            <rect x="6" y="6" width="12" height="12" rx="3" />
+            <path d="M9 6l.6-3h4.8L15 6M9 18l.6 3h4.8l.6-3M12 9.5V12l1.5 1.5" />
+        </svg>
+    )
+}
+
 /**
  * Calories in against out, once the day has happened — folded away under one
  * line ("Balance −420 kcal", or a nudge to add calories out). Calories out is
- * the whole day's total, typed from a watch.
+ * the whole day's total: the field holds Garmin's figure by default (marked
+ * with a watch); typing over it overrides it, and emptying it goes back to Garmin's.
  */
 function DayEnergy({
     eaten,
     out,
-    fromGarmin = false,
+    garminOut = null,
     onSaveOut,
 }: {
     /** Calories eaten that day. */
     eaten: number
     out: number | null
-    /** `out` was pulled from Garmin — marked so it's clear it wasn't typed. */
-    fromGarmin?: boolean
+    /** Garmin's figure for the day, whether or not it's been typed over. */
+    garminOut?: number | null
+    /** Null clears a typed figure — back to Garmin's, when there is one. */
     onSaveOut: (value: number | null) => Promise<void>
 }) {
     const [open, setOpen] = useState(false)
     const net = out === null ? null : eaten - out
+    const fromGarmin = garminOut !== null && out === garminOut
 
     return (
         <div className="rounded-2xl bg-neutral-50">
@@ -1390,7 +1426,12 @@ function DayEnergy({
                                 {signedKcal(net)}
                             </span>{' '}
                             kcal
-                            {fromGarmin && <span className="text-neutral-400"> · Garmin</span>}
+                            {fromGarmin && (
+                                <span title="Calories out from Garmin">
+                                    {' '}
+                                    <WatchIcon className="-mt-0.5 align-middle text-neutral-400" />
+                                </span>
+                            )}
                         </>
                     ) : (
                         'Add calories out'
@@ -1414,12 +1455,12 @@ function DayEnergy({
                             Calories out
                             {fromGarmin && (
                                 <span className="inline-flex items-center gap-1 text-[11px] text-neutral-400">
-                                    <i className="fa-solid fa-clock text-[10px]" aria-hidden="true" />
-                                    From Garmin
+                                    <WatchIcon />
+                                    Garmin
                                 </span>
                             )}
                         </span>
-                        <OutField out={out} onSave={onSaveOut} />
+                        <OutField out={out} placeholder={garminOut} onSave={onSaveOut} />
                     </label>
                 </div>
             )}
@@ -1448,7 +1489,16 @@ function Unit({ children }: { children: ReactNode }) {
  * Calories out, the whole day's total from a watch — typed straight in, saved
  * on blur or Enter, cleared by emptying it.
  */
-function OutField({ out, onSave }: { out: number | null; onSave: (value: number | null) => Promise<void> }) {
+function OutField({
+    out,
+    placeholder = null,
+    onSave,
+}: {
+    out: number | null
+    /** Shown when the field is empty — Garmin's figure, which clearing falls back to. */
+    placeholder?: number | null
+    onSave: (value: number | null) => Promise<void>
+}) {
     const [value, setValue] = useState(out === null ? '' : String(out))
     const [saving, setSaving] = useState(false)
 
@@ -1463,6 +1513,8 @@ function OutField({ out, onSave }: { out: number | null; onSave: (value: number 
         setSaving(true)
         try {
             await onSave(next)
+            // Cleared: the day goes back to Garmin's figure, so show it.
+            if (next === null && placeholder !== null) setValue(String(placeholder))
         } catch {
             setValue(out === null ? '' : String(out))
         } finally {
@@ -1476,7 +1528,7 @@ function OutField({ out, onSave }: { out: number | null; onSave: (value: number 
                 type="text"
                 inputMode="numeric"
                 enterKeyHint="done"
-                placeholder="0"
+                placeholder={placeholder === null ? '0' : String(placeholder)}
                 value={value}
                 disabled={saving}
                 onChange={(e) => setValue(e.target.value)}
