@@ -264,7 +264,7 @@ describe('yourDay with a perfect-day selection', () => {
                 },
             })
         )
-        expect(ids(d)).toEqual(['meal-breakfast', 'protein', 'calories', 'habit-h2'])
+        expect(tasks(d)).toEqual(['meal-breakfast', 'habit-h2', 'protein', 'calories'])
     })
 
     it('leaves a skipped food off without asking to plan meals', () => {
@@ -274,12 +274,12 @@ describe('yourDay with a perfect-day selection', () => {
                 selection: { items: [], skipFoods: ['flat white'] },
             })
         )
-        expect(ids(d)).toEqual(['breakfast-Oats'])
+        expect(tasks(d)).toEqual(['meal-breakfast-Oats'])
 
         const only = yourDay(
             inputs({ meals: [meal('breakfast', { name: 'Flat White' })], selection: { items: [], skipFoods: ['flat white'] } })
         )
-        expect(ids(only)).toEqual([])
+        expect(tasks(only)).toEqual([])
     })
 
     it('makes the weigh-in a must on its chosen days, even without recent weigh-ins', () => {
@@ -301,5 +301,27 @@ describe('yourDay with a perfect-day selection', () => {
             })
         )
         expect(d.steps).toEqual([])
+    })
+})
+
+describe('walks in Your day', () => {
+    const walkItem = (time: string, done = false) => ({ id: time, time, title: 'Walk', detail: `${time} · 45 min`, done })
+
+    it('places a walk in its part of the day and links to that day', () => {
+        const s = step(yourDay(inputs({ walks: [walkItem('18:30')] })), 'walk-18:30')
+        expect(s).toMatchObject({ kind: 'walk', part: 'evening', state: 'todo' })
+        expect(s.to).toMatch(/^\/walking\?date=/)
+    })
+
+    it('counts a done walk towards the day', () => {
+        const without = yourDay(inputs())
+        const day = yourDay(inputs({ walks: [walkItem('08:00', true)] }))
+        expect(day.total).toBe(without.total + 1)
+        expect(day.done).toBe(without.done + 1)
+    })
+
+    it('leaves walks out on days they’re switched off', () => {
+        const selection = { items: [{ key: 'walk', days: [] }], skipFoods: [] }
+        expect(ids(yourDay(inputs({ walks: [walkItem('08:00')], selection })))).not.toContain('walk-08:00')
     })
 })

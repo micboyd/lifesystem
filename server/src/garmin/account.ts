@@ -132,6 +132,7 @@ function watchExpiry(provider: GarminWorkoutProvider, userId: string): GarminWor
         listActivities: guard(provider.listActivities.bind(provider)),
         getActivity: guard(provider.getActivity.bind(provider)),
         dailyCalories: guard(provider.dailyCalories.bind(provider)),
+        dailySteps: guard(provider.dailySteps.bind(provider)),
     }
 }
 

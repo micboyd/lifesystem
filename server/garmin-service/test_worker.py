@@ -71,6 +71,14 @@ class FakeGarmin:
             raise value
         return value
 
+    steps: list | Exception = []
+
+    def get_daily_steps(self, start, end):
+        FakeGarmin.asked_range = (start, end)
+        if isinstance(FakeGarmin.steps, Exception):
+            raise FakeGarmin.steps
+        return FakeGarmin.steps
+
     def get_activities_by_date(self, start, end=None):
         FakeGarmin.asked_range = (start, end)
         return FakeGarmin.activities
@@ -225,6 +233,27 @@ class WorkerTest(unittest.TestCase):
     def test_daily_calories_expired_session(self):
         FakeGarmin.summaries = {"2026-11-02": garminconnect.GarminConnectAuthenticationError("nope")}
         reply = self.run_op({"op": "daily_calories", "tokens": TOKENS, "dates": ["2026-11-02"]})
+        self.assertEqual(reply["code"], "session_expired")
+
+    def test_daily_steps_keeps_days_with_a_figure(self):
+        FakeGarmin.steps = [
+            {"calendarDate": "2026-11-07", "totalSteps": 9120, "stepGoal": 8000},
+            {"calendarDate": "2026-11-08", "totalSteps": 0},
+            {"calendarDate": "2026-11-09", "totalSteps": None},
+            "junk",
+        ]
+        reply = self.run_op({"op": "daily_steps", "tokens": TOKENS, "from": "2026-11-07", "to": "2026-11-09"})
+        self.assertTrue(reply["ok"])
+        self.assertEqual(reply["result"]["days"], [{"date": "2026-11-07", "steps": 9120}])
+        self.assertEqual(FakeGarmin.asked_range, ("2026-11-07", "2026-11-09"))
+
+    def test_daily_steps_needs_dates(self):
+        reply = self.run_op({"op": "daily_steps", "tokens": TOKENS, "from": "soon", "to": "2026-11-09"})
+        self.assertEqual(reply["code"], "bad_request")
+
+    def test_daily_steps_expired_session(self):
+        FakeGarmin.steps = garminconnect.GarminConnectAuthenticationError("nope")
+        reply = self.run_op({"op": "daily_steps", "tokens": TOKENS, "from": "2026-11-07", "to": "2026-11-09"})
         self.assertEqual(reply["code"], "session_expired")
 
     def test_list_activities_needs_dates(self):

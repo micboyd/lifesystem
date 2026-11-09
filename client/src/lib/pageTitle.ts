@@ -12,6 +12,7 @@ export function pageNameForPath(pathname: string): string | null {
     if (pathname === '/goals') return 'Habits & goals'
     if (pathname === '/fitness') return 'Fitness'
     if (pathname === '/nutrition') return 'Nutrition'
+    if (pathname.startsWith('/walking')) return 'Walking'
     if (pathname === '/timeline') return 'Timeline'
     if (pathname === '/consistency') return 'Consistency'
     if (pathname.startsWith('/finances/breakdown')) return 'Breakdown'

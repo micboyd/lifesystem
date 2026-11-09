@@ -42,6 +42,8 @@ export interface UserSettings {
     weatherLocation?: WeatherLocation
     /** Per-day macro targets, tracked against the weekly meal plan. */
     macroGoals?: MacroGoals
+    /** Steps a day to aim for; 0 clears it when saving. */
+    stepGoal?: number
     /** Bodyweight target and intended rate of change. */
     bodyGoals?: BodyGoals
     /** Height, date of birth and sex — for the Timeline's projected burn (lib/bmr.ts). */

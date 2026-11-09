@@ -181,6 +181,18 @@ export async function updateSettings(req: AuthRequest, res: Response) {
         set['settings.savingsGoal'] = Math.round(req.body.savingsGoal * 100) / 100
     }
 
+    // Daily step target: whole steps above zero, or null/0 to clear.
+    if (req.body.stepGoal === null || req.body.stepGoal === 0) {
+        unset['settings.stepGoal'] = 1
+    } else if (
+        typeof req.body.stepGoal === 'number' &&
+        Number.isFinite(req.body.stepGoal) &&
+        req.body.stepGoal >= 1 &&
+        req.body.stepGoal <= 200_000
+    ) {
+        set['settings.stepGoal'] = Math.round(req.body.stepGoal)
+    }
+
     // Array settings
     if (Array.isArray(req.body.workDays)) {
         set['settings.workDays'] = req.body.workDays.filter(

@@ -15,6 +15,7 @@ import { entryGarminState, previewSession, sendEntry, type SyncSession } from '.
 import GarminActivity, { type IGarminActivity } from '../models/GarminActivity'
 import { checkActivities, linkByHand, rangeIsValid, unlinkActivity } from '../garmin/activities'
 import { pullDailyCalories } from '../garmin/dailyCalories'
+import { MAX_PULL_DAYS, MAX_STORED_DAYS, pullDailySteps, stepRangeIsValid, storedSteps } from '../garmin/dailySteps'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -211,6 +212,36 @@ export const pullCalories = handle(async (req, res) => {
         return
     }
     res.json({ message: 'OK', data: await pullDailyCalories(req.userId!, from, to, today) })
+})
+
+function validStepRange(from: unknown, to: unknown, maxDays: number): boolean {
+    return (
+        typeof from === 'string' &&
+        typeof to === 'string' &&
+        DATE_RE.test(from) &&
+        DATE_RE.test(to) &&
+        stepRangeIsValid(from, to, maxDays)
+    )
+}
+
+/** GET /api/garmin/steps?from&to — the days already copied from Garmin. Doesn't call Garmin. */
+export const listSteps = handle(async (req, res) => {
+    const { from, to } = req.query
+    if (!validStepRange(from, to, MAX_STORED_DAYS)) {
+        res.status(400).json({ message: `from and to (YYYY-MM-DD, up to ${MAX_STORED_DAYS} days) are required`, code: 'bad_request' })
+        return
+    }
+    res.json({ message: 'OK', data: await storedSteps(req.userId!, from as string, to as string) })
+})
+
+/** POST /api/garmin/steps/pull { from, to } — refresh the range from Garmin; every stored day comes back. */
+export const pullSteps = handle(async (req, res) => {
+    const { from, to } = req.body ?? {}
+    if (!validStepRange(from, to, MAX_PULL_DAYS)) {
+        res.status(400).json({ message: `from and to (YYYY-MM-DD, up to ${MAX_PULL_DAYS} days) are required`, code: 'bad_request' })
+        return
+    }
+    res.json({ message: 'OK', data: await pullDailySteps(req.userId!, from, to) })
 })
 
 /** The stored run for the browser — everything but the owner and Mongo's own fields. */

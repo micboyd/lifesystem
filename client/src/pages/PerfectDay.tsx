@@ -55,6 +55,7 @@ const FIXED_GROUPS: { title: string; rows: Row[] }[] = [
         title: 'Training',
         rows: [
             { key: 'training', label: 'Planned sessions', detail: 'Each session on the planner that day.', icon: 'fa-solid fa-dumbbell' },
+            { key: 'walk', label: 'Planned walks', detail: 'Each walk planned that day.', icon: 'fa-solid fa-person-walking' },
             { key: 'rest', label: 'Rest day note', detail: 'Shown when nothing’s planned. Never a task.', icon: 'fa-solid fa-mug-hot' },
         ],
     },

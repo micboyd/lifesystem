@@ -60,10 +60,11 @@ const fmt = (p: LatLng) => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`
 /**
  * The Google Maps directions URL. A loop starts and finishes on the same
  * point. An out-and-back's waypoints come from the outward leg only (the turn
- * point among them); Maps brings it home the same way. Coordinates only, never
+ * point among them); Maps brings it home the same way. A one-way walk ends
+ * where its line ends. Coordinates only, never
  * place names, each encoded.
  */
-export function googleMapsUrl(coords: RouteCoord[], kind: 'loop' | 'outback'): string {
+export function googleMapsUrl(coords: RouteCoord[], kind: 'loop' | 'outback' | 'oneway'): string {
     const start = toLatLng(coords[0])
     const finish = kind === 'loop' ? start : toLatLng(coords[coords.length - 1])
     let wayIdx: number[]

@@ -440,8 +440,28 @@ def op_daily_calories(req: dict[str, Any]) -> dict[str, Any]:
     return {"result": {"days": days}, "tokens": _dump(api)}
 
 
+def op_daily_steps(req: dict[str, Any]) -> dict[str, Any]:
+    """
+    Each day's step total over a date range, in one Garmin call. Today's total
+    is whatever the watch has synced so far. A day with no figure, or zero (the
+    watch wasn't worn), is left out so it reads as unknown rather than idle.
+    """
+    start, end = _date(req.get("from")), _date(req.get("to"))
+    api = _client(req)
+    rows = api.get_daily_steps(start, end) or []
+    days = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict) or not isinstance(row.get("calendarDate"), str):
+            continue
+        steps = _num(row.get("totalSteps"))
+        if steps is not None and steps > 0:
+            days.append({"date": row["calendarDate"][:DATE_RE_LEN], "steps": round(steps)})
+    return {"result": {"days": days}, "tokens": _dump(api)}
+
+
 OPS = {
     "daily_calories": op_daily_calories,
+    "daily_steps": op_daily_steps,
     "list_activities": op_list_activities,
     "get_activity": op_get_activity,
     "login": op_login,

@@ -103,6 +103,14 @@ export interface GarminWorkoutProvider {
     getActivity(activityId: string): Promise<ActivityDetail>
     /** Each day's total calories burned. Days Garmin has no figure for are left out. */
     dailyCalories(dates: string[]): Promise<DayCalories[]>
+    /** Each day's steps from–to ("YYYY-MM-DD", inclusive). Days with no figure are left out. */
+    dailySteps(from: string, to: string): Promise<DaySteps[]>
+}
+
+/** A day's step total; for today, what the watch has synced so far. */
+export interface DaySteps {
+    date: string
+    steps: number
 }
 
 /** A day's whole total — resting plus active — as Garmin's daily summary has it. */

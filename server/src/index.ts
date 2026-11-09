@@ -35,6 +35,7 @@ import nutritionPhaseRoutes from './routes/nutritionPhaseRoutes'
 import path from 'path'
 import reminderRoutes from './routes/reminderRoutes'
 import routeRoutes from './routes/routeRoutes'
+import walkRoutes from './routes/walkRoutes'
 import savingsTargetRoutes from './routes/savingsTargetRoutes'
 import taskRoutes from './routes/taskRoutes'
 import totalsRoutes from './routes/totalsRoutes'
@@ -107,6 +108,7 @@ app.use('/api/savings-targets', savingsTargetRoutes)
 app.use('/api/life-plans', lifePlanRoutes)
 app.use('/api/nutrition-phases', nutritionPhaseRoutes)
 app.use('/api/routes', routeRoutes)
+app.use('/api/walks', walkRoutes)
 
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' })

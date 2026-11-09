@@ -1,5 +1,6 @@
 import api from './api'
 import type { ApiResponse, GarminState, WatchStep } from '../types'
+import type { DaySteps } from '../lib/steps'
 
 export interface GarminStatus {
     /** Whether the server can store tokens (GARMIN_TOKEN_KEY is set). */
@@ -222,6 +223,19 @@ export async function checkGarminRunsQuietly(from: string, to: string): Promise<
             if (quietFor === key) quietFor = null
         }, 60_000)
     }
+}
+
+// ── Steps ────────────────────────────────────────────────────────────────────
+
+/** The days already copied from Garmin. Doesn't wait on Garmin. */
+export async function listSteps(from: string, to: string): Promise<DaySteps[]> {
+    return (await api.get<ApiResponse<DaySteps[]>>('/garmin/steps', { params: { from, to } })).data.data
+}
+
+/** Refresh the range from Garmin (the server limits how often); every stored day comes back. */
+export async function pullSteps(from: string, to: string): Promise<DaySteps[]> {
+    const res = await api.post<ApiResponse<{ days: DaySteps[] }>>('/garmin/steps/pull', { from, to })
+    return res.data.data.days
 }
 
 // ── Calories out ─────────────────────────────────────────────────────────────

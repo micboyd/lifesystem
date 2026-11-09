@@ -5,6 +5,8 @@ import DashboardDateNav from '../components/dashboard/DashboardDateNav'
 import YourDayWidget from '../components/dashboard/YourDayWidget'
 import TomorrowWidget, { useTomorrowVisible } from '../components/dashboard/TomorrowWidget'
 import TimelineWidget from '../components/dashboard/TimelineWidget'
+import StepsWidget from '../components/dashboard/StepsWidget'
+import WalkingWidget from '../components/dashboard/WalkingWidget'
 import WeatherWidget from '../components/dashboard/WeatherWidget'
 import CountdownsWidget from '../components/dashboard/CountdownsWidget'
 import BirthdaysWidget from '../components/dashboard/BirthdaysWidget'
@@ -14,7 +16,7 @@ import { todayKey } from '../lib/calendar'
  * The day on one open page, most important first. A greeting, then Your day —
  * training, meals, habits and targets, in order, and what to do next — which
  * is the one place today lives. Then, quieter, a row of things to glance at:
- * the timeline, the weather, countdowns, and birthdays when one is close.
+ * the timeline, steps, walks, the weather, countdowns, and birthdays when one is close.
  */
 export default function Home() {
     const [date, setDate] = useState(todayKey())
@@ -40,6 +42,8 @@ export default function Home() {
 
             <div className="mt-14 grid gap-x-12 gap-y-12 border-t border-neutral-200 pt-12 sm:mt-16 md:grid-cols-2 lg:grid-cols-3">
                 <TimelineWidget />
+                <StepsWidget />
+                <WalkingWidget date={date} />
                 <WeatherWidget />
                 <CountdownsWidget />
                 <BirthdaysWidget date={date} />

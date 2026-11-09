@@ -7,36 +7,28 @@ import RunRoute, { ROUTE_KINDS, type RunRouteKind } from '../models/RunRoute'
 import RouteMemory, { type IRouteMemory } from '../models/RouteMemory'
 import { RouteError, roundTrip, oneWay } from '../lib/openroute'
 import { generateRoute, MAX_CANDIDATES } from '../lib/routeGenerate'
-import { haversine, routeCells, type Coord, type LatLng } from '../lib/routeGeo'
+import { haversine, readPoint, routeCells, type Coord } from '../lib/routeGeo'
 import { historyToPrune, START_PREFS, type StartPref } from '../lib/routeSelect'
 import { dailyLimit, recordCalls, usage, usedToday } from '../lib/routeUsage'
 
 /** Unchosen routes kept per session; chosen ones are always kept. */
 const HISTORY = 12
-const COOLDOWN_MS = 8_000
-const MIN_TARGET_M = 400
-const MAX_TARGET_M = 42_200
+export const COOLDOWN_MS = 8_000
+export const MIN_TARGET_M = 400
+export const MAX_TARGET_M = 42_200
 /** Reported routes count against candidates starting within this distance. */
-const BAD_RADIUS_M = 3_000
+export const BAD_RADIUS_M = 3_000
 const MAX_SEEN = 80
 const MAX_KEYS = 2_000
 
-const ERROR_STATUS: Record<RouteError['code'], number> = {
+export const ERROR_STATUS: Record<RouteError['code'], number> = {
     quota: 429,
     down: 503,
     no_route: 422,
     config: 503,
 }
 
-function readPoint(raw: unknown): LatLng | null {
-    if (!raw || typeof raw !== 'object') return null
-    const { lat, lng } = raw as Record<string, unknown>
-    if (typeof lat !== 'number' || typeof lng !== 'number') return null
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
-    return { lat, lng }
-}
-
-async function memoryFor(userId: string): Promise<IRouteMemory> {
+export async function memoryFor(userId: string): Promise<IRouteMemory> {
     const found = await RouteMemory.findOne({ user: userId })
     return found ?? RouteMemory.create({ user: userId })
 }

@@ -105,6 +105,8 @@ export interface IUserSettings {
     weatherLocation?: IWeatherLocation
     /** Per-day macro targets, tracked against the weekly meal plan. */
     macroGoals?: IMacroGoals
+    /** Steps a day to aim for; absent = no target. */
+    stepGoal?: number
     /** Bodyweight and body fat targets, plus the intended rate of change. */
     bodyGoals?: IBodyGoals
     /** Height, date of birth and sex — for the Timeline's projection. */
@@ -202,6 +204,7 @@ const settingsSchema = new Schema<IUserSettings>(
         savingsGoal: { type: Number, min: 0 },
         weatherLocation: { type: weatherLocationSchema, default: undefined },
         macroGoals: { type: macroGoalsSchema, default: undefined },
+        stepGoal: { type: Number, min: 0 },
         bodyGoals: { type: bodyGoalsSchema, default: undefined },
         bodyProfile: { type: bodyProfileSchema, default: undefined },
         timelineQuiz: { type: timelineQuizSchema, default: undefined },

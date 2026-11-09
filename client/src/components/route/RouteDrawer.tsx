@@ -30,6 +30,7 @@ import {
     type StartPref,
 } from '../../services/routes'
 import { openingText } from '../../lib/routeProgress'
+import { currentPosition, LOCATION_DENIED } from '../../lib/routeLocation'
 
 /**
  * "Generate route" for an outdoor conditioning session: a loop (or out-and-back)
@@ -45,31 +46,11 @@ const FAILURE_TEXT: Partial<Record<RouteFailure['code'], string>> = {
     quota: "Today's route quota is used up. It resets at midnight (UTC).",
     down: "The routing service isn't responding right now.",
     no_route: 'No walkable route from this start point. Try moving the start onto a street or path.',
-    location_denied:
-        'Location permission was denied. Allow it in your browser settings, or start from Home or a point on the map.',
+    location_denied: LOCATION_DENIED,
 }
 
 function when(iso: string): string {
     return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
-
-function currentPosition(): Promise<LatLng> {
-    return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject({ code: 'location_denied', message: 'This browser has no location service.' } satisfies RouteFailure)
-            return
-        }
-        navigator.geolocation.getCurrentPosition(
-            (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-            (err) =>
-                reject(
-                    (err.code === err.PERMISSION_DENIED
-                        ? { code: 'location_denied', message: FAILURE_TEXT.location_denied! }
-                        : { code: 'unknown', message: "Couldn't get your location. Try again outside, or drop a pin." }) satisfies RouteFailure
-                ),
-            { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 }
-        )
-    })
 }
 
 export default function RouteDrawer({

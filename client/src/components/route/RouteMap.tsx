@@ -65,10 +65,26 @@ export interface StepMarker {
     label: string
 }
 
+/** A place the route has to pass (or finish at), shown with or without a route drawn. */
+export interface MapWaypoint {
+    lat: number
+    lng: number
+    /** What the pin says: "1", "2", "F". */
+    mark: string
+    label?: string
+}
+
 export default function RouteMap({
     coords,
     loop,
     start,
+    waypoints,
+    pickLabel,
+    fill = false,
+    fitKey,
+    fitPadding,
+    onMoveStart,
+    onMoveWaypoint,
     steps = [],
     planned = null,
     hoverM,
@@ -81,6 +97,19 @@ export default function RouteMap({
     loop: boolean
     /** Shown when there's no route yet. */
     start: LatLng | null
+    waypoints?: MapWaypoint[]
+    /** Says what a tap will set, for screen readers. */
+    pickLabel?: string
+    /** Fills its parent edge to edge, as the whole of a page. */
+    fill?: boolean
+    /** Set: the view only moves when this changes, so editing never yanks the map about. */
+    fitKey?: number
+    /** Room to leave for whatever floats over the map when fitting to `fitKey`. */
+    fitPadding?: { topLeft: [number, number]; bottomRight: [number, number] }
+    /** Set: the start pin can be dragged. */
+    onMoveStart?: (p: LatLng) => void
+    /** Set: waypoint pins can be dragged. */
+    onMoveWaypoint?: (index: number, p: LatLng) => void
     steps?: StepMarker[]
     /** A second line under the main one — the planned route, behind the run as done. */
     planned?: number[][] | null
@@ -112,10 +141,17 @@ export default function RouteMap({
     // Leaflet's handlers are bound once; these keep them calling the latest props.
     const pickRef = useRef(onPick)
     const hoverRef = useRef(onHover)
+    const moveStartRef = useRef(onMoveStart)
+    const moveWaypointRef = useRef(onMoveWaypoint)
+    const fillRef = useRef(fill)
     useEffect(() => {
         pickRef.current = onPick
         hoverRef.current = onHover
+        moveStartRef.current = onMoveStart
+        moveWaypointRef.current = onMoveWaypoint
     })
+    const canDragStart = !!onMoveStart
+    const canDragWaypoints = !!onMoveWaypoint
 
     // Create once.
     useEffect(() => {
@@ -125,7 +161,12 @@ export default function RouteMap({
         node.style.height = '100%'
         inlineSlot.current.appendChild(node)
         holder.current = node
-        const m = L.map(node, { zoomControl: true, attributionControl: true }).setView([54.5, -2.5], 5)
+        const m = L.map(node, { zoomControl: !fillRef.current, attributionControl: true }).setView([54.5, -2.5], 5)
+        // Full page: the bottom and left are covered by panels, so everything required stays top right.
+        if (fillRef.current) {
+            m.attributionControl.setPosition('topright')
+            L.control.zoom({ position: 'topright' }).addTo(m)
+        }
         L.tileLayer(TILE_URL, { maxZoom: 19, attribution: ATTRIBUTION }).addTo(m)
         m.attributionControl.setPrefix(false)
         m.on('click', (e: L.LeafletMouseEvent) => pickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng }))
@@ -179,6 +220,8 @@ export default function RouteMap({
         return () => window.removeEventListener('keydown', onKey, true)
     }, [full])
 
+    const autoFit = fitKey === undefined
+
     // Draw the route (or the bare start point).
     useEffect(() => {
         const m = map.current
@@ -189,6 +232,13 @@ export default function RouteMap({
         drawArrows.current = () => {}
         hoverMarker.current = null
         bounds.current = null
+        const dragStart = (marker: L.Marker) => {
+            marker.on('dragend', () => {
+                const at = marker.getLatLng()
+                moveStartRef.current?.({ lat: at.lat, lng: at.lng })
+            })
+            return marker
+        }
         const plannedLine =
             planned && planned.length > 1
                 ? L.polyline(
@@ -252,21 +302,55 @@ export default function RouteMap({
             const f = toLatLng(coords[coords.length - 1])
             // An out-and-back finishes where it started: one S/F marker, like a loop.
             const closed = loop || haversine(s, f) < 40
-            if (!closed) L.marker([f.lat, f.lng], { icon: dot(pill('F', INK), 26), title: 'Finish' }).addTo(g)
-            L.marker([s.lat, s.lng], {
-                icon: dot(pill(closed ? 'S/F' : 'S', '#10b981'), closed ? 32 : 26),
-                title: closed ? 'Start and finish' : 'Start',
-                zIndexOffset: 1000,
-            }).addTo(g)
+            if (!closed && !waypoints?.some((w) => w.mark === 'F'))
+                L.marker([f.lat, f.lng], { icon: dot(pill('F', INK), 26), title: 'Finish' }).addTo(g)
+            dragStart(
+                L.marker([s.lat, s.lng], {
+                    icon: dot(pill(closed ? 'S/F' : 'S', '#10b981'), closed ? 32 : 26),
+                    title: closed ? 'Start and finish' : 'Start',
+                    zIndexOffset: 1000,
+                    draggable: canDragStart,
+                })
+            ).addTo(g)
             bounds.current = line.getBounds()
             if (plannedLine) bounds.current.extend(plannedLine.getBounds())
-            m.fitBounds(bounds.current, { padding: [24, 24] })
+            if (autoFit) m.fitBounds(bounds.current, { padding: [24, 24] })
             drawArrows.current()
-        } else if (start) {
-            L.marker([start.lat, start.lng], { icon: dot(pill('S', '#10b981'), 26), title: 'Start' }).addTo(g)
-            m.setView([start.lat, start.lng], Math.max(m.getZoom(), 14))
+        } else if (start || waypoints?.length) {
+            if (start)
+                dragStart(
+                    L.marker([start.lat, start.lng], { icon: dot(pill('S', '#10b981'), 26), title: 'Start', draggable: canDragStart, zIndexOffset: 1000 })
+                ).addTo(g)
+            const all = [...(start ? [start] : []), ...(waypoints ?? [])]
+            bounds.current = L.latLngBounds(all.map((p) => [p.lat, p.lng] as [number, number]))
+            if (autoFit) {
+                if (all.length > 1) m.fitBounds(bounds.current, { padding: [40, 40], maxZoom: 16 })
+                else m.setView([all[0].lat, all[0].lng], Math.max(m.getZoom(), 14))
+            }
         }
-    }, [coords, loop, start, steps, planned])
+        ;(waypoints ?? []).forEach((w, i) => {
+            const marker = L.marker([w.lat, w.lng], {
+                icon: dot(pill(w.mark, w.mark === 'F' ? INK : BLUE), 26),
+                title: w.label ?? w.mark,
+                zIndexOffset: 900,
+                draggable: canDragWaypoints,
+            }).addTo(g)
+            marker.on('dragend', () => {
+                const at = marker.getLatLng()
+                moveWaypointRef.current?.(i, { lat: at.lat, lng: at.lng })
+            })
+        })
+    }, [coords, loop, start, waypoints, steps, planned, autoFit, canDragStart, canDragWaypoints])
+
+    // Fit on request only. Runs after the draw above, so the bounds are this render's.
+    useEffect(() => {
+        if (fitKey === undefined || !map.current || !bounds.current) return
+        map.current.fitBounds(bounds.current, {
+            paddingTopLeft: fitPadding?.topLeft ?? [24, 24],
+            paddingBottomRight: fitPadding?.bottomRight ?? [24, 24],
+            maxZoom: 16,
+        })
+    }, [fitKey, fitPadding])
 
     // The point the chart is pointing at.
     useEffect(() => {
@@ -376,23 +460,25 @@ export default function RouteMap({
         </button>
     )
 
-    const label = onPick ? 'Map — tap to set the start point' : 'Route map'
+    const label = onPick ? (pickLabel ?? 'Map — tap to set the start point') : 'Route map'
 
     return (
         <>
-            <div className={`relative isolate h-[320px] w-full overflow-hidden rounded-2xl bg-neutral-100 sm:h-[380px] ${className}`}>
+            <div
+                className={`relative isolate w-full overflow-hidden bg-neutral-100 ${fill ? 'h-full' : 'h-[320px] rounded-2xl sm:h-[380px]'} ${className}`}
+            >
                 <div
                     ref={inlineSlot}
                     className={`h-full w-full ${onPick ? 'cursor-crosshair' : ''}`}
                     role="application"
                     aria-label={label}
                 />
-                {!full && (
+                {!full && !fill && (
                     <button type="button" onClick={() => setFull(true)} className={`${frameButton} right-3 top-3`} aria-label="Expand map to full screen">
                         <i className="fa-solid fa-expand" aria-hidden="true" />
                     </button>
                 )}
-                {!full && locateButton('top-16')}
+                {!full && locateButton(fill ? 'top-[7.25rem]' : 'top-16')}
             </div>
             {!full && locateMessage && <p className="mt-2 text-sm text-neutral-500">{locateMessage}</p>}
             {full &&

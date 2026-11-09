@@ -7,6 +7,8 @@ import { listLogs as listWorkoutLogs } from '../../services/workoutLogs'
 import { listLogs as listConditioningLogs } from '../../services/conditioningLogs'
 import { checkGarminRunsQuietly, GARMIN_RUNS_LINKED } from '../../services/garmin'
 import { listHabits, listLogs as listHabitLogs, checkHabit, uncheckHabit } from '../../services/habits'
+import { listWalks, type Walk } from '../../services/walks'
+import { walkDayItems } from '../../lib/walking'
 import { useDataVersion, useInvalidate } from '../../context/DataSyncContext'
 import { useAuth } from '../../context/AuthContext'
 import { WEEKDAYS_LONG, parseDateKey, todayKey } from '../../lib/calendar'
@@ -30,6 +32,7 @@ const ACTION: Record<StepKind, { to: string; label: string }> = {
     weigh: { to: '/fitness?tab=body', label: 'Weigh in' },
     training: { to: '/fitness', label: 'Open the planner' },
     rest: { to: '/fitness', label: 'Open the planner' },
+    walk: { to: '/walking', label: 'Open the walk' },
     meal: { to: '/nutrition', label: 'Open meals' },
     'plan-meals': { to: '/nutrition', label: 'Plan meals' },
     protein: { to: '/nutrition', label: 'Open meals' },
@@ -57,6 +60,7 @@ interface DayRecords {
     logged: Set<string>
     habits: HabitDef[]
     habitsDone: Set<string>
+    walks: Walk[]
 }
 
 /** The day's training, what's been logged, and the habits. */
@@ -81,7 +85,8 @@ function useDayRecords(date: string) {
             listConditioningLogs(range).catch(() => []),
             listHabits().catch(() => [] as HabitDef[]),
             listHabitLogs(date, date).catch(() => []),
-        ]).then(([training, workouts, sessions, habits, habitLogs]) => {
+            listWalks(date, date).catch(() => [] as Walk[]),
+        ]).then(([training, workouts, sessions, habits, habitLogs, walks]) => {
             if (!active) return
             const logged = new Set<string>()
             for (const l of workouts) if (l.workout && l.date === date) logged.add(sessionKey('workout', l.workout))
@@ -98,6 +103,7 @@ function useDayRecords(date: string) {
                     logged,
                     habits: habits.filter((h) => h.active).sort((a, b) => a.order - b.order),
                     habitsDone: new Set(habitLogs.filter((l) => l.completed && l.date === date).map((l) => l.habit)),
+                    walks,
                 },
             })
         })
@@ -132,6 +138,7 @@ export default function YourDayWidget({ date }: { date: string }) {
             today,
             nowMin,
             ...records,
+            walks: walkDayItems(records.walks, nutrition.weightLogs[nutrition.weightLogs.length - 1]?.weight ?? null),
             meals: nutrition.entries,
             goals: nutrition.goals,
             eaten: nutrition.eaten,
@@ -401,7 +408,7 @@ function NextUp({
                     {action.label}
                 </button>
             ) : (
-                <Link to={action.to} className={button}>
+                <Link to={next.to ?? action.to} className={button}>
                     {action.label}
                     <i className="fa-solid fa-arrow-right text-xs" aria-hidden="true" />
                 </Link>
@@ -481,7 +488,7 @@ function StepRow({
                     {body}
                 </button>
             ) : (
-                <Link to={ACTION[step.kind].to} className={cls}>
+                <Link to={step.to ?? ACTION[step.kind].to} className={cls}>
                     {body}
                 </Link>
             )}

@@ -26,6 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
     { label: 'Habits & goals', to: '/goals', icon: 'fa-bullseye' },
     { label: 'Fitness', to: '/fitness', icon: 'fa-dumbbell' },
     { label: 'Nutrition', to: '/nutrition', icon: 'fa-bowl-food' },
+    { label: 'Walking', to: '/walking', icon: 'fa-person-walking' },
     { label: 'Timeline', to: '/timeline', icon: 'fa-route' },
     { label: 'Consistency', to: '/consistency', icon: 'fa-gauge-high' },
     { label: 'Notes', to: '/notes', icon: 'fa-note-sticky' },
@@ -45,6 +46,6 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
     { label: 'Day to day', paths: ['/', '/calendar', '/notes', '/weather'] },
     { label: 'Plan', paths: ['/goals'] },
-    { label: 'Health', paths: ['/fitness', '/nutrition', '/timeline', '/consistency'] },
+    { label: 'Health', paths: ['/fitness', '/nutrition', '/walking', '/timeline', '/consistency'] },
     { label: 'Money', paths: ['/finances'] },
 ]

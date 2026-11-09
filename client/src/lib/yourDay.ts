@@ -13,7 +13,7 @@ import { countsOn, habitKey, isChosen, isSkippedMeal, mealKey } from './perfectD
 
 /**
  * Your day: everything that makes today a perfect one, in the order it
- * happens. Training, meals, a weigh-in, the day's targets and habits, each
+ * happens. Training, walks, meals, a weigh-in, the day's targets and habits, each
  * done or still to do — and the one thing to do next.
  *
  * Built from the records, never stored: a session is done when it's logged,
@@ -25,7 +25,7 @@ export type DayPart = 'morning' | 'afternoon' | 'evening'
 
 export const DAY_PARTS: DayPart[] = ['morning', 'afternoon', 'evening']
 
-export type StepKind = 'weigh' | 'training' | 'rest' | 'meal' | 'plan-meals' | 'calories' | 'protein' | 'habit'
+export type StepKind = 'weigh' | 'training' | 'walk' | 'rest' | 'meal' | 'plan-meals' | 'calories' | 'protein' | 'habit'
 
 /**
  * - todo: still to do.
@@ -50,6 +50,8 @@ export interface DayStep {
     state: StepState
     /** A habit's id, to tick it. */
     habitId?: string
+    /** Where to open it, when that's more exact than the kind's own page. */
+    to?: string
 }
 
 export interface YourDay {
@@ -62,6 +64,16 @@ export interface YourDay {
     perfect: boolean
     /** Which part of the day it is now. Today only. */
     nowPart: DayPart | null
+}
+
+/** A walk as Your day shows it (built by lib/walking.ts). */
+export interface YourDayWalk {
+    id: string
+    /** HH:MM */
+    time: string
+    title: string
+    detail: string
+    done: boolean
 }
 
 export interface YourDayInputs {
@@ -78,6 +90,8 @@ export interface YourDayInputs {
     habits: HabitDef[]
     /** Ids of the habits ticked on the date. */
     habitsDone: Set<string>
+    /** Walks planned on the date, ready to show. */
+    walks?: YourDayWalk[]
     weightLogs: WeightLog[]
     /** The weigh-in trend's weekly rate, kg — shown beside the weigh-in. */
     weightRate?: number | null
@@ -110,6 +124,7 @@ export const TARGET_BAND = 0.05
 const RANK: Record<StepKind, number> = {
     weigh: 0,
     training: 1,
+    walk: 1,
     meal: 2,
     habit: 3,
     'plan-meals': 4,
@@ -163,6 +178,22 @@ function trainingSteps(entries: FitnessPlanEntry[], logged: Set<string>, counts:
                 state: done ? 'done' : e.skipped ? 'handled' : 'todo',
             }
         })
+}
+
+function walkSteps(walks: YourDayWalk[], date: string, counts: (key: string) => boolean): DayStep[] {
+    if (!counts('walk')) return []
+    return walks.map((w) => {
+        const [h, m] = w.time.split(':').map(Number)
+        return {
+            id: `walk-${w.id}`,
+            kind: 'walk',
+            part: partAt(h * 60 + m),
+            title: w.title,
+            detail: w.detail,
+            state: w.done ? 'done' : 'todo',
+            to: `/walking?date=${date}`,
+        }
+    })
 }
 
 /**
@@ -313,6 +344,7 @@ export function yourDay(inputs: YourDayInputs): YourDay {
     const steps = [
         ...weighStep(inputs.weightLogs, date, inputs.weightRate, counts, isChosen(selection, 'weigh')),
         ...trainingSteps(inputs.training, inputs.logged, counts),
+        ...walkSteps(inputs.walks ?? [], date, counts),
         ...mealSteps(inputs.meals, date, today, counts, selection),
         ...targetSteps(inputs.goals, inputs.eaten, counts),
         ...habits,

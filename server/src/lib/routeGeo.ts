@@ -11,6 +11,15 @@ export interface LatLng {
     lng: number
 }
 
+/** A { lat, lng } from a request body, or null if it isn't a real point. */
+export function readPoint(raw: unknown): LatLng | null {
+    if (!raw || typeof raw !== 'object') return null
+    const { lat, lng } = raw as Record<string, unknown>
+    if (typeof lat !== 'number' || typeof lng !== 'number') return null
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
+    return { lat, lng }
+}
+
 const EARTH_M = 6_371_008.8
 const rad = (d: number) => (d * Math.PI) / 180
 

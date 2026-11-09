@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { updateSettings } from '../../services/users'
 import { Card, CardHeader, CardTitle, CardBody } from '../Card'
@@ -33,6 +33,12 @@ export default function SettingsCard() {
     const [goalProtein, setGoalProtein] = useState<string>(g.protein ? String(g.protein) : '')
     const [goalCarbs, setGoalCarbs] = useState<string>(g.carbs ? String(g.carbs) : '')
     const [goalFat, setGoalFat] = useState<string>(g.fat ? String(g.fat) : '')
+    const [stepGoal, setStepGoal] = useState<string>(s.stepGoal ? String(s.stepGoal) : '')
+    // Arriving from the Steps widget (/profile#steps) scrolls here.
+    const stepsAnchor = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        if (window.location.hash === '#steps') stepsAnchor.current?.scrollIntoView({ block: 'start' })
+    }, [])
     const bp = s.bodyProfile ?? {}
     const [heightCm, setHeightCm] = useState<string>(bp.heightCm ? String(bp.heightCm) : '')
     const [birthDate, setBirthDate] = useState<string>(bp.birthDate ?? '')
@@ -70,6 +76,8 @@ export default function SettingsCard() {
                     carbs: goal(goalCarbs),
                     fat: goal(goalFat),
                 },
+                // Zero clears it on the server.
+                stepGoal: Number(stepGoal) >= 1 ? Math.round(Number(stepGoal)) : 0,
                 // An empty profile clears it on the server.
                 bodyProfile: profile,
             }
@@ -231,6 +239,28 @@ export default function SettingsCard() {
                                     placeholder="g"
                                     value={goalFat}
                                     onChange={(e) => setGoalFat(e.target.value)}
+                                />
+                            </Field>
+                        </div>
+                    </div>
+
+                    {/* Steps — the dashboard widget's target */}
+                    <div id="steps" ref={stepsAnchor} className="scroll-mt-6 border-t border-neutral-100 pt-6">
+                        <p className="text-sm font-semibold text-neutral-700">Daily step target</p>
+                        <p className="mt-0.5 mb-3 text-xs text-neutral-500">
+                            Your Garmin steps are measured against this on the dashboard. Leave blank
+                            for no target.
+                        </p>
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                            <Field label="Steps a day">
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    step={500}
+                                    inputMode="numeric"
+                                    placeholder="10000"
+                                    value={stepGoal}
+                                    onChange={(e) => setStepGoal(e.target.value)}
                                 />
                             </Field>
                         </div>

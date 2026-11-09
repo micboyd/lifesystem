@@ -22,6 +22,8 @@ import DaysUntil from './pages/DaysUntil'
 import Goals from './pages/Goals'
 import Timeline from './pages/Timeline'
 import Consistency from './pages/Consistency'
+import Walking from './pages/Walking'
+import WalkPlanner from './pages/WalkPlanner'
 import PerfectDay from './pages/PerfectDay'
 import Notes from './pages/Notes'
 import Weather from './pages/Weather'
@@ -69,6 +71,16 @@ export default function App() {
             {/* Standalone, full-screen, no chrome. */}
             <Route path="/login" element={<Login />} />
 
+            {/* The walk planner takes the whole screen: signed in, but no shell. */}
+            <Route
+                path="/walking/:id"
+                element={
+                    <ProtectedRoute>
+                        <WalkPlanner />
+                    </ProtectedRoute>
+                }
+            />
+
             {/* Everything else requires a session and renders inside the shell. */}
             <Route
                 element={
@@ -101,6 +113,7 @@ export default function App() {
                 <Route path="/goals" element={<Goals />} />
                 <Route path="/timeline" element={<Timeline />} />
                 <Route path="/consistency" element={<Consistency />} />
+                <Route path="/walking" element={<Walking />} />
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/styleguide" element={<StyleGuide />} />
 
